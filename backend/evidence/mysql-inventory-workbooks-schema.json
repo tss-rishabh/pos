@@ -1,0 +1,3296 @@
+{
+  "checkedAt": "2026-11-16T20:02:53.357Z",
+  "schema": "tss",
+  "tables": {
+    "products": [
+      {
+        "name": "id",
+        "type": "bigint unsigned",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "product",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "short_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "long_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "add_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "add_desc_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "measurement",
+        "type": "varchar(250)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "images",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "images_new",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "gender_type",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "prod_type",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "attr_set",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "identifier",
+        "type": "varchar(36)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "uuid",
+        "type": "tinytext",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "is_avail",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_listing",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "processing",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "price",
+        "type": "decimal(8,2)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "spl_price",
+        "type": "decimal(8,2)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "spl_price_percent",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "gst",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "5"
+      },
+      {
+        "name": "tax_slab_platform",
+        "type": "enum('TA','TB','TC','TD')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "is_crowd_funded",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "target_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "launch_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0000-00-00 00:00:00"
+      },
+      {
+        "name": "target_qty",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "parent_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "meta_title_bk",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "meta_title",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "meta_keys",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "meta_desc_bk",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "meta_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "og_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "og_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "twitter_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "twitter_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "art_cut",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_cod",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "added_by",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_by",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_individual",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_notification",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "sort_order",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "99"
+      },
+      {
+        "name": "search_sort",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "500"
+      },
+      {
+        "name": "es_search_order",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1000"
+      },
+      {
+        "name": "wwe_sort",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "500"
+      },
+      {
+        "name": "wwe_prod_sort",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "500"
+      },
+      {
+        "name": "official_merch_sort_order",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1000"
+      },
+      {
+        "name": "es_search_keywords",
+        "type": "varchar(700)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_shipped_international",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "is_referal_discount",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "warehouse_code",
+        "type": "varchar(50)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "is_del",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_exchangeable",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "is_jit",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "cog",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "extra_price",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_printable",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "text_color",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "customized_image",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "udf1",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "udf2",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "breadcrum_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "breadcrum_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "custom_tag_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "video_url",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "show_video_url",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "video_url_index",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "show_es_listing",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "materials",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "patterns",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0000-00-00 00:00:00"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0000-00-00 00:00:00"
+      },
+      {
+        "name": "es_product_colors",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "bundle_product_type",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "length",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "width",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "height",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "weight",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "base_cog",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "custom_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "google_product_category",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_marketplace",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "style_status",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "character",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "mp_category",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "product_length",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "clouser",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "neck",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "sleeve",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "hemline",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "no_of_pockets",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "fit_type",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "print_and_pattern",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "is_preorder",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "facebook_image",
+        "type": "varchar(225)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "platform",
+        "type": "enum('ADULTS','KIDS')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "erp_product",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "combo_type",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "combo_gst",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "combo_spl_gst",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "combo_exc_gst",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "fabric_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "finance_cat",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "active_new_design_platform",
+        "type": "enum('APP','WEB','BOTH','NA')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": "NA"
+      },
+      {
+        "name": "app_full_banner",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "desktop_full_banner",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "desktop_full_banner_image",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "app_full_banner_image",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "desktop_images",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "banner_video_indexes",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "banner_video_urls",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "show_banner_video",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "desktop_banner_video_urls",
+        "type": "longtext",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "images_b",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "images_bkp",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "color_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_exclusive_product",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_locked",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_blur",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "cover_image",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "primary_cat_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "img_updated_at",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "is_mystery_product",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_updated",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "oms_id",
+        "type": "varchar(15)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      }
+    ],
+    "product_store": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "stock",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_avail",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "is_del",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "categories": [
+      {
+        "name": "id",
+        "type": "bigint unsigned",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "category",
+        "type": "varchar(50)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "short_desc",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "long_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "footer_text",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "images",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "mobile_images",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "cat_gender_type",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_nav",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(35)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "meta_title",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "meta_keys",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "meta_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "og_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "og_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "twitter_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "twitter_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "sort_order",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "wwe_sort",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "500"
+      },
+      {
+        "name": "home_sort",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "search_sort",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "500"
+      },
+      {
+        "name": "es_search_order",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1000"
+      },
+      {
+        "name": "es_search_keywords",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "parent_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "vat",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "gst",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "hsn_code",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "lft",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "rgt",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "depth",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "weight",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "google_category_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_returnable",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_exchangeable",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "is_cancellable",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "breadcrum_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "breadcrum_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "popular_search",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "shop_now",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "promotion_name",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "category_type",
+        "type": "enum('Topwear','Bottomwear')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "cancel_message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": ""
+      },
+      {
+        "name": "return_message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": ""
+      },
+      {
+        "name": "exchange_message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0000-00-00 00:00:00"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0000-00-00 00:00:00"
+      },
+      {
+        "name": "is_show_rating",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "erp_category",
+        "type": "varchar(100)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "show_video_url",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "video_url",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "mobile_video_url",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "video_thumbnail",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "mobile_video_thumbnail",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "video_url_index",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "modified_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "modified_by",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "modified_category",
+        "type": "bigint unsigned",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "courier_company_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      }
+    ],
+    "has_categories": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "cat_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "products_warehouses": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "product_id",
+        "type": "int",
+        "nullable": true,
+        "key": "UNI",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "warehouse_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      }
+    ],
+    "has_options": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "attr_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "attr_val",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      }
+    ],
+    "attributes": [
+      {
+        "name": "id",
+        "type": "bigint unsigned",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "attr",
+        "type": "varchar(50)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "attr_type",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_filterable",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "attr_values",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "slug",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_unicode_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0000-00-00 00:00:00"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0000-00-00 00:00:00"
+      }
+    ],
+    "products_gs1": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "gtin",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      }
+    ],
+    "users_artists": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "firstname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "lastname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "company_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(96)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "telephone",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "password",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "plain_password",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "birthdate",
+        "type": "date",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "gender",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "salt",
+        "type": "varchar(9)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "cart",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "wishlist",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "newsletter",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "ip",
+        "type": "varchar(40)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": "0"
+      },
+      {
+        "name": "status",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "artist_audio",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "approved",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "user_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "profile_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "cover_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "mobile_cover_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "logo",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "remember_token",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "loyalty_group",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "cashback",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "referal_code",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "platform",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "fb_id",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "plus_id",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "sort_order",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "100"
+      },
+      {
+        "name": "artist_alias_name",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_merch",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "meta_title",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "meta_keys",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "meta_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "promotion_name",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "art_bank_details",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "art_status",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_featured",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "navigation_link",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "sale_start_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "sale_end_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "sale_cover_pic",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "sale_mob_cover_pic",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "kids_cover_pic",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "kids_mob_cover_pic",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      }
+    ],
+    "stores": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "store_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "short_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": "enum('STORE','WAREHOUSE','CORE_WAREHOUSE','BUBBLE_STORE')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "STORE"
+      },
+      {
+        "name": "category",
+        "type": "enum('IN_HOUSE','FRANCHISE')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "IN_HOUSE"
+      },
+      {
+        "name": "franchise_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "location_code",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "latitude",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "longitude",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "alt_address",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "city_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "country_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "phone",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "store_image",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "pincode",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "per_day_threshold",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "per_hour_threshold",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "opening_time",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "10:00:00"
+      },
+      {
+        "name": "closing_time",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "22:00:00"
+      },
+      {
+        "name": "delivery_type",
+        "type": "enum('same_day','standard')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "standard"
+      },
+      {
+        "name": "ecom_delivery",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "ecom_threshold",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "local_feed",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "local_feed_code",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "gst_arn",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": ""
+      },
+      {
+        "name": "gstin",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "slack_group_url",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "city_name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "state_name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "state_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "priority",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ]
+  },
+  "indexes": {
+    "products": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "is_individual",
+        "column": "is_individual",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_avail",
+        "column": "is_avail",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_listing",
+        "column": "is_listing",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_crowd_funded",
+        "column": "is_crowd_funded",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "search_sort",
+        "column": "search_sort",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "added_by",
+        "column": "added_by",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_del",
+        "column": "is_del",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "sort_order",
+        "column": "sort_order",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "parent_prod_id",
+        "column": "parent_prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "prod_type",
+        "column": "prod_type",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "url_key",
+        "column": "url_key",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "fabric_id",
+        "column": "fabric_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "color_id",
+        "column": "color_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "img_updated_at_idx",
+        "column": "img_updated_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_id_parent_prod_id_prod_type",
+        "column": "parent_prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_id_parent_prod_id_prod_type",
+        "column": "id",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "idx_id_parent_prod_id_prod_type",
+        "column": "prod_type",
+        "position": 3,
+        "unique": false
+      },
+      {
+        "name": "idx_id_is_avail_is_del",
+        "column": "id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_id_is_avail_is_del",
+        "column": "is_avail",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "idx_id_is_avail_is_del",
+        "column": "is_del",
+        "position": 3,
+        "unique": false
+      },
+      {
+        "name": "idx_is_mystery_product",
+        "column": "is_mystery_product",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_updated_idx",
+        "column": "is_updated",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_products_availability",
+        "column": "is_del",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_products_availability",
+        "column": "is_avail",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "idx_products_availability",
+        "column": "parent_prod_id",
+        "position": 3,
+        "unique": false
+      },
+      {
+        "name": "idx_oms_id",
+        "column": "oms_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "product_store": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "uq_product_store",
+        "column": "product_id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "uq_product_store",
+        "column": "store_id",
+        "position": 2,
+        "unique": true
+      },
+      {
+        "name": "product_id",
+        "column": "product_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "store_id",
+        "column": "store_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "stock",
+        "column": "stock",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_avail",
+        "column": "is_avail",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_del",
+        "column": "is_del",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_store_id_stock_is_avail_is_del",
+        "column": "store_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_store_id_stock_is_avail_is_del",
+        "column": "stock",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "idx_store_id_stock_is_avail_is_del",
+        "column": "is_avail",
+        "position": 3,
+        "unique": false
+      },
+      {
+        "name": "idx_store_id_stock_is_avail_is_del",
+        "column": "is_del",
+        "position": 4,
+        "unique": false
+      },
+      {
+        "name": "idx_store_id_product_id_is_del",
+        "column": "product_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_store_id_product_id_is_del",
+        "column": "store_id",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "idx_store_id_product_id_is_del",
+        "column": "is_del",
+        "position": 3,
+        "unique": false
+      },
+      {
+        "name": "idx_product_id_stock",
+        "column": "product_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_product_id_stock",
+        "column": "stock",
+        "position": 2,
+        "unique": false
+      }
+    ],
+    "categories": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "categories_parent_id_index",
+        "column": "parent_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "categories_lft_index",
+        "column": "lft",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "categories_rgt_index",
+        "column": "rgt",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "search_sort",
+        "column": "search_sort",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "search_sort_2",
+        "column": "search_sort",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "url_key",
+        "column": "url_key",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_modified_at",
+        "column": "modified_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_modified_by",
+        "column": "modified_by",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_modified_category",
+        "column": "modified_category",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "courier_company_idx",
+        "column": "courier_company_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_category_is_active",
+        "column": "category",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_category_is_active",
+        "column": "is_active",
+        "position": 2,
+        "unique": false
+      }
+    ],
+    "has_categories": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "cat_id",
+        "column": "cat_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "prod_id",
+        "column": "prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_has_categories_prod_id_cat_id",
+        "column": "cat_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_has_categories_prod_id_cat_id",
+        "column": "prod_id",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "idx_has_categories_prod_cat",
+        "column": "prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_has_categories_prod_cat",
+        "column": "cat_id",
+        "position": 2,
+        "unique": false
+      }
+    ],
+    "products_warehouses": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "product_id",
+        "column": "product_id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "warehouse_id",
+        "column": "warehouse_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "has_options": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "prod_id",
+        "column": "prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "attr_id",
+        "column": "attr_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_prod_id_attr",
+        "column": "prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_prod_id_attr",
+        "column": "attr_id",
+        "position": 2,
+        "unique": false
+      }
+    ],
+    "attributes": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "idx_attr",
+        "column": "attr",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_id_attr",
+        "column": "id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_id_attr",
+        "column": "attr",
+        "position": 2,
+        "unique": false
+      }
+    ],
+    "products_gs1": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "product_id",
+        "column": "product_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "gtin",
+        "column": "gtin",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "users_artists": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "url_key",
+        "column": "url_key",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "sort_order",
+        "column": "sort_order",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_merch",
+        "column": "is_merch",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "stores": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "store_name_unique",
+        "column": "store_name",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "phone_unique",
+        "column": "phone",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "store_name",
+        "column": "store_name",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "phone",
+        "column": "phone",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "email",
+        "column": "email",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "location_code",
+        "column": "location_code",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "opening_time",
+        "column": "opening_time",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "closing_time",
+        "column": "closing_time",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "delivery_type",
+        "column": "delivery_type",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "type",
+        "column": "type",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "ecom_delivery",
+        "column": "ecom_delivery",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "ecom_threshold",
+        "column": "ecom_threshold",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_category",
+        "column": "category",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_franchise_id",
+        "column": "franchise_id",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {
+    "products": [],
+    "product_store": [],
+    "categories": [],
+    "has_categories": [],
+    "products_warehouses": [],
+    "has_options": [],
+    "attributes": [],
+    "products_gs1": [],
+    "users_artists": [],
+    "stores": []
+  },
+  "inboundForeignKeys": [
+    {
+      "schema_name": "tss",
+      "table_name": "product_flag_map",
+      "name": "fk_product_flag_product",
+      "column_name": "product_id",
+      "position": 1,
+      "referenced_schema": "tss",
+      "referenced_table": "products",
+      "referenced_column": "id",
+      "update_rule": "NO ACTION",
+      "delete_rule": "CASCADE"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "product_licenses",
+      "name": "fk_product_licenses_product",
+      "column_name": "product_id",
+      "position": 1,
+      "referenced_schema": "tss",
+      "referenced_table": "products",
+      "referenced_column": "id",
+      "update_rule": "NO ACTION",
+      "delete_rule": "NO ACTION"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "product_stocks",
+      "name": "fk_ps_prod",
+      "column_name": "prod_id",
+      "position": 1,
+      "referenced_schema": "tss",
+      "referenced_table": "products",
+      "referenced_column": "id",
+      "update_rule": "NO ACTION",
+      "delete_rule": "CASCADE"
+    }
+  ],
+  "locations": [],
+  "errors": []
+}

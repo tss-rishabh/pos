@@ -1,0 +1,11 @@
+{
+  "recordedAt": "2026-11-16T15:31:56.311Z",
+  "scope": "previous-unsigned-macos-arm64-archive",
+  "asarBytes": 54990517,
+  "asarSha256": "c0bd02dbaa1c50ce97f7091a75b8cd3ea871db8477da4c0b9e1da84334094e94",
+  "files": 6491,
+  "duplicatedNodeDependencyFiles": 6439,
+  "limitations": [
+    "Prior archive precedes current source changes; this measures duplicate package contents, not current runtime behavior or launch latency."
+  ]
+}

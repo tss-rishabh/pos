@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <title>Shopping feedback · The Souled Store</title>
+  <link rel="stylesheet" href="/invoice-feedback.css">
+  <script type="module" src="/invoice-feedback.js"></script>
+</head>
+<body>
+  <main>
+    <p class="brand">THE SOULED STORE</p>
+    <h1>Your shopping experience</h1>
+    <p id="feedback-message" role="status" aria-live="polite">Loading feedback…</p>
+    <form id="feedback-form">
+      <label for="feedback-score">Likelihood of recommending us (1–10)</label>
+      <select id="feedback-score" required disabled>
+        <option value="">Choose a score</option>
+        <option>1</option><option>2</option><option>3</option><option>4</option><option>5</option>
+        <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+      </select>
+      <button id="feedback-load" type="button" disabled>Continue</button>
+      <fieldset id="feedback-editor" hidden disabled>
+        <legend>Tell us more</legend>
+        <div id="feedback-options"></div>
+        <label for="feedback-comment">Additional feedback</label>
+        <textarea id="feedback-comment" maxlength="8000" rows="4"></textarea>
+        <button id="feedback-submit" type="submit" disabled>Send feedback</button>
+      </fieldset>
+      <button id="feedback-check" type="button" hidden>Check submission status</button>
+    </form>
+  </main>
+</body>
+</html>

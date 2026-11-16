@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "types": ["node", "vite/client"], "noEmit": true },
+  "include": [
+    "../src/pages/customer-website-handoff/**/*.tsx",
+    "../src/pages/customer-website-handoff/**/*.ts",
+    "./customer-website-handoff.test.ts"
+  ]
+}

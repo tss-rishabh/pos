@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "scope": "unsigned-macos-arm64-review",
+  "files": {
+    "Contents/MacOS/Souled POS": {
+      "bytes": 33920,
+      "sha256": "69d57b7889158d21b127d7530e1e5f6358b059fedb1fc9b7e99e4af7c4580708"
+    },
+    "Contents/Info.plist": {
+      "bytes": 3844,
+      "sha256": "1583968f1117abc876b3c10183e14475ef2795c6f0c22d9871a97ef490cb64e9"
+    },
+    "Contents/Resources/app.asar": {
+      "bytes": 54990517,
+      "sha256": "c0bd02dbaa1c50ce97f7091a75b8cd3ea871db8477da4c0b9e1da84334094e94"
+    }
+  },
+  "signedRelease": false,
+  "sourceInputs": {
+    "packageJsonSha256": "44dd1ab9feed7c81e06627bf342ccfa11d35fe07ffd70e98c97247aaac2fb17c",
+    "mainCjsSha256": "9c3f30294f7b7f5277c5b80d8249d4b73dca5da9c19d04cdc47af777b6613181"
+  },
+  "integrityVerification": {
+    "headerHash": "a37cd00300daa5deb6a44e0548e6b689c486d1954bfefdb8e07f9f7f0d328510",
+    "embeddedHashMatches": true,
+    "entryMatchesSource": true,
+    "applicationIdentityMatchesSource": true,
+    "packagedConfigurationSha256": "b26242e758518e141eaa1ea839dc34ad4cd581fc64246312e4961f6540678588"
+  }
+}

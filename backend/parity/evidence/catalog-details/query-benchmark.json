@@ -1,0 +1,123 @@
+{
+  "scope": "isolated-local-synthetic",
+  "sourceBaseline": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "productCount": 2000,
+  "selectedStores": 8,
+  "categoriesPerProduct": 24,
+  "membershipLocationRows": 2,
+  "restoredIndexes": {
+    "products": [
+      "is_individual",
+      "is_avail",
+      "is_listing",
+      "is_crowd_funded",
+      "search_sort",
+      "added_by",
+      "is_del",
+      "sort_order",
+      "parent_prod_id",
+      "prod_type",
+      "url_key",
+      "fabric_id",
+      "color_id",
+      "img_updated_at_idx",
+      "idx_id_parent_prod_id_prod_type",
+      "idx_id_is_avail_is_del",
+      "idx_is_mystery_product",
+      "is_updated_idx",
+      "idx_products_availability",
+      "idx_oms_id"
+    ],
+    "product_store": [
+      "uq_product_store",
+      "product_id",
+      "store_id",
+      "stock",
+      "is_avail",
+      "is_del",
+      "idx_store_id_stock_is_avail_is_del",
+      "idx_store_id_product_id_is_del",
+      "idx_product_id_stock"
+    ],
+    "product_types": [],
+    "pricelist": [],
+    "products_gs1": [
+      "product_id",
+      "gtin"
+    ],
+    "has_categories": [
+      "cat_id",
+      "prod_id",
+      "idx_has_categories_prod_id_cat_id",
+      "idx_has_categories_prod_cat"
+    ],
+    "categories": [
+      "categories_parent_id_index",
+      "categories_lft_index",
+      "categories_rgt_index",
+      "search_sort",
+      "search_sort_2",
+      "url_key",
+      "idx_modified_at",
+      "idx_modified_by",
+      "idx_modified_category",
+      "courier_company_idx",
+      "idx_category_is_active"
+    ],
+    "stores": [],
+    "pos_product_inventory_logs": [
+      "user_id",
+      "pos_user_id",
+      "product_id"
+    ]
+  },
+  "recordsTotal": 2000,
+  "sourceDriverRows": 2000,
+  "optimizedDriverRows": 26,
+  "matchingResponseHash": "bafbfd9a031cdabf2d8c70de017c22ea8a813f7b1c40523827d2f6466b30eedf",
+  "responsesEqual": true,
+  "sourcePlan": [
+    "-> Group aggregate: group_concat(distinct categories.category separator ','), group_concat(distinct stores.store_name separator ',')  (actual time=1622..2482 rows=2000 loops=1)\n    -> Sort: p.id  (actual time=1622..1702 rows=768000 loops=1)\n        -> Stream results  (cost=169456 rows=672146) (actual time=0.0853..1352 rows=768000 loops=1)\n            -> Nested loop left join  (cost=169456 rows=672146) (actual time=0.0826..1089 rows=768000 loops=1)\n                -> Nested loop left join  (cost=91683 rows=672146) (actual time=0.0758..282 rows=768000 loops=1)\n                    -> Nested loop inner join  (cost=16836 rows=28645) (actual time=0.0703..72.6 rows=32000 loops=1)\n                        -> Nested loop inner join  (cost=10391 rows=28645) (actual time=0.0662..44.9 rows=32000 loops=1)\n                            -> Left hash join (p.prod_type = pt.id)  (cost=365 rows=3600) (actual time=0.0494..9.33 rows=4000 loops=1)\n                                -> Nested loop left join  (cost=1484 rows=3600) (actual time=0.04..8.05 rows=4000 loops=1)\n                                    -> Filter: ((p.parent_prod_id = 0) and (p.product <> '') and (p.prod_type <> 5))  (cost=224 rows=1800) (actual time=0.0331..3.53 rows=2000 loops=1)\n                                        -> Table scan on p  (cost=224 rows=2000) (actual time=0.0304..2.43 rows=2000 loops=1)\n                                    -> Filter: (p.id = pricelist.product_id)  (cost=0.5 rows=2) (actual time=0.00145..0.00213 rows=2 loops=2000)\n                                        -> Index lookup on pricelist using PRIMARY (product_id=p.id, pricelist_id=2)  (cost=0.5 rows=2) (actual time=0.00135..0.0019 rows=2 loops=2000)\n                                -> Hash\n                                    -> Table scan on pt  (cost=0.00153 rows=1) (actual time=0.00204..0.00358 rows=1 loops=1)\n                            -> Filter: ((p.is_del = 0) or ((ps.is_del = 0) and ((ps.stock > 0) or exists(select #2))))  (cost=1.99 rows=7.96) (actual time=0.007..0.00853 rows=8 loops=4000)\n                                -> Index lookup on ps using uq_product_store (product_id=p.id), with index condition: ((ps.store_id in (1,2,3,4,5,6,7,8)) and (p.id = ps.product_id))  (cost=1.99 rows=7.96) (actual time=0.00688..0.00781 rows=8 loops=4000)\n                                -> Select #2 (subquery in condition; dependent)\n                                    -> Limit: 1 row(s)  (cost=297 rows=1) (never executed)\n                                        -> Nested loop inner join  (cost=297 rows=49.7) (never executed)\n                                            -> Filter: ((vps.is_del = 0) and (vps.stock > 0))  (cost=122 rows=497) (never executed)\n                                                -> Index lookup on vps using store_id (store_id=ps.store_id)  (cost=122 rows=1989) (never executed)\n                                            -> Filter: ((v.parent_prod_id = p.id) and (v.id = vps.product_id))  (cost=0.25 rows=0.1) (never executed)\n                                                -> Single-row index lookup on v using PRIMARY (id=vps.product_id)  (cost=0.25 rows=1) (never executed)\n                        -> Single-row index lookup on s using PRIMARY (id=ps.store_id)  (cost=0.125 rows=1) (actual time=754e-6..773e-6 rows=1 loops=32000)\n                    -> Filter: (p.id = hc.prod_id)  (cost=0.267 rows=23.5) (actual time=0.00276..0.00558 rows=24 loops=32000)\n                        -> Covering index lookup on hc using idx_has_categories_prod_cat (prod_id=p.id)  (cost=0.267 rows=23.5) (actual time=0.00268..0.00446 rows=24 loops=32000)\n                -> Filter: (hc.cat_id = cat.id)  (cost=0.0157 rows=1) (actual time=889e-6..946e-6 rows=1 loops=768000)\n                    -> Single-row index lookup on cat using PRIMARY (id=hc.cat_id)  (cost=0.0157 rows=1) (actual time=806e-6..825e-6 rows=1 loops=768000)\n"
+  ],
+  "countPlan": [
+    "-> Aggregate: sum((case when true then 1 else 0 end)), count(0)  (cost=4184 rows=1) (actual time=8.36..8.36 rows=1 loops=1)\n    -> Nested loop semijoin  (cost=2744 rows=14400) (actual time=0.0425..8.27 rows=2000 loops=1)\n        -> Nested loop left join  (cost=854 rows=1800) (actual time=0.03..1.88 rows=2000 loops=1)\n            -> Filter: ((products.parent_prod_id = 0) and (products.product <> '') and (products.prod_type <> 5))  (cost=224 rows=1800) (actual time=0.0257..1.28 rows=2000 loops=1)\n                -> Table scan on products  (cost=224 rows=2000) (actual time=0.0235..1.06 rows=2000 loops=1)\n            -> Filter: (product_types.id = products.prod_type)  (cost=0.25 rows=1) (actual time=153e-6..208e-6 rows=1 loops=2000)\n                -> Single-row covering index lookup on product_types using PRIMARY (id=products.prod_type)  (cost=0.25 rows=1) (actual time=74.7e-6..93.2e-6 rows=1 loops=2000)\n        -> Nested loop inner join  (cost=3601 rows=8) (actual time=0.00311..0.00311 rows=1 loops=2000)\n            -> Filter: (stores.id in (1,2,3,4,5,6,7,8))  (cost=0.25 rows=8) (actual time=0.00156..0.00156 rows=1 loops=2000)\n                -> Covering index scan on stores using PRIMARY  (cost=0.25 rows=8) (actual time=0.00148..0.00148 rows=1 loops=2000)\n            -> Filter: ((products.is_del = 0) or ((product_store.is_del = 0) and ((product_store.stock > 0) or exists(select #3))))  (cost=2 rows=1) (actual time=0.00144..0.00144 rows=1 loops=2000)\n                -> Single-row index lookup on product_store using uq_product_store (product_id=products.id, store_id=stores.id), with index condition: (products.id = product_store.product_id)  (cost=2 rows=1) (actual time=0.00136..0.00136 rows=1 loops=2000)\n                -> Select #3 (subquery in condition; dependent)\n                    -> Limit: 1 row(s)  (cost=297 rows=1) (never executed)\n                        -> Nested loop inner join  (cost=297 rows=49.7) (never executed)\n                            -> Filter: ((vps.is_del = 0) and (vps.stock > 0))  (cost=122 rows=497) (never executed)\n                                -> Index lookup on vps using store_id (store_id=product_store.store_id)  (cost=122 rows=1989) (never executed)\n                            -> Filter: ((v.parent_prod_id = products.id) and (v.id = vps.product_id))  (cost=0.25 rows=0.1) (never executed)\n                                -> Single-row index lookup on v using PRIMARY (id=vps.product_id)  (cost=0.25 rows=1) (never executed)\n"
+  ],
+  "pagePlan": [
+    "-> Sort: products.id  (actual time=2.17..2.19 rows=25 loops=1)\n    -> Stream results  (cost=2.46 rows=21.6) (actual time=0.252..2.15 rows=25 loops=1)\n        -> Left hash join (product_types.id = products.prod_type)  (cost=2.46 rows=21.6) (actual time=0.15..0.205 rows=25 loops=1)\n            -> Nested loop inner join  (cost=916 rows=21.6) (actual time=0.144..0.193 rows=25 loops=1)\n                -> Table scan on selected  (cost=905..907 rows=21.6) (actual time=0.137..0.14 rows=25 loops=1)\n                    -> Materialize  (cost=905..905 rows=21.6) (actual time=0.137..0.137 rows=25 loops=1)\n                        -> Limit: 25 row(s)  (cost=902 rows=21.6) (actual time=0.027..0.132 rows=25 loops=1)\n                            -> Nested loop semijoin  (cost=902 rows=21.6) (actual time=0.0269..0.13 rows=25 loops=1)\n                                -> Nested loop left join  (cost=450 rows=2.7) (actual time=0.016..0.0448 rows=25 loops=1)\n                                    -> Filter: ((products.parent_prod_id = 0) and (products.product <> '') and (products.prod_type <> 5))  (cost=0.0668 rows=2.7) (actual time=0.0129..0.0343 rows=25 loops=1)\n                                        -> Index scan on products using PRIMARY  (cost=0.0668 rows=3) (actual time=0.0117..0.03 rows=25 loops=1)\n                                    -> Filter: (product_types.id = products.prod_type)  (cost=0.25 rows=1) (actual time=263e-6..317e-6 rows=1 loops=25)\n                                        -> Single-row covering index lookup on product_types using PRIMARY (id=products.prod_type)  (cost=0.25 rows=1) (actual time=180e-6..200e-6 rows=1 loops=25)\n                                -> Nested loop inner join  (cost=3601 rows=8) (actual time=0.00335..0.00335 rows=1 loops=25)\n                                    -> Filter: (stores.id in (1,2,3,4,5,6,7,8))  (cost=0.25 rows=8) (actual time=0.00166..0.00166 rows=1 loops=25)\n                                        -> Covering index scan on stores using PRIMARY  (cost=0.25 rows=8) (actual time=0.00156..0.00156 rows=1 loops=25)\n                                    -> Filter: ((products.is_del = 0) or ((product_store.is_del = 0) and ((product_store.stock > 0) or exists(select #9))))  (cost=2 rows=1) (actual time=0.00158..0.00158 rows=1 loops=25)\n                                        -> Single-row index lookup on product_store using uq_product_store (product_id=products.id, store_id=stores.id), with index condition: (products.id = product_store.product_id)  (cost=2 rows=1) (actual time=0.00151..0.00151 rows=1 loops=25)\n                                        -> Select #9 (subquery in condition; dependent)\n                                            -> Limit: 1 row(s)  (cost=297 rows=1) (never executed)\n                                                -> Nested loop inner join  (cost=297 rows=49.7) (never executed)\n                                                    -> Filter: ((vps.is_del = 0) and (vps.stock > 0))  (cost=122 rows=497) (never executed)\n                                                        -> Index lookup on vps using store_id (store_id=product_store.store_id)  (cost=122 rows=1989) (never executed)\n                                                    -> Filter: ((v.parent_prod_id = products.id) and (v.id = vps.product_id))  (cost=0.25 rows=0.1) (never executed)\n                                                        -> Single-row index lookup on v using PRIMARY (id=vps.product_id)  (cost=0.25 rows=1) (never executed)\n                -> Single-row index lookup on products using PRIMARY (id=selected.product_id)  (cost=0.254 rows=1) (actual time=0.00202..0.00204 rows=1 loops=25)\n            -> Hash\n                -> Table scan on product_types  (cost=0.0154 rows=1) (actual time=0.00117..0.0015 rows=1 loops=1)\n"
+  ],
+  "localTimings": [
+    {
+      "sourceMs": 2078.112082999999,
+      "optimizedCountAndPageMs": 10.23949999999968
+    },
+    {
+      "sourceMs": 2016.9238330000007,
+      "optimizedCountAndPageMs": 10.411541999999827
+    },
+    {
+      "sourceMs": 2038.9506249999995,
+      "optimizedCountAndPageMs": 10.604417000000467
+    }
+  ],
+  "audit": {
+    "inputLogs": 40000,
+    "addedIndex": "ix_product_inventory_scope_date(product_id,store_id,created_at,id)",
+    "matchingResponseHash": "448a824ea583849d9785b8c56ca67bb703d710a387c967cb5a72ed7b22316f23",
+    "responsesEqual": true,
+    "beforePlan": [
+      "-> Limit: 25 row(s)  (cost=191 rows=25) (actual time=0.126..2.17 rows=25 loops=1)\n    -> Filter: ((pos_product_inventory_logs.store_id = 1) and (pos_product_inventory_logs.created_at >= TIMESTAMP'2026-11-16 00:00:00') and (pos_product_inventory_logs.created_at <= TIMESTAMP'2026-11-16 23:59:59'))  (cost=191 rows=222) (actual time=0.126..2.17 rows=25 loops=1)\n        -> Index lookup on pos_product_inventory_logs using product_id (product_id=1)  (cost=191 rows=19980) (actual time=0.113..2.09 rows=3000 loops=1)\n"
+    ],
+    "afterPlan": [
+      "-> Limit: 25 row(s)  (cost=92.7 rows=25) (actual time=0.125..2.26 rows=25 loops=1)\n    -> Filter: ((pos_product_inventory_logs.store_id = 1) and (pos_product_inventory_logs.created_at >= TIMESTAMP'2026-11-16 00:00:00') and (pos_product_inventory_logs.created_at <= TIMESTAMP'2026-11-16 23:59:59'))  (cost=92.7 rows=222) (actual time=0.125..2.26 rows=25 loops=1)\n        -> Index range scan on pos_product_inventory_logs using product_id over (product_id = 1), with index condition: (pos_product_inventory_logs.product_id = 1)  (cost=92.7 rows=19980) (actual time=0.112..2.18 rows=3000 loops=1)\n"
+    ],
+    "count": 333,
+    "countBeforePlan": [
+      "-> Aggregate: count(0)  (cost=213 rows=1) (actual time=25.4..25.4 rows=1 loops=1)\n    -> Filter: ((pos_product_inventory_logs.store_id = 1) and (pos_product_inventory_logs.created_at >= TIMESTAMP'2026-11-16 00:00:00') and (pos_product_inventory_logs.created_at <= TIMESTAMP'2026-11-16 23:59:59'))  (cost=191 rows=222) (actual time=0.117..25.3 rows=333 loops=1)\n        -> Index lookup on pos_product_inventory_logs using product_id (product_id=1)  (cost=191 rows=19980) (actual time=0.106..24.2 rows=40000 loops=1)\n"
+    ],
+    "countAfterPlan": [
+      "-> Aggregate: count(0)  (cost=102 rows=1) (actual time=0.0936..0.0936 rows=1 loops=1)\n    -> Filter: ((pos_product_inventory_logs.store_id = 1) and (pos_product_inventory_logs.product_id = 1) and (pos_product_inventory_logs.created_at >= TIMESTAMP'2026-11-16 00:00:00') and (pos_product_inventory_logs.created_at <= TIMESTAMP'2026-11-16 23:59:59'))  (cost=69.1 rows=333) (actual time=0.00754..0.0862 rows=333 loops=1)\n        -> Covering index range scan on pos_product_inventory_logs using ix_product_inventory_scope_date over (product_id = 1 AND store_id = 1 AND '2026-11-16 00:00:00' <= created_at <= '2026-11-16 23:59:59')  (cost=69.1 rows=333) (actual time=0.00713..0.0575 rows=333 loops=1)\n"
+    ]
+  },
+  "liveDatabaseReads": false,
+  "liveDatabaseWrites": false
+}

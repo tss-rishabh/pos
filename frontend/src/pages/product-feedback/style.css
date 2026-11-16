@@ -1,0 +1,51 @@
+.product-feedback-page {
+  max-width: 1100px;
+}
+.product-feedback-item,
+.product-feedback-pending {
+  margin-block: 1rem;
+  padding: 1.25rem;
+  border: 1px solid var(--line, #dededb);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+}
+.product-feedback-item fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.product-feedback-item legend {
+  font-weight: 600;
+  padding: 0;
+  margin-block: 0.75rem;
+}
+.product-feedback-item label {
+  display: grid;
+  gap: 0.4rem;
+}
+.product-feedback-ratings {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(100px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.product-feedback-item input,
+.product-feedback-item textarea {
+  width: 100%;
+}
+.product-feedback-item table {
+  width: 100%;
+  text-align: left;
+  border-collapse: collapse;
+}
+.product-feedback-item th,
+.product-feedback-item td {
+  padding: 0.6rem;
+  border-bottom: 1px solid var(--line, #dededb);
+  overflow-wrap: anywhere;
+}
+@media (max-width: 760px) {
+  .product-feedback-ratings {
+    grid-template-columns: repeat(2, minmax(100px, 1fr));
+  }
+}

@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "scope": "packaged-artifact-static-verification",
+  "platform": "macos",
+  "architecture": "arm64",
+  "sourceInputs": {
+    "packageJsonSha256": "0425a1587664201075e25cdd8a0433889dfca870b98ceb210e70e61138f568a4",
+    "mainCjsSha256": "c74d147bf9a09eb9c06915cbe46d98be3be2c4615cb39ca8cfb8236f6523d2a7"
+  },
+  "executableSha256": "458075bd31c0ddc9c43747e27399e9ed91df8e797ca395112237d96126329b69",
+  "asarSha256": "045f865ccd29262216509bf9cf93a65104d4339f62f4d85c0f5e7e5ae9862936",
+  "asarBytes": 1315326,
+  "duplicatedNodeDependencyFiles": 0,
+  "headerHash": "34f3e18e37659d5b4ce031748fcb25d673399f75acef4b157f15f1d51b3a017d",
+  "embeddedHashMatches": true,
+  "entryMatchesSource": true,
+  "applicationIdentityMatchesSource": true,
+  "fuses": [
+    {
+      "name": "RunAsNode",
+      "enabled": false
+    },
+    {
+      "name": "EnableCookieEncryption",
+      "enabled": true
+    },
+    {
+      "name": "EnableNodeOptionsEnvironmentVariable",
+      "enabled": false
+    },
+    {
+      "name": "EnableNodeCliInspectArguments",
+      "enabled": false
+    },
+    {
+      "name": "EnableEmbeddedAsarIntegrityValidation",
+      "enabled": true
+    },
+    {
+      "name": "OnlyLoadAppFromAsar",
+      "enabled": true
+    },
+    {
+      "name": "LoadBrowserProcessSpecificV8Snapshot",
+      "enabled": false
+    },
+    {
+      "name": "GrantFileProtocolExtraPrivileges",
+      "enabled": false
+    },
+    {
+      "name": "WasmTrapHandlers",
+      "enabled": true
+    }
+  ],
+  "releaseCertified": false,
+  "limitations": [
+    "Static verification does not certify installation, signatures, printers, cookie-store upgrades or runtime authorization."
+  ]
+}

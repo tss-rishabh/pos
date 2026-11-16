@@ -1,0 +1,16 @@
+{
+  "scope": "isolated-browser-fixtures",
+  "checks": [
+    "captured operator and multi-store request",
+    "pending cash and warehouse freshness notices",
+    "all32 source/additive columns",
+    "50row paging and full totals",
+    "all-results CSV and formula protection"
+  ],
+  "passed": 5,
+  "requests": 2,
+  "pageErrors": [],
+  "unexpectedRequests": [],
+  "externalMessages": false,
+  "sourceDatabaseReads": false
+}

@@ -1,0 +1,24 @@
+{
+  "contract": "pos-invoice-security-v1",
+  "feedbackContract": "pos-feedback-proof-v1",
+  "enabled": false,
+  "source": {
+    "commit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+    "path": "controllers/InvoiceController.py",
+    "sha256": "bbff2ee49dc13fd389613cb1f4a7f811578f5810d19c938a314883f5c4eec969"
+  },
+  "candidateSha256": "03492fb8c23067957bc5be3b1b92e6e6f9e79996b668426ed45fb0769252d2d7",
+  "helperSha256": "d251adfac131d2564d6c97f6e18a88f2380fb1c6a304485594825685124ef724",
+  "factorySha256": "87dfe08369554b251fdd740aca08665eb8e3ffe980c0a68e587b34fb415959ab",
+  "feedbackVerifierSha256": "6f1c1ddc8565549ab409d717914a693057055415a0d44557ceb505ab4c458e5d",
+  "addedSha256": {
+    "pos_invoice_gunicorn.py": "222dbdd0de34062c0a24f2c0cd8582f80f0cd415888bf9b1c9d597a4a4f52d77",
+    "pos_invoice_gunicorn_config.py": "db3e13827001c9dec10132b94ebd3577ebdc39a0503e2cadce8c4589cd8b885c"
+  },
+  "runtimeSha256": {
+    "pyproject.toml": "87aaeb5289e6d70d2946701ff39c0ac9520677f3cf12adff9c5bc9aa75425b81",
+    "uv.lock": "2f4f774edbc85a8169bab585b1b9627905e2df0e3d2a3d13c26038a53d43eb70"
+  },
+  "patch": "api-v2-invoice-security.patch",
+  "patchSha256": "06a572c15673be8b74620ac1c7fa611c1ff508d2765be874130337a16869e696"
+}

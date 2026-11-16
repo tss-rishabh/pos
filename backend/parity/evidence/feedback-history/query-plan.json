@@ -1,0 +1,20 @@
+{
+  "scope": "generated-local-fixtures-only",
+  "fixtureRows": 504,
+  "indexEvidence": "evidence/mysql-extra-schema.json:indexes.users.email",
+  "nativeEquality": {
+    "type": "ref",
+    "key": "email",
+    "rows": 2
+  },
+  "functionalNormalization": {
+    "type": "index",
+    "key": "email",
+    "rows": 504
+  },
+  "liveDdlApplied": false,
+  "limitations": [
+    "Optimizer row estimates from isolated local fixtures, not observed live latency.",
+    "The email index already exists in verified source metadata; do not deploy duplicate DDL."
+  ]
+}

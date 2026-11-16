@@ -1,0 +1,90 @@
+import { execFileSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
+import { Secret } from 'otpauth';
+import { expect, it } from 'vitest';
+import { z } from 'zod';
+import { readConfig } from '../src/config.js';
+import { createDatabases } from '../src/db/pools.js';
+import {
+  deviceHandoffOptions,
+  deviceHandoffService,
+  deviceHandoffVerification,
+  handoffTotp,
+} from '../src/auth/device-handoff.js';
+import { redisDeviceHandoffStore } from '../src/auth/device-handoff-store.js';
+import { demoUser } from '../src/modules/demo.js';
+
+it('matches the actual source QR TOTP verifier, rotation and TTL across secret and interval boundaries', () => {
+  const cases: { secret: string; period: number; timestamp: number; code?: string }[] = [];
+  for (const period of [30, 60, 120, 300])
+    for (const timestamp of [1794787199999, 1794787200000, 1794787200001]) {
+      const secret = Secret.fromHex(randomBytes(20).toString('hex')).base32;
+      cases.push({ secret, period, timestamp });
+      cases.push({
+        secret,
+        period,
+        timestamp,
+        code: handoffTotp(secret, period, timestamp - period * 1000),
+      });
+    }
+  const oracle = z
+    .array(
+      z.object({
+        code: z.string(),
+        accepted: z.boolean(),
+        rotated: z.boolean(),
+        ttl: z.number().nullable(),
+      }),
+    )
+    .parse(
+      JSON.parse(
+        execFileSync('python3', ['tools/identity/handoff_oracle.py'], {
+          input: JSON.stringify(cases),
+          encoding: 'utf8',
+        }),
+      ) as unknown,
+    );
+  expect(oracle).toHaveLength(cases.length);
+  for (const [index, entry] of cases.entries()) {
+    expect(handoffTotp(entry.secret, entry.period, entry.timestamp)).toBe(oracle[index]!.code);
+    const accepted = entry.code === undefined || entry.code === oracle[index]!.code;
+    expect(oracle[index]).toMatchObject({
+      accepted,
+      rotated: accepted,
+      ttl: accepted ? 1800 : null,
+    });
+  }
+});
+it('requires a trusted service key and verified contract, and rejects plaintext remote cache configurations', async () => {
+  const config = readConfig({
+      NODE_ENV: 'test',
+      DEMO_MODE: 'true',
+      SESSION_SECRET: 'handoff-private-test-secret-'.repeat(3),
+    }),
+    db = createDatabases(config),
+    service = deviceHandoffService(config, db, deviceHandoffOptions({}), undefined);
+  expect(service.capabilities(demoUser).available).toBe(false);
+  for (const key of [undefined, [], {}, 'invalid'])
+    expect(() => service.authorizeService(key)).toThrow('Service authentication');
+  await expect(service.issue(demoUser)).rejects.toMatchObject({
+    code: 'DEVICE_HANDOFF_UNAVAILABLE',
+  });
+  for (const url of [
+    'redis://remote.example.test/0',
+    'rediss://remote.example.test/1',
+    'rediss://remote.example.test/0?db=1',
+    'rediss://remote.example.test/0#fragment',
+  ])
+    expect(() => redisDeviceHandoffStore(config, url)).toThrow('verified POS authentication cache');
+  expect(() =>
+    deviceHandoffVerification.parse({ email: 'fixture@example.test', password: 'password-only' }),
+  ).toThrow();
+  expect(() =>
+    deviceHandoffVerification.parse({
+      email: 'fixture@example.test',
+      code: '123456',
+      userId: '102',
+    }),
+  ).toThrow();
+  await db.close();
+});

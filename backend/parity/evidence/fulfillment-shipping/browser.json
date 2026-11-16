@@ -1,0 +1,17 @@
+{
+  "scope": "isolated-browser-http-fixtures-with-real-shipping-renderer",
+  "workflows": 6,
+  "requests": 5,
+  "pageErrors": 0,
+  "consoleErrors": 0,
+  "unexpectedRequests": 0,
+  "verified": [
+    "source field layout and two machine-readable SVG barcodes",
+    "escaped destination data and no active scripts",
+    "fresh captured-actor authorization before print",
+    "expired cached session removes private preview",
+    "server access revocation blocks print and removes preview",
+    "operator change during pending response and offline controls"
+  ],
+  "limitations": "HTTP is mocked; separate isolated native MySQL source-handler vectors verify authorization/query behavior. No real address, production login, printer or provider was used."
+}

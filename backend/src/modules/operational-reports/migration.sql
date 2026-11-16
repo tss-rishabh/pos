@@ -1,0 +1,27 @@
+-- Rewrite-owned export queue. Existing legacy report_exports remains read-only.
+CREATE TABLE IF NOT EXISTS pos_rewrite_report_exports (
+  id VARCHAR(36) NOT NULL PRIMARY KEY,
+  operator_id VARCHAR(32) NOT NULL,
+  command_id VARCHAR(36) NOT NULL,
+  request_id VARCHAR(128) NULL,
+  request_hash VARCHAR(64) NOT NULL,
+  input JSON NOT NULL,
+  store_ids JSON NOT NULL,
+  requires_global BOOLEAN NOT NULL,
+  requester_user_type INT NOT NULL,
+  status VARCHAR(16) NOT NULL,
+  claim_token VARCHAR(36) NULL,
+  lease_until DATETIME(3) NULL,
+  recovery_attempts INT NOT NULL DEFAULT 0,
+  artifact_key VARCHAR(1024) NULL,
+  checksum VARCHAR(64) NULL,
+  byte_count INT NULL,
+  row_count INT NULL,
+  error_code VARCHAR(64) NULL,
+  requested_at DATETIME(3) NOT NULL,
+  completed_at DATETIME(3) NULL,
+  updated_at DATETIME(3) NOT NULL,
+  UNIQUE KEY uq_report_export_command(operator_id,command_id),
+  KEY ix_report_export_queue(status,lease_until,requested_at),
+  KEY ix_report_export_owner(operator_id,requested_at)
+) ENGINE=InnoDB;

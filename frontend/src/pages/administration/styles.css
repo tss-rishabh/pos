@@ -1,0 +1,377 @@
+.administration-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.administration-tabs button {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 14px;
+  background: #fff;
+  font-size: 11px;
+  color: #7c8970;
+}
+.administration-tabs button[aria-selected='true'] {
+  background: #e6ecdf;
+  border-color: #aebda1;
+  color: #405435;
+}
+.administration-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.administration-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.administration-filters input,
+.administration-filters select {
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  background: #fff;
+  font-size: 11px;
+}
+.administration-heading {
+  display: flex;
+  gap: 15px;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+.administration-heading h2 {
+  margin: 0;
+  font-size: 19px;
+}
+.administration-dialog {
+  border: 1px solid #dde4d3;
+  border-radius: 10px;
+  background: #fafbf7;
+  color: #36442d;
+  padding: 28px;
+  width: min(760px, calc(100vw - 40px));
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 80px #15250c33;
+}
+.administration-dialog::backdrop {
+  background: #20291e77;
+  backdrop-filter: blur(3px);
+}
+.administration-dialog-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 22px;
+}
+.administration-dialog-heading h2 {
+  margin: 0;
+  font-size: 23px;
+  font-weight: 500;
+}
+.administration-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.administration-fields label {
+  font-size: 11px;
+  color: #70825e;
+}
+.administration-fields input,
+.administration-fields textarea,
+.administration-fields select {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin-top: 7px;
+  background: #fff;
+  border: 1px solid #dce3d2;
+  border-radius: 6px;
+  color: #3c4b32;
+  font-size: 12px;
+}
+.administration-fields textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+.administration-wide {
+  grid-column: 1/-1;
+}
+.administration-dialog-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  margin-top: 22px;
+}
+.administration-assignment-list {
+  display: grid;
+  gap: 10px;
+  padding: 10px 0;
+}
+.administration-assignment-list label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  color: #687b55;
+}
+.administration-assignment-list input {
+  accent-color: #71885e;
+}
+.administration-checkin {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px;
+}
+.administration-checkin h2 {
+  margin-bottom: 8px;
+}
+.administration-checkin p {
+  font-size: 12px;
+  color: #8a9978;
+  margin: 0;
+  line-height: 1.7;
+}
+.administration-notice {
+  font-size: 11px;
+  line-height: 1.8;
+  color: #859675;
+  margin: 16px 0;
+}
+.administration-status {
+  font-size: 12px;
+  color: #65844d;
+  margin-bottom: 18px;
+}
+.administration-table-actions {
+  display: flex;
+  gap: 8px;
+}
+.administration-table-actions .button {
+  padding: 6px 9px;
+  min-height: 30px;
+  font-size: 10px;
+}
+.administration-table td {
+  white-space: normal;
+}
+.administration-table td:first-child {
+  min-width: 160px;
+}
+.administration-value {
+  font-family: ui-monospace, monospace;
+  font-size: 10px;
+}
+@media (max-width: 700px) {
+  .administration-fields {
+    grid-template-columns: 1fr;
+  }
+  .administration-heading {
+    flex-wrap: wrap;
+  }
+  .administration-filters {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .administration-checkin {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .administration-dialog {
+    padding: 20px;
+  }
+  .administration-tabs {
+    gap: 6px;
+  }
+  .administration-tabs button {
+    padding: 8px 10px;
+    font-size: 10px;
+  }
+}
+
+.administration-section-gap {
+  margin-top: 28px;
+}
+.administration-guides {
+  padding: 12px 26px;
+}
+.administration-guides article {
+  padding: 22px 0;
+  border-bottom: 1px solid var(--line);
+}
+.administration-guides article:last-child {
+  border-bottom: 0;
+}
+.administration-guides h3 {
+  font-size: 17px;
+  font-weight: 500;
+  margin: 0;
+}
+.administration-guides p,
+.administration-guide-text {
+  font-size: 12px;
+  line-height: 1.8;
+  color: #758663;
+}
+.administration-guide-text {
+  white-space: pre-wrap;
+}
+.administration-guide-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+.administration-guide-links a {
+  font-size: 11px;
+}
+
+.administration-guide-editor,
+.administration-guide-reader {
+  width: min(920px, calc(100vw - 40px));
+}
+.administration-guide-fieldset {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+.administration-guide-fieldset h3 {
+  font-size: 15px;
+}
+.administration-upload-group {
+  padding: 16px 0;
+  border-top: 1px solid var(--line);
+}
+.administration-upload-group > strong {
+  display: block;
+  font-size: 12px;
+  margin-bottom: 12px;
+}
+.administration-upload-group > input[type='file'] {
+  font-size: 11px;
+  max-width: 100%;
+}
+.administration-existing-asset {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 11px;
+  margin: 8px 0;
+}
+.administration-pending-upload {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 11px;
+}
+.administration-pending-upload > span {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.administration-pending-upload > small {
+  width: 100%;
+  color: #a74b38;
+}
+.administration-guide-frame {
+  display: block;
+  width: 100%;
+  height: 340px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+.administration-guide-summary {
+  font-size: 13px;
+  line-height: 1.8;
+  color: #758663;
+}
+.administration-guide-assets {
+  display: grid;
+  gap: 20px;
+  margin-top: 24px;
+}
+.administration-guide-assets section {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.administration-guide-assets img,
+.administration-guide-assets video {
+  display: block;
+  max-width: 100%;
+  max-height: 500px;
+  margin: 0 auto 16px;
+}
+.administration-guide-assets .administration-heading {
+  font-size: 12px;
+  word-break: break-word;
+}
+.administration-guide-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.administration-guide-footer small {
+  font-size: 10px;
+  color: #869a75;
+}
+.administration-mfa-qr {
+  display: block;
+  width: min(100%, 280px);
+  margin: 20px auto;
+  background: white;
+}
+.administration-mfa-controls {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 16px;
+}
+.administration-mfa-controls label {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.administration-access-fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.administration-access-fieldset section {
+  margin-top: 20px;
+}
+.administration-access-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 12px 0;
+}
+.administration-access-checkbox input {
+  width: auto;
+}
+.administration-access-fieldset textarea[readonly] {
+  width: 100%;
+}
+.application-link-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 20px; }
+.application-link-grid > section { padding: 24px; }
+.application-link-qr { display: grid; justify-items: center; gap: 12px; margin-top: 20px; }
+.application-link-qr img { width: min(100%, 300px); height: auto; background: white; padding: 12px; border-radius: 12px; }
+.application-link-landing { min-height: 100dvh; display: grid; place-items: center; padding: 24px; }
+.application-link-landing > section { width: min(100%, 560px); padding: 32px; }
+.application-qr-expiry { border-radius: 18px; padding: 6px 12px; }
+.application-qr-expiry[data-urgency='green'] { background: #dcfae6; color: #05603a; }
+.application-qr-expiry[data-urgency='orange'] { background: #fef0c7; color: #7a2e0e; }
+.application-qr-expiry[data-urgency='red'] { background: #fee4e2; color: #912018; }

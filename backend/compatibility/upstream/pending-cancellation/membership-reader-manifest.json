@@ -1,0 +1,21 @@
+{
+  "contract": "pos-membership-fresh-reader-v1",
+  "enabled": false,
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "sourceSha256": {
+    "middleware/AuthHandler.py": "ba10581b1e3a0a20be5871777910ebbcebcec9483bdf06bfa7042b151635c241",
+    "middleware/CartMiddleware.py": "e7db74af2d1e2c3582fd0d56b6eac0e95cd4f78e7987950a9fd91c10162aa6ed"
+  },
+  "requiredCustomerContext": "pos-customer-context-v1",
+  "beforeSha256": {
+    "middleware/AuthHandler.py": "d5245b12f0ab6925d5c617d1d33b4ac865d7bd0eb71136321a8c0ada3a98019c",
+    "middleware/CartMiddleware.py": "e7db74af2d1e2c3582fd0d56b6eac0e95cd4f78e7987950a9fd91c10162aa6ed"
+  },
+  "candidateSha256": {
+    "middleware/AuthHandler.py": "3b3f9df8a03d22b3fb71e006590642051ef725735e4fb84fd29b0cc2b8606c6a",
+    "middleware/CartMiddleware.py": "3a72c08317fe365bf777535529955e2edbfc14a277cc22ece3b53e78066c8e13"
+  },
+  "helperSha256": "0dca5755723ac5b26800c63ac7f5b51f221554d248a40f2d6de62c38ce62f65f",
+  "patch": "api-v2-membership-reader.patch",
+  "patchSha256": "d6465e61ee512dee0a4c84325a5714fa8768c7738b33b8e6893bd628ab98f8bb"
+}

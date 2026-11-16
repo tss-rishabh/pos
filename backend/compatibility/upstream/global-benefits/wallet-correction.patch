@@ -1,0 +1,57 @@
+--- a/core/views.py
++++ b/core/views.py
+@@ -1318,15 +1318,6 @@
+ 
+ 
+         r_query = f"""
+-            insert into reward_point_history (user_id, order_id, product_id,
+-            added_amt, amt_before_update, amt_after_update, platform,
+-            comment, added_user, created_at, updated_at, expiry)
+-            values ('{user_id}', '{order_id}', '{product_id}', '{added_amt}', '{amt_before_update}', '{amt_after_update}', '{platform}', '{comment}', '{added_user}', '{created_at}', '{updated_at}', '{expiry}')
+-        """
+-        cursor = connections['mysql_db'].cursor()
+-        cursor.execute(r_query)
+-
+-        r_query = f"""
+             insert into tss_money_history (user_id, order_id, product_id,
+             added_amt, amt_before_update, amt_after_update, platform,
+             comment, added_user, created_at, updated_at, expiry)
+@@ -1337,7 +1328,7 @@
+ 
+ 
+         r_query = f"""
+-            update users set cashback = '{amt_after_update}', tss_money = '{amt_after_update}', updated_at = '{updated_at}' where id = '{user_id}'
++            update users set tss_money = '{amt_after_update}', updated_at = '{updated_at}' where id = '{user_id}'
+         """
+         cursor = connections['mysql_db'].cursor()
+         cursor.execute(r_query)
+@@ -1408,23 +1399,23 @@
+             tss_points =  tss_points * -1
+ 
+         user_id = user_obj.id
+-        order_id = platform_p
+-        product_id = reason_p
++        order_id = order_id_p
++        product_id = product_id_p
+         added_amt = tss_points
+         amt_before_update = user_obj.tss_points
+         amt_after_update = user_obj.tss_points + tss_points
+-        platform = order_id_p
+-        comment = product_id_p
++        platform = platform_p
++        comment = reason_p
+         added_user = 0
+         created_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+         updated_at = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+         expiry = datetime.datetime.strptime(expiry_p, "%m/%d/%Y").strftime("%Y-%m-%d %H:%M:%S") if expiry_p else ''
+ 
+         r_query = f"""
+-            insert into tss_point_history (user_id, order_id,
++            insert into tss_point_history (user_id, order_id, prod_id,
+             added_amt, amt_before_update, amt_after_update, platform,
+             comment, added_user, created_at, updated_at, expiry)
+-            values ('{user_id}', '{order_id}', '{added_amt}', '{amt_before_update}', '{amt_after_update}', '{platform}', '{comment}', '{added_user}', '{created_at}', '{updated_at}', '{expiry}')
++            values ('{user_id}', '{order_id}', '{product_id}', '{added_amt}', '{amt_before_update}', '{amt_after_update}', '{platform}', '{comment}', '{added_user}', '{created_at}', '{updated_at}', '{expiry}')
+         """
+         cursor = connections['mysql_db'].cursor()
+         cursor.execute(r_query)

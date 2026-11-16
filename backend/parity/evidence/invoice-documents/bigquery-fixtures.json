@@ -1,0 +1,30 @@
+{
+  "checkedAt": "2026-11-16T20:41:03.513Z",
+  "scope": "Four generated-literal-only SELECT cases plus one metadata-only raw dry-run; no source rows read",
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "statementSha256": "44f0675836e719d017db34108d384236c26ed6d91be5d3ed246464c01121711b",
+  "byteCap": 1000000000,
+  "rawEstimateBytes": "341454224",
+  "rawActivated": false,
+  "completeness": "Raw CDC apply metadata is not a source-completeness attestation; explicit published generations remain required",
+  "results": [
+    {
+      "name": "complete-positive",
+      "count": "2",
+      "generation": "123e4567-e89b-42d3-a456-426614174000"
+    },
+    {
+      "name": "attested-zero",
+      "count": "0",
+      "generation": "123e4567-e89b-42d3-a456-426614174000"
+    },
+    {
+      "name": "incomplete-manifest",
+      "rejected": true
+    },
+    {
+      "name": "empty-response",
+      "rejected": true
+    }
+  ]
+}

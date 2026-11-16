@@ -1,0 +1,11 @@
+{
+  "checkedAt": "2026-11-16T06:00:52.663Z",
+  "server": {
+    "sql_mode": "IGNORE_SPACE",
+    "time_zone": "SYSTEM",
+    "group_concat_max_len": 1024,
+    "transaction_read_only": 0,
+    "version": "8.0.39",
+    "schema_name": "tss"
+  }
+}

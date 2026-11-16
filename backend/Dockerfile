@@ -1,0 +1,43 @@
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS build
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --ignore-scripts
+COPY tsconfig.json ./
+COPY src ./src
+RUN npm run build
+
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=4410
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
+COPY --from=build /app/dist ./dist
+COPY migrations ./migrations
+COPY resources ./resources
+COPY src/modules/administration/*.sql ./src/modules/administration/
+COPY src/modules/application-links/*.sql ./src/modules/application-links/
+COPY src/modules/gift-card-batches/*.sql ./src/modules/gift-card-batches/
+COPY src/modules/customer-insights/*.sql ./src/modules/customer-insights/
+COPY src/modules/customer-contacts/*.sql ./src/modules/customer-contacts/
+COPY src/modules/customer-otp/*.sql ./src/modules/customer-otp/
+COPY src/modules/customer-website-handoff/*.sql ./src/modules/customer-website-handoff/
+COPY src/modules/global-vouchers/*.sql ./src/modules/global-vouchers/
+COPY src/modules/checkout-performance/*.sql ./src/modules/checkout-performance/
+COPY compatibility/customer-contacts/migration.sql ./compatibility/customer-contacts/migration.sql
+COPY src/modules/checkout/migrations ./src/modules/checkout/migrations
+COPY src/modules/checkout/order-messages/*.sql ./src/modules/checkout/order-messages/
+COPY src/modules/checkout/payments/*.sql ./src/modules/checkout/payments/
+COPY src/modules/checkout/cancellations/*.sql ./src/modules/checkout/cancellations/
+COPY src/modules/legacy-order-imports/*.sql ./src/modules/legacy-order-imports/
+COPY compatibility/upstream/ordinary/migration.sql ./compatibility/upstream/ordinary/migration.sql
+COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
+COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql
+COPY src/modules/legacy-fulfillment/migration.sql ./src/modules/legacy-fulfillment/migration.sql
+COPY src/modules/legacy-fulfillment/lifecycle/migration.sql ./src/modules/legacy-fulfillment/lifecycle/migration.sql
+COPY src/modules/finance/migration.sql ./src/modules/finance/migration.sql
+COPY src/modules/operational-reports/*.sql ./src/modules/operational-reports/
+COPY src/modules/catalog-details/*.sql ./src/modules/catalog-details/
+USER node
+EXPOSE 4410
+HEALTHCHECK --interval=30s --timeout=8s --start-period=30s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:4410/health/ready',{signal:AbortSignal.timeout(6000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+CMD ["node","dist/server.js"]

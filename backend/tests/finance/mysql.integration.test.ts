@@ -1,0 +1,497 @@
+import mysql from 'mysql2/promise';
+import { getTableConfig } from 'drizzle-orm/mysql-core';
+import type { MySqlTable } from 'drizzle-orm/mysql-core';
+import { and, eq } from 'drizzle-orm';
+import { Temporal } from '@js-temporal/polyfill';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { readConfig } from '../../src/config.js';
+import { createDatabases, type Databases } from '../../src/db/pools.js';
+import {
+  StoreDayClose,
+  StoreDayBanking,
+  StoreCashOpeningBalance,
+} from '../../src/db/legacy-schema.js';
+import { collectionSnapshot, financeService } from '../../src/modules/finance/service.js';
+import { closeEntriesSchema } from '../../src/modules/finance/domain.js';
+import type { Principal } from '../../src/domain/access.js';
+import { cashLedgerService, ledgerOptions } from '../../src/modules/finance/ledger.js';
+import { financePendingAlerts } from '../../src/modules/finance/alerts.js';
+import { fulfillmentEffects } from '../../src/modules/fulfillment/schema.js';
+import { closeHistoryService, dayCloseCsv } from '../../src/modules/finance/history.js';
+
+const connection = process.env.MYSQL_INTEGRATION_URL;
+describe.skipIf(!connection)('finance transactions on isolated local MySQL', () => {
+  const schema = `pos_rewrite_finance_test_${crypto.randomUUID().replaceAll('-', '').slice(0, 12)}`;
+  let database: Databases | undefined,
+    admin: mysql.Connection | undefined,
+    created = false;
+  const user: Principal = {
+    id: '900001',
+    name: 'Fixture',
+    email: 'fixture@example.test',
+    role: 4,
+    userType: 1,
+    storeIds: ['1'],
+  };
+  const clock = () => Temporal.Instant.from('2026-11-16T17:30:00Z');
+  function resources() {
+    if (!database) throw new Error('Fixture not initialized');
+    return database;
+  }
+  async function table(model: MySqlTable) {
+    const config = getTableConfig(model);
+    const columns = config.columns.map(
+      (column) =>
+        mysql.escapeId(column.name) +
+        ' ' +
+        column.getSQLType() +
+        (column.notNull ? ' NOT NULL' : ' NULL') +
+        ('autoIncrement' in column && column.autoIncrement ? ' AUTO_INCREMENT' : '') +
+        (column.primary ? ' PRIMARY KEY' : ''),
+    );
+    await admin!.query(
+      `CREATE TABLE ${mysql.escapeId(config.name)} (${columns.join(',')}) ENGINE=InnoDB`,
+    );
+  }
+  beforeAll(async () => {
+    const url = new URL(connection!);
+    if (!['localhost', '127.0.0.1'].includes(url.hostname))
+      throw new Error('Finance integration fixtures require a local MySQL host.');
+    admin = await mysql.createConnection({
+      host: url.hostname,
+      port: Number(url.port || 3306),
+      user: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+    });
+    await admin.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
+    created = true;
+    await admin.changeUser({ database: schema });
+    await admin.query(
+      'CREATE TABLE stores(id BIGINT PRIMARY KEY,store_name VARCHAR(100),is_active BOOLEAN,type VARCHAR(255),category VARCHAR(255))',
+    );
+    await admin.query("INSERT INTO stores VALUES(1,'Fixture store',1,'STORE','IN_HOUSE')");
+    await admin.query(
+      'CREATE TABLE pos_user(id BIGINT PRIMARY KEY,username VARCHAR(150),role SMALLINT,is_active BOOLEAN,user_type INT NOT NULL)',
+    );
+    await admin.query("INSERT INTO pos_user VALUES(900001,'fixture-operator',4,1,1)");
+    await admin.query('CREATE TABLE orders(id BIGINT PRIMARY KEY,created_at DATETIME NOT NULL)');
+    await admin.query(
+      "INSERT INTO orders VALUES(1,'2026-11-16 10:00:00'),(2,'2026-11-16 11:00:00'),(3,'2026-11-16 12:00:00'),(4,'2026-11-15 23:59:59')",
+    );
+    await admin.query(
+      'CREATE TABLE order_stores(id BIGINT PRIMARY KEY,order_id BIGINT,store_id BIGINT,counter_id BIGINT,offline_payment DECIMAL(14,2),online_payment DECIMAL(14,2),online_other_payment DECIMAL(14,2),district_transaction_id VARCHAR(255))',
+    );
+    await admin.query(
+      "INSERT INTO order_stores VALUES(1,1,1,7,100,20,30,'DISTRICT'),(2,2,1,7,0,5,10,''),(3,3,1,7,0,0,0,''),(4,4,1,7,999,999,999,'')",
+    );
+    await admin.query(
+      'CREATE TABLE amount_to_be_refunded_log(id BIGINT PRIMARY KEY,order_id BIGINT,has_product_id BIGINT,refund_mode VARCHAR(255),is_refunded BOOLEAN,refunded_amt DOUBLE)',
+    );
+    await admin.query(
+      "INSERT INTO amount_to_be_refunded_log VALUES(1,1,501,'cash',1,5.005),(2,1,502,'card',1,10),(3,1,503,'cash',0,20)",
+    );
+    await admin.query(
+      'CREATE TABLE return_orders(id BIGINT PRIMARY KEY,order_id BIGINT,has_product_id BIGINT,store_id INT,created_at DATETIME)',
+    );
+    await admin.query(
+      "INSERT INTO return_orders VALUES(1,1,501,1,'2026-11-16 10:05:00'),(2,1,501,1,'2026-11-16 10:06:00')",
+    );
+    await table(StoreDayClose);
+    await table(StoreDayBanking);
+    await table(StoreCashOpeningBalance);
+    await admin.query(
+      "INSERT INTO store_cash_opening_balance(store_id,balance_date,amount,created_at,updated_at) VALUES(1,'2026-11-16',50,'2026-11-16 10:00:00','2026-11-16 10:00:00')",
+    );
+    await admin.query(
+      'ALTER TABLE store_day_close ADD UNIQUE KEY uq_close_version(store_id,close_date,version)',
+    );
+    await admin.query(
+      'ALTER TABLE store_day_banking ADD UNIQUE KEY uq_banking_day(store_id,banking_date)',
+    );
+    for (const query of readFileSync('src/modules/finance/migration.sql', 'utf8')
+      .split(';')
+      .filter((value) => value.trim()))
+      await admin.query(query);
+    for (const query of readFileSync('src/modules/fulfillment/migration.sql', 'utf8')
+      .split(';')
+      .filter((value) => value.trim()))
+      await admin.query(query);
+    for (const query of readFileSync(
+      'src/modules/checkout/migrations/0011_offline_cash.sql',
+      'utf8',
+    )
+      .split(';')
+      .filter((value) => value.trim()))
+      await admin.query(query);
+    for (const query of readFileSync(
+      'src/modules/checkout/migrations/0013_offline_cash_import_proof.sql',
+      'utf8',
+    )
+      .split(';')
+      .filter((value) => value.trim()))
+      await admin.query(query);
+    url.pathname = '/' + schema;
+    database = createDatabases(
+      readConfig({
+        NODE_ENV: 'test',
+        SESSION_SECRET: 'finance-mysql-fixture-secret-'.repeat(2),
+        MYSQL_PRIMARY_READER_URL: url.href,
+        MYSQL_DATA_READER_URL: url.href,
+        MYSQL_WRITER_URL: url.href,
+        MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
+      }),
+    );
+  });
+  afterAll(async () => {
+    await database?.close();
+    if (admin && created) {
+      await admin.changeUser({ database: 'mysql' });
+      await admin.query(`DROP DATABASE ${mysql.escapeId(schema)}`);
+    }
+    await admin?.end();
+  });
+  it('matches the original collection and cash-refund SQL, including duplicate-return EXISTS semantics', async () => {
+    const snapshot = await collectionSnapshot(resources().get('writer'), '1', '2026-11-16');
+    expect(snapshot).toEqual({
+      order_count: 2,
+      cash: '100.00',
+      cash_refund: '5.00',
+      card_upi: '25.00',
+      district: '30.00',
+      online_other: '10.00',
+      total_online: '35.00',
+    });
+  });
+  it('deduplicates concurrent submissions and persists close/banking in one transaction', async () => {
+    const service = financeService(
+      readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'finance-fixture-'.repeat(3),
+      }),
+      resources(),
+      clock,
+      { assertCheckIn: async () => {} },
+    );
+    const entries = closeEntriesSchema.parse({
+        cash_actual: '95.00',
+        cash_manual_punched: '0',
+        cash_manual_created: '0',
+        card_actual: '35.00',
+        card_manual_punched: '0',
+        card_manual_created: '0',
+        banking_amount: '40.00',
+      }),
+      commandId = crypto.randomUUID();
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        service.close(user, '1', '2026-11-16', commandId, 0, entries),
+      ),
+    );
+    expect(results.every((row) => row?.version === 1)).toBe(true);
+    expect(await resources().get('writer').select().from(StoreDayClose)).toHaveLength(1);
+    const [banking] = await resources().get('writer').select().from(StoreDayBanking);
+    expect(banking?.amount).toBe('40.00');
+    await expect(
+      service.close(user, '1', '2026-11-16', crypto.randomUUID(), 0, entries),
+    ).rejects.toMatchObject({ code: 'DAY_CLOSE_VERSION_CONFLICT' });
+    expect(await resources().get('writer').select().from(StoreDayClose)).toHaveLength(1);
+  });
+  it('uses the data reader for a fully current-day ledger anchor and preserves banking totals', async () => {
+    const service = cashLedgerService(
+      readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'cash-ledger-fixture-'.repeat(3),
+      }),
+      resources(),
+      ledgerOptions({}),
+      undefined,
+      clock,
+    );
+    const result = await service.read(user, ['1'], '2026-11-16', '2026-11-16');
+    expect(result.reader).toBe('data');
+    expect(result.data).toEqual([
+      {
+        store_id: '1',
+        store_name: 'Fixture store',
+        date: '2026-11-16',
+        opening_cash: '50.00',
+        sales_cash: '95.00',
+        running_total: '145.00',
+        actual_cash: '95.00',
+        difference: '0.00',
+        banking_amount: '40.00',
+        closing_balance: '105.00',
+        status: 'CLOSED',
+        note: '',
+      },
+    ]);
+  });
+  it('rejects a forged difference and marks a closed snapshot stale after real collection drift', async () => {
+    const service = financeService(
+      readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'finance-fixture-'.repeat(3),
+      }),
+      resources(),
+      clock,
+      { assertCheckIn: async () => {} },
+    );
+    await admin!.query('UPDATE order_stores SET offline_payment=101 WHERE id=1');
+    const state = await service.state(user, '1', '2026-11-16');
+    expect(state.close?.status).toBe('STALE');
+    expect(state.system.cash).toBe('101.00');
+    const [close] = await resources()
+      .get('writer')
+      .select()
+      .from(StoreDayClose)
+      .where(and(eq(StoreDayClose.store_id, 1), eq(StoreDayClose.version, 1)));
+    expect(close?.stale_reason).toBe('DRIFT');
+    expect(closeEntriesSchema.safeParse({ cash_actual: '96', cash_difference: '0' }).success).toBe(
+      false,
+    );
+  });
+  it('routes historical chains only to explicit warehouse tables and never falls back to older MySQL rows', async () => {
+    const readers: string[] = [],
+      queries: string[] = [],
+      database: Databases = {
+        get: (reader) => {
+          readers.push(reader);
+          return resources().get(reader);
+        },
+        close: async () => {},
+      };
+    const options = ledgerOptions({
+      BQ_FINANCE_OPENING_BALANCES: 'fixture-project.finance.anchors',
+      BQ_FINANCE_DAY_CLOSES: 'fixture-project.finance.closes',
+      BQ_FINANCE_DAY_BANKING: 'fixture-project.finance.banking',
+      BQ_FINANCE_CASH_COLLECTIONS: 'fixture-project.finance.collections',
+      BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-offline-cash-ledger-v1',
+    });
+    const warehouse = {
+      queryReport: async (statement: string): Promise<Record<string, unknown>[]> => {
+        queries.push(statement);
+        if (statement.includes('finance.anchors'))
+          return [{ storeId: '1', date: '2026-11-15', amount: '100.00' }];
+        if (statement.includes('finance.collections'))
+          return [
+            {
+              storeId: '1',
+              date: '2026-11-15',
+              cash: '20.00',
+              cashRefund: '2.00',
+              lateOfflineCash: '0.00',
+              cashProjectionContract: 'pos-offline-cash-ledger-v1',
+            },
+          ];
+        return [];
+      },
+    };
+    const cfg = readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'cash-ledger-history-fixture-'.repeat(3),
+      }),
+      service = cashLedgerService(cfg, database, options, warehouse, clock);
+    const historical = await service.read(user, ['1'], '2026-11-15', '2026-11-15');
+    expect(historical.reader).toBe('bigquery');
+    expect(historical.data[0]?.running_total).toBe('118.00');
+    expect(readers).toEqual(['primary']);
+    expect(queries).toHaveLength(4);
+    queries.length = 0;
+    await expect(
+      cashLedgerService(
+        cfg,
+        database,
+        { ...options, BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: undefined },
+        warehouse,
+        clock,
+      ).read(user, ['1'], '2026-11-15', '2026-11-15'),
+    ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
+    expect(queries).toEqual([]);
+    readers.length = 0;
+    await expect(
+      cashLedgerService(cfg, database, ledgerOptions({}), warehouse, clock).read(
+        user,
+        ['1'],
+        '2026-11-15',
+        '2026-11-15',
+      ),
+    ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
+    expect(readers).toEqual(['primary']);
+    await admin!.query('DELETE FROM store_cash_opening_balance');
+    readers.length = 0;
+    await expect(
+      cashLedgerService(cfg, database, ledgerOptions({}), warehouse, clock).read(
+        user,
+        ['1'],
+        '2026-11-16',
+        '2026-11-16',
+      ),
+    ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
+    expect(readers).toEqual(['primary', 'data']);
+  });
+  it('keeps day-close latest-attempt filtering ahead of search and exports safe complete financial rows', async () => {
+    const [first] = await resources().get('writer').select().from(StoreDayClose);
+    if (!first) throw new Error('Fixture close missing');
+    const { id, ...fields } = first;
+    expect(id).toBeGreaterThan(0n);
+    await resources()
+      .get('writer')
+      .insert(StoreDayClose)
+      .values({
+        ...fields,
+        version: 2,
+        status: 'CLOSED',
+        cash_reason: 'JUMBLING',
+        cash_comment: '=HYPERLINK("https://fixture.example")',
+        card_comment: 'REVISION-FIXTURE',
+        cash_difference: '1.00',
+        closed_at: '2026-11-17 21:00:01',
+      });
+    const cfg = readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'close-history-fixture-'.repeat(3),
+      }),
+      history = closeHistoryService(cfg, resources(), ledgerOptions({}), undefined, clock),
+      input = {
+        storeIds: ['1'],
+        from: '2026-11-16',
+        to: '2026-11-16',
+        attempts: 'all' as const,
+        page: 1,
+        pageSize: 25,
+      };
+    const all = await history.read(user, input);
+    expect(all.total).toBe(2);
+    expect(all.data.map((row) => row.version)).toEqual([2, 1]);
+    expect(all.data[0]).toMatchObject({
+      closed_by: 'fixture-operator',
+      closed_late: 'Yes',
+      cash_result: 'SHORT',
+    });
+    const latest = await history.read(user, { ...input, attempts: 'latest' });
+    expect(latest.total).toBe(1);
+    expect(latest.data[0]?.version).toBe(2);
+    expect(
+      (await history.read(user, { ...input, attempts: 'latest', search: 'STALE' })).total,
+    ).toBe(0);
+    expect((await history.read(user, { ...input, search: 'STALE' })).total).toBe(1);
+    const csv = dayCloseCsv((await history.read(user, input, true)).data);
+    expect(csv).toContain('"\'=HYPERLINK');
+    expect(csv).toContain('"Cash (system)"');
+    expect(csv).toContain('"fixture-operator"');
+    expect((await history.read(user, { ...input, search: '%' })).total).toBe(0);
+    const readers: string[] = [],
+      statements: { sql: string; resource?: string }[] = [],
+      proxy: Databases = {
+        get: (reader) => {
+          readers.push(reader);
+          return resources().get(reader);
+        },
+        close: async () => {},
+      },
+      fixture = (await resources().get('writer').select().from(StoreDayClose)).map((row) => ({
+        ...row,
+        close_date: '2026-11-15',
+      }));
+    const warehouse = {
+      queryReport: async (
+        statement: string,
+        _params: Record<string, unknown>,
+        _types: Record<string, string | string[]>,
+        resource?: string,
+      ): Promise<Record<string, unknown>[]> => {
+        statements.push({ sql: statement, resource });
+        return statement.includes('COUNT(*) AS count') ? [{ count: 2 }] : fixture;
+      },
+    };
+    const historical = await closeHistoryService(
+      cfg,
+      proxy,
+      ledgerOptions({ BQ_FINANCE_DAY_CLOSES: 'fixture-project.finance.closes' }),
+      warehouse,
+      clock,
+    ).read(user, { ...input, from: '2026-11-15', to: '2026-11-15' });
+    expect(historical.reader).toBe('bigquery');
+    expect(historical.total).toBe(2);
+    expect(readers).toEqual(['primary']);
+    expect(statements.every((statement) => statement.resource === 'day-close-history')).toBe(true);
+    await expect(history.read(user, { ...input, storeIds: ['2'] })).rejects.toMatchObject({
+      code: 'STORE_ACCESS_DENIED',
+    });
+  });
+  it('queues pending-close alerts idempotently, derives the last expired day and respects authoritative filed closes', async () => {
+    const cfg = readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'pending-alerts-fixture-'.repeat(3),
+      }),
+      alerts = financePendingAlerts(cfg, resources(), clock),
+      commandId = crypto.randomUUID(),
+      requestId = crypto.randomUUID();
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => alerts.queue(commandId, undefined, requestId)),
+    );
+    expect(
+      results.every((result) => result.closeDate === '2026-11-15' && result.pending === 1),
+    ).toBe(true);
+    const effects = await resources().get('writer').select().from(fulfillmentEffects);
+    expect(effects).toHaveLength(1);
+    expect(effects[0]).toMatchObject({
+      operatorId: 'service-day-close',
+      requestId,
+      payload: { action: 'DAY_CLOSE_PENDING', closeDate: '2026-11-15', status: 'NOT_CLOSED' },
+    });
+    await expect(alerts.queue(crypto.randomUUID(), '2026-11-16')).rejects.toMatchObject({
+      code: 'DAY_CLOSE_WINDOW_ACTIVE',
+    });
+    await resources()
+      .get('writer')
+      .update(StoreDayClose)
+      .set({ close_date: '2026-11-15', status: 'CLOSED' });
+    expect(await alerts.queue(crypto.randomUUID())).toMatchObject({
+      pending: 0,
+      delivery: 'not-required',
+    });
+    expect(await alerts.queue(commandId)).toEqual(results[0]);
+    expect(await resources().get('writer').select().from(fulfillmentEffects)).toHaveLength(1);
+  });
+  it('denies elevated revision permission from a stale principal when the writer role is lower', async () => {
+    const cfg = readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'authoritative-close-role-'.repeat(3),
+      }),
+      service = financeService(cfg, resources(), clock, { assertCheckIn: async () => {} }),
+      entries = closeEntriesSchema.parse({
+        cash_actual: '0',
+        cash_manual_punched: '0',
+        cash_manual_created: '0',
+        card_actual: '0',
+        card_manual_punched: '0',
+        card_manual_created: '0',
+        banking_amount: '0',
+      });
+    await expect(
+      service.close({ ...user, role: 1 }, '1', '2026-11-15', crypto.randomUUID(), 2, entries),
+    ).rejects.toMatchObject({ code: 'DAY_CLOSE_NOT_ALLOWED' });
+    await admin!.query("INSERT INTO stores VALUES(2,'Fixture franchise',1,'STORE','FRANCHISE')");
+    const franchiseUser = { ...user, storeIds: ['2'] };
+    const mixed = financeService(
+        { ...cfg, DAY_CLOSE_ENABLED_STORE_IDS: 'ALL,COCO' },
+        resources(),
+        clock,
+        { assertCheckIn: async () => {} },
+      ),
+      all = financeService({ ...cfg, DAY_CLOSE_ENABLED_STORE_IDS: ' all ' }, resources(), clock, {
+        assertCheckIn: async () => {},
+      });
+    expect((await mixed.state(franchiseUser, '2', '2026-11-16')).window.allowed).toBe(false);
+    expect((await all.state(franchiseUser, '2', '2026-11-16')).window.allowed).toBe(true);
+  });
+});

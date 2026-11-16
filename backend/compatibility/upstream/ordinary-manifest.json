@@ -1,0 +1,9 @@
+{
+  "contract": "pos-checkout-projection-v1",
+  "sourceCommit": "434f3e438d1cb48c64e5723222c6efda506db571",
+  "sha256": "1dfcc98cc71f0ff290b0b12de1c6830758f735eab27bec99f8e7a17aa4002e6a",
+  "patch": "patches/payments-pos-checkout.patch",
+  "postcommitMigration": "ordinary/migration.sql",
+  "customerConsentContract": "pos-customer-contact-consent-v1",
+  "customerConsentMigration": "ordinary/customer-consent-migration.sql"
+}

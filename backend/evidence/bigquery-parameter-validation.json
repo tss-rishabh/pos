@@ -1,0 +1,26 @@
+{
+  "checkedAt": "2026-11-16T15:54:03.118Z",
+  "project": "tssgcp2025",
+  "location": "asia-south1",
+  "scope": "shared-warehouse-generated-literal-select-only",
+  "sourceRowsRead": false,
+  "passed": true,
+  "failureCode": null,
+  "failedFields": [],
+  "fields": 7,
+  "configuredMaximumBytesBilled": 1048576,
+  "statementSha256": "6bdf18e002d29a346c21e296a0d3dcdc3eaaae240a4fa33de5f7639615ed7101",
+  "normalizerSha256": "c9ae7883e0bd39e7f5b4a575efcbeae196ae567c0520640dd5d50a98c834a4bf",
+  "warehouseSha256": "09a8589c3ed3a909543ed83b5f85786f846e4d5dfec78b8bf6c5fd29339c398e",
+  "types": {
+    "day": "DATE",
+    "moment": "DATETIME",
+    "clock": "TIME",
+    "instant": "TIMESTAMP",
+    "days": [
+      "DATE"
+    ],
+    "missing": "DATE",
+    "location": "GEOGRAPHY"
+  }
+}

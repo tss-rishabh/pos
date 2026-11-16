@@ -1,0 +1,802 @@
+{
+  "checkedAt": "2026-11-16T09:33:20.404Z",
+  "schema": "tss",
+  "tables": {
+    "stores": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "store_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "short_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": ""
+      },
+      {
+        "name": "type",
+        "type": "enum('STORE','WAREHOUSE','CORE_WAREHOUSE','BUBBLE_STORE')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "STORE"
+      },
+      {
+        "name": "category",
+        "type": "enum('IN_HOUSE','FRANCHISE')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "IN_HOUSE"
+      },
+      {
+        "name": "franchise_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "location_code",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "latitude",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "longitude",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "alt_address",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "city_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "country_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "phone",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "store_image",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "pincode",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "per_day_threshold",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "per_hour_threshold",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "opening_time",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "10:00:00"
+      },
+      {
+        "name": "closing_time",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "22:00:00"
+      },
+      {
+        "name": "delivery_type",
+        "type": "enum('same_day','standard')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "standard"
+      },
+      {
+        "name": "ecom_delivery",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "ecom_threshold",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "local_feed",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "local_feed_code",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "gst_arn",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": ""
+      },
+      {
+        "name": "gstin",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "slack_group_url",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "city_name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "state_name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "state_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "priority",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "pos_user": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "password",
+        "type": "varchar(128)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "last_login",
+        "type": "timestamp",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_superuser",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "username",
+        "type": "varchar(150)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(150)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(150)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_staff",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "date_joined",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "role",
+        "type": "smallint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "gender",
+        "type": "char(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "age",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "phone",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "UNI",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(254)",
+        "nullable": true,
+        "key": "UNI",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_mfa",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "mfa_hash",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "profile_image",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": "uploads/users/profile_image/default_profile_image.png"
+      },
+      {
+        "name": "cover_image",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": "uploads/users/cover_image/default_cover_image.png"
+      },
+      {
+        "name": "contact_email",
+        "type": "varchar(254)",
+        "nullable": true,
+        "key": "UNI",
+        "extra": "",
+        "collation": "utf8mb4_general_ci",
+        "default": null
+      },
+      {
+        "name": "otp_method",
+        "type": "smallint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "2"
+      },
+      {
+        "name": "user_type",
+        "type": "smallint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      }
+    ],
+    "auth_user": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "password",
+        "type": "varchar(128)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "last_login",
+        "type": "datetime(6)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_superuser",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "username",
+        "type": "varchar(150)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(30)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(150)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(254)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_staff",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "date_joined",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ]
+  },
+  "indexes": {
+    "stores": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "store_name_unique",
+        "column": "store_name",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "phone_unique",
+        "column": "phone",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "store_name",
+        "column": "store_name",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "phone",
+        "column": "phone",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "email",
+        "column": "email",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "location_code",
+        "column": "location_code",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "opening_time",
+        "column": "opening_time",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "closing_time",
+        "column": "closing_time",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "delivery_type",
+        "column": "delivery_type",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "type",
+        "column": "type",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "ecom_delivery",
+        "column": "ecom_delivery",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "ecom_threshold",
+        "column": "ecom_threshold",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_category",
+        "column": "category",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_franchise_id",
+        "column": "franchise_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "pos_user": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "username",
+        "column": "username",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "phone",
+        "column": "phone",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "email",
+        "column": "email",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "contact_email",
+        "column": "contact_email",
+        "position": 1,
+        "unique": true
+      }
+    ],
+    "auth_user": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "username",
+        "column": "username",
+        "position": 1,
+        "unique": true
+      }
+    ]
+  },
+  "foreignKeys": {
+    "stores": [],
+    "pos_user": [],
+    "auth_user": []
+  },
+  "inboundForeignKeys": [
+    {
+      "schema_name": "tss",
+      "table_name": "django_admin_log",
+      "name": "django_admin_log_user_id_c564eba6_fk_auth_user_id",
+      "column_name": "user_id",
+      "position": 1,
+      "referenced_schema": "tss",
+      "referenced_table": "auth_user",
+      "referenced_column": "id",
+      "update_rule": "RESTRICT",
+      "delete_rule": "RESTRICT"
+    }
+  ],
+  "locations": [
+    {
+      "schema_name": "mobile_cms",
+      "table_name": "auth_group"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "auth_user"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "pos_user"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "stores"
+    }
+  ],
+  "errors": [
+    {
+      "table": "auth_group",
+      "code": "ER_NO_SUCH_TABLE"
+    }
+  ]
+}

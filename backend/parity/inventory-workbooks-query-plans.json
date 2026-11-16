@@ -1,0 +1,1393 @@
+{
+  "fixtureOnly": true,
+  "sourceMetadata": "evidence/mysql-inventory-workbooks-schema.json",
+  "metadataSha256": "d367250d41094c2a8ba203bb7e6d812d9d38ceb2b4aae06d6e6d5896f7f2ae7b",
+  "mysqlVersion": "8.4.11",
+  "products": 5001,
+  "targetStoreCandidateRows": 250,
+  "responseIdentical": true,
+  "candidate": "CREATE INDEX idx_workbook_store_deleted_product ON product_store(store_id,is_del,product_id)",
+  "before": {
+    "candidate": {
+      "sql": "SELECT CAST(p.id AS CHAR) AS id FROM products p JOIN product_store ps ON ps.product_id=p.id\n    WHERE p.prod_type IN (1,4,5) AND ps.is_del=0 AND ps.store_id=CAST(? AS SIGNED)\n      AND ps.product_id>CAST(? AS SIGNED) ORDER BY ps.product_id LIMIT ?",
+      "parameterCount": 3,
+      "sha256": "133fbb8790c2f74bbd1baab677047ded7d9ce6e2b6e1e06dcf364920b19e4892",
+      "plan": {
+        "query_block": {
+          "select_id": 1,
+          "cost_info": {
+            "query_cost": "451.13"
+          },
+          "ordering_operation": {
+            "using_filesort": false,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "ps",
+                  "access_type": "index",
+                  "possible_keys": [
+                    "uq_product_store",
+                    "product_id",
+                    "store_id",
+                    "is_del",
+                    "idx_store_id_stock_is_avail_is_del",
+                    "idx_store_id_product_id_is_del",
+                    "idx_product_id_stock"
+                  ],
+                  "key": "uq_product_store",
+                  "used_key_parts": [
+                    "product_id",
+                    "store_id"
+                  ],
+                  "key_length": "16",
+                  "rows_examined_per_scan": 1249,
+                  "rows_produced_per_join": 1000,
+                  "filtered": "20.01",
+                  "cost_info": {
+                    "read_cost": "0.75",
+                    "eval_cost": "100.08",
+                    "prefix_cost": "100.85",
+                    "data_read_per_join": "31K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "product_id",
+                    "store_id",
+                    "is_del"
+                  ],
+                  "attached_condition": "((`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`store_id` = 1) and (`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`is_del` = 0) and (`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`product_id` > 100000))"
+                }
+              },
+              {
+                "table": {
+                  "table_name": "p",
+                  "access_type": "eq_ref",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "prod_type",
+                    "idx_id_is_avail_is_del"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "pos_rewrite_workbook_1e2c282b63f8.ps.product_id"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 1000,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "250.20",
+                    "eval_cost": "100.08",
+                    "prefix_cost": "451.13",
+                    "data_read_per_join": "22M"
+                  },
+                  "used_columns": [
+                    "id",
+                    "prod_type"
+                  ],
+                  "attached_condition": "((`pos_rewrite_workbook_1e2c282b63f8`.`p`.`prod_type` in (1,4,5)) and (`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`product_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`))"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "rows": {
+      "sql": "SELECT CAST(p.id AS CHAR) AS id,s.store_name,CAST(pap.id AS CHAR) AS parent_id,\n    CAST(p.id AS CHAR) AS child_id,pap.product,pap.erp_product,c.category,ps.stock AS inventory,\n    (SELECT MIN(ho.attr_val) FROM has_options ho WHERE ho.prod_id=p.id) AS variant,\n    CAST((SELECT MIN(pg.gtin) FROM products_gs1 pg WHERE pg.product_id=p.id) AS CHAR) AS gtin,\n    CAST((SELECT COUNT(DISTINCT CAST(ho.attr_val AS BINARY)) FROM has_options ho WHERE ho.prod_id=p.id) AS CHAR) AS variant_count,\n    CAST((SELECT COUNT(DISTINCT pg.gtin) FROM products_gs1 pg WHERE pg.product_id=p.id) AS CHAR) AS gtin_count,\n    CAST((SELECT COUNT(DISTINCT CAST(cc.category AS BINARY))+COALESCE(MAX(cc.category IS NULL),0)\n      FROM has_categories hc LEFT JOIN categories cc ON cc.id=hc.cat_id\n      WHERE hc.prod_id=pap.id AND hc.cat_id NOT IN (162,148) AND CASE WHEN hc.cat_id=153 THEN FIELD(153,hc.cat_id) ELSE hc.id END=(SELECT MIN(CASE WHEN ranking.cat_id=153 THEN FIELD(153,ranking.cat_id) ELSE ranking.id END)\n  FROM has_categories ranking WHERE ranking.prod_id=pap.id AND ranking.cat_id NOT IN (162,148))) AS CHAR) AS category_count\n    FROM products p JOIN products pap ON pap.id=CASE WHEN p.parent_prod_id>0 THEN p.parent_prod_id ELSE p.id END\n    JOIN product_store ps ON ps.product_id=p.id AND ps.store_id=CAST(? AS SIGNED) AND ps.is_del=0\n    JOIN stores s ON s.id=ps.store_id JOIN users_artists ua ON ua.id=pap.added_by\n    LEFT JOIN categories c ON c.id=(SELECT hc.cat_id FROM has_categories hc\n      WHERE hc.prod_id=pap.id AND hc.cat_id NOT IN (162,148) ORDER BY CASE WHEN hc.cat_id=153 THEN FIELD(153,hc.cat_id) ELSE hc.id END LIMIT 1)\n    WHERE p.prod_type IN (1,4,5) AND p.id IN (CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED))\n      AND EXISTS(SELECT 1 FROM product_store paps WHERE paps.product_id=pap.id AND paps.is_del=0)\n    ORDER BY p.id",
+      "parameterCount": 251,
+      "sha256": "7929311898db25e6498379e07150223d7c3e098146f49a9df8a7204fd9c5f4e2",
+      "plan": {
+        "query_block": {
+          "select_id": 1,
+          "cost_info": {
+            "query_cost": "1213.81"
+          },
+          "ordering_operation": {
+            "using_temporary_table": true,
+            "using_filesort": true,
+            "cost_info": {
+              "sort_cost": "75.00"
+            },
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "s",
+                  "access_type": "const",
+                  "possible_keys": [
+                    "PRIMARY"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "const"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 1,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "0.00",
+                    "eval_cost": "0.10",
+                    "prefix_cost": "0.00",
+                    "data_read_per_join": "2K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "store_name"
+                  ]
+                }
+              },
+              {
+                "table": {
+                  "table_name": "ua",
+                  "access_type": "index",
+                  "possible_keys": [
+                    "PRIMARY"
+                  ],
+                  "key": "is_merch",
+                  "used_key_parts": [
+                    "is_merch"
+                  ],
+                  "key_length": "1",
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 1,
+                  "filtered": "100.00",
+                  "using_index": true,
+                  "cost_info": {
+                    "read_cost": "0.25",
+                    "eval_cost": "0.10",
+                    "prefix_cost": "0.35",
+                    "data_read_per_join": "9K"
+                  },
+                  "used_columns": [
+                    "id"
+                  ]
+                }
+              },
+              {
+                "table": {
+                  "table_name": "p",
+                  "access_type": "range",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "prod_type",
+                    "idx_id_is_avail_is_del"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "rows_examined_per_scan": 250,
+                  "rows_produced_per_join": 74,
+                  "filtered": "30.00",
+                  "using_join_buffer": "hash join",
+                  "cost_info": {
+                    "read_cost": "42.76",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "50.61",
+                    "data_read_per_join": "1M"
+                  },
+                  "used_columns": [
+                    "id",
+                    "prod_type",
+                    "parent_prod_id"
+                  ],
+                  "attached_condition": "(((`pos_rewrite_workbook_1e2c282b63f8`.`p`.`prod_type` in (1,4,5)) and (`pos_rewrite_workbook_1e2c282b63f8`.`p`.`id` in (<cache>(cast('100005' as unsigned)),<cache>(cast('100010' as unsigned)),<cache>(cast('100015' as unsigned)),<cache>(cast('100020' as unsigned)),<cache>(cast('100025' as unsigned)),<cache>(cast('100030' as unsigned)),<cache>(cast('100035' as unsigned)),<cache>(cast('100040' as unsigned)),<cache>(cast('100045' as unsigned)),<cache>(cast('100050' as unsigned)),<cache>(cast('100055' as unsigned)),<cache>(cast('100060' as unsigned)),<cache>(cast('100065' as unsigned)),<cache>(cast('100070' as unsigned)),<cache>(cast('100075' as unsigned)),<cache>(cast('100080' as unsigned)),<cache>(cast('100085' as unsigned)),<cache>(cast('100090' as unsigned)),<cache>(cast('100095' as unsigned)),<cache>(cast('100100' as unsigned)),<cache>(cast('100105' as unsigned)),<cache>(cast('100110' as unsigned)),<cache>(cast('100115' as unsigned)),<cache>(cast('100120' as unsigned)),<cache>(cast('100125' as unsigned)),<cache>(cast('100130' as unsigned)),<cache>(cast('100135' as unsigned)),<cache>(cast('100140' as unsigned)),<cache>(cast('100145' as unsigned)),<cache>(cast('100150' as unsigned)),<cache>(cast('100155' as unsigned)),<cache>(cast('100160' as unsigned)),<cache>(cast('100165' as unsigned)),<cache>(cast('100170' as unsigned)),<cache>(cast('100175' as unsigned)),<cache>(cast('100180' as unsigned)),<cache>(cast('100185' as unsigned)),<cache>(cast('100190' as unsigned)),<cache>(cast('100195' as unsigned)),<cache>(cast('100200' as unsigned)),<cache>(cast('100205' as unsigned)),<cache>(cast('100210' as unsigned)),<cache>(cast('100215' as unsigned)),<cache>(cast('100220' as unsigned)),<cache>(cast('100225' as unsigned)),<cache>(cast('100230' as unsigned)),<cache>(cast('100235' as unsigned)),<cache>(cast('100240' as unsigned)),<cache>(cast('100245' as unsigned)),<cache>(cast('100250' as unsigned)),<cache>(cast('100255' as unsigned)),<cache>(cast('100260' as unsigned)),<cache>(cast('100265' as unsigned)),<cache>(cast('100270' as unsigned)),<cache>(cast('100275' as unsigned)),<cache>(cast('100280' as unsigned)),<cache>(cast('100285' as unsigned)),<cache>(cast('100290' as unsigned)),<cache>(cast('100295' as unsigned)),<cache>(cast('100300' as unsigned)),<cache>(cast('100305' as unsigned)),<cache>(cast('100310' as unsigned)),<cache>(cast('100315' as unsigned)),<cache>(cast('100320' as unsigned)),<cache>(cast('100325' as unsigned)),<cache>(cast('100330' as unsigned)),<cache>(cast('100335' as unsigned)),<cache>(cast('100340' as unsigned)),<cache>(cast('100345' as unsigned)),<cache>(cast('100350' as unsigned)),<cache>(cast('100355' as unsigned)),<cache>(cast('100360' as unsigned)),<cache>(cast('100365' as unsigned)),<cache>(cast('100370' as unsigned)),<cache>(cast('100375' as unsigned)),<cache>(cast('100380' as unsigned)),<cache>(cast('100385' as unsigned)),<cache>(cast('100390' as unsigned)),<cache>(cast('100395' as unsigned)),<cache>(cast('100400' as unsigned)),<cache>(cast('100405' as unsigned)),<cache>(cast('100410' as unsigned)),<cache>(cast('100415' as unsigned)),<cache>(cast('100420' as unsigned)),<cache>(cast('100425' as unsigned)),<cache>(cast('100430' as unsigned)),<cache>(cast('100435' as unsigned)),<cache>(cast('100440' as unsigned)),<cache>(cast('100445' as unsigned)),<cache>(cast('100450' as unsigned)),<cache>(cast('100455' as unsigned)),<cache>(cast('100460' as unsigned)),<cache>(cast('100465' as unsigned)),<cache>(cast('100470' as unsigned)),<cache>(cast('100475' as unsigned)),<cache>(cast('100480' as unsigned)),<cache>(cast('100485' as unsigned)),<cache>(cast('100490' as unsigned)),<cache>(cast('100495' as unsigned)),<cache>(cast('100500' as unsigned)),<cache>(cast('100505' as unsigned)),<cache>(cast('100510' as unsigned)),<cache>(cast('100515' as unsigned)),<cache>(cast('100520' as unsigned)),<cache>(cast('100525' as unsigned)),<cache>(cast('100530' as unsigned)),<cache>(cast('100535' as unsigned)),<cache>(cast('100540' as unsigned)),<cache>(cast('100545' as unsigned)),<cache>(cast('100550' as unsigned)),<cache>(cast('100555' as unsigned)),<cache>(cast('100560' as unsigned)),<cache>(cast('100565' as unsigned)),<cache>(cast('100570' as unsigned)),<cache>(cast('100575' as unsigned)),<cache>(cast('100580' as unsigned)),<cache>(cast('100585' as unsigned)),<cache>(cast('100590' as unsigned)),<cache>(cast('100595' as unsigned)),<cache>(cast('100600' as unsigned)),<cache>(cast('100605' as unsigned)),<cache>(cast('100610' as unsigned)),<cache>(cast('100615' as unsigned)),<cache>(cast('100620' as unsigned)),<cache>(cast('100625' as unsigned)),<cache>(cast('100630' as unsigned)),<cache>(cast('100635' as unsigned)),<cache>(cast('100640' as unsigned)),<cache>(cast('100645' as unsigned)),<cache>(cast('100650' as unsigned)),<cache>(cast('100655' as unsigned)),<cache>(cast('100660' as unsigned)),<cache>(cast('100665' as unsigned)),<cache>(cast('100670' as unsigned)),<cache>(cast('100675' as unsigned)),<cache>(cast('100680' as unsigned)),<cache>(cast('100685' as unsigned)),<cache>(cast('100690' as unsigned)),<cache>(cast('100695' as unsigned)),<cache>(cast('100700' as unsigned)),<cache>(cast('100705' as unsigned)),<cache>(cast('100710' as unsigned)),<cache>(cast('100715' as unsigned)),<cache>(cast('100720' as unsigned)),<cache>(cast('100725' as unsigned)),<cache>(cast('100730' as unsigned)),<cache>(cast('100735' as unsigned)),<cache>(cast('100740' as unsigned)),<cache>(cast('100745' as unsigned)),<cache>(cast('100750' as unsigned)),<cache>(cast('100755' as unsigned)),<cache>(cast('100760' as unsigned)),<cache>(cast('100765' as unsigned)),<cache>(cast('100770' as unsigned)),<cache>(cast('100775' as unsigned)),<cache>(cast('100780' as unsigned)),<cache>(cast('100785' as unsigned)),<cache>(cast('100790' as unsigned)),<cache>(cast('100795' as unsigned)),<cache>(cast('100800' as unsigned)),<cache>(cast('100805' as unsigned)),<cache>(cast('100810' as unsigned)),<cache>(cast('100815' as unsigned)),<cache>(cast('100820' as unsigned)),<cache>(cast('100825' as unsigned)),<cache>(cast('100830' as unsigned)),<cache>(cast('100835' as unsigned)),<cache>(cast('100840' as unsigned)),<cache>(cast('100845' as unsigned)),<cache>(cast('100850' as unsigned)),<cache>(cast('100855' as unsigned)),<cache>(cast('100860' as unsigned)),<cache>(cast('100865' as unsigned)),<cache>(cast('100870' as unsigned)),<cache>(cast('100875' as unsigned)),<cache>(cast('100880' as unsigned)),<cache>(cast('100885' as unsigned)),<cache>(cast('100890' as unsigned)),<cache>(cast('100895' as unsigned)),<cache>(cast('100900' as unsigned)),<cache>(cast('100905' as unsigned)),<cache>(cast('100910' as unsigned)),<cache>(cast('100915' as unsigned)),<cache>(cast('100920' as unsigned)),<cache>(cast('100925' as unsigned)),<cache>(cast('100930' as unsigned)),<cache>(cast('100935' as unsigned)),<cache>(cast('100940' as unsigned)),<cache>(cast('100945' as unsigned)),<cache>(cast('100950' as unsigned)),<cache>(cast('100955' as unsigned)),<cache>(cast('100960' as unsigned)),<cache>(cast('100965' as unsigned)),<cache>(cast('100970' as unsigned)),<cache>(cast('100975' as unsigned)),<cache>(cast('100980' as unsigned)),<cache>(cast('100985' as unsigned)),<cache>(cast('100990' as unsigned)),<cache>(cast('100995' as unsigned)),<cache>(cast('101000' as unsigned)),<cache>(cast('101005' as unsigned)),<cache>(cast('101010' as unsigned)),<cache>(cast('101015' as unsigned)),<cache>(cast('101020' as unsigned)),<cache>(cast('101025' as unsigned)),<cache>(cast('101030' as unsigned)),<cache>(cast('101035' as unsigned)),<cache>(cast('101040' as unsigned)),<cache>(cast('101045' as unsigned)),<cache>(cast('101050' as unsigned)),<cache>(cast('101055' as unsigned)),<cache>(cast('101060' as unsigned)),<cache>(cast('101065' as unsigned)),<cache>(cast('101070' as unsigned)),<cache>(cast('101075' as unsigned)),<cache>(cast('101080' as unsigned)),<cache>(cast('101085' as unsigned)),<cache>(cast('101090' as unsigned)),<cache>(cast('101095' as unsigned)),<cache>(cast('101100' as unsigned)),<cache>(cast('101105' as unsigned)),<cache>(cast('101110' as unsigned)),<cache>(cast('101115' as unsigned)),<cache>(cast('101120' as unsigned)),<cache>(cast('101125' as unsigned)),<cache>(cast('101130' as unsigned)),<cache>(cast('101135' as unsigned)),<cache>(cast('101140' as unsigned)),<cache>(cast('101145' as unsigned)),<cache>(cast('101150' as unsigned)),<cache>(cast('101155' as unsigned)),<cache>(cast('101160' as unsigned)),<cache>(cast('101165' as unsigned)),<cache>(cast('101170' as unsigned)),<cache>(cast('101175' as unsigned)),<cache>(cast('101180' as unsigned)),<cache>(cast('101185' as unsigned)),<cache>(cast('101190' as unsigned)),<cache>(cast('101195' as unsigned)),<cache>(cast('101200' as unsigned)),<cache>(cast('101205' as unsigned)),<cache>(cast('101210' as unsigned)),<cache>(cast('101215' as unsigned)),<cache>(cast('101220' as unsigned)),<cache>(cast('101225' as unsigned)),<cache>(cast('101230' as unsigned)),<cache>(cast('101235' as unsigned)),<cache>(cast('101240' as unsigned)),<cache>(cast('101245' as unsigned)),<cache>(cast('101250' as unsigned))))) and (`pos_rewrite_workbook_1e2c282b63f8`.`p`.`id` is not null))"
+                }
+              },
+              {
+                "table": {
+                  "table_name": "ps",
+                  "access_type": "eq_ref",
+                  "possible_keys": [
+                    "uq_product_store",
+                    "product_id",
+                    "store_id",
+                    "is_del",
+                    "idx_store_id_stock_is_avail_is_del",
+                    "idx_store_id_product_id_is_del",
+                    "idx_product_id_stock"
+                  ],
+                  "key": "uq_product_store",
+                  "used_key_parts": [
+                    "product_id",
+                    "store_id"
+                  ],
+                  "key_length": "16",
+                  "ref": [
+                    "pos_rewrite_workbook_1e2c282b63f8.p.id",
+                    "const"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 74,
+                  "filtered": "100.00",
+                  "index_condition": "((`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`store_id` = 1) and (`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`product_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`))",
+                  "cost_info": {
+                    "read_cost": "18.75",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "76.86",
+                    "data_read_per_join": "2K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "product_id",
+                    "store_id",
+                    "stock",
+                    "is_del"
+                  ],
+                  "attached_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`is_del` = 0)"
+                }
+              },
+              {
+                "table": {
+                  "table_name": "pap",
+                  "access_type": "eq_ref",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "added_by",
+                    "idx_id_is_avail_is_del"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "func"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 74,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "18.75",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "103.11",
+                    "data_read_per_join": "1M"
+                  },
+                  "used_columns": [
+                    "id",
+                    "product",
+                    "added_by",
+                    "erp_product"
+                  ],
+                  "attached_condition": "(((`pos_rewrite_workbook_1e2c282b63f8`.`pap`.`added_by` = `pos_rewrite_workbook_1e2c282b63f8`.`ua`.`id`) and (`pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id` = (case when (`pos_rewrite_workbook_1e2c282b63f8`.`p`.`parent_prod_id` > 0) then `pos_rewrite_workbook_1e2c282b63f8`.`p`.`parent_prod_id` else `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id` end))) and (`pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id` is not null))"
+                }
+              },
+              {
+                "table": {
+                  "table_name": "c",
+                  "access_type": "eq_ref",
+                  "possible_keys": [
+                    "PRIMARY"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "func"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 74,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "18.75",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "129.36",
+                    "data_read_per_join": "737K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "category"
+                  ],
+                  "attached_condition": "<if>(is_not_null_compl(c), (`pos_rewrite_workbook_1e2c282b63f8`.`c`.`id` = (/* select#8 */ select `pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` from `pos_rewrite_workbook_1e2c282b63f8`.`has_categories` `hc` where ((`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`) and (`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` not in (162,148))) order by (case when (`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` = 153) then field(153,`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id`) else `pos_rewrite_workbook_1e2c282b63f8`.`hc`.`id` end) limit 1)), true)",
+                  "attached_subqueries": [
+                    {
+                      "dependent": true,
+                      "cacheable": false,
+                      "query_block": {
+                        "select_id": 8,
+                        "cost_info": {
+                          "query_cost": "0.35"
+                        },
+                        "ordering_operation": {
+                          "using_filesort": true,
+                          "table": {
+                            "table_name": "hc",
+                            "access_type": "ref",
+                            "possible_keys": [
+                              "cat_id",
+                              "prod_id",
+                              "idx_has_categories_prod_id_cat_id",
+                              "idx_has_categories_prod_cat"
+                            ],
+                            "key": "prod_id",
+                            "used_key_parts": [
+                              "prod_id"
+                            ],
+                            "key_length": "8",
+                            "ref": [
+                              "pos_rewrite_workbook_1e2c282b63f8.pap.id"
+                            ],
+                            "rows_examined_per_scan": 1,
+                            "rows_produced_per_join": 1,
+                            "filtered": "100.00",
+                            "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`)",
+                            "cost_info": {
+                              "read_cost": "0.25",
+                              "eval_cost": "0.10",
+                              "prefix_cost": "0.35",
+                              "data_read_per_join": "32"
+                            },
+                            "used_columns": [
+                              "id",
+                              "cat_id",
+                              "prod_id"
+                            ],
+                            "attached_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` not in (162,148))"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "table": {
+                  "table_name": "<subquery9>",
+                  "access_type": "eq_ref",
+                  "key": "<auto_distinct_key>",
+                  "key_length": "8",
+                  "ref": [
+                    "pos_rewrite_workbook_1e2c282b63f8.pap.id"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "attached_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id` = `<subquery9>`.`product_id`)",
+                  "materialized_from_subquery": {
+                    "using_temporary_table": true,
+                    "query_block": {
+                      "table": {
+                        "table_name": "paps",
+                        "access_type": "ref",
+                        "possible_keys": [
+                          "uq_product_store",
+                          "product_id",
+                          "is_del",
+                          "idx_store_id_product_id_is_del",
+                          "idx_product_id_stock"
+                        ],
+                        "key": "is_del",
+                        "used_key_parts": [
+                          "is_del"
+                        ],
+                        "key_length": "1",
+                        "ref": [
+                          "const"
+                        ],
+                        "rows_examined_per_scan": 5001,
+                        "rows_produced_per_join": 5001,
+                        "filtered": "100.00",
+                        "cost_info": {
+                          "read_cost": "0.75",
+                          "eval_cost": "500.10",
+                          "prefix_cost": "500.85",
+                          "data_read_per_join": "156K"
+                        },
+                        "used_columns": [
+                          "id",
+                          "product_id",
+                          "is_del"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            ],
+            "select_list_subqueries": [
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 6,
+                  "cost_info": {
+                    "query_cost": "0.70"
+                  },
+                  "nested_loop": [
+                    {
+                      "table": {
+                        "table_name": "hc",
+                        "access_type": "ref",
+                        "possible_keys": [
+                          "cat_id",
+                          "prod_id",
+                          "idx_has_categories_prod_id_cat_id",
+                          "idx_has_categories_prod_cat"
+                        ],
+                        "key": "prod_id",
+                        "used_key_parts": [
+                          "prod_id"
+                        ],
+                        "key_length": "8",
+                        "ref": [
+                          "pos_rewrite_workbook_1e2c282b63f8.pap.id"
+                        ],
+                        "rows_examined_per_scan": 1,
+                        "rows_produced_per_join": 1,
+                        "filtered": "100.00",
+                        "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`)",
+                        "cost_info": {
+                          "read_cost": "0.25",
+                          "eval_cost": "0.10",
+                          "prefix_cost": "0.35",
+                          "data_read_per_join": "32"
+                        },
+                        "used_columns": [
+                          "id",
+                          "cat_id",
+                          "prod_id"
+                        ],
+                        "attached_condition": "((`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` not in (162,148)) and ((case when (`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` = 153) then field(153,`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id`) else `pos_rewrite_workbook_1e2c282b63f8`.`hc`.`id` end) = (/* select#7 */ select min((case when (`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`cat_id` = 153) then field(153,`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`cat_id`) else `pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`id` end)) from `pos_rewrite_workbook_1e2c282b63f8`.`has_categories` `ranking` where ((`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`) and (`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`cat_id` not in (162,148))))))",
+                        "attached_subqueries": [
+                          {
+                            "dependent": true,
+                            "cacheable": false,
+                            "query_block": {
+                              "select_id": 7,
+                              "cost_info": {
+                                "query_cost": "0.35"
+                              },
+                              "table": {
+                                "table_name": "ranking",
+                                "access_type": "ref",
+                                "possible_keys": [
+                                  "cat_id",
+                                  "prod_id",
+                                  "idx_has_categories_prod_id_cat_id",
+                                  "idx_has_categories_prod_cat"
+                                ],
+                                "key": "prod_id",
+                                "used_key_parts": [
+                                  "prod_id"
+                                ],
+                                "key_length": "8",
+                                "ref": [
+                                  "pos_rewrite_workbook_1e2c282b63f8.pap.id"
+                                ],
+                                "rows_examined_per_scan": 1,
+                                "rows_produced_per_join": 1,
+                                "filtered": "100.00",
+                                "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`)",
+                                "cost_info": {
+                                  "read_cost": "0.25",
+                                  "eval_cost": "0.10",
+                                  "prefix_cost": "0.35",
+                                  "data_read_per_join": "32"
+                                },
+                                "used_columns": [
+                                  "id",
+                                  "cat_id",
+                                  "prod_id"
+                                ],
+                                "attached_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`cat_id` not in (162,148))"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "table": {
+                        "table_name": "cc",
+                        "access_type": "eq_ref",
+                        "possible_keys": [
+                          "PRIMARY"
+                        ],
+                        "key": "PRIMARY",
+                        "used_key_parts": [
+                          "id"
+                        ],
+                        "key_length": "8",
+                        "ref": [
+                          "pos_rewrite_workbook_1e2c282b63f8.hc.cat_id"
+                        ],
+                        "rows_examined_per_scan": 1,
+                        "rows_produced_per_join": 1,
+                        "filtered": "100.00",
+                        "cost_info": {
+                          "read_cost": "0.25",
+                          "eval_cost": "0.10",
+                          "prefix_cost": "0.70",
+                          "data_read_per_join": "9K"
+                        },
+                        "used_columns": [
+                          "id",
+                          "category"
+                        ],
+                        "attached_condition": "<if>(is_not_null_compl(cc), (`pos_rewrite_workbook_1e2c282b63f8`.`cc`.`id` = `pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id`), true)"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 5,
+                  "cost_info": {
+                    "query_cost": "0.35"
+                  },
+                  "table": {
+                    "table_name": "pg",
+                    "access_type": "ref",
+                    "possible_keys": [
+                      "product_id",
+                      "gtin"
+                    ],
+                    "key": "product_id",
+                    "used_key_parts": [
+                      "product_id"
+                    ],
+                    "key_length": "8",
+                    "ref": [
+                      "pos_rewrite_workbook_1e2c282b63f8.p.id"
+                    ],
+                    "rows_examined_per_scan": 1,
+                    "rows_produced_per_join": 1,
+                    "filtered": "100.00",
+                    "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`pg`.`product_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`)",
+                    "cost_info": {
+                      "read_cost": "0.25",
+                      "eval_cost": "0.10",
+                      "prefix_cost": "0.35",
+                      "data_read_per_join": "40"
+                    },
+                    "used_columns": [
+                      "product_id",
+                      "gtin"
+                    ]
+                  }
+                }
+              },
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 4,
+                  "cost_info": {
+                    "query_cost": "0.35"
+                  },
+                  "table": {
+                    "table_name": "ho",
+                    "access_type": "ref",
+                    "possible_keys": [
+                      "prod_id",
+                      "idx_prod_id_attr"
+                    ],
+                    "key": "prod_id",
+                    "used_key_parts": [
+                      "prod_id"
+                    ],
+                    "key_length": "8",
+                    "ref": [
+                      "pos_rewrite_workbook_1e2c282b63f8.p.id"
+                    ],
+                    "rows_examined_per_scan": 1,
+                    "rows_produced_per_join": 1,
+                    "filtered": "100.00",
+                    "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ho`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`)",
+                    "cost_info": {
+                      "read_cost": "0.25",
+                      "eval_cost": "0.10",
+                      "prefix_cost": "0.35",
+                      "data_read_per_join": "40"
+                    },
+                    "used_columns": [
+                      "prod_id",
+                      "attr_val"
+                    ]
+                  }
+                }
+              },
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 3,
+                  "cost_info": {
+                    "query_cost": "0.35"
+                  },
+                  "table": {
+                    "table_name": "pg",
+                    "access_type": "ref",
+                    "possible_keys": [
+                      "product_id"
+                    ],
+                    "key": "product_id",
+                    "used_key_parts": [
+                      "product_id"
+                    ],
+                    "key_length": "8",
+                    "ref": [
+                      "pos_rewrite_workbook_1e2c282b63f8.p.id"
+                    ],
+                    "rows_examined_per_scan": 1,
+                    "rows_produced_per_join": 1,
+                    "filtered": "100.00",
+                    "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`pg`.`product_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`)",
+                    "cost_info": {
+                      "read_cost": "0.25",
+                      "eval_cost": "0.10",
+                      "prefix_cost": "0.35",
+                      "data_read_per_join": "40"
+                    },
+                    "used_columns": [
+                      "product_id",
+                      "gtin"
+                    ]
+                  }
+                }
+              },
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 2,
+                  "cost_info": {
+                    "query_cost": "0.35"
+                  },
+                  "table": {
+                    "table_name": "ho",
+                    "access_type": "ref",
+                    "possible_keys": [
+                      "prod_id",
+                      "idx_prod_id_attr"
+                    ],
+                    "key": "prod_id",
+                    "used_key_parts": [
+                      "prod_id"
+                    ],
+                    "key_length": "8",
+                    "ref": [
+                      "pos_rewrite_workbook_1e2c282b63f8.p.id"
+                    ],
+                    "rows_examined_per_scan": 1,
+                    "rows_produced_per_join": 1,
+                    "filtered": "100.00",
+                    "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ho`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`)",
+                    "cost_info": {
+                      "read_cost": "0.25",
+                      "eval_cost": "0.10",
+                      "prefix_cost": "0.35",
+                      "data_read_per_join": "40"
+                    },
+                    "used_columns": [
+                      "prod_id",
+                      "attr_val"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  },
+  "after": {
+    "candidate": {
+      "sql": "SELECT CAST(p.id AS CHAR) AS id FROM products p JOIN product_store ps ON ps.product_id=p.id\n    WHERE p.prod_type IN (1,4,5) AND ps.is_del=0 AND ps.store_id=CAST(? AS SIGNED)\n      AND ps.product_id>CAST(? AS SIGNED) ORDER BY ps.product_id LIMIT ?",
+      "parameterCount": 3,
+      "sha256": "133fbb8790c2f74bbd1baab677047ded7d9ce6e2b6e1e06dcf364920b19e4892",
+      "plan": {
+        "query_block": {
+          "select_id": 1,
+          "cost_info": {
+            "query_cost": "463.88"
+          },
+          "ordering_operation": {
+            "using_filesort": false,
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "ps",
+                  "access_type": "range",
+                  "possible_keys": [
+                    "uq_product_store",
+                    "product_id",
+                    "store_id",
+                    "is_del",
+                    "idx_store_id_stock_is_avail_is_del",
+                    "idx_store_id_product_id_is_del",
+                    "idx_product_id_stock",
+                    "idx_workbook_store_deleted_product"
+                  ],
+                  "key": "idx_workbook_store_deleted_product",
+                  "used_key_parts": [
+                    "store_id",
+                    "is_del",
+                    "product_id"
+                  ],
+                  "key_length": "17",
+                  "rows_examined_per_scan": 1000,
+                  "rows_produced_per_join": 1000,
+                  "filtered": "100.00",
+                  "using_index": true,
+                  "cost_info": {
+                    "read_cost": "13.50",
+                    "eval_cost": "100.08",
+                    "prefix_cost": "113.60",
+                    "data_read_per_join": "31K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "product_id",
+                    "store_id",
+                    "is_del"
+                  ],
+                  "attached_condition": "((`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`store_id` = 1) and (`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`is_del` = 0) and (`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`product_id` > 100000))"
+                }
+              },
+              {
+                "table": {
+                  "table_name": "p",
+                  "access_type": "eq_ref",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "prod_type",
+                    "idx_id_is_avail_is_del"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "pos_rewrite_workbook_1e2c282b63f8.ps.product_id"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 1000,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "250.20",
+                    "eval_cost": "100.08",
+                    "prefix_cost": "463.88",
+                    "data_read_per_join": "22M"
+                  },
+                  "used_columns": [
+                    "id",
+                    "prod_type"
+                  ],
+                  "attached_condition": "((`pos_rewrite_workbook_1e2c282b63f8`.`p`.`prod_type` in (1,4,5)) and (`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`product_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`))"
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "rows": {
+      "sql": "SELECT CAST(p.id AS CHAR) AS id,s.store_name,CAST(pap.id AS CHAR) AS parent_id,\n    CAST(p.id AS CHAR) AS child_id,pap.product,pap.erp_product,c.category,ps.stock AS inventory,\n    (SELECT MIN(ho.attr_val) FROM has_options ho WHERE ho.prod_id=p.id) AS variant,\n    CAST((SELECT MIN(pg.gtin) FROM products_gs1 pg WHERE pg.product_id=p.id) AS CHAR) AS gtin,\n    CAST((SELECT COUNT(DISTINCT CAST(ho.attr_val AS BINARY)) FROM has_options ho WHERE ho.prod_id=p.id) AS CHAR) AS variant_count,\n    CAST((SELECT COUNT(DISTINCT pg.gtin) FROM products_gs1 pg WHERE pg.product_id=p.id) AS CHAR) AS gtin_count,\n    CAST((SELECT COUNT(DISTINCT CAST(cc.category AS BINARY))+COALESCE(MAX(cc.category IS NULL),0)\n      FROM has_categories hc LEFT JOIN categories cc ON cc.id=hc.cat_id\n      WHERE hc.prod_id=pap.id AND hc.cat_id NOT IN (162,148) AND CASE WHEN hc.cat_id=153 THEN FIELD(153,hc.cat_id) ELSE hc.id END=(SELECT MIN(CASE WHEN ranking.cat_id=153 THEN FIELD(153,ranking.cat_id) ELSE ranking.id END)\n  FROM has_categories ranking WHERE ranking.prod_id=pap.id AND ranking.cat_id NOT IN (162,148))) AS CHAR) AS category_count\n    FROM products p JOIN products pap ON pap.id=CASE WHEN p.parent_prod_id>0 THEN p.parent_prod_id ELSE p.id END\n    JOIN product_store ps ON ps.product_id=p.id AND ps.store_id=CAST(? AS SIGNED) AND ps.is_del=0\n    JOIN stores s ON s.id=ps.store_id JOIN users_artists ua ON ua.id=pap.added_by\n    LEFT JOIN categories c ON c.id=(SELECT hc.cat_id FROM has_categories hc\n      WHERE hc.prod_id=pap.id AND hc.cat_id NOT IN (162,148) ORDER BY CASE WHEN hc.cat_id=153 THEN FIELD(153,hc.cat_id) ELSE hc.id END LIMIT 1)\n    WHERE p.prod_type IN (1,4,5) AND p.id IN (CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED),CAST(? AS UNSIGNED))\n      AND EXISTS(SELECT 1 FROM product_store paps WHERE paps.product_id=pap.id AND paps.is_del=0)\n    ORDER BY p.id",
+      "parameterCount": 251,
+      "sha256": "7929311898db25e6498379e07150223d7c3e098146f49a9df8a7204fd9c5f4e2",
+      "plan": {
+        "query_block": {
+          "select_id": 1,
+          "cost_info": {
+            "query_cost": "294.11"
+          },
+          "ordering_operation": {
+            "using_temporary_table": true,
+            "using_filesort": true,
+            "cost_info": {
+              "sort_cost": "75.00"
+            },
+            "nested_loop": [
+              {
+                "table": {
+                  "table_name": "s",
+                  "access_type": "const",
+                  "possible_keys": [
+                    "PRIMARY"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "const"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 1,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "0.00",
+                    "eval_cost": "0.10",
+                    "prefix_cost": "0.00",
+                    "data_read_per_join": "2K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "store_name"
+                  ]
+                }
+              },
+              {
+                "table": {
+                  "table_name": "ua",
+                  "access_type": "index",
+                  "possible_keys": [
+                    "PRIMARY"
+                  ],
+                  "key": "is_merch",
+                  "used_key_parts": [
+                    "is_merch"
+                  ],
+                  "key_length": "1",
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 1,
+                  "filtered": "100.00",
+                  "using_index": true,
+                  "cost_info": {
+                    "read_cost": "0.25",
+                    "eval_cost": "0.10",
+                    "prefix_cost": "0.35",
+                    "data_read_per_join": "9K"
+                  },
+                  "used_columns": [
+                    "id"
+                  ]
+                }
+              },
+              {
+                "table": {
+                  "table_name": "p",
+                  "access_type": "range",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "prod_type",
+                    "idx_id_is_avail_is_del"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "rows_examined_per_scan": 250,
+                  "rows_produced_per_join": 74,
+                  "filtered": "30.00",
+                  "using_join_buffer": "hash join",
+                  "cost_info": {
+                    "read_cost": "106.26",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "114.11",
+                    "data_read_per_join": "1M"
+                  },
+                  "used_columns": [
+                    "id",
+                    "prod_type",
+                    "parent_prod_id"
+                  ],
+                  "attached_condition": "(((`pos_rewrite_workbook_1e2c282b63f8`.`p`.`prod_type` in (1,4,5)) and (`pos_rewrite_workbook_1e2c282b63f8`.`p`.`id` in (<cache>(cast('100005' as unsigned)),<cache>(cast('100010' as unsigned)),<cache>(cast('100015' as unsigned)),<cache>(cast('100020' as unsigned)),<cache>(cast('100025' as unsigned)),<cache>(cast('100030' as unsigned)),<cache>(cast('100035' as unsigned)),<cache>(cast('100040' as unsigned)),<cache>(cast('100045' as unsigned)),<cache>(cast('100050' as unsigned)),<cache>(cast('100055' as unsigned)),<cache>(cast('100060' as unsigned)),<cache>(cast('100065' as unsigned)),<cache>(cast('100070' as unsigned)),<cache>(cast('100075' as unsigned)),<cache>(cast('100080' as unsigned)),<cache>(cast('100085' as unsigned)),<cache>(cast('100090' as unsigned)),<cache>(cast('100095' as unsigned)),<cache>(cast('100100' as unsigned)),<cache>(cast('100105' as unsigned)),<cache>(cast('100110' as unsigned)),<cache>(cast('100115' as unsigned)),<cache>(cast('100120' as unsigned)),<cache>(cast('100125' as unsigned)),<cache>(cast('100130' as unsigned)),<cache>(cast('100135' as unsigned)),<cache>(cast('100140' as unsigned)),<cache>(cast('100145' as unsigned)),<cache>(cast('100150' as unsigned)),<cache>(cast('100155' as unsigned)),<cache>(cast('100160' as unsigned)),<cache>(cast('100165' as unsigned)),<cache>(cast('100170' as unsigned)),<cache>(cast('100175' as unsigned)),<cache>(cast('100180' as unsigned)),<cache>(cast('100185' as unsigned)),<cache>(cast('100190' as unsigned)),<cache>(cast('100195' as unsigned)),<cache>(cast('100200' as unsigned)),<cache>(cast('100205' as unsigned)),<cache>(cast('100210' as unsigned)),<cache>(cast('100215' as unsigned)),<cache>(cast('100220' as unsigned)),<cache>(cast('100225' as unsigned)),<cache>(cast('100230' as unsigned)),<cache>(cast('100235' as unsigned)),<cache>(cast('100240' as unsigned)),<cache>(cast('100245' as unsigned)),<cache>(cast('100250' as unsigned)),<cache>(cast('100255' as unsigned)),<cache>(cast('100260' as unsigned)),<cache>(cast('100265' as unsigned)),<cache>(cast('100270' as unsigned)),<cache>(cast('100275' as unsigned)),<cache>(cast('100280' as unsigned)),<cache>(cast('100285' as unsigned)),<cache>(cast('100290' as unsigned)),<cache>(cast('100295' as unsigned)),<cache>(cast('100300' as unsigned)),<cache>(cast('100305' as unsigned)),<cache>(cast('100310' as unsigned)),<cache>(cast('100315' as unsigned)),<cache>(cast('100320' as unsigned)),<cache>(cast('100325' as unsigned)),<cache>(cast('100330' as unsigned)),<cache>(cast('100335' as unsigned)),<cache>(cast('100340' as unsigned)),<cache>(cast('100345' as unsigned)),<cache>(cast('100350' as unsigned)),<cache>(cast('100355' as unsigned)),<cache>(cast('100360' as unsigned)),<cache>(cast('100365' as unsigned)),<cache>(cast('100370' as unsigned)),<cache>(cast('100375' as unsigned)),<cache>(cast('100380' as unsigned)),<cache>(cast('100385' as unsigned)),<cache>(cast('100390' as unsigned)),<cache>(cast('100395' as unsigned)),<cache>(cast('100400' as unsigned)),<cache>(cast('100405' as unsigned)),<cache>(cast('100410' as unsigned)),<cache>(cast('100415' as unsigned)),<cache>(cast('100420' as unsigned)),<cache>(cast('100425' as unsigned)),<cache>(cast('100430' as unsigned)),<cache>(cast('100435' as unsigned)),<cache>(cast('100440' as unsigned)),<cache>(cast('100445' as unsigned)),<cache>(cast('100450' as unsigned)),<cache>(cast('100455' as unsigned)),<cache>(cast('100460' as unsigned)),<cache>(cast('100465' as unsigned)),<cache>(cast('100470' as unsigned)),<cache>(cast('100475' as unsigned)),<cache>(cast('100480' as unsigned)),<cache>(cast('100485' as unsigned)),<cache>(cast('100490' as unsigned)),<cache>(cast('100495' as unsigned)),<cache>(cast('100500' as unsigned)),<cache>(cast('100505' as unsigned)),<cache>(cast('100510' as unsigned)),<cache>(cast('100515' as unsigned)),<cache>(cast('100520' as unsigned)),<cache>(cast('100525' as unsigned)),<cache>(cast('100530' as unsigned)),<cache>(cast('100535' as unsigned)),<cache>(cast('100540' as unsigned)),<cache>(cast('100545' as unsigned)),<cache>(cast('100550' as unsigned)),<cache>(cast('100555' as unsigned)),<cache>(cast('100560' as unsigned)),<cache>(cast('100565' as unsigned)),<cache>(cast('100570' as unsigned)),<cache>(cast('100575' as unsigned)),<cache>(cast('100580' as unsigned)),<cache>(cast('100585' as unsigned)),<cache>(cast('100590' as unsigned)),<cache>(cast('100595' as unsigned)),<cache>(cast('100600' as unsigned)),<cache>(cast('100605' as unsigned)),<cache>(cast('100610' as unsigned)),<cache>(cast('100615' as unsigned)),<cache>(cast('100620' as unsigned)),<cache>(cast('100625' as unsigned)),<cache>(cast('100630' as unsigned)),<cache>(cast('100635' as unsigned)),<cache>(cast('100640' as unsigned)),<cache>(cast('100645' as unsigned)),<cache>(cast('100650' as unsigned)),<cache>(cast('100655' as unsigned)),<cache>(cast('100660' as unsigned)),<cache>(cast('100665' as unsigned)),<cache>(cast('100670' as unsigned)),<cache>(cast('100675' as unsigned)),<cache>(cast('100680' as unsigned)),<cache>(cast('100685' as unsigned)),<cache>(cast('100690' as unsigned)),<cache>(cast('100695' as unsigned)),<cache>(cast('100700' as unsigned)),<cache>(cast('100705' as unsigned)),<cache>(cast('100710' as unsigned)),<cache>(cast('100715' as unsigned)),<cache>(cast('100720' as unsigned)),<cache>(cast('100725' as unsigned)),<cache>(cast('100730' as unsigned)),<cache>(cast('100735' as unsigned)),<cache>(cast('100740' as unsigned)),<cache>(cast('100745' as unsigned)),<cache>(cast('100750' as unsigned)),<cache>(cast('100755' as unsigned)),<cache>(cast('100760' as unsigned)),<cache>(cast('100765' as unsigned)),<cache>(cast('100770' as unsigned)),<cache>(cast('100775' as unsigned)),<cache>(cast('100780' as unsigned)),<cache>(cast('100785' as unsigned)),<cache>(cast('100790' as unsigned)),<cache>(cast('100795' as unsigned)),<cache>(cast('100800' as unsigned)),<cache>(cast('100805' as unsigned)),<cache>(cast('100810' as unsigned)),<cache>(cast('100815' as unsigned)),<cache>(cast('100820' as unsigned)),<cache>(cast('100825' as unsigned)),<cache>(cast('100830' as unsigned)),<cache>(cast('100835' as unsigned)),<cache>(cast('100840' as unsigned)),<cache>(cast('100845' as unsigned)),<cache>(cast('100850' as unsigned)),<cache>(cast('100855' as unsigned)),<cache>(cast('100860' as unsigned)),<cache>(cast('100865' as unsigned)),<cache>(cast('100870' as unsigned)),<cache>(cast('100875' as unsigned)),<cache>(cast('100880' as unsigned)),<cache>(cast('100885' as unsigned)),<cache>(cast('100890' as unsigned)),<cache>(cast('100895' as unsigned)),<cache>(cast('100900' as unsigned)),<cache>(cast('100905' as unsigned)),<cache>(cast('100910' as unsigned)),<cache>(cast('100915' as unsigned)),<cache>(cast('100920' as unsigned)),<cache>(cast('100925' as unsigned)),<cache>(cast('100930' as unsigned)),<cache>(cast('100935' as unsigned)),<cache>(cast('100940' as unsigned)),<cache>(cast('100945' as unsigned)),<cache>(cast('100950' as unsigned)),<cache>(cast('100955' as unsigned)),<cache>(cast('100960' as unsigned)),<cache>(cast('100965' as unsigned)),<cache>(cast('100970' as unsigned)),<cache>(cast('100975' as unsigned)),<cache>(cast('100980' as unsigned)),<cache>(cast('100985' as unsigned)),<cache>(cast('100990' as unsigned)),<cache>(cast('100995' as unsigned)),<cache>(cast('101000' as unsigned)),<cache>(cast('101005' as unsigned)),<cache>(cast('101010' as unsigned)),<cache>(cast('101015' as unsigned)),<cache>(cast('101020' as unsigned)),<cache>(cast('101025' as unsigned)),<cache>(cast('101030' as unsigned)),<cache>(cast('101035' as unsigned)),<cache>(cast('101040' as unsigned)),<cache>(cast('101045' as unsigned)),<cache>(cast('101050' as unsigned)),<cache>(cast('101055' as unsigned)),<cache>(cast('101060' as unsigned)),<cache>(cast('101065' as unsigned)),<cache>(cast('101070' as unsigned)),<cache>(cast('101075' as unsigned)),<cache>(cast('101080' as unsigned)),<cache>(cast('101085' as unsigned)),<cache>(cast('101090' as unsigned)),<cache>(cast('101095' as unsigned)),<cache>(cast('101100' as unsigned)),<cache>(cast('101105' as unsigned)),<cache>(cast('101110' as unsigned)),<cache>(cast('101115' as unsigned)),<cache>(cast('101120' as unsigned)),<cache>(cast('101125' as unsigned)),<cache>(cast('101130' as unsigned)),<cache>(cast('101135' as unsigned)),<cache>(cast('101140' as unsigned)),<cache>(cast('101145' as unsigned)),<cache>(cast('101150' as unsigned)),<cache>(cast('101155' as unsigned)),<cache>(cast('101160' as unsigned)),<cache>(cast('101165' as unsigned)),<cache>(cast('101170' as unsigned)),<cache>(cast('101175' as unsigned)),<cache>(cast('101180' as unsigned)),<cache>(cast('101185' as unsigned)),<cache>(cast('101190' as unsigned)),<cache>(cast('101195' as unsigned)),<cache>(cast('101200' as unsigned)),<cache>(cast('101205' as unsigned)),<cache>(cast('101210' as unsigned)),<cache>(cast('101215' as unsigned)),<cache>(cast('101220' as unsigned)),<cache>(cast('101225' as unsigned)),<cache>(cast('101230' as unsigned)),<cache>(cast('101235' as unsigned)),<cache>(cast('101240' as unsigned)),<cache>(cast('101245' as unsigned)),<cache>(cast('101250' as unsigned))))) and (`pos_rewrite_workbook_1e2c282b63f8`.`p`.`id` is not null))"
+                }
+              },
+              {
+                "table": {
+                  "table_name": "ps",
+                  "access_type": "eq_ref",
+                  "possible_keys": [
+                    "uq_product_store",
+                    "product_id",
+                    "store_id",
+                    "is_del",
+                    "idx_store_id_stock_is_avail_is_del",
+                    "idx_store_id_product_id_is_del",
+                    "idx_product_id_stock",
+                    "idx_workbook_store_deleted_product"
+                  ],
+                  "key": "uq_product_store",
+                  "used_key_parts": [
+                    "product_id",
+                    "store_id"
+                  ],
+                  "key_length": "16",
+                  "ref": [
+                    "pos_rewrite_workbook_1e2c282b63f8.p.id",
+                    "const"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 74,
+                  "filtered": "100.00",
+                  "index_condition": "((`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`store_id` = 1) and (`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`product_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`))",
+                  "cost_info": {
+                    "read_cost": "18.75",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "140.36",
+                    "data_read_per_join": "2K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "product_id",
+                    "store_id",
+                    "stock",
+                    "is_del"
+                  ],
+                  "attached_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ps`.`is_del` = 0)"
+                }
+              },
+              {
+                "table": {
+                  "table_name": "pap",
+                  "access_type": "eq_ref",
+                  "possible_keys": [
+                    "PRIMARY",
+                    "added_by",
+                    "idx_id_is_avail_is_del"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "func"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 74,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "18.75",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "166.61",
+                    "data_read_per_join": "1M"
+                  },
+                  "used_columns": [
+                    "id",
+                    "product",
+                    "added_by",
+                    "erp_product"
+                  ],
+                  "attached_condition": "(((`pos_rewrite_workbook_1e2c282b63f8`.`pap`.`added_by` = `pos_rewrite_workbook_1e2c282b63f8`.`ua`.`id`) and (`pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id` = (case when (`pos_rewrite_workbook_1e2c282b63f8`.`p`.`parent_prod_id` > 0) then `pos_rewrite_workbook_1e2c282b63f8`.`p`.`parent_prod_id` else `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id` end))) and (`pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id` is not null))"
+                }
+              },
+              {
+                "table": {
+                  "table_name": "c",
+                  "access_type": "eq_ref",
+                  "possible_keys": [
+                    "PRIMARY"
+                  ],
+                  "key": "PRIMARY",
+                  "used_key_parts": [
+                    "id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "func"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 74,
+                  "filtered": "100.00",
+                  "cost_info": {
+                    "read_cost": "18.75",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "192.86",
+                    "data_read_per_join": "737K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "category"
+                  ],
+                  "attached_condition": "<if>(is_not_null_compl(c), (`pos_rewrite_workbook_1e2c282b63f8`.`c`.`id` = (/* select#8 */ select `pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` from `pos_rewrite_workbook_1e2c282b63f8`.`has_categories` `hc` where ((`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`) and (`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` not in (162,148))) order by (case when (`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` = 153) then field(153,`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id`) else `pos_rewrite_workbook_1e2c282b63f8`.`hc`.`id` end) limit 1)), true)",
+                  "attached_subqueries": [
+                    {
+                      "dependent": true,
+                      "cacheable": false,
+                      "query_block": {
+                        "select_id": 8,
+                        "cost_info": {
+                          "query_cost": "0.35"
+                        },
+                        "ordering_operation": {
+                          "using_filesort": true,
+                          "table": {
+                            "table_name": "hc",
+                            "access_type": "ref",
+                            "possible_keys": [
+                              "cat_id",
+                              "prod_id",
+                              "idx_has_categories_prod_id_cat_id",
+                              "idx_has_categories_prod_cat"
+                            ],
+                            "key": "prod_id",
+                            "used_key_parts": [
+                              "prod_id"
+                            ],
+                            "key_length": "8",
+                            "ref": [
+                              "pos_rewrite_workbook_1e2c282b63f8.pap.id"
+                            ],
+                            "rows_examined_per_scan": 1,
+                            "rows_produced_per_join": 1,
+                            "filtered": "100.00",
+                            "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`)",
+                            "cost_info": {
+                              "read_cost": "0.25",
+                              "eval_cost": "0.10",
+                              "prefix_cost": "0.35",
+                              "data_read_per_join": "32"
+                            },
+                            "used_columns": [
+                              "id",
+                              "cat_id",
+                              "prod_id"
+                            ],
+                            "attached_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` not in (162,148))"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "table": {
+                  "table_name": "paps",
+                  "access_type": "ref",
+                  "possible_keys": [
+                    "uq_product_store",
+                    "product_id",
+                    "is_del",
+                    "idx_store_id_product_id_is_del",
+                    "idx_product_id_stock"
+                  ],
+                  "key": "uq_product_store",
+                  "used_key_parts": [
+                    "product_id"
+                  ],
+                  "key_length": "8",
+                  "ref": [
+                    "pos_rewrite_workbook_1e2c282b63f8.pap.id"
+                  ],
+                  "rows_examined_per_scan": 1,
+                  "rows_produced_per_join": 74,
+                  "filtered": "100.00",
+                  "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id` = `pos_rewrite_workbook_1e2c282b63f8`.`paps`.`product_id`)",
+                  "first_match": "c",
+                  "cost_info": {
+                    "read_cost": "18.75",
+                    "eval_cost": "7.50",
+                    "prefix_cost": "219.11",
+                    "data_read_per_join": "2K"
+                  },
+                  "used_columns": [
+                    "id",
+                    "product_id",
+                    "is_del"
+                  ],
+                  "attached_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`paps`.`is_del` = 0)"
+                }
+              }
+            ],
+            "select_list_subqueries": [
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 6,
+                  "cost_info": {
+                    "query_cost": "0.70"
+                  },
+                  "nested_loop": [
+                    {
+                      "table": {
+                        "table_name": "hc",
+                        "access_type": "ref",
+                        "possible_keys": [
+                          "cat_id",
+                          "prod_id",
+                          "idx_has_categories_prod_id_cat_id",
+                          "idx_has_categories_prod_cat"
+                        ],
+                        "key": "prod_id",
+                        "used_key_parts": [
+                          "prod_id"
+                        ],
+                        "key_length": "8",
+                        "ref": [
+                          "pos_rewrite_workbook_1e2c282b63f8.pap.id"
+                        ],
+                        "rows_examined_per_scan": 1,
+                        "rows_produced_per_join": 1,
+                        "filtered": "100.00",
+                        "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`)",
+                        "cost_info": {
+                          "read_cost": "0.25",
+                          "eval_cost": "0.10",
+                          "prefix_cost": "0.35",
+                          "data_read_per_join": "32"
+                        },
+                        "used_columns": [
+                          "id",
+                          "cat_id",
+                          "prod_id"
+                        ],
+                        "attached_condition": "((`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` not in (162,148)) and ((case when (`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id` = 153) then field(153,`pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id`) else `pos_rewrite_workbook_1e2c282b63f8`.`hc`.`id` end) = (/* select#7 */ select min((case when (`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`cat_id` = 153) then field(153,`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`cat_id`) else `pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`id` end)) from `pos_rewrite_workbook_1e2c282b63f8`.`has_categories` `ranking` where ((`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`) and (`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`cat_id` not in (162,148))))))",
+                        "attached_subqueries": [
+                          {
+                            "dependent": true,
+                            "cacheable": false,
+                            "query_block": {
+                              "select_id": 7,
+                              "cost_info": {
+                                "query_cost": "0.35"
+                              },
+                              "table": {
+                                "table_name": "ranking",
+                                "access_type": "ref",
+                                "possible_keys": [
+                                  "cat_id",
+                                  "prod_id",
+                                  "idx_has_categories_prod_id_cat_id",
+                                  "idx_has_categories_prod_cat"
+                                ],
+                                "key": "prod_id",
+                                "used_key_parts": [
+                                  "prod_id"
+                                ],
+                                "key_length": "8",
+                                "ref": [
+                                  "pos_rewrite_workbook_1e2c282b63f8.pap.id"
+                                ],
+                                "rows_examined_per_scan": 1,
+                                "rows_produced_per_join": 1,
+                                "filtered": "100.00",
+                                "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`pap`.`id`)",
+                                "cost_info": {
+                                  "read_cost": "0.25",
+                                  "eval_cost": "0.10",
+                                  "prefix_cost": "0.35",
+                                  "data_read_per_join": "32"
+                                },
+                                "used_columns": [
+                                  "id",
+                                  "cat_id",
+                                  "prod_id"
+                                ],
+                                "attached_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ranking`.`cat_id` not in (162,148))"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "table": {
+                        "table_name": "cc",
+                        "access_type": "eq_ref",
+                        "possible_keys": [
+                          "PRIMARY"
+                        ],
+                        "key": "PRIMARY",
+                        "used_key_parts": [
+                          "id"
+                        ],
+                        "key_length": "8",
+                        "ref": [
+                          "pos_rewrite_workbook_1e2c282b63f8.hc.cat_id"
+                        ],
+                        "rows_examined_per_scan": 1,
+                        "rows_produced_per_join": 1,
+                        "filtered": "100.00",
+                        "cost_info": {
+                          "read_cost": "0.25",
+                          "eval_cost": "0.10",
+                          "prefix_cost": "0.70",
+                          "data_read_per_join": "9K"
+                        },
+                        "used_columns": [
+                          "id",
+                          "category"
+                        ],
+                        "attached_condition": "<if>(is_not_null_compl(cc), (`pos_rewrite_workbook_1e2c282b63f8`.`cc`.`id` = `pos_rewrite_workbook_1e2c282b63f8`.`hc`.`cat_id`), true)"
+                      }
+                    }
+                  ]
+                }
+              },
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 5,
+                  "cost_info": {
+                    "query_cost": "0.35"
+                  },
+                  "table": {
+                    "table_name": "pg",
+                    "access_type": "ref",
+                    "possible_keys": [
+                      "product_id",
+                      "gtin"
+                    ],
+                    "key": "product_id",
+                    "used_key_parts": [
+                      "product_id"
+                    ],
+                    "key_length": "8",
+                    "ref": [
+                      "pos_rewrite_workbook_1e2c282b63f8.p.id"
+                    ],
+                    "rows_examined_per_scan": 1,
+                    "rows_produced_per_join": 1,
+                    "filtered": "100.00",
+                    "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`pg`.`product_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`)",
+                    "cost_info": {
+                      "read_cost": "0.25",
+                      "eval_cost": "0.10",
+                      "prefix_cost": "0.35",
+                      "data_read_per_join": "40"
+                    },
+                    "used_columns": [
+                      "product_id",
+                      "gtin"
+                    ]
+                  }
+                }
+              },
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 4,
+                  "cost_info": {
+                    "query_cost": "0.35"
+                  },
+                  "table": {
+                    "table_name": "ho",
+                    "access_type": "ref",
+                    "possible_keys": [
+                      "prod_id",
+                      "idx_prod_id_attr"
+                    ],
+                    "key": "prod_id",
+                    "used_key_parts": [
+                      "prod_id"
+                    ],
+                    "key_length": "8",
+                    "ref": [
+                      "pos_rewrite_workbook_1e2c282b63f8.p.id"
+                    ],
+                    "rows_examined_per_scan": 1,
+                    "rows_produced_per_join": 1,
+                    "filtered": "100.00",
+                    "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ho`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`)",
+                    "cost_info": {
+                      "read_cost": "0.25",
+                      "eval_cost": "0.10",
+                      "prefix_cost": "0.35",
+                      "data_read_per_join": "40"
+                    },
+                    "used_columns": [
+                      "prod_id",
+                      "attr_val"
+                    ]
+                  }
+                }
+              },
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 3,
+                  "cost_info": {
+                    "query_cost": "0.35"
+                  },
+                  "table": {
+                    "table_name": "pg",
+                    "access_type": "ref",
+                    "possible_keys": [
+                      "product_id"
+                    ],
+                    "key": "product_id",
+                    "used_key_parts": [
+                      "product_id"
+                    ],
+                    "key_length": "8",
+                    "ref": [
+                      "pos_rewrite_workbook_1e2c282b63f8.p.id"
+                    ],
+                    "rows_examined_per_scan": 1,
+                    "rows_produced_per_join": 1,
+                    "filtered": "100.00",
+                    "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`pg`.`product_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`)",
+                    "cost_info": {
+                      "read_cost": "0.25",
+                      "eval_cost": "0.10",
+                      "prefix_cost": "0.35",
+                      "data_read_per_join": "40"
+                    },
+                    "used_columns": [
+                      "product_id",
+                      "gtin"
+                    ]
+                  }
+                }
+              },
+              {
+                "dependent": true,
+                "cacheable": false,
+                "query_block": {
+                  "select_id": 2,
+                  "cost_info": {
+                    "query_cost": "0.35"
+                  },
+                  "table": {
+                    "table_name": "ho",
+                    "access_type": "ref",
+                    "possible_keys": [
+                      "prod_id",
+                      "idx_prod_id_attr"
+                    ],
+                    "key": "prod_id",
+                    "used_key_parts": [
+                      "prod_id"
+                    ],
+                    "key_length": "8",
+                    "ref": [
+                      "pos_rewrite_workbook_1e2c282b63f8.p.id"
+                    ],
+                    "rows_examined_per_scan": 1,
+                    "rows_produced_per_join": 1,
+                    "filtered": "100.00",
+                    "index_condition": "(`pos_rewrite_workbook_1e2c282b63f8`.`ho`.`prod_id` = `pos_rewrite_workbook_1e2c282b63f8`.`p`.`id`)",
+                    "cost_info": {
+                      "read_cost": "0.25",
+                      "eval_cost": "0.10",
+                      "prefix_cost": "0.35",
+                      "data_read_per_join": "40"
+                    },
+                    "used_columns": [
+                      "prod_id",
+                      "attr_val"
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

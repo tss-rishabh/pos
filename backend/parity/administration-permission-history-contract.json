@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "status": "implemented-bound-adapter-requires-verified-deployed-view-and-comparison-routine",
+  "source_commit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "view_env": "BQ_SPECIAL_PERMISSION_ACTIVITY_VIEW",
+  "comparison_routine_env": "BQ_SPECIAL_PERMISSION_ACTIVITY_MATCH_UDF",
+  "identifiers": "Fully qualified project.dataset.resource validated before use. No requested text becomes an SQL identifier or expression.",
+  "view_columns": {
+    "id": "STRING: exact signed BIGINT decimal source activity ID, unique, no floating-point conversion",
+    "created_at": "DATETIME: exact source USE_TZ=False wall datetime; never interpret as UTC or shift the date",
+    "created_at_mysql": "STRING: exact MySQL implicit datetime string used by source icontains, YYYY-MM-DD HH:mm:ss at verified physical DATETIME(0) precision",
+    "actor_exists": "BOOL: current source operator row exists; inactive operators remain present",
+    "actor_first_name": "STRING NULL: current raw operator first_name, <=150 characters; NULL only if actor_exists=false",
+    "actor_last_name": "STRING NULL: current raw operator last_name, <=150 characters; NULL only if actor_exists=false",
+    "platform": "STRING: raw source VARCHAR(255), latin1_swedish_ci; retain trailing spaces",
+    "comment": "STRING NULL: raw source VARCHAR(255), latin1_swedish_ci; visible physical column is NOT NULL while Django model allows NULL",
+    "recipient": "STRING NULL: raw source VARCHAR(45), latin1_swedish_ci; retain null, empty and whitespace-only distinctions"
+  },
+  "comparison_routine": {
+    "signature": "(value STRING, term STRING, field_tag STRING) RETURNS BOOL",
+    "platform.in": "Source MySQL platform IN equality using latin1_swedish_ci and its PAD SPACE behavior. Case/accent weights must match that collation; leading spaces remain significant.",
+    "recipient.icontains": "Source MySQL recipient LIKE term using physical latin1_swedish_ci and backslash escape semantics. NULL never matches. LIKE does not apply equality PAD SPACE trimming.",
+    "comment.icontains": "Source MySQL comment LIKE term using physical latin1_swedish_ci and backslash escape semantics. NULL never matches.",
+    "platform.icontains": "Source MySQL platform LIKE term using physical latin1_swedish_ci and backslash escape semantics.",
+    "created_at.icontains": "Source MySQL implicit datetime LIKE behavior against created_at_mysql, including the verified source connection character-set/collation. Do not filter the ISO JSON timestamp instead.",
+    "term_for_in": "One normalized platform label, bound through @platforms. Source comma splitting/entity removal/Python whitespace stripping occurs in the backend before binding.",
+    "term_for_icontains": "Bound @pattern begins/ends with percent. Every original percent, underscore and backslash is escaped literally; double quotes have already become single quotes.",
+    "prohibited_shortcuts": ["LOWER or Unicode case folding as a guessed replacement", "generic accent removal", "TRIM for LIKE", "searching operator names or IDs", "ignoring unsupported charset conversion", "logging values or terms"],
+    "deployment": "Deploy a reviewed persistent scalar SQL or JavaScript UDF with the source-equivalent weights/escaping. No guessed routine is shipped or silently substituted. Execute the native source vectors against the deployed routine before enabling it. A missing required routine returns 503 without historical MySQL fallback."
+  },
+  "integrity_and_routing": [
+    "Exactly one activity row per ID; join a current operator dimension with exact source names, including inactive rows and missing-operator state.",
+    "All-history views include both old and newly created activity; a historical-only archive is insufficient for no-date requests.",
+    "Publish the activity and operator-dimension projection as a coherent query snapshot. Verify updates, deletes and source ingestion completeness before acceptance.",
+    "Only from=to=current BUSINESS_TIMEZONE day may use the data reader. Every no-date, previous-day, mixed-day and future-day request uses BigQuery exclusively.",
+    "Dates bind half-open wall DATETIME bounds. An inclusive 9999-12-31 upper endpoint has no representable next day and binds no upper bound.",
+    "One bound SELECT returns filtered count plus at most requested length (1..500) rows ordered by exact numeric ID.",
+    "Invalid, non-aligned or out-of-range source offsets resolve to first page. Both totals equal the filtered count.",
+    "The adapter rejects malformed counts, duplicate/reordered IDs, incomplete pages and numeric IDs. A missing/failed warehouse never triggers a reader fallback.",
+    "Current internal role1-3 authorization is checked on the writer before report access. History is globally scoped because the source table has no store_id."
+  ],
+  "physical_design_to_verify": {
+    "partition": "DATE(created_at), preserving source wall date",
+    "cluster_candidates": ["platform", "id"],
+    "review": "Confirm partition pruning through the configured view, literal-comparison correctness, current operator dimension freshness, billing cap, runtime, all-history cost and restrictive warehouse IAM. No BigQuery DDL, live query or latency claim occurred."
+  },
+  "executed_local_evidence": {
+    "daily_source_vectors": 29,
+    "historical_source_projection_vectors": 4,
+    "source_failure_boundary_vectors": 1,
+    "source_runtime": "Django4.2.5 + PyMySQL1.1.1, local MySQL8.4.11, exact source methods extracted after baseline hash verification",
+    "limits": "Historical vectors validate bound adapter/reducer behavior using fixture warehouse responses sourced from real MySQL. They do not execute BigQuery SQL or certify a deployed comparison routine."
+  }
+}

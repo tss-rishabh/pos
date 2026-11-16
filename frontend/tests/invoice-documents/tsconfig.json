@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "rootDir": "../..", "noEmit": true },
+  "include": [
+    "../../src/pages/invoice-documents/**/*.ts",
+    "../../src/pages/invoice-documents/**/*.tsx",
+    "../../src/pages/checkout/InvoiceActions.tsx",
+    "./**/*.ts",
+    "./**/*.tsx"
+  ]
+}

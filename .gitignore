@@ -1,0 +1,17 @@
+node_modules/
+dist/
+release/
+coverage/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.venv/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+backend/evidence/private/
+frontend/test-results/
+frontend/playwright-report/

@@ -1,0 +1,12 @@
+{
+  "recordedAt": "2026-11-16T04:35:38.922691+00:00",
+  "platform": "darwin",
+  "architecture": "arm64",
+  "electronVersion": "45.3.2",
+  "codeSigned": false,
+  "artifact": "../frontend/release/mac-arm64/Souled POS.app/Contents/Resources/app.asar",
+  "appAsarBytes": 55251557,
+  "appAsarSha256": "b2fae8fbc7c7bdec02a8f3aab9f98083717a3278d0bed9a1d42d6bd24ee5c468",
+  "packageSucceeded": true,
+  "productionDistributionCertified": false
+}

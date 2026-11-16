@@ -1,0 +1,20 @@
+{
+  "scope": "isolated-browser-fixtures",
+  "workflows": 10,
+  "requests": 24,
+  "pageErrors": 0,
+  "unexpectedRequests": 0,
+  "verified": [
+    "original-owner signed handoff",
+    "25-row server pagination and four states",
+    "local receipt print with escaped text",
+    "lost review acknowledgment confirmed by audit without automatic retry",
+    "versioned clock-attributed approval leaves cash/conflicts unchanged",
+    "unknown import retries exact saved UUID/version/approval",
+    "proof-bearing imported receipt refresh preserves original owner",
+    "expired or changed cached manager scope hides other-owner cash",
+    "operator switch aborts workspace",
+    "offline handoff stays queued"
+  ],
+  "limitations": "Mocked HTTP fixtures only; actual atomic MySQL importer/sealed proof parity is independently tested by checkout and finance suites."
+}

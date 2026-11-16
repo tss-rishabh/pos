@@ -1,0 +1,254 @@
+{
+  "checkedAt": "2026-11-16T15:11:44.726Z",
+  "schema": "tss",
+  "tables": {
+    "product_rating_user": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "parent_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "product_rating_option_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "rating",
+        "type": "float",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "platform",
+        "type": "enum('ANDROID','IOS','WEB')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_default",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_bot",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "product_rating_options": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "option_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_shown",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "rating_type",
+        "type": "enum('STAR','CHECKBOX')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "STAR"
+      },
+      {
+        "name": "question_meta_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ]
+  },
+  "indexes": {
+    "product_rating_user": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "user_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "prod_id",
+        "column": "prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "rating",
+        "column": "rating",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "option",
+        "column": "product_rating_option_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "rating_product",
+        "column": "prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "rating_product",
+        "column": "product_rating_option_id",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "is_bot",
+        "column": "is_bot",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "parent_product_id",
+        "column": "parent_prod_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "product_rating_options": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      }
+    ]
+  },
+  "foreignKeys": {
+    "product_rating_user": [],
+    "product_rating_options": []
+  },
+  "inboundForeignKeys": [],
+  "locations": [
+    {
+      "schema_name": "tss",
+      "table_name": "product_rating_options"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "product_rating_user"
+    }
+  ],
+  "errors": []
+}

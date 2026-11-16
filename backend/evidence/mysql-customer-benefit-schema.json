@@ -1,0 +1,1292 @@
+{
+  "checkedAt": "2026-11-16T14:39:06.545Z",
+  "schema": "tss",
+  "tables": {
+    "user_addons": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "UNI",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "exclusive_savings",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "successful_orders",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "total_spending",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_app_user",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "auth_signature",
+        "type": "varchar(500)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": ""
+      },
+      {
+        "name": "birthdate_updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "artist_audio",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      }
+    ],
+    "users": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "firstname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "lastname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "company_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(96)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "telephone",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "password",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "plain_password",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "birthdate",
+        "type": "date",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "gender",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "order_gender",
+        "type": "varchar(10)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "salt",
+        "type": "varchar(9)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "cart",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "wishlist",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "newsletter",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "ip",
+        "type": "varchar(40)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": "0"
+      },
+      {
+        "name": "status",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "approved",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "user_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "profile_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "cover_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "mobile_cover_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "size_chart",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "logo",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "remember_token",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "loyalty_group",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "cashback",
+        "type": "float",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "tss_money",
+        "type": "float",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "tss_points",
+        "type": "float",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_from_megento",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "referal_code",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "platform",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "user_platform",
+        "type": "enum('STORE_FRONT_USER','BACK_OFFICE_USER')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "fb_id",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "plus_id",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "apple_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "sort_order",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "100"
+      },
+      {
+        "name": "artist_alias_name",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "es_search_order",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1000"
+      },
+      {
+        "name": "is_merch",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "meta_title",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "meta_keys",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "meta_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "art_bank_details",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "art_status",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_featured",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "navigation_link",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_profile_updated",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_block",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "breadcrum_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "popular_search",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "shop_now",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "breadcrum_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "og_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "og_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "twitter_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "twitter_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "es_search_keywords",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_cod_enable",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "is_two_fa",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "sale_start_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "sale_end_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "sale_cover_pic",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "sale_mob_cover_pic",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "anniversary",
+        "type": "date",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "promotion_name",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_disabled",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "kids_cover_pic",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "kids_mob_cover_pic",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "created_from",
+        "type": "enum('ONLINE','STORE','SHOPIFY')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "bo_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "country_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_email_verified",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "customer_type",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": "B2C"
+      },
+      {
+        "name": "gstin",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      }
+    ],
+    "user_eav": [
+      {
+        "name": "entity",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "attribute",
+        "type": "enum('EXCLUSIVE_NOTIFY','EXCLUSIVE_EXPIRY','EXCLUSIVE_MEMBER')",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "value",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      }
+    ],
+    "gift_vouchers": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "from_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "to_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "voucher_code",
+        "type": "varchar(25)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "theme",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "to_name",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "to_phone",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "voucher_value",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "voucher_initial_value",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "message",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "status",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "coupon_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "approver_email",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "gv_lot_no",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "occassion_name",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "occassion_custom_msg",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "collection_no",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "gv_type",
+        "type": "enum('GIFT_VOUCHER','GIFT_CARD')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "GIFT_VOUCHER"
+      },
+      {
+        "name": "gift_card_srno",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_gcpin",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "start_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "end_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "platform",
+        "type": "enum('both','offline','online')",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "both"
+      }
+    ]
+  },
+  "indexes": {
+    "user_addons": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "user_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": true
+      }
+    ],
+    "users": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "url_key",
+        "column": "url_key",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "sort_order",
+        "column": "sort_order",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_merch",
+        "column": "is_merch",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "email",
+        "column": "email",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "telephone",
+        "column": "telephone",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "user_type",
+        "column": "user_type",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "firstname",
+        "column": "firstname",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "lastname",
+        "column": "lastname",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "tss_money",
+        "column": "tss_money",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "tss_points",
+        "column": "tss_points",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "cashback",
+        "column": "cashback",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_two_fa",
+        "column": "is_two_fa",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "pos_admin_id",
+        "column": "pos_admin_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "birthdate",
+        "column": "birthdate",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "user_eav": [
+      {
+        "name": "PRIMARY",
+        "column": "entity",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "PRIMARY",
+        "column": "attribute",
+        "position": 2,
+        "unique": true
+      },
+      {
+        "name": "is_active",
+        "column": "is_active",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "entity_attribute",
+        "column": "entity",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "entity_attribute",
+        "column": "attribute",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "updated_at",
+        "column": "updated_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "attribute",
+        "column": "attribute",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "entity",
+        "column": "entity",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "gift_vouchers": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "voucher_code",
+        "column": "voucher_code",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "to_id",
+        "column": "to_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "coupon_id",
+        "column": "coupon_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "to_phone",
+        "column": "to_phone",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "status",
+        "column": "status",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "gv_type",
+        "column": "gv_type",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {
+    "user_addons": [],
+    "users": [],
+    "user_eav": [],
+    "gift_vouchers": []
+  },
+  "inboundForeignKeys": [],
+  "locations": [
+    {
+      "schema_name": "mobile_cms",
+      "table_name": "users"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "gift_vouchers"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "user_addons"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "user_eav"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "users"
+    }
+  ],
+  "errors": []
+}

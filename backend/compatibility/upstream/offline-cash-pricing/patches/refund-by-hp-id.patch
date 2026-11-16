@@ -1,0 +1,13 @@
+--- a/controllers/OrderController.py
++++ b/controllers/OrderController.py
+@@ -3586,8 +3586,8 @@
+             amount_to_be_refunded = float(final_amounts[order_product['id']])
+ 
+             query = '''
+-                UPDATE has_products SET amount_to_be_refunded = {}, fraction_value = 0 WHERE order_id = {} and prod_id = {}
+-            '''.format(amount_to_be_refunded, orderId, order_product['prod_id'])
++                UPDATE has_products SET amount_to_be_refunded = {}, fraction_value = 0 WHERE order_id = {} and prod_id = {} AND id = {}
++            '''.format(amount_to_be_refunded, orderId, order_product['prod_id'], order_product['id'])
+ 
+             session.execute(query)
+ 

@@ -1,0 +1,18 @@
+{
+  "scope": "isolated-browser-http-fixtures",
+  "workflows": 9,
+  "requests": 63,
+  "pageErrors": 0,
+  "unexpectedRequests": 0,
+  "verified": [
+    "captured operator and lossless64bit receipt IDs",
+    "lost committed courier request recovered by GET without redispatch",
+    "explicit transfer reason/category and scheduled next step",
+    "online replacement receipt",
+    "unknown cancellation reuses original opaque UUID and hash without persisted notes",
+    "manager versioned evidence review retains original service owner",
+    "readiness/check-in/offline write gates",
+    "logout during command retains original-owner reconciliation marker"
+  ],
+  "limitations": "Mocked browser HTTP only; independent native SQL and pinned source tests establish lifecycle effects. No real providers, stock writes, messages or blanket source-route certification."
+}

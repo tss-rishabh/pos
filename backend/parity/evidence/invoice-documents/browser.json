@@ -1,0 +1,16 @@
+{
+  "scope": "Controlled invoice UI/capability/preview fixtures; not deployed provider or physical printer qualification",
+  "checks": [
+    "writer-derived-sdd-action-and-protected-actor-frame",
+    "denied-fresh-manual-print-removes-prior-content",
+    "selected-express-document-action",
+    "offline-does-not-expose-current-document-actions",
+    "capability-order-mismatch-is-not-rendered-and-can-refresh",
+    "unqualified-provider-action-remains-disabled",
+    "late-old-actor-capability-cannot-authorize-new-actor-document",
+    "unassigned-store-clears-old-actions"
+  ],
+  "readOnlyRequests": 10,
+  "unexpected": 0,
+  "pageErrors": 0
+}

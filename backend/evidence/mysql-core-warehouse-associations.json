@@ -1,0 +1,43 @@
+{
+  "checkedAt": "2026-11-16T11:47:14.940Z",
+  "activeCoreWarehousesOnly": true,
+  "rowDataIncluded": false,
+  "associations": [
+    {
+      "store_id": "108",
+      "store_location_code": "WWH",
+      "hyperlocal_location_id": null,
+      "hyperlocal_store_id": null,
+      "hyperlocal_location_code": null,
+      "db_column_name": null,
+      "product_store_rows": 358101
+    },
+    {
+      "store_id": "110",
+      "store_location_code": "BW2",
+      "hyperlocal_location_id": null,
+      "hyperlocal_store_id": null,
+      "hyperlocal_location_code": null,
+      "db_column_name": null,
+      "product_store_rows": 358368
+    },
+    {
+      "store_id": "111",
+      "store_location_code": "DW1",
+      "hyperlocal_location_id": null,
+      "hyperlocal_store_id": null,
+      "hyperlocal_location_code": null,
+      "db_column_name": null,
+      "product_store_rows": 359140
+    },
+    {
+      "store_id": "113",
+      "store_location_code": "MW1",
+      "hyperlocal_location_id": null,
+      "hyperlocal_store_id": null,
+      "hyperlocal_location_code": null,
+      "db_column_name": null,
+      "product_store_rows": 360160
+    }
+  ]
+}

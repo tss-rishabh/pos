@@ -1,0 +1,70 @@
+{
+  "purpose": "Explicit source-compatible inventory history contracts. No real project/dataset is assumed or provisioned.",
+  "viewOptions": {
+    "product": "BQ_PRODUCT_INVENTORY_AUDIT_VIEW",
+    "held": "BQ_HELD_INVENTORY_AUDIT_VIEW",
+    "storage": "BQ_STORAGE_INVENTORY_AUDIT_VIEW"
+  },
+  "sharedColumns": {
+    "id": "STRING or lossless INTEGER; physical source audit ID",
+    "store_id": "STRING or lossless INTEGER",
+    "store_name": "nullable STRING; current source store dimension",
+    "store_type": "nullable STRING; storage audits require STORE",
+    "store_active": "BOOL; current source store active status",
+    "storage_name": "nullable STRING; NULL outside storage audit",
+    "product_id": "STRING or lossless INTEGER",
+    "product": "STRING",
+    "erp_product": "nullable STRING",
+    "stock_before": "STRING; original source JSON with insertion order intact",
+    "stock_after": "STRING; original source JSON with insertion order intact",
+    "user": "nullable STRING; exact source operator/customer display selection including Python strip semantics",
+    "comment": "nullable STRING",
+    "created_at": "DATETIME in the explicitly configured source BUSINESS_TIMEZONE, not an implicit UTC conversion",
+    "firstname": "nullable STRING; source customer first name, product audit search only",
+    "lastname": "nullable STRING; source customer last name, product audit search only",
+    "product_sort_key": "nullable STRING; HEX(WEIGHT_STRING(source products.product using its verified source collation))",
+    "erp_product_sort_key": "nullable STRING; source ERP WEIGHT_STRING hex",
+    "store_name_sort_key": "nullable STRING; source store-name WEIGHT_STRING hex",
+    "storage_name_sort_key": "nullable STRING; source storage-name WEIGHT_STRING hex"
+  },
+  "likeFunction": {
+    "option": "BQ_INVENTORY_AUDIT_LIKE_UDF",
+    "signature": "(value STRING, pattern STRING, source_column STRING) RETURNS BOOL",
+    "required": "For non-empty historical search. Empty search does not need the UDF.",
+    "semantics": "Reproduce the tagged source column's MySQL LIKE collation, NULL and backslash/%/_ behavior. LOWER or generic Unicode case-folding is insufficient.",
+    "tags": [
+      "product.product_id",
+      "product.product",
+      "product.created_at",
+      "product.store_name",
+      "product.firstname",
+      "product.lastname",
+      "held.product_id",
+      "held.product",
+      "held.created_at",
+      "held.store_name",
+      "storage.product_id",
+      "storage.product",
+      "storage.created_at",
+      "storage.store_name",
+      "storage.storage_name"
+    ]
+  },
+  "sourceContracts": {
+    "product": "pos_product_inventory_logs INNER JOIN products, LEFT JOIN users/stores/pos_user; pos_user_id selects current POS operator name, otherwise customer firstname/lastname fallback",
+    "held": "pos_hold_stock_logs INNER JOIN products, LEFT JOIN stores/pos_user; no customer-name search/fallback",
+    "storage": "stock_storage_logs INNER JOIN products, LEFT JOIN stores/pos_user; source storage lookup uses log.storage_id=stock_storages.id then store_storages.id=stock_storages.id, not stock_storages.storage_id"
+  },
+  "sourceTextCollations": {
+    "products.product": "utf8mb3_unicode_ci",
+    "products.erp_product": "utf8mb3_unicode_ci",
+    "stores.store_name": "latin1_swedish_ci",
+    "store_storages.storage_name": "latin1_swedish_ci",
+    "users.firstname": "utf8mb3_general_ci",
+    "users.lastname": "utf8mb3_general_ci",
+    "pos_user.first_name": "utf8mb4_general_ci",
+    "pos_user.last_name": "utf8mb4_general_ci"
+  },
+  "verification": "The listed current source collations are verified with read-only SHOW FULL COLUMNS in mysql-extra-schema.json and used by native differential fixtures. Warehouse UDF and imported WEIGHT_STRING keys must reproduce each tag's actual source profile; differentially verify deployed Unicode/accent/escape/sort behavior before production certification.",
+  "privacy": "Customer/operator display fields are authorized response data only; never log rows, names, comments, patterns or request bodies. Apply store scope in both count and page queries."
+}

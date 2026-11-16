@@ -1,0 +1,188 @@
+{
+  "checkedAt": "2026-11-16T20:19:09.165Z",
+  "schema": "tss",
+  "tables": {
+    "order_point_cashback": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "has_product_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "tss_point_history_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "hp_point_credited",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_delivered_mail_sent",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_5_days_sms_sent",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_one_day_sms_sent",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_reverted",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_credited",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_delivered_sms_sent",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      }
+    ]
+  },
+  "indexes": {
+    "order_point_cashback": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "has_product_id",
+        "column": "has_product_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "tss_point_history_id",
+        "column": "tss_point_history_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_reverted",
+        "column": "is_reverted",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_credited",
+        "column": "is_credited",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_delivered_sms_sent",
+        "column": "is_delivered_sms_sent",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_delivered_mail_sent",
+        "column": "is_delivered_mail_sent",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_five_days_sms_sent",
+        "column": "is_5_days_sms_sent",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_one_day_sms_sent",
+        "column": "is_one_day_sms_sent",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {
+    "order_point_cashback": []
+  },
+  "inboundForeignKeys": [],
+  "locations": [],
+  "errors": []
+}

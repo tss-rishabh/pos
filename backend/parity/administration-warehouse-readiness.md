@@ -1,0 +1,13 @@
+# Verified warehouse readiness for administration history
+
+The centrally discovered read-only metadata is `evidence/bigquery-schema.json`: project `tssgcp2025`, dataset `tss_mysql_raw_layer`, location `asia-south1`. The latest discovery records220 tables, including3 added by the external stream during inspection,0 probe errors and no published views/routines.214 tables have an explicit one-hour `max_staleness` option. The reporting agent performed this discovery; administration did not duplicate probes, read customer rows, print/copy the credential key, or issue external DDL/UDF/view/export operations.
+
+| Owned surface | Required data | Observed evidence and result |
+| --- | --- | --- |
+| Physical-card batch history | `gift_card_collection`, current source operator names, source text collations | Collection table is absent. `tss_pos_user` exists; `gift_voucher_history`, `gift_vouchers` and `gift_vouchers_buy` are different financial resources and cannot substitute for collections. History stays unavailable. |
+| Inherited Django history | `django_admin_log`, its actual same-schema actor domain, content types | `django_admin_log` and `auth_user` are absent; `tss_django_content_type` exists. MySQL actor FK points to `auth_user`, so `tss_pos_user` is not an interchangeable actor join. Source/provenance gates stay closed. |
+| Completed inventory CSV history/records | Rewrite import metadata and row projections with matching completed snapshot | Import tables and every `pos_rewrite_*` table are absent. Existing writer pending-job handling remains operational; older completed report queries have no historical MySQL fallback. |
+
+The dataset has no published source-collation routines/views or rewrite publication manifests. Per-table CDC progress timestamps and `datastream_metadata.source_timestamp` describe ingestion progress; they do not establish an atomic publication generation across joined tables, source MySQL collation equivalence, or completeness of absent tables. Table names alone are not feature mappings.
+
+The existing bound historical adapters and explicit view/UDF/snapshot contracts remain implemented but disabled for these missing resources. A future authorized publication must include the missing tables, exact identity domain, naive source wall dates, collation behavior, completeness and appropriate lineage/freshness evidence. Reader routing must not silently fall back to historical MySQL or reuse similarly named voucher tables. See `administration-gift-card-batches.md`, `administration-history.md` and `administration-imports.md` for each actual contract. No live warehouse change was made.

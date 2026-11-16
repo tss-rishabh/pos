@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "../..", "types": ["node", "@fastify/cookie"] },
+  "include": [
+    "../../tests/product-feedback*.test.ts",
+    "../../src/auth/routes.ts",
+    "../../src/observability/events.ts"
+  ]
+}

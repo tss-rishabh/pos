@@ -1,0 +1,19 @@
+{
+  "scope": "isolated-browser-http-fixtures",
+  "workflows": 9,
+  "requests": 53,
+  "pageErrors": 0,
+  "unexpectedRequests": 0,
+  "verified": [
+    "lossless order/HP/courier IDs and inert product text",
+    "split online-line exclusion displayed",
+    "lost committed pack response recovered by GET without duplicate PUT",
+    "current RTO receipt with per-HP before/after and pending sync",
+    "explicit unknown-outcome retry reuses UUID and original note without persisting text",
+    "missing inventory readiness/check-in disables writes",
+    "prior cancellation/refund reconciliation disables return stock movement",
+    "logout retains opaque original-owner receipt metadata",
+    "offline never records packing or stock receipt"
+  ],
+  "limitations": "Mocked browser HTTP only; independent native MySQL/source-oracle tests establish transaction, stock and correction behavior. No provider, live write or full source-route certification."
+}

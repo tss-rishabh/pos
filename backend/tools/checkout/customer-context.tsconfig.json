@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "../..", "types": ["node", "@fastify/cookie"] },
+  "include": [
+    "../../src/modules/checkout/customer-context.ts",
+    "../../tests/checkout/customer-context.test.ts",
+    "../../tests/checkout/projection.test.ts",
+    "../../src/auth/routes.ts",
+    "../../src/observability/events.ts"
+  ]
+}

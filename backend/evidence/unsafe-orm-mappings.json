@@ -1,0 +1,176 @@
+[
+  {
+    "table": "express_order_status_log",
+    "column": "order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "gift_card_collection",
+    "column": "created_by",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "gift_vouchers",
+    "column": "order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "hyperlocal_fd_logs",
+    "column": "order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "hyperlocal_order_log",
+    "column": "order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "hyperlocal_order_log",
+    "column": "borzo_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "hyperlocal_to_online_order_logs",
+    "column": "order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "hyperlocal_to_online_order_logs",
+    "column": "new_order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "hyperlocal_to_online_order_logs",
+    "column": "location_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_notifications",
+    "column": "id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "orders",
+    "column": "voucher_amt_used",
+    "declared": "bigint",
+    "physical": "double"
+  },
+  {
+    "table": "order_addons",
+    "column": "order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_hyperlocal_slots",
+    "column": "is_avail",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_hyperlocal_slots",
+    "column": "pos_admin_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_online_orders",
+    "column": "store_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_online_orders",
+    "column": "created_by",
+    "declared": "bigint",
+    "physical": "varchar(55)"
+  },
+  {
+    "table": "pos_paytm_transactions",
+    "column": "store_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_paytm_transactions",
+    "column": "pos_admin_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_terminal_transactions",
+    "column": "store_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_terminal_transactions",
+    "column": "pos_admin_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_transaction_logs",
+    "column": "order_status",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "pos_transaction_logs",
+    "column": "payment_status",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "tss_money_history",
+    "column": "added_user",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "tss_money_history",
+    "column": "order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "tss_point_history",
+    "column": "added_user",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "tss_point_history",
+    "column": "order_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "tss_point_history",
+    "column": "game_category_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "product_rating_user",
+    "column": "product_rating_option_id",
+    "declared": "int",
+    "physical": "bigint"
+  },
+  {
+    "table": "user_stores",
+    "column": "store_id",
+    "declared": "int",
+    "physical": "bigint"
+  }
+]

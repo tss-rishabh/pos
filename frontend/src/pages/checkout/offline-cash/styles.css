@@ -1,0 +1,157 @@
+.cash-tools {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border-top: 1px solid var(--border, #e9e5e0);
+}
+.cash-tools p {
+  margin: 0;
+}
+.cash-actions {
+  display: flex;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+.cash-receipt-dialog,
+.cash-tender-dialog {
+  max-width: 32rem;
+  max-height: calc(100dvh - 4rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.cash-status {
+  font-size: 0.85rem;
+  color: var(--muted, #68635e);
+}
+.cash-history {
+  display: grid;
+  gap: 0.35rem;
+}
+.cash-history button {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  text-align: left;
+}
+.cash-tender-lines {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.cash-tender-lines li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.offline-cash-receipt {
+  padding: 1rem;
+  background: white;
+  color: #111;
+  font:
+    12px/1.45 ui-monospace,
+    SFMono-Regular,
+    Consolas,
+    monospace;
+}
+.offline-cash-receipt header {
+  text-align: center;
+}
+.offline-cash-receipt h3,
+.offline-cash-receipt p {
+  margin: 0.4rem 0;
+}
+.offline-cash-receipt code {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+.offline-cash-receipt table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  margin-top: 1rem;
+  white-space: normal;
+  font: inherit;
+}
+.offline-cash-receipt th,
+.offline-cash-receipt td {
+  padding: 0.5rem 0.15rem;
+  text-align: right;
+  vertical-align: top;
+  border-bottom: 1px dashed #777;
+  overflow-wrap: anywhere;
+  color: inherit;
+}
+.offline-cash-receipt th:first-child {
+  width: 60%;
+}
+.offline-cash-receipt th:nth-child(2) {
+  width: 10%;
+}
+.offline-cash-receipt th:last-child {
+  width: 30%;
+}
+.offline-cash-receipt th:first-child,
+.offline-cash-receipt td:first-child {
+  text-align: left;
+}
+.offline-cash-receipt small {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+}
+.offline-cash-receipt dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.15rem 0;
+}
+.offline-cash-receipt dd {
+  margin: 0;
+}
+.offline-cash-receipt .cash-total {
+  font-weight: bold;
+  border-top: 1px solid #111;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+.offline-cash-receipt footer {
+  text-align: center;
+  border-top: 1px dashed #777;
+  padding-top: 0.5rem;
+}
+.cash-manager-list {
+  display: grid;
+  gap: 0.75rem;
+  max-height: 28rem;
+  overflow: auto;
+}
+.cash-manager-list article {
+  border: 1px solid var(--border, #e9e5e0);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+.cash-print-frame {
+  position: absolute;
+  left: -10000px;
+  width: 320px;
+  height: 1px;
+  border: 0;
+  visibility: hidden;
+}
+@media print {
+  .offline-cash-receipt {
+    width: 76mm;
+    padding: 0;
+    color: black;
+    background: white;
+    page: cash-receipt;
+  }
+  .cash-no-print {
+    display: none !important;
+  }
+  @page cash-receipt {
+    margin: 2mm;
+  }
+}

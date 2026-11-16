@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "types": ["vite/client", "node"] },
+  "include": ["gift-card-batches.test.ts", "gift-card-batches.browser.test.ts", "browser-harness.tsx"]
+}

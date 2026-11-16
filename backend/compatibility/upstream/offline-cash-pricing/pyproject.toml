@@ -1,0 +1,19 @@
+[project]
+name = "pos-upstream-offline-cash-pricing"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "SQLAlchemy==2.1.8",
+  "PyMySQL[rsa]==1.2.4",
+  "gunicorn==27.0.1",
+  "python-dotenv>=1.0.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]

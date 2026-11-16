@@ -1,0 +1,24 @@
+[project]
+name = "pos-customer-contact-effects"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  "SQLAlchemy==2.1.8",
+  "PyMySQL[rsa]==1.2.4",
+  "gunicorn==27.0.1",
+  "cryptography==50.0.2",
+  "celery[redis]==5.7.0",
+  "redis==8.1.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "B"]
+
+[dependency-groups]
+dev = ["requests==2.34.2"]

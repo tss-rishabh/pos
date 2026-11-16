@@ -1,0 +1,8696 @@
+{
+  "checkedAt": "2026-11-15T20:52:48.755Z",
+  "schema": "tss",
+  "tables": {
+    "products": [
+      {
+        "name": "id",
+        "type": "bigint unsigned",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "product",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "short_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "long_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "add_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "add_desc_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "measurement",
+        "type": "varchar(250)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "images",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "images_new",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gender_type",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "prod_type",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "attr_set",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "identifier",
+        "type": "varchar(36)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "uuid",
+        "type": "tinytext",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_avail",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_listing",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "processing",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "price",
+        "type": "decimal(8,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "spl_price",
+        "type": "decimal(8,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "spl_price_percent",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gst",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "tax_slab_platform",
+        "type": "enum('TA','TB','TC','TD')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_crowd_funded",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "target_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "launch_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "target_qty",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "parent_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "meta_title_bk",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "meta_title",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "meta_keys",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "meta_desc_bk",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "meta_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "og_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "og_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "twitter_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "twitter_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "art_cut",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_cod",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "added_by",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_by",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_individual",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_notification",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sort_order",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "search_sort",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "es_search_order",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "wwe_sort",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "wwe_prod_sort",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "official_merch_sort_order",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "es_search_keywords",
+        "type": "varchar(700)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_shipped_international",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_referal_discount",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "warehouse_code",
+        "type": "varchar(50)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_del",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_exchangeable",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_jit",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cog",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "extra_price",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_printable",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "text_color",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "customized_image",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "udf1",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "udf2",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "breadcrum_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "breadcrum_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "custom_tag_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "video_url",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "show_video_url",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "video_url_index",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "show_es_listing",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "materials",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "patterns",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "es_product_colors",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "bundle_product_type",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "length",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "width",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "height",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "weight",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "base_cog",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "custom_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "google_product_category",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_marketplace",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "style_status",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "character",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "mp_category",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "product_length",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "clouser",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "neck",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sleeve",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "hemline",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "no_of_pockets",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "fit_type",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "print_and_pattern",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_preorder",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "facebook_image",
+        "type": "varchar(225)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('ADULTS','KIDS')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "erp_product",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "combo_type",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "combo_gst",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "combo_spl_gst",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "combo_exc_gst",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "fabric_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "finance_cat",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "active_new_design_platform",
+        "type": "enum('APP','WEB','BOTH','NA')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "app_full_banner",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "desktop_full_banner",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "desktop_full_banner_image",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "app_full_banner_image",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "desktop_images",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "banner_video_indexes",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "banner_video_urls",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "show_banner_video",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "desktop_banner_video_urls",
+        "type": "longtext",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "images_b",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "images_bkp",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "color_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_exclusive_product",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_locked",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_blur",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cover_image",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "primary_cat_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "img_updated_at",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_mystery_product",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_updated",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "oms_id",
+        "type": "varchar(15)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "pricelist_meta": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "start_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "expiry_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "priority",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_special_price",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pricelist": [
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": ""
+      },
+      {
+        "name": "pricelist_id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": ""
+      },
+      {
+        "name": "price",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "location_id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "product_store": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "stock",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_avail",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_del",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "attributes": [
+      {
+        "name": "id",
+        "type": "bigint unsigned",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "attr",
+        "type": "varchar(50)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "attr_type",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_filterable",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "attr_values",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "slug",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "has_options": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "attr_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "attr_val",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "products_gs1": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "gtin",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      }
+    ],
+    "add_desc": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "desc",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "material",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      }
+    ],
+    "pos_csv_upload": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "upload_type",
+        "type": "enum('PRODUCT_STORE_CSV','PRODUCT_STOCK_CSV','OFFLINE_ORDER_PUNCH_IN_CSV','SHOPIFY_ORDER_PUNCH_IN_CSV')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "uploaded_by",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_imported",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "filename",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "failed_data",
+        "type": "longtext",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_product_inventory_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "stock_before",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "stock_after",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "type",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "hold_stock_store": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "stock",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "pos_hold_stock_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "stock_before",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "stock_after",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pos_user_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_transaction_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_status",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_status",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pay_dict",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_terminal_transactions": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "plutus_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_pos_code",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "total_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_recieved",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_mode",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "imei",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "api_response",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_machines": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "machine_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "counter_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "merchant_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "client_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "hardware_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "imei_no",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "tid",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "merchant_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "merchant_store_pos_code",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "security_token",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "salespersons": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "employee_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "email",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "user_type",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "phone",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "store_salesperson": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "salesperson_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "pos_special_permission_activity_log": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "pos_user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "recipient",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "tss_money_history": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "added_amt",
+        "type": "double",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "used_amt",
+        "type": "double",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "amt_before_update",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "amt_after_update",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('ORDER_PLACED','ORDER_CANCELLED','ORDER_REFUND','ORDER_MONEY','TSS_MONEY_EXPIRED','TSS_MONEY_EARNED','ORDER_RETURN','PAYMENT_FAILED','DONATION_MONEY','PRODUCT_RETURN','COURIER_COMPENSATION','DEFECTIVE_PRODUCT','PRODUCT_MISSING','PRODUCT_OUT_OF_STOCK','MISC_COMPENSATION','REFERRAL_MONEY','EXCHANGE','FIRST_ORDER_RETURN_BONUS','TESTING')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "added_user",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "expiry",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_expired",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_bulk_upload",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "tss_point_history": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "game_category_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "added_amt",
+        "type": "double",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "used_amt",
+        "type": "double",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "amt_before_update",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "amt_after_update",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('GAME_POINTS','ORDER_PLACED','ORDER_CANCELLED','ORDER_REFUND','ORDER_POINTS','TSS_POINTS_EXPIRED','TSS_POINTS_EARNED','ORDER_RETURN','PAYMENT_FAILED','DONATION_CASHBACK','PRODUCT_RETURN','COURIER_COMPENSATION','DEFECTIVE_PRODUCT','PRODUCT_MISSING','PRODUCT_OUT_OF_STOCK','MISC_COMPENSATION','APP_CASHBACK','WEB_CASHBACK','DONATION_POINTS_1','TESTING')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "added_user",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "expiry",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_expired",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_bulk_upload",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pull_product_Inventory_ref": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_hyperlocal_slots": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "weekday",
+        "type": "enum('MON','TUE','WED','THU','FRI','SAT','SUN')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_avail",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "start_timeslot",
+        "type": "time",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "end_timeslot",
+        "type": "time",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "stock_storages": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "storage_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "stock",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "stock_storage_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "storage_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "stock_before",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "stock_after",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pos_user_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_paytm_machines": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "machine_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "counter_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "merchant_key",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "merchant_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "paytm_mid",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "device_serial_no",
+        "type": "bigint unsigned",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "paytm_tid",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "channel_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_paytm_transactions": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "paytm_mid",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "paytm_tid",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "transaction_date_time",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "total_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_recieved",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_mode",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "api_response",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_terminal_payment_modes": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "value",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "mode_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('OTHERS','PINELAB','PAYTM')",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "gift_vouchers": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "from_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "to_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "voucher_code",
+        "type": "varchar(25)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": ""
+      },
+      {
+        "name": "theme",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "to_name",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "to_phone",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "voucher_value",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_initial_value",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "coupon_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "approver_email",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gv_lot_no",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "occassion_name",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "occassion_custom_msg",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "collection_no",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gv_type",
+        "type": "enum('GIFT_VOUCHER','GIFT_CARD')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "gift_card_srno",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_gcpin",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "start_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "end_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('both','offline','online')",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "gift_card_collection": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "size",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_completed",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_block",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_printed",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "filename",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_by",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_tutorial": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "title",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "short_discription",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "discription",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cover_image",
+        "type": "varchar(300)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "video_link",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "image_link",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "doc_link",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "search_keyword",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sort_value",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_by",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_internet_speed_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "speed",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_notifications": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_user_notifications": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "notification_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_viewed",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "users": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "firstname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "lastname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "company_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "email",
+        "type": "varchar(96)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "telephone",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "password",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "plain_password",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "birthdate",
+        "type": "date",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "gender",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_gender",
+        "type": "varchar(10)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "salt",
+        "type": "varchar(9)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cart",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "wishlist",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "newsletter",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "ip",
+        "type": "varchar(40)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "approved",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "profile_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cover_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "mobile_cover_pic",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "size_chart",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "logo",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "remember_token",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "loyalty_group",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cashback",
+        "type": "float",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "tss_money",
+        "type": "float",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "tss_points",
+        "type": "float",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_from_megento",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "referal_code",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_platform",
+        "type": "enum('STORE_FRONT_USER','BACK_OFFICE_USER')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "fb_id",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "plus_id",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "apple_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sort_order",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "artist_alias_name",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "es_search_order",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_merch",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "meta_title",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "meta_keys",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "meta_desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "art_bank_details",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "art_status",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_featured",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "navigation_link",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_profile_updated",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_block",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "breadcrum_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "popular_search",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "shop_now",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "breadcrum_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "og_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "og_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "twitter_title",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "twitter_description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "es_search_keywords",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_cod_enable",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_two_fa",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "sale_start_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sale_end_date",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sale_cover_pic",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sale_mob_cover_pic",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "anniversary",
+        "type": "date",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "promotion_name",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_disabled",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "kids_cover_pic",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "kids_mob_cover_pic",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_from",
+        "type": "enum('ONLINE','STORE','SHOPIFY')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "bo_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "country_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_email_verified",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "customer_type",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gstin",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "payment_status": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "payment_status",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "payment_method": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "image",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "value",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "payment_discount",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_discount_type",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sort_order",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "order_status": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_status",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "display_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cat",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "flags": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "flag_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "flag_value",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "desc",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "courier_companies": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "domain",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "tracking_url",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "vinculum_transporter_code",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "vinculum_return_transporter_name",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cp_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "account_code",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "vinculum_courier_name",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "orders": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "order_ref_no",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "order_amt",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pay_amt",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "fraction_value",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cod_charges",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "hl_charges",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gifting_charges",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_method",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_status",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "transaction_status",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "description",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "tss_money_used",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "tss_points_used",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "tss_points_earned",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "tss_points_credited",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cashback_used",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cashback_earned",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cashback_credited",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "reward_points_cron",
+        "type": "enum('0','1','2','3')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "voucher_used",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "coupon_used",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "shipping_amt",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_amt_used",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "coupon_amt_used",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pg_disc",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_disc_pg",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pg_disc_platform",
+        "type": "enum('ONLINE','STORE')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pg_disc_comment",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_disc_pg_comment",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "shiplabel_tracking_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "return_shiplabel_tracking_id",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "referal_code_used",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "referal_code_amt",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_status",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "ship_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "ship_flag",
+        "type": "enum('0','1')",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "address1",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "address2",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "address3",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "phone_no",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "country_id",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "country_code",
+        "type": "varchar(5)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "zone_id",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "postal_code",
+        "type": "varchar(20)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "city",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "print_invoice",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "ref_flag",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_ref_points",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cart_rec_notify1",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "cart_rec_notify2",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "incomplete_order",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "flag_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "flag_comment",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "courier",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "courier_service_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "return_courier",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "return_courier_service_name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "waybill_img",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "waybill_data",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "intern_added",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "intern_amt",
+        "type": "float(10,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "ret_ex_request_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_stock_reduced",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "dimensions",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "location_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "next_location_ids",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_transfer",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "start_timeslot",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "end_timeslot",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "location_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_status_new",
+        "type": "enum('PARTIAL_CANCEL','PARTIAL_RETURN','CANCEL','RETURN','PARTIAL_EXCHANGE','EXCHANGE')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "hl_parent_order_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "parent_order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "original_order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "exchange_count",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_suspicious",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_new_calculation",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "currency",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "currency_conv_rate",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_split_order",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_global_order",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "vinc_order_status",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "has_address_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_disc_pg_reason",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cart",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "upi_package_name",
+        "type": "varchar(100)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_express",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "express_charges",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_parent_express",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "order_platform": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "platform",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "name",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "vinc_udf_name",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "has_products": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "sub_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "bundle_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_platform_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "qty",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "shipped_quantity",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "delivered_quantity",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "returned_quantity",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "closed_quantity",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "price",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "enum('INCOMPLETE','PLACED','PROCESSING','SHIPPED','PARTIALLY_SHIPPED','IN_TRANSIT','OUT_FOR_DELIVERY','DELIVERED','PARTIALLY_DELIVERED','DELIVERY_EXCEPTION','RTO_INITIATED','RTO_IN_TRANSIT','RTO_DELIVERED','UNDELIVERED','CANCELLED','RETURN_PLACED','SELF_RETURN_PLACED','RETURN_PICKED','RETURN_CANCELLED','RETURN_DELIVERED','SELF_RETURN_DELIVERED','LOST','FAILED','RETURN_INITIATED','RETURN_PICKED_UP','RETURN_IN_TRANSIT','RETURN_RECEIVED','REVERSE_PICKUP_TERMINATED','EXCHANGE_INITIATED','PRODUCT_PICKED_UP','EXCHANGE_IN_TRANSIT','EXCHANGE_COMPLETED','EXCHANGE_TERMINATED','PRODUCT_RETURNED','EXCHANGE_CANCELLED','REFUND_INITIATED','REFUND_UNDER_PROCESS','REFUND_COMPLETED','DAMAGED_PRODUCT','MISSING_PRODUCT','LOST_RESHIP','LOST_REFUND','MISSING_RESHIP','MISSING_REFUND','CANCELLATION_IN_PROCESS')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "return_status",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "return_request_date_time",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_notified_for_return",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "return_mode",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "amount_refunded_mode",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "cashback_refunded",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "cashback_refunded_date_time",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "return_qty",
+        "type": "varchar(10)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "return_reason",
+        "type": "varchar(500)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "amount_to_be_refunded",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "reverse_send_sms",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "reverse_send_mail",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "awb",
+        "type": "varchar(50)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "return_awb",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "return_courier_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "shipment_id",
+        "type": "varchar(25)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "type",
+        "type": "enum('REGULAR','JIT','PRE_ORDER','MTO')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "disc",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "disc_qty",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "wallet_disc",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_disc",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "referal_disc",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gst",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pg_disc",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_disc_pg",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pg_disc_platform",
+        "type": "enum('ONLINE','STORE')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gift_voucher_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "gender_type",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "combo_gender_type",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "normal_price",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "special_price",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "exclusive_price",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_exclusive_order",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "exclusive_saving",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "hp_tss_points_used",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_order_shipped",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_order_out_for_delivery",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_order_delivered",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "salesperson_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "refund_send_mail",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "refund_send_sms",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "bundle_options",
+        "type": "varchar(225)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "return_member_id",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "refund_bank_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "hp_cart_additional_discount",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_return_cancel",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "track_ltv_update",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cog",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "vinc_status",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "fraction_value",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "prod_gst",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "images",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cashback_earned",
+        "type": "decimal(10,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "final_payable",
+        "type": "decimal(10,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pre_gst_amt",
+        "type": "decimal(10,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_express",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "location_code",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "express_charges",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "order_stores": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "counter_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "salesperson_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "admin_user_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_manually_paid",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "offline_payment",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "offline_payment_recieved",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "online_payment",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "online_other_payment",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "performance_json",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_offline_order",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_shopify_order",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "district_transaction_id",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "credit_pincode_id",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_invoice",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "user_eav": [
+      {
+        "name": "entity",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "PRI",
+        "extra": ""
+      },
+      {
+        "name": "attribute",
+        "type": "enum('EXCLUSIVE_NOTIFY','EXCLUSIVE_EXPIRY','EXCLUSIVE_MEMBER')",
+        "nullable": false,
+        "key": "PRI",
+        "extra": ""
+      },
+      {
+        "name": "value",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED"
+      }
+    ],
+    "comments": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "status_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "awb",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "return_awb",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "notify",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "package_details",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "hl_status",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "reverse_pickup_reason": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "reason",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "type",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "deleted_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "deleted_by",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "need_qc",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "description",
+        "type": "varchar(60)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "image",
+        "type": "varchar(60)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "sub_reasons": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "sub_reason",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cat_id",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "reason",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "deleted_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "deleted_by",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "return_orders": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_status",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "sub_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "qty",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "received",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "reason_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "sub_reason_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "other_reason",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "credit_note_no",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "amount_to_be_refunded_log": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "tss_point_used",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "tss_money_used",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gift_voucher_amount",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "coupon_amt_used",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pg_disc",
+        "type": "float",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_disc_pg",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "amount_to_be_refunded",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_refunded",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "refunded_amt",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "refund_mode",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(127)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "has_categories": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "cat_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "order_addons": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "UNI",
+        "extra": ""
+      },
+      {
+        "name": "shipped_location",
+        "type": "enum('TWH','DWH','BWH','BW1','DW1','WWH','MW1')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_nps_mail_sent",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_considered_earlier",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "nps_mail_sent_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_nps_notification_checked",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "delivery_exception_msg",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "delivery_exception_json",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "delivery_exception_timestamp",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_success_timestamp",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "order_transferred_timestamp",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "varchar(20)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "app_platform",
+        "type": "enum('ANDROID','IOS','NOT DEFINED')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "app_version",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "hl_charges_refunded",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_ab_visible",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "purchase_reason_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform_fee",
+        "type": "decimal(10,2)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "express_charges_refunded",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "product_rating_options": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "option_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_shown",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "rating_type",
+        "type": "enum('STAR','CHECKBOX')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "question_meta_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "product_rating_user": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "parent_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "product_rating_option_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "rating",
+        "type": "float",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('ANDROID','IOS','WEB')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_default",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_bot",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "hyperlocal_order_log": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "borzo_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "action",
+        "type": "enum('ACCEPTED','DECLINED','NO_ACTION','CREATION_FAILED','CONVERT_ONLINE')",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "main_location_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_created_in_borzo",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "borzo_resp",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "error_msg",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_pack",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_rto",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "rto_recieved",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_refunded",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "delivery_exception_msg",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "source_tracking_url",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "destination_tracking_url",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "delivery_exception_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "hyperlocal_fd_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('CONVERTED_ONLINE','RTO_CONVERTED_ONLINE')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "fd_ticket_id",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "fd_ticket_status",
+        "type": "enum('OPEN','PENDING','AWAITING RESPONSE','RESOLVED','CLOSED','UNKNOWN')",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "fd_ticket_age",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "fd_response",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "hyperlocal_to_online_order_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "new_order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('CONVERT_ONLINE','RTO_CONVERT_ONLINE')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "location_type",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "location_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "location_ids",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "reason",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "remark",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_exchange_log": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "has_prod_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "old_prod_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "old_size",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "new_prod_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "new_size",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "exchange_parent_prod_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "counter_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "staff_user_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "reason_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sub_reason_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "saleable",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "new_order_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "varchar(30)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "retry_count",
+        "type": "smallint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "last_error",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "vinculum_auto_delivered_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "retries",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "request",
+        "type": "longtext",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "response",
+        "type": "longtext",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "enum('SUCCESS','FAILED','QUOTA_EXCEEDED','UNEXPECTED','RETRYING','QUEUED')",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "extend_applicability_for_return_exchange": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "extended_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_by",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_by",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "coupons": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "from_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "from_name",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "to_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "to_name",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "to_phone",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_name",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "voucher_code",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "disc_apply_items",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "image",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_offer",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_valid_for",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_val",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "initial_val",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_specific",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "coupon_cat",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_deleted",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "intern_email",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "for_artist",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "remaining",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "theme",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "start_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "end_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "min_order_amt",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "no_times_allowed",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "unique_no_times_allowed",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "coupon_lot_no",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "default_country_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_method",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "transaction_status",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "transaction_orderid",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "requested_by",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "for_new_user",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_employee_coupon",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('both','web','app','offline','all')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_type",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_percentage_max_val",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "buyable_quantity",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "free_quantity",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "voucher_mxn_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_applicable_on_discounted_products",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_online_orders": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_by",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "hyperlocal_rejection_reasons": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "reason",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      }
+    ],
+    "express_line_item": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pending_expires_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "enum('PENDING','ACCEPTED','REJECTED','PACKED','OUT_FOR_DELIVERY','DELIVERED','RTO','TIMED_OUT')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "cancellation_reason",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "accepted_expires_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "delivery_eta",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "rejection_reason_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "vinc_status",
+        "type": "varchar(64)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "vinc_order_status_webhook_log": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "product_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "has_product_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "vinc_status",
+        "type": "varchar(64)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "transid",
+        "type": "varchar(32)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "reference_no",
+        "type": "varchar(64)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "tracking_number",
+        "type": "varchar(64)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "transporter",
+        "type": "varchar(64)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "express_order_status_log": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "old_status",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "new_status",
+        "type": "varchar(50)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "changed_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "report_exports": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "report_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "report_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "time_period",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_completed",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "export_status",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "export_requested_by",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "export_requested_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "export_completed_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "export_file_url",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "export_format",
+        "type": "varchar(10)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "export_size",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "export_rows_count",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP"
+      }
+    ],
+    "store_day_close": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "close_date",
+        "type": "date",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "version",
+        "type": "smallint unsigned",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "varchar(16)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "closed_by_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "closed_at",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "comment",
+        "type": "varchar(500)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_system",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_refund_system",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_actual",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_manual_punched",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_manual_created",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_difference",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_reason",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "card_system",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "card_actual",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "card_manual_punched",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "card_manual_created",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "card_difference",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "card_reason",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "card_comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "district_system",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "banking_amount",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "snap_order_count",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "stale_at",
+        "type": "datetime(6)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "stale_reason",
+        "type": "varchar(64)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "stale_trigger_ref",
+        "type": "varchar(64)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "last_verified_at",
+        "type": "datetime(6)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "store_day_banking": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "banking_date",
+        "type": "date",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "amount",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_by_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "store_cash_opening_balance": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "balance_date",
+        "type": "date",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "amount",
+        "type": "decimal(14,2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      }
+    ],
+    "tss_settings": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('PRODUCT_PRICE_WITH_GST','AUTO_REFUND_TO_TSS_MONEY','TSS_ELASTICSEARCH_UNBOX','ES_TARGET_DATE_SEARCH','ES_TRENDING_PRODUCT_SEARCH','MOV_FOR_SHIPPING_CHARGES_GLOBAL','SHIPPING_CHARGES_GLOBAL','CANCEL_ORDER_LOCATION','ES_DEFAULT_TOP_SELLING','ES_DEFAULT_TRENDING','ES_TOP_SELLING_PRODUCT_SEARCH','SEND_FB_EVENT','STORE_LOCATION_CODE','RECOMMENDATION_SEARCH_HISTORY','RECOMMENDATION_PURCHASE_HISTORY','POS_GST_INCLUSIVE','DB_HEALTH','FALLBACK','MOV_FOR_SHIPPING_CHARGES','SHIPPING_CHARGES','WELCOME_COUPON','HL_CHARGES','ES_BASED_ON_GENDER','BIRTHDAY_COUPON','REFER_EARN_COUPON','REFERRER_EARNING_PERCENTAGE','AUTOMATED_REFUND','WELCOME_COUPON_MSG','AUTO_APPLY_COUPON','HYPERLOCAL_STOCK_THRESHOLD','HYBRID_COMMUNICATIONS','ES_COLOR_IGNORE_VALUES','ES_PRICE_IGNORE_VALUES','ORDER_CREATION_BUFFER_TIME_IN_SEC','SEND_STORE_NPS_SMS','SEND_STORE_NPS_EMAIL','SEND_STORE_NPS_WHATSAPP','AUTOMATED_REFUND_CANCELLED','AUTOMATED_REFUND_UNDELIVERED','AUTOMATED_REFUND_RETURN','EDD_BUSINESS_LOGIC','SHOW_FREEBIE_IN_INVOICE','SHOW_FREEBIE_IN_CART','FREEBIE_MEMBER_TYPE','AUTOMATED_BANK_REFUND','EMP_COUPON_AMOUNT','EMP_COUPON_TXN_PER_MONTH','EMP_COUPON_STATUS','PIM_SYNC_ON_ECOMM','PIM_SYNC_ON_ECOMM_STATUS','PIM_SYNC_ON_UAE','PIM_SYNC_ON_UAE_STATUS','TSS_MONEY_EXPIRY_IN_YEARS','IS_REFUND_TRANSACTION_FEES','REFUND_TRANSACTION_THRESHOLD','REFUND_TRANSACTION_FESS','WIDGET_WITH_GST','SUS_ORDER_AMOUNT_THRESHOLD','PAYMETHOD_COD_STATUS','PAYMETHOD_COD_MESSAGE','IS_RETURN_TRANSACTION_FEES','RETURN_TRANSACTION_THRESHOLD','RETURN_TRANSACTION_FEES','SPECIFIC_FILTER_SLUGS','COD_CHARGES','SAMPLES_DEPARTMENT_IDS','OG_REFUND_MODE','TSS_MONEY_REFUND_MODE','BANK_TRANSFER_REFUND_MODE','UPI_REFUND_MODE','IS_RETURN_FEE_APPLICABLE','IS_CONVENIENCE_FEE_APPLICABLE','IS_PLATFORM_FEE_APPLICABLE_FOR_REFUND','RETURN_FEE_IN_TSS_MONEY','AUTO_DISABLE_COD','SHOW_FREEBIE_IN_ORDERS')",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "value",
+        "type": "varchar(1500)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "countries": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(128)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "currency_name",
+        "type": "varchar(20)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "currency_code",
+        "type": "varchar(6)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "iso_code_2",
+        "type": "varchar(2)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "iso_code_3",
+        "type": "varchar(3)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "address_format",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "postcode_required",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sec_status",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "country_code",
+        "type": "varchar(6)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "flag",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "phone_no_length",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "phone_no_min_length",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "min_order_value",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "max_order_value",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "timezone",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "currency_symbol",
+        "type": "varchar(5)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_franchise": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "description",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cin_number",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "stores": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": ""
+      },
+      {
+        "name": "short_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "type",
+        "type": "enum('STORE','WAREHOUSE','CORE_WAREHOUSE','BUBBLE_STORE')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "category",
+        "type": "enum('IN_HOUSE','FRANCHISE')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "franchise_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "location_code",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "email",
+        "type": "varchar(55)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "latitude",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "longitude",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "alt_address",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "city_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "country_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "phone",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": ""
+      },
+      {
+        "name": "url_key",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_image",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "pincode",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "per_day_threshold",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "per_hour_threshold",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "opening_time",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "closing_time",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "delivery_type",
+        "type": "enum('same_day','standard')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "ecom_delivery",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "ecom_threshold",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "local_feed",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "local_feed_code",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gst_arn",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gstin",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "slack_group_url",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "city_name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "state_name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "state_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "priority",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "hyperlocal_locations": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "location_code",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "db_column_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "shipping_eta",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "latitude",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "longitude",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pincode",
+        "type": "varchar(10)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "store_storages": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "storage_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "storage_type",
+        "type": "enum('STORAGE')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "storage_desc",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "store_counters": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "counter_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "counter_type",
+        "type": "enum('IN_STORE')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "counter_desc",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_user": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "password",
+        "type": "varchar(128)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "last_login",
+        "type": "timestamp",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_superuser",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "username",
+        "type": "varchar(150)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": ""
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(150)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(150)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_staff",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "date_joined",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED"
+      },
+      {
+        "name": "role",
+        "type": "smallint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "gender",
+        "type": "char(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "age",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "phone",
+        "type": "varchar(10)",
+        "nullable": true,
+        "key": "UNI",
+        "extra": ""
+      },
+      {
+        "name": "email",
+        "type": "varchar(254)",
+        "nullable": true,
+        "key": "UNI",
+        "extra": ""
+      },
+      {
+        "name": "is_mfa",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "mfa_hash",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "profile_image",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cover_image",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "contact_email",
+        "type": "varchar(254)",
+        "nullable": true,
+        "key": "UNI",
+        "extra": ""
+      },
+      {
+        "name": "otp_method",
+        "type": "smallint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "user_type",
+        "type": "smallint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "user_stores": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "django_user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ]
+  },
+  "errors": []
+}

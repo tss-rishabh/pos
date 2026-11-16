@@ -1,0 +1,1575 @@
+import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
+import { X, Check, RefreshCw } from 'lucide-react';
+import type { LocalDraft } from '../../offline/database';
+import type { Principal } from '../../api/types';
+import { currency } from '../../lib/format';
+import { ApiError, NetworkError } from '../../api/client';
+import {
+  authoritativeTotal,
+  assertCheckoutDraft,
+  createCheckout,
+  lookupCustomers,
+  mutateCheckout,
+  readCheckout,
+  readOperation,
+  reconcileCustomerVerification,
+  readSettlementNote,
+  recoveryFor,
+  saveRecovery,
+  registrationSchema,
+  type Checkout,
+  type Customer,
+} from './client';
+import { PaymentPanel, type ConfirmedPayment } from './PaymentPanel';
+import { FastCashCheckout } from './FastCashCheckout';
+import { SalespersonAssignments } from './SalespersonAssignments';
+import { confirmedPaymentSchema } from './receipts';
+import { InvoiceActions } from './InvoiceActions';
+import { DiscountApproval } from './DiscountApproval';
+import { GiftCardItems } from './GiftCardItems';
+import { CustomerRegistration } from './CustomerRegistration';
+import { CustomerProfileCard } from '../customer-insights/profile';
+import { CustomerInsights } from '../customer-insights/insights';
+import { CustomerBenefitsCard } from '../customer-insights/benefits';
+import { CustomerHistoryCard } from '../customer-insights/history';
+import { productFeedbackPath } from '../product-feedback/client';
+import { CustomerContactPanel } from '../customer-contacts';
+import { GlobalVoucherConversion } from '../global-vouchers/conversion';
+import './CheckoutReview.css';
+import type { CheckoutClearance } from '../../api/checkout-clearance';
+import { bindReviewedCheckout } from '../../offline/review-snapshot';
+import { cashIntentAmounts } from '../../offline/fast-cash/contracts';
+import { invokeCashierShortcut, type CashierShortcutRequest } from '../cashier-shortcuts/shortcuts';
+import { displayedMembershipBenefits } from '../cashier-shortcuts/membership';
+import { CustomerWebsiteHandoffAction } from '../customer-website-handoff';
+
+export interface CheckoutReviewProps {
+  user: Principal;
+  draft: LocalDraft;
+  online: boolean;
+  onClose: () => void;
+  onOrderCreated?: (orderId: string) => void;
+  onPaymentConfirmed?: (receipt: ConfirmedPayment) => void;
+  onCheckoutCleared?: (clearance: CheckoutClearance) => void | Promise<void>;
+  recoveryNotice?: string;
+  shortcutRequest?: CashierShortcutRequest;
+}
+export function CheckoutReview({
+  user,
+  draft,
+  online,
+  onClose,
+  onOrderCreated,
+  onPaymentConfirmed,
+  onCheckoutCleared,
+  recoveryNotice,
+  shortcutRequest,
+}: CheckoutReviewProps) {
+  const shortcutRoot = useRef<HTMLElement>(null),
+    shortcutIntent = useRef({ id: '', consumed: false, loaded: false, quoted: false });
+  const [openSections, setOpenSections] = useState({ messages: false, membership: false });
+  function sectionProps(name: 'messages' | 'membership') {
+    return {
+      open: openSections[name],
+      'data-checkout-section': name,
+      onToggle(event: SyntheticEvent<HTMLDetailsElement>) {
+        const open = event.currentTarget.open;
+        setOpenSections((previous) =>
+          previous[name] === open ? previous : { ...previous, [name]: open },
+        );
+      },
+    };
+  }
+  function rememberOpenSections() {
+    const snapshot = [
+      ...(shortcutRoot.current?.querySelectorAll<HTMLDetailsElement>(
+        'details[data-checkout-section]',
+      ) ?? []),
+    ].map((element) => ({ name: element.dataset.checkoutSection, open: element.open }));
+    setOpenSections((previous) => {
+      const next = { ...previous };
+      for (const section of snapshot)
+        if (section.name === 'messages' || section.name === 'membership')
+          next[section.name] = section.open;
+      return next.messages === previous.messages && next.membership === previous.membership
+        ? previous
+        : next;
+    });
+  }
+  const [checkout, setCheckout] = useState<Checkout | null>(null),
+    [busy, setBusy] = useState(false),
+    [problem, setProblem] = useState(''),
+    [notice, setNotice] = useState(''),
+    [pendingId, setPendingId] = useState<string | null>(null),
+    [query, setQuery] = useState(''),
+    [customers, setCustomers] = useState<Customer[]>([]),
+    [otp, setOtp] = useState(''),
+    [coupon, setCoupon] = useState(''),
+    [giftCode, setGiftCode] = useState(''),
+    [giftPin, setGiftPin] = useState(''),
+    [discount, setDiscount] = useState(''),
+    [discountKind, setDiscountKind] = useState<'pg' | 'store'>('store'),
+    [discountRemark, setDiscountRemark] = useState(''),
+    [discountReason, setDiscountReason] = useState(''),
+    [wallet, setWallet] = useState(''),
+    [walletMoney, setWalletMoney] = useState(true),
+    [walletPoints, setWalletPoints] = useState(false);
+  const [profilePending, setProfilePending] = useState(false);
+  const [contactPending, setContactPending] = useState(false);
+  const [conversionPending, setConversionPending] = useState(false);
+  const [fastCashBusy, setFastCashBusy] = useState(false),
+    [fastCashPending, setFastCashPending] = useState(true);
+  const [recoveryError, setRecoveryError] = useState(() => {
+    const saved = recoveryFor(draft.ownerId, draft.id);
+    return saved && saved.draftVersion !== draft.updatedAt
+      ? 'This checkout has a different saved review snapshot. Keep its reference and restore the original sale before continuing.'
+      : '';
+  });
+  const [approvalState, setApprovalState] = useState<{ version: number; ready: boolean } | null>(
+    null,
+  );
+  const approvalReady = useCallback(
+    (version: number, ready: boolean) =>
+      setApprovalState((previous) =>
+        previous?.version === version && previous.ready === ready ? previous : { version, ready },
+      ),
+    [],
+  );
+  const current = useRef<Checkout | null>(null),
+    locked = useRef(false),
+    fastCashActive = useRef(false),
+    notifiedReceipt = useRef<string | null>(null),
+    completedCallback = useRef(onPaymentConfirmed),
+    notifiedClear = useRef<string | null>(null),
+    clearCallback = useRef(onCheckoutCleared);
+  completedCallback.current = onPaymentConfirmed;
+  clearCallback.current = onCheckoutCleared;
+  function notifyClear(clearance: CheckoutClearance) {
+    if (!clearCallback.current || notifiedClear.current === clearance.operationId) return;
+    notifiedClear.current = clearance.operationId;
+    void (async () => {
+      try {
+        await clearCallback.current!(clearance);
+      } catch (error) {
+        notifiedClear.current = null;
+        setProblem(
+          error instanceof Error
+            ? error.message
+            : 'The cleared checkout could not be completed on this device.',
+        );
+      }
+    })();
+  }
+  const adopt = async (value: Checkout) => {
+    try {
+      assertCheckoutDraft(value, draft.id, draft.updatedAt, draft.lines);
+      const saved = recoveryFor(draft.ownerId, draft.id);
+      if (saved && saved.draftVersion !== draft.updatedAt)
+        throw new Error(
+          'This checkout has a different saved review snapshot. Keep its reference and restore the original sale before continuing.',
+        );
+    } catch (error) {
+      setRecoveryError(
+        error instanceof Error ? error.message : 'The saved sale could not be verified.',
+      );
+      throw error;
+    }
+    if (
+      value.settlement &&
+      (value.settlement.orderId !== value.orderId ||
+        (value.settlement.source === 'prepaid' && value.settlement.checkoutId !== value.id))
+    )
+      throw new Error(
+        'The payment evidence does not match this checkout. Review the order before continuing.',
+      );
+    if (value.operatorId && value.operatorId !== draft.ownerId)
+      throw new Error(
+        'This checkout belongs to a different operator. Restore the original operator before continuing.',
+      );
+    if (value.phase === 'cleared') {
+      const proof = value.lastClear;
+      if (
+        value.orderId ||
+        value.settlement ||
+        (value.cart?.products.items.length ?? 0) !== 0 ||
+        (value.cart?.giftvouchers?.items.length ?? 0) !== 0
+      )
+        throw new Error(
+          'The clear confirmation conflicts with the saved sale. Keep its reference and review it.',
+        );
+      if (
+        proof &&
+        (proof.checkoutId !== value.id ||
+          proof.operatorId !== draft.ownerId ||
+          proof.storeId !== draft.storeId ||
+          proof.counterId !== draft.counterId ||
+          proof.draftId !== draft.id ||
+          proof.draftVersion !== draft.updatedAt)
+      )
+        throw new Error(
+          'The clear confirmation does not match this reviewed draft. Your local cart has been kept.',
+        );
+    } else if (value.lastClear)
+      throw new Error('The saved clear confirmation has an inconsistent checkout state.');
+    const binding = await bindReviewedCheckout(draft, value.id);
+    if (binding.cleared && value.phase !== 'cleared')
+      throw new Error(
+        'This checkout was already cleared. Its original items will not be imported again.',
+      );
+    const ownedValue = { ...value, operatorId: draft.ownerId };
+    current.current = ownedValue;
+    setCheckout(ownedValue);
+    if (value.phase === 'cleared' && value.lastClear) notifyClear(value.lastClear);
+    if (value.settlement && notifiedReceipt.current !== value.settlement.receiptId) {
+      notifiedReceipt.current = value.settlement.receiptId;
+      completedCallback.current?.(value.settlement);
+    }
+  };
+  const store = (state: Checkout, operationId: string | null) => {
+    saveRecovery(draft.ownerId, draft.id, {
+      checkoutId: state.id,
+      pendingOperationId: operationId,
+      draftVersion: draft.updatedAt,
+    });
+    setPendingId(operationId);
+  };
+  const act = async (task: () => Promise<void>) => {
+    if (locked.current || fastCashActive.current) return;
+    locked.current = true;
+    setBusy(true);
+    setProblem('');
+    try {
+      if (recoveryError) throw new Error(recoveryError);
+      await task();
+    } catch (error) {
+      setProblem(
+        error instanceof ApiError
+          ? `${error.message}${error.requestId ? ` (Reference ${error.requestId})` : ''}`
+          : error instanceof Error
+            ? error.message
+            : 'Checkout could not be confirmed.',
+      );
+    } finally {
+      setBusy(false);
+      locked.current = false;
+    }
+  };
+  const mutate = async (
+    path: string,
+    method: 'POST' | 'PUT',
+    body: Record<string, unknown> = {},
+  ) => {
+    const state = current.current;
+    if (!state) throw new Error('Start this checkout first.');
+    const operationId = crypto.randomUUID();
+    store(state, operationId);
+    try {
+      const reply = await mutateCheckout(state, operationId, path, method, body);
+      if (reply.state) {
+        const settlement = confirmedPaymentSchema.safeParse(reply.result?.settlement);
+        const registration = registrationSchema.safeParse(reply.result?.registration);
+        await adopt({
+          ...reply.state,
+          registration: registration.success
+            ? registration.data
+            : reply.state.registrationId && reply.state.registrationId === state.registrationId
+              ? state.registration
+              : null,
+          ...(settlement.success ? { settlement: settlement.data } : {}),
+        });
+      }
+      if (reply.status !== 'succeeded')
+        throw new Error(
+          reply.status === 'uncertain'
+            ? 'The last action needs review. Check its status before continuing.'
+            : 'The last action is still being confirmed. Check its status before continuing.',
+        );
+      store(reply.state || state, null);
+      return reply;
+    } catch (error) {
+      // A validation/permission rejection occurs before an operation is accepted.
+      // Network errors retain the operation identifier for server reconciliation.
+      if (error instanceof NetworkError || (error instanceof ApiError && error.status >= 500)) {
+        try {
+          const latest = await readCheckout(draft.storeId, state.id, draft.ownerId);
+          await adopt(latest);
+          store(latest, latest.busyOperationId || operationId);
+        } catch {
+          // Preserve the original failure and ID when a writer read is also
+          // unavailable; the user can inspect it with Check action status.
+        }
+      }
+      if (error instanceof ApiError && [400, 401, 403, 404, 410, 422].includes(error.status))
+        store(current.current || state, null);
+      if (
+        error instanceof ApiError &&
+        [
+          'CHECKOUT_CONFIRMATION_IN_PROGRESS',
+          'CHECKOUT_CONFIRMATION_NOT_RECOVERABLE',
+          'CUSTOMER_REGISTRATION_REQUEST_IN_PROGRESS',
+          'CUSTOMER_REGISTRATION_REQUEST_NOT_RECOVERABLE',
+        ].includes(error.code)
+      )
+        store(current.current || state, current.current?.busyOperationId ?? null);
+      if (
+        error instanceof ApiError &&
+        ['CHECKOUT_VERSION_CONFLICT', 'CHECKOUT_REVIEW_REQUIRED', 'CHECKOUT_CLEARED'].includes(
+          error.code,
+        )
+      ) {
+        const latest = await readCheckout(draft.storeId, state.id, draft.ownerId);
+        await adopt(latest);
+        store(latest, latest.busyOperationId);
+      }
+      throw error;
+    }
+  };
+  useEffect(() => {
+    let active = true;
+    const recovery = recoveryFor(draft.ownerId, draft.id);
+    if (!recovery || !online) return;
+    if (recovery.draftVersion !== draft.updatedAt) {
+      setRecoveryError(
+        'This checkout has a different saved review snapshot. Keep its reference and restore the original sale before continuing.',
+      );
+      return;
+    }
+    void readCheckout(draft.storeId, recovery.checkoutId, draft.ownerId)
+      .then(async (value) => {
+        if (active) {
+          await adopt(value);
+          setPendingId(value.busyOperationId || recovery.pendingOperationId);
+        }
+      })
+      .catch((error) => {
+        if (active)
+          setProblem(error instanceof Error ? error.message : 'Could not restore checkout.');
+      });
+    return () => {
+      active = false;
+    };
+  }, [draft.ownerId, draft.id, draft.storeId, draft.updatedAt, online]);
+  async function start() {
+    let state = current.current;
+    if (!state) {
+      state = await createCheckout(
+        draft.storeId,
+        draft.counterId,
+        draft.id,
+        draft.updatedAt,
+        draft.lines.map((line) => ({ productId: line.productId, quantity: line.quantity })),
+        draft.ownerId,
+      );
+      await adopt(state);
+      store(state, state.busyOperationId);
+    }
+    if (state.draftImport?.status === 'pending') {
+      if (state.busyOperationId) return;
+      await mutate('draft-initializations', 'POST');
+      setNotice('Prices and availability are now confirmed online.');
+      return;
+    }
+    if (state.phase !== 'open' || state.cart !== null || state.version > 0 || state.busyOperationId)
+      return;
+    throw new Error(
+      'This saved sale has no confirmed line manifest. Keep its checkout reference and review it before continuing.',
+    );
+  }
+  async function recover() {
+    const state = current.current;
+    if (!state || !pendingId) return;
+    let result = await readOperation(state, pendingId);
+    if (
+      ['inflight', 'uncertain'].includes(result.status) &&
+      [
+        state.verificationChallenge?.requestOperationId,
+        state.verificationChallenge?.verifyOperationId,
+      ].includes(pendingId)
+    )
+      result = await reconcileCustomerVerification(state, pendingId);
+    const latest = await readCheckout(draft.storeId, state.id, draft.ownerId);
+    await adopt(latest);
+    if (result.status === 'succeeded' || result.status === 'rejected') {
+      store(latest, latest.busyOperationId);
+      setNotice(
+        result.status === 'succeeded'
+          ? 'The last action was confirmed.'
+          : `The last action was rejected (${result.errorCode || 'CHECKOUT_REJECTED'}).`,
+      );
+    } else
+      setNotice(
+        result.status === 'inflight'
+          ? 'The last action is still processing.'
+          : 'The outcome needs administrator review. No payment or order action will be repeated.',
+      );
+  }
+  const editable =
+      !!checkout &&
+      ['open', 'quoted'].includes(checkout.phase) &&
+      checkout.draftImport?.status === 'complete' &&
+      !pendingId &&
+      !profilePending &&
+      !contactPending &&
+      !conversionPending &&
+      !fastCashBusy &&
+      !fastCashPending &&
+      !checkout.busyOperationId,
+    disabled =
+      busy ||
+      fastCashBusy ||
+      profilePending ||
+      contactPending ||
+      conversionPending ||
+      !online ||
+      Boolean(recoveryError),
+    total = checkout ? authoritativeTotal(checkout) : null,
+    memberBenefits = displayedMembershipBenefits(checkout?.cart);
+  useEffect(() => {
+    const request = shortcutRequest,
+      root = shortcutRoot.current;
+    if (!request || !root) return;
+    if (shortcutIntent.current.id !== request.id)
+      shortcutIntent.current = { id: request.id, consumed: false, loaded: false, quoted: false };
+    const intent = shortcutIntent.current;
+    if (intent.consumed) return;
+    if (
+      Date.now() - request.requestedAt > 10000 ||
+      recoveryError ||
+      checkout?.phase === 'submitted' ||
+      checkout?.phase === 'cleared'
+    ) {
+      intent.consumed = true;
+      return;
+    }
+    if (disabled || pendingId || checkout?.busyOperationId || checkout?.phase === 'uncertain')
+      return;
+    if (!checkout && recoveryFor(draft.ownerId, draft.id)) return;
+    if (invokeCashierShortcut(root, request.action)) {
+      intent.consumed = true;
+      return;
+    }
+    // Only pricing/loading steps may continue automatically. No shortcut clicks
+    // a payment, cash completion, refund, or saved financial-operation retry.
+    if (!checkout && !intent.loaded && !recoveryFor(draft.ownerId, draft.id)) {
+      intent.loaded = true;
+      invokeCashierShortcut(root, 'quote');
+    } else if (
+      request.action === 'fast-cash' &&
+      checkout?.phase === 'open' &&
+      editable &&
+      !intent.quoted
+    ) {
+      intent.quoted = true;
+      invokeCashierShortcut(root, 'quote');
+    } else if (checkout?.phase === 'quoted' && request.action !== 'fast-cash')
+      intent.consumed = true;
+  }, [
+    shortcutRequest,
+    checkout,
+    disabled,
+    pendingId,
+    editable,
+    recoveryError,
+    approvalState,
+    draft.ownerId,
+    draft.id,
+  ]);
+  useEffect(() => {
+    const request = shortcutRequest,
+      root = shortcutRoot.current;
+    if (
+      !request ||
+      !root ||
+      !['salesperson', 'fast-cash'].includes(request.action) ||
+      disabled ||
+      pendingId
+    )
+      return;
+    const focus = () => {
+      if (
+        !shortcutIntent.current.consumed &&
+        shortcutIntent.current.id === request.id &&
+        Date.now() - request.requestedAt <= 10000 &&
+        invokeCashierShortcut(root, request.action)
+      )
+        shortcutIntent.current.consumed = true;
+    };
+    const observer = new MutationObserver(focus);
+    observer.observe(root, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ['disabled'],
+    });
+    const timeout = setTimeout(
+      () => observer.disconnect(),
+      Math.max(0, 10000 - (Date.now() - request.requestedAt)),
+    );
+    return () => {
+      observer.disconnect();
+      clearTimeout(timeout);
+    };
+  }, [shortcutRequest, disabled, pendingId]);
+  return (
+    <div className="modal-backdrop">
+      <section
+        ref={shortcutRoot}
+        onClickCapture={rememberOpenSections}
+        data-cashier-shortcuts="review"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="checkout-title"
+        className="modal checkout-dialog"
+      >
+        <button className="icon-button modal-close" aria-label="Close checkout" onClick={onClose}>
+          <X size={20} />
+        </button>
+        <div className="eyebrow">SALE REVIEW</div>
+        <h2 id="checkout-title">Confirm the sale</h2>
+        {recoveryNotice && (
+          <p role="status" className="caption">
+            {recoveryNotice}
+          </p>
+        )}
+        {recoveryError && (
+          <p role="alert" className="inline-error">
+            {recoveryError}
+          </p>
+        )}
+        {!online && (
+          <p role="status">
+            Your draft is saved on this device. Reconnect to confirm prices, benefits and payment.
+          </p>
+        )}
+        {problem && (
+          <p role="alert" className="inline-error">
+            {problem}
+          </p>
+        )}
+        {notice && (
+          <p role="status" className="sync-message">
+            <Check size={16} />
+            {notice}
+          </p>
+        )}
+        {checkout && (
+          <button
+            className="button secondary"
+            data-cashier-action="refresh"
+            aria-keyshortcuts="R"
+            disabled={disabled}
+            onClick={() =>
+              void act(async () => {
+                const state = current.current;
+                if (!state) return;
+                const latest = await readCheckout(draft.storeId, state.id, draft.ownerId);
+                await adopt(latest);
+                store(latest, latest.busyOperationId || pendingId);
+              })
+            }
+          >
+            Refresh sale
+          </button>
+        )}
+        {!checkout && (
+          <button
+            data-cashier-action={recoveryFor(draft.ownerId, draft.id) ? undefined : 'proceed quote'}
+            className="button primary full"
+            disabled={disabled}
+            onClick={() => void act(start)}
+          >
+            {busy ? 'Confirming…' : 'Confirm prices online'}
+          </button>
+        )}
+        {pendingId && (
+          <div>
+            <p>The last action is awaiting confirmation. Reference {pendingId}.</p>
+            <button
+              className="button secondary"
+              disabled={disabled}
+              onClick={() => void act(recover)}
+            >
+              <RefreshCw size={16} /> Check action status
+            </button>
+          </div>
+        )}
+        {checkout?.draftImport?.status === 'pending' &&
+          !pendingId &&
+          checkout.phase !== 'uncertain' && (
+            <div>
+              <p>Every saved line must be confirmed before this sale can be quoted.</p>
+              <button
+                data-cashier-action="proceed quote"
+                className="button primary full"
+                disabled={disabled}
+                onClick={() => void act(start)}
+              >
+                Finish loading saved sale
+              </button>
+            </div>
+          )}
+        {checkout?.phase === 'uncertain' && !checkout.orderId && (
+          <p role="alert">
+            This sale needs administrator review before another order or payment can be attempted.
+            Checkout reference: {checkout.id}.
+          </p>
+        )}
+        {checkout?.phase === 'cleared' && (
+          <div>
+            <p role="status">
+              This checkout is cleared. Its original items cannot be submitted again.
+            </p>
+            {checkout.lastClear && onCheckoutCleared && (
+              <button
+                className="button secondary full"
+                disabled={busy || Boolean(recoveryError)}
+                onClick={() => {
+                  notifiedClear.current = null;
+                  notifyClear(checkout.lastClear!);
+                }}
+              >
+                Finish clearing this device
+              </button>
+            )}
+            {!checkout.lastClear && (
+              <p role="alert">
+                The original draft binding is unavailable. Keep the local cart and review this
+                reference.
+              </p>
+            )}
+          </div>
+        )}
+        {checkout?.registrationRequestRecovery && (
+          <div>
+            <p>The registration delivery is saved, but its checkout checkpoint was interrupted.</p>
+            <button
+              className="button secondary full"
+              disabled={disabled}
+              onClick={() =>
+                void act(async () => {
+                  await mutate('customer-registration-request-reconciliations', 'POST');
+                  setNotice(
+                    'The queued registration request is recovered. No new message was sent.',
+                  );
+                })
+              }
+            >
+              Recover queued registration request
+            </button>
+          </div>
+        )}
+        {checkout?.orderId &&
+          ['order-created', 'uncertain'].includes(checkout.phase) &&
+          ['dispatching', 'acknowledged'].includes(checkout.confirmationPhase ?? '') && (
+            <div>
+              <p>
+                Order {checkout.orderId} has a saved confirmation reference. Check its committed
+                stock and wallet updates before continuing.
+              </p>
+              <button
+                className="button secondary full"
+                disabled={disabled}
+                onClick={() =>
+                  void act(async () => {
+                    await mutate('confirmation-reconciliations', 'POST');
+                    setNotice(
+                      'The saved confirmation is proved and order preparation is complete.',
+                    );
+                  })
+                }
+              >
+                Reconcile saved confirmation
+              </button>
+            </div>
+          )}
+        {checkout?.phase === 'order-created' && (
+          <div role="status">
+            <p>
+              Order {checkout.orderId} is saved.{' '}
+              {checkout.confirmationPhase === 'acknowledged'
+                ? 'Invoice preparation needs to finish before payment can continue.'
+                : 'Its confirmation needs administrator review before payment can continue.'}
+            </p>
+            {checkout.confirmationPhase === 'acknowledged' && (
+              <button
+                className="button secondary full"
+                disabled={disabled || Boolean(pendingId) || Boolean(checkout.busyOperationId)}
+                onClick={() =>
+                  void act(async () => {
+                    await mutate('order-finalizations', 'POST');
+                  })
+                }
+              >
+                Finish order preparation
+              </button>
+            )}
+          </div>
+        )}
+        {checkout && (
+          <>
+            <p>
+              {checkout.customerId ? `Customer ${checkout.customerId}` : 'Walk-in customer'} ·{' '}
+              {checkout.phase === 'submitted'
+                ? 'Order created'
+                : `${checkout.cart?.products.items.length || 0} product lines`}
+            </p>
+            {checkout.customerId && (
+              <CustomerProfileCard
+                key={`profile:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
+                operatorId={draft.ownerId}
+                storeId={draft.storeId}
+                checkoutId={checkout.id}
+                customerId={checkout.customerId}
+                checkoutVersion={checkout.version}
+                online={online}
+                disabled={
+                  busy ||
+                  fastCashBusy ||
+                  fastCashPending ||
+                  contactPending ||
+                  conversionPending ||
+                  !online ||
+                  Boolean(recoveryError)
+                }
+                actions={{
+                  act,
+                  onPending: setProfilePending,
+                  onSaved: async () => {
+                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                    await adopt(latest);
+                    setProfilePending(false);
+                    setNotice(
+                      'Customer details saved. Recalculate the quote before completing this sale.',
+                    );
+                  },
+                }}
+              />
+            )}
+            {checkout.customerId && (
+              <CustomerContactPanel
+                key={`contact:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
+                scope={{
+                  operatorId: draft.ownerId,
+                  storeId: draft.storeId,
+                  checkoutId: checkout.id,
+                  customerId: checkout.customerId,
+                }}
+                checkoutVersion={checkout.version}
+                online={online}
+                disabled={
+                  busy ||
+                  fastCashBusy ||
+                  fastCashPending ||
+                  profilePending ||
+                  conversionPending ||
+                  !online ||
+                  Boolean(recoveryError)
+                }
+                actions={{
+                  act,
+                  onPending: setContactPending,
+                  onSaved: async () => {
+                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                    await adopt(latest);
+                    setContactPending(false);
+                    setNotice(
+                      'Customer contact saved. Recalculate the quote and verify benefits again before completing this sale.',
+                    );
+                  },
+                }}
+              />
+            )}
+            {checkout.customerId && (
+              <CustomerWebsiteHandoffAction
+                key={`website:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
+                user={user}
+                storeId={draft.storeId}
+                checkoutId={checkout.id}
+                checkoutVersion={checkout.version}
+                online={online}
+                disabled={
+                  disabled ||
+                  busy ||
+                  fastCashBusy ||
+                  fastCashPending ||
+                  profilePending ||
+                  contactPending ||
+                  conversionPending ||
+                  Boolean(recoveryError)
+                }
+                onOpen={(url) => {
+                  window.open(url, '_blank', 'noopener,noreferrer');
+                }}
+              />
+            )}
+            {checkout.customerId && (
+              <GlobalVoucherConversion
+                key={`voucher-conversion:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
+                user={{ id: draft.ownerId }}
+                state={checkout}
+                online={online}
+                disabled={
+                  busy ||
+                  fastCashBusy ||
+                  fastCashPending ||
+                  profilePending ||
+                  contactPending ||
+                  !online ||
+                  Boolean(recoveryError)
+                }
+                onPending={setConversionPending}
+                onSaved={async () => {
+                  const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                  await adopt(latest);
+                  setConversionPending(false);
+                  setNotice(
+                    'Gift voucher conversion confirmed. Recalculate the quote before completing this sale.',
+                  );
+                }}
+              />
+            )}
+            {checkout.customerId && (
+              <CustomerInsights
+                key={`insights:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
+                scope={{
+                  operatorId: draft.ownerId,
+                  storeId: draft.storeId,
+                  checkoutId: checkout.id,
+                  customerId: checkout.customerId,
+                }}
+                checkoutVersion={checkout.version}
+                online={online}
+                disabled={disabled}
+              />
+            )}
+            {checkout.customerId && (
+              <CustomerBenefitsCard
+                key={`benefits:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
+                scope={{
+                  operatorId: draft.ownerId,
+                  storeId: draft.storeId,
+                  checkoutId: checkout.id,
+                  customerId: checkout.customerId,
+                }}
+                checkoutVersion={checkout.version}
+                online={online}
+                disabled={
+                  disabled ||
+                  fastCashPending ||
+                  Boolean(pendingId) ||
+                  Boolean(checkout.busyOperationId)
+                }
+              />
+            )}
+            {checkout.customerId && (
+              <CustomerHistoryCard
+                key={`history:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
+                scope={{
+                  operatorId: draft.ownerId,
+                  storeId: draft.storeId,
+                  checkoutId: checkout.id,
+                  customerId: checkout.customerId,
+                }}
+                checkoutVersion={checkout.version}
+                online={online}
+                disabled={
+                  disabled ||
+                  fastCashPending ||
+                  Boolean(pendingId) ||
+                  Boolean(checkout.busyOperationId)
+                }
+                orderDetailsPath={(orderId) => '/orders?orderId=' + encodeURIComponent(orderId)}
+                feedbackPath={(orderId) =>
+                  productFeedbackPath({
+                    storeId: draft.storeId,
+                    checkoutId: checkout.id,
+                    customerId: checkout.customerId!,
+                    orderId,
+                  })
+                }
+              />
+            )}
+            {checkout.draftImport?.status === 'complete' && checkout.phase !== 'cleared' && (
+              <SalespersonAssignments
+                checkout={checkout}
+                operatorId={draft.ownerId}
+                disabled={disabled || !editable}
+                act={act}
+                mutate={mutate}
+              />
+            )}
+            {editable && (
+              <>
+                <GiftCardItems checkout={checkout} disabled={disabled} act={act} mutate={mutate} />
+                <CustomerRegistration
+                  checkout={checkout}
+                  disabled={disabled}
+                  act={act}
+                  mutate={mutate}
+                  refresh={async () => {
+                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                    await adopt(latest);
+                    return latest;
+                  }}
+                />
+                <details {...sectionProps('messages')}>
+                  <summary>Order messages</summary>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={checkout.orderNotifications?.sendSms ?? true}
+                      disabled={disabled}
+                      onChange={(event) => {
+                        const sendSms = event.target.checked;
+                        void act(async () => {
+                          await mutate('order-notifications', 'PUT', {
+                            sendSms,
+                            npsFeedback:
+                              sendSms && (checkout.orderNotifications?.npsFeedback ?? false),
+                          });
+                        });
+                      }}
+                    />
+                    Send the customer an order SMS
+                  </label>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={checkout.orderNotifications?.npsFeedback ?? false}
+                      data-cashier-action="toggle-nps"
+                      aria-keyshortcuts="N"
+                      disabled={disabled || checkout.orderNotifications?.sendSms === false}
+                      onChange={(event) => {
+                        const npsFeedback = event.target.checked;
+                        void act(async () => {
+                          await mutate('order-notifications', 'PUT', {
+                            sendSms: true,
+                            npsFeedback,
+                          });
+                        });
+                      }}
+                    />
+                    Include the shopping feedback link
+                  </label>
+                  <p className="caption">
+                    Messages are queued after the order is confirmed. Their delivery does not
+                    determine payment status.
+                  </p>
+                </details>
+                <details>
+                  <summary>Customer and verification</summary>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void act(async () => {
+                        const result = await lookupCustomers(
+                          draft.storeId,
+                          draft.counterId,
+                          query.trim(),
+                          draft.ownerId,
+                        );
+                        setCustomers(result.data);
+                      });
+                    }}
+                  >
+                    <label>
+                      Email or phone
+                      <input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        required
+                        maxLength={254}
+                      />
+                    </label>
+                    <button className="button secondary" disabled={disabled}>
+                      Find customer
+                    </button>
+                  </form>
+                  {customers.map((customer) => (
+                    <button
+                      key={customer.id}
+                      className="button secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void act(async () => {
+                          await mutate('customer', 'PUT', { customerId: customer.id });
+                          setCustomers([]);
+                          setQuery('');
+                        })
+                      }
+                    >
+                      {customer.firstName} {customer.lastName} · {customer.telephone}
+                    </button>
+                  ))}
+                  {checkout.customerId && (
+                    <>
+                      <p className="caption">
+                        Detaching the customer clears this checkout's items, benefits and
+                        salesperson assignments.
+                      </p>
+                      <button
+                        className="button secondary"
+                        disabled={disabled}
+                        onClick={() =>
+                          void act(async () => {
+                            await mutate('customer-detachments', 'POST');
+                            setOtp('');
+                            setCustomers([]);
+                            setQuery('');
+                            setNotice('The customer is detached and the checkout is empty.');
+                          })
+                        }
+                      >
+                        Detach customer and clear checkout
+                      </button>
+                      <button
+                        className="button secondary"
+                        disabled={disabled}
+                        onClick={() =>
+                          void act(async () => {
+                            setOtp('');
+                            await mutate('customer-verification/challenges', 'POST');
+                            setNotice(
+                              'Verification queued. Check delivery before entering the code.',
+                            );
+                          })
+                        }
+                      >
+                        Send verification code
+                      </button>
+                      {checkout.verificationChallenge && !checkout.verifiedCustomerUntil && (
+                        <div role="status">
+                          <p>
+                            {checkout.verificationChallenge.deliveryStatus === 'uncertain'
+                              ? 'Delivery is unconfirmed. If the code arrived, it can be verified. No code will be resent automatically.'
+                              : checkout.verificationChallenge.sent
+                                ? 'The verification code was delivered.'
+                                : checkout.verificationChallenge.deliveryStatus === 'rejected'
+                                  ? 'The verification is unavailable or expired. Request a new code when permitted.'
+                                  : 'The verification code is queued for delivery.'}
+                          </p>
+                          <button
+                            className="button secondary"
+                            disabled={disabled}
+                            onClick={() =>
+                              void act(async () => {
+                                const latest = await readCheckout(
+                                  draft.storeId,
+                                  checkout.id,
+                                  draft.ownerId,
+                                );
+                                await adopt(latest);
+                              })
+                            }
+                          >
+                            Check verification delivery
+                          </button>
+                        </div>
+                      )}
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void act(async () => {
+                            const code = otp;
+                            setOtp('');
+                            await mutate('customer-verification/confirmations', 'POST', {
+                              otp: code,
+                            });
+                            setNotice('Customer verified.');
+                          });
+                        }}
+                      >
+                        <label>
+                          Verification code
+                          <input
+                            value={otp}
+                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                            inputMode="numeric"
+                            autoComplete="one-time-code"
+                            pattern="[0-9]{6}"
+                            maxLength={6}
+                            required
+                            disabled={
+                              disabled ||
+                              !(
+                                checkout.verificationChallenge?.sent ||
+                                checkout.verificationChallenge?.deliveryStatus === 'uncertain'
+                              )
+                            }
+                          />
+                        </label>
+                        <button
+                          className="button secondary"
+                          disabled={
+                            disabled ||
+                            otp.length !== 6 ||
+                            !(
+                              checkout.verificationChallenge?.sent ||
+                              checkout.verificationChallenge?.deliveryStatus === 'uncertain'
+                            )
+                          }
+                        >
+                          Verify customer
+                        </button>
+                      </form>
+                    </>
+                  )}
+                </details>
+                <details {...sectionProps('membership')}>
+                  <summary>Coupon and membership</summary>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void act(async () => {
+                        await mutate('coupon', 'PUT', { code: coupon });
+                        setCoupon('');
+                      });
+                    }}
+                  >
+                    <label>
+                      Coupon
+                      <input
+                        value={coupon}
+                        onChange={(e) => setCoupon(e.target.value)}
+                        maxLength={100}
+                      />
+                    </label>
+                    <button className="button secondary" disabled={disabled}>
+                      Apply coupon
+                    </button>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void act(async () => {
+                          await mutate('coupon/removals', 'POST');
+                        })
+                      }
+                    >
+                      Remove coupon
+                    </button>
+                  </form>
+                  <label>
+                    <input
+                      type="checkbox"
+                      data-cashier-action="toggle-exclusive"
+                      aria-keyshortcuts="E"
+                      checked={memberBenefits === true}
+                      disabled={disabled || checkout.customerId !== null || memberBenefits === null}
+                      onChange={(event) => {
+                        const enabled = event.target.checked;
+                        void act(async () => {
+                          await mutate('membership-benefits', 'PUT', { enabled });
+                        });
+                      }}
+                    />{' '}
+                    Apply walk-in member benefits
+                  </label>
+                  {checkout.customerId && (
+                    <p className="caption">
+                      Connected customers use their own membership eligibility.
+                    </p>
+                  )}
+                  {memberBenefits === null && (
+                    <p className="caption">Refresh the sale to verify member benefits.</p>
+                  )}
+                </details>
+                <details>
+                  <summary>Wallet and gift voucher</summary>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void act(async () => {
+                        await mutate('wallet', 'PUT', {
+                          money: walletMoney,
+                          points: walletPoints,
+                          appliedMoney: walletMoney && wallet ? wallet : '0.00',
+                          custom: walletMoney && Boolean(wallet),
+                        });
+                      });
+                    }}
+                  >
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={walletMoney}
+                        onChange={(event) => setWalletMoney(event.target.checked)}
+                      />
+                      Use TSS Money
+                    </label>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={walletPoints}
+                        onChange={(event) => setWalletPoints(event.target.checked)}
+                      />
+                      Use TSS Points
+                    </label>
+                    <label>
+                      Wallet amount
+                      <input
+                        value={wallet}
+                        onChange={(e) => setWallet(e.target.value)}
+                        inputMode="decimal"
+                        pattern="[0-9]+(\.[0-9]{1,2})?"
+                        disabled={!walletMoney}
+                      />
+                    </label>
+                    <button
+                      className="button secondary"
+                      disabled={
+                        disabled ||
+                        !checkout.verifiedCustomerUntil ||
+                        checkout.verifiedCustomerUntil < Date.now()
+                      }
+                    >
+                      Use wallet
+                    </button>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void act(async () => {
+                          await mutate('wallet', 'PUT', {
+                            money: false,
+                            points: false,
+                            appliedMoney: '0.00',
+                            custom: false,
+                          });
+                        })
+                      }
+                    >
+                      Remove wallet benefits
+                    </button>
+                  </form>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void act(async () => {
+                        const pin = giftPin;
+                        setGiftPin('');
+                        await mutate('gift-vouchers', 'POST', { code: giftCode, pin });
+                        setGiftCode('');
+                      });
+                    }}
+                  >
+                    <label>
+                      Gift voucher code
+                      <input
+                        value={giftCode}
+                        onChange={(e) => setGiftCode(e.target.value)}
+                        maxLength={100}
+                        required
+                      />
+                    </label>
+                    <label>
+                      Gift voucher PIN
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        value={giftPin}
+                        onChange={(e) => setGiftPin(e.target.value)}
+                        maxLength={32}
+                        required
+                      />
+                    </label>
+                    <button
+                      className="button secondary"
+                      disabled={
+                        disabled ||
+                        !checkout.verifiedCustomerUntil ||
+                        checkout.verifiedCustomerUntil < Date.now()
+                      }
+                    >
+                      Redeem voucher
+                    </button>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void act(async () => {
+                          await mutate('gift-vouchers/removals', 'POST');
+                        })
+                      }
+                    >
+                      Remove gift voucher
+                    </button>
+                  </form>
+                </details>
+                <details>
+                  <summary>Store and payment gateway discounts</summary>
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void act(async () => {
+                        await mutate('discount', 'PUT', {
+                          kind: discountKind,
+                          amount: discount,
+                          apply: true,
+                          remark: discountRemark,
+                          ...(discountKind === 'store' ? { reason: discountReason } : {}),
+                        });
+                      });
+                    }}
+                  >
+                    <label>
+                      Discount type
+                      <select
+                        value={discountKind}
+                        onChange={(event) =>
+                          setDiscountKind(event.target.value === 'pg' ? 'pg' : 'store')
+                        }
+                      >
+                        <option value="store">Store discount (PG)</option>
+                        <option value="pg">Payment gateway discount</option>
+                      </select>
+                    </label>
+                    <label>
+                      Discount amount
+                      <input
+                        value={discount}
+                        onChange={(e) => setDiscount(e.target.value)}
+                        inputMode="decimal"
+                        pattern="[0-9]+(\.[0-9]{1,2})?"
+                        required
+                      />
+                    </label>
+                    <label>
+                      Discount remark
+                      <input
+                        value={discountRemark}
+                        onChange={(event) => setDiscountRemark(event.target.value)}
+                        minLength={3}
+                        maxLength={35}
+                        required
+                      />
+                    </label>
+                    {discountKind === 'store' && (
+                      <label>
+                        Store discount reason
+                        <select
+                          required
+                          value={discountReason}
+                          onChange={(event) => setDiscountReason(event.target.value)}
+                        >
+                          <option value="">Select reason</option>
+                          {[
+                            'Price mismatch (Online v/s POS)',
+                            'Price mismatch (Pricetag v/s POS)',
+                            'Price mismatch (During exchange)',
+                            'Founder billing',
+                            'Marketing activity',
+                            'Uniform billing',
+                            'Perfume tester',
+                            'Trial socks',
+                            'Personal Care',
+                          ].map((reason) => (
+                            <option key={reason}>{reason}</option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <button className="button secondary" disabled={disabled}>
+                      Apply discount
+                    </button>
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void act(async () => {
+                          await mutate('discount', 'PUT', {
+                            kind: discountKind,
+                            amount: '0.00',
+                            apply: false,
+                          });
+                        })
+                      }
+                    >
+                      Remove selected discount
+                    </button>
+                  </form>
+                </details>
+                <button
+                  className="button secondary full"
+                  disabled={disabled}
+                  onClick={() =>
+                    void act(async () => {
+                      await mutate('clear', 'POST');
+                    })
+                  }
+                >
+                  Clear checkout and start a new sale
+                </button>
+                <button
+                  className="button secondary full"
+                  data-cashier-action={checkout.phase === 'quoted' ? 'quote' : 'proceed quote'}
+                  disabled={disabled}
+                  onClick={() =>
+                    void act(async () => {
+                      await mutate('quotes', 'POST');
+                    })
+                  }
+                >
+                  {checkout.phase === 'quoted' ? 'Refresh final quote' : 'Get final quote'}
+                </button>
+              </>
+            )}
+            {total !== null && (
+              <div className="grand-total">
+                <span>Confirmed payable</span>
+                <strong>{currency(total)}</strong>
+              </div>
+            )}
+            {checkout.draftImport?.status === 'complete' && checkout.phase !== 'cleared' && (
+              <FastCashCheckout
+                draft={draft}
+                checkout={checkout}
+                online={online}
+                disabled={disabled}
+                canStart={
+                  editable &&
+                  checkout.phase === 'quoted' &&
+                  approvalState?.version === checkout.version &&
+                  approvalState.ready
+                }
+                onCheckout={async (state, operationId) => {
+                  await adopt(state);
+                  store(state, operationId);
+                }}
+                onSaveNote={async (message, cashReceived) => {
+                  const original = current.current;
+                  if (original?.settlementNote?.cashReceived === cashReceived) {
+                    const note = await readSettlementNote(original);
+                    if (
+                      note?.hash === original.settlementNote.hash &&
+                      note.message === message &&
+                      note.payable ===
+                        cashIntentAmounts(authoritativeTotal(original) ?? '', cashReceived)
+                          .payable &&
+                      current.current?.version === original.version &&
+                      current.current.id === original.id
+                    )
+                      return original;
+                  }
+                  const reply = await mutate('settlement-note', 'PUT', { message, cashReceived });
+                  if (!reply.state)
+                    throw new Error('The payment note checkpoint could not be verified.');
+                  return reply.state;
+                }}
+                onConfirmed={(receipt) => completedCallback.current?.(receipt)}
+                onOrderCreated={onOrderCreated}
+                onBusyChange={(value) => {
+                  fastCashActive.current = value;
+                  setFastCashBusy(value);
+                }}
+                onPendingChange={setFastCashPending}
+              />
+            )}
+            {checkout.phase === 'quoted' && (
+              <>
+                <DiscountApproval
+                  checkout={checkout}
+                  disabled={disabled || !editable}
+                  mutate={mutate}
+                  act={act}
+                  onReady={approvalReady}
+                />
+                <button
+                  className="button primary full"
+                  data-cashier-action="proceed"
+                  aria-keyshortcuts="P"
+                  disabled={
+                    disabled ||
+                    !editable ||
+                    approvalState?.version !== checkout.version ||
+                    !approvalState.ready
+                  }
+                  onClick={() =>
+                    void act(async () => {
+                      const result = await mutate('order-submissions', 'POST');
+                      const orderId = result.state?.orderId;
+                      if (orderId) {
+                        setNotice(
+                          `Order ${orderId} created. ${result.result?.paymentStatus === 'paid' ? 'Payment is confirmed.' : 'Payment is pending.'}`,
+                        );
+                        onOrderCreated?.(orderId);
+                      }
+                    })
+                  }
+                >
+                  Create order
+                </button>
+              </>
+            )}
+            {checkout.phase === 'submitted' && (
+              <>
+                <p role="status">
+                  Order {checkout.orderId} was created.{' '}
+                  {checkout.settlement
+                    ? 'Prepaid payment is confirmed. This order is ready for handover.'
+                    : 'Payment must be confirmed before handing over products.'}
+                </p>
+                {checkout.settlement && checkout.orderId ? (
+                  <InvoiceActions
+                    ownerId={draft.ownerId}
+                    storeId={draft.storeId}
+                    orderId={checkout.orderId}
+                  />
+                ) : total !== null && /^0+(?:\.0+)?$/.test(total) ? (
+                  <>
+                    <p>Prepaid settlement is awaiting confirmation.</p>
+                    <button
+                      className="button secondary full"
+                      disabled={disabled}
+                      onClick={() =>
+                        void act(async () => {
+                          await adopt(
+                            await readCheckout(draft.storeId, checkout.id, draft.ownerId),
+                          );
+                        })
+                      }
+                    >
+                      Check prepaid payment status
+                    </button>
+                  </>
+                ) : (
+                  checkout.orderId &&
+                  !fastCashPending &&
+                  !fastCashBusy && (
+                    <PaymentPanel
+                      ownerId={draft.ownerId}
+                      draftId={draft.id}
+                      storeId={draft.storeId}
+                      orderId={checkout.orderId}
+                      online={online}
+                      onConfirmed={(receipt) => {
+                        const currentState = current.current;
+                        if (
+                          !currentState ||
+                          currentState.draftId !== draft.id ||
+                          currentState.draftVersion !== draft.updatedAt ||
+                          currentState.draftImport?.status !== 'complete' ||
+                          receipt.orderId !== currentState.orderId
+                        ) {
+                          setProblem(
+                            'The payment does not match this saved sale. Review its order before continuing.',
+                          );
+                          return;
+                        }
+                        completedCallback.current?.(receipt);
+                      }}
+                    />
+                  )
+                )}
+              </>
+            )}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}

@@ -1,0 +1,67 @@
+{
+  "contract": "pos-daily-store-sales-offline-v1",
+  "realMappingsConfigured": false,
+  "sourceBaseline": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "sourceSqlSha256": "6ef32f5c50ca710f32aefeb5f0ecd92462e10a0687f78ad71da1d90e5220cd20",
+  "options": {
+    "rollups": "BIGQUERY_DAILY_ROLLUP_TABLE",
+    "publications": "BIGQUERY_DAILY_REPORT_PUBLICATIONS_TABLE",
+    "acknowledgement": "BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT",
+    "maxCdcAgeSeconds": "BIGQUERY_DAILY_REPORT_MAX_CDC_AGE_SECONDS (default 300)",
+    "maxPublicationAgeSeconds": "BIGQUERY_DAILY_REPORT_MAX_PUBLICATION_AGE_SECONDS (default 900)",
+    "maxClockSkewSeconds": "BIGQUERY_DAILY_REPORT_MAX_CLOCK_SKEW_SECONDS (default 30)"
+  },
+  "publicationColumns": {
+    "generation_id": "STRING; immutable opaque ASCII generation, 1..128 chars",
+    "store_id": "STRING or lossless integer",
+    "business_date": "DATE in BUSINESS_TIMEZONE",
+    "row_count": "INT64 0..2; store_orders/online_orders rows for this partition",
+    "row_hashes": "ARRAY<STRING>; exact unique lowercase SHA-256 hashes of those rows; [] for zero rows",
+    "published_at": "TIMESTAMP; common complete-generation publication time",
+    "cdc_watermark": "TIMESTAMP; common source transaction-consistent CDC point, including late offline receipt acceptance/imports",
+    "source_position": "STRING; common canonical source commit/GTID position matching [A-Za-z0-9:._,-]{1,4096}",
+    "publication_state": "STRING literal COMPLETE, after all rollups/auxiliary values are visible",
+    "offline_projection_contract": "STRING literal pos-daily-store-sales-offline-v1",
+    "business_timezone": "STRING exactly BUSINESS_TIMEZONE",
+    "source_baseline": "STRING exactly sourceBaseline above",
+    "source_sql_sha256": "STRING exactly sourceSqlSha256 above"
+  },
+  "rollupColumns": {
+    "identity": [
+      "generation_id",
+      "offline_projection_contract",
+      "store_id",
+      "store_name",
+      "location_code",
+      "order_date",
+      "order_source"
+    ],
+    "sourceMetrics": [
+      "order_count",
+      "qty",
+      "revenue",
+      "membership_purchase_orders",
+      "membership_orders_total",
+      "membership_revenue",
+      "tss_money_used_total",
+      "tss_points_used_total",
+      "pg_discount_total",
+      "gift_voucher_total",
+      "district_total",
+      "cash_total",
+      "total_online"
+    ],
+    "additional": ["pending_offline_orders", "banking_amount", "footfall", "target"],
+    "types": "Existing source metrics are finite numeric values. order_count and pending_offline_orders are nonnegative safe integers; pending count cannot exceed store order count and is zero for online_orders. Banking, footfall and target are nullable numeric values. order_date is DATE. order_source is store_orders or online_orders."
+  },
+  "hashExpression": "Import dailyWarehouseRowHashExpression from backend/src/modules/daily-report-warehouse.ts; compute in BigQuery with its exact ordered CAST/STRUCT/TO_JSON_STRING/SHA256/TO_HEX expression. The reader computes row_hash itself, not from a stored unverified hash column.",
+  "moneyPolicy": "Preserve mutable source HP revenue/quantity/status. CASE-exclude exact sealed imported orders only from cash/order count, retain original cash in source online residual, then add each immutable receipt payable/count once on signed business_date. Keep accepted/conflicted/importing money. pending_offline_orders counts receipts whose status is not imported. Never synthesize HP revenue or quantities from payable cash.",
+  "publicationRules": [
+    "Publish a new immutable generation; never edit a completed generation.",
+    "Publish exactly one manifest row for every requested store/date, including stores/dates with zero sales and zero receipts.",
+    "All selected rows/manifests/banking/footfall/target must come from one consistent source CDC position and generation.",
+    "Late receipts, import finalization, source returns and banking changes must reach both rollups and manifests before COMPLETE.",
+    "Readers verify coverage, counts, identities, hashes, pinned contracts, timezone and clock freshness even when the result is empty.",
+    "No MySQL history fallback; missing or stale contracts/publications fail closed. Actual mappings, publisher ACLs, ingestion lag and native warehouse parity must be verified before release."
+  ]
+}

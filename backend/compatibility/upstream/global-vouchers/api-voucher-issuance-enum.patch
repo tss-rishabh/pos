@@ -1,0 +1,10 @@
+--- a/models/GiftVoucherHistory.py
++++ b/models/GiftVoucherHistory.py
+@@ -20,6 +20,7 @@
+     PRODUCT_MISSING = 10
+     PRODUCT_OUT_OF_STOCK = 11
+     MISC_COMPENSATION = 12
++    GV_ADD = 13
+ 
+ 
+ class GiftVoucherHistory(Base):

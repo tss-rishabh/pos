@@ -1,0 +1,127 @@
+{
+  "checkedAt": "2026-11-16T09:20:31.646Z",
+  "schema": "tss",
+  "tables": {
+    "auth_user": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "password",
+        "type": "varchar(128)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "last_login",
+        "type": "datetime(6)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_superuser",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "username",
+        "type": "varchar(150)",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "first_name",
+        "type": "varchar(30)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "last_name",
+        "type": "varchar(150)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(254)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_staff",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "date_joined",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ]
+  },
+  "indexes": {
+    "auth_user": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "username",
+        "column": "username",
+        "position": 1,
+        "unique": true
+      }
+    ]
+  },
+  "foreignKeys": {
+    "auth_user": []
+  },
+  "locations": [
+    {
+      "schema_name": "tss",
+      "table_name": "auth_user"
+    }
+  ],
+  "errors": []
+}

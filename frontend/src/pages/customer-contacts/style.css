@@ -1,0 +1,71 @@
+.customer-contact-panel {
+  margin-top: 12px;
+}
+.customer-contact-card {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px;
+  background: var(--surface, #fff);
+}
+.customer-contact-card h3 {
+  margin-top: 0;
+}
+.customer-contact-card > p,
+.customer-contact-proof > p {
+  line-height: 1.6;
+}
+.customer-contact-card form {
+  display: flex;
+  gap: 12px;
+  align-items: end;
+  flex-wrap: wrap;
+  margin: 16px 0;
+}
+.customer-contact-card label {
+  display: flex;
+  flex: 1 1 200px;
+  flex-direction: column;
+  gap: 6px;
+  font-weight: 600;
+}
+.customer-contact-card input,
+.customer-contact-card select {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px 11px;
+  color: var(--ink);
+  background: var(--surface, #fff);
+  font: inherit;
+}
+.customer-contact-proof {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  margin-top: 14px;
+}
+.customer-contact-proof > .button,
+.customer-contact-proof > div > .button {
+  margin: 8px 8px 8px 0;
+}
+.customer-contact-proof small {
+  display: block;
+  margin-top: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.customer-contact-recovery {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.customer-contact-recovery p {
+  flex-basis: 100%;
+}
+.customer-contact-card .error {
+  color: var(--danger, #b42318);
+}
+.customer-contact-card .success {
+  color: var(--success, #157347);
+}

@@ -1,0 +1,14 @@
+{
+  "resources/auth/common-passwords.txt.gz": {
+    "url": "https://raw.githubusercontent.com/django/django/4.2.5/django/contrib/auth/common-passwords.txt.gz",
+    "sha256": "32b506129a619096545bd3bbb35c98bb983b3e7616778f13e415b24abdc23be7"
+  },
+  "tools/identity/django_4_2_5_password_validation.py": {
+    "url": "https://raw.githubusercontent.com/django/django/4.2.5/django/contrib/auth/password_validation.py",
+    "sha256": "94b4cf5596f66c60a28a4706d54df24b366b75cbcf45085884c3def3884c3ad8"
+  },
+  "resources/auth/DJANGO-LICENSE": {
+    "url": "https://raw.githubusercontent.com/django/django/4.2.5/LICENSE",
+    "sha256": "b846415d1b514e9c1dff14a22deb906d794bc546ca6129f950a18cd091e2a669"
+  }
+}

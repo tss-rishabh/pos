@@ -1,0 +1,57 @@
+{
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "files": {
+    "report/tasks.py": {
+      "sha256": "2503b163ade622807202b04e91af50233b3d018c648e9aa00779fa6aef84c98a"
+    },
+    "report/report_queries.py": {
+      "sha256": "6ef32f5c50ca710f32aefeb5f0ecd92462e10a0687f78ad71da1d90e5220cd20"
+    },
+    "requirements.txt": {
+      "sha256": "a4c6a9c5fbfa3a65cae9e3426fdd96e1b7f3a291997cb2d45f8389d4e37c572a"
+    }
+  },
+  "headers": [
+    "StoreName",
+    "ParentID",
+    "ChildID",
+    "Product",
+    "Erp Product",
+    "Variant",
+    "Category",
+    "Inventory",
+    "GTIN"
+  ],
+  "taskDefinitions": [
+    {
+      "name": "process_export_master",
+      "line": 25,
+      "endLine": 81
+    },
+    {
+      "name": "generate_store_excel_chunk",
+      "line": 87,
+      "endLine": 131
+    },
+    {
+      "name": "debug_print_result",
+      "line": 134,
+      "endLine": 135
+    },
+    {
+      "name": "merge_store_chunks",
+      "line": 139,
+      "endLine": 160
+    },
+    {
+      "name": "merge_all_stores_and_upload",
+      "line": 164,
+      "endLine": 247
+    },
+    {
+      "name": "get_total_rows_for_store",
+      "line": 250,
+      "endLine": 256
+    }
+  ]
+}

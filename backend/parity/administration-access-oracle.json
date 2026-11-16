@@ -1,0 +1,641 @@
+{
+  "djangoVersion": "4.2.5",
+  "database": "isolated SQLite :memory:",
+  "sourceHashes": {
+    "model-backend": "406d7bb701d0495e6db3e0dbe6065301e03a37d2fb9725a9d965cfd5f22788ed",
+    "user-model": "ec32a1649744813926d63dfc5bf0527cc437aa1d72f8086a984950f241ca8406",
+    "admin-site": "e66217c4fda5294b946ba6dbaeebbe156d7aa636266cd24ebb68af838f170b47",
+    "username-field": "c199dd415ac7a04228c86a559eace7987f2f1fabe3909c6790cc68d7ef1005e6",
+    "username-validator": "54eeccc9a7244da4e22bc3a3126ed8c8bb6c8caaed7958ddccf6cd6648b48ab5"
+  },
+  "cases": [
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": false,
+        "isSuperuser": false
+      },
+      "grants": [],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": false,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": false,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.change_store"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": false,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.change_store",
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": false,
+        "isSuperuser": true
+      },
+      "grants": [],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": false,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": false,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.change_store"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": false,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.change_store",
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": true,
+        "isSuperuser": false
+      },
+      "grants": [],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": true,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": true,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.change_store"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": true,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.change_store",
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": true,
+        "isSuperuser": true
+      },
+      "grants": [],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": true,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": true,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.change_store"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": false,
+        "isStaff": true,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.change_store",
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": false,
+        "isSuperuser": false
+      },
+      "grants": [],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": false,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": false,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.change_store"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": false,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.change_store",
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": false,
+        "isSuperuser": true
+      },
+      "grants": [],
+      "site": false,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": true
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": false,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": true
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": false,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.change_store"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": true
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": false,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.change_store",
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": false,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": true
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": true,
+        "isSuperuser": false
+      },
+      "grants": [],
+      "site": true,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": true,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": true,
+      "permissions": {
+        "stores.change_store": false,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": true,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.change_store"
+      ],
+      "site": true,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": false,
+        "auth.view_group": false,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": true,
+        "isSuperuser": false
+      },
+      "grants": [
+        "stores.change_store",
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": true,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": false
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": true,
+        "isSuperuser": true
+      },
+      "grants": [],
+      "site": true,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": true
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": true,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": true,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": true
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": true,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.change_store"
+      ],
+      "site": true,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": true
+      }
+    },
+    {
+      "account": {
+        "isActive": true,
+        "isStaff": true,
+        "isSuperuser": true
+      },
+      "grants": [
+        "stores.change_store",
+        "stores.view_store",
+        "auth.view_group"
+      ],
+      "site": true,
+      "permissions": {
+        "stores.change_store": true,
+        "stores.view_store": true,
+        "auth.view_group": true,
+        "users.change_posuser": true
+      }
+    }
+  ],
+  "usernameCases": [
+    {
+      "input": "floor.fixture",
+      "valid": true,
+      "value": "floor.fixture"
+    },
+    {
+      "input": "\uff46\uff4c\uff4f\uff4f\uff52.\uff46\uff49\uff58\uff54\uff55\uff52\uff45",
+      "valid": true,
+      "value": "floor.fixture"
+    },
+    {
+      "input": "cafe\u0301",
+      "valid": true,
+      "value": "caf\u00e9"
+    },
+    {
+      "input": "Stra\u00dfe",
+      "valid": true,
+      "value": "Stra\u00dfe"
+    },
+    {
+      "input": "\u6c49\u5b57",
+      "valid": true,
+      "value": "\u6c49\u5b57"
+    },
+    {
+      "input": " x ",
+      "valid": true,
+      "value": "x"
+    },
+    {
+      "input": "\u001cx\u001f",
+      "valid": true,
+      "value": "x"
+    },
+    {
+      "input": "\ufeffx",
+      "valid": false
+    },
+    {
+      "input": "",
+      "valid": false
+    },
+    {
+      "input": "has space",
+      "valid": false
+    },
+    {
+      "input": "a/b",
+      "valid": false
+    },
+    {
+      "input": "\u00bd",
+      "valid": false
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": true,
+      "value": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    {
+      "input": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "valid": false
+    },
+    {
+      "input": "\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00",
+      "valid": true,
+      "value": "\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00\ud801\udc00"
+    },
+    {
+      "input": "e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301e\u0301",
+      "valid": true,
+      "value": "\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9\u00e9"
+    }
+  ]
+}

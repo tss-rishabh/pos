@@ -1,0 +1,23 @@
+{
+  "recordedAt": "2026-11-16T21:09:05.081Z",
+  "scope": "packaged-native-runtime-with-controlled-local-fixture",
+  "platform": "macos",
+  "architecture": "arm64",
+  "keychain": "isolated-test-mock",
+  "executableSha256": "458075bd31c0ddc9c43747e27399e9ed91df8e797ca395112237d96126329b69",
+  "asarSha256": "045f865ccd29262216509bf9cf93a65104d4339f62f4d85c0f5e7e5ae9862936",
+  "checks": [
+    "packaged-entry-load",
+    "renderer-node-access-absent",
+    "external-navigation-and-popups-blocked",
+    "profile-keeps-local-state-across-native-restart",
+    "service-worker-offline-reload"
+  ],
+  "passed": true,
+  "releaseCertified": false,
+  "limitations": [
+    "Uses the explicit development-only loopback origin with a synthetic page; does not certify production TLS, authentication, signatures, payment integrations or physical printers.",
+    "Chromium CDP is enabled only on this owned fixture process; packaged Node Inspector and RunAsNode fuses remain disabled.",
+    "Uses Chromium test-keychain isolation for the temporary unsigned fixture; signed production Keychain behavior requires separate native acceptance."
+  ]
+}

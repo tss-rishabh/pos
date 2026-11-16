@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": "../.."
+  },
+  "include": [
+    "../../tests/checkout/offline-cash-source-pricing*.test.ts",
+    "../../tools/checkout/offline-source-template-fixture.ts"
+  ]
+}

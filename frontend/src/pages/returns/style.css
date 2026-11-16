@@ -1,0 +1,111 @@
+.return-flow {
+  padding: 24px;
+  margin-top: 20px;
+}
+.return-flow h2 {
+  margin-top: 0;
+}
+.return-order,
+.return-form {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  align-items: end;
+}
+.return-order label,
+.return-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+}
+.return-order input,
+.return-form select,
+.return-form textarea {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface, #fff);
+  color: inherit;
+  font: inherit;
+  min-width: 240px;
+}
+.return-form {
+  margin-top: 24px;
+  display: grid;
+  max-width: 640px;
+}
+.return-form .return-check {
+  flex-direction: row;
+  align-items: center;
+}
+.return-check input {
+  width: 18px;
+  height: 18px;
+}
+.return-lines {
+  display: grid;
+  gap: 8px;
+}
+.return-lines button {
+  justify-content: start;
+  text-align: left;
+}
+.return-lines .selected {
+  border-color: var(--green, #244d3e);
+}
+.return-lines small {
+  display: block;
+  padding-top: 6px;
+  font-weight: 400;
+}
+.return-verified {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  color: var(--green, #244d3e);
+}
+.return-flow > button {
+  margin: 8px 12px 0 0;
+}
+.paid-sale {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+}
+.reverse-mode {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+.replacement-sizes {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.replacement-sizes legend {
+  font-size: 13px;
+  padding: 0 4px;
+}
+.exchange-retry {
+  display: grid;
+  gap: 12px;
+  max-width: 400px;
+  margin: 16px 0;
+}
+.exchange-retry label {
+  display: grid;
+  gap: 8px;
+}
+.exchange-retry select {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface, #fff);
+  color: inherit;
+}

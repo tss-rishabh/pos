@@ -1,0 +1,13 @@
+{
+  "contract": "pos-customer-context-v1",
+  "enabled": false,
+  "source": {
+    "commit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+    "path": "middleware/AuthHandler.py",
+    "sha256": "ba10581b1e3a0a20be5871777910ebbcebcec9483bdf06bfa7042b151635c241"
+  },
+  "candidateSha256": "d5245b12f0ab6925d5c617d1d33b4ac865d7bd0eb71136321a8c0ada3a98019c",
+  "helperSha256": "e845dde67bd6c2ba1a287d0f1f09afad16e316bcb5594fbeaf4ccbe03e7b02ab",
+  "patch": "api-v2-customer-context.patch",
+  "patchSha256": "a05cf8978c92076eea5a9826ad764c4ef04d2ad4b96446fa066542fdd5a5ec5c"
+}

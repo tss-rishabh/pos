@@ -1,0 +1,1925 @@
+{
+  "source_commit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "warning": "Component tests are not full legacy request/response/side-effect parity certification. No source route is certified by this file.",
+  "implemented_rewrite_route_declarations": [
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/franchises",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/operators/:operatorId/mfa",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/operators/:operatorId/mfa-enrollments",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/operators/:operatorId/mfa-enrollments/:enrollmentId/verification",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/v1/admin/operators/:operatorId/mfa-enrollments/:enrollmentId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/operators/:operatorId/mfa",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/inventory-imports/capabilities",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/inventory-imports/template",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/inventory-imports/preview",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/inventory-imports",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/inventory-imports",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/inventory-imports/history",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/inventory-imports/:importId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/inventory-imports/:importId/rows",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/inventory-imports/:importId/failures.csv",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/inventory-imports/:importId/resume",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/inventory-imports/:importId/cancel",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/stores",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/stores/:storeId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/stores/:storeId/status",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/countries",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/store-location-codes",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/store-location-codes",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/counters",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/stores/:storeId/counters",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/stores/:storeId/counters/:counterId/status",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/storages",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/stores/:storeId/storages",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/storages/:storageId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/stores/:storeId/storages/:storageId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/stores/:storeId/storages/:storageId/status",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/salespeople",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/salespeople/search",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/stores/:storeId/salespeople",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/stores/:storeId/salespeople/search",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/salespeople",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/salespeople/:salespersonId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/salespeople/:salespersonId/status",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/salespeople/:salespersonId/stores",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/operators",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/operators/search",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/operators",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/operators/:operatorId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/operators/:operatorId/status",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/operators/:operatorId/stores",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/operators/me/check-in",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/operators/me/check-in",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/v1/operators/me/check-in",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/inventory",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/stores/:storeId/inventory/:productId/stock",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/stores/:storeId/inventory/:productId/visibility",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/inventory/:productId/logs",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/delivery-slots",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/stores/:storeId/delivery-slots",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/stores/:storeId/delivery-slots/:slotId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/stores/:storeId/delivery-slots/:slotId/availability",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/stores/:storeId/delivery-slots/availability",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/payment-terminals",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/general-settings",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/general-settings/delivery-stock-threshold",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/general-settings/order-creation-buffer",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/ecommerce-settings",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/stores/:storeId/ecommerce-settings",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/documentation",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/documentation/media-capabilities",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/documentation/:documentId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/documentation",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/documentation/:documentId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/documentation/uploads",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/documentation/uploads/:uploadId/complete",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/v1/admin/documentation/uploads/:uploadId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/documentation/:documentId/assets/:assetId/content",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PATCH",
+      "url": "/api/v1/admin/documentation/:documentId/status",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/payment-terminals/next-name",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/stores/:storeId/payment-terminals",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/payment-terminals/:provider/:terminalId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/stores/:storeId/payment-terminals/:provider/:terminalId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/v1/admin/stores/:storeId/payment-terminals/:provider/:terminalId",
+      "file": "src/modules/administration/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/image",
+      "file": "src/modules/administration/store-image-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/stores/:storeId/image-uploads",
+      "file": "src/modules/administration/store-image-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/stores/:storeId/image-uploads/:uploadId/attachment",
+      "file": "src/modules/administration/store-image-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/image/content",
+      "file": "src/modules/administration/store-image-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/access/capabilities",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/access/permissions",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/access/groups",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/access/permissions/search",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/access/groups/search",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/access/groups/:groupId",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/access/groups",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/access/groups/:groupId",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/v1/admin/access/groups/:groupId",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/access/group-deletion-previews",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/access/group-deletions",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/operators/:operatorId/administration-access",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/operators/:operatorId/administration-access",
+      "file": "src/modules/administration/access-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/operators/:operatorId/administrative-profile",
+      "file": "src/modules/administration/operator-admin-routes.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/admin/operators/:operatorId/administrative-profile",
+      "file": "src/modules/administration/operator-admin-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/operators/:operatorId/password-resets",
+      "file": "src/modules/administration/operator-admin-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/operators/:operatorId/profile/image-uploads",
+      "file": "src/modules/administration/operator-admin-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/operators/:operatorId/profile/image-uploads/:uploadId/attachment",
+      "file": "src/modules/administration/operator-admin-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/operators/:operatorId/profile/images/:kind",
+      "file": "src/modules/administration/operator-admin-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/stores/:storeId/slack-connection",
+      "file": "src/modules/administration/slack-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/stores/:storeId/slack-connections",
+      "file": "src/modules/administration/slack-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/slack/connections/:connectionId",
+      "file": "src/modules/administration/slack-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/slack/connections/:connectionId/cancellation",
+      "file": "src/modules/administration/slack-routes.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/slack/oauth/callback",
+      "file": "src/modules/administration/slack-routes.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/locations/postal-code-lookups",
+      "file": "src/modules/administration/locations.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/special-permission-activity/capabilities",
+      "file": "src/modules/special-permission-history/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/special-permission-activity/search",
+      "file": "src/modules/special-permission-history/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/operators/current/application-links/capabilities",
+      "file": "src/modules/application-links/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/operators/current/application-links/staff-qr",
+      "file": "src/modules/application-links/index.ts"
+    },
+    {
+      "method": "DELETE",
+      "url": "/api/v1/operators/current/application-links/staff-qr/:grantId",
+      "file": "src/modules/application-links/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/operators/current/application-links/customer-qr",
+      "file": "src/modules/application-links/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/auth/application-links/staff-download-activations",
+      "file": "src/modules/application-links/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/auth/application-links/staff-download-content",
+      "file": "src/modules/application-links/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/auth/application-links/customer-scans",
+      "file": "src/modules/application-links/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/admin/model-history/capabilities",
+      "file": "src/modules/administration-history/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/admin/model-history/search",
+      "file": "src/modules/administration-history/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/gift-card-batches/current-jobs",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/gift-card-batches/capabilities",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/gift-card-batches/search",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/gift-card-batches",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/gift-card-batches/:batchId",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/gift-card-batches/:batchId/print-status",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "PUT",
+      "url": "/api/v1/gift-card-batches/:batchId/block-status",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/gift-card-batches/:batchId/retries",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/gift-card-batches/:batchId/artifact-access",
+      "file": "src/modules/gift-card-batches/index.ts"
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/gift-card-batches/:batchId/archive",
+      "file": "src/modules/gift-card-batches/index.ts"
+    }
+  ],
+  "implemented_rewrite_route_count": 130,
+  "full_legacy_route_certifications": 0,
+  "evidence": [
+    "tests/administration/gift-card-batches.test.ts",
+    "tests/administration/gift-card-view.test.ts",
+    "tests/administration/gift-card-batch-adapters.test.ts",
+    "tests/administration/gift-card-batches.mysql.test.ts",
+    "tools/administration/gift-card-batch-oracle.py",
+    "tools/administration/gift-card-view-oracle.py",
+    "../frontend/tests/administration/gift-card-batches.test.ts",
+    "../frontend/tests/administration/gift-card-batches.browser.test.ts",
+    "tests/administration/policies.test.ts",
+    "tests/administration/mysql.integration.test.ts",
+    "tests/administration/media.test.ts",
+    "tests/administration/worker.test.ts",
+    "tests/administration/settings.test.ts",
+    "tests/administration/import-domain.test.ts",
+    "tests/administration/import-history.test.ts",
+    "tests/administration/access-domain.test.ts",
+    "tests/administration/operator-admin-domain.test.ts",
+    "tests/administration/slack-location.test.ts",
+    "tests/administration/application-links.test.ts",
+    "tests/administration/application-links.mysql.integration.test.ts",
+    "tools/administration/application-links-oracle.py",
+    "tests/special-permission-history/domain.test.ts",
+    "tests/special-permission-history/mysql.integration.test.ts",
+    "tools/special-permission-history/source-oracle.py",
+    "parity/administration-access-oracle.json",
+    "tools/administration/build_access_oracle.py",
+    "tests/auth.mysql.integration.test.ts",
+    "tests/profile-image-validation.test.ts",
+    "../frontend/tests/administration/contracts.test.ts",
+    "../frontend/tests/administration/workflows.test.ts",
+    "tools/administration/legacy_oracle.py",
+    "tests/administration-history/messages.test.ts",
+    "tests/administration-history/domain.test.ts",
+    "tests/administration-history/mysql.integration.test.ts",
+    "tools/administration-history/source-oracle.py",
+    "tools/administration-history/mysql-oracle.py",
+    "../frontend/tests/administration/history.browser.test.ts",
+    "../frontend/tests/administration/group-bulk.browser.test.ts",
+    "tests/administration-history/collector.test.ts"
+  ],
+  "source_definitions": [
+    {
+      "file": "stores/views.py",
+      "line": 26,
+      "name": "StoresDataView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 31,
+      "name": "StoreStorageView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 36,
+      "name": "StoresCounterView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 46,
+      "name": "CreateStoreView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 121,
+      "name": "AddLocationCodeView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 166,
+      "name": "ShowStoreView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 182,
+      "name": "EditStoreView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 271,
+      "name": "DeleteStoreView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 291,
+      "name": "ActivateStoreView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 316,
+      "name": "SlackConnectView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 328,
+      "name": "SlackCallbackView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 351,
+      "name": "CreateStorageView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 382,
+      "name": "ShowStorageView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 394,
+      "name": "EditStorageView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 434,
+      "name": "DeleteStorageView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 462,
+      "name": "ActivateStorageView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 481,
+      "name": "CreateCounterView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 502,
+      "name": "DeleteCounterView"
+    },
+    {
+      "file": "stores/views.py",
+      "line": 521,
+      "name": "ActivateCounterView"
+    },
+    {
+      "file": "users/views.py",
+      "line": 286,
+      "name": "UsersListView"
+    },
+    {
+      "file": "users/views.py",
+      "line": 344,
+      "name": "CreateUserView"
+    },
+    {
+      "file": "users/views.py",
+      "line": 382,
+      "name": "DeleteUserView"
+    },
+    {
+      "file": "users/views.py",
+      "line": 410,
+      "name": "ActivateUserView"
+    },
+    {
+      "file": "users/views.py",
+      "line": 435,
+      "name": "EditUserProfileView"
+    },
+    {
+      "file": "users/views.py",
+      "line": 520,
+      "name": "AssignStoreUserView"
+    },
+    {
+      "file": "users/views.py",
+      "line": 1008,
+      "name": "AjaxActivateMfaView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 178,
+      "name": "ProductsStockView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 368,
+      "name": "ProductsStockBulkUploadView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 494,
+      "name": "AssignProductStockView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 661,
+      "name": "ShowProductInventoryView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 750,
+      "name": "AjaxProductStatusChangeView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 824,
+      "name": "SalespersonsListView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 838,
+      "name": "DeleteSalespersonView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 860,
+      "name": "ActivateSalespersonView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 879,
+      "name": "AssignStoreSalespersonView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 905,
+      "name": "CreateSalespersonView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 930,
+      "name": "EditSalespersonView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 1177,
+      "name": "SpecialPermissionView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 1722,
+      "name": "PosDeliveryTiming"
+    },
+    {
+      "file": "core/views.py",
+      "line": 1768,
+      "name": "PosDeliveryTimingCreate"
+    },
+    {
+      "file": "core/views.py",
+      "line": 1795,
+      "name": "PosDeliveryTimingEdit"
+    },
+    {
+      "file": "core/views.py",
+      "line": 1837,
+      "name": "AjaxDeliveryTimingUpdate"
+    },
+    {
+      "file": "core/views.py",
+      "line": 1943,
+      "name": "PosGeneralSetting"
+    },
+    {
+      "file": "core/views.py",
+      "line": 1999,
+      "name": "AjaxThresholdUpdate"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2039,
+      "name": "AjaxOrderBufferUpdate"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2084,
+      "name": "PosEcomSetting"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2092,
+      "name": "AjaxEcomSettingUpdate"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2171,
+      "name": "GiftCardView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2184,
+      "name": "AjaxGenerateGiftCardView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2216,
+      "name": "AjaxPrintGiftCardView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2235,
+      "name": "AjaxBlockGiftCardView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2386,
+      "name": "AjaxGetCheckindataView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2406,
+      "name": "AjaxSetCheckindataView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2428,
+      "name": "UploadOrEditTutorial"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2650,
+      "name": "DocumentationDetail"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2697,
+      "name": "DocumentationLists"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2714,
+      "name": "DocumentatioDatatableLists"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2720,
+      "name": "DisableTutorial"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2752,
+      "name": "EdcMachineEditDetail"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2795,
+      "name": "MposDownloadQr"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2846,
+      "name": "AjaxGenMposDownloadQR"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2900,
+      "name": "MposDownloadThankYou"
+    },
+    {
+      "file": "core/views.py",
+      "line": 2949,
+      "name": "MposDownloadLink"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3161,
+      "name": "MposUserDownloadApp"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3182,
+      "name": "UserToApp"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3228,
+      "name": "AjaxNextEdcMachineNameView"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3239,
+      "name": "add_edc_machine"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3276,
+      "name": "add_pinelab_machine"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3308,
+      "name": "edit_paytm_machine"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3324,
+      "name": "edit_pinlab_machine"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3341,
+      "name": "delete_paytm_machine"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3349,
+      "name": "delete_pinelab_machine"
+    },
+    {
+      "file": "core/views.py",
+      "line": 3358,
+      "name": "GetLocationByPincodeView"
+    },
+    {
+      "file": "core/datatables/store_products_datatable.py",
+      "line": 13,
+      "name": "AjaxProductsStockListView"
+    },
+    {
+      "file": "core/datatables/store_products_datatable.py",
+      "line": 186,
+      "name": "AjaxOrderProductsListView"
+    },
+    {
+      "file": "core/datatables/special_permition_datatable.py",
+      "line": 12,
+      "name": "special_permition_datatable_view"
+    },
+    {
+      "file": "core/datatables/gift_card_datatable.py",
+      "line": 17,
+      "name": "AjaxGiftCardListView"
+    },
+    {
+      "file": "helpers/task_helpers.py",
+      "line": 175,
+      "name": "ProductStockParseCSV"
+    }
+  ],
+  "features": [
+    {
+      "id": "gift-card-batches",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:103",
+          "route": "gift-card-management/",
+          "view": "sync_to_async(core_views.GiftCardView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:104",
+          "route": "ajax-gift-card-list/",
+          "view": "sync_to_async(gift_card_datatable.AjaxGiftCardListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:105",
+          "route": "ajax-generate-gift-card/",
+          "view": "sync_to_async(core_views.AjaxGenerateGiftCardView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:106",
+          "route": "ajax-print-gift-card/",
+          "view": "sync_to_async(core_views.AjaxPrintGiftCardView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:107",
+          "route": "ajax-block-gift-card/",
+          "view": "sync_to_async(core_views.AjaxBlockGiftCardView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/gift-card-batches/index.ts",
+        "src/modules/gift-card-batches/service.ts",
+        "src/modules/gift-card-batches/history.ts",
+        "src/modules/gift-card-batches/generation.ts",
+        "src/modules/gift-card-batches/worker.ts",
+        "src/modules/gift-card-batches/storage.ts",
+        "src/modules/gift-card-batches/delivery.ts"
+      ],
+      "scope": "Physical-card CSV batch generation, exact source serial/Hashids/PIN/CSV oracles, actual-row locked print/block flags, current-owner recovery, durable frozen AES256 archives and private authenticated password/download. Source no-search list/flag behavior matches pinned Django/MySQL fixtures; corrected broken search and explicit accepted/uncertain mail state are deliberate changes. Today uses bounded joined data-reader pages; all-history/other dates use explicit bound BigQuery collation/view contracts only. Native SDK/fetch and Chromium components, no live storage/mail/funding. Operational provider/issuer/ZIP-client/warehouse/full workflow acceptance remains required; checkout owns financial issuance fencing."
+    },
+    {
+      "id": "stores",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "stores/urls.py:8",
+          "route": "",
+          "view": "sync_to_async(stores_views.StoresDataView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:9",
+          "route": "ajax-store-list/",
+          "view": "sync_to_async(stores_datatable.AjaxStoresListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:10",
+          "route": "ajax-archived-store-list/",
+          "view": "sync_to_async(stores_datatable.AjaxArchivedStoresListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:11",
+          "route": "create/",
+          "view": "sync_to_async(stores_views.CreateStoreView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:13",
+          "route": "<int:pk>/view/",
+          "view": "sync_to_async(stores_views.ShowStoreView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:14",
+          "route": "<int:pk>/edit/",
+          "view": "sync_to_async(stores_views.EditStoreView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:15",
+          "route": "<int:pk>/delete/",
+          "view": "sync_to_async(stores_views.DeleteStoreView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:16",
+          "route": "<int:pk>/activate/",
+          "view": "sync_to_async(stores_views.ActivateStoreView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/service.ts",
+        "src/modules/administration/index.ts"
+      ],
+      "scope": "Store CRUD/status, franchise details, initial counter and configured default operator access; reader/writer role and store checks. Slack incoming-webhook replacement/removal is write-only, safe reads expose only a configured flag, and blank updates preserve credentials. Server-side actor/session/store-bound OAuth connection now has separate evidence; real configured Slack acceptance remains required."
+    },
+    {
+      "id": "store-images",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "stores/urls.py:11",
+          "route": "create/",
+          "view": "sync_to_async(stores_views.CreateStoreView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:14",
+          "route": "<int:pk>/edit/",
+          "view": "sync_to_async(stores_views.EditStoreView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/store-images.ts",
+        "src/modules/administration/store-image-routes.ts",
+        "src/modules/administration/image-lifecycle/service.ts",
+        "src/modules/administration/image-lifecycle/cleanup.ts",
+        "src/modules/administration/image-lifecycle/validation.ts",
+        "src/modules/administration/store-image-worker-main.ts"
+      ],
+      "scope": "Private store images with shared profile reservation/decoding/attachment and reference-aware cleanup lifecycle. Actor+store+revision binding, fail-closed private bucket signing, no raw image-path bypass, protected streaming, attach-only browser recovery and bounded supervised worker. Isolated SQL/native decode/Chromium evidence; real S3/CORS and full legacy workflow certification remain required."
+    },
+    {
+      "id": "store-slack-oauth",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "stores/urls.py:17",
+          "route": "slack/connect/",
+          "view": "sync_to_async(stores_views.SlackConnectView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:18",
+          "route": "slack/callback/",
+          "view": "sync_to_async(stores_views.SlackCallbackView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/slack-provider.ts",
+        "src/modules/administration/slack-connections.ts",
+        "src/modules/administration/slack-routes.ts",
+        "src/modules/administration/slack-schema.ts",
+        "src/modules/administration/slack-url.ts"
+      ],
+      "scope": "Confidential BFF incoming-webhook authorization with opaque one-use state, current cookie/auth-epoch/store/config binding, exact approved workspace/origin, safe channel receipts and bounded expiry cleanup. Webhook remains write-only; same-window React continuation supports desktop trusted OAuth navigation. Source helper oracle, real MySQL and synthetic Chromium evidence; actual Slack app/grant and desktop provider round-trip remain unaccepted."
+    },
+    {
+      "id": "postal-code-location",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:167",
+          "route": "get-location-by-pincode/",
+          "view": "core_views.GetLocationByPincodeView.as_view()"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/locations.ts",
+        "src/modules/administration/location-schema.ts",
+        "src/modules/administration/location-title.ts"
+      ],
+      "scope": "Bound primary-reader deliverable-pincode/zone/country ORM join using verified physical projections; exact coordinate strings and Python city-title behavior. POST body-only lookup and reusable form-field autofill preserve city/address references. Explicit firstPK duplicate tie; native source-SQL result comparison and Chromium coverage, no full deployed fixture certification."
+    },
+    {
+      "id": "special-permission-history",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:62",
+          "route": "spl-permission/",
+          "view": "sync_to_async(core_views.SpecialPermissionView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:63",
+          "route": "special_permission_data/",
+          "view": "sync_to_async(special_permition_datatable.special_permition_datatable_view.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/special-permission-history/index.ts",
+        "src/modules/special-permission-history/service.ts",
+        "src/modules/special-permission-history/domain.ts",
+        "src/modules/special-permission-history/warehouse-sql.ts"
+      ],
+      "scope": "Read-only global operator activity with current internal role1-3 authorization, source platform/date/literal search, raw operator names, missing-recipient fallback, filtered totals and source paging fallbacks. Exact today uses a bounded joined/count data-reader snapshot; every no-date or other-date request uses parameterized BigQuery only. React visible-column/current-page safe CSV, owner-scoped layout preferences and no contact-bearing URL filters. Pinned Django4.2.5/physical MySQL source oracles, adapter and Chromium evidence; deployed warehouse view/collation-UDF completeness and full workflow parity remain required. Benefit mutations remain checkout-owned."
+    },
+    {
+      "id": "inherited-administration-history",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [],
+      "implementation": [
+        "src/modules/administration-history/index.ts",
+        "src/modules/administration-history/service.ts",
+        "src/modules/administration-history/domain.ts",
+        "src/modules/administration-history/messages.ts",
+        "src/modules/administration-history/schema.ts",
+        "src/modules/administration-history/warehouse-sql.ts"
+      ],
+      "scope": "Read-only inherited Django history for existing operators/stores/imported groups, writer-current reconciled view-or-change grants, source100-row chronological paging and exact en-us actor/message/wall-date formatting. Exact today uses bounded data-reader joins and runtime same-schema actor-FK binding; all-history/other dates use bound BigQuery only with explicit source/collation publication contracts. Actual Django and isolated MySQL/Chromium component evidence; verified operational history provenance, deployed BQ/UDF, future model-admin log publication and destructive collector workflows remain unaccepted."
+    },
+    {
+      "id": "staff-installer-handoff",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:148",
+          "route": "mpos-download-qr/",
+          "view": "sync_to_async(core_views.MposDownloadQr.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:149",
+          "route": "ajax-gen-mpos-download-qr/",
+          "view": "sync_to_async(core_views.AjaxGenMposDownloadQR.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:150",
+          "route": "mpos-download-thank-you/",
+          "view": "sync_to_async(core_views.MposDownloadThankYou.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:151",
+          "route": "mpos-download-link/",
+          "view": "sync_to_async(core_views.MposDownloadLink.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/application-links/index.ts",
+        "src/modules/application-links/service.ts",
+        "src/modules/application-links/artifact.ts",
+        "src/modules/application-links/domain.ts"
+      ],
+      "scope": "Self-only internal staff QR and direct installer download, aligned source expiration, one-consumer activation/content with identical-operation retry, current authentication epoch/artifact binding, explicit revocation and bounded proof cleanup. Replaces unsigned/contact-bearing source JWT queries and email-prefix Redis activation with purpose-separated opaque fragments and hashed SQL capabilities. Approved private APK file/checksum/size snapshot is streamed after authorization; no remote artifact download. Source expiry oracle72 vectors, native concurrency/revocation/stream tests and StrictMode Chromium. Actual APK publisher/signature approval and full source/deployed workflow acceptance remain gates."
+    },
+    {
+      "id": "customer-application-handoff",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:163",
+          "route": "user_download_app_qr",
+          "view": "sync_to_async(core_views.MposUserDownloadApp.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:164",
+          "route": "user_to_app",
+          "view": "sync_to_async(core_views.UserToApp.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/application-links/index.ts",
+        "src/modules/application-links/service.ts",
+        "src/modules/application-links/customer-cache.ts",
+        "src/modules/application-links/provider.ts",
+        "src/modules/application-links/schema.ts"
+      ],
+      "scope": "Server-checked-in-store printable customer QR, PNG download, explicit public body-only redemption, current active-store checks and one legacy pos_to_app_logs audit per operation. One-hour source-shaped provider/fallback cache with durable provider idempotency and fenced leases. Exact HTTPS destination origins, no cookies/contact queries, physical signed-INT reference bounds and source wall timestamps. Source helper/cache oracle, real MySQL and StrictMode Chromium evidence. Verified replacement for deprecated Firebase dependency, approved provider/fallback, printed legacy URL migration and complete configured web/desktop acceptance remain gates."
+    },
+    {
+      "id": "location-codes",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "stores/urls.py:12",
+          "route": "add-location/",
+          "view": "sync_to_async(stores_views.AddLocationCodeView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/service.ts",
+        "src/modules/administration/contracts.ts"
+      ],
+      "scope": "Uppercase alphanumeric codes, source sorting/deduplication, locked update and capacity validation."
+    },
+    {
+      "id": "storage",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "stores/urls.py:21",
+          "route": "storages",
+          "view": "sync_to_async(stores_views.StoreStorageView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:22",
+          "route": "ajax-store-storage-list/",
+          "view": "sync_to_async(stores_datatable.AjaxStoreStorageListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:23",
+          "route": "ajax-archived-store-storage-list/",
+          "view": "sync_to_async(stores_datatable.AjaxArchivedStoreStorageListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:24",
+          "route": "storage/create/",
+          "view": "sync_to_async(stores_views.CreateStorageView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:25",
+          "route": "storage/<int:pk>/view/",
+          "view": "sync_to_async(stores_views.ShowStorageView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:26",
+          "route": "storage/<int:pk>/edit/",
+          "view": "sync_to_async(stores_views.EditStorageView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:27",
+          "route": "storage/<int:pk>/delete/",
+          "view": "sync_to_async(stores_views.DeleteStorageView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:28",
+          "route": "storage/<int:pk>/activate/",
+          "view": "sync_to_async(stores_views.ActivateStorageView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/service.ts",
+        "src/modules/administration/policies.ts"
+      ],
+      "scope": "Active/archived list, source name prefix, detail/edit, empty-storage moves and stock-aware archive."
+    },
+    {
+      "id": "counters",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "stores/urls.py:31",
+          "route": "counters",
+          "view": "sync_to_async(stores_views.StoresCounterView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:32",
+          "route": "ajax-counters-list/",
+          "view": "sync_to_async(stores_counter_datatable.AjaxStoreCounterListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:33",
+          "route": "ajax-archived-counters-list/",
+          "view": "sync_to_async(stores_counter_datatable.AjaxArchivedCounterListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:34",
+          "route": "counters/create/",
+          "view": "sync_to_async(stores_views.CreateCounterView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:35",
+          "route": "counters/<int:pk>/delete/",
+          "view": "sync_to_async(stores_views.DeleteCounterView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "stores/urls.py:36",
+          "route": "counters/<int:pk>/activate/",
+          "view": "sync_to_async(stores_views.ActivateCounterView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/service.ts",
+        "src/modules/administration/policies.ts"
+      ],
+      "scope": "Counter list/create/status; serial naming counts archived counters."
+    },
+    {
+      "id": "salespeople",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:53",
+          "route": "salespersons/",
+          "view": "sync_to_async(core_views.SalespersonsListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:54",
+          "route": "ajax-salespersons-list/",
+          "view": "sync_to_async(salesperson_datatable.AjaxSalespersonsListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:55",
+          "route": "ajax-archived-salespersons-list/",
+          "view": "sync_to_async(salesperson_datatable.AjaxArchivedSalespersonsListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:56",
+          "route": "salespersons/create/",
+          "view": "sync_to_async(core_views.CreateSalespersonView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:57",
+          "route": "salespersons/<int:pk>/edit/",
+          "view": "sync_to_async(core_views.EditSalespersonView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:58",
+          "route": "salesperson/<int:pk>/delete/",
+          "view": "sync_to_async(core_views.DeleteSalespersonView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:59",
+          "route": "salesperson/<int:pk>/activate/",
+          "view": "sync_to_async(core_views.ActivateSalespersonView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:60",
+          "route": "salesperson/<int:pk>/assign-store/",
+          "view": "sync_to_async(core_views.AssignStoreSalespersonView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/service.ts",
+        "src/modules/administration/contracts.ts"
+      ],
+      "scope": "CRUD/status, organization restrictions, batched assignments and scoped assignment replacement."
+    },
+    {
+      "id": "operators",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "users/urls.py:14",
+          "route": "",
+          "view": "sync_to_async(user_views.UsersListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "users/urls.py:15",
+          "route": "ajax-users-list/",
+          "view": "sync_to_async(users_datatable.AjaxUsersListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "users/urls.py:16",
+          "route": "ajax-archived-users-list/",
+          "view": "sync_to_async(users_datatable.AjaxArchivedUsersListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "users/urls.py:17",
+          "route": "create/",
+          "view": "sync_to_async(user_views.CreateUserView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "users/urls.py:18",
+          "route": "<int:pk>/edit/",
+          "view": "sync_to_async(user_views.EditUserProfileView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "users/urls.py:19",
+          "route": "<int:pk>/delete/",
+          "view": "sync_to_async(user_views.DeleteUserView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "users/urls.py:20",
+          "route": "<int:pk>/activate/",
+          "view": "sync_to_async(user_views.ActivateUserView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "users/urls.py:21",
+          "route": "<int:user_id>/assign-store",
+          "view": "sync_to_async(user_views.AssignStoreUserView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/service.ts",
+        "src/modules/administration/operator-create.ts",
+        "src/modules/administration/policies.ts"
+      ],
+      "scope": "Safe projection, hashed staff creation with atomic commerce mirror, profile/status/store access; password editing uses a separate identity flow."
+    },
+    {
+      "id": "operator-mfa",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "users/urls.py:26",
+          "route": "<int:pk>/activate-mfa/",
+          "view": "sync_to_async(user_views.AjaxActivateMfaView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "users/urls.py:27",
+          "route": "activate-mfa/",
+          "view": "sync_to_async(user_views.AjaxActivateMfaView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/mfa.ts",
+        "src/modules/administration/mfa-schema.ts"
+      ],
+      "scope": "Safe write-only administrator MFA enrollment, exact SHA1/six-digit/30-second/window-zero TOTP verification and super-administrator replacement/reset. Pending seeds are sealed, expiry/attempt bound, role/store/organization checked on the writer; QR is generated locally and seed is published to the legacy account only after verification. Credential changes permanently revoke sessions/proofs with the shared monotonic epoch. Intentional privacy/atomicity corrections; no full legacy workflow certification."
+    },
+    {
+      "id": "operator-administrative-profile",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [],
+      "implementation": [
+        "src/modules/administration/operator-admin.ts",
+        "src/modules/administration/operator-admin-domain.ts",
+        "src/modules/administration/operator-admin-routes.ts",
+        "src/modules/administration/image-lifecycle/service.ts"
+      ],
+      "scope": "Inherited Django UserAdmin other-operator username, age/gender, complete scalar contacts/role/type/status, naive wall important dates, source-policy password reset and private profile/cover images. Current reconciled model grants, existing-superuser-only password reset, self/superuser target restrictions, optimistic revisions, safe UUID receipts and permanent authentication revocation. Native Django16-case Unicode normalization oracle, real MySQL and Chromium components; read-only history is separately evidenced; active flag/archive/reactivation semantics are preserved per user clarification, with no generic Store/PosUser hard deletion required. Complete deployed workflow parity remains required."
+    },
+    {
+      "id": "model-administration-access",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [],
+      "implementation": [
+        "src/modules/administration/access-control.ts",
+        "src/modules/administration/access-domain.ts",
+        "src/modules/administration/access-reconciliation.ts",
+        "src/modules/administration/access-routes.ts",
+        "src/modules/administration/access-schema.ts",
+        "src/modules/administration/group-deletions.ts"
+      ],
+      "scope": "Source Django UserAdmin staff/superuser flags, groups and direct model permissions; inherited GroupAdmin CRUD/search/permission assignment plus selected-group preview/atomic bulk deletion with optimistic scopes, receipts and deduplicated revocation. Rewrite-owned stable-key catalog/grants with complete verified-source import gate, writer-current permission checks, internal role1 superuser-only privilege mutation, monotonic group revisions and UUID receipts. Native pinned Django32-case permission oracle, isolated SQL and Chromium components; operational auth source reconciliation/full workflow parity remain required."
+    },
+    {
+      "id": "check-in",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:119",
+          "route": "ajax-get-checkin-data/",
+          "view": "sync_to_async(core_views.AjaxGetCheckindataView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:120",
+          "route": "ajax-set-checkin-data/",
+          "view": "sync_to_async(core_views.AjaxSetCheckindataView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/checkins.ts"
+      ],
+      "scope": "SQL-authoritative expiring store/counter check-in and notification recipients; optional caller-owned transaction."
+    },
+    {
+      "id": "inventory",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:19",
+          "route": "stock-management/",
+          "view": "sync_to_async(core_views.ProductsStockView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:37",
+          "route": "products/<int:product_id>/inventory-logs/",
+          "view": "sync_to_async(core_views.ShowProductInventoryView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:38",
+          "route": "ajax-product-inventory-list/",
+          "view": "sync_to_async(product_inventory_datatable.AjaxProductInventoryListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:40",
+          "route": "ajax-change-product-status/",
+          "view": "sync_to_async(core_views.AjaxProductStatusChangeView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:43",
+          "route": "ajax-product-stock-list/",
+          "view": "sync_to_async(store_products_datatable.AjaxProductsStockListView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:47",
+          "route": "assign-product-stock/",
+          "view": "sync_to_async(core_views.AssignProductStockView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/inventory.ts",
+        "src/modules/administration/inventory-synchronization.ts"
+      ],
+      "scope": "Stock list, optimistic stock mutation gate, family visibility and durable sync events; current-day audit only. Full legacy inventory route behavior is incomplete."
+    },
+    {
+      "id": "inventory-imports",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:20",
+          "route": "stock-management/bulk-upload/",
+          "view": "sync_to_async(core_views.ProductsStockBulkUploadView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/imports.ts",
+        "src/modules/administration/import-domain.ts",
+        "src/modules/administration/import-history.ts",
+        "src/modules/administration/import-schema.ts",
+        "src/modules/administration/stock-procedure.ts",
+        "src/modules/administration/worker.ts"
+      ],
+      "scope": "Active six-column stock CSV template/preview/queue, row-atomic hold/unhold and visibility, failure CSV, replay/cancel/resume, durable product synchronization and bounded worker progress. Explicitly fixes unreachable legacy unhold and partial-row mutation defects. Completed history older than 24h uses bound BigQuery snapshot/view contracts with writer-current identity/ownership; deployed mapping and current stock routine remain release gates. No full legacy workflow certification."
+    },
+    {
+      "id": "pos-catalog",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:45",
+          "route": "ajax-order-product-stock-list/",
+          "view": "sync_to_async(store_products_datatable.AjaxOrderProductsListView.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/catalog.ts"
+      ],
+      "scope": "First GS1 by PK, parent prices/exclusive price/ERP/image, sellable archived-stock branches, stock toggle and substring search. DTO differs from DataTables and omits held/storage stock presentation."
+    },
+    {
+      "id": "support",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:86",
+          "route": "delivery-timings/",
+          "view": "sync_to_async(core_views.PosDeliveryTiming.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:87",
+          "route": "delivery-timings/create/",
+          "view": "sync_to_async(core_views.PosDeliveryTimingCreate.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:88",
+          "route": "delivery-timings/<int:pk>/edit/",
+          "view": "sync_to_async(core_views.PosDeliveryTimingEdit.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:89",
+          "route": "ajax-update-delivery-slots/",
+          "view": "sync_to_async(core_views.AjaxDeliveryTimingUpdate.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:94",
+          "route": "settings/general/",
+          "view": "sync_to_async(core_views.PosGeneralSetting.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:95",
+          "route": "ajax-threshold-update/",
+          "view": "core_views.AjaxThresholdUpdate.as_view()"
+        },
+        {
+          "id": "core/urls.py:96",
+          "route": "ajax-order-buffer-update/",
+          "view": "core_views.AjaxOrderBufferUpdate.as_view()"
+        },
+        {
+          "id": "core/urls.py:99",
+          "route": "settings/ecom/",
+          "view": "sync_to_async(core_views.PosEcomSetting.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:100",
+          "route": "ajax-ecom-setting-update/",
+          "view": "core_views.AjaxEcomSettingUpdate.as_view()"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/support.ts",
+        "src/modules/administration/settings.ts",
+        "src/modules/administration/settings-domain.ts",
+        "src/modules/administration/settings-outbox.ts",
+        "src/modules/administration/settings-adapters.ts",
+        "src/modules/administration/settings-worker.ts"
+      ],
+      "scope": "Scoped delivery timing create/edit/move and single/all availability, global threshold/duration-buffer edits, optimistic state/replay checks, source-compatible common-cache keys/notices, durable ordered effects, cooldown and e-commerce settings. E-commerce writes require an injected verified store-inventory sync; current source procedure body remains unavailable. No complete live-provider or legacy HTTP workflow certification."
+    },
+    {
+      "id": "terminals",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:131",
+          "route": "edc-machine-edit-detail/",
+          "view": "sync_to_async(core_views.EdcMachineEditDetail.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:132",
+          "route": "ajax-edc-machine-edit-detail/",
+          "view": "sync_to_async(edc_details_datatable.AjaxEdcMachineEditDetail.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:135",
+          "route": "add-paytm-machine/",
+          "view": "core_views.add_edc_machine"
+        },
+        {
+          "id": "core/urls.py:136",
+          "route": "add_pinelab_machine/",
+          "view": "core_views.add_pinelab_machine"
+        },
+        {
+          "id": "core/urls.py:137",
+          "route": "ajax-next-edc-machine-name/",
+          "view": "sync_to_async(core_views.AjaxNextEdcMachineNameView.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:140",
+          "route": "edit-paytm-machine/<int:pk>/",
+          "view": "core_views.edit_paytm_machine"
+        },
+        {
+          "id": "core/urls.py:141",
+          "route": "edit-pinelab-machine/<int:pk>/",
+          "view": "core_views.edit_pinlab_machine"
+        },
+        {
+          "id": "core/urls.py:144",
+          "route": "delete-paytm-machine/<int:pk>/",
+          "view": "core_views.delete_paytm_machine"
+        },
+        {
+          "id": "core/urls.py:145",
+          "route": "delete-pinelab-machine/<int:pk>/",
+          "view": "core_views.delete_pinelab_machine"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/terminals.ts",
+        "src/modules/administration/support.ts"
+      ],
+      "scope": "Provider/store-specific serial naming, create/read/update/delete, write-only credentials, safe bigint device serials, scoped moves and credential-free DTOs. Full legacy workflows are not certified."
+    },
+    {
+      "id": "documentation",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:123",
+          "route": "documentation-lists/",
+          "view": "sync_to_async(core_views.DocumentationLists.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:124",
+          "route": "documentation-detail/",
+          "view": "sync_to_async(core_views.DocumentationDetail.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:125",
+          "route": "documentation-datatable-lists/",
+          "view": "sync_to_async(core_views.DocumentatioDatatableLists.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:126",
+          "route": "ajax-documentation-lists/",
+          "view": "sync_to_async(documentation_details_datatable.AjaxDocumentationLists.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:127",
+          "route": "upload-or-edit-tutorial/",
+          "view": "sync_to_async(core_views.UploadOrEditTutorial.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:129",
+          "route": "disable-tutorial/",
+          "view": "sync_to_async(core_views.DisableTutorial.as_view(), thread_sensitive=False)"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/documentation.ts",
+        "src/modules/administration/media-domain.ts",
+        "src/modules/administration/media-storage.ts",
+        "src/modules/administration/media-cleanup.ts",
+        "src/modules/administration/media-worker.ts"
+      ],
+      "scope": "Source descending sort priority with stable cursor, create/edit/version conflict protection, active/archive access, sanitized rich descriptions, private checksum-bound uploads, authenticated range streaming and downloads, reference-aware abandoned/removed media cleanup. React Chromium workflows use mocked HTTP/S3 boundaries; no full legacy or live S3 certification."
+    }
+  ],
+  "hidden_django_admin_capabilities": {
+    "users/admin.py": {
+      "model": "users.PosUser",
+      "configured_fields": [
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "role",
+        "age",
+        "gender",
+        "profile_image",
+        "is_mfa",
+        "mfa_hash",
+        "cover_image",
+        "otp_method",
+        "user_type"
+      ],
+      "inherited_capabilities": [
+        "password changes",
+        "staff/superuser status",
+        "groups",
+        "permissions",
+        "username",
+        "last_login/date_joined",
+        "delete/history/default actions"
+      ],
+      "implemented": "Safe write-only MFA enrollment/reset; staff/superuser/group/direct-permission management with verified source import gate; full other-operator scalar profile/username/important dates, write-only source-policy password reset and shared private profile/cover image lifecycle; root self-service profile flows.",
+      "remaining": "Verified source history/publication and live auth import/workflow parity; active Store/PosUser lifecycle is reversible archive/deleted flags per user clarification, not generic physical deletion."
+    },
+    "django.contrib.auth.admin.GroupAdmin": {
+      "model": "auth.Group",
+      "source": "Django4.2.5 pinned by source requirements",
+      "implemented": "Group CRUD/search, permission assignment and removal from operators; source permission evaluation oracle plus isolated SQL/Chromium checks.",
+      "remaining": "Verified operational group/M2M export and whole workflow parity; privilege mutation is deliberately hardened to existing internal staff superusers."
+    },
+    "stores/admin.py": {
+      "model": "stores.Store",
+      "scope": "Complete model administration beyond custom Store forms, including e-commerce controls.",
+      "remaining": "Explicit replacement access policy, side-effect handling and workflow parity."
+    }
+  }
+}

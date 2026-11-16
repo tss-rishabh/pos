@@ -1,0 +1,603 @@
+{
+  "checkedAt": "2026-11-16T19:28:45.112Z",
+  "schema": "tss",
+  "tables": {
+    "order_tss_money": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "tss_money_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "used_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "tss_money_return",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      }
+    ],
+    "order_tss_point": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "tss_point_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "used_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "tss_point_return",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      }
+    ],
+    "tss_money_history": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "added_amt",
+        "type": "double",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "used_amt",
+        "type": "double",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "amt_before_update",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "amt_after_update",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "comment",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "platform",
+        "type": "enum('ORDER_PLACED','ORDER_CANCELLED','ORDER_REFUND','ORDER_MONEY','TSS_MONEY_EXPIRED','TSS_MONEY_EARNED','ORDER_RETURN','PAYMENT_FAILED','DONATION_MONEY','PRODUCT_RETURN','COURIER_COMPENSATION','DEFECTIVE_PRODUCT','PRODUCT_MISSING','PRODUCT_OUT_OF_STOCK','MISC_COMPENSATION','REFERRAL_MONEY','EXCHANGE','FIRST_ORDER_RETURN_BONUS','TESTING')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "added_user",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "expiry",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_expired",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_bulk_upload",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "tss_point_history": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "game_category_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "added_amt",
+        "type": "double",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "used_amt",
+        "type": "double",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "amt_before_update",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "amt_after_update",
+        "type": "double",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "comment",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "platform",
+        "type": "enum('GAME_POINTS','ORDER_PLACED','ORDER_CANCELLED','ORDER_REFUND','ORDER_POINTS','TSS_POINTS_EXPIRED','TSS_POINTS_EARNED','ORDER_RETURN','PAYMENT_FAILED','DONATION_CASHBACK','PRODUCT_RETURN','COURIER_COMPENSATION','DEFECTIVE_PRODUCT','PRODUCT_MISSING','PRODUCT_OUT_OF_STOCK','MISC_COMPENSATION','APP_CASHBACK','WEB_CASHBACK','DONATION_POINTS_1','TESTING')",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "added_user",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "expiry",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_expired",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_bulk_upload",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ]
+  },
+  "indexes": {
+    "order_tss_money": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "order",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "tss_money",
+        "column": "tss_money_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "order_tss_point": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "order",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "tss_point",
+        "column": "tss_point_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "tss_money_history": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "amt_exp",
+        "column": "added_amt",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "amt_exp",
+        "column": "expiry",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "amt_exp",
+        "column": "is_expired",
+        "position": 3,
+        "unique": false
+      },
+      {
+        "name": "user",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "order",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "platform",
+        "column": "platform",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "used_amt",
+        "column": "used_amt",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "expiry",
+        "column": "expiry",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_expired",
+        "column": "is_expired",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "product_id",
+        "column": "product_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "tss_point_history": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "amt_exp",
+        "column": "added_amt",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "amt_exp",
+        "column": "expiry",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "amt_exp",
+        "column": "is_expired",
+        "position": 3,
+        "unique": false
+      },
+      {
+        "name": "user",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "order",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "platform",
+        "column": "platform",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_expired",
+        "column": "is_expired",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "expiry",
+        "column": "expiry",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "used_amt",
+        "column": "used_amt",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {
+    "order_tss_money": [],
+    "order_tss_point": [],
+    "tss_money_history": [],
+    "tss_point_history": []
+  },
+  "inboundForeignKeys": [],
+  "locations": [],
+  "errors": []
+}

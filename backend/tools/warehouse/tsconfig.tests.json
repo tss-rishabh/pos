@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "../.." },
+  "include": [
+    "../../tests/reports/warehouse-parameters.test.ts",
+    "../../tests/reports/warehouse-adapter.test.ts",
+    "./verify-parameters.ts"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "scope": "isolated-browser-fixtures",
+  "checks": [
+    "all catalog columns, server paging and filtered source count",
+    "current-page visible CSV",
+    "safe detail markup and source description/material tabs",
+    "optimistic stock and family visibility API editor",
+    "reviewed source repair plan and committed repair receipt",
+    "exact source sku-only CSV sample",
+    "manual pull retains uncertain delivery until explicit service confirmation",
+    "SKU CSV upload uses distinct source CSV mode and captured actor",
+    "all-SKU matrix discovers missing associations and can create zero stock through the gated editor",
+    "held audit deep link, all audit fields, storage and historical controls",
+    "snapshot search, visible-column all-match CSV and standards Excel export",
+    "saved snapshot and column preferences survive a fresh query client while API is offline"
+  ],
+  "passed": 12,
+  "requests": 39,
+  "unexpectedRequests": [],
+  "pageErrors": [],
+  "sourceDatabaseReads": false,
+  "externalMessages": false
+}

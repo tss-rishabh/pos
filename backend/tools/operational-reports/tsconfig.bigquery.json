@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "rootDir": "../..", "noEmit": true },
+  "include": [
+    "../../src/**/*.ts",
+    "./discover-bigquery.ts",
+    "./map-bigquery-source.ts",
+    "./validate-bigquery-raw.ts",
+    "./validate-feedback-history.ts",
+    "./feedback-history-fixtures.ts",
+    "./build-bigquery-deployment-plan.ts"
+  ]
+}

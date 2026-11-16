@@ -1,0 +1,1742 @@
+{
+  "scope": "Static declared ORM columns only; names do not prove operator/store ownership or an exhaustive runtime JSON/external-writer reference graph.",
+  "destructiveEndpointsImplemented": false,
+  "sourceHashes": {
+    "src/auth/mfa-schema.ts": "0af764887200a1d02cd3bb1f47ee190fe096bdc2424baa547c377ae19b208251",
+    "src/auth/revocation.ts": "849a68ce39577a8629586120f78ac50a718b1de72f567af6957b0cea39112d43",
+    "src/auth/security-schema.ts": "166b0336751232e1ac0d7fdd8879e902b3a32a05924e03b88a36f9df1fcf0ccd",
+    "src/auth/session-schema.ts": "d4ad9b51e82fb812e53966ac5f2ef412cf857394c6cf6929bdc792e50134b60c",
+    "src/db/legacy-schema.ts": "35eb008466606247c377c6cbfdac6fd184d1bda81c62f7f025f6917d43bd8c0b",
+    "src/db/rewrite-schema.ts": "23978cab10fc50d9eb5ccc399e55df0450ace4f05bacac4eed3a8b37c3ab6fd8",
+    "src/db/stock-projection/schema.ts": "f44adca962fb4e54b443348869cb59025c402468281ebcbb8fbe4e0621dea757",
+    "src/modules/administration-history/schema.ts": "98ffe11a4f9e036d4c8492231531b8b8681e4b93219ce890ccb40e4fb2eba64a",
+    "src/modules/administration/access-schema.ts": "7fe6613a56ed91e112c113ff38c7f8d8a797475e9e6b8e5ff019073fc9d5d9cf",
+    "src/modules/administration/import-schema.ts": "24877127af18c44b11361b0c0108f2b84c450c84870952d70bbdbf8ae8ef720e",
+    "src/modules/administration/media-schema.ts": "1fc3911ad616942a918c2673a28e23e16b42985c8d47a9b521693c77ae656532",
+    "src/modules/administration/mfa-schema.ts": "c94151038c0de815f40d00712ed6b2e138552279418e0b4ed6e552aad76aaef1",
+    "src/modules/administration/schema.ts": "645cb00fa3b1df392e5043321d371d178b9b3f41c400215d3c8dbb8e0ea158ca",
+    "src/modules/administration/settings-schema.ts": "56969bd20b92849156afc4b1b031593c2d5661ad8131d3c4ff871dafc4e61e20",
+    "src/modules/administration/slack-schema.ts": "62e5cc877407a8d7c9745081f473935d4aa1dad4a9d7ebb98cd3b6a859e8b763",
+    "src/modules/application-links/schema.ts": "be2a5b64dd49f93a025605b3bf3d4f930a000b33754992e99032790fd16aa19b",
+    "src/modules/catalog-details/maintenance-schema.ts": "09aceeadf8bf84640325852e4f219038d436c36c3d415921d519ed54e130b2cd",
+    "src/modules/checkout/customers/schema.ts": "a4d8b5f335df77ff14c6075b832f36ba741a8edb1492273e24304086433bdb5d",
+    "src/modules/checkout/discounts/schema.ts": "c20f0245185bbb8a6f29dd270f7e316da941b024d97b79104ae2db4d9a4c975c",
+    "src/modules/checkout/offline-cash/legacy-import-schema.ts": "18bca368e6364ec5bf96e2a40bea9b7ae0c6cc39466b63651c15eecda6a29317",
+    "src/modules/checkout/offline-cash/schema.ts": "e91c33621d79c59d4ae532a1c4fbc69f9b9b008a6474ea35313c765901d6b235",
+    "src/modules/checkout/offline-cash/source-ledger.ts": "3d1d9a7a71f6bc19f7f75173d3bb7888e9b47dc2d6542e9530b296e77b0ad347",
+    "src/modules/checkout/payments/schema.ts": "f926b8b094aab836a6b7ec06b64d3567861b30a8108c7255566fe0a9e14ccfab",
+    "src/modules/checkout/projection.ts": "0cb109f5c536d2f6b15570ba564998f4a28e17484e3a0e23e729e5075dbaf6ac",
+    "src/modules/checkout/return-workflow/schema.ts": "4cf016a1fd4236771c16089737b00a3b6d86f0bde43772c2261f38202a7403e6",
+    "src/modules/checkout/return-workflow/stock-proof.ts": "411f64e4797fdf7316c354e99939d0e5968a47d5b0f616227e5c2ca1d7b8b024",
+    "src/modules/checkout/schema.ts": "1e94c4723c1f04095610b5febe19e74f0ff38ac9c8a394c30cfbc53cc7190cda",
+    "src/modules/finance/schema.ts": "efe5411a988a5909ba959f0542140ae3e02eda1c185ca513bd349fac4bd0c192",
+    "src/modules/fulfillment/schema.ts": "ab50a12d882da6bcd09fedcac0720417549e9ef577e22a33138d475f5a108243",
+    "src/modules/operational-reports/export-schema.ts": "3cedf2bd1f1516aa3f384a064e63aa6749d3fe7225a4337fb7cbdd6d6f1f1232",
+    "src/modules/operational-reports/performance-schema.ts": "2ac38cbf78217f8cfa638aa448e9d59f675a5fdc247effc96aa290dfd0f811bd",
+    "src/modules/operational-reports/scheduled-schema.ts": "bee611c9e88bdc7214682379600c20f19790a87cd69fd5baa282300f484c1157",
+    "src/modules/special-permission-history/schema.ts": "be5fa388b3b7b11dd75af84af3c8e73acc90d83af34fa85dfac4a5aee650ac01"
+  },
+  "candidates": [
+    {
+      "file": "src/auth/mfa-schema.ts",
+      "line": 5,
+      "table": "pos_rewrite_login_challenges",
+      "property": "userId",
+      "column": "user_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/auth/mfa-schema.ts",
+      "line": 13,
+      "table": "pos_rewrite_login_security",
+      "property": "userId",
+      "column": "user_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/auth/revocation.ts",
+      "line": 13,
+      "table": "pos_rewrite_operator_auth_epochs",
+      "property": "userId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/auth/security-schema.ts",
+      "line": 5,
+      "table": "pos_rewrite_login_security_alerts",
+      "property": "userId",
+      "column": "user_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/auth/session-schema.ts",
+      "line": 7,
+      "table": "pos_rewrite_sessions",
+      "property": "userId",
+      "column": "user_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 49,
+      "table": "products",
+      "property": "updated_by",
+      "column": "updated_by",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 80,
+      "table": "product_store",
+      "property": "store",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 127,
+      "table": "pos_product_inventory_logs",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 132,
+      "table": "pos_product_inventory_logs",
+      "property": "user_id",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 133,
+      "table": "pos_product_inventory_logs",
+      "property": "pos_user_id",
+      "column": "pos_user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 142,
+      "table": "hold_stock_store",
+      "property": "store",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 148,
+      "table": "pos_hold_stock_logs",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 152,
+      "table": "pos_hold_stock_logs",
+      "property": "pos_user_id",
+      "column": "pos_user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 161,
+      "table": "pos_transaction_logs",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 164,
+      "table": "pos_transaction_logs",
+      "property": "user_id",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 165,
+      "table": "pos_transaction_logs",
+      "property": "pos_user_id",
+      "column": "pos_user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 175,
+      "table": "pos_terminal_transactions",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 178,
+      "table": "pos_terminal_transactions",
+      "property": "store_pos_code",
+      "column": "store_pos_code",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 184,
+      "table": "pos_terminal_transactions",
+      "property": "pos_admin_id",
+      "column": "pos_admin_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 195,
+      "table": "pos_machines",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 199,
+      "table": "pos_machines",
+      "property": "store_name",
+      "column": "store_name",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 205,
+      "table": "pos_machines",
+      "property": "merchant_store_pos_code",
+      "column": "merchant_store_pos_code",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 220,
+      "table": "salespersons",
+      "property": "user_type",
+      "column": "user_type",
+      "storage": "smallint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 228,
+      "table": "store_salesperson",
+      "property": "store",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 234,
+      "table": "pos_special_permission_activity_log",
+      "property": "pos_user_id",
+      "column": "pos_user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 239,
+      "table": "pos_special_permission_activity_log",
+      "property": "recipient",
+      "column": "recipient",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 244,
+      "table": "tss_money_history",
+      "property": "user_id",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 247,
+      "table": "tss_money_history",
+      "property": "added_user",
+      "column": "added_user",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 261,
+      "table": "tss_point_history",
+      "property": "user_id",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 264,
+      "table": "tss_point_history",
+      "property": "added_user",
+      "column": "added_user",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 287,
+      "table": "pos_hyperlocal_slots",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 292,
+      "table": "pos_hyperlocal_slots",
+      "property": "pos_admin_id",
+      "column": "pos_admin_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 300,
+      "table": "stock_storages",
+      "property": "store",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 307,
+      "table": "stock_storage_logs",
+      "property": "store",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 312,
+      "table": "stock_storage_logs",
+      "property": "pos_user_id",
+      "column": "pos_user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 320,
+      "table": "pos_paytm_machines",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 324,
+      "table": "pos_paytm_machines",
+      "property": "store_name",
+      "column": "store_name",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 338,
+      "table": "pos_paytm_transactions",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 348,
+      "table": "pos_paytm_transactions",
+      "property": "pos_admin_id",
+      "column": "pos_admin_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 382,
+      "table": "gift_card_collection",
+      "property": "created_by",
+      "column": "created_by",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 399,
+      "table": "pos_tutorial",
+      "property": "created_by",
+      "column": "created_by",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 406,
+      "table": "pos_internet_speed_logs",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 407,
+      "table": "pos_internet_speed_logs",
+      "property": "pos_admin_id",
+      "column": "pos_admin_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 408,
+      "table": "pos_internet_speed_logs",
+      "property": "user_id",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 419,
+      "table": "pos_notifications",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 428,
+      "table": "pos_user_notifications",
+      "property": "pos_admin_id",
+      "column": "pos_admin_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 452,
+      "table": "users",
+      "property": "user_type",
+      "column": "user_type",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 467,
+      "table": "users",
+      "property": "user_platform",
+      "column": "user_platform",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 468,
+      "table": "users",
+      "property": "pos_admin_id",
+      "column": "pos_admin_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 552,
+      "table": "orders",
+      "property": "user",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 596,
+      "table": "orders",
+      "property": "user_ref_points",
+      "column": "user_ref_points",
+      "storage": "double",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 623,
+      "table": "orders",
+      "property": "store_disc_pg_comment",
+      "column": "store_disc_pg_comment",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 624,
+      "table": "orders",
+      "property": "store_disc_pg_reason",
+      "column": "store_disc_pg_reason",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 678,
+      "table": "order_stores",
+      "property": "store",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 711,
+      "table": "comments",
+      "property": "user_id",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 742,
+      "table": "return_orders",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 795,
+      "table": "product_rating_user",
+      "property": "user",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 823,
+      "table": "hyperlocal_order_log",
+      "property": "pos_admin_id",
+      "column": "pos_admin_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 862,
+      "table": "pos_exchange_log",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 864,
+      "table": "pos_exchange_log",
+      "property": "staff_user_id",
+      "column": "staff_user_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 898,
+      "table": "extend_applicability_for_return_exchange",
+      "property": "created_by",
+      "column": "created_by",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 899,
+      "table": "extend_applicability_for_return_exchange",
+      "property": "updated_by",
+      "column": "updated_by",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 916,
+      "table": "pos_online_orders",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 917,
+      "table": "pos_online_orders",
+      "property": "created_by",
+      "column": "created_by",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 934,
+      "table": "express_line_item",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 960,
+      "table": "express_order_status_log",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 974,
+      "table": "report_exports",
+      "property": "export_requested_by",
+      "column": "export_requested_by",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 987,
+      "table": "store_day_close",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 991,
+      "table": "store_day_close",
+      "property": "closed_by_id",
+      "column": "closed_by_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1021,
+      "table": "store_day_banking",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1031,
+      "table": "store_cash_opening_balance",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1070,
+      "table": "stores",
+      "property": "store_name",
+      "column": "store_name",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1086,
+      "table": "stores",
+      "property": "store_image",
+      "column": "store_image",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1105,
+      "table": "hyperlocal_locations",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1112,
+      "table": "store_storages",
+      "property": "store",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1123,
+      "table": "store_counters",
+      "property": "store",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1154,
+      "table": "pos_user",
+      "property": "user_type",
+      "column": "user_type",
+      "storage": "smallint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1159,
+      "table": "user_stores",
+      "property": "django_user_id",
+      "column": "django_user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/legacy-schema.ts",
+      "line": 1160,
+      "table": "user_stores",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/rewrite-schema.ts",
+      "line": 7,
+      "table": "pos_rewrite_drafts",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/rewrite-schema.ts",
+      "line": 9,
+      "table": "pos_rewrite_drafts",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/rewrite-schema.ts",
+      "line": 12,
+      "table": "pos_rewrite_drafts",
+      "property": "payload",
+      "column": "payload",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/db/rewrite-schema.ts",
+      "line": 20,
+      "table": "pos_rewrite_mutations",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/rewrite-schema.ts",
+      "line": 23,
+      "table": "pos_rewrite_mutations",
+      "property": "result",
+      "column": "result",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/db/stock-projection/schema.ts",
+      "line": 21,
+      "table": "pos_inventory_sync_log",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/stock-projection/schema.ts",
+      "line": 33,
+      "table": "products_inventory_logs",
+      "property": "storeStock",
+      "column": "store_addon_stock",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/db/stock-projection/schema.ts",
+      "line": 36,
+      "table": "products_inventory_logs",
+      "property": "userId",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration-history/schema.ts",
+      "line": 20,
+      "table": "django_admin_log",
+      "property": "actorId",
+      "column": "user_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/access-schema.ts",
+      "line": 37,
+      "table": "pos_rewrite_administration_memberships",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/access-schema.ts",
+      "line": 45,
+      "table": "pos_rewrite_administration_direct_permissions",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/access-schema.ts",
+      "line": 57,
+      "table": "pos_rewrite_administration_access_reconciliation",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/access-schema.ts",
+      "line": 59,
+      "table": "pos_rewrite_administration_access_reconciliation",
+      "property": "counts",
+      "column": "counts",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/administration/access-schema.ts",
+      "line": 76,
+      "table": "pos_rewrite_administration_access_mutations",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/access-schema.ts",
+      "line": 81,
+      "table": "pos_rewrite_administration_access_mutations",
+      "property": "result",
+      "column": "result",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/administration/import-schema.ts",
+      "line": 23,
+      "table": "pos_rewrite_inventory_imports",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/import-schema.ts",
+      "line": 43,
+      "table": "pos_rewrite_inventory_import_rows",
+      "property": "cells",
+      "column": "cells",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/administration/import-schema.ts",
+      "line": 44,
+      "table": "pos_rewrite_inventory_import_rows",
+      "property": "command",
+      "column": "command",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/administration/media-schema.ts",
+      "line": 17,
+      "table": "pos_rewrite_documentation_assets",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/media-schema.ts",
+      "line": 46,
+      "table": "pos_rewrite_documentation_mutations",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/mfa-schema.ts",
+      "line": 7,
+      "table": "pos_rewrite_operator_mfa_enrollments",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/mfa-schema.ts",
+      "line": 8,
+      "table": "pos_rewrite_operator_mfa_enrollments",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/mfa-schema.ts",
+      "line": 9,
+      "table": "pos_rewrite_operator_mfa_enrollments",
+      "property": "actorVersion",
+      "column": "actor_version",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/mfa-schema.ts",
+      "line": 10,
+      "table": "pos_rewrite_operator_mfa_enrollments",
+      "property": "operatorVersion",
+      "column": "operator_version",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/mfa-schema.ts",
+      "line": 27,
+      "table": "pos_rewrite_operator_mfa_mutations",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/mfa-schema.ts",
+      "line": 28,
+      "table": "pos_rewrite_operator_mfa_mutations",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/mfa-schema.ts",
+      "line": 30,
+      "table": "pos_rewrite_operator_mfa_mutations",
+      "property": "result",
+      "column": "result",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/administration/schema.ts",
+      "line": 8,
+      "table": "pos_rewrite_operator_checkins",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/schema.ts",
+      "line": 9,
+      "table": "pos_rewrite_operator_checkins",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/schema.ts",
+      "line": 37,
+      "table": "pos_rewrite_administration_outbox",
+      "property": "payload",
+      "column": "payload",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/administration/settings-schema.ts",
+      "line": 9,
+      "table": "pos_rewrite_settings_effects",
+      "property": "payload",
+      "column": "payload",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/administration/settings-schema.ts",
+      "line": 16,
+      "table": "pos_rewrite_settings_mutations",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/settings-schema.ts",
+      "line": 18,
+      "table": "pos_rewrite_settings_mutations",
+      "property": "result",
+      "column": "result",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/administration/settings-schema.ts",
+      "line": 22,
+      "table": "pos_rewrite_ecommerce_changes",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/slack-schema.ts",
+      "line": 8,
+      "table": "pos_rewrite_slack_connections",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/slack-schema.ts",
+      "line": 9,
+      "table": "pos_rewrite_slack_connections",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/administration/slack-schema.ts",
+      "line": 14,
+      "table": "pos_rewrite_slack_connections",
+      "property": "storeVersion",
+      "column": "store_version",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/application-links/schema.ts",
+      "line": 17,
+      "table": "pos_to_app_logs",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/application-links/schema.ts",
+      "line": 33,
+      "table": "pos_rewrite_staff_download_grants",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/application-links/schema.ts",
+      "line": 61,
+      "table": "pos_rewrite_customer_application_links",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/application-links/schema.ts",
+      "line": 63,
+      "table": "pos_rewrite_customer_application_links",
+      "property": "createdBy",
+      "column": "created_by",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/application-links/schema.ts",
+      "line": 73,
+      "table": "pos_rewrite_customer_application_cache",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/application-links/schema.ts",
+      "line": 86,
+      "table": "pos_rewrite_application_scan_receipts",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/catalog-details/maintenance-schema.ts",
+      "line": 14,
+      "table": "pos_rewrite_catalog_commands",
+      "property": "ownerId",
+      "column": "owner_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/catalog-details/maintenance-schema.ts",
+      "line": 18,
+      "table": "pos_rewrite_catalog_commands",
+      "property": "metadata",
+      "column": "metadata",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/catalog-details/maintenance-schema.ts",
+      "line": 29,
+      "table": "pos_rewrite_catalog_deliveries",
+      "property": "payload",
+      "column": "payload",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/catalog-details/maintenance-schema.ts",
+      "line": 47,
+      "table": "pos_rewrite_catalog_reconciliations",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/customers/schema.ts",
+      "line": 8,
+      "table": "pos_rewrite_customer_registrations",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/customers/schema.ts",
+      "line": 9,
+      "table": "pos_rewrite_customer_registrations",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/customers/schema.ts",
+      "line": 48,
+      "table": "pos_rewrite_customer_registration_deliveries",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/discounts/schema.ts",
+      "line": 6,
+      "table": "pos_rewrite_discount_approvals",
+      "property": "state",
+      "column": "state",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/checkout/discounts/schema.ts",
+      "line": 10,
+      "table": "pos_rewrite_discount_approval_limits",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/discounts/schema.ts",
+      "line": 27,
+      "table": "pos_rewrite_discount_deliveries",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/discounts/schema.ts",
+      "line": 56,
+      "table": "store_pg_disc_addons",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/legacy-import-schema.ts",
+      "line": 8,
+      "table": "orders",
+      "property": "user_id",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/legacy-import-schema.ts",
+      "line": 36,
+      "table": "orders",
+      "property": "store_disc_pg",
+      "column": "store_disc_pg",
+      "storage": "float",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/legacy-import-schema.ts",
+      "line": 39,
+      "table": "orders",
+      "property": "store_disc_pg_comment",
+      "column": "store_disc_pg_comment",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/legacy-import-schema.ts",
+      "line": 61,
+      "table": "orders",
+      "property": "user_ref_points",
+      "column": "user_ref_points",
+      "storage": "double",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/legacy-import-schema.ts",
+      "line": 100,
+      "table": "orders",
+      "property": "store_disc_pg_reason",
+      "column": "store_disc_pg_reason",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/legacy-import-schema.ts",
+      "line": 145,
+      "table": "has_products",
+      "property": "store_disc_pg",
+      "column": "store_disc_pg",
+      "storage": "float",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/legacy-import-schema.ts",
+      "line": 185,
+      "table": "order_stores",
+      "property": "store_id",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/legacy-import-schema.ts",
+      "line": 188,
+      "table": "order_stores",
+      "property": "admin_user_id",
+      "column": "admin_user_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/schema.ts",
+      "line": 19,
+      "table": "pos_rewrite_offline_cash_devices",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/schema.ts",
+      "line": 20,
+      "table": "pos_rewrite_offline_cash_devices",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/schema.ts",
+      "line": 35,
+      "table": "pos_rewrite_offline_cash_authorizations",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/schema.ts",
+      "line": 36,
+      "table": "pos_rewrite_offline_cash_authorizations",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/schema.ts",
+      "line": 57,
+      "table": "pos_rewrite_offline_cash_receipts",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/schema.ts",
+      "line": 58,
+      "table": "pos_rewrite_offline_cash_receipts",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/schema.ts",
+      "line": 114,
+      "table": "pos_rewrite_offline_cash_events",
+      "property": "actorId",
+      "column": "actor_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/schema.ts",
+      "line": 140,
+      "table": "pos_rewrite_offline_cash_receipt_lines",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/source-ledger.ts",
+      "line": 18,
+      "table": "flag_history",
+      "property": "customerId",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/offline-cash/source-ledger.ts",
+      "line": 32,
+      "table": "amount_to_be_refunded_log",
+      "property": "storeDiscount",
+      "column": "store_disc_pg",
+      "storage": "float",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/payments/schema.ts",
+      "line": 8,
+      "table": "pos_rewrite_payment_attempts",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/payments/schema.ts",
+      "line": 9,
+      "table": "pos_rewrite_payment_attempts",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/payments/schema.ts",
+      "line": 11,
+      "table": "pos_rewrite_payment_attempts",
+      "property": "state",
+      "column": "state",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/checkout/payments/schema.ts",
+      "line": 21,
+      "table": "pos_rewrite_payment_outbox",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/payments/schema.ts",
+      "line": 24,
+      "table": "pos_rewrite_payment_outbox",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/projection.ts",
+      "line": 28,
+      "table": "pos_rewrite_checkout_projections",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/projection.ts",
+      "line": 30,
+      "table": "pos_rewrite_checkout_projections",
+      "property": "userId",
+      "column": "user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/return-workflow/schema.ts",
+      "line": 8,
+      "table": "pos_rewrite_return_operations",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/return-workflow/schema.ts",
+      "line": 10,
+      "table": "pos_rewrite_return_operations",
+      "property": "state",
+      "column": "state",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/checkout/return-workflow/schema.ts",
+      "line": 20,
+      "table": "pos_rewrite_return_outbox",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/return-workflow/schema.ts",
+      "line": 25,
+      "table": "pos_rewrite_return_outbox",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/return-workflow/schema.ts",
+      "line": 43,
+      "table": "pos_rewrite_return_verifications",
+      "property": "state",
+      "column": "state",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/checkout/return-workflow/schema.ts",
+      "line": 47,
+      "table": "pos_rewrite_return_verification_limits",
+      "property": "state",
+      "column": "state",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/checkout/return-workflow/stock-proof.ts",
+      "line": 12,
+      "table": "pos_rewrite_exchange_stock_confirmations",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/schema.ts",
+      "line": 17,
+      "table": "pos_rewrite_checkout_sessions",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/schema.ts",
+      "line": 18,
+      "table": "pos_rewrite_checkout_sessions",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/checkout/schema.ts",
+      "line": 21,
+      "table": "pos_rewrite_checkout_sessions",
+      "property": "state",
+      "column": "state",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/checkout/schema.ts",
+      "line": 33,
+      "table": "pos_rewrite_checkout_operations",
+      "property": "result",
+      "column": "result",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/finance/schema.ts",
+      "line": 6,
+      "table": "pos_rewrite_finance_commands",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/finance/schema.ts",
+      "line": 24,
+      "table": "pos_rewrite_finance_alert_commands",
+      "property": "result",
+      "column": "result",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/fulfillment/schema.ts",
+      "line": 25,
+      "table": "pos_rewrite_fulfillment_commands",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/fulfillment/schema.ts",
+      "line": 28,
+      "table": "pos_rewrite_fulfillment_commands",
+      "property": "result",
+      "column": "result",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/fulfillment/schema.ts",
+      "line": 40,
+      "table": "pos_rewrite_fulfillment_effects",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/fulfillment/schema.ts",
+      "line": 42,
+      "table": "pos_rewrite_fulfillment_effects",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/fulfillment/schema.ts",
+      "line": 45,
+      "table": "pos_rewrite_fulfillment_effects",
+      "property": "payload",
+      "column": "payload",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/fulfillment/schema.ts",
+      "line": 49,
+      "table": "pos_rewrite_fulfillment_effects",
+      "property": "result",
+      "column": "result",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/fulfillment/schema.ts",
+      "line": 59,
+      "table": "pos_rewrite_notification_events",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/fulfillment/schema.ts",
+      "line": 62,
+      "table": "pos_rewrite_notification_events",
+      "property": "notice",
+      "column": "notice",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/operational-reports/export-schema.ts",
+      "line": 18,
+      "table": "pos_rewrite_report_exports",
+      "property": "operatorId",
+      "column": "operator_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/operational-reports/export-schema.ts",
+      "line": 22,
+      "table": "pos_rewrite_report_exports",
+      "property": "input",
+      "column": "input",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/operational-reports/export-schema.ts",
+      "line": 23,
+      "table": "pos_rewrite_report_exports",
+      "property": "storeIds",
+      "column": "store_ids",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/operational-reports/export-schema.ts",
+      "line": 25,
+      "table": "pos_rewrite_report_exports",
+      "property": "requesterUserType",
+      "column": "requester_user_type",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/operational-reports/performance-schema.ts",
+      "line": 5,
+      "table": "order_stores",
+      "property": "storeId",
+      "column": "store_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/operational-reports/performance-schema.ts",
+      "line": 7,
+      "table": "order_stores",
+      "property": "adminUserId",
+      "column": "admin_user_id",
+      "storage": "int",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/operational-reports/scheduled-schema.ts",
+      "line": 22,
+      "table": "pos_rewrite_scheduled_reports",
+      "property": "userId",
+      "column": "user_id",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/operational-reports/scheduled-schema.ts",
+      "line": 23,
+      "table": "pos_rewrite_scheduled_reports",
+      "property": "input",
+      "column": "input",
+      "storage": "json",
+      "status": "json-payload-requires-owner-review"
+    },
+    {
+      "file": "src/modules/special-permission-history/schema.ts",
+      "line": 6,
+      "table": "pos_special_permission_activity_log",
+      "property": "actorId",
+      "column": "pos_user_id",
+      "storage": "bigint",
+      "status": "unclassified-reference-candidate"
+    },
+    {
+      "file": "src/modules/special-permission-history/schema.ts",
+      "line": 8,
+      "table": "pos_special_permission_activity_log",
+      "property": "recipient",
+      "column": "recipient",
+      "storage": "varchar",
+      "status": "unclassified-reference-candidate"
+    }
+  ]
+}

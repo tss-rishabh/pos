@@ -1,0 +1,59 @@
+{
+  "contract": "pos-dashboard-orders-v1",
+  "status": "reviewable-contract-not-deployed",
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "source": {
+    "view": "dashboard/views.py:18-107",
+    "sha256": "431c56565123c1db019c84b1cb9d987ebc7e055aa4fa6d0fb6bc87d757a7ab2b",
+    "actorRule": "user_type_exempt([2]); internal roles1-5, with writer-current role/assignment/epoch checks",
+    "totalScope": "role1: active stores; roles2-5: all assigned stores, including inactive",
+    "graphScope": "active stores within totalScope",
+    "total": "COUNT(order_stores INNER JOIN orders ON orders.id=order_stores.order_id WHERE orders.order_status<>0)",
+    "monthly": "COUNT(joined associations WHERE order_status<>0 AND YEAR(orders.created_at)>=businessCurrentYear), grouped by store/year/month",
+    "zeroDate": "Exact all-zero wall date remains in total; normalized monthly DATETIME is NULL. Retain the original zero wall string for source hash. Reject other unrepresentable wall dates.",
+    "ambiguity": "Different counts for the same store/month across years are refused. Equal counts retain the source overwrite result."
+  },
+  "factsView": {
+    "generation_id": "STRING UUID, immutable generation",
+    "order_store_id": "STRING exact positive decimal PK, unique within generation",
+    "store_id": "STRING exact positive decimal store ID",
+    "order_id": "STRING exact positive decimal order ID",
+    "order_status": "INT64 nonnull source order_status; no dimension-table remapping",
+    "order_created_at": "DATETIME source wall time; nullable only for a proved all-zero original wall date",
+    "source_created_at_wall": "STRING canonical source wall date including all-zero sentinel, retained for source/warehouse digest reconciliation"
+  },
+  "publicationsView": {
+    "generation_id": "STRING UUID",
+    "store_id": "STRING exact store ID; one row per physical store, including zero-fact stores",
+    "as_of": "TIMESTAMP shared verified source snapshot time for the entire generation",
+    "contract": "STRING pos-dashboard-orders-v1",
+    "source_count": "INT64 or canonical integer STRING: all joined associations, including status0",
+    "warehouse_count": "INT64 or canonical integer STRING, equal to source_count",
+    "source_hash": "lowercase SHA256 of canonical source joined rows",
+    "warehouse_hash": "same canonical SHA256 over normalized warehouse joined rows",
+    "complete": "BOOL; TRUE only after independent scope/count/digest/source-checkpoint reconciliation"
+  },
+  "digest": {
+    "encoding": "UTF8",
+    "row": "JSON array of five strings: [order_store_id,store_id,order_id,decimal_order_status,source_created_at_wall] followed by LF",
+    "order": "numeric order_store_id ascending within each store",
+    "emptyStore": "SHA256 of the empty UTF8 byte sequence",
+    "pii": "No customer, operator contact, payment, wallet or address fields are needed."
+  },
+  "requiredPublisherAcceptance": [
+    "Demonstrate a common source snapshot/checkpoint for order_stores and orders; independent CDC timestamps are insufficient.",
+    "Capture immutable source counts/digests and normalized warehouse counts/digests per store from the same generation, including explicit zero-store manifests.",
+    "Keep source DATETIME wall values; BUSINESS_TIMEZONE must match the source production date boundary.",
+    "Verify duplicate-association, nonzero/missing-status-dimension, inactive-store, orphan, zero-date, future-year and full-width-ID fixtures.",
+    "Publish complete only after source equality and authorized-reader scope reconciliation; do not edit a complete generation.",
+    "Test actual BQ SQL, authorization, freshness and scan plans with the accepted publication. This file and synthetic tests are not deployment acceptance."
+  ],
+  "observedRawEvidence": {
+    "file": "evidence/bigquery-schema.json",
+    "tables": [
+      "tssgcp2025.tss_mysql_raw_layer.tss_order_stores",
+      "tssgcp2025.tss_mysql_raw_layer.tss_orders"
+    ],
+    "limitations": "Raw tables exist with independent CDC apply progress and one-hour max_staleness; no proved common source generation or matching dashboard publication exists in the saved discovery. No live data/publications were changed."
+  }
+}

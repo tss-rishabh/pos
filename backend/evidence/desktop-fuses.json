@@ -1,0 +1,63 @@
+{
+  "version": 1,
+  "scope": "local-unsigned-macos-arm64-artifact",
+  "electron": "45.3.2",
+  "builder": "26.18.0",
+  "authority": "shipped-artifact",
+  "evidenceId": "ev_e03665334fe2d0610849d071c8c19b5144720d910ba39a410299cfbe007d43fd",
+  "artifactSha256": "2d47247bcc6436e19a0eaaead3536adfc724b163d4364de512207169c5b2526b",
+  "artifactBytes": 206325872,
+  "fuses": [
+    {
+      "index": 0,
+      "name": "RunAsNode",
+      "state": "disabled"
+    },
+    {
+      "index": 1,
+      "name": "EnableCookieEncryption",
+      "state": "enabled"
+    },
+    {
+      "index": 2,
+      "name": "EnableNodeOptionsEnvironmentVariable",
+      "state": "disabled"
+    },
+    {
+      "index": 3,
+      "name": "EnableNodeCliInspectArguments",
+      "state": "disabled"
+    },
+    {
+      "index": 4,
+      "name": "EnableEmbeddedAsarIntegrityValidation",
+      "state": "enabled"
+    },
+    {
+      "index": 5,
+      "name": "OnlyLoadAppFromAsar",
+      "state": "enabled"
+    },
+    {
+      "index": 6,
+      "name": "LoadBrowserProcessSpecificV8Snapshot",
+      "state": "disabled"
+    },
+    {
+      "index": 7,
+      "name": "GrantFileProtocolExtraPrivileges",
+      "state": "disabled"
+    },
+    {
+      "index": 8,
+      "name": "WasmTrapHandlers",
+      "state": "enabled"
+    }
+  ],
+  "limitations": [
+    "Fuse state does not prove the application enables Inspector through other means, such as app.commandLine or a remote-debugging switch in application code.",
+    "A missing sentinel means fuse state is unknown, not that every fuse is disabled.",
+    "The selected file is admitted as one regular file of at most 1 GiB. Sentinel search uses 262144-byte windows, and each slice keeps at most 32 sentinels."
+  ],
+  "releaseCertified": false
+}

@@ -1,0 +1,73 @@
+.gift-card-batch-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+  margin-bottom: 20px;
+}
+.gift-card-batch-panel {
+  padding: 24px;
+  margin-bottom: 20px;
+  min-width: 0;
+}
+.gift-card-batch-panel h2 {
+  margin-top: 0;
+}
+.gift-card-batch-panel form {
+  display: grid;
+  gap: 16px;
+}
+.gift-card-batch-panel label {
+  display: grid;
+  gap: 8px;
+}
+.gift-card-batch-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 16px;
+}
+.gift-card-batch-jobs {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 12px;
+}
+.gift-card-batch-jobs li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.gift-card-batch-secret {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  margin-top: 16px;
+}
+.gift-card-batch-secret output {
+  display: block;
+  font-family: monospace;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.gift-card-batch-panel td {
+  vertical-align: top;
+}
+.gift-card-batch-blocked {
+  background: color-mix(in srgb, #c34a4a 10%, transparent);
+}
+.gift-card-batch-panel .administration-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 900px) {
+  .gift-card-batch-grid {
+    grid-template-columns: 1fr;
+  }
+  .gift-card-batch-panel {
+    padding: 16px;
+  }
+  .gift-card-batch-heading {
+    flex-wrap: wrap;
+  }
+}

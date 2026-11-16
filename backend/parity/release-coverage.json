@@ -1,0 +1,112 @@
+{
+  "version": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "surfaces": [],
+  "requirements": [
+    {
+      "id": "full-behavior-parity",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": [],
+      "notes": "Component tests and implemented route counts do not certify complete legacy behavior."
+    },
+    {
+      "id": "sso-integration",
+      "status": "blocked",
+      "implementation": [],
+      "tests": [],
+      "evidence": [],
+      "notes": "Google OIDC authorization-code/PKCE and desktop system-browser integration are implemented with isolated checks. Live OAuth client credentials, registered production callback and tenant acceptance remain required."
+    },
+    {
+      "id": "warehouse-parity-and-freshness",
+      "status": "blocked",
+      "implementation": [],
+      "tests": [],
+      "evidence": [],
+      "notes": "User-supplied tssgcp2025/tss_mysql_raw_layer read-only access and asia-south1 location are verified. Historical source coverage, published projections/manifests and complete CDC/source freshness contracts remain unresolved; historical MySQL fallback is forbidden."
+    },
+    {
+      "id": "financial-provider-contracts",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": []
+    },
+    {
+      "id": "inventory-writer-procedure",
+      "status": "pending",
+      "implementation": [
+        "src/db/stock-projection/service.ts",
+        "src/db/stock-projection/options.ts"
+      ],
+      "tests": [
+        "tests/stock-projection.mysql.integration.test.ts"
+      ],
+      "evidence": [
+        "parity/stock-projection.md",
+        "evidence/mysql-extra-schema.json"
+      ],
+      "notes": "Source-pinned transaction-scoped ORM candidate implemented and locally tested under an explicit opt-in contract. The old backup is incompatible with inspected physical schema; complete deployed-writer/stock-writer parity remains uncertified."
+    },
+    {
+      "id": "performance-benchmarks",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": []
+    },
+    {
+      "id": "security-review",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": []
+    },
+    {
+      "id": "offline-web-and-desktop",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": [],
+      "notes": "Immutable signed cash receipts, cached-stock manager reconciliation, print/reprint, durable handoff, native atomic import and sealed reporting proof are implemented with isolated tests. Production source/provider/schema acceptance, real offline devices and physical printers on both operating systems remain uncertified."
+    },
+    {
+      "id": "desktop-signing",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": []
+    },
+    {
+      "id": "deployment-and-rollback",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": []
+    },
+    {
+      "id": "background-workers",
+      "status": "pending",
+      "implementation": [],
+      "tests": [],
+      "evidence": []
+    },
+    {
+      "id": "desktop-windows-macos",
+      "status": "pending",
+      "implementation": [
+        "frontend/electron/main.cjs",
+        "frontend/package.json",
+        "frontend/playwright.config.ts"
+      ],
+      "tests": [
+        "frontend/e2e/electron.spec.ts",
+        "frontend/e2e/retail.spec.ts"
+      ],
+      "evidence": [],
+      "notes": "User explicitly requires Windows and macOS. Windows x64 and macOS arm64/x64 packaging targets are configured. The current host is macOS; Windows runtime/installer/printer evidence and signed artifacts for both operating systems remain required. Cross-packaging does not certify Windows runtime."
+    }
+  ]
+}

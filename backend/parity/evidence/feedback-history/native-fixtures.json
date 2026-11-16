@@ -1,0 +1,826 @@
+{
+  "source": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "scope": "generated-local-fixtures-only",
+  "dataset": {
+    "orders": [
+      {
+        "id": "9007199254740993",
+        "user_id": "7",
+        "created_at": "2026-11-01 00:00:00"
+      },
+      {
+        "id": "9007199254740994",
+        "user_id": "8",
+        "created_at": "2026-11-01 12:00:00"
+      },
+      {
+        "id": "9007199254740995",
+        "user_id": "9",
+        "created_at": "2026-11-01 23:59:00"
+      },
+      {
+        "id": "9007199254740996",
+        "user_id": "99",
+        "created_at": "2026-11-01 10:00:00"
+      },
+      {
+        "id": "9007199254740997",
+        "user_id": "7",
+        "created_at": "2026-11-01 23:59:01"
+      },
+      {
+        "id": "9007199254740998",
+        "user_id": "7",
+        "created_at": "2026-11-01 15:00:00"
+      }
+    ],
+    "order_stores": [
+      {
+        "id": "1",
+        "order_id": "9007199254740993",
+        "store_id": "1"
+      },
+      {
+        "id": "2",
+        "order_id": "9007199254740993",
+        "store_id": "1"
+      },
+      {
+        "id": "3",
+        "order_id": "9007199254740993",
+        "store_id": "2"
+      },
+      {
+        "id": "4",
+        "order_id": "9007199254740994",
+        "store_id": "1"
+      },
+      {
+        "id": "5",
+        "order_id": "9007199254740996",
+        "store_id": "99"
+      },
+      {
+        "id": "6",
+        "order_id": "9007199254740998",
+        "store_id": "3"
+      }
+    ],
+    "nps_feedback": [
+      {
+        "id": 1,
+        "order_id": "9007199254740993",
+        "question_id": 1,
+        "feedback_answer": "9",
+        "created_at": "2026-11-03 10:00:00"
+      },
+      {
+        "id": 2,
+        "order_id": "9007199254740993",
+        "question_id": 2,
+        "feedback_answer": "Fixture comment",
+        "created_at": "2026-11-03 10:00:01"
+      },
+      {
+        "id": 3,
+        "order_id": "9007199254740994",
+        "question_id": 999,
+        "feedback_answer": "0",
+        "created_at": "2026-11-01 12:00:00"
+      },
+      {
+        "id": 4,
+        "order_id": "9007199254740995",
+        "question_id": null,
+        "feedback_answer": "",
+        "created_at": "2026-11-01 23:59:00"
+      },
+      {
+        "id": 5,
+        "order_id": "9007199254740996",
+        "question_id": 1,
+        "feedback_answer": "8",
+        "created_at": "2026-11-01 10:00:00"
+      },
+      {
+        "id": 6,
+        "order_id": "9007199254740997",
+        "question_id": 1,
+        "feedback_answer": "5",
+        "created_at": "2026-11-01 23:59:01"
+      },
+      {
+        "id": 7,
+        "order_id": "0",
+        "question_id": 1,
+        "feedback_answer": "3",
+        "created_at": "2026-11-01 10:00:00"
+      },
+      {
+        "id": 8,
+        "order_id": "999",
+        "question_id": 1,
+        "feedback_answer": "3",
+        "created_at": "2026-11-01 10:00:00"
+      },
+      {
+        "id": 9,
+        "order_id": "9007199254740994",
+        "question_id": 3,
+        "feedback_answer": "6",
+        "created_at": "2026-11-01 12:00:00"
+      },
+      {
+        "id": 10,
+        "order_id": "9007199254740998",
+        "question_id": 1,
+        "feedback_answer": "7",
+        "created_at": "2026-11-01 15:00:00"
+      }
+    ],
+    "users": [
+      {
+        "id": 7,
+        "firstname": "Fixture Café",
+        "email": "Café@example.test",
+        "telephone": "1234567890",
+        "status": 0,
+        "is_block": 1
+      },
+      {
+        "id": 8,
+        "firstname": "Padded fixture",
+        "email": "cafe@example.test   ",
+        "telephone": "2234567890",
+        "status": 1,
+        "is_block": 0
+      },
+      {
+        "id": 9,
+        "firstname": "Other fixture",
+        "email": "other@example.test",
+        "telephone": "3234567890",
+        "status": 1,
+        "is_block": 0
+      }
+    ],
+    "stores": [
+      {
+        "id": 1,
+        "store_name": "First fixture",
+        "category": "FRANCHISE",
+        "is_active": 1
+      },
+      {
+        "id": 2,
+        "store_name": "Second fixture",
+        "category": "FRANCHISE",
+        "is_active": 1
+      },
+      {
+        "id": 3,
+        "store_name": "Archived fixture",
+        "category": "IN_HOUSE",
+        "is_active": 0
+      }
+    ],
+    "nps_questions": [
+      {
+        "id": 1,
+        "question": "Edited current question",
+        "is_active": 1
+      },
+      {
+        "id": 2,
+        "question": "Inactive question still shown",
+        "is_active": 0
+      },
+      {
+        "id": 3,
+        "question": null,
+        "is_active": 1
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "all-current-dimensions",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "stores": [],
+        "allStores": true,
+        "orders": [],
+        "allOrders": true,
+        "customers": [],
+        "allCustomers": true,
+        "page": 1,
+        "pageSize": 500
+      },
+      "expected": {
+        "total": "11",
+        "page": 1,
+        "items": [
+          {
+            "orderId": "9007199254740998",
+            "customerId": "7",
+            "associatedStoreId": "3",
+            "questionId": "1",
+            "feedback": "7",
+            "feedbackDate": "2026-11-01 15:00:00",
+            "orderDate": "2026-11-01 15:00:00"
+          },
+          {
+            "orderId": "9007199254740996",
+            "customerId": "99",
+            "associatedStoreId": "99",
+            "questionId": "1",
+            "feedback": "8",
+            "feedbackDate": "2026-11-01 10:00:00",
+            "orderDate": "2026-11-01 10:00:00"
+          },
+          {
+            "orderId": "9007199254740995",
+            "customerId": "9",
+            "associatedStoreId": null,
+            "questionId": null,
+            "feedback": "",
+            "feedbackDate": "2026-11-01 23:59:00",
+            "orderDate": "2026-11-01 23:59:00"
+          },
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "3",
+            "feedback": "6",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          },
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "999",
+            "feedback": "0",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "2",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "2",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "selected-store-multiplicity",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "stores": [
+          "1"
+        ],
+        "allStores": false,
+        "orders": [],
+        "allOrders": true,
+        "customers": [],
+        "allCustomers": true,
+        "page": 1,
+        "pageSize": 500
+      },
+      "expected": {
+        "total": "6",
+        "page": 1,
+        "items": [
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "3",
+            "feedback": "6",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          },
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "999",
+            "feedback": "0",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "email-case-accent-and-padding",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "stores": [],
+        "allStores": true,
+        "orders": [],
+        "allOrders": true,
+        "customers": [
+          "7",
+          "8"
+        ],
+        "allCustomers": false,
+        "page": 1,
+        "pageSize": 500
+      },
+      "expected": {
+        "total": "9",
+        "page": 1,
+        "items": [
+          {
+            "orderId": "9007199254740998",
+            "customerId": "7",
+            "associatedStoreId": "3",
+            "questionId": "1",
+            "feedback": "7",
+            "feedbackDate": "2026-11-01 15:00:00",
+            "orderDate": "2026-11-01 15:00:00"
+          },
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "3",
+            "feedback": "6",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          },
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "999",
+            "feedback": "0",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "2",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "2",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "email-current-customer-and-store",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "stores": [
+          "1"
+        ],
+        "allStores": false,
+        "orders": [],
+        "allOrders": true,
+        "customers": [
+          "7",
+          "8"
+        ],
+        "allCustomers": false,
+        "page": 1,
+        "pageSize": 500
+      },
+      "expected": {
+        "total": "6",
+        "page": 1,
+        "items": [
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "3",
+            "feedback": "6",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          },
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "999",
+            "feedback": "0",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "email-no-match",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "allStores": true,
+        "stores": [],
+        "allOrders": true,
+        "orders": [],
+        "allCustomers": false,
+        "customers": [],
+        "page": 1,
+        "pageSize": 500
+      },
+      "expected": {
+        "total": "0",
+        "page": 1,
+        "items": []
+      }
+    },
+    {
+      "name": "order-filter",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "stores": [],
+        "allStores": true,
+        "orders": [
+          "9007199254740993",
+          "9007199254740995"
+        ],
+        "allOrders": false,
+        "customers": [],
+        "allCustomers": true,
+        "page": 1,
+        "pageSize": 500
+      },
+      "expected": {
+        "total": "7",
+        "page": 1,
+        "items": [
+          {
+            "orderId": "9007199254740995",
+            "customerId": "9",
+            "associatedStoreId": null,
+            "questionId": null,
+            "feedback": "",
+            "feedbackDate": "2026-11-01 23:59:00",
+            "orderDate": "2026-11-01 23:59:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "2",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "2",
+            "feedback": "Fixture comment",
+            "feedbackDate": "2026-11-03 10:00:01",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "2",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          },
+          {
+            "orderId": "9007199254740993",
+            "customerId": "7",
+            "associatedStoreId": "1",
+            "questionId": "1",
+            "feedback": "9",
+            "feedbackDate": "2026-11-03 10:00:00",
+            "orderDate": "2026-11-01 00:00:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "archived-store-current-name",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "stores": [
+          "3"
+        ],
+        "allStores": false,
+        "orders": [],
+        "allOrders": true,
+        "customers": [],
+        "allCustomers": true,
+        "page": 1,
+        "pageSize": 500
+      },
+      "expected": {
+        "total": "1",
+        "page": 1,
+        "items": [
+          {
+            "orderId": "9007199254740998",
+            "customerId": "7",
+            "associatedStoreId": "3",
+            "questionId": "1",
+            "feedback": "7",
+            "feedbackDate": "2026-11-01 15:00:00",
+            "orderDate": "2026-11-01 15:00:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "missing-store-filter",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "allStores": false,
+        "stores": [],
+        "allOrders": true,
+        "orders": [],
+        "allCustomers": true,
+        "customers": [],
+        "page": 1,
+        "pageSize": 500
+      },
+      "expected": {
+        "total": "0",
+        "page": 1,
+        "items": []
+      }
+    },
+    {
+      "name": "page-two",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "stores": [],
+        "allStores": true,
+        "orders": [],
+        "allOrders": true,
+        "customers": [],
+        "allCustomers": true,
+        "page": 2,
+        "pageSize": 2
+      },
+      "expected": {
+        "total": "11",
+        "page": 2,
+        "items": [
+          {
+            "orderId": "9007199254740995",
+            "customerId": "9",
+            "associatedStoreId": null,
+            "questionId": null,
+            "feedback": "",
+            "feedbackDate": "2026-11-01 23:59:00",
+            "orderDate": "2026-11-01 23:59:00"
+          },
+          {
+            "orderId": "9007199254740994",
+            "customerId": "8",
+            "associatedStoreId": "1",
+            "questionId": "3",
+            "feedback": "6",
+            "feedbackDate": "2026-11-01 12:00:00",
+            "orderDate": "2026-11-01 12:00:00"
+          }
+        ]
+      }
+    },
+    {
+      "name": "page-fallback",
+      "params": {
+        "start": "2026-11-01 00:00:00",
+        "end": "2026-11-01 23:59:00",
+        "stores": [],
+        "allStores": true,
+        "orders": [],
+        "allOrders": true,
+        "customers": [],
+        "allCustomers": true,
+        "page": 999,
+        "pageSize": 2
+      },
+      "expected": {
+        "total": "11",
+        "page": 1,
+        "items": [
+          {
+            "orderId": "9007199254740998",
+            "customerId": "7",
+            "associatedStoreId": "3",
+            "questionId": "1",
+            "feedback": "7",
+            "feedbackDate": "2026-11-01 15:00:00",
+            "orderDate": "2026-11-01 15:00:00"
+          },
+          {
+            "orderId": "9007199254740996",
+            "customerId": "99",
+            "associatedStoreId": "99",
+            "questionId": "1",
+            "feedback": "8",
+            "feedbackDate": "2026-11-01 10:00:00",
+            "orderDate": "2026-11-01 10:00:00"
+          }
+        ]
+      }
+    }
+  ]
+}

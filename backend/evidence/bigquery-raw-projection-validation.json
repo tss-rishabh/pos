@@ -1,0 +1,90 @@
+{
+  "checkedAt": "2026-11-16T15:47:57.608Z",
+  "scope": {
+    "project": "tssgcp2025",
+    "dataset": "tss_mysql_raw_layer",
+    "location": "asia-south1"
+  },
+  "source": "tssgcp2025.tss_mysql_raw_layer.tss_report_exports",
+  "dryRun": {
+    "statementSha256": "41bbc7915671ac7adbd4d68df2a39df22bb050c235730d71538ead96acf3b902",
+    "estimatedBytes": "586106",
+    "fields": [
+      {
+        "name": "id",
+        "type": "STRING"
+      },
+      {
+        "name": "kind",
+        "type": "STRING"
+      },
+      {
+        "name": "report_name",
+        "type": "STRING"
+      },
+      {
+        "name": "note",
+        "type": "STRING"
+      },
+      {
+        "name": "period_start",
+        "type": "STRING"
+      },
+      {
+        "name": "period_end",
+        "type": "STRING"
+      },
+      {
+        "name": "status",
+        "type": "STRING"
+      },
+      {
+        "name": "operator_id",
+        "type": "STRING"
+      },
+      {
+        "name": "requested_at",
+        "type": "STRING"
+      },
+      {
+        "name": "completed_at",
+        "type": "STRING"
+      },
+      {
+        "name": "terminal_at",
+        "type": "STRING"
+      },
+      {
+        "name": "format",
+        "type": "STRING"
+      },
+      {
+        "name": "byte_count",
+        "type": "INTEGER"
+      },
+      {
+        "name": "row_count",
+        "type": "INTEGER"
+      }
+    ]
+  },
+  "syntheticFixture": {
+    "cases": 3,
+    "verified": true,
+    "statementSha256": "1aa0681fcd8ee7031e050df11ce932fed06ac51d074b2f546bc2f91629151d1a",
+    "properties": [
+      "64bit string identities",
+      "completion flag precedence",
+      "error normalization",
+      "empty-name fallback",
+      "KiB-to-byte arithmetic",
+      "DATETIME terminal fallback"
+    ]
+  },
+  "errors": [],
+  "limitations": [
+    "The raw source query is dry-run only; no raw export, customer or operator row was selected.",
+    "The executed SELECT contains only generated fixture literals; no source table is referenced.",
+    "Successful type/payload validation is not source CDC completeness, publication, collation or production parity certification. No DDL, UDF/view creation or export was executed."
+  ]
+}

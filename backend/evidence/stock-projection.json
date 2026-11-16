@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "70b80159016db39a73572f80bfa87c47201c0a9f",
+  "sourceModelSha256": "07246982120d152e54f897e10d6407e2fa4d49726638376e489c4ff9319d1d3e",
+  "contract": "pos-stock-projection-70b801-v1",
+  "localNativeChecks": 11,
+  "nativeSourceVectors": 15,
+  "concurrentWrites": 20,
+  "writerProcedureCertified": false,
+  "liveMutationsPerformed": false
+}

@@ -1,0 +1,1778 @@
+--- /dev/null
++++ b/pos_invoice_documents.py
+@@ -0,0 +1,32 @@
++"""Only mounted by the digest-checked isolated read-only invoice factory."""
++from controllers import InvoiceController
++import falcon
++from controllers.PosInvoiceSecurity import (
++    require_invoice_scope, stamp_invoice_response, clear_invoice_scope,
++    safe_invoice_logger,
++)
++from pos_invoice_documents_history import require_history, clear_history, stamp_history
++
++
++class OnlineInvoiceResource:
++    def on_get(self, req, resp):
++        try:
++            scope = require_invoice_scope(req, "online")
++            history = require_history(req, scope, InvoiceController.SessionR.reader)
++            # Invoke the pinned original calculator/template selection unchanged.
++            # The factory supplies only its transaction-read-only SessionR.
++            html = InvoiceController.generate_invoice(int(scope["order_id"]), skip_auth=True)
++            resp.text = html
++            resp.content_type = "text/html; charset=utf-8"
++            stamp_invoice_response(resp, html, scope)
++            stamp_history(resp, html, history, scope["service_key"])
++        except Exception as error:
++            # Log only static identifiers while the validated correlation is
++            # still present; never pass the source exception or HTML to logs.
++            safe_invoice_logger().error("source-error")
++            if isinstance(error, falcon.HTTPError):
++                raise
++            raise falcon.HTTPServiceUnavailable(title="Invoice unavailable", description="The private invoice could not be generated.") from None
++        finally:
++            clear_history()
++            clear_invoice_scope()
+--- /dev/null
++++ b/pos_invoice_documents_history.py
+@@ -0,0 +1,134 @@
++"""Purpose-bound warehouse history; never execute a lifetime MySQL fallback."""
++import base64
++import contextvars
++import datetime
++import hashlib
++import hmac
++import json
++import re
++import time
++import falcon
++from pos_invoice_documents_native import native_snapshot
++
++CONTRACT = "pos-online-invoice-history-v1"
++COUNT_SQL = '\n                               SELECT COUNT(*) as count\n                               FROM orders\n                               WHERE user_id = :user_id\n                                 AND order_status NOT IN (0\n                                   , 4\n                                   , 7\n                                   , 10\n                                   , 15\n                                   , 17\n                                   , 22\n                                   , 24\n                                   , 36)\n                               '
++CURRENT_SQL = ["\n    SELECT HP.id as rowid, HP.order_id,(CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END) as prod_id,HP.gst, HP.sub_prod_id, HP.qty, HP.price,HP.normal_price,HP.special_price,HP.exclusive_price,HP.is_exclusive_order,HP.disc,HP.hp_tss_points_used,HP.store_disc_pg, IFNULL(subP.product, P.product) as product, P.warehouse_code as wc, PS_sub.stock, P.id, P.parent_prod_id, P.prod_type, P.is_crowd_funded, P.images, subP.product, HO.attr_val, C.category,C.hsn_code as hsn, ML.attribute_value as custom_text, '' as 'gift_voucher', '' as 'gv_type', '' as 'gv_end_date', HP.order_platform_id, HP.wallet_disc, HP.voucher_disc, HP.prod_gst, HP.pre_gst_amt, HP.exclusive_saving,\n\tIFNULL(fb.show_on_invoice,1) as show_on_invoice, HP.status as line_item_status\n    FROM has_products as HP\n        LEFT JOIN has_product_clickpost hpc ON HP.order_id = hpc.order_id AND HP.prod_id = hpc.product_id\n        JOIN products as P ON P.id = (CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END)\n        JOIN products as subP ON (subP.id = HP.sub_prod_id  AND HP.sub_prod_id <> 0) -- old    with variants\n        LEFT JOIN product_stocks as PS_sub ON PS_sub.prod_id = subP.id\n        LEFT JOIN categories as C ON(C.id = (SELECT cat_id from has_categories where prod_id = P.id order by id LIMIT 1))\n        -- LEFT so a line with an unmatched size attribute still shows on the invoice\n        LEFT JOIN (has_options as HO JOIN attributes as A ON(A.id = HO.attr_id AND A.attr LIKE '%%Size%%')) ON HO.prod_id = HP.sub_prod_id\n        LEFT JOIN mto_line_items as ML ON (HP.id = ML.line_item_number)\n        LEFT JOIN (\n            SELECT product_id, MAX(show_on_invoice) AS show_on_invoice\n            FROM freebies WHERE is_del = 0 GROUP BY product_id\n        ) fb ON fb.product_id = HP.prod_id\n        WHERE HP.order_id =%d\n        UNION\n        SELECT HP.id as rowid, HP.order_id,(CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END) as prod_id,HP.gst, HP.sub_prod_id, HP.qty, HP.price,HP.normal_price,HP.special_price,HP.exclusive_price,HP.is_exclusive_order,HP.disc,HP.hp_tss_points_used,HP.store_disc_pg, IFNULL(p_p.product, P.product) as product, P.warehouse_code as wc, PS.stock, P.id, P.parent_prod_id, p_p.prod_type, P.is_crowd_funded, p_p.images, p_p.product, HO.attr_val, C.category,C.hsn_code as hsn, ML.attribute_value as custom_text, '' as 'gift_voucher', '' as 'gv_type', '' as 'gv_end_date', HP.order_platform_id, HP.wallet_disc, HP.voucher_disc, HP.prod_gst, HP.pre_gst_amt, HP.exclusive_saving,\n        IFNULL(fb.show_on_invoice,1) as show_on_invoice, HP.status as line_item_status\n        FROM has_products as HP\n        LEFT JOIN has_product_clickpost hpc ON HP.order_id = hpc.order_id AND HP.prod_id = hpc.product_id\n        JOIN products as P ON P.id = (CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END)\n        LEFT JOIN product_stocks as PS ON PS.prod_id = P.id\n        LEFT JOIN products as p_p ON(p_p.id = P.parent_prod_id AND P.parent_prod_id <> 0) -- new with variants\n        LEFT JOIN categories as C ON(C.id = (SELECT cat_id from has_categories where prod_id = P.parent_prod_id order by id LIMIT 1))\n        LEFT JOIN (has_options as HO JOIN attributes as A ON(A.id = HO.attr_id AND A.attr LIKE '%%Size%%')) ON HO.prod_id = HP.prod_id\n        LEFT JOIN mto_line_items as ML ON (HP.id = ML.line_item_number)\n        LEFT JOIN (\n            SELECT product_id, MAX(show_on_invoice) AS show_on_invoice\n            FROM freebies WHERE is_del = 0 GROUP BY product_id\n        ) fb ON fb.product_id = HP.prod_id\n        WHERE HP.order_id =%d AND P.parent_prod_id > 0\n        UNION\n        SELECT HP.id as rowid, HP.order_id,(CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END) as prod_id,HP.gst, HP.sub_prod_id, HP.qty, HP.price,HP.normal_price,HP.special_price,HP.exclusive_price,HP.is_exclusive_order,HP.disc,HP.hp_tss_points_used,HP.store_disc_pg, P.product, P.warehouse_code as wc, PS.stock, P.id, P.parent_prod_id, P.prod_type, P.is_crowd_funded, P.images, P.product, '' as attr_val, C.category,C.hsn_code as hsn,ML.attribute_value as custom_text, CASE WHEN GV.gv_type = 'GIFT_VOUCHER' THEN GV.voucher_code ELSE GV.gift_card_srno END as 'gift_voucher', gv_type as 'gv_type', CASE WHEN GV.end_date!='0000-00-00 00:00:00' THEN date(GV.end_date) ELSE NULL END  as 'gv_end_date', HP.order_platform_id, HP.wallet_disc, HP.voucher_disc, HP.prod_gst, HP.pre_gst_amt, HP.exclusive_saving,\n        IFNULL(fb.show_on_invoice,1) as show_on_invoice, HP.status as line_item_status\n        FROM has_products as HP\n        LEFT JOIN has_product_clickpost hpc ON HP.order_id = hpc.order_id AND HP.prod_id = hpc.product_id\n        JOIN products as P ON P.id = (CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END) AND P.parent_prod_id = 0 AND HP.sub_prod_id = 0 -- new without variants\n        LEFT JOIN product_stocks as PS ON PS.prod_id = P.id\n        LEFT JOIN gift_vouchers as GV on HP.gift_voucher_id = GV.id \n        LEFT JOIN mto_line_items as ML ON (HP.id = ML.line_item_number)\n        LEFT JOIN categories as C ON(C.id = (SELECT cat_id from has_categories where prod_id = P.id order by id LIMIT 1))\n        LEFT JOIN (\n            SELECT product_id, MAX(show_on_invoice) AS show_on_invoice\n            FROM freebies WHERE is_del = 0 GROUP BY product_id\n        ) fb ON fb.product_id = HP.prod_id\n        WHERE HP.order_id=%d", '\n        select gift_vouchers.*, hp.gift_voucher_id, hp.order_platform_id from gift_vouchers\n        left join has_products as hp on hp.gift_voucher_id = gift_vouchers.id\n        where gift_vouchers.order_id = %d\n    ', 'SELECT name FROM zones WHERE id = :zone_id', 'SELECT name FROM countries WHERE id = :country_id', '\n        SELECT priority_reason\n        FROM order_attributes\n        WHERE order_id = :order_id\n    ', '\n        SELECT gst_state_code\n        FROM zones\n        WHERE name = :zone_name\n        LIMIT 1\n    ', '\n        SELECT name\n        FROM courier_companies\n        WHERE id = :courier_id\n        LIMIT 1\n    ', '\n        SELECT name\n        FROM payment_method\n        WHERE id = :payment_method_id\n        LIMIT 1\n    ', '\n        SELECT *\n        FROM gift_vouchers\n        WHERE coupon_id = :voucher_id\n           OR id = :voucher_id\n        LIMIT 1\n    ', '\n                           SELECT *\n                           FROM orders\n                           WHERE id = :order_id LIMIT 1\n                           ', '\n                            SELECT *\n                            FROM order_addons\n                            WHERE order_id = :order_id LIMIT 1\n                            ', '\n                                SELECT *\n                                FROM coupons\n                                WHERE id = :coupon_id\n                                ', '\n        SELECT name\n        FROM return_fee_configurations\n        WHERE type = 3\n          AND is_active = 1\n          AND deleted_at IS NULL\n        ORDER BY id DESC\n        LIMIT 1\n    ', '\n            SELECT value\n            FROM tss_settings\n            WHERE platform = :key\n            LIMIT 1\n        ']
++_active = contextvars.ContextVar("invoice_history", default=None)
++
++
++def unavailable():
++    return falcon.HTTPServiceUnavailable(title="Invoice unavailable", description="The invoice history and native source snapshot could not be verified.")
++
++
++def normalized(value):
++    return " ".join(str(value).lower().split())
++
++
++def _unique(pairs):
++    value = {}
++    for key, item in pairs:
++        if key in value:
++            raise ValueError("Duplicate proof field")
++        value[key] = item
++    return value
++
++
++def _identifier(value, zero=False):
++    return isinstance(value, str) and bool(re.fullmatch(r"(?:0|[1-9][0-9]{0,18})" if zero else r"[1-9][0-9]{0,18}", value)) and int(value) <= 9223372036854775807
++
++
++def require_history(req, invoice_scope, reader):
++    _active.set(None)
++    capability = req.get_header("X-POS-Invoice-History") or ""
++    try:
++        if not isinstance(capability, str) or len(capability) > 8192:
++            raise ValueError()
++        contract, payload, signature = capability.split(".")
++        if contract != CONTRACT or not re.fullmatch(r"[A-Za-z0-9_-]{1,4096}", payload) or not re.fullmatch(r"[A-Za-z0-9_-]{43}", signature):
++            raise ValueError()
++        actual = base64.urlsafe_b64decode(signature + "=")
++        expected = hmac.new(invoice_scope["service_key"].encode(), (contract + "." + payload).encode(), hashlib.sha256).digest()
++        if not hmac.compare_digest(actual, expected):
++            raise ValueError()
++        value = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)), object_pairs_hook=_unique)
++        if set(value) != {"v", "purpose", "contract", "orderId", "operatorId", "storeId", "customerId", "orderCount", "nativeSnapshot", "nonce", "requestId", "issuedAt", "expiresAt", "publication"}:
++            raise ValueError()
++        if type(value["v"]) is not int or value["v"] != 1 or value["purpose"] != "online-invoice-history" or value["contract"] != CONTRACT:
++            raise ValueError()
++        if any(not _identifier(value[key]) for key in ("orderId", "operatorId", "storeId", "customerId")) or not _identifier(value["orderCount"], True):
++            raise ValueError()
++        if value["orderId"] != invoice_scope["order_id"] or value["operatorId"] != invoice_scope["operator_id"] or value["nonce"] != invoice_scope["nonce"] or value["requestId"] != invoice_scope["request_id"] or not re.fullmatch(r"[a-f0-9]{64}", value["nativeSnapshot"]):
++            raise ValueError()
++        now = int(time.time())
++        if type(value["issuedAt"]) is not int or type(value["expiresAt"]) is not int or not 0 < value["expiresAt"] - value["issuedAt"] <= 30 or value["issuedAt"] > now + 5 or value["expiresAt"] <= now:
++            raise ValueError()
++        publication = value["publication"]
++        if not isinstance(publication, dict) or set(publication) != {"generationId", "sourceSnapshotId", "sourceSnapshotAt", "sourceCdcWatermark", "publishedAt", "customerSourceRows", "customerOrdersHash"}:
++            raise ValueError()
++        if not re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", publication["generationId"]) or not re.fullmatch(r"[A-Za-z0-9._:-]{16,128}", publication["sourceSnapshotId"]) or not _identifier(publication["customerSourceRows"]) or int(value["orderCount"]) > int(publication["customerSourceRows"]) or not re.fullmatch(r"[a-f0-9]{64}", publication["customerOrdersHash"]):
++            raise ValueError()
++        dates = [datetime.datetime.fromisoformat(publication[key].replace("Z", "+00:00")) for key in ("sourceSnapshotAt", "sourceCdcWatermark", "publishedAt")]
++        if any(value.tzinfo is None for value in dates):
++            raise ValueError()
++        times = [value.timestamp() for value in dates]
++        if any(stamp > now + 5 for stamp in times) or min(times[1:]) < times[0] or times[2] + 5 < times[1] or now - times[0] > 3605:
++            raise ValueError()
++        snapshot = native_snapshot(reader, value)
++        if snapshot["customerId"] != value["customerId"] or not hmac.compare_digest(snapshot["binding"], value["nativeSnapshot"]):
++            raise ValueError()
++        value["capability"] = capability
++        _active.set(value)
++        return value
++    except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
++        raise unavailable() from None
++
++
++def clear_history():
++    _active.set(None)
++
++
++def stamp_history(resp, html, value, key):
++    message = "\n".join((CONTRACT, hashlib.sha256(value["capability"].encode()).hexdigest(), hashlib.sha256(html.encode()).hexdigest()))
++    resp.set_header("X-POS-Invoice-History-Contract", CONTRACT)
++    resp.set_header("X-POS-Invoice-History-Proof", hmac.new(key.encode(), message.encode(), hashlib.sha256).hexdigest())
++
++
++class CountResult:
++    def __init__(self, value):
++        self.value = value
++
++    def mappings(self):
++        return self
++
++    def first(self):
++        return {"count": self.value}
++
++
++class InvoiceHistoryReader:
++    def __init__(self, reader):
++        self.reader = reader
++
++    def execute(self, statement, parameters=None, *args, **kwargs):
++        query, scope = normalized(statement), _active.get()
++        if query == normalized(COUNT_SQL):
++            if scope is None or not isinstance(parameters, dict) or set(parameters) != {"user_id"} or str(parameters["user_id"]) != scope["customerId"]:
++                raise unavailable()
++            return CountResult(int(scope["orderCount"]))
++        # A future historical orders query must never bypass the frozen count.
++        if "from orders" in query and query != "select * from orders where id = :order_id limit 1":
++            raise unavailable()
++        if scope is not None:
++            allowed = {normalized(value.replace("%d", scope["orderId"]).replace("%%", "%")) for value in CURRENT_SQL}
++            if query not in allowed:
++                raise unavailable()
++            if "from orders" in query and (not isinstance(parameters, dict) or str(parameters.get("order_id")) != scope["orderId"]):
++                raise unavailable()
++        return self.reader.execute(statement, parameters, *args, **kwargs)
++
++    def query(self, model):
++        if _active.get() is not None and getattr(model, "__tablename__", None) != "has_addresses":
++            raise unavailable()
++        return self.reader.query(model)
++
++    def expunge(self, value):
++        return self.reader.expunge(value)
+--- /dev/null
++++ b/pos_invoice_documents_native.py
+@@ -0,0 +1,28 @@
++"""Identical native MySQL fingerprint as the Node writer-side scope capture."""
++import hashlib
++import json
++from sqlalchemy import text
++
++HEADER_SQL = "LOWER(SHA2(CAST(JSON_OBJECT('id',orders.id,'customer',orders.user_id,'payment_method',orders.payment_method,'payment_status',orders.payment_status,'order_status',orders.order_status,'order_amt',orders.order_amt,'pay_amt',orders.pay_amt,'cashback_used',orders.cashback_used,'tss_money_used',orders.tss_money_used,'tss_points_used',orders.tss_points_used,'voucher_used',orders.voucher_used,'voucher_amt_used',orders.voucher_amt_used,'coupon_used',orders.coupon_used,'coupon_amt_used',orders.coupon_amt_used,'calculation',orders.is_new_calculation,'store_disc_pg',orders.store_disc_pg,'fraction_value',orders.fraction_value,'cod_charges',orders.cod_charges,'gifting_charges',orders.gifting_charges,'shipping_amt',orders.shipping_amt,'hl_charges',orders.hl_charges,'express_charges',orders.express_charges,'ref_flag',orders.ref_flag,'address_id',orders.has_address_id,'resolved_address',(SELECT JSON_OBJECT('id',has_addresses.id,'user_id',has_addresses.user_id,'firstname',has_addresses.firstname,'lastname',has_addresses.lastname,'address',has_addresses.address,'address1',has_addresses.address1,'address2',has_addresses.address2,'address3',has_addresses.address3,'address4',has_addresses.address4,'flat',has_addresses.flat,'city',has_addresses.city,'postcode',has_addresses.postcode,'country_id',has_addresses.country_id,'country_code',has_addresses.country_code,'zone_id',has_addresses.zone_id,'phone_no',has_addresses.phone_no,'is_active',has_addresses.is_active,'updated_at',CAST(has_addresses.updated_at AS CHAR)) FROM has_addresses WHERE has_addresses.id=orders.has_address_id AND has_addresses.user_id=orders.user_id LIMIT 1),'first_name',orders.first_name,'last_name',orders.last_name,'address1',orders.address1,'address2',orders.address2,'address3',orders.address3,'city',orders.city,'postal_code',orders.postal_code,'phone_no',orders.phone_no,'zone_id',orders.zone_id,'country_id',orders.country_id,'courier',orders.courier,'created_at',CAST(orders.created_at AS CHAR),'updated_at',CAST(orders.updated_at AS CHAR)) AS CHAR CHARACTER SET utf8mb4),256))"
++LINE_SQL = "LOWER(SHA2(CAST(JSON_OBJECT('id',has_products.id,'order',has_products.order_id,'product',has_products.prod_id,'variant',has_products.sub_prod_id,'quantity',has_products.qty,'price',has_products.price,'gst',has_products.gst,'prod_gst',has_products.prod_gst,'pre_gst_amt',has_products.pre_gst_amt,'disc',has_products.disc,'hp_tss_points_used',has_products.hp_tss_points_used,'store_disc_pg',has_products.store_disc_pg,'wallet_disc',has_products.wallet_disc,'voucher_disc',has_products.voucher_disc,'normal_price',has_products.normal_price,'special_price',has_products.special_price,'exclusive_price',has_products.exclusive_price,'is_exclusive_order',has_products.is_exclusive_order,'exclusive_saving',has_products.exclusive_saving,'gift_voucher_id',has_products.gift_voucher_id,'status',has_products.status) AS CHAR CHARACTER SET utf8mb4),256))"
++
++
++def native_snapshot(reader, scope, include_parts=False):
++    order_id, store_id = scope["orderId"], scope["storeId"]
++    order = reader.execute(text("SELECT CAST(id AS CHAR) AS id,CAST(user_id AS CHAR) AS customer_id,location_type,CAST(location_id AS CHAR) AS location_id,is_split_order,CAST(has_address_id AS CHAR) AS address_id," + HEADER_SQL + " AS native_hash FROM orders WHERE id=:order_id LIMIT 1"), {"order_id": order_id}).mappings().first()
++    if not order:
++        raise ValueError("Invoice snapshot unavailable")
++    mappings = list(reader.execute(text("SELECT CAST(id AS CHAR) AS id,CAST(store_id AS CHAR) AS store_id,CAST(counter_id AS CHAR) AS counter_id,order_invoice FROM order_stores WHERE order_id=:order_id ORDER BY order_stores.id LIMIT 2"), {"order_id": order_id}).mappings())
++    lines = list(reader.execute(text("SELECT CAST(id AS CHAR) AS id,CAST(order_platform_id AS CHAR) AS platform_id," + LINE_SQL + " AS native_hash FROM has_products WHERE order_id=:order_id ORDER BY has_products.id LIMIT 10001"), {"order_id": order_id}).mappings())
++    express = list(reader.execute(text("SELECT CAST(id AS CHAR) AS id,CAST(has_product_id AS CHAR) AS line_id,CAST(store_id AS CHAR) AS store_id FROM express_line_item WHERE order_id=:order_id ORDER BY express_line_item.id LIMIT 10001"), {"order_id": order_id}).mappings())
++    if len(mappings) > 1 or not 0 < len(lines) <= 10000 or len(express) > 10000:
++        raise ValueError("Invoice snapshot unavailable")
++    parts = [store_id, order_id, str(order["customer_id"]), order["address_id"], order["native_hash"], order["location_type"], order["location_id"], order["is_split_order"] != 0,
++             [[str(row["id"]), str(row["store_id"]), str(row["counter_id"]), row["order_invoice"]] for row in mappings],
++             [[str(row["id"]), str(row["platform_id"]), row["native_hash"]] for row in lines],
++             [[str(row["id"]), str(row["line_id"]), row["store_id"]] for row in express]]
++    value = json.dumps(parts, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
++    result = {"binding": hashlib.sha256(value).hexdigest(), "customerId": str(order["customer_id"])}
++    if include_parts:
++        result["parts"] = parts
++    return result
+--- /dev/null
++++ b/pos_invoice_documents_scoped.py
+@@ -0,0 +1,116 @@
++"""Authenticated selected-document scope. No HTTP-supplied line IDs are trusted."""
++import base64
++import contextvars
++import hashlib
++import hmac
++import json
++import re
++import time
++import falcon
++from pos_invoice_documents_native import native_snapshot
++
++CONTRACT = "pos-scoped-invoice-v1"
++_active = contextvars.ContextVar("selected_invoice", default=None)
++
++
++def unavailable():
++    return falcon.HTTPServiceUnavailable(title="Invoice unavailable", description="The selected invoice scope could not be verified.")
++
++
++def unique(pairs):
++    value = {}
++    for key, item in pairs:
++        if key in value:
++            raise ValueError()
++        value[key] = item
++    return value
++
++
++def require_selected(req, invoice_scope, reader):
++    _active.set(None)
++    token = req.get_header("X-POS-Invoice-Scope") or ""
++    try:
++        contract, body, signature = token.split(".")
++        if contract != CONTRACT or not re.fullmatch(r"[A-Za-z0-9_-]{1,4096}", body) or not re.fullmatch(r"[A-Za-z0-9_-]{43}", signature):
++            raise ValueError()
++        message = contract + "." + body
++        if not hmac.compare_digest(base64.urlsafe_b64decode(signature + "="), hmac.new(invoice_scope["service_key"].encode(), message.encode(), hashlib.sha256).digest()):
++            raise ValueError()
++        value = json.loads(base64.urlsafe_b64decode(body + "=" * (-len(body) % 4)), object_pairs_hook=unique)
++        if set(value) != {"v", "purpose", "contract", "kind", "orderId", "operatorId", "storeId", "customerId", "nativeSnapshot", "selection", "selectedHash", "selectedCount", "nonce", "requestId", "issuedAt", "expiresAt"}:
++            raise ValueError()
++        if type(value["v"]) is not int or value["v"] != 1 or value["purpose"] != "scoped-invoice" or value["contract"] != CONTRACT or value["kind"] != "express" or value["selection"] != "store-express-line-items-v1":
++            raise ValueError()
++        if any(not isinstance(value[key], str) or not re.fullmatch(r"[1-9][0-9]{0,18}", value[key]) or int(value[key]) > 9223372036854775807 for key in ("orderId", "operatorId", "storeId", "customerId")):
++            raise ValueError()
++        if value["orderId"] != invoice_scope["order_id"] or value["operatorId"] != invoice_scope["operator_id"] or value["nonce"] != invoice_scope["nonce"] or value["requestId"] != invoice_scope["request_id"] or not isinstance(value["nativeSnapshot"], str) or not re.fullmatch(r"[a-f0-9]{64}", value["nativeSnapshot"]):
++            raise ValueError()
++        now = int(time.time())
++        if type(value["issuedAt"]) is not int or type(value["expiresAt"]) is not int or not 0 < value["expiresAt"] - value["issuedAt"] <= 30 or value["issuedAt"] > now + 5 or value["expiresAt"] <= now:
++            raise ValueError()
++        snapshot = native_snapshot(reader, value, include_parts=True)
++        if snapshot["customerId"] != value["customerId"] or not hmac.compare_digest(snapshot["binding"], value["nativeSnapshot"]):
++            raise ValueError()
++        parts = snapshot["parts"]
++        lines = {row[0]: row[1] for row in parts[9]}
++        selected = {row[1] for row in parts[10] if row[2] == value["storeId"]}
++        if not selected or any(row[1] not in lines or (row[1] in selected and row[2] != value["storeId"]) for row in parts[10]) or any(lines.get(identifier) != "5" for identifier in selected):
++            raise ValueError()
++        identifiers = [row[0] for row in parts[9] if row[0] in selected]
++        digest = hashlib.sha256(json.dumps(identifiers, separators=(",", ":")).encode()).hexdigest()
++        if type(value["selectedCount"]) is not int or value["selectedCount"] != len(identifiers) or not isinstance(value["selectedHash"], str) or not hmac.compare_digest(digest, value["selectedHash"]):
++            raise ValueError()
++        value.update({"ids": identifiers, "is_split": len(identifiers) < len(lines), "capability": token})
++        _active.set(value)
++        return value
++    except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
++        raise unavailable() from None
++
++
++def selected_ids():
++    value = _active.get()
++    if value is None:
++        raise unavailable()
++    return value["ids"]
++
++
++def selected_store_id():
++    selected_ids()
++    return _active.get()["storeId"]
++
++
++def selected_is_split():
++    selected_ids()
++    return _active.get()["is_split"]
++
++
++def selected_rows(rows):
++    selected = {int(value) for value in selected_ids()}
++    if not selected.issubset({int(row["rowid"]) for row in rows}):
++        raise unavailable()
++    return [row for row in rows if int(row["rowid"]) in selected]
++
++
++def stamp_selected(resp, html, value, key):
++    message = "\n".join((CONTRACT, hashlib.sha256(value["capability"].encode()).hexdigest(), hashlib.sha256(html.encode()).hexdigest()))
++    resp.set_header("X-POS-Invoice-Scope-Contract", CONTRACT)
++    resp.set_header("X-POS-Invoice-Scope-Proof", hmac.new(key.encode(), message.encode(), hashlib.sha256).hexdigest())
++
++
++class SelectedReader:
++    def __init__(self, reader):
++        self.reader = reader
++
++    def query(self, model):
++        selected_ids()
++        query = self.reader.query(model)
++        if getattr(model, "__tablename__", None) in {"order_stores", "pos_terminal_transactions"}:
++            query = query.filter(model.store_id == int(_active.get()["storeId"]))
++        return query
++
++    def execute(self, *args, **kwargs):
++        selected_ids()
++        return self.reader.execute(*args, **kwargs)
++
++    def expunge(self, value):
++        return self.reader.expunge(value)
+--- /dev/null
++++ b/pos_invoice_documents_express.py
+@@ -0,0 +1,23 @@
++"""Original selected-shop renderer with a private, native-checked line scope."""
++import falcon
++from controllers.PosInvoiceSecurity import require_invoice_scope, clear_invoice_scope, safe_invoice_logger
++from pos_invoice_documents_scoped import require_selected, stamp_selected, _active
++
++
++class ExpressInvoiceResource:
++    def on_get(self, req, resp):
++        from controllers import InvoiceController
++        from controllers import PosExpressInvoiceController
++        try:
++            scope = require_invoice_scope(req, "store")
++            selected = require_selected(req, scope, InvoiceController.SessionR.reader)
++            PosExpressInvoiceController.PosInvoiceShop().on_get(req, resp)
++            stamp_selected(resp, resp.text, selected, scope["service_key"])
++        except falcon.HTTPError:
++            raise
++        except Exception:
++            safe_invoice_logger().error("source-error")
++            raise falcon.HTTPServiceUnavailable(title="Invoice unavailable", description="The selected invoice could not be generated.") from None
++        finally:
++            _active.set(None)
++            clear_invoice_scope()
+--- /dev/null
++++ b/controllers/PosExpressInvoiceController.py
+@@ -0,0 +1,1343 @@
++from html import parser
++from unittest import loader
++import falcon
++import base64, barcode
++import datetime,traceback
++from jinja2 import Environment, FileSystemLoader
++import jwt
++from database.database import SessionR, redis_object
++from models.Order import OrderModel,OrderStoreModel,StoreModel,PosFranchise,PosTerminalTransaction
++from constants.StatusEnum import PosPaymentMode
++from constants.Constants import FREEBIE_PRODUCT_TYPE
++from models.GiftVoucher import GiftVoucherModal, OrderGiftVoucherModal,Coupon
++from models.User import Address,User
++from sqlalchemy import text
++env = Environment(loader=FileSystemLoader("templates"))
++from controllers.PosInvoiceSecurity import (
++    require_invoice_scope, feedback_url, stamp_invoice_response,
++    safe_invoice_logger, clear_invoice_scope,
++)
++logger = safe_invoice_logger()
++from num2words import num2words
++
++import settings
++import qrcode
++from io import BytesIO
++import os
++# from barcode import EAN
++from barcode.writer import ImageWriter 
++import math
++from sqlalchemy import text
++from database.database import SessionR
++
++
++
++BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
++
++template_env = Environment(
++    loader=FileSystemLoader(os.path.join(BASE_DIR, "templates"))
++)
++template_env.globals["image_domain"] = getattr(settings, "IMAGE_DOMAIN", settings.IMAGE_URL)
++template_env.globals["IMAGE_DOMAIN"] = template_env.globals["image_domain"]
++template_env.globals["IMAGE_URL"] = settings.IMAGE_URL
++template_env.globals["image_url"] = settings.IMAGE_URL
++
++from pos_invoice_documents_scoped import selected_ids, selected_rows, selected_is_split, selected_store_id
++
++class PosInvoiceShop:
++
++    def on_get(self, req, resp):
++        session = req.context['session']
++        session_r = req.context.get('session_r')
++
++        order_id = req.get_param("order_id")
++        scope = require_invoice_scope(req, "store")
++        has_product_ids_param = ",".join(selected_ids())
++
++        if not order_id:
++            raise falcon.HTTPBadRequest("Please provide order_id")
++
++        order_id = int(order_id)
++
++        has_product_ids_filter = set()
++        if has_product_ids_param:
++            try:
++                has_product_ids_filter = {
++                    int(x.strip()) for x in has_product_ids_param.split(",") if x.strip()
++                }
++            except ValueError:
++                raise falcon.HTTPBadRequest(
++                    title="Invalid has_product_ids",
++                    description="has_product_ids must be a comma-separated list of integers"
++                )
++
++
++        try:
++            
++            barcode = get_base64_barcode(order_id)
++
++            order = SessionR.query(OrderModel).filter(OrderModel.id == order_id).first()
++            if not order:
++                raise falcon.HTTPBadRequest("Order not found")
++
++            SessionR.expunge(order)
++            order = add_user_info_to_order(order)
++
++            discount_eligibility, discount_points = order_point_cashback_eligibility_check(order_id)
++
++            invoice_no = SessionR.query(OrderStoreModel).filter(
++                OrderStoreModel.order_id == order_id
++            ).first()
++
++            all_products = get_has_products(order_id)
++            if has_product_ids_filter:
++                has_products = [
++                    item for item in all_products
++                    if set([item['rowid']] + (item.get('row_ids') or [])) & has_product_ids_filter
++                ]
++            else:
++                has_products = all_products
++
++            all_original_ids = set()
++            for item in all_products:
++                all_original_ids.add(item['rowid'])
++                all_original_ids.update(item.get('row_ids') or [])
++            is_split = selected_is_split()
++
++            context = {
++                "order": order,
++                "has_products": has_products,
++                "barcode": barcode,
++                "gift_vouchers": get_bought_gift_vouchers(order_id),
++                "stamp": get_priority_reason(order),
++                "order_date": order.created_at,
++                "last_page": False,
++                "discount_eligibility": discount_eligibility,
++                "discount_points": discount_points,
++                "is_split": is_split,
++                "show_express_charges": bool(has_product_ids_filter),
++            }
++
++            if invoice_no:
++                context["invoice_no"] = (invoice_no.order_invoice or '').replace('/', '')
++
++            if order.coupon_used:
++                coupon = session.query(Coupon).filter(
++                    Coupon.id == order.coupon_used
++                ).first()
++                context["coupon"] = coupon
++
++            if order.voucher_used:
++                voucher = get_applied_gift_vouchers(order.voucher_used)
++                context["applied_voucher"] = voucher
++
++            if is_split:
++                order.store_disc_pg = sum(float(item.get("store_disc_pg") or 0) for item in has_products)
++            additional = do_tss_hacks_pos(context, pos_shop_invoice=True)
++            context["additional"] = additional
++
++            # NPS QR
++            nps_url = feedback_url(order_id)
++            qr_image = generate_qr_base64(nps_url)
++            context["qr_image"] = qr_image
++            
++            template = template_env.get_template("Invoicer/index-shop.html")
++            html = template.render(context)
++
++            resp.content_type = "text/html"
++            resp.text = html
++            resp.content_type = "text/html; charset=utf-8"
++            stamp_invoice_response(resp, html, scope)
++
++        except falcon.HTTPError:
++            raise
++        except Exception:
++            logger.error("source-error")
++            raise falcon.HTTPBadRequest(
++                title="Invoice Error",
++                description="The private invoice could not be generated."
++            )
++        finally:
++            clear_invoice_scope()
++
++   
++        
++def get_base64_barcode(order_id):
++    try:
++        EAN = barcode.get_barcode_class('code128')
++        ean = EAN(get_padded_id(order_id), writer=ImageWriter())
++
++        buffer = BytesIO()
++        ean.write(buffer)
++
++        b64barcode = base64.b64encode(buffer.getvalue()).decode('utf-8')
++
++        return f'data:image/png;base64,{b64barcode}'
++
++    except Exception as e:
++        logger.error(f"Barcode error: {str(e)}", exc_info=True)
++        return None
++
++
++def get_padded_id(order_id):
++    ord_num = str(order_id)
++    # pad = '0' * (11 - len(ord_num))
++    pad = '10'
++    return pad + ord_num
++
++
++def add_user_info_to_order(order):
++    orders_iterable = order
++    if isinstance(order, dict) or not hasattr(order, '__iter__'):
++        orders_iterable = [order]
++    
++    for item in orders_iterable:
++        try:
++            if isinstance(item, dict):
++                order_id = item.get('id')
++                has_address_id = item.get('has_address_id')
++            else:
++                order_id = getattr(item, 'id', None)
++                has_address_id = getattr(item, 'has_address_id', None)
++            if not order_id:
++                continue
++
++            addr_res = SessionR.query(Address).filter(Address.id == has_address_id).first()
++            
++            zone_name, country_name = get_country_name_and_zone_name(addr_res.country_id, addr_res.zone_id)
++            
++            data_to_set = {
++                'first_name': addr_res.firstname,
++                'last_name': addr_res.lastname,
++                'address1': addr_res.address1,
++                'address2': addr_res.address2,
++                'address3': addr_res.address3,
++                'address4': addr_res.address4,
++                'flat': addr_res.flat,
++                'city': addr_res.city,
++                'postal_code': addr_res.postcode,
++                'phone_no': addr_res.phone_no,
++                'zone_id': zone_name,
++                'country_id': country_name
++            }
++
++            if isinstance(item, dict):
++                item.update(data_to_set)
++            else:
++                for key, val in data_to_set.items():
++                    setattr(item, key, val)
++
++       
++        except Exception as e:
++            logger.error(f"Error processing order {order_id}: {str(e)}")
++
++    return order
++
++
++def order_point_cashback_eligibility_check(order_id=None):
++    discount_eligibility = False
++    discount_points = 0
++
++    query = text(f"""
++        SELECT round(sum(hp_point_credited),2) as total_hp_point_credited
++        FROM order_point_cashback
++        WHERE order_id = :order_id AND has_product_id IN ({','.join(selected_ids())})
++    """)
++
++    result = SessionR.execute(query, {"order_id": order_id}).mappings().first()
++
++    if result and result.get("total_hp_point_credited") is not None:
++        discount_points = result["total_hp_point_credited"]
++        discount_eligibility = True
++
++    return discount_eligibility, discount_points
++
++def should_hide_freebie_on_invoice(row, show_freebie):
++    if row.get('prod_type') != FREEBIE_PRODUCT_TYPE:
++        return False
++
++    if not show_freebie or not row.get('show_on_invoice'):
++        return True
++
++    return row.get('line_item_status') in settings.SKIP_COMPLEMENTARY_PRODUCT_STATUSES
++
++
++def get_has_products(order_id, show_freebie=None):
++    # noinspection SqlDialectInspection
++    orders_query = '''
++    SELECT HP.id as rowid, HP.order_id,(CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END) as prod_id,HP.gst, HP.sub_prod_id, HP.qty, HP.price,HP.normal_price,HP.special_price,HP.exclusive_price,HP.is_exclusive_order,HP.disc,HP.hp_tss_points_used,HP.store_disc_pg, IFNULL(subP.product, P.product) as product, P.warehouse_code as wc, PS_sub.stock, P.id, P.parent_prod_id, P.prod_type, P.is_crowd_funded, P.images, subP.product, HO.attr_val, C.category,C.hsn_code as hsn, ML.attribute_value as custom_text, '' as 'gift_voucher', '' as 'gv_type', '' as 'gv_end_date', HP.order_platform_id, HP.wallet_disc, HP.voucher_disc, HP.prod_gst, HP.pre_gst_amt, HP.exclusive_saving,
++	IFNULL(fb.show_on_invoice,1) as show_on_invoice, HP.status as line_item_status
++    FROM has_products as HP
++        LEFT JOIN has_product_clickpost hpc ON HP.order_id = hpc.order_id AND HP.prod_id = hpc.product_id
++        JOIN products as P ON P.id = (CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END)
++        JOIN products as subP ON (subP.id = HP.sub_prod_id  AND HP.sub_prod_id <> 0) -- old    with variants
++        LEFT JOIN product_stocks as PS_sub ON PS_sub.prod_id = subP.id
++        LEFT JOIN categories as C ON(C.id = (SELECT cat_id from has_categories where prod_id = P.id order by id LIMIT 1))
++        -- LEFT so a line with an unmatched size attribute still shows on the invoice
++        LEFT JOIN (has_options as HO JOIN attributes as A ON(A.id = HO.attr_id AND A.attr LIKE '%%Size%%')) ON HO.prod_id = HP.sub_prod_id
++        LEFT JOIN mto_line_items as ML ON (HP.id = ML.line_item_number)
++        LEFT JOIN (
++            SELECT product_id, MAX(show_on_invoice) AS show_on_invoice
++            FROM freebies WHERE is_del = 0 GROUP BY product_id
++        ) fb ON fb.product_id = HP.prod_id
++        WHERE HP.order_id =%d
++        UNION
++        SELECT HP.id as rowid, HP.order_id,(CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END) as prod_id,HP.gst, HP.sub_prod_id, HP.qty, HP.price,HP.normal_price,HP.special_price,HP.exclusive_price,HP.is_exclusive_order,HP.disc,HP.hp_tss_points_used,HP.store_disc_pg, IFNULL(p_p.product, P.product) as product, P.warehouse_code as wc, PS.stock, P.id, P.parent_prod_id, p_p.prod_type, P.is_crowd_funded, p_p.images, p_p.product, HO.attr_val, C.category,C.hsn_code as hsn, ML.attribute_value as custom_text, '' as 'gift_voucher', '' as 'gv_type', '' as 'gv_end_date', HP.order_platform_id, HP.wallet_disc, HP.voucher_disc, HP.prod_gst, HP.pre_gst_amt, HP.exclusive_saving,
++        IFNULL(fb.show_on_invoice,1) as show_on_invoice, HP.status as line_item_status
++        FROM has_products as HP
++        LEFT JOIN has_product_clickpost hpc ON HP.order_id = hpc.order_id AND HP.prod_id = hpc.product_id
++        JOIN products as P ON P.id = (CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END)
++        LEFT JOIN product_stocks as PS ON PS.prod_id = P.id
++        LEFT JOIN products as p_p ON(p_p.id = P.parent_prod_id AND P.parent_prod_id <> 0) -- new with variants
++        LEFT JOIN categories as C ON(C.id = (SELECT cat_id from has_categories where prod_id = P.parent_prod_id order by id LIMIT 1))
++        LEFT JOIN (has_options as HO JOIN attributes as A ON(A.id = HO.attr_id AND A.attr LIKE '%%Size%%')) ON HO.prod_id = HP.prod_id
++        LEFT JOIN mto_line_items as ML ON (HP.id = ML.line_item_number)
++        LEFT JOIN (
++            SELECT product_id, MAX(show_on_invoice) AS show_on_invoice
++            FROM freebies WHERE is_del = 0 GROUP BY product_id
++        ) fb ON fb.product_id = HP.prod_id
++        WHERE HP.order_id =%d AND P.parent_prod_id > 0
++        UNION
++        SELECT HP.id as rowid, HP.order_id,(CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END) as prod_id,HP.gst, HP.sub_prod_id, HP.qty, HP.price,HP.normal_price,HP.special_price,HP.exclusive_price,HP.is_exclusive_order,HP.disc,HP.hp_tss_points_used,HP.store_disc_pg, P.product, P.warehouse_code as wc, PS.stock, P.id, P.parent_prod_id, P.prod_type, P.is_crowd_funded, P.images, P.product, '' as attr_val, C.category,C.hsn_code as hsn,ML.attribute_value as custom_text, CASE WHEN GV.gv_type = 'GIFT_VOUCHER' THEN GV.voucher_code ELSE GV.gift_card_srno END as 'gift_voucher', gv_type as 'gv_type', CASE WHEN GV.end_date!='0000-00-00 00:00:00' THEN date(GV.end_date) ELSE NULL END  as 'gv_end_date', HP.order_platform_id, HP.wallet_disc, HP.voucher_disc, HP.prod_gst, HP.pre_gst_amt, HP.exclusive_saving,
++        IFNULL(fb.show_on_invoice,1) as show_on_invoice, HP.status as line_item_status
++        FROM has_products as HP
++        LEFT JOIN has_product_clickpost hpc ON HP.order_id = hpc.order_id AND HP.prod_id = hpc.product_id
++        JOIN products as P ON P.id = (CASE WHEN hpc.mystery_variant_id > 0 THEN hpc.mystery_variant_id ELSE HP.prod_id END) AND P.parent_prod_id = 0 AND HP.sub_prod_id = 0 -- new without variants
++        LEFT JOIN product_stocks as PS ON PS.prod_id = P.id
++        LEFT JOIN gift_vouchers as GV on HP.gift_voucher_id = GV.id 
++        LEFT JOIN mto_line_items as ML ON (HP.id = ML.line_item_number)
++        LEFT JOIN categories as C ON(C.id = (SELECT cat_id from has_categories where prod_id = P.id order by id LIMIT 1))
++        LEFT JOIN (
++            SELECT product_id, MAX(show_on_invoice) AS show_on_invoice
++            FROM freebies WHERE is_del = 0 GROUP BY product_id
++        ) fb ON fb.product_id = HP.prod_id
++        WHERE HP.order_id=%d'''
++    orders_query = orders_query % (order_id, order_id, order_id)
++    result = SessionR.execute(text(orders_query))
++    rows = [dict(row) for row in result.mappings()]
++    if show_freebie is not None:
++        rows = [row for row in rows if not should_hide_freebie_on_invoice(row, show_freebie)]
++    rows = selected_rows(rows)
++    rows = group_invoice_items(rows)
++    return rows
++
++def group_invoice_items(rows):
++    """
++    Groups invoice line items by product to handle split rows (qty=1).
++    Aggregates quantities and financial totals.
++    """
++    aggregated_data = {}
++
++    for row in rows:
++        # Create a unique key for grouping (Product + Custom Text + Status group + Warehouse)
++        # We must include fields that if different, should result in a separate line item.
++        key = (
++            row['prod_id'], 
++            row['sub_prod_id'],
++            row.get('custom_text', ''),
++            row.get('wc', ''), # Warehouse code might differ?
++            row.get('gift_voucher', ''),
++        )
++        
++        if key in aggregated_data:
++            existing = aggregated_data[key]
++            
++            # Aggregate integers/floats
++            existing['qty'] += row['qty']
++            existing['price'] += row['price']
++            existing['disc'] += row['disc']
++            
++            # Handle potential None values for aggregates
++            existing['hp_tss_points_used'] = (existing.get('hp_tss_points_used') or 0) + (row.get('hp_tss_points_used') or 0)
++            existing['wallet_disc'] = (existing.get('wallet_disc') or 0) + (row.get('wallet_disc') or 0)
++            existing['voucher_disc'] = (existing.get('voucher_disc') or 0) + (row.get('voucher_disc') or 0)
++            existing['store_disc_pg'] = (existing.get('store_disc_pg') or 0) + (row.get('store_disc_pg') or 0)
++            existing['pre_gst_amt'] = (existing.get('pre_gst_amt') or 0) + (row.get('pre_gst_amt') or 0)
++            existing['exclusive_saving'] = (existing.get('exclusive_saving') or 0) + (row.get('exclusive_saving') or 0)
++            
++            # Aggregate price fields if they exist (for reference, though main price is aggregation of sold price)
++            if 'normal_price' in row and row['normal_price']:
++                existing['normal_price'] = (existing.get('normal_price') or 0) + row['normal_price']
++            if 'special_price' in row and row['special_price']:
++                existing['special_price'] = (existing.get('special_price') or 0) + row['special_price']
++            if 'exclusive_price' in row and row['exclusive_price']:
++                existing['exclusive_price'] = (existing.get('exclusive_price') or 0) + row['exclusive_price']
++
++            # Keep track of original IDs if needed (e.g. for debugging)
++            if 'row_ids' not in existing:
++                existing['row_ids'] = [existing['rowid']]
++            existing['row_ids'].append(row['rowid'])
++
++        else:
++            # Initialize potential None fields to 0 for consistency if they are going to be used in math later
++            if row.get('wallet_disc') is None: row['wallet_disc'] = 0
++            if row.get('voucher_disc') is None: row['voucher_disc'] = 0
++            if row.get('hp_tss_points_used') is None: row['hp_tss_points_used'] = 0
++            if row.get('store_disc_pg') is None: row['store_disc_pg'] = 0
++            
++            aggregated_data[key] = row
++
++    return list(aggregated_data.values())
++
++def get_bought_gift_vouchers(order_id):
++    # noinspection SqlDialectInspection
++    gv_query = '''
++        select gift_vouchers.*, hp.gift_voucher_id, hp.order_platform_id from gift_vouchers
++        left join has_products as hp on hp.gift_voucher_id = gift_vouchers.id
++        where gift_vouchers.order_id = %d AND hp.order_id = %d AND hp.id IN (%s)
++    '''
++    gv_query = gv_query % (order_id, order_id, ','.join(selected_ids()))
++    result = SessionR.execute(text(gv_query))
++    rows = [dict(row) for row in result.mappings()]
++    return rows
++
++
++def get_country_name_and_zone_name(country_id, zone_id):
++
++    zone_query = text("SELECT name FROM zones WHERE id = :zone_id")
++    country_query = text("SELECT name FROM countries WHERE id = :country_id")
++
++    zone = SessionR.execute(zone_query, {"zone_id": zone_id}).mappings().first()
++    country = SessionR.execute(country_query, {"country_id": country_id}).mappings().first()
++
++    zone_name = zone["name"] if zone else None
++    country_name = country["name"] if country else None
++
++    return zone_name, country_name
++
++
++
++def get_priority_reason(order):
++    order_id = getattr(order, "id", None)
++    query = text("""
++        SELECT priority_reason
++        FROM order_attributes
++        WHERE order_id = :order_id
++    """)
++
++    order_id = order.get("id") if isinstance(order, dict) else getattr(order, "id", None)
++    result = SessionR.execute(query, {"order_id": order_id}).mappings().first()
++
++    if result:
++        return result.get("priority_reason")
++
++    return None
++
++
++
++
++def do_tss_hacks_pos(context, pos_shop_invoice=False):
++    order = context['order']
++    items = context['has_products']
++    gift_vouchers = context['gift_vouchers']
++    is_split = context.get('is_split', False)
++
++    split_coupon_discount = 0
++    split_tss_points = 0
++    split_gift_voucher = 0
++    split_tss_money = 0
++
++    if (order.pay_amt - math.floor(order.pay_amt)) > 0:
++        total_amt = order.pay_amt
++        rounding_off = order.pay_amt - math.floor(order.pay_amt)
++        order.pay_amt = math.floor(order.pay_amt)
++    else:
++        total_amt = order.pay_amt + (order.fraction_value or 0)
++        rounding_off = order.fraction_value or 0
++
++    additional = {
++        'total_taxable': 0,
++        'cgst': 0,
++        'sgst': 0,
++        'igst': 0,
++        'subtotal': 0,
++        'charges': int((order.cod_charges or 0) + (order.gifting_charges or 0) + (order.shipping_amt or 0)),
++        'cod_charges': int(order.cod_charges or 0),
++        'gifting_charges': int(order.gifting_charges or 0),
++        'shipping_amt': int(order.shipping_amt or 0),
++        'amount_words': num2words(math.floor(order.pay_amt)),
++        'state_gst_code': get_zone_code(order),
++        'courier': get_courier_name(order),
++        'payment_method': get_payment_method(order),
++        'rounding_off': -round(rounding_off, 2),
++        'total_amt': total_amt,
++        'cart_total':0,
++        'invoice_total' : 0,
++        'total_savings': 0,
++        'member_savings': 0
++    }
++    total_payable = 0
++    for item in gift_vouchers:
++        additional['subtotal'] += item['voucher_initial_value']
++
++    total_items = 0
++    gst_dict = {}
++
++    for item in items:
++        # item['taxable_price'] = item['price'] - (item.get('store_disc_pg', 0) or 0) - item.get('disc', 0) - (item.get('hp_tss_points_used', 0) or 0) - (item.get('wallet_disc', 0) or 0) - (item.get('voucher_disc', 0) or 0)
++        additional['cart_total'] += item["price"]
++        total_items += int(item["qty"])
++
++        line_price = float(item["price"]) / float(item["qty"])
++        item["line_price"] = round(line_price, 2)
++        item["item_price"] = item["price"]
++
++        if item['category'] == 'T-Shirt Dresses':
++            item['category'] = 'Dresses'
++            
++        # item['taxable_price'] = round(item['taxable_price']/(1+(item['gst']/100)),2)
++        
++        additional['total_taxable'] += float(item['pre_gst_amt'] or 0)
++        additional['subtotal'] += additional['total_taxable']
++        if not item['hsn']:
++            item['hsn'] = '-'
++
++        # GST Calculation
++        item['sgst_r'] = item['cgst_r'] = item['gst'] / 2
++
++        item['cgst'] = (item['cgst_r'] / 100) * float(item['pre_gst_amt'])
++        item['sgst'] = (item['sgst_r'] / 100) * float(item['pre_gst_amt'])
++        
++        additional['cgst'] += item['cgst']
++        additional['sgst'] += item['sgst']
++
++        item['cgst'] = round(item['cgst'], 2)
++        item['sgst'] = round(item['sgst'], 2)
++        if pos_shop_invoice:
++
++            gst_key = str(item['gst'] / 2)
++
++            if gst_key not in gst_dict:
++                gst_dict[gst_key] = {"cgst": 0, "sgst": 0}
++
++            cgst_r = (item['cgst_r'] / 100) * float(item['pre_gst_amt'])
++            sgst_r = (item['sgst_r'] / 100) * float(item['pre_gst_amt'])
++
++            cgst = round(gst_dict[gst_key]["cgst"] + cgst_r, 2)
++            sgst = round(gst_dict[gst_key]["sgst"] + sgst_r, 2)
++
++            gst_dict[gst_key] = {"cgst": cgst, "sgst": sgst}
++            additional['total_savings'] += round(((item.get('normal_price') - item['price']) + item['disc']), 2) if item.get('normal_price') > 0 else 0
++            additional['member_savings'] += round(item.get('exclusive_saving', 0), 2)
++            logger.debug(f"exclsive_saving for item {item['prod_id']} is {item.get('exclusive_saving', 0)}")
++           
++        
++
++        if is_split:
++            split_coupon_discount += item.get('disc') or 0
++            split_tss_points += item.get('hp_tss_points_used') or 0
++            split_gift_voucher += item.get('voucher_disc') or 0
++            split_tss_money += item.get('wallet_disc') or 0
++
++    order_store_obj = (SessionR.query(OrderStoreModel).filter_by(order_id=order.id).first())
++
++    store_id = order_store_obj.store_id if order_store_obj else int(selected_store_id())
++
++    # SQLAlchemy Store query
++    store_obj = None
++    if store_id:
++        store_obj = SessionR.query(StoreModel).filter(
++            StoreModel.id == store_id).first()
++        
++   
++
++    store_cin = ""
++
++    if store_obj and store_obj.category == "FRANCHISE" and store_obj.franchise_id:
++        pos_franchise_obj = (
++        SessionR.query(PosFranchise)
++        .filter(PosFranchise.id == store_obj.franchise_id)
++        .first()
++        )
++        if pos_franchise_obj and pos_franchise_obj.cin_number:
++            store_cin = pos_franchise_obj.cin_number
++
++        
++
++    online_pay_method = ""
++    online_platform = ""
++
++    # SQLAlchemy Terminal Transaction query
++    ptt_obj = SessionR.query(PosTerminalTransaction).filter(
++        PosTerminalTransaction.order_id == order.id,
++        PosTerminalTransaction.is_active == 1,
++        PosTerminalTransaction.platform == "txn_completed"
++    ).first()
++
++    if ptt_obj:
++        online_pay_method = "CARD" if ptt_obj.payment_mode == PosPaymentMode.PINELAB_CARD.value else "UPI" if ptt_obj.payment_mode == PosPaymentMode.PINELAB_UPI.value else "CARD"
++        online_platform = "Pinelab"
++
++    if order_store_obj and order_store_obj.online_other_payment:
++        online_platform = "Others"
++
++    additional["total_items"] = total_items
++    additional["online_platform"] = online_platform
++
++    if store_obj:
++        additional["address"] = store_obj.address
++        additional["gstin"] = store_obj.gstin
++        additional["gst_arn"] = store_obj.gst_arn
++        additional["email"] = store_obj.email
++        additional["phone"] = store_obj.phone
++        additional["store_name"] = store_obj.store_name
++        additional["store_short_name"] = store_obj.short_name
++        additional["store_category"] = store_obj.category
++    else:
++        additional["address"] = ""
++        additional["gstin"] = ""
++        additional["gst_arn"] = ""
++        additional["email"] = ""
++        additional["phone"] = ""
++        additional["store_name"] = ""
++        additional["store_short_name"] = ""
++        additional["store_category"] = ""
++
++    additional["store_cin"] = store_cin
++
++    if order_store_obj:
++
++        additional["cash"] = order_store_obj.offline_payment
++        additional["cash_recieved"] = order_store_obj.offline_payment_recieved
++        additional["change"] = 0
++
++        if order_store_obj.offline_payment and order_store_obj.offline_payment > 0:
++            if order_store_obj.offline_payment_recieved and order_store_obj.offline_payment_recieved > 0:
++                additional["change"] = (
++                    order_store_obj.offline_payment_recieved - order_store_obj.offline_payment
++                )
++
++        additional["online"] = order_store_obj.online_payment
++        additional["others"] = order_store_obj.online_other_payment
++    else:
++        additional["cash"] = 0
++        additional["cash_recieved"] = 0
++        additional["change"] = 0
++        additional["online"] = 0
++        additional["others"] = 0
++
++    additional['member_savings'] = round(additional['member_savings'], 2) if additional['member_savings'] > 0 else 0
++    logger.debug(f"Total member savings: {additional['member_savings']}")
++    additional["online_pay_method"] = online_pay_method
++    additional["gst_dict"] = gst_dict
++
++    total_gst = sum(v["cgst"] + v["sgst"] for v in gst_dict.values())
++    additional['invoice_total'] = round(additional['total_taxable'] + total_gst, 2)
++
++    additional['total_taxable'] = round(additional['total_taxable'], 2)
++    additional['igst'] = round(additional['igst'], 2)
++    additional['sgst'] = round(additional['sgst'], 2)
++    additional['cgst'] = round(additional['cgst'], 2)
++
++    show_express_charges = context.get('show_express_charges', False)
++    additional['express_charges'] = round(float(order.express_charges or 0), 2) if show_express_charges else 0
++
++    applied_voucher = context.get('applied_voucher')
++    voucher_code = applied_voucher.get('voucher_code', '') if applied_voucher else ''
++    additional['voucher_label'] = f"Gift Voucher Used ({voucher_code})" if voucher_code else "Gift Voucher Used"
++
++    if is_split:
++        additional['coupon_discount'] = round(split_coupon_discount, 2)
++        additional['tss_points_used'] = round(split_tss_points, 2)
++        additional['gift_voucher_used'] = round(split_gift_voucher, 2)
++        additional['tss_money_used'] = round(split_tss_money, 2)
++
++        split_total = additional['invoice_total'] - split_gift_voucher - split_tss_money
++        split_rounding = split_total - math.floor(split_total)
++        split_total_payable = int(math.floor(split_total))
++
++        additional['order_total'] = round(split_total, 2)
++        additional['rounding_off'] = -round(split_rounding, 2)
++        additional['total_payable'] = split_total_payable
++        additional['cash'] = 0
++        additional['online'] = split_total_payable
++    else:
++        additional['coupon_discount'] = float(order.coupon_amt_used or 0)
++        additional['tss_points_used'] = float(order.tss_points_used or 0)
++        additional['gift_voucher_used'] = float(order.voucher_amt_used or 0)
++        additional['tss_money_used'] = float(order.tss_money_used or 0)
++        additional['order_total'] = total_amt
++        additional['total_payable'] = int(order.pay_amt)
++
++    return additional
++
++
++
++def get_zone_code(order):
++
++    query = text("""
++        SELECT gst_state_code
++        FROM zones
++        WHERE name = :zone_name
++        LIMIT 1
++    """)
++
++    result = SessionR.execute(
++        query,
++        {"zone_name": order.zone_id}
++    ).mappings().first()
++
++    if result:
++        return result.get("gst_state_code")
++
++    return None
++
++
++def get_courier_name(order):
++
++    query = text("""
++        SELECT name
++        FROM courier_companies
++        WHERE id = :courier_id
++        LIMIT 1
++    """)
++
++    result = SessionR.execute(
++        query,
++        {"courier_id": order.courier}
++    ).mappings().first()
++
++    if result:
++        return result.get("name")
++
++    return None
++
++
++def get_payment_method(order):
++
++    query = text("""
++        SELECT name
++        FROM payment_method
++        WHERE id = :payment_method_id
++        LIMIT 1
++    """)
++
++    result = SessionR.execute(
++        query,
++        {"payment_method_id": order.payment_method}
++    ).mappings().first()
++
++    if result:
++        return result.get("name")
++
++    return None
++
++
++def get_applied_gift_vouchers(voucher_id):
++
++    query = text("""
++        SELECT *
++        FROM gift_vouchers
++        WHERE coupon_id = :voucher_id
++           OR id = :voucher_id
++        LIMIT 1
++    """)
++
++    result = SessionR.execute(
++        query,
++        {"voucher_id": voucher_id}
++    ).mappings().first()
++
++    return result if result else None
++
++
++def generate_qr_base64(data: str) -> str:
++    """Generate a base64 QR code from a string."""
++    qr = qrcode.QRCode(
++        version=1,
++        error_correction=qrcode.constants.ERROR_CORRECT_L,
++        box_size=5,  # adjust size
++        border=0
++    )
++    qr.add_data(data)
++    qr.make(fit=True)
++
++    img = qr.make_image(fill_color="black", back_color="white")
++    buffered = BytesIO()
++    img.save(buffered, format="PNG")
++    qr_base64 = base64.b64encode(buffered.getvalue()).decode()
++    return f"data:image/png;base64,{qr_base64}"
++
++
++def generate_invoice(order_id, skip_auth=False, last_page=False):
++    try:
++        platform_fee_name = get_dynamic_platform_fee_name()
++        barcode = get_base64_barcode(order_id)
++
++        order_query = text("""
++                           SELECT *
++                           FROM orders
++                           WHERE id = :order_id LIMIT 1
++                           """)
++        order = SessionR.execute(order_query, {"order_id": order_id}).mappings().first()
++
++        if not order:
++            raise falcon.HTTPNotFound()
++
++        order = dict(order)
++        order = add_user_info_to_order(order)
++
++        order_count = None
++        customer_contact_no = None
++
++        if skip_auth:
++            count_query = text("""
++                               SELECT COUNT(*) as count
++                               FROM orders
++                               WHERE user_id = :user_id
++                                 AND order_status NOT IN (0
++                                   , 4
++                                   , 7
++                                   , 10
++                                   , 15
++                                   , 17
++                                   , 22
++                                   , 24
++                                   , 36)
++                               """)
++            result = SessionR.execute(count_query, {"user_id": order["user_id"]}).mappings().first()
++            order_count = result["count"] if result else 0
++
++            if order.get("phone_no"):
++                customer_contact_no = mask_phone(order["phone_no"], 1, 4)
++
++        addons_query = text("""
++                            SELECT *
++                            FROM order_addons
++                            WHERE order_id = :order_id LIMIT 1
++                            """)
++        order_details = SessionR.execute(addons_query, {"order_id": order_id}).mappings().first()
++
++        if not order_details and order.get("parent_order_id"):
++            order_details = SessionR.execute(
++                addons_query, {"order_id": order["parent_order_id"]}
++            ).mappings().first()
++
++        order = process_order_address(order)
++
++        show_freebie = check_show_freebie()
++        has_products = get_has_products(order_id, show_freebie=show_freebie)
++
++        context = {
++            "order": order,
++            "has_products": has_products,
++            "barcode": barcode,
++            "gift_vouchers": get_bought_gift_vouchers(order_id),
++            "stamp": get_priority_reason(order),
++            "order_count": order_count,
++            "customer_contact_no": customer_contact_no,
++            "order_date": order.get("created_at"),
++            "last_page": last_page,
++            "show_freebie": show_freebie,
++            "platform_fee": order_details["platform_fee"] if order_details else 0,
++            "platform_fee_name": platform_fee_name
++        }
++
++        if order.get("coupon_used"):
++            coupon_query = text("""
++                                SELECT *
++                                FROM coupons
++                                WHERE id = :coupon_id
++                                """)
++            coupon = SessionR.execute(
++                coupon_query, {"coupon_id": order["coupon_used"]}
++            ).mappings().first()
++
++            context["coupon"] = dict(coupon) if coupon else None
++
++        if order.get("voucher_used"):
++            context["applied_voucher"] = get_applied_gift_vouchers(order["voucher_used"])
++
++        additional = calculate_invoice(context)
++        context["additional"] = additional
++
++        logger.debug(f"Template paths: {template_env.loader.searchpath}")
++        template = select_template(order)
++        return template.render(context)
++    except Exception as e:
++        logger.error(f"Error in generate_invoice: {str(e)}", exc_info=True)
++        raise falcon.HTTPInternalServerError()
++
++
++class ShowInvoicerResource:
++
++    def on_get(self, req, resp, skip_auth=False, external_order_id=-1, last_page=False):
++        try:
++            order_id = req.get_param('order_id') or external_order_id
++            order_id = int(order_id)
++
++            logger.info(f"show_invoicer called with order_id={order_id}")
++
++            pos_secret = req.get_header('X-POS-Secret')
++            if pos_secret and pos_secret == settings.POS_INVOICE_KEY:
++                skip_auth = True
++            if not skip_auth:
++                auth_header = req.get_header('Authorization')
++                validate(auth_header, order_id)
++            html = generate_invoice(order_id, skip_auth, last_page)
++            resp.text = html
++            resp.content_type = "text/html; charset=utf-8"
++            # resp.set_header("Access-Control-Allow-Credentials", "true")
++
++        except Exception as e:
++            logger.error(f"Error in show_invoicer: {str(e)}", exc_info=True)
++            raise falcon.HTTPInternalServerError(
++                title="Invoice Error",
++                description="Internal Server Error while generating invoice."
++            )
++
++class BackendInvoiceResource:
++    def on_get(self, req, resp):
++        try:
++            service_token = req.get_header('X-Service-Token')
++
++            if service_token != settings.ADMIN_INVOICE_KEY:
++                raise falcon.HTTPUnauthorized()
++
++            order_id = req.get_param('order_id')
++            try:
++                order_id = int(order_id)
++            except:
++                raise falcon.HTTPBadRequest('Invalid Order ID')
++
++            html = generate_invoice(order_id=order_id, skip_auth=True)
++            resp.text = html
++            resp.content_type = "text/html; charset=utf-8"
++        except falcon.HTTPError:
++            raise
++        except Exception as e:
++            logger.error(f"Error in BackendInvoiceResource: {str(e)}")
++            raise falcon.HTTPInternalServerError()
++
++
++def validate(auth_header, order_id):
++    options = {
++        'verify_aud': False,
++        'require_sub': False,
++        'verify_iat': False
++    }
++
++    if not auth_header:
++        raise Exception('Please provide token')
++
++    try:
++        # Handle 2FA token
++        if auth_header.startswith("2f."):
++            auth_header = auth_header[3:]
++            token = jwt.decode(
++                auth_header,
++                settings.SECRET_KEY_512,
++                algorithms=['HS512'],
++                options=options
++            )
++        else:
++            token = jwt.decode(
++                auth_header,
++                settings.SECRET_KEY,
++                algorithms=['HS256'],
++                options=options
++            )
++
++        user_id = int(token.get('sub'))
++
++        query = text("""
++            SELECT id, user_id
++            FROM orders
++            WHERE id = :order_id
++              AND user_id = :user_id
++            LIMIT 1
++        """)
++
++        order = SessionR.execute(query,{"order_id": order_id, "user_id": user_id}).mappings().first()
++
++        if not order:
++            raise Exception('You are not authorized for this invoice')
++
++        return token
++
++    except jwt.ExpiredSignatureError:
++        raise Exception('Token expired')
++
++    except jwt.InvalidTokenError:
++        raise Exception('Invalid token') 
++
++def get_dynamic_platform_fee_name():
++    query = text("""
++        SELECT name
++        FROM return_fee_configurations
++        WHERE type = 3
++          AND is_active = 1
++          AND deleted_at IS NULL
++        ORDER BY id DESC
++        LIMIT 1
++    """)
++
++    result = SessionR.execute(query).mappings().first()
++
++    if result:
++        return result["name"]
++
++    return None
++
++def mask_phone(phone: str, show_start: int = 2, show_end: int = 2, mask_char: str = '*') -> str:
++    """
++    Mask a phone number by hiding middle digits.
++
++    Keeps the first `show_start` digits and the last `show_end` digits visible,
++    replacing the remaining digits with `mask_char`.
++
++    Args:
++        phone (str): Phone number to be masked.
++        show_start (int, optional): Number of digits to keep visible at the start. Defaults to 2.
++        show_end (int, optional): Number of digits to keep visible at the end. Defaults to 2.
++        mask_char (str, optional): Character used for masking. Defaults to '*'.
++
++    Returns:
++        str: Masked phone number. If the phone number length is too short
++             to apply masking, the original value is returned.
++
++    Example:
++        >>> mask_phone("9876543210")
++        '98******10'
++        >>> mask_phone("9876543210", show_start=3, show_end=3)
++        '987****210'
++    """
++    phone = str(phone)
++    if len(phone) <= show_start + show_end:
++        return phone  # nothing to mask
++
++    masked_len = len(phone) - (show_start + show_end)
++    return phone[:show_start] + (mask_char * masked_len) + phone[-show_end:]
++
++
++def process_order_address(order):
++    
++    flat = order.get("flat", "")
++    address4 = order.get("address4", "")
++    address1 = ','.join([part for part in [flat, order.get("address1", "")] if part])
++    address3 = ','.join([part for part in [order.get("address3", ""), address4] if part])
++    order["address1"] = address1
++    order["address3"] = address3
++    return order
++
++
++def check_show_freebie(key = "SHOW_FREEBIE_IN_INVOICE"):
++
++    try:
++        cached_value = redis_object.get(key)
++        logger.debug(f"Cache for {key}: {cached_value}")
++        if cached_value:
++            return int(cached_value.decode("utf-8"))
++
++        query = text("""
++            SELECT value
++            FROM tss_settings
++            WHERE platform = :key
++            LIMIT 1
++        """)
++
++        result = SessionR.execute(query, {"key": key}).fetchone()
++
++        if result and result[0] is not None:
++            value = int(result[0])
++            # Private invoice rendering never populates shared Redis.
++            return value
++
++    except Exception as e:
++        logger.error(f"Error fetching {key}: {str(e)}")
++
++    return 1
++
++
++def do_tss_hacks_new(context):
++    order = context['order']
++    # logger.info(f"Processing order: {order}")
++
++    # Handle dict order safely
++    if isinstance(order, dict):
++        order = DictWrapper(order)
++
++    items = context.get('has_products', [])
++    gift_vouchers = context.get('gift_vouchers', [])
++
++    # Rounding logic
++    if (order.pay_amt - math.floor(order.pay_amt)) > 0:
++        total_amt = order.pay_amt
++        rounding_off = order.pay_amt - math.floor(order.pay_amt)
++        order.pay_amt = math.floor(order.pay_amt)
++    else:
++        total_amt = order.pay_amt + order.fraction_value
++        rounding_off = order.fraction_value
++
++    additional = {
++        'total_taxable': 0,
++        'cgst': 0,
++        'sgst': 0,
++        'igst': 0,
++        'subtotal': 0,
++        'total_payable': 0,
++        'charges': int(order.cod_charges + order.gifting_charges + order.shipping_amt + int(order.hl_charges)),
++        'cod_charges': int(order.cod_charges),
++        'hl_charges': int(order.hl_charges),
++        'gifting_charges': int(order.gifting_charges),
++        'shipping_amt': int(order.shipping_amt),
++        
++        'state_gst_code': get_zone_code(order),
++        'courier': get_courier_name(order),
++        'payment_method': get_payment_method(order),
++        'rounding_off': -round(rounding_off, 2),
++        'total_amt': int(total_amt),
++        'convenience_fee': context.get('platform_fee'),
++        'platform_fee_name': context.get('platform_fee_name'),
++        'member_savings': 0,
++    }
++
++    has_tss_points = order.tss_points_used and order.tss_points_used > 0
++    has_coupon_discount = order.coupon_amt_used  and order.coupon_amt_used > 0
++    if not has_tss_points and not has_coupon_discount:
++        additional['discount_label'] = 'Discount'
++    else:
++        additional['discount_label'] = 'TSS Points Used' if has_tss_points else 'Coupon Discount'
++
++    # Gift vouchers
++    for item in gift_vouchers:
++        value = item.get('voucher_initial_value', 0)
++        additional['subtotal'] += value
++        item['payable'] = value
++        additional['total_payable'] += value
++
++    total_discount = 0
++    total_item_taxes = 0
++
++    for item in items:
++        if item.get('category') == 'T-Shirt Dresses':
++            item['category'] = 'Dresses'
++
++        if item.get('category') == 'GIFTVOUCHER':
++            logger.debug(f"Skipping tax calculation for gift voucher item {item['prod_id']}")
++            continue
++
++        item["original_price"] = item.get("price", 0)
++        logger.debug(f"calculation logic: {order.is_new_calculation}")
++
++        # Pricing logic
++        item['price'] = round(item.get("price", 0), 2)
++
++        if order.is_new_calculation == 2:
++            item['base_price'] = item['price']
++
++        item['taxable_price'] = round(float(item.get('pre_gst_amt', 0)), 2)
++
++        item['discount'] = round(item.get('disc', 0) + item.get('hp_tss_points_used', 0), 2)
++        total_discount += item['discount']
++
++        additional['total_taxable'] += item['taxable_price']
++        additional['subtotal'] += item['price']
++
++        if not item.get('hsn'):
++            item['hsn'] = '-'
++
++        # Tax logic
++        if order.zone_id == 'Maharashtra':
++            item['sgst_r'] = item['cgst_r'] = item.get('gst', 0) / 2
++
++            item['cgst'] = round(item['cgst_r'] / 100 * item['taxable_price'], 2)
++            item['sgst'] = round(item['sgst_r'] / 100 * item['taxable_price'], 2)
++
++            additional['cgst'] += item['cgst']
++            additional['sgst'] += item['sgst']
++        else:
++            item['igst'] = round((item.get('gst', 0) / 100) * item['taxable_price'], 2)
++            item['igst_r'] = item.get('gst', 0) if item['taxable_price'] else 0
++            additional['igst'] += item['igst']
++
++        total_item_tax = round(item.get('gst', 0) / 100 * item['taxable_price'], 2)
++
++        if item.get('gift_voucher') and item.get('category') == 'GIFTVOUCHER':
++            item['payable'] = item['price']
++        else:
++            item['payable'] = round(
++                item['taxable_price']
++                + item.get('cgst', 0)
++                + item.get('sgst', 0)
++                + item.get('igst', 0),
++                2
++            )
++
++        additional['total_payable'] += item['payable']
++
++        item["total_item_taxes_individual"] = total_item_tax
++        total_item_taxes += total_item_tax
++
++        additional['member_savings'] += round(item.get('exclusive_saving', 0), 2)
++
++    additional["total_item_taxes"] = round(total_item_taxes, 2)
++    additional["total_discount"] = round(total_discount, 2)
++    additional['total_taxable'] = round(additional['total_taxable'], 2)
++    additional['igst'] = round(additional['igst'], 2)
++    additional['sgst'] = round(additional['sgst'], 2)
++    additional['cgst'] = round(additional['cgst'], 2)
++    additional['total_payable'] = round(additional['total_payable'], 2)
++    additional['subtotal'] = round(additional['subtotal'], 2)
++    additional['invoice_total'] = round(
++        additional['total_payable']
++        + additional['charges']
++        + (additional.get('convenience_fee') or 0),2)
++    _words = num2words(math.floor(additional['invoice_total']), lang='en_IN')
++    additional['amount_words'] = ((_words[0] if isinstance(_words, tuple) else _words).replace(',', '').capitalize() + " rupees only")
++
++    return additional
++
++class DictWrapper:
++    def __init__(self, data):
++        self.__data = data
++
++    def __getattr__(self, key):
++        try:
++            return self.__data[key]
++        except KeyError:
++            raise AttributeError(f"{key} not found")
++
++    def __setattr__(self, key, value):
++        if key == "_DictWrapper__data":
++            super().__setattr__(key, value)
++        else:
++            self.__data[key] = value
++
++    def to_dict(self):
++        return self.__data
++    
++
++def calculate_invoice(context):
++    order = context["order"]
++
++    if isinstance(order, dict):
++        order = DictWrapper(order)
++
++    logger.debug(f"Invoice calculation type: {order.is_new_calculation}")
++
++    if order.is_new_calculation == 2:
++        logger.info("Using OLD invoice logic")
++        return do_tss_hacks_old(context)
++
++    elif order.is_new_calculation == 3:
++        logger.info("Using NEW invoice logic")
++        return do_tss_hacks_new(context)
++
++    else:
++        logger.warning("Unknown calculation type, defaulting to NEW")
++        return do_tss_hacks_new(context)
++    
++def do_tss_hacks_old(context):
++    order = context['order']
++
++    if type(order) is dict:
++        order = DictWrapper(order)
++    
++    items = context['has_products']
++    gift_vouchers = context['gift_vouchers']
++    if (order.pay_amt - math.floor(order.pay_amt)) > 0:
++        total_amt = order.pay_amt
++        rounding_off = order.pay_amt - math.floor(order.pay_amt)
++        order.pay_amt = math.floor(order.pay_amt)
++    else:
++        total_amt = order.pay_amt + order.fraction_value
++        rounding_off = order.fraction_value
++
++    additional = {'total_taxable': 0, 'cgst': 0, 'sgst': 0, 'igst': 0, 'subtotal': 0,
++                  'charges': int(order.cod_charges + order.gifting_charges + order.shipping_amt + int(order.hl_charges)),
++                  'cod_charges': int(order.cod_charges),
++                  'hl_charges': int(order.hl_charges),
++                  'gifting_charges': int(order.gifting_charges),
++                  'shipping_amt': int(order.shipping_amt),
++                  'amount_words': (lambda w: (w[0] if isinstance(w, tuple) else w).replace(',', '').capitalize() + " rupees only")(num2words(math.floor(order.pay_amt), lang='en_IN')),
++                  'courier': get_courier_name(order), 'payment_method': get_payment_method(order),
++                  'rounding_off': -round(rounding_off, 2),
++                  'total_amt': total_amt,
++                  'convenience_fee': context.get('platform_fee'), 'platform_fee_name': context.get('platform_fee_name')}
++
++    for item in gift_vouchers:
++        additional['subtotal'] += item['voucher_initial_value']
++
++    total_discount = 0
++    total_item_taxes = 0
++
++    for item in items:
++        if item['category'] == 'T-Shirt Dresses':
++            item['category'] = 'Dresses'
++
++        item["original_price"] = item["price"]
++
++        if order.is_new_calculation == 1:
++
++            if item['disc'] and item['disc'] > 0:
++                item["price"] = item['price'] - item['disc']
++
++            if item['hp_tss_points_used'] and item['hp_tss_points_used'] > 0:
++                item["price"] = item['price'] - item['hp_tss_points_used']
++
++            item['price'] = round(item["price"]/(1+(item['gst']/100)),2)
++            item['taxable_price'] = round(item['price'],2)
++        #FIXME: Amount Billing changes as per the client requirement
++        if order.is_new_calculation == 2:
++            if item['prod_gst'] and item['gst'] != item['prod_gst']:
++                item['price'] = round(item["price"]/(1+(item['prod_gst']/100)),2)
++            else:
++                item['price'] = round(item["price"]/(1+(item['gst']/100)),2)
++            item['base_price'] = item['price']
++            if item['disc'] and item['disc'] > 0:
++                item["price"] = item['price'] - item['disc']
++
++            if item['hp_tss_points_used'] and item['hp_tss_points_used'] > 0:
++                item["price"] = item['price'] - item['hp_tss_points_used']
++
++            item['taxable_price'] = round(item['price'],2)
++        else:
++            item['taxable_price'] = item['price'] - (item['disc'] + item['hp_tss_points_used'])
++
++        total_discount += item["disc"]
++
++        additional['total_taxable'] += item['taxable_price']
++        #FIXME: Amount Billing changes as per the client requirement
++        if order.is_new_calculation == 2:
++            additional['subtotal'] += item['base_price']
++            item['price'] = item['base_price']
++        else:
++            additional['subtotal'] += item['price']
++
++        if not item['hsn']:
++            item['hsn'] = '-'
++        if order.zone_id == 'Maharashtra':
++            item['sgst_r'] = item['cgst_r'] = item['gst'] / 2
++
++            item['cgst'] = item['cgst_r'] / 100 * item['taxable_price']
++            item['sgst'] = item['sgst_r'] / 100 * item['taxable_price']
++            additional['cgst'] += item['cgst']
++            additional['sgst'] += item['sgst']
++            item['cgst'] = round(item['cgst'], 2)
++            item['sgst'] = round(item['sgst'], 2)
++        else:
++            item['igst'] = round(item['gst'] / 100 * item['taxable_price'], 2)
++            item['igst_r'] = item['gst'] if item['taxable_price'] else 0
++            additional['igst'] += item['igst']
++
++        total_item_taxes_individual = round(item['gst'] / 100 * item['taxable_price'], 2)
++
++        item["total_item_taxes_individual"] = total_item_taxes_individual
++        total_item_taxes += total_item_taxes_individual
++
++    additional["total_item_taxes"] = total_item_taxes
++    additional["total_discount"] = total_discount
++
++    additional['total_taxable'] = round(additional['total_taxable'], 2)
++    additional['igst'] = round(additional['igst'], 2)
++    additional['sgst'] = round(additional['sgst'], 2)
++    additional['cgst'] = round(additional['cgst'], 2)
++    additional['subtotal'] = round(additional['subtotal'],2)
++    return additional
++
++def select_template(order):
++    if order.get("is_new_calculation") == 2:
++        return template_env.get_template("Invoicer/old-index.html")
++    else:
++        return template_env.get_template("Invoicer/new-index.html")
+--- /dev/null
++++ b/pos_invoice_documents_factory.py
+@@ -0,0 +1,56 @@
++"""Extension of the already reviewed isolated invoice worker, never API-v2 main."""
++import hashlib
++import hmac
++from pathlib import Path
++
++BASE_FACTORY_SHA256 = "87dfe08369554b251fdd740aca08665eb8e3ffe980c0a68e587b34fb415959ab"
++RESOURCE_SHA256 = "67950f2611793784eed92e9f87058c1d17148fbbc28a68ffc9888a39ff44aeed"
++HISTORY_SHA256 = "6f879f010e9a3ad40cae733a4a49201333790cd33316a3e3d6d46e811a83844c"
++NATIVE_SHA256 = "5995b1fc5b6ff6c5da67fda4b92d91eeb4d7515373f039029811bbc03b084200"
++SCOPED_SHA256 = "a00f505b9b1e9003f60b97c44aa2324a5e1bdec4df63ef93d2513f806eea6410"
++EXPRESS_RESOURCE_SHA256 = "8d95ecd64891e9b47e1fe960ed2084923f9d71abbbf2d8a9ae0bfb93b4a5ff24"
++EXPRESS_CONTROLLER_SHA256 = "bce4454f995d567a8593875383866ae357f099977e3ee36fee02c93f1917a152"
++TEMPLATE_SHA256 = {'templates/Invoicer/index-shop.html': '1ba56692a8be0e49f5bc81d6a24e96784bafe673d090bf312a5948da1b6a60a9', 'templates/Invoicer/old-index.html': 'c4b005e356a1c2746b864275f364537d7afb70c4f1f8097c16322b6a71bcebfc', 'templates/Invoicer/new-index.html': 'ff9a4afdeeecfbc799cd7365e4cc15dedad384deace9fd8c615bdebcab5f1931'}
++
++
++def verify_inputs(root):
++    root = Path(root)
++    for path, expected in {
++        "pos_invoice_factory.py": BASE_FACTORY_SHA256,
++        "pos_invoice_documents.py": RESOURCE_SHA256,
++        "pos_invoice_documents_history.py": HISTORY_SHA256,
++        "pos_invoice_documents_native.py": NATIVE_SHA256,
++        "pos_invoice_documents_scoped.py": SCOPED_SHA256,
++        "pos_invoice_documents_express.py": EXPRESS_RESOURCE_SHA256,
++        "controllers/PosExpressInvoiceController.py": EXPRESS_CONTROLLER_SHA256,
++        **TEMPLATE_SHA256,
++    }.items():
++        digest = hashlib.sha256((root / path).read_bytes()).hexdigest()
++        if not hmac.compare_digest(digest, expected):
++            raise RuntimeError("Online invoice source is not the reviewed artifact")
++
++
++def create_app():
++    verify_inputs(Path(__file__).resolve().parent)
++    import pos_invoice_factory
++    create_private_invoice = pos_invoice_factory.create_app
++    original_engine = pos_invoice_factory.reader_engine
++
++    def repeatable_reader(url, ca):
++        return original_engine(url, ca).execution_options(isolation_level="REPEATABLE READ")
++
++    pos_invoice_factory.reader_engine = repeatable_reader
++    # This performs the original controller/helper digest checks, installs the
++    # scoped read-only engine, closed errors/logging and private middleware.
++    app = create_private_invoice()
++    from controllers import InvoiceController
++    from pos_invoice_documents_history import InvoiceHistoryReader
++    InvoiceController.SessionR = InvoiceHistoryReader(InvoiceController.SessionR)
++    from pos_invoice_documents import OnlineInvoiceResource
++    app.add_route("/internal/pos/invoices/online", OnlineInvoiceResource())
++    from controllers import PosExpressInvoiceController
++    from pos_invoice_documents_scoped import SelectedReader
++    PosExpressInvoiceController.SessionR = SelectedReader(InvoiceController.SessionR)
++    from pos_invoice_documents_express import ExpressInvoiceResource
++    app.add_route("/internal/pos/invoices/express", ExpressInvoiceResource())
++    return app
+--- /dev/null
++++ b/pos_invoice_documents_gunicorn_config.py
+@@ -0,0 +1,22 @@
++"""Only for pos_invoice_factory, never the ordinary API-v2 main process."""
++import os
++import re
++
++port = os.environ.get("POS_INVOICE_PORT", "")
++if not re.fullmatch(r"[0-9]{2,5}", port) or not 1 <= int(port) <= 65535:
++    raise RuntimeError("Private invoice port is not configured")
++
++bind = "0.0.0.0:" + port
++wsgi_app = "pos_invoice_documents_factory:create_app()"
++workers = 2
++worker_class = "gthread"
++threads = 4
++timeout = 20
++graceful_timeout = 10
++keepalive = 5
++preload_app = False
++accesslog = None
++errorlog = "-"
++loglevel = "warning"
++logger_class = "pos_invoice_gunicorn.ClosedInvoiceLogger"
++capture_output = False

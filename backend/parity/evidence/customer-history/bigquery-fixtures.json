@@ -1,0 +1,245 @@
+{
+  "checkedAt": "2026-11-16T15:50:46.081Z",
+  "scope": "executed-generated-literal-select-only",
+  "sourceRowsRead": 0,
+  "cloudWrites": 0,
+  "reviewProjectionSha256": "8bb676faf7d89195a115a8cbd9edfee51ea25646b1cde4a9d7fca09c890e25ba",
+  "results": [
+    {
+      "index": 0,
+      "name": "source-multiplicity",
+      "layout": "raw",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": null,
+      "statementSha256": "1562643c6d3420dedb8241598cef13fa7bfff750feec80ef46077c99c52d0e4e",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "4",
+          "4"
+        ],
+        "nps": [
+          3.1666666666666665,
+          3.1666666666666665
+        ]
+      }
+    },
+    {
+      "index": 1,
+      "name": "approximate-half-even-up",
+      "layout": "raw",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": null,
+      "statementSha256": "0e0bf8d25014443a013bf66fffdf625de15ffc3a73f0e12e9dbe480b4f2cedc7",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "4",
+          "4"
+        ],
+        "nps": [
+          3.1666666666666665,
+          3.1666666666666665
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "name": "empty-customer",
+      "layout": "raw",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": null,
+      "statementSha256": "2651d8fda04b6b967565b85a8abf7441ee06f29b862f0284668a9f1f03016c44",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "0",
+          "0"
+        ],
+        "nps": [
+          null,
+          null
+        ]
+      }
+    },
+    {
+      "index": 3,
+      "name": "return-pagination-and-same-day-ties",
+      "layout": "raw",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": true,
+      "statementSha256": "a37695b76ed5d526e2a08ba49b829abe573f498b17ac8201df2a45e7b7316b36",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "8",
+          "8"
+        ],
+        "nps": [
+          null,
+          null
+        ]
+      }
+    },
+    {
+      "index": 4,
+      "name": "mysql-numeric-prefix",
+      "layout": "raw",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": null,
+      "statementSha256": "d54153428118178ccbb59c21265919e735fe015267083c1fc8b980379f31907d",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "4",
+          "4"
+        ],
+        "nps": [
+          -1.4375,
+          -1.4375
+        ]
+      }
+    },
+    {
+      "index": 0,
+      "name": "source-multiplicity",
+      "layout": "customer-bucket-v1",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": null,
+      "statementSha256": "f359600e71ceeb7808b1f2d7300449763f17ee849389fd16646f0e6a50b4ae7d",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "4",
+          "4"
+        ],
+        "nps": [
+          3.1666666666666665,
+          3.1666666666666665
+        ]
+      }
+    },
+    {
+      "index": 1,
+      "name": "approximate-half-even-up",
+      "layout": "customer-bucket-v1",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": null,
+      "statementSha256": "cc039f7b489bef76ae384af5bb84edb27445854dc3435e5b6a33307bd6c6f99c",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "4",
+          "4"
+        ],
+        "nps": [
+          3.1666666666666665,
+          3.1666666666666665
+        ]
+      }
+    },
+    {
+      "index": 2,
+      "name": "empty-customer",
+      "layout": "customer-bucket-v1",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": null,
+      "statementSha256": "3a03796022f4fd8cda0bbd26145e681ec42edb3410316a72a49eb9bf43357d5f",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "0",
+          "0"
+        ],
+        "nps": [
+          null,
+          null
+        ]
+      }
+    },
+    {
+      "index": 3,
+      "name": "return-pagination-and-same-day-ties",
+      "layout": "customer-bucket-v1",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": true,
+      "statementSha256": "70d99d30ff1a173eaa3ac1d4e1431ece096bc70d54cebc2d23c7ed924f27dba5",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "8",
+          "8"
+        ],
+        "nps": [
+          null,
+          null
+        ]
+      }
+    },
+    {
+      "index": 4,
+      "name": "mysql-numeric-prefix",
+      "layout": "customer-bucket-v1",
+      "historyMatched": true,
+      "linesMatched": true,
+      "paginationMatched": null,
+      "statementSha256": "eec4b7efbb314efc723c00c535ef6bb56dc7c1452123491809792e7ca976f4e5",
+      "errorCode": null,
+      "errorPhase": null,
+      "errorLocation": null,
+      "differences": [],
+      "scalarDiagnostics": {
+        "last30Days": [
+          "4",
+          "4"
+        ],
+        "nps": [
+          -1.4375,
+          -1.4375
+        ]
+      }
+    }
+  ],
+  "limitations": [
+    "Actual BigQuery execution uses only generated fixture CTE literals, never source tables.",
+    "Partitioned NPS input executes the exact review-file numeric-prefix SELECT against generated CTE rows.",
+    "Same-day recent-order ties use the documented ID-desc candidate policy, not a claim of deterministic source tie ordering.",
+    "This does not certify live CDC completeness, source float encoding, deployment cost or financial as-of consistency."
+  ]
+}

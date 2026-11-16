@@ -1,0 +1,81 @@
+name: Desktop platform checks
+
+on:
+  pull_request:
+    paths:
+      - 'frontend/**'
+      - 'backend/**'
+      - '.github/workflows/desktop-platforms.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: Desktop on ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      CI: 'true'
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: '24.22.3'
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm ci
+        working-directory: frontend
+      - run: npx playwright install chromium
+        working-directory: frontend
+      - run: npm run typecheck
+        working-directory: backend
+      - run: npm run build
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+      - name: Native Electron and offline browser checks
+        run: npm run test:e2e
+        working-directory: frontend
+      - name: Browser sign-in, customer and order recovery
+        run: npx vitest run tests/desktop-sso/browser.test.ts tests/customer-profile/browser.test.ts tests/customer-contacts/contacts.browser.test.ts tests/customer-otp/otp.browser.test.ts tests/product-feedback/browser.test.ts tests/order-payments/order-payments.browser.test.ts tests/global-vouchers/vouchers.browser.test.ts tests/inventory-workbooks/browser.test.ts
+        working-directory: frontend
+        env:
+          DESKTOP_SSO_BROWSER_TESTS: 'true'
+          CUSTOMER_PROFILE_BROWSER_TESTS: 'true'
+          ADMINISTRATION_BROWSER_TESTS: 'true'
+          PRODUCT_FEEDBACK_BROWSER_TESTS: 'true'
+      - name: Scoped invoice browser checks
+        run: node tools/run-browser-fixture.mjs invoice-documents
+        working-directory: frontend
+      - name: Package unsigned review artifact on its target OS
+        run: node node_modules/electron-builder/out/cli/cli.js --dir
+        working-directory: frontend
+      - name: Verify packaged integrity, native restart, sandbox and offline profile
+        run: node tools/smoke-desktop-package.mjs
+        working-directory: frontend
+      - name: Retain review artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: desktop-${{ matrix.os }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: |
+            frontend/release/
+            frontend/test-results/
+            frontend/playwright-report/
+            backend/evidence/desktop-package-*.json
+            backend/evidence/desktop-runtime-*.json

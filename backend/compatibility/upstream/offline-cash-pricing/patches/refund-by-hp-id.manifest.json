@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "status": "candidate-only-user-semantics-decision-required",
+  "enabled": false,
+  "response_identical": false,
+  "source": {
+    "repository": "backend-tss-api_v2",
+    "commit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+    "path": "controllers/OrderController.py",
+    "sha256": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad",
+    "function": "amount_to_be_refunded_calculation",
+    "function_line": 3513,
+    "query_line": 3589
+  },
+  "candidate": {
+    "patch": "refund-by-hp-id.patch",
+    "patch_sha256": "e156c0c281cf5d846b6ae88cd7824959babe2069ed409ca9dff31b7882945f11",
+    "sha256": "d8b922d8ddaa5ed4743b51b113bbae344e3853a4f49054f18bb9b1cd8597da18",
+    "scope": "Add the individual has_products primary-key predicate to the existing refund UPDATE only."
+  },
+  "invariants": [
+    "Refund arithmetic, rounding, audit INSERT and cancellation mapping remain byte-identical.",
+    "Only temporary source copies may be patched by the verification tool.",
+    "Existing source_refunds.py, source_template.py, runtime.py and sibling source repositories are not modified.",
+    "Default provider still rejects original incoherent refunds and unaccepted source hashes."
+  ],
+  "financial_effect": "Stored per-HP refund amounts change for duplicate product IDs whose allocated refunds differ. The corrected HP values align to existing per-HP audit values; this is a financial semantics change, not response-identical optimization.",
+  "enablement": "None. No provider/runtime flag, expected source hash or live source is changed. User choice and independent upstream rollout/parity acceptance are required."
+}

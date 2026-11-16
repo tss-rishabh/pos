@@ -1,0 +1,18 @@
+{
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "stagedContract": "pos-cancellation-membership-staged-v2",
+  "activatedContract": "pos-cancellation-membership-provenance-v2",
+  "nativeFence": "pos-membership-native-revision-v1",
+  "sourceSha256": {
+    "controllers/user/userDal.py": "ad0135cb60aa2c8ffd8d5aa5bc6d8b343efb97227fd3394a1ff31989054141a8",
+    "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad"
+  },
+  "candidateSha256": {
+    "controllers/user/userDal.py": "99c3bc6e9c5f94478e08e6789aee3cbefee276639a8609a446bde82263548f91",
+    "controllers/OrderController.py": "00d944014f11a8f6e4bad0f797e8c57396210309d7f5eb74df90bf46f35f22ba"
+  },
+  "helperSha256": "a4b40297d7ff99fd5264a9818eb2c1553aa3fbbf5f03abd85630e5eb99c837f6",
+  "patch": "api-v2-membership-producers.patch",
+  "patchSha256": "8ab4fbb2a54bf8cdce938947cf7edf887f872dbc6c630356c075466c540e6c58",
+  "enabled": false
+}

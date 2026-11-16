@@ -1,0 +1,37 @@
+{
+  "status": "review-only-not-applied",
+  "entries": [
+    {
+      "patch": "global-issuance-exact-value.patch",
+      "sourceRepo": "backend-pos-web",
+      "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+      "sourcePath": "core/views.py",
+      "beforeSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+      "afterSha256": "3b8dc26e43ab8bfbf0fa70c43d4d421fd9cbc591291cd3bd719ccb1dcd955aad",
+      "patchSha256": "970aa1d915dc9a07e26e66d0d0fe8abf4c9ecbb2e14fbb50101985ff3b940d1c"
+    },
+    {
+      "patch": "api-voucher-nonexpiry-display.patch",
+      "sourceRepo": "backend-tss-api_v2",
+      "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+      "sourcePath": "controllers/GiftVoucherController.py",
+      "beforeSha256": "250636b0a58195ba0ff6e991b6e500193010ed00b0c53ee5c373485cf49b0311",
+      "afterSha256": "1de1ba84abf0fd2173158a25b07ff5509a31078b49089dbb690cfc6fe0aded83",
+      "patchSha256": "17d93de7d1f95aa17b97dc231b3b5c4bb79dba7f9d18eef95fee48e9f73a994b"
+    },
+    {
+      "patch": "api-voucher-issuance-enum.patch",
+      "sourceRepo": "backend-tss-api_v2",
+      "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+      "sourcePath": "models/GiftVoucherHistory.py",
+      "beforeSha256": "8e80b1fe469701d7abf7571d72abc3547e267336fd9654d696902bdad470c26d",
+      "afterSha256": "44e64f3a3be9a06783d2b99316372345d79bf87837f182d10ac308ceea0aa57f",
+      "patchSha256": "cf0711700b6a8959db6d753e29bedc6e17886310cf670b15d265a303c88e905a"
+    }
+  ],
+  "legacySql": {
+    "path": "legacy-compatibility.review.sql",
+    "sha256": "16405257cf12f44fc729d278f8e7e49f3b9d2ed83ae40cecf45b18c535ca3829",
+    "automaticMigration": false
+  }
+}

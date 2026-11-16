@@ -1,0 +1,80 @@
+{
+  "checkedAt": "2026-11-16T02:21:09.726499+00:00",
+  "region": "ap-south-1",
+  "readOnly": true,
+  "cluster": {
+    "id": "tss-live-rep-cluster",
+    "engine": "aurora-mysql",
+    "version": "8.0.mysql_aurora.3.08.2",
+    "writer": "tss-live-rep-cluster.cluster-c8eicndimk7g.ap-south-1.rds.amazonaws.com",
+    "reader": "tss-live-rep-cluster.cluster-ro-c8eicndimk7g.ap-south-1.rds.amazonaws.com",
+    "replicationSource": null,
+    "replicas": [],
+    "members": [
+      {
+        "id": "tss-live-rdr3",
+        "writer": false
+      },
+      {
+        "id": "data-team-reader",
+        "writer": false
+      },
+      {
+        "id": "tss-live-rep",
+        "writer": true
+      }
+    ]
+  },
+  "endpoints": [
+    {
+      "id": null,
+      "endpoint": "tss-live-rep-cluster.cluster-c8eicndimk7g.ap-south-1.rds.amazonaws.com",
+      "type": "WRITER",
+      "customType": null,
+      "staticMembers": null,
+      "excludedMembers": null,
+      "status": "available"
+    },
+    {
+      "id": null,
+      "endpoint": "tss-live-rep-cluster.cluster-ro-c8eicndimk7g.ap-south-1.rds.amazonaws.com",
+      "type": "READER",
+      "customType": null,
+      "staticMembers": null,
+      "excludedMembers": null,
+      "status": "available"
+    },
+    {
+      "id": "data-team-reader",
+      "endpoint": "data-team-reader.cluster-custom-c8eicndimk7g.ap-south-1.rds.amazonaws.com",
+      "type": "CUSTOM",
+      "customType": "ANY",
+      "staticMembers": [
+        "data-team-reader"
+      ],
+      "excludedMembers": [],
+      "status": "available"
+    },
+    {
+      "id": "reader",
+      "endpoint": "reader.cluster-custom-c8eicndimk7g.ap-south-1.rds.amazonaws.com",
+      "type": "CUSTOM",
+      "customType": "ANY",
+      "staticMembers": [],
+      "excludedMembers": [
+        "tss-live-rep",
+        "data-team-reader"
+      ],
+      "status": "available"
+    }
+  ],
+  "providedReader": {
+    "hostname": "data-team-reader-mysql.thesouledstore.com",
+    "schema": "tss"
+  },
+  "unverified": [
+    "This cluster is not confirmed as the operational POS writer.",
+    "Metadata visibility does not prove the current deployed pos_stock_syncer definition.",
+    "No live database writes, routine execution or infrastructure mutations were performed."
+  ]
+}

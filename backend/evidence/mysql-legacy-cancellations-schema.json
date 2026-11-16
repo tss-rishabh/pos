@@ -1,0 +1,160 @@
+{
+  "checkedAt": "2026-11-16T11:29:01.945Z",
+  "schema": "tss",
+  "tables": {
+    "cancel_orders": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_status",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "sub_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "qty",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "received",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "reason_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "other_reason",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "comment",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ]
+  },
+  "indexes": {
+    "cancel_orders": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "order_status",
+        "column": "order_status",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "prod_id",
+        "column": "prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "sub_prod_id",
+        "column": "sub_prod_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "reason_id",
+        "column": "reason_id",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {
+    "cancel_orders": []
+  },
+  "inboundForeignKeys": [],
+  "locations": [],
+  "errors": []
+}

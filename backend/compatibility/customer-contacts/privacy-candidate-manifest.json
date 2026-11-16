@@ -1,0 +1,17 @@
+{
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "sourceFile": "tasks.py",
+  "beforeSha256": "c418f9841fd1adb33701238c3adbea0625a6184ad4f3192e61c5cfa10022c218",
+  "afterSha256": "080f769fdc448e5f8ffdf5d79a72586e0342045c7305ec00468952e4140304e0",
+  "newFile": "pos_contact_task_privacy.py",
+  "newFileSha256": "e46aec5999caf85dc7ee7017acf4e90322c6546baa3622d82b8a5a8e5b61be5c",
+  "patchFile": "patches/customer-contact-task-privacy.patch",
+  "patchSha256": "c64305d6bbcb65e678a3e0c9cffa98e16d949bbc77934cf841828d25722f3a5b",
+  "dryApply": "passed-in-temporary-copy-only",
+  "deployment": "not-applied",
+  "resources": [
+    "clevertap-profile",
+    "moengage-attributes",
+    "support-flags"
+  ]
+}

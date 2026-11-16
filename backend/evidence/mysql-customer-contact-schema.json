@@ -1,0 +1,1825 @@
+{
+  "checkedAt": "2026-11-16T12:34:40.960Z",
+  "schema": "tss",
+  "tables": {
+    "user_detail_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "user_type",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "type",
+        "type": "enum('TELEPHONE','EMAIL')",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "previous_value",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "new_value",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "added_by",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "user_email_membership_copy_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "old_email",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb4_0900_ai_ci",
+        "default": null
+      },
+      {
+        "name": "new_email",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb4_0900_ai_ci",
+        "default": null
+      },
+      {
+        "name": "shared_user_ids",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_0900_ai_ci",
+        "default": null
+      },
+      {
+        "name": "exclusive_expiry",
+        "type": "varchar(64)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb4_0900_ai_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "user_eav": [
+      {
+        "name": "entity",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "attribute",
+        "type": "enum('EXCLUSIVE_NOTIFY','EXCLUSIVE_EXPIRY','EXCLUSIVE_MEMBER')",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "value",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint(1)",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      }
+    ],
+    "jp_customers": [
+      {
+        "name": "id",
+        "type": "int unsigned",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "deleted_at",
+        "type": "timestamp",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "juspay_cust",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "user",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(100)",
+        "nullable": true,
+        "key": "UNI",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      }
+    ],
+    "welcome_offer": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "email_id",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "gender",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "dob",
+        "type": "date",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "coupon_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "coupon_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "coupon_value",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "coupon_type",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "bank_transfer_requests": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "refund_request_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "amount",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "transfer_id",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "transfer_mode",
+        "type": "enum('UPI','BANK_TRANSFER')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "remarks",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "bank_account",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "ifsc",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "phone",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "vpa",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "address",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "status",
+        "type": "enum('PENDING','SUCCESS','ERROR','FAILED','REVERSED','REQUESTED')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "reference_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "utr",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "acknowledged",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "bene_id",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_communicated",
+        "type": "smallint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "communication_status",
+        "type": "varchar(45)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "refund_alternate_payment_details": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "refund_request_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "email",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "amount",
+        "type": "varchar(55)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "transfer_mode",
+        "type": "enum('UPI','BANK_TRANSFER')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "upi_id",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "bank_account",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "ifsc",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "bank_account_holder_name",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "status",
+        "type": "enum('PENDING','MAIL_SENT','SUBMITTED')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "mail_sent_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "submitted_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP"
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
+        "default": "CURRENT_TIMESTAMP"
+      }
+    ],
+    "refund_requests": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "refund_method",
+        "type": "enum('TSS_MONEY','OG','BANK_TRANSFER','UPI')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "refund_type",
+        "type": "enum('CANCELLED','UNDELIVERED','RETURN')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(250)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_completed",
+        "type": "enum('PENDING','COMPLETED','REJECTED','FAILED')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "PENDING"
+      },
+      {
+        "name": "is_auto",
+        "type": "tinyint(1)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_approved",
+        "type": "enum('PENDING','APPROVED','DISAPPROVED')",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "PENDING"
+      },
+      {
+        "name": "status_type",
+        "type": "enum('MISSING_PRODUCT','DAMAGED_PRODUCT')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "approved_by",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "disapproved_by",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "created_by",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "coupons": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "from_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "from_name",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "to_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "to_name",
+        "type": "varchar(100)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "to_phone",
+        "type": "varchar(50)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "voucher_name",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "voucher_code",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "disc_apply_items",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "voucher_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "image",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_offer",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "voucher_valid_for",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "voucher_val",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "initial_val",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "user_specific",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "coupon_cat",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_deleted",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "intern_email",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "for_artist",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "remaining",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "theme",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "message",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "start_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "end_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "min_order_amt",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "no_times_allowed",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "unique_no_times_allowed",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      },
+      {
+        "name": "coupon_lot_no",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "default_country_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "99"
+      },
+      {
+        "name": "payment_method",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "transaction_status",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "transaction_orderid",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "requested_by",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "for_new_user",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_employee_coupon",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "platform",
+        "type": "enum('both','web','app','offline','all')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "user_type",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "voucher_percentage_max_val",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "buyable_quantity",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "free_quantity",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "voucher_mxn_type",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_applicable_on_discounted_products",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      }
+    ],
+    "coupons_users": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "c_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "coupon_allowed_count",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "coupon_used_count",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "coupon_month_allowed_count",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "is_birthday_coupon_sent",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "birthday_coupon_sent_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0000-00-00 00:00:00"
+      }
+    ]
+  },
+  "indexes": {
+    "user_detail_logs": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "PRIMARY",
+        "column": "user_id",
+        "position": 2,
+        "unique": true
+      },
+      {
+        "name": "created_updated",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_updated",
+        "column": "updated_at",
+        "position": 2,
+        "unique": false
+      }
+    ],
+    "user_email_membership_copy_logs": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "idx_user_email_membership_copy_logs_user",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_user_email_membership_copy_logs_old_email",
+        "column": "old_email",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_user_email_membership_copy_logs_new_email",
+        "column": "new_email",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "user_eav": [
+      {
+        "name": "PRIMARY",
+        "column": "entity",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "PRIMARY",
+        "column": "attribute",
+        "position": 2,
+        "unique": true
+      },
+      {
+        "name": "is_active",
+        "column": "is_active",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "entity_attribute",
+        "column": "entity",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "entity_attribute",
+        "column": "attribute",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "updated_at",
+        "column": "updated_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "attribute",
+        "column": "attribute",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "entity",
+        "column": "entity",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "jp_customers": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "uix_jp_customers_email",
+        "column": "email",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "idx_jp_customers_deleted_at",
+        "column": "deleted_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "user",
+        "column": "user",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "welcome_offer": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "user_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "email_id",
+        "column": "email_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "gender",
+        "column": "gender",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "dob",
+        "column": "dob",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "coupon_id",
+        "column": "coupon_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "coupon_name",
+        "column": "coupon_name",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "coupon_value",
+        "column": "coupon_value",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "coupon_type",
+        "column": "coupon_type",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "bank_transfer_requests": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "product_id",
+        "column": "product_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "refund_request_id",
+        "column": "refund_request_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "transfer_id",
+        "column": "transfer_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "transfer_mode",
+        "column": "transfer_mode",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "name",
+        "column": "name",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "email",
+        "column": "email",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "phone",
+        "column": "phone",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "reference_id",
+        "column": "reference_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "updated_at",
+        "column": "updated_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "status",
+        "column": "status",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "bene_id_idx",
+        "column": "bene_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "refund_alternate_payment_details": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "refund_request_id",
+        "column": "refund_request_id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "idx_status",
+        "column": "status",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "refund_requests": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "product_id",
+        "column": "product_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "refund_method",
+        "column": "refund_method",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "refund_type",
+        "column": "refund_type",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_completed",
+        "column": "is_completed",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_auto",
+        "column": "is_auto",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_approved",
+        "column": "is_approved",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "refund_requests_updated_at_IDX",
+        "column": "updated_at",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "coupons": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "user_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "voucher_code",
+        "column": "voucher_code",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "voucher_name",
+        "column": "voucher_name",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_employee_coupon",
+        "column": "is_employee_coupon",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "coupons_users": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "user_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "c_id",
+        "column": "c_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_birthday_coupon_sent",
+        "column": "is_birthday_coupon_sent",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {
+    "user_detail_logs": [],
+    "user_email_membership_copy_logs": [],
+    "user_eav": [],
+    "jp_customers": [],
+    "welcome_offer": [],
+    "bank_transfer_requests": [],
+    "refund_alternate_payment_details": [],
+    "refund_requests": [],
+    "coupons": [],
+    "coupons_users": []
+  },
+  "inboundForeignKeys": [],
+  "locations": [
+    {
+      "schema_name": "mobile_cms",
+      "table_name": "jp_customers"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "bank_transfer_requests"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "coupons"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "coupons_users"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "jp_customers"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "refund_alternate_payment_details"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "refund_requests"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "user_detail_logs"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "user_eav"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "user_email_membership_copy_logs"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "welcome_offer"
+    }
+  ],
+  "errors": []
+}

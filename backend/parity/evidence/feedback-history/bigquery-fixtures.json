@@ -1,0 +1,72 @@
+{
+  "checkedAt": "2026-11-16T16:21:12.012Z",
+  "source": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "nativeSha256": "02d3dc4eea9dabc26fbf57a6d3b3a131c95c7a35c58143b9fdeba0a7d6e654eb",
+  "scope": "raw-dry-run-and-generated-literal-select-only",
+  "dryRun": {
+    "estimatedBytes": "577884239",
+    "overConfiguredBudget": false,
+    "statementSha256": "d84144911186402229f47b605e0a064cc7ed44da4182d01c1b71079bd87c66ea"
+  },
+  "cases": [
+    {
+      "name": "all-current-dimensions",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "selected-store-multiplicity",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "email-case-accent-and-padding",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "email-current-customer-and-store",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "email-no-match",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "order-filter",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "archived-store-current-name",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "missing-store-filter",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "page-two",
+      "matched": true,
+      "errorCode": null
+    },
+    {
+      "name": "page-fallback",
+      "matched": true,
+      "errorCode": null
+    }
+  ],
+  "sourceRowsRead": 0,
+  "cloudWrites": 0,
+  "errors": [],
+  "limitations": [
+    "Raw source query is dry-run metadata only. Executed SELECTs use generated fixture literals exclusively.",
+    "MySQL native tests verify current collation/dimension enrichment and writer authorization separately.",
+    "Raw CDC does not establish a transaction-consistent snapshot or financial publication.",
+    "Production activation still requires source replication/ownership/DATETIME contracts and estimates within the unchanged configured byte budget."
+  ]
+}

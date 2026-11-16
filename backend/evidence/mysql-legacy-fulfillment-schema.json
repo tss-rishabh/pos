@@ -1,0 +1,361 @@
+{
+  "checkedAt": "2026-11-16T10:10:34.665Z",
+  "schema": "tss",
+  "tables": {
+    "pos_transaction_logs": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "order_status",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "payment_status",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "pay_dict",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "pos_user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "comment",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "hyperlocal_order_log": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "borzo_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "action",
+        "type": "enum('ACCEPTED','DECLINED','NO_ACTION','CREATION_FAILED','CONVERT_ONLINE')",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": "NO_ACTION"
+      },
+      {
+        "name": "main_location_id",
+        "type": "int",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_created_in_borzo",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "borzo_resp",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "error_msg",
+        "type": "text",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "is_pack",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_rto",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "rto_recieved",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "is_refunded",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "delivery_exception_msg",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "source_tracking_url",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "destination_tracking_url",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "delivery_exception_date",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      }
+    ]
+  },
+  "indexes": {
+    "pos_transaction_logs": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "pos_user_id",
+        "column": "pos_user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "user_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "hyperlocal_order_log": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_created_in_borzo",
+        "column": "is_created_in_borzo",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "delivery_exception_date",
+        "column": "delivery_exception_date",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_rto",
+        "column": "is_rto",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "rto_received",
+        "column": "rto_recieved",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "updated_at",
+        "column": "updated_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "pos_admin_id",
+        "column": "pos_admin_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_refunded",
+        "column": "is_refunded",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_pack",
+        "column": "is_pack",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {
+    "pos_transaction_logs": [],
+    "hyperlocal_order_log": []
+  },
+  "inboundForeignKeys": [],
+  "locations": [],
+  "errors": []
+}

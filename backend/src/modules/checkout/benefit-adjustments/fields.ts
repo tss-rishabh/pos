@@ -1,0 +1,96 @@
+import { z } from 'zod';
+
+export const walletIdentifier = z
+  .string()
+  .regex(/^[1-9]\d{0,18}$/)
+  .refine(
+    (value) => /^[1-9]\d{0,18}$/.test(value) && BigInt(value) <= 9_223_372_036_854_775_807n,
+    'Identifier is outside the signed legacy range.',
+  );
+
+/** User-approved financial corrections; activation still requires the shared wallet lock contract. */
+export const walletAdjustmentContract = 'pos-global-wallet-adjustment-v1';
+export const walletCorrectionPatchHash =
+  '800758e0763efddfe1cacdc5a9a55022d3209a9bdbb1599f76a5b86f24e30730';
+
+export const moneyPlatforms = [
+  'ORDER_PLACED',
+  'ORDER_CANCELLED',
+  'ORDER_REFUND',
+  'ORDER_MONEY',
+  'TSS_MONEY_EXPIRED',
+  'TSS_MONEY_EARNED',
+  'ORDER_RETURN',
+  'PAYMENT_FAILED',
+  'DONATION_MONEY',
+  'PRODUCT_RETURN',
+  'COURIER_COMPENSATION',
+  'DEFECTIVE_PRODUCT',
+  'PRODUCT_MISSING',
+  'PRODUCT_OUT_OF_STOCK',
+  'MISC_COMPENSATION',
+] as const;
+// The source dropdown's DONATION_POINTS is absent from the verified physical ENUM.
+// Its meaning must be reviewed; it is never silently mapped to another platform.
+export const pointPlatforms = [
+  'GAME_POINTS',
+  'ORDER_PLACED',
+  'ORDER_CANCELLED',
+  'ORDER_REFUND',
+  'ORDER_POINTS',
+  'TSS_POINTS_EXPIRED',
+  'TSS_POINTS_EARNED',
+  'ORDER_RETURN',
+  'PAYMENT_FAILED',
+  'PRODUCT_RETURN',
+  'COURIER_COMPENSATION',
+  'DEFECTIVE_PRODUCT',
+  'PRODUCT_MISSING',
+  'PRODUCT_OUT_OF_STOCK',
+  'MISC_COMPENSATION',
+  'APP_CASHBACK',
+  'WEB_CASHBACK',
+] as const;
+export const benefitReasons = [
+  'Order Placed',
+  'Return Refund',
+  'Undelivered Prepaid Order',
+  'Refunds',
+  'Difference Amount',
+  'Compensation',
+  'Courier Charges',
+  'Bug Bounty',
+  'Service Gesture',
+  'Survey',
+  'Origin payment mode',
+  'Other',
+] as const;
+const reference = z.union([z.literal('0'), walletIdentifier]);
+const common = z.object({
+  direction: z.enum(['add', 'subtract']),
+  amount: z
+    .string()
+    .regex(/^(?:0|[1-9]\d{0,4})(?:\.\d{1,2})?$/)
+    .refine(
+      (value) => Number(value) > 0 && Number(value) <= 99999,
+      'Enter an amount from0.01 to99999.',
+    ),
+  reason: z.enum(benefitReasons),
+  orderId: reference,
+  productId: reference,
+  expiry: z.iso.date().nullable(),
+});
+export const walletAdjustmentFieldsSchema = z
+  .discriminatedUnion('asset', [
+    common.extend({ asset: z.literal('money'), platform: z.enum(moneyPlatforms) }).strict(),
+    common.extend({ asset: z.literal('points'), platform: z.enum(pointPlatforms) }).strict(),
+  ])
+  .superRefine((input, context) => {
+    if (input.direction === 'add' && input.expiry === null)
+      context.addIssue({
+        code: 'custom',
+        path: ['expiry'],
+        message: 'An explicit earning expiry is required.',
+      });
+  });
+export type WalletAdjustmentFields = z.infer<typeof walletAdjustmentFieldsSchema>;

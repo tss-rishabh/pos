@@ -1,0 +1,1517 @@
+{
+  "additionalNegativeRemainderGuard": {
+    "aligned": true,
+    "candidateStored": [
+      "0.01",
+      "0.01",
+      "0.01",
+      "-0.01"
+    ],
+    "coherent": false,
+    "note": "Adversarial helper input, not proof of eligibility as a signed offline cash receipt. The query patch does not change allocator arithmetic.",
+    "target": "0.02"
+  },
+  "candidateSha256": "d8b922d8ddaa5ed4743b51b113bbae344e3853a4f49054f18bb9b1cd8597da18",
+  "cases": [
+    {
+      "audit": [
+        "1.00",
+        "2.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00"
+      ],
+      "candidateStoredTotal": "3.00",
+      "case": "duplicate-permutation-0",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22"
+      ],
+      "originalStored": [
+        "2.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "4.00",
+      "target": "3.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00"
+      ],
+      "candidateStoredTotal": "3.00",
+      "case": "duplicate-permutation-1",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22"
+      ],
+      "originalStored": [
+        "1.00",
+        "1.00"
+      ],
+      "originalStoredTotal": "2.00",
+      "target": "3.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-0",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "4.00",
+        "3.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "14.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-1",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "4.00",
+        "3.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "14.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-2",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "4.00",
+        "3.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "14.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-3",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "2.00",
+        "3.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-4",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "2.00",
+        "3.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-5",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "2.00",
+        "3.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-6",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "4.00",
+        "3.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "14.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-7",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "4.00",
+        "3.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "14.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-8",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "4.00",
+        "1.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-9",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "4.00",
+        "1.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-10",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "4.00",
+        "3.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "14.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-11",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "4.00",
+        "1.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-12",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "4.00",
+        "1.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-13",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "2.00",
+        "1.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "6.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-14",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "4.00",
+        "1.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-15",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "4.00",
+        "1.00",
+        "4.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-16",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "2.00",
+        "1.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "6.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-17",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "2.00",
+        "1.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "6.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-18",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "2.00",
+        "3.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-19",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "2.00",
+        "3.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-20",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "3.00",
+        "2.00",
+        "3.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "10.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-21",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "2.00",
+        "1.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "6.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-22",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "2.00",
+        "1.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "6.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00",
+        "3.00",
+        "4.00"
+      ],
+      "candidateStoredTotal": "10.00",
+      "case": "multiple-groups-permutation-23",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33",
+        "44"
+      ],
+      "originalStored": [
+        "1.00",
+        "2.00",
+        "1.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "6.00",
+      "target": "10.00"
+    },
+    {
+      "audit": [
+        "0.33",
+        "0.33",
+        "0.34"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.33",
+        "0.33",
+        "0.34"
+      ],
+      "candidateStoredTotal": "1.00",
+      "case": "rounding-1.00-0",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.34",
+        "0.34",
+        "0.34"
+      ],
+      "originalStoredTotal": "1.02",
+      "target": "1.00"
+    },
+    {
+      "audit": [
+        "0.33",
+        "0.34",
+        "0.33"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.33",
+        "0.34",
+        "0.33"
+      ],
+      "candidateStoredTotal": "1.00",
+      "case": "rounding-1.00-1",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.34",
+        "0.34",
+        "0.34"
+      ],
+      "originalStoredTotal": "1.02",
+      "target": "1.00"
+    },
+    {
+      "audit": [
+        "0.33",
+        "0.33",
+        "0.34"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.33",
+        "0.33",
+        "0.34"
+      ],
+      "candidateStoredTotal": "1.00",
+      "case": "rounding-1.00-2",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.34",
+        "0.34",
+        "0.34"
+      ],
+      "originalStoredTotal": "1.02",
+      "target": "1.00"
+    },
+    {
+      "audit": [
+        "0.34",
+        "0.33",
+        "0.33"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.34",
+        "0.33",
+        "0.33"
+      ],
+      "candidateStoredTotal": "1.00",
+      "case": "rounding-1.00-3",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.34",
+        "0.34",
+        "0.34"
+      ],
+      "originalStoredTotal": "1.02",
+      "target": "1.00"
+    },
+    {
+      "audit": [
+        "0.33",
+        "0.34",
+        "0.33"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.33",
+        "0.34",
+        "0.33"
+      ],
+      "candidateStoredTotal": "1.00",
+      "case": "rounding-1.00-4",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.34",
+        "0.34",
+        "0.34"
+      ],
+      "originalStoredTotal": "1.02",
+      "target": "1.00"
+    },
+    {
+      "audit": [
+        "0.34",
+        "0.33",
+        "0.33"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.34",
+        "0.33",
+        "0.33"
+      ],
+      "candidateStoredTotal": "1.00",
+      "case": "rounding-1.00-5",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.34",
+        "0.34",
+        "0.34"
+      ],
+      "originalStoredTotal": "1.02",
+      "target": "1.00"
+    },
+    {
+      "audit": [
+        "0.34",
+        "0.34",
+        "0.33"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.34",
+        "0.34",
+        "0.33"
+      ],
+      "candidateStoredTotal": "1.01",
+      "case": "rounding-1.01-0",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.33",
+        "0.33",
+        "0.33"
+      ],
+      "originalStoredTotal": "0.99",
+      "target": "1.01"
+    },
+    {
+      "audit": [
+        "0.34",
+        "0.33",
+        "0.34"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.34",
+        "0.33",
+        "0.34"
+      ],
+      "candidateStoredTotal": "1.01",
+      "case": "rounding-1.01-1",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.33",
+        "0.33",
+        "0.33"
+      ],
+      "originalStoredTotal": "0.99",
+      "target": "1.01"
+    },
+    {
+      "audit": [
+        "0.34",
+        "0.34",
+        "0.33"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.34",
+        "0.34",
+        "0.33"
+      ],
+      "candidateStoredTotal": "1.01",
+      "case": "rounding-1.01-2",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.33",
+        "0.33",
+        "0.33"
+      ],
+      "originalStoredTotal": "0.99",
+      "target": "1.01"
+    },
+    {
+      "audit": [
+        "0.33",
+        "0.34",
+        "0.34"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.33",
+        "0.34",
+        "0.34"
+      ],
+      "candidateStoredTotal": "1.01",
+      "case": "rounding-1.01-3",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.33",
+        "0.33",
+        "0.33"
+      ],
+      "originalStoredTotal": "0.99",
+      "target": "1.01"
+    },
+    {
+      "audit": [
+        "0.34",
+        "0.33",
+        "0.34"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.34",
+        "0.33",
+        "0.34"
+      ],
+      "candidateStoredTotal": "1.01",
+      "case": "rounding-1.01-4",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.33",
+        "0.33",
+        "0.33"
+      ],
+      "originalStoredTotal": "0.99",
+      "target": "1.01"
+    },
+    {
+      "audit": [
+        "0.33",
+        "0.34",
+        "0.34"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.33",
+        "0.34",
+        "0.34"
+      ],
+      "candidateStoredTotal": "1.01",
+      "case": "rounding-1.01-5",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.33",
+        "0.33",
+        "0.33"
+      ],
+      "originalStoredTotal": "0.99",
+      "target": "1.01"
+    },
+    {
+      "audit": [
+        "0.00",
+        "0.00",
+        "0.01"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.00",
+        "0.00",
+        "0.01"
+      ],
+      "candidateStoredTotal": "0.01",
+      "case": "rounding-0.01-0",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.01",
+        "0.01",
+        "0.01"
+      ],
+      "originalStoredTotal": "0.03",
+      "target": "0.01"
+    },
+    {
+      "audit": [
+        "0.00",
+        "0.01",
+        "0.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.00",
+        "0.01",
+        "0.00"
+      ],
+      "candidateStoredTotal": "0.01",
+      "case": "rounding-0.01-1",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.01",
+        "0.01",
+        "0.01"
+      ],
+      "originalStoredTotal": "0.03",
+      "target": "0.01"
+    },
+    {
+      "audit": [
+        "0.00",
+        "0.00",
+        "0.01"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.00",
+        "0.00",
+        "0.01"
+      ],
+      "candidateStoredTotal": "0.01",
+      "case": "rounding-0.01-2",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.01",
+        "0.01",
+        "0.01"
+      ],
+      "originalStoredTotal": "0.03",
+      "target": "0.01"
+    },
+    {
+      "audit": [
+        "0.01",
+        "0.00",
+        "0.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.01",
+        "0.00",
+        "0.00"
+      ],
+      "candidateStoredTotal": "0.01",
+      "case": "rounding-0.01-3",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.01",
+        "0.01",
+        "0.01"
+      ],
+      "originalStoredTotal": "0.03",
+      "target": "0.01"
+    },
+    {
+      "audit": [
+        "0.00",
+        "0.01",
+        "0.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.00",
+        "0.01",
+        "0.00"
+      ],
+      "candidateStoredTotal": "0.01",
+      "case": "rounding-0.01-4",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.01",
+        "0.01",
+        "0.01"
+      ],
+      "originalStoredTotal": "0.03",
+      "target": "0.01"
+    },
+    {
+      "audit": [
+        "0.01",
+        "0.00",
+        "0.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.01",
+        "0.00",
+        "0.00"
+      ],
+      "candidateStoredTotal": "0.01",
+      "case": "rounding-0.01-5",
+      "changed": true,
+      "hasProductIds": [
+        "11",
+        "22",
+        "33"
+      ],
+      "originalStored": [
+        "0.01",
+        "0.01",
+        "0.01"
+      ],
+      "originalStoredTotal": "0.03",
+      "target": "0.01"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00"
+      ],
+      "candidateStoredTotal": "3.00",
+      "case": "unchanged-0",
+      "changed": false,
+      "hasProductIds": [
+        "1",
+        "2"
+      ],
+      "originalStored": [
+        "1.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "3.00",
+      "target": "3.00"
+    },
+    {
+      "audit": [
+        "9.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "9.00"
+      ],
+      "candidateStoredTotal": "9.00",
+      "case": "unchanged-1",
+      "changed": false,
+      "hasProductIds": [
+        "1"
+      ],
+      "originalStored": [
+        "9.00"
+      ],
+      "originalStoredTotal": "9.00",
+      "target": "9.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "1.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "1.00"
+      ],
+      "candidateStoredTotal": "2.00",
+      "case": "unchanged-2",
+      "changed": false,
+      "hasProductIds": [
+        "1",
+        "2"
+      ],
+      "originalStored": [
+        "1.00",
+        "1.00"
+      ],
+      "originalStoredTotal": "2.00",
+      "target": "2.00"
+    },
+    {
+      "audit": [
+        "1.50",
+        "1.50"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.50",
+        "1.50"
+      ],
+      "candidateStoredTotal": "3.00",
+      "case": "unchanged-3",
+      "changed": false,
+      "hasProductIds": [
+        "1",
+        "2"
+      ],
+      "originalStored": [
+        "1.50",
+        "1.50"
+      ],
+      "originalStoredTotal": "3.00",
+      "target": "3.00"
+    },
+    {
+      "audit": [
+        "0.39",
+        "0.78",
+        "1.18"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "0.39",
+        "0.78",
+        "1.18"
+      ],
+      "candidateStoredTotal": "2.35",
+      "case": "fractional-inputs",
+      "changed": true,
+      "hasProductIds": [
+        "1",
+        "2",
+        "3"
+      ],
+      "originalStored": [
+        "1.18",
+        "0.78",
+        "1.18"
+      ],
+      "originalStoredTotal": "3.14",
+      "target": "2.35"
+    },
+    {
+      "audit": [
+        "100.00",
+        "90.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "100.00",
+        "90.00"
+      ],
+      "candidateStoredTotal": "190.00",
+      "case": "unequal-per-hp-store-discount",
+      "changed": true,
+      "hasProductIds": [
+        "1",
+        "2"
+      ],
+      "originalStored": [
+        "90.00",
+        "90.00"
+      ],
+      "originalStoredTotal": "180.00",
+      "target": "190.00"
+    },
+    {
+      "audit": [
+        "1.00",
+        "2.00"
+      ],
+      "candidateCoherent": true,
+      "candidateStored": [
+        "1.00",
+        "2.00"
+      ],
+      "candidateStoredTotal": "3.00",
+      "case": "lossless-hp-and-product-ids",
+      "changed": true,
+      "hasProductIds": [
+        "9007199254740995",
+        "9007199254740996"
+      ],
+      "originalStored": [
+        "2.00",
+        "2.00"
+      ],
+      "originalStoredTotal": "4.00",
+      "target": "3.00"
+    }
+  ],
+  "changedVectors": 47,
+  "defaultGuardObserved": {
+    "originalMismatch": "SOURCE_REFUND_ALLOCATION_INCONSISTENT",
+    "unacceptedCandidateSource": "SOURCE_REVISION_UNVERIFIED"
+  },
+  "enabled": false,
+  "execution": "Actual extracted source helpers and literal SQL executed only in separate in-memory SQLite databases.",
+  "limits": "Plain-cash synthetic inputs; not a MySQL driver/plan test, runtime enablement, live-data backfill or full refund/cancel workflow certification.",
+  "patchSha256": "e156c0c281cf5d846b6ae88cd7824959babe2069ed409ca9dff31b7882945f11",
+  "responseIdentical": false,
+  "sourceSha256": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad",
+  "successfulVectors": 51
+}

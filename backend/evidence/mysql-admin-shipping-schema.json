@@ -1,0 +1,364 @@
+{
+  "checkedAt": "2026-11-16T09:19:05.821Z",
+  "schema": "tss",
+  "tables": {
+    "django_admin_log": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "action_time",
+        "type": "datetime(6)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "object_id",
+        "type": "longtext",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "object_repr",
+        "type": "varchar(200)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "action_flag",
+        "type": "smallint unsigned",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "change_message",
+        "type": "longtext",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "content_type_id",
+        "type": "int",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      }
+    ],
+    "has_addresses": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null
+      },
+      {
+        "name": "user_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "firstname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "lastname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "address1",
+        "type": "varchar(35)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "address2",
+        "type": "varchar(35)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "address3",
+        "type": "varchar(35)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "city",
+        "type": "varchar(128)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "postcode",
+        "type": "varchar(10)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "country_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "country_code",
+        "type": "varchar(5)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": "91"
+      },
+      {
+        "name": "zone_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "phone_no",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_default",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0"
+      },
+      {
+        "name": "address_type",
+        "type": "enum('HOME','WORK','OTHER')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci",
+        "default": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null
+      },
+      {
+        "name": "latitude",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "longitude",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "flat",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "address4",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci",
+        "default": null
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "1"
+      }
+    ]
+  },
+  "indexes": {
+    "django_admin_log": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "django_admin_log_content_type_id_c4bce8eb_fk_django_co",
+        "column": "content_type_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "django_admin_log_user_id_c564eba6_fk_auth_user_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "has_addresses": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "customer_id",
+        "column": "user_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_default",
+        "column": "is_default",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_has_addresses_phone_no",
+        "column": "phone_no",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {
+    "django_admin_log": [
+      {
+        "name": "django_admin_log_content_type_id_c4bce8eb_fk_django_co",
+        "column_name": "content_type_id",
+        "position": 1,
+        "referenced_schema": "tss",
+        "referenced_table": "django_content_type",
+        "referenced_column": "id",
+        "update_rule": "RESTRICT",
+        "delete_rule": "RESTRICT"
+      },
+      {
+        "name": "django_admin_log_user_id_c564eba6_fk_auth_user_id",
+        "column_name": "user_id",
+        "position": 1,
+        "referenced_schema": "tss",
+        "referenced_table": "auth_user",
+        "referenced_column": "id",
+        "update_rule": "RESTRICT",
+        "delete_rule": "RESTRICT"
+      }
+    ],
+    "has_addresses": []
+  },
+  "locations": [
+    {
+      "schema_name": "mobile_cms",
+      "table_name": "django_admin_log"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "django_admin_log"
+    },
+    {
+      "schema_name": "tss",
+      "table_name": "has_addresses"
+    }
+  ],
+  "errors": []
+}

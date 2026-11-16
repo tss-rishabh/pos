@@ -1,0 +1,22 @@
+{
+  "scenario": "queued-export-archive-and-cash-ledger",
+  "browser": "157.0.8103.51",
+  "checks": [
+    "operator-header",
+    "named-export",
+    "queued-status",
+    "archive-period",
+    "private-search",
+    "sort",
+    "actor-label",
+    "authenticated-download",
+    "ledger-pagination",
+    "ledger-smart-search",
+    "ledger-filtered-csv",
+    "ledger-named-full-export",
+    "no-page-errors"
+  ],
+  "apiRequests": 21,
+  "unexpectedApiRequests": 0,
+  "realServiceCalls": false
+}

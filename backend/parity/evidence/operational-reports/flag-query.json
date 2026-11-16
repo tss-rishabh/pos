@@ -1,0 +1,23 @@
+{
+  "scope": "isolated-local-synthetic",
+  "inputFlags": 20000,
+  "selectedOrders": 50,
+  "existingIndexes": [
+    "order_id",
+    "flag_id",
+    "user_id",
+    "idx_flag_history_order_id"
+  ],
+  "addedIndex": "ix_flag_history_order_flag(order_id,flag_id)",
+  "matchingResponseHash": "ff03d136c3f5b91c37a0f9bdc43d3217a05121c7fa687ad64e70c4a73b8ed7c7",
+  "responsesEqual": true,
+  "appOrders": 43,
+  "beforePlan": [
+    "-> Covering index scan on o using PRIMARY  (cost=5.25 rows=50) (actual time=0.00667..0.00963 rows=50 loops=1)\n-> Select #2 (subquery in projection; dependent)\n    -> Aggregate: count(0)  (cost=5.21 rows=1) (actual time=0.0134..0.0134 rows=1 loops=50)\n        -> Filter: (f.flag_id = 18)  (cost=5.13 rows=0.858) (actual time=0.013..0.0132 rows=0.86 loops=50)\n            -> Index lookup on f using order_id (order_id=o.id)  (cost=5.13 rows=20.2) (actual time=0.0116..0.0127 rows=20 loops=50)\n"
+  ],
+  "afterPlan": [
+    "-> Covering index scan on o using PRIMARY  (cost=5.25 rows=50) (actual time=0.00829..0.0119 rows=50 loops=1)\n-> Select #2 (subquery in projection; dependent)\n    -> Limit: 1 row(s)  (cost=1.08 rows=1) (actual time=974e-6..988e-6 rows=0.86 loops=50)\n        -> Covering index lookup on f using ix_flag_history_order_flag (order_id=o.id, flag_id=18)  (cost=1.08 rows=1.02) (actual time=901e-6..901e-6 rows=0.86 loops=50)\n"
+  ],
+  "liveDatabaseReads": false,
+  "liveDatabaseWrites": false
+}

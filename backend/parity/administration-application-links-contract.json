@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "status": "implemented-source-components-require-approved-artifact-provider-and-rollout-acceptance",
+  "source_commit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "backend_export": "registerApplicationLinks(app,config,db,options=readApplicationLinkOptions(),dependencies={artifact?,customerLink?})",
+  "frontend_exports": ["ApplicationLinksPage({user,storeId?})", "ApplicationLinkLandingPage({kind:staff|customer})"],
+  "routes": {
+    "authenticated_page": "/application-links",
+    "public_staff_landing": "/application-links/staff#opaque-token",
+    "public_customer_landing": "/application-links/customer#opaque-token",
+    "private_capabilities": "GET /api/v1/operators/current/application-links/capabilities",
+    "private_staff_qr": "POST /api/v1/operators/current/application-links/staff-qr {operationId:UUID}",
+    "private_staff_revocation": "DELETE /api/v1/operators/current/application-links/staff-qr/:grantId",
+    "private_customer_qr": "POST /api/v1/operators/current/application-links/customer-qr {}",
+    "public_staff_activation": "POST /api/v1/auth/application-links/staff-download-activations {token,operationId:UUID}",
+    "public_staff_content": "POST /api/v1/auth/application-links/staff-download-content {activationToken,operationId:UUID}",
+    "public_customer_scan": "POST /api/v1/auth/application-links/customer-scans {token,operationId:UUID}"
+  },
+  "options": {
+    "POS_STAFF_APK_ENABLED": "false by default; true requires all approved package fields",
+    "POS_STAFF_APK_PATH": "absolute private regular .apk source file path; no symlink leaf; never published as static media",
+    "POS_STAFF_APK_SHA256": "approved lowercase SHA256 digest",
+    "POS_STAFF_APK_BYTES": "exact approved byte count, 4..536870912",
+    "MPOS_DOWNLOAD_QR_EXP_SEC": "source timing setting, default60; validated30..300seconds",
+    "MPOS_DOWNLOAD_LINK_EXP": "source activation setting, default60; validated30..300seconds",
+    "POS_CUSTOMER_APP_MODE": "disabled (default), explicitly approved fallback, or verified provider",
+    "POS_CUSTOMER_APP_LINK_ENDPOINT": "exact HTTPS provider POST endpoint, without credentials/query/fragment",
+    "POS_CUSTOMER_APP_LINK_CONTRACT": "provider mode requires verified-pos-app-link-v1",
+    "POS_CUSTOMER_APP_ORIGINS": "exact comma-separated HTTPS destination origins; default https://www.thesouledstore.com",
+    "POS_CUSTOMER_APP_WEBSITE": "source long-link website HTTPS origin; default https://www.thesouledstore.com",
+    "POS_APP_REDIRECT": "source fallback destination, explicitly constrained to approved origins and safe source query keys"
+  },
+  "artifact_contract": [
+    "Operator has approved the exact existing staff APK, its publisher/signature, hash and byte count. This project creates no mobile application.",
+    "Mount the approved source file read-only. APP_APK_URL is not fetched automatically; the rewrite deliberately does not proxy arbitrary remote binary content.",
+    "First preparation verifies regular file, exact byte count, ZIP/APK header and full SHA256 while staging one private 0400 snapshot in a 0700 temporary directory.",
+    "Snapshots are streamed only after a current writer-authorized download claim. Already-aborted requests do not create a readable stream. Closing the application removes only its own temporary snapshot.",
+    "A code grants one activation operation and one download operation; the identical operation may retry the same bytes until activation expiry. A different consumer is rejected atomically.",
+    "Bind the grant to current operator authentication epoch and exact artifact metadata. Account disable/restore cannot revive old grants.",
+    "Signature/package compatibility is an artifact-release acceptance requirement; a ZIP header is not proof of publisher authenticity."
+  ],
+  "customer_provider_contract": {
+    "request": "POST configured endpoint, JSON {link:'https://www.thesouledstore.com?store_id=<exact signed INT>'} using configured website origin",
+    "idempotency": "Idempotency-Key UUID remains stable across retries of one persisted cache-generation operation. Verify upstream support before enabling provider mode.",
+    "response": "JSON object.shortLink optional; missing/null/empty uses explicitly approved POS_APP_REDIRECT. Malformed, unapproved, oversized, redirected and non-2xx responses fail closed.",
+    "bounds": "10-second request, no redirects/cookies, streaming32KiB JSON limit, exact approved HTTPS destination origins. Only public store_id and app package id query keys are permitted.",
+    "cache": "One-hour SQL cache keyed by store, fenced30-second lease and durable provider-operation ID. No silent shared-Redis authority; mixed rollout requires explicit cache transition acceptance.",
+    "scan_audit": "Atomically insert one source pos_to_app_logs(store_id,scanned_at) plus a receipt per scan operation. Keep source defaults for created_at/updated_at. Failure to write the audit never produces a successful redirect.",
+    "store_scope": "Issuing uses actual current SQL check-in, writer-current role/organization/assignment and active store. Every redemption rechecks active store before and after provider I/O.",
+    "physical_int_boundary": "Verified pos_to_app_logs.store_id and id are signed INT; reject unsupported store IDs explicitly without Number rounding.",
+    "deprecation": "Google documents Firebase Dynamic Links shutdown on2025-08-25. Do not assume the old company firebase-dynamic-link endpoint is an accepted current provider; verify its actual replacement and deep-link behavior."
+  },
+  "storage_and_trace": {
+    "migration": "src/modules/application-links/migration.sql; four rewrite-owned tables only",
+    "prune": "pruneApplicationLinks(db,now=Date.now()) deletes at most100 expired staff proofs and100 scan receipts older than24hours per call. Keep source scan logs and printable store links.",
+    "logging": "Root static module/resource/action events with request/user IDs; no URL/query/body/cookie/token/contact/raw error logging. Proof digests, opaque operation IDs, issuer/store IDs and safe initiating request IDs are persisted.",
+    "public_authority": "Anonymous possession-proof requests omit cookies and send the capability only in a strict same-origin POST body. No session is created or borrowed. Anonymous scanner identity remains unknown."
+  },
+  "intentional_source_corrections": [
+    "Self-only staff issuance replaces arbitrary posted operator selectors.",
+    "Opaque purpose-bound capabilities replace source contact-bearing JWT query parameters and verification-disabled JWT decoding.",
+    "Atomic per-operator grants replace non-atomic TOTP rotation and email-prefix activation keys.",
+    "Explicit click-to-open/download and POST redemption replace GET mutations, unvalidated redirects and hidden-iframe download.",
+    "A successful scan/redirect requires a committed idempotent source audit, rather than counting a failed provider attempt.",
+    "Verified immutable local package streaming replaces unbounded arbitrary remote response buffering."
+  ],
+  "remaining_acceptance": [
+    "Approved actual APK path/hash/size/publisher signature and configured real download on supported browsers/devices.",
+    "Verified current customer deep-link provider or approved fallback, idempotency behavior, exact destination origins and existing-app/store attribution.",
+    "Explicit migration/retirement of previously printed unsigned /user_to_app?store_id= links; no unsafe automatic legacy-token alias is enabled.",
+    "Configured web/Electron handoff and OS-browser acceptance through root POS_APP_LINK_ORIGINS.",
+    "Actual operational writer/source timezone and complete source/rewrite workflow parity. No whole source route is certified."
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "sourceTemplate": "backend-pos-web/order/templates/order/shipping.html",
+  "version": "3.11.5",
+  "files": {
+    "MIT-LICENSE.txt": {
+      "url": "https://raw.githubusercontent.com/lindell/JsBarcode/v3.11.5/MIT-LICENSE.txt",
+      "sha256": "e34674e4ef4ed987f7a21a3040a1bdce83f08cc07eedfacbba1ffe53b0633734",
+      "bytes": 1083
+    },
+    "constants.fixture.txt": {
+      "url": "https://raw.githubusercontent.com/lindell/JsBarcode/v3.11.5/src/barcodes/CODE128/constants.js",
+      "sha256": "d88d5c0a29f0c191ff5b2379cd8075da8d8cd4ade88dffcc31324915a981b5e0",
+      "bytes": 2819
+    },
+    "JsBarcode.code128.min.fixture.txt": {
+      "url": "https://raw.githubusercontent.com/lindell/JsBarcode/v3.11.5/dist/barcodes/JsBarcode.code128.min.js",
+      "sha256": "1643cd2953c4ff5e0b3fb94ada172faee1d1770e81bdf3ad07dabca8e211b29e",
+      "bytes": 27834
+    }
+  }
+}

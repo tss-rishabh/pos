@@ -1,0 +1,17 @@
+{
+  "recordedAt": "2026-11-16T21:01:55.839Z",
+  "checks": [
+    "read-only-non-root-containers",
+    "packaged-migration-plan",
+    "packaged-disabled-worker-entrypoints",
+    "native-linux-image-decoder",
+    "gateway-api-proxy",
+    "static-assets-and-csp",
+    "offline-shell-cache-policy",
+    "synthetic-login-catalog-and-draft",
+    "demo-and-origin-isolation",
+    "proxy-failure-tracing-without-uri",
+    "log-privacy-canaries"
+  ],
+  "passed": true
+}

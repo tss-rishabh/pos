@@ -1,0 +1,38 @@
+import { z } from 'zod';
+import { walletAdjustmentFieldsSchema, walletIdentifier } from './fields.js';
+
+export const walletAdjustmentSchema = z
+  .object({
+    operationId: z.uuid(),
+    customerId: walletIdentifier,
+    adjustment: walletAdjustmentFieldsSchema,
+  })
+  .strict();
+export type WalletAdjustmentInput = z.infer<typeof walletAdjustmentSchema>;
+export const walletAdjustmentReceiptSchema = z
+  .object({
+    operationId: z.uuid(),
+    operatorId: walletIdentifier,
+    customerId: walletIdentifier,
+    asset: z.enum(['money', 'points']),
+    direction: z.enum(['add', 'subtract']),
+    amount: z.string().regex(/^\d+\.\d{2}$/),
+    balanceBefore: z.string().regex(/^\d+\.\d{2}$/),
+    balanceAfter: z.string().regex(/^\d+\.\d{2}$/),
+    historyId: walletIdentifier,
+    consumedHistories: z.number().int().min(0).max(10000),
+    contract: z.literal('pos-global-wallet-adjustment-v1'),
+    patchHash: z.literal('800758e0763efddfe1cacdc5a9a55022d3209a9bdbb1599f76a5b86f24e30730'),
+    createdAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/),
+  })
+  .strict();
+export type WalletAdjustmentReceipt = z.infer<typeof walletAdjustmentReceiptSchema>;
+export const walletCustomerLookupSchema = z.object({ email: z.email().max(96) }).strict();
+export const walletCustomerSchema = z
+  .object({
+    id: walletIdentifier,
+    name: z.string().max(65),
+    money: z.string().regex(/^\d+\.\d{2}$/),
+    points: z.string().regex(/^\d+\.\d{2}$/),
+  })
+  .strict();

@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "types": ["vite/client", "node"] },
+  "include": [
+    "./*.ts",
+    "./*.tsx",
+    "../payment-recovery.test.ts",
+    "../../src/pages/checkout/OrderPaymentActions.tsx",
+    "../../src/pages/checkout/PaymentPanel.tsx",
+    "../../src/pages/checkout/payment-recovery.ts",
+    "../../src/pages/checkout/cancellations/**/*.ts",
+    "../../src/pages/checkout/cancellations/**/*.tsx",
+    "../../e2e/checkout/order-payments.spec.ts"
+  ]
+}
