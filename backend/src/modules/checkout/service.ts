@@ -43,6 +43,7 @@ import {
 } from './customer-verification.js';
 import { validateGiftCardSerial } from './gift-cards.js';
 import { Temporal } from '@js-temporal/polyfill';
+import { cartCopyHash, OrderCopyPreflightError } from './order-copy/domain.js';
 import { amount, minorUnits } from '../../domain/money.js';
 import {
   createSettlementNote,
@@ -76,6 +77,7 @@ import {
 } from './payloads.js';
 
 export interface CheckoutServiceOptions {
+  orderCopyHashSecret?: string;
   assertCheckIn(userId: string, storeId: string, counterId?: string): Promise<void>;
   migrationV2: boolean;
   now?: () => number;
@@ -307,6 +309,12 @@ export function checkoutService(
     requireStore(user, storeId);
     const initial = await get(user, storeId, id);
     await options.assertCheckIn(user.id, storeId, initial.counterId);
+    if (initial.orderCopy && initial.orderCopy.status !== 'acknowledged')
+      throw new AppError(
+        409,
+        'ORDER_COPY_REVIEW_REQUIRED',
+        'Reconcile and acknowledge the copied cart before changing, quoting or submitting this sale.',
+      );
     if (initial.draftImport?.status === 'pending' && kind !== 'cart.draft.initialize')
       throw new AppError(
         409,
@@ -389,6 +397,7 @@ export function checkoutService(
         ),
         quote: null,
         phase: 'open' as const,
+        orderCopy: state.orderCopy?.status === 'acknowledged' ? null : state.orderCopy,
       },
       result: { cart: publicCart(cart) },
     };
@@ -420,11 +429,18 @@ export function checkoutService(
     operationId: string,
     productId: string,
     quantity: number,
+    expectedCopyHash?: string,
   ) {
     editable(state);
     const auth = await token(state),
       cart = await readCart(state, auth),
       items = cart.products.items;
+    if (
+      expectedCopyHash &&
+      (!options.orderCopyHashSecret ||
+        cartCopyHash(cart, options.orderCopyHashSecret) !== expectedCopyHash)
+    )
+      throw new OrderCopyPreflightError();
     const giftItems = giftCardRows(cart).filter((item) => item.prod_id === productId);
     if (giftItems.length) {
       const product =
@@ -564,6 +580,29 @@ export function checkoutService(
     };
   }
   return {
+    /** Internal port: only the copy coordinator may call it after writer reservation. */
+    orderCopyCart: {
+      read: (state: CheckoutState) => readCart(state),
+      async setLine(
+        state: CheckoutState,
+        stepId: string,
+        productId: string,
+        quantity: number,
+        expectedHash: string,
+      ) {
+        z.uuid().parse(stepId);
+        if (!state.busyOperationId || state.orderCopy?.commandId !== state.busyOperationId)
+          throw new AppError(
+            409,
+            'ORDER_COPY_NOT_RESERVED',
+            'Reserve the original copy before changing its cart.',
+          );
+        // Gift helpers checkpoint the enclosing checkout operation; the copy
+        // coordinator separately retains the immutable per-SKU step UUID.
+        return (await changeLine(state, state.busyOperationId, productId, quantity, expectedHash))
+          .state;
+      },
+    },
     async create(
       user: Principal,
       storeId: string,
@@ -655,6 +694,7 @@ export function checkoutService(
         state.phase === 'uncertain' ||
         state.phase === 'cleared' ||
         state.busyOperationId ||
+        (state.orderCopy && state.orderCopy.status !== 'acknowledged') ||
         state.draftImport?.status === 'pending'
       )
         return {

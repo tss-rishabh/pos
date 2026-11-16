@@ -56,6 +56,7 @@ import type { CustomerVerificationClient } from './customer-verification.js';
 import { registerPendingOrderCancellations } from './cancellations/routes.js';
 import { pendingCancellationOptions } from './cancellations/options.js';
 import type { PendingCancellationOptions } from './cancellations/options.js';
+import { registerOrderCopy, type OrderCopyOptions } from './order-copy/routes.js';
 
 const storeScope = z.object({ storeId: identifier });
 const sessionScope = storeScope.extend({ checkoutId: z.uuid() });
@@ -65,6 +66,7 @@ const trace = (resource: string, action: string) => ({
   config: { trace: { module: 'checkout', resource, action } },
 });
 export interface CheckoutRegistrationOptions {
+  orderCopy?: OrderCopyOptions;
   repository?: CheckoutRepository;
   gateway?: CheckoutGateway;
   environment?: CheckoutEnvironment;
@@ -103,6 +105,7 @@ export function registerCheckout(
     ((...args: Parameters<CheckoutServiceOptions['assertCheckIn']>) =>
       checkIns.assertCheckIn(...args));
   const service = checkoutService(repository, gateway, environment, {
+    orderCopyHashSecret: config.SESSION_SECRET,
     migrationV2: config.TSS_API_MIGRATION_V2,
     businessTimezone: config.BUSINESS_TIMEZONE,
     assertCheckIn,
@@ -718,6 +721,7 @@ export function registerCheckout(
       : undefined,
   });
   registerInvoices(app, config, db);
+  registerOrderCopy(app, config, db, service.orderCopyCart, overrides.orderCopy);
   registerWalletAdjustments(app, config, db);
   registerOfflineCash(app, config, db, {
     stockProcedure: overrides.stockProcedure,

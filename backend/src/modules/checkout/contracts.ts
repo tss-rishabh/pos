@@ -8,6 +8,7 @@ import {
 } from './customer-contact-authority.js';
 import { customerConsentSchema, type CustomerConsent } from './customer-consent.js';
 import type { CustomerVerificationEvidence } from './customer-verification.js';
+import { copyBindingSchema, type CopyBinding } from './order-copy/contracts.js';
 
 export const amountSchema = z
   .string()
@@ -66,6 +67,7 @@ export const checkoutClearanceSchema = z
   .strict();
 export type CheckoutClearance = z.infer<typeof checkoutClearanceSchema>;
 export interface CheckoutState {
+  orderCopy?: CopyBinding | null;
   id: string;
   draftId?: string | null;
   draftVersion?: number | null;
@@ -115,6 +117,7 @@ export interface CheckoutState {
   updatedAt: number;
 }
 export const checkoutStateSchema: z.ZodType<CheckoutState> = z.object({
+  orderCopy: copyBindingSchema.nullable().default(null),
   id: z.uuid(),
   draftId: z.uuid().nullable().default(null),
   draftVersion: z.number().int().nonnegative().nullable().default(null),
