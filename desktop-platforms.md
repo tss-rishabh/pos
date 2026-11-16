@@ -31,7 +31,13 @@ cannot complete a sale.
 The checked-in `desktop-platforms.yml` workflow runs frontend/unit, native
 Electron and offline browser checks on Windows and macOS runners, then packages
 unsigned review artifacts. It performs no release/upload to customers and uses
-no signing secrets. The workflow has not been executed from this local workspace.
+no signing secrets. The initial native run on both operating systems reached
+the frontend tests and failed because two source-comparison tests required an
+untracked sibling checkout. Their exact DataTables function extracts now ship
+as a checksummed fixture; when the sibling exists its source bytes are also
+verified. Full-project parity still requires the clean pinned source checkout.
+The native packaging and runtime steps remain unverified until a complete
+successful run. Initial run: https://github.com/thesouledstore-tss/pos/actions/runs/43980750466.
 
 Packaged binaries disable running as Node, Node environment injection, Node
 Inspector arguments and extra file-protocol privileges. They enable encrypted
@@ -59,8 +65,8 @@ and a service-worker response after the fixture server stops. It uses a temporar
 Chromium CDP endpoint; packaged Node Inspector and RunAsNode fuses stay disabled.
 The runner removes its own profile and processes and writes
 `backend/evidence/desktop-runtime-*.json` only for successful checks and cleanup.
-The macOS arm64 check has passed locally; the native Windows workflow is still
-unexecuted. A synthetic page does not certify production TLS, authentication,
+The macOS arm64 check has passed locally; the native Windows runtime step has
+not yet passed. A synthetic page does not certify production TLS, authentication,
 signed OS credential-store behavior, legal invoices or physical printers.
 The macOS fixture uses Chromium's mock Keychain for its temporary unsigned
 profile, matching Playwright's Electron test isolation. Production app settings
