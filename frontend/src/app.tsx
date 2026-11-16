@@ -37,6 +37,7 @@ import { NotificationsPanel } from './pages/fulfillment/notifications';
 import { pendingSlackConnection } from './pages/administration/slack-return';
 
 const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default: m.CounterPage })));
+const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
 const DashboardPage = lazy(() => import('./pages/dashboard'));
 const InventoryPage = lazy(() =>
   import('./pages/operations').then((m) => ({ default: m.InventoryPage })),
@@ -180,6 +181,7 @@ const links = [
   { to: '/', name: 'The counter', icon: LayoutGrid },
   { to: '/dashboard', name: 'Dashboard', icon: ChartNoAxesCombined, internalOnly: true },
   { to: '/orders', name: 'Orders', icon: ReceiptText },
+  { to: '/offline-worksheet', name: 'Invoice worksheet', icon: ReceiptText },
   { to: '/returns', name: 'Returns', icon: Undo2 },
   { to: '/inventory', name: 'Inventory', icon: Package },
   { to: '/catalog', name: 'Product catalog', icon: Package },
@@ -439,6 +441,10 @@ function Workspace({ user }: { user: Principal }) {
             <Suspense fallback={<Loading />}>
               <Routes>
                 <Route path="/dashboard" element={<DashboardPage key={user.id} user={user} />} />
+                <Route
+                  path="/offline-worksheet"
+                  element={<OfflineWorksheetPage user={user} storeId={state.storeId} />}
+                />
                 <Route
                   path="/"
                   element={

@@ -728,6 +728,16 @@ const checks: Check[] = [
       'tests/customer-website-handoff.tsconfig.json',
     ],
   },
+  {
+    id: 'offline-worksheet-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/offline-worksheet/tsconfig.json',
+    ],
+  },
 ];
 if (flags.has('--mysql')) {
   checks.push(
@@ -745,6 +755,12 @@ if (flags.has('--mysql')) {
   );
 }
 if (flags.has('--browser')) {
+  checks.push({
+    id: 'offline-worksheet-browser-tests',
+    directory: 'frontend',
+    args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/offline-worksheet/browser.test.ts'],
+    environment: { OFFLINE_WORKSHEET_BROWSER_TESTS: 'true' },
+  });
   checks.push({
     id: 'global-vouchers-browser-tests',
     directory: 'frontend',
