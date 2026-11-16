@@ -15,7 +15,7 @@ export const stockImportHeaders = [
 ] as const;
 export const maximumImportBytes = 256 * 1024;
 export const maximumImportRows = 5000;
-export const stockImportInput = z
+export const inventoryCsvInput = z
   .object({
     id: z.uuid(),
     name: z
@@ -30,7 +30,9 @@ export const stockImportInput = z
       .refine((value) => Buffer.byteLength(value, 'utf8') <= maximumImportBytes),
   })
   .strict();
-export type StockImportInput = z.infer<typeof stockImportInput>;
+export const stockImportInput = inventoryCsvInput;
+export type InventoryCsvInput = z.infer<typeof inventoryCsvInput>;
+export type StockImportInput = InventoryCsvInput;
 export const importHistoryInput = z
   .object({
     after: z.union([z.literal('0'), identifier]).default('0'),
@@ -39,7 +41,7 @@ export const importHistoryInput = z
     to: z.iso.date(),
   })
   .strict();
-export function importJobDto(job: typeof inventoryImports.$inferSelect) {
+export function importJobDto(job: Omit<typeof inventoryImports.$inferSelect, 'profile'>) {
   return {
     id: job.id,
     actorId: job.actorId,

@@ -29,6 +29,7 @@ const fixture = () => {
   const anchor: typeof inventoryImports.$inferSelect = {
     id: randomUUID(),
     sequence: 9007199254740993n,
+    profile: 'stock',
     actorId: '9007199254740997',
     requestId: null,
     checksum: 'a'.repeat(64),

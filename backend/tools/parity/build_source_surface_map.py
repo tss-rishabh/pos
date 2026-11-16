@@ -355,9 +355,12 @@ def define_families():
            scope='Source CSV parsers/planners, encrypted staging, original-operation coordinator and typed financial contracts exist.',
            gaps=['Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.'],
            external=['Accept closed-period/custom-date privilege, original source financial/Kinesis cooperation and historical publication.'])
-    family('parent-store-assignment-csv', ['src/modules/administration/import-domain.ts'], ['src/pages/administration/imports.tsx'], ['tests/administration/import-domain.test.ts'],
-           state='missing', scope='The existing importer is the distinct six-column hold/stock format.',
-           gaps=['Implement retained three-column SkuId/StoreId/IsActive parent-family association task, including source zero/reset/delete/variants and synchronization effects with a safe atomic correction. Its parse_csv_product_store task is not covered by stock CSV or parent repair.'])
+    family('parent-store-assignment-csv', ['src/modules/administration/parent-store-imports','src/modules/administration/import-profile.ts','src/modules/administration/imports.ts','src/modules/administration/worker.ts'],
+           ['src/pages/administration/parent-store-imports.tsx','src/pages/administration/imports.tsx'], ['tests/administration/parent-store-imports','tools/administration/parent-store-imports/source-oracle.py','frontend/tests/administration/parent-store-imports'], ['parity/parent-store-imports.md'],
+           scope='Active three-column SkuId/StoreId/IsActive parent/store upload and retained task: source global-live family selection, audited row-atomic zero/reset/delete/recreate, strict duplicate-pair correction, durable profiled queue/control/GET recovery and source parent-ID synchronization through existing worker; six-column stock defaults are preserved.',
+           external=['Accept selected atomic stock projection and replay-safe product synchronization, reconcile old pending source uploads/tasks at cutover and publish missing immutable parent-store historical job/row versions. No historical MySQL fallback.'],
+           notes=['Actual source upload caller is executable. Pinned source/native/component tests do not establish deployed routine or full provider workflow certification.'])
+    bind('parent-store-assignment-csv',['ProductsStoreBulkUploadView'])
     family('source-diagnostic-task', state='missing', required=False,
            scope='create_random_user_accounts_new prints random credentials; actual User.objects.create_user is commented out.',
            notes=['No source account is created. A replacement must not print credentials or invent a new bulk-account feature; retain this diagnostic-only disposition explicitly in the job inventory.'])
@@ -421,7 +424,8 @@ def template_families(path):
     if local == 'products/stock/inventory-sync.html': return ['catalog-maintenance']
     if local == 'products/stock/index.html' or local == 'products/stock/index_bak.html': return ['catalog-read', 'inventory', 'inventory-imports']
     if local.startswith(('products/hold_stock/', 'products/storage_stock/')) or local == 'products/inventory_logs.html': return ['inventory-audit']
-    if local.startswith('products/store/') or local == 'products/index.html': return ['catalog-read']
+    if local.startswith('products/store/'): return ['catalog-read','parent-store-assignment-csv']
+    if local == 'products/index.html': return ['catalog-read']
     if local == 'order/create_order.html': return ['checkout-cart', 'customer-workspace', 'customer-contacts', 'customer-verification', 'payments', 'fast-cash', 'cashier-shortcuts', 'order-to-cart-copy', 'customer-website-handoff','motivational-quotes']
     if local == 'order/tab.html': return ['checkout-cart','motivational-quotes']
     if local == 'order/shortcuts.html': return ['cashier-shortcuts']
@@ -515,7 +519,7 @@ def build():
         node = next((node for node in ast.walk(ast.parse(pinned(job['file']))) if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.lineno == job['line']), None)
         if not node: raise ValueError(f'Source job definition not found: {job["id"]}')
         row['source_definition'] = {'file': job['file'], 'line': node.lineno, 'end_line': node.end_lineno, 'symbol': job['name']}
-        row['reachability'] = 'latent-commented-http-caller' if job['id'] in ['core/tasks.py:29','core/tasks.py:51','core/tasks.py:62','order/views.py:3839','report/datatables/inventory_datatable.py:60'] or job['file']=='report/tasks.py' else 'registered-task-or-caller'
+        row['reachability'] = 'latent-commented-http-caller' if job['id'] in ['core/tasks.py:51','core/tasks.py:62','order/views.py:3839','report/datatables/inventory_datatable.py:60'] or job['file']=='report/tasks.py' else 'registered-task-or-caller'
         if job['id'] == 'stores/tasks.py:11': row['reachability'] = 'diagnostic-only-no-account-write'
         output['jobs'].append(row)
     referenced_templates = set()

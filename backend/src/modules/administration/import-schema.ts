@@ -7,6 +7,7 @@ import {
   primaryKey,
   varchar,
 } from 'drizzle-orm/mysql-core';
+import type { ImportCells, ImportCommand } from './import-profile.js';
 
 export interface StockImportCommand {
   productId: string;
@@ -20,6 +21,10 @@ export type StockImportCells = [string, string, string, string, string, string];
 export const inventoryImports = mysqlTable('pos_rewrite_inventory_imports', {
   sequence: bigint('sequence', { mode: 'bigint', unsigned: true }).autoincrement().primaryKey(),
   id: varchar('id', { length: 36 }).notNull(),
+  profile: varchar('profile', { length: 24 })
+    .$type<'stock' | 'parent-store'>()
+    .notNull()
+    .default('stock'),
   actorId: varchar('actor_id', { length: 32 }).notNull(),
   requestId: varchar('request_id', { length: 128 }),
   checksum: varchar('checksum', { length: 64 }).notNull(),
@@ -40,8 +45,8 @@ export const inventoryImportRows = mysqlTable(
   {
     importId: varchar('import_id', { length: 36 }).notNull(),
     rowNumber: int('record_number').notNull(),
-    cells: json('cells').$type<StockImportCells>().notNull(),
-    command: json('command').$type<StockImportCommand | null>(),
+    cells: json('cells').$type<ImportCells>().notNull(),
+    command: json('command').$type<ImportCommand | null>(),
     state: varchar('state', { length: 16 })
       .$type<'PENDING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'>()
       .notNull(),

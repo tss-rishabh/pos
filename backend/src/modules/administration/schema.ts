@@ -23,12 +23,25 @@ export type InventoryIntegrationEvent = (
     }
   | { kind: 'product.visibility.changed'; storeId: string; productIds: string[]; actorId: string }
   | {
+      kind: 'product.catalog.synchronization';
+      importId: string;
+      revision: number;
+      productIds: string[];
+      actorId: string;
+    }
+  | {
       kind: 'product.inventory.synchronization';
       storeId: string;
       productIds: string[];
       actorId: string;
       reason:
-        'return' | 'exchange-return' | 'inventory-import' | 'offline-cash-import' | 'legacy-rto' | 'legacy-delivery' | 'order-cancel';
+        | 'return'
+        | 'exchange-return'
+        | 'inventory-import'
+        | 'offline-cash-import'
+        | 'legacy-rto'
+        | 'legacy-delivery'
+        | 'order-cancel';
     }
 ) & { requestId?: string };
 

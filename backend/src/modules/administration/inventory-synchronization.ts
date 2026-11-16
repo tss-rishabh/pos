@@ -31,6 +31,65 @@ const systemSynchronizationInput = synchronizationInput
   .extend({ reason: z.enum(['legacy-rto', 'legacy-delivery']) })
   .strict();
 export type SystemInventorySynchronizationInput = z.infer<typeof systemSynchronizationInput>;
+const catalogSynchronizationInput = z
+  .object({
+    id: z.string().regex(/^[A-Za-z0-9_-]{1,36}$/),
+    importId: z.uuid(),
+    revision: z.number().int().min(0).max(5000),
+    productIds: z.array(identifier).min(1).max(1000),
+    operatorId: identifier,
+    requestId: z.string().min(1).max(128).optional(),
+  })
+  .strict();
+/** A completed/blocked/cancelled parent import synchronizes only its committed parent IDs. */
+export async function enqueueCatalogSynchronization(
+  transaction: AdministrationTransaction,
+  event: z.infer<typeof catalogSynchronizationInput>,
+) {
+  const input = catalogSynchronizationInput.parse(event),
+    payload: InventoryIntegrationEvent = {
+      kind: 'product.catalog.synchronization',
+      importId: input.importId,
+      revision: input.revision,
+      productIds: [...input.productIds],
+      actorId: input.operatorId,
+      ...(input.requestId ? { requestId: input.requestId } : {}),
+    };
+  await transaction
+    .insert(administrationOutbox)
+    .values({
+      id: input.id,
+      kind: payload.kind,
+      payload,
+      attempts: 0,
+      createdAt: Temporal.Now.instant()
+        .toZonedDateTimeISO('UTC')
+        .toPlainDateTime()
+        .toString({ smallestUnit: 'millisecond' })
+        .replace('T', ' '),
+      deliveredAt: null,
+    })
+    .onDuplicateKeyUpdate({ set: { id: input.id } });
+  const [saved] = await transaction
+    .select({ payload: administrationOutbox.payload })
+    .from(administrationOutbox)
+    .where(eq(administrationOutbox.id, input.id))
+    .limit(1)
+    .for('update');
+  if (
+    !saved ||
+    saved.payload.kind !== payload.kind ||
+    saved.payload.importId !== payload.importId ||
+    saved.payload.revision !== payload.revision ||
+    saved.payload.actorId !== payload.actorId ||
+    JSON.stringify(saved.payload.productIds) !== JSON.stringify(payload.productIds)
+  )
+    throw new AppError(
+      409,
+      'INVENTORY_SYNCHRONIZATION_CONFLICT',
+      'Catalog synchronization belongs to another import revision.',
+    );
+}
 
 /** Caller authorizes and mutates stock in this same transaction; retries share the event ID. */
 export async function enqueueInventorySynchronization(

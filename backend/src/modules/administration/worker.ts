@@ -9,10 +9,18 @@ import { createProductSyncAdapter } from './product-sync.js';
 import type { AdministrationWorkerOptions } from './worker-options.js';
 import { inventoryImportService } from './imports.js';
 import { inventoryImports } from './import-schema.js';
+import { configuredStockProjection } from '../../db/stock-projection/options.js';
+import type { StockProcedure } from './stock-procedure.js';
+import type { ProductSyncContext } from './product-sync.js';
+import { parentStoreImportService } from './parent-store-imports/service.js';
 
 export interface AdministrationWorkerEvent {
   module: 'administration';
-  resource: 'inventory-synchronization' | 'inventory-synchronization-worker' | 'inventory-import';
+  resource:
+    | 'inventory-synchronization'
+    | 'inventory-synchronization-worker'
+    | 'inventory-import'
+    | 'parent-store-import';
   eventId: string;
   eventInstanceId: string;
   requestId: string | null;
@@ -49,6 +57,7 @@ export function administrationWorker(
   options: AdministrationWorkerOptions,
   log: AdministrationWorkerLogger,
   fetcher: typeof fetch = fetch,
+  supplied: { stockProcedure?: StockProcedure } = {},
 ) {
   const adapter = createProductSyncAdapter(config, options, fetcher);
   if (options.ADMINISTRATION_WORKER_ENABLED && !adapter)
@@ -67,49 +76,57 @@ export function administrationWorker(
   const alerts = new Map<string, number>();
   let failures = 0,
     runId: string | null = null;
-  const inventory = inventoryService(config, db, {
-    syncProducts: adapter
-      ? async (id, ids, context) => {
-          alerts.delete(id);
-          try {
-            await adapter(id, ids, context, batchAbort?.signal);
-            log(
-              'info',
-              {
-                ...event(
-                  'inventory-synchronization',
-                  'acknowledged',
-                  context.requestId || runId,
-                  context.operatorId,
-                ),
-                effectId: id,
-                storeId: context.storeId,
-              },
-              'Inventory synchronization acknowledged',
-            );
-          } catch (error) {
-            failures++;
-            log(
-              'warn',
-              {
-                ...event(
-                  'inventory-synchronization',
-                  'delivery-failed',
-                  context.requestId || runId,
-                  context.operatorId,
-                ),
-                effectId: id,
-                storeId: context.storeId,
-                errorCode: error instanceof AppError ? error.code : 'PRODUCT_SYNC_UNAVAILABLE',
-              },
-              'Inventory synchronization will be retried',
-            );
-            throw error;
-          }
+  const deliver = adapter
+    ? async (id: string, ids: string[], context: ProductSyncContext & { importId?: string }) => {
+        alerts.delete(id);
+        try {
+          await adapter(id, ids, context, batchAbort?.signal);
+          log(
+            'info',
+            {
+              ...event(
+                'inventory-synchronization',
+                'acknowledged',
+                context.requestId || runId,
+                context.operatorId,
+              ),
+              effectId: id,
+              storeId: context.storeId,
+              ...(context.importId ? { importId: context.importId } : {}),
+            },
+            'Inventory synchronization acknowledged',
+          );
+        } catch (error) {
+          failures++;
+          log(
+            'warn',
+            {
+              ...event(
+                'inventory-synchronization',
+                'delivery-failed',
+                context.requestId || runId,
+                context.operatorId,
+              ),
+              effectId: id,
+              storeId: context.storeId,
+              ...(context.importId ? { importId: context.importId } : {}),
+              errorCode: error instanceof AppError ? error.code : 'PRODUCT_SYNC_UNAVAILABLE',
+            },
+            'Inventory synchronization will be retried',
+          );
+          throw error;
         }
-      : undefined,
+      }
+    : undefined;
+  const inventory = inventoryService(config, db, {
+    syncProducts: deliver,
+    syncCatalogProducts: deliver,
   });
-  const imports = inventoryImportService(config, db, { syncProducts: adapter });
+  const stockProcedure = supplied.stockProcedure || configuredStockProjection(config),
+    importOptions = { syncProducts: adapter, stockProcedure, procedureVerified: !!stockProcedure };
+  const imports = inventoryImportService(config, db, importOptions),
+    parents = parentStoreImportService(config, db, importOptions);
+  let importTurn = 0;
   async function alertExhausted() {
     const rows = await db
       .get('writer')
@@ -140,7 +157,9 @@ export function administrationWorker(
             row.payload.actorId,
           ),
           effectId: row.id,
-          storeId: row.payload.storeId,
+          ...('storeId' in row.payload
+            ? { storeId: row.payload.storeId }
+            : { importId: row.payload.importId }),
           errorCode: 'PRODUCT_SYNC_RETRY_EXHAUSTED',
         },
         'Inventory synchronization requires operator recovery',
@@ -155,6 +174,7 @@ export function administrationWorker(
         sequence: inventoryImports.sequence,
         actorId: inventoryImports.actorId,
         requestId: inventoryImports.requestId,
+        profile: inventoryImports.profile,
       })
       .from(inventoryImports)
       .where(
@@ -175,7 +195,12 @@ export function administrationWorker(
       log(
         'warn',
         {
-          ...event('inventory-import', 'blocked', row.requestId || runId, row.actorId),
+          ...event(
+            row.profile === 'parent-store' ? 'parent-store-import' : 'inventory-import',
+            'blocked',
+            row.requestId || runId,
+            row.actorId,
+          ),
           importId: row.id,
           errorCode: 'INVENTORY_IMPORT_BLOCKED',
         },
@@ -203,7 +228,8 @@ export function administrationWorker(
           !batchAbort?.signal.aborted;
           index++
         ) {
-          const result = await imports.dispatchNext();
+          const queues = importTurn++ % 2 ? [parents, imports] : [imports, parents];
+          const result = (await queues[0]!.dispatchNext()) || (await queues[1]!.dispatchNext());
           if (!result) break;
           if (result.status === 'blocked') {
             alerts.set(`import:${result.importId}`, Date.now());
@@ -213,7 +239,7 @@ export function administrationWorker(
             result.status === 'row-failed' || result.status === 'blocked' ? 'warn' : 'info',
             {
               ...event(
-                'inventory-import',
+                result.profile === 'parent-store' ? 'parent-store-import' : 'inventory-import',
                 result.status,
                 result.requestId || runId,
                 result.actorId,

@@ -24,7 +24,6 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 - **order-to-cart-copy (missing)**: Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
-- **parent-store-assignment-csv (missing)**: Implement retained three-column SkuId/StoreId/IsActive parent-family association task, including source zero/reset/delete/variants and synchronization effects with a safe atomic correction. Its parse_csv_product_store task is not covered by stock CSV or parent repair.
 - **business-metrics-upload (partial)**: Trace/preserve the latent BD metric CSV upload/preview template controls separately from read-only DSR auxiliary inputs; no registered source route currently establishes their executable upload authority.
 - **inherited-model-add-forms (partial)**: Inherited Store ModelAdmin still has manual url_key editing not exposed by the generated storePublicUrl path. Account for the default username/password-only UserAdmin add form and its extra-field defaults/nullable combinations separately from stricter POS operator creation; do not silently claim those inherited add contracts are implemented.
 
@@ -35,7 +34,7 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
 | routes | 68 | 12 | 2 | 173 |
-| jobs | 0 | 4 | 2 | 26 |
+| jobs | 0 | 4 | 1 | 27 |
 | templates | 32 | 12 | 0 | 62 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 2 | 0 | 0 |
@@ -310,7 +309,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 
 | Source | Surface | Families | Implementation disposition |
 | --- | --- | --- | --- |
-| `core/tasks.py:29` | `parse_csv_product_store` | parent-store-assignment-csv | missing |
+| `core/tasks.py:29` | `parse_csv_product_store` | parent-store-assignment-csv | external_acceptance |
 | `core/tasks.py:40` | `parse_csv_product_stock` | inventory-imports | external_acceptance |
 | `core/tasks.py:51` | `parse_csv_offline_order_punchin` | legacy-order-imports | partial |
 | `core/tasks.py:62` | `parse_csv_shopify_order_punchin` | legacy-order-imports | partial |
@@ -376,8 +375,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/products/stock/inventory-sync.html` | `core/templates/products/stock/inventory-sync.html` | catalog-maintenance | external_acceptance |
 | `core/templates/products/storage_stock/index.html` | `core/templates/products/storage_stock/index.html` | inventory-audit | external_acceptance |
 | `core/templates/products/storage_stock/storage_inventory_logs.html` | `core/templates/products/storage_stock/storage_inventory_logs.html` | inventory-audit | external_acceptance |
-| `core/templates/products/store/index.html` | `core/templates/products/store/index.html` | catalog-read | external_acceptance |
-| `core/templates/products/store/show.html` | `core/templates/products/store/show.html` | catalog-read | external_acceptance |
+| `core/templates/products/store/index.html` | `core/templates/products/store/index.html` | catalog-read, parent-store-assignment-csv | external_acceptance |
+| `core/templates/products/store/show.html` | `core/templates/products/store/show.html` | catalog-read, parent-store-assignment-csv | external_acceptance |
 | `core/templates/salespersons/_form.html` | `core/templates/salespersons/_form.html` | salespeople | implementation_present |
 | `core/templates/salespersons/create.html` | `core/templates/salespersons/create.html` | salespeople | implementation_present |
 | `core/templates/salespersons/edit.html` | `core/templates/salespersons/edit.html` | salespeople | implementation_present |

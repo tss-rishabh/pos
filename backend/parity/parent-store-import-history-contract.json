@@ -1,0 +1,60 @@
+{
+  "version": 1,
+  "status": "implemented-adapter-requires-deployed-view-mapping-and-ingestion-verification",
+  "metadata_view_env": "BQ_PARENT_STORE_IMPORTS_VIEW",
+  "records_view_env": "BQ_PARENT_STORE_IMPORT_ROWS_VIEW",
+  "identifiers": "Fully qualified project.dataset.view; validated independently of bound query values.",
+  "metadata_columns": {
+    "profile": "STRING: exactly parent-store",
+    "import_sequence": "STRING: unsigned decimal MySQL sequence, no floating conversion",
+    "import_id": "STRING: UUID",
+    "actor_id": "STRING: positive decimal operator ID",
+    "filename": "STRING: original CSV basename, maximum 120 characters",
+    "checksum": "STRING: lowercase SHA256 hex of submitted UTF-8 CSV",
+    "state": "STRING: COMPLETED or CANCELLED",
+    "total_rows": "INT64: 1..5000",
+    "processed_rows": "INT64: succeeded plus failed records",
+    "successful_rows": "INT64: 0..5000",
+    "failed_rows": "INT64: 0..5000",
+    "error_code": "STRING NULL: static uppercase code",
+    "created_at": "TIMESTAMP: UTC, exact millisecond precision",
+    "updated_at": "TIMESTAMP: UTC final immutable snapshot revision"
+  },
+  "record_columns": {
+    "job_profile": "STRING: exactly parent-store",
+    "import_id": "STRING: metadata UUID",
+    "actor_id": "STRING: immutable owner",
+    "job_checksum": "STRING: metadata checksum",
+    "job_created_at": "TIMESTAMP: metadata creation time",
+    "job_updated_at": "TIMESTAMP: metadata snapshot revision",
+    "record_number": "INT64: dense unique 2..total_rows+1 including failed/cancelled records",
+    "cells_json": "STRING: JSON array [SkuId,StoreId,IsActive], three source CSV strings each at most128 characters",
+    "command_json": "STRING NULL: strict JSON {kind:\"parent-store\",productId:positive decimal string,storeId:positive decimal string,active:boolean}; invalid/duplicate syntax rows may be null",
+    "state": "STRING: SUCCEEDED, FAILED or CANCELLED",
+    "error_code": "STRING NULL: static uppercase code",
+    "message": "STRING NULL: static record result, maximum 255 characters"
+  },
+  "integrity": [
+    "Separate parent-store publication; never substitute six-column stock cells/commands or fabricate source CsvUpload UUID execution receipts.",
+    "Exactly one immutable metadata record per import UUID/sequence.",
+    "All records belong to the same owner/checksum/created_at/updated_at snapshot.",
+    "Metadata is published only with the complete final record snapshot; duplicate rows are invalid.",
+    "processed_rows=successful_rows+failed_rows; COMPLETED requires processed_rows=total_rows.",
+    "CANCELLED has total_rows-processed_rows cancelled records and no pending records.",
+    "Record counts/status totals/dense numbering are verified before serving.",
+    "Keep compact MySQL authorization/idempotency metadata; historical record bodies need no MySQL read fallback."
+  ],
+  "physical_design_to_verify": {
+    "metadata_partition": "DATE(created_at)",
+    "metadata_cluster": [
+      "actor_id",
+      "import_id"
+    ],
+    "records_partition": "DATE(job_created_at)",
+    "records_cluster": [
+      "import_id",
+      "actor_id"
+    ],
+    "note": "Validate actual partition pruning, view policies, materialization/freshness and maximumBytesBilled before enabling. No DDL was executed."
+  }
+}

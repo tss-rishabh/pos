@@ -1,5 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, gt, inArray, isNull, like, or, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, like, ne, or, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
@@ -32,6 +32,12 @@ export interface InventorySynchronizationContext {
 }
 
 export interface InventoryOptions {
+  /** Global catalog work has no invented store scope. */
+  syncCatalogProducts?: (
+    eventId: string,
+    productIds: string[],
+    context: { operatorId: string; importId: string; requestId?: string },
+  ) => Promise<void>;
   /** Requires writer-body parity and caller-owned transaction safety (no internal commit/session leakage). */
   procedureVerified?: boolean;
   /** Optional verified transaction-scoped implementation; tests inject isolated audit fixtures. */
@@ -335,7 +341,8 @@ export function inventoryService(config: Config, db: Databases, options: Invento
       };
     },
     async dispatchPending(limit = 25) {
-      integrationAvailable();
+      if (!options.syncProducts && !options.syncCatalogProducts)
+        return unavailable('Product synchronization adapter');
       let delivered = 0;
       for (let index = 0; index < limit; index++) {
         const success = await db.get('writer').transaction(async (transaction) => {
@@ -346,6 +353,11 @@ export function inventoryService(config: Config, db: Databases, options: Invento
               and(
                 isNull(administrationOutbox.deliveredAt),
                 sql`${administrationOutbox.attempts}<10`,
+                options.syncProducts && options.syncCatalogProducts
+                  ? undefined
+                  : options.syncCatalogProducts
+                    ? eq(administrationOutbox.kind, 'product.catalog.synchronization')
+                    : ne(administrationOutbox.kind, 'product.catalog.synchronization'),
               ),
             )
             .orderBy(asc(administrationOutbox.attempts), asc(administrationOutbox.createdAt))
@@ -361,11 +373,19 @@ export function inventoryService(config: Config, db: Databases, options: Invento
               ? [row.payload.productId]
               : row.payload.productIds;
           try {
-            await options.syncProducts!(row.id, ids, {
-              operatorId: row.payload.actorId,
-              storeId: row.payload.storeId,
-              ...(row.payload.requestId ? { requestId: row.payload.requestId } : {}),
-            });
+            if (row.payload.kind === 'product.catalog.synchronization') {
+              if (!options.syncCatalogProducts) return false;
+              await options.syncCatalogProducts(row.id, ids, {
+                operatorId: row.payload.actorId,
+                importId: row.payload.importId,
+                ...(row.payload.requestId ? { requestId: row.payload.requestId } : {}),
+              });
+            } else
+              await options.syncProducts!(row.id, ids, {
+                operatorId: row.payload.actorId,
+                storeId: row.payload.storeId,
+                ...(row.payload.requestId ? { requestId: row.payload.requestId } : {}),
+              });
           } catch {
             return false;
           }

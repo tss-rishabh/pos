@@ -41,9 +41,16 @@ import {
 } from './import-domain.js';
 import { inventoryImportHistory, type InventoryImportHistory } from './import-history.js';
 import { historicalInventoryImport, mysqlImportCutoff } from './import-time.js';
+import type {
+  ImportCommand,
+  ImportActor,
+  InventoryImportProfile,
+  QueueImportRow,
+} from './import-profile.js';
 
 type Job = typeof inventoryImports.$inferSelect;
 export interface ImportDispatchResult {
+  profile?: 'parent-store';
   importId: string;
   actorId: string;
   requestId: string | null;
@@ -79,7 +86,7 @@ const blockedCodes = new Set([
   'ROLE_ACCESS_DENIED',
   'INVENTORY_ADMINISTRATION_DENIED',
 ]);
-function authorize(user: Principal) {
+function authorizeStockImport(user: Principal) {
   requireRole(user, [1, 2, 3]);
   if (user.userType !== 1)
     throw new AppError(
@@ -88,7 +95,7 @@ function authorize(user: Principal) {
       'Stock administration is restricted for this user type.',
     );
 }
-async function currentActor(transaction: AdministrationTransaction, actorId: string) {
+async function currentStockActor(transaction: AdministrationTransaction, actorId: string) {
   const role = await assertCurrentOperatorRole(transaction, actorId, [1, 2, 3]);
   const [identity] = await transaction
     .select({ userType: PosUser.user_type })
@@ -106,13 +113,32 @@ async function currentActor(transaction: AdministrationTransaction, actorId: str
 const project = importJobDto;
 export interface InventoryImportOptions extends InventoryOptions {
   importHistory?: InventoryImportHistory;
+  importProfile?: InventoryImportProfile;
 }
 export function inventoryImportService(
   config: Config,
   db: Databases,
   options: InventoryImportOptions = {},
 ) {
-  const historicalReader = options.importHistory || inventoryImportHistory(config);
+  const profile = options.importProfile,
+    kind = profile?.kind || 'stock';
+  const authorize = profile?.authorize || authorizeStockImport;
+  const currentActor =
+    profile?.currentActor ||
+    (async (transaction: AdministrationTransaction, actorId: string): Promise<ImportActor> => {
+      const role = await currentStockActor(transaction, actorId);
+      return { role, allActors: role === 1 };
+    });
+  const parseRows = profile?.parse || parseStockImport,
+    commandSchema = profile?.command || stockImportCommand,
+    cellsSchema = profile?.cells || stockImportCells,
+    headers = profile?.headers || stockImportHeaders;
+  const needsStock = (command: ImportCommand) =>
+    profile ? profile.needsStock(command) : stockImportCommand.parse(command).movement !== 'none';
+  const stockReady = !!options.procedureVerified && (!profile || !!options.stockProcedure);
+  const failures = { ...rowFailureMessages, ...profile?.failureMessages };
+  const historicalReader =
+    profile?.history || options.importHistory || inventoryImportHistory(config);
   const historical = (row: Job) =>
     historicalInventoryImport(row, Temporal.Now.instant().subtract({ hours: 24 }));
   const timestamp = () =>
@@ -120,26 +146,24 @@ export function inventoryImportService(
       .toPlainDateTime()
       .toString({ smallestUnit: 'second' })
       .replace('T', ' ');
-  function dependencies(rows: ParsedImportRow[]) {
+  function dependencies(rows: QueueImportRow[]) {
     if (rows.some((row) => row.command) && !options.syncProducts)
       return unavailable('Product synchronization adapter');
-    if (
-      rows.some((row) => row.command && row.command.movement !== 'none') &&
-      !options.procedureVerified
-    )
+    if (rows.some((row) => row.command && needsStock(row.command)) && !stockReady)
       return unavailable('Verified inventory stock procedure');
   }
   async function job(user: Principal, importId: string) {
     authorize(user);
     return db.get('writer').transaction(async (transaction) => {
-      const role = await currentActor(transaction, user.id);
+      const actor = await currentActor(transaction, user.id);
       const [row] = await transaction
         .select()
         .from(inventoryImports)
         .where(
           and(
             eq(inventoryImports.id, importId),
-            role === 1 ? undefined : eq(inventoryImports.actorId, user.id),
+            eq(inventoryImports.profile, kind),
+            actor.allActors ? undefined : eq(inventoryImports.actorId, user.id),
           ),
         )
         .limit(1)
@@ -466,13 +490,15 @@ export function inventoryImportService(
         maximumBytes: 256 * 1024,
         maximumRows: 5000,
         visibilityEnabled: !!options.syncProducts,
-        stockEnabled: !!options.syncProducts && !!options.procedureVerified,
+        stockEnabled: !!options.syncProducts && stockReady,
         historyEnabled: historicalReader.enabled,
       };
     },
     async preview(user: Principal, input: StockImportInput) {
       authorize(user);
-      const rows = await inspect(user, parseStockImport(input.csv)),
+      const rows = profile
+          ? await profile.inspect(user, profile.parse(input.csv))
+          : await inspect(user, parseStockImport(input.csv)),
         invalidRows = rows.filter((row) => row.errorCode).length;
       return {
         totalRows: rows.length,
@@ -480,16 +506,15 @@ export function inventoryImportService(
         invalidRows,
         rows: rows.slice(0, 100),
         remainingRows: Math.max(0, rows.length - 100),
-        requiresStockProcedure: rows.some((row) => row.command && row.command.movement !== 'none'),
+        requiresStockProcedure: rows.some((row) => row.command && needsStock(row.command)),
         canSubmit:
-          !!options.syncProducts &&
-          (!rows.some((row) => row.command && row.command.movement !== 'none') ||
-            !!options.procedureVerified),
+          (!rows.some((row) => row.command) || !!options.syncProducts) &&
+          (!rows.some((row) => row.command && needsStock(row.command)) || stockReady),
       };
     },
     async create(user: Principal, input: StockImportInput) {
       authorize(user);
-      const rows = parseStockImport(input.csv),
+      const rows = parseRows(input.csv),
         checksum = stockImportChecksum(input.csv);
       dependencies(rows);
       return retryTransaction(() =>
@@ -504,6 +529,7 @@ export function inventoryImportService(
           if (previous) {
             if (
               previous.actorId !== user.id ||
+              previous.profile !== kind ||
               previous.checksum !== checksum ||
               previous.name !== input.name
             )
@@ -533,6 +559,7 @@ export function inventoryImportService(
             now = utcMediaTimestamp();
           const value: typeof inventoryImports.$inferInsert = {
             id: input.id,
+            profile: kind,
             actorId: user.id,
             requestId: currentRequestTrace()?.requestId || null,
             checksum,
@@ -576,7 +603,7 @@ export function inventoryImportService(
     },
     async list(user: Principal, input: z.infer<typeof importListInput>) {
       authorize(user);
-      const role = await db
+      const actor = await db
         .get('writer')
         .transaction((transaction) => currentActor(transaction, user.id));
       const rows = await db
@@ -585,7 +612,8 @@ export function inventoryImportService(
         .from(inventoryImports)
         .where(
           and(
-            role === 1 ? undefined : eq(inventoryImports.actorId, user.id),
+            eq(inventoryImports.profile, kind),
+            actor.allActors ? undefined : eq(inventoryImports.actorId, user.id),
             or(
               inArray(inventoryImports.state, ['QUEUED', 'RUNNING', 'BLOCKED']),
               gte(
@@ -605,10 +633,10 @@ export function inventoryImportService(
     },
     async history(user: Principal, input: z.infer<typeof importHistoryInput>) {
       authorize(user);
-      const role = await db
+      const actor = await db
         .get('writer')
         .transaction((transaction) => currentActor(transaction, user.id));
-      return historicalReader.list({ actorId: user.id, allActors: role === 1 }, input);
+      return historicalReader.list({ actorId: user.id, allActors: actor.allActors }, input);
     },
     async detail(user: Principal, importId: string) {
       const anchor = await job(user, importId);
@@ -639,7 +667,7 @@ export function inventoryImportService(
       const anchor = await job(user, importId);
       if (historical(anchor)) return historicalReader.failedCsv(anchor);
       return (async function* () {
-        yield stockCsv([[...stockImportHeaders, 'Message']], true);
+        yield stockCsv([[...headers, 'Message']], true);
         let after = 0;
         for (;;) {
           const rows = await db
@@ -662,7 +690,7 @@ export function inventoryImportService(
           if (!rows.length) break;
           yield stockCsv(
             rows.map((row) => [
-              ...stockImportCells.parse(row.cells),
+              ...cellsSchema.parse(row.cells),
               row.message || 'Error while traversing csv data.',
             ]),
             true,
@@ -675,14 +703,15 @@ export function inventoryImportService(
       authorize(user);
       return retryTransaction(() =>
         db.get('writer').transaction(async (transaction) => {
-          const role = await assertCurrentOperatorRole(transaction, user.id, [1, 2, 3]);
+          const actor = await currentActor(transaction, user.id);
           const [row] = await transaction
             .select()
             .from(inventoryImports)
             .where(
               and(
                 eq(inventoryImports.id, importId),
-                role === 1 ? undefined : eq(inventoryImports.actorId, user.id),
+                eq(inventoryImports.profile, kind),
+                actor.allActors ? undefined : eq(inventoryImports.actorId, user.id),
               ),
             )
             .limit(1)
@@ -709,8 +738,10 @@ export function inventoryImportService(
               )
               .limit(5000);
             if (
-              pending.some((value) => value.command?.movement !== 'none') &&
-              !options.procedureVerified
+              pending.some(
+                (value) => value.command !== null && needsStock(commandSchema.parse(value.command)),
+              ) &&
+              !stockReady
             )
               return unavailable('Verified inventory stock procedure');
           } else
@@ -726,6 +757,13 @@ export function inventoryImportService(
                   eq(inventoryImportRows.state, 'PENDING'),
                 ),
               );
+          if (action === 'cancel')
+            await profile?.finalize?.(transaction, {
+              importId: row.id,
+              actorId: row.actorId,
+              requestId: row.requestId,
+              processedRows: row.processedRows,
+            });
           await transaction
             .update(inventoryImports)
             .set({
@@ -748,7 +786,12 @@ export function inventoryImportService(
           const [current] = await transaction
             .select()
             .from(inventoryImports)
-            .where(inArray(inventoryImports.state, ['QUEUED', 'RUNNING']))
+            .where(
+              and(
+                eq(inventoryImports.profile, kind),
+                inArray(inventoryImports.state, ['QUEUED', 'RUNNING']),
+              ),
+            )
             .orderBy(asc(inventoryImports.sequence))
             .limit(1)
             .for('update', { skipLocked: true });
@@ -765,8 +808,9 @@ export function inventoryImportService(
             .orderBy(asc(inventoryImportRows.rowNumber))
             .limit(1)
             .for('update');
-          const parsed = stockImportCommand.safeParse(row?.command);
+          const parsed = commandSchema.safeParse(row?.command);
           const result = {
+            ...(profile ? { profile: profile.kind } : {}),
             importId: current.id,
             actorId: current.actorId,
             requestId: current.requestId,
@@ -774,6 +818,12 @@ export function inventoryImportService(
             storeId: parsed.success ? parsed.data.storeId : null,
           };
           if (!row) {
+            await profile?.finalize?.(transaction, {
+              importId: current.id,
+              actorId: current.actorId,
+              requestId: current.requestId,
+              processedRows: current.processedRows,
+            });
             await transaction
               .update(inventoryImports)
               .set({ state: 'COMPLETED', updatedAt: utcMediaTimestamp() })
@@ -783,6 +833,19 @@ export function inventoryImportService(
           let failed: AppError | undefined;
           try {
             await transaction.transaction(async (savepoint) => {
+              if (profile) {
+                await profile.apply(
+                  savepoint,
+                  {
+                    actorId: current.actorId,
+                    requestId: current.requestId,
+                    importId: current.id,
+                    rowNumber: row.rowNumber,
+                  },
+                  commandSchema.parse(row.command),
+                );
+                return;
+              }
               const command = stockImportCommand.parse(row.command);
               await apply(
                 savepoint,
@@ -794,16 +857,23 @@ export function inventoryImportService(
               );
             });
           } catch (error) {
-            const message = error instanceof AppError ? rowFailureMessages[error.code] : undefined;
+            const message = error instanceof AppError ? failures[error.code] : undefined;
             if (!(error instanceof AppError) || error.status >= 500 || !message) {
               const errorCode =
-                error instanceof AppError && blockedCodes.has(error.code)
+                error instanceof AppError &&
+                (blockedCodes.has(error.code) || profile?.isBlockedCode(error.code))
                   ? error.code
                   : 'INVENTORY_IMPORT_STORAGE_UNAVAILABLE';
               await transaction
                 .update(inventoryImports)
                 .set({ state: 'BLOCKED', errorCode, updatedAt: utcMediaTimestamp() })
                 .where(eq(inventoryImports.id, current.id));
+              await profile?.finalize?.(transaction, {
+                importId: current.id,
+                actorId: current.actorId,
+                requestId: current.requestId,
+                processedRows: current.processedRows,
+              });
               return { ...result, status: 'blocked', errorCode };
             }
             failed = new AppError(error.status, error.code, message);
@@ -813,7 +883,7 @@ export function inventoryImportService(
             .set({
               state: failed ? 'FAILED' : 'SUCCEEDED',
               errorCode: failed?.code || null,
-              message: failed?.message || 'Product stock row processed.',
+              message: failed?.message || profile?.successMessage || 'Product stock row processed.',
             })
             .where(
               and(
@@ -822,6 +892,13 @@ export function inventoryImportService(
               ),
             );
           const processedRows = current.processedRows + 1;
+          if (processedRows === current.totalRows)
+            await profile?.finalize?.(transaction, {
+              importId: current.id,
+              actorId: current.actorId,
+              requestId: current.requestId,
+              processedRows,
+            });
           await transaction
             .update(inventoryImports)
             .set({

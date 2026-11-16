@@ -368,6 +368,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       'src/modules/administration/media-migration.sql',
       'src/modules/administration/settings-migration.sql',
       'src/modules/administration/import-migration.sql',
+      'src/modules/administration/parent-store-imports/migration.sql',
       'src/modules/administration/mfa-migration.sql',
       'src/modules/administration/store-image-migration.sql',
       'src/modules/administration/access-migration.sql',

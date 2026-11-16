@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import { useEffect, useRef, useState } from 'react';
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { Principal } from '../../api/types';
@@ -14,18 +15,63 @@ import {
   stockImportHeaders,
   type ImportJob,
   type ImportPreview,
+  type ImportRow,
+  parentImportSchemas,
 } from './import-api';
 
-const base = '/api/v1/admin/inventory-imports';
+interface ImportWorkspaceProfile {
+  base: string;
+  key: string;
+  title: string;
+  instructions: string;
+  fileLabel: string;
+  templateLabel: string;
+  templateName: string;
+  headers: readonly string[];
+  preview: z.ZodType<ImportPreview>;
+  row: z.ZodType<ImportRow>;
+  parent: boolean;
+}
+const stockProfile: ImportWorkspaceProfile = {
+  base: '/api/v1/admin/inventory-imports',
+  key: 'inventory-import',
+  title: 'Inventory CSV imports',
+  instructions:
+    'Use SKU and store IDs. Leave movement fields empty to change listing status only. Use IsHold 1 to hold stock or 0 to release it. Remove the instruction and example records before uploading.',
+  fileLabel: 'Choose inventory CSV',
+  templateLabel: 'Download stock template',
+  templateName: 'ProductStock-template.csv',
+  headers: stockImportHeaders,
+  preview: importPreviewSchema,
+  row: importRowSchema,
+  parent: false,
+};
+const parentProfile: ImportWorkspaceProfile = {
+  base: '/api/v1/admin/parent-store-imports',
+  key: 'parent-store-import',
+  title: 'Parent/store assignments',
+  instructions:
+    'Use parent product IDs only. IsActive 1 recreates the parent and its live variant assignments with zero stock and active listing flags. IsActive 0 removes these assignments. Both actions reset existing saleable stock to zero; held stock stays recorded separately. Remove the instruction and example records before uploading. Repeated parent/store pairs require separate imports.',
+  fileLabel: 'Choose parent/store CSV',
+  templateLabel: 'Download parent/store template',
+  templateName: 'ProductStore-template.csv',
+  headers: ['SkuId', 'StoreId', 'IsActive'],
+  preview: parentImportSchemas.preview,
+  row: parentImportSchemas.row,
+  parent: true,
+};
 function ImportProgress({
   user,
   importId,
   onChange,
+  profile,
 }: {
+  profile: ImportWorkspaceProfile;
   user: Principal;
   importId: string;
   onChange: () => Promise<void>;
 }) {
+  const { base } = profile;
   const [after, setAfter] = useState('0'),
     [state, setState] = useState('all'),
     [history, setHistory] = useState<string[]>([]),
@@ -33,19 +79,19 @@ function ImportProgress({
     [cancelling, setCancelling] = useState(false),
     [error, setError] = useState<unknown>(null);
   const detail = useQuery({
-    queryKey: [user.id, 'administration', 'inventory-import', importId],
+    queryKey: [user.id, 'administration', profile.key, importId],
     queryFn: ({ signal }) =>
       request(`${base}/${importId}`, { operatorId: user.id, signal }, importJobSchema),
     refetchInterval: (query) =>
       ['QUEUED', 'RUNNING'].includes(query.state.data?.state || '') ? 2000 : false,
   });
   const rows = useQuery({
-    queryKey: [user.id, 'administration', 'inventory-import-rows', importId, after, state],
+    queryKey: [user.id, 'administration', `${profile.key}-rows`, importId, after, state],
     queryFn: ({ signal }) =>
       request(
         `${base}/${importId}/rows?${params({ after, state, limit: '50' })}`,
         { operatorId: user.id, signal },
-        pageSchema(importRowSchema),
+        pageSchema(profile.row),
       ),
     refetchInterval:
       detail.data && ['QUEUED', 'RUNNING'].includes(detail.data.state) ? 2000 : false,
@@ -161,7 +207,7 @@ function ImportProgress({
                   <thead>
                     <tr>
                       <th>Record</th>
-                      {stockImportHeaders.map((name) => (
+                      {profile.headers.map((name) => (
                         <th key={name}>{name}</th>
                       ))}
                       <th>Status</th>
@@ -226,6 +272,14 @@ function ImportProgress({
   );
 }
 export function InventoryImportAdministration({ user }: { user: Principal }) {
+  return <ImportWorkspace key={user.id} user={user} profile={stockProfile} />;
+}
+export function ParentStoreImportAdministration({ user }: { user: Principal }) {
+  return <ImportWorkspace key={user.id} user={user} profile={parentProfile} />;
+}
+function ImportWorkspace({ user, profile }: { user: Principal; profile: ImportWorkspaceProfile }) {
+  const { base } = profile;
+  const allowed = profile.parent || user.userType === 1;
   const client = useQueryClient(),
     previewAbort = useRef<AbortController | null>(null);
   const [draft, setDraft] = useState<{ id: string; name: string; csv: string } | null>(null),
@@ -233,7 +287,8 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
     [selected, setSelected] = useState<string | null>(null),
     [busy, setBusy] = useState(false),
     [error, setError] = useState<unknown>(null),
-    [message, setMessage] = useState('');
+    [message, setMessage] = useState(''),
+    [unknownCreate, setUnknownCreate] = useState(false);
   const [historyMode, setHistoryMode] = useState(false),
     [from, setFrom] = useState(() =>
       new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10),
@@ -241,14 +296,14 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
     [to, setTo] = useState(() => new Date(Date.now() - 86400000).toISOString().slice(0, 10));
   useEffect(() => () => previewAbort.current?.abort(), []);
   const capabilities = useQuery({
-    enabled: user.userType === 1,
-    queryKey: [user.id, 'administration', 'inventory-import-capabilities'],
+    enabled: allowed,
+    queryKey: [user.id, 'administration', `${profile.key}-capabilities`],
     queryFn: ({ signal }) =>
       request(`${base}/capabilities`, { operatorId: user.id, signal }, importCapabilitiesSchema),
   });
   const jobs = useInfiniteQuery({
-    enabled: user.userType === 1 && !historyMode,
-    queryKey: [user.id, 'administration', 'inventory-imports'],
+    enabled: allowed && !historyMode,
+    queryKey: [user.id, 'administration', `${profile.key}s`],
     initialPageParam: '0',
     queryFn: ({ pageParam, signal }) =>
       request(
@@ -265,8 +320,8 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
         : false,
   });
   const historicalJobs = useInfiniteQuery({
-    enabled: user.userType === 1 && historyMode && !!capabilities.data?.historyEnabled,
-    queryKey: [user.id, 'administration', 'inventory-import-history', from, to],
+    enabled: allowed && historyMode && !!capabilities.data?.historyEnabled,
+    queryKey: [user.id, 'administration', `${profile.key}-history`, from, to],
     initialPageParam: '0',
     queryFn: ({ pageParam, signal }) =>
       request(
@@ -286,6 +341,7 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
     setPreview(null);
     setError(null);
     setMessage('');
+    setUnknownCreate(false);
     if (!file) return;
     setBusy(true);
     try {
@@ -302,7 +358,7 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
           body: JSON.stringify(input),
           signal: controller.signal,
         },
-        importPreviewSchema,
+        profile.preview,
       );
       if (previewAbort.current !== controller) return;
       setDraft(input);
@@ -311,6 +367,27 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
       if (!controller.signal.aborted) setError(failure);
     } finally {
       if (previewAbort.current === controller) setBusy(false);
+    }
+  }
+  function adopted(job: ImportJob) {
+    setSelected(job.id);
+    setDraft(null);
+    setPreview(null);
+    setUnknownCreate(false);
+    setError(null);
+    setMessage('Import queued. Each record is checked again before applying.');
+  }
+  async function reconcile() {
+    if (!draft) return;
+    setBusy(true);
+    try {
+      const job = await request(`${base}/${draft.id}`, { operatorId: user.id }, importJobSchema);
+      adopted(job);
+      await changed();
+    } catch (failure) {
+      setError(failure);
+    } finally {
+      setBusy(false);
     }
   }
   async function submit() {
@@ -322,13 +399,10 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
         { operatorId: user.id, method: 'POST', body: JSON.stringify(draft) },
         importJobSchema,
       );
-      setSelected(job.id);
-      setDraft(null);
-      setPreview(null);
-      setError(null);
-      setMessage('Import queued. Each record is checked again before applying.');
+      adopted(job);
       await changed();
     } catch (failure) {
+      setUnknownCreate(true);
       setError(failure);
     } finally {
       setBusy(false);
@@ -337,7 +411,7 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
   async function template() {
     setBusy(true);
     try {
-      await downloadImportCsv(`${base}/template`, 'ProductStock-template.csv', user.id);
+      await downloadImportCsv(`${base}/template`, profile.templateName, user.id);
       setError(null);
     } catch (failure) {
       setError(failure);
@@ -346,21 +420,16 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
     }
   }
   const records: ImportJob[] = collection.data?.pages.flatMap((page) => page.data) || [];
-  if (user.userType === 2)
-    return <Empty title="Inventory imports require an in-house administrator" />;
+  if (!allowed) return <Empty title="Inventory imports require an in-house administrator" />;
   return (
     <>
       <div className="administration-heading">
-        <h2>Inventory CSV imports</h2>
+        <h2>{profile.title}</h2>
         <button className="button secondary" disabled={busy} onClick={() => void template()}>
-          Download stock template
+          {profile.templateLabel}
         </button>
       </div>
-      <p>
-        Use SKU and store IDs. Leave movement fields empty to change listing status only. Use IsHold
-        1 to hold stock or 0 to release it. Remove the instruction and example records before
-        uploading.
-      </p>
+      <p>{profile.instructions}</p>
       {capabilities.isPending ? (
         <Loading />
       ) : capabilities.isError ? (
@@ -369,15 +438,32 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
         <>
           {!capabilities.data.stockEnabled && (
             <p className="administration-notice">
-              Holding and releasing stock are currently unavailable. Listing-status imports can
-              still run when enabled.
+              {profile.parent
+                ? 'Parent/store imports require the verified atomic inventory projection and product synchronization to be configured.'
+                : 'Holding and releasing stock are currently unavailable. Listing-status imports can still run when enabled.'}
             </p>
+          )}
+          {profile.parent && capabilities.data.stores && (
+            <details className="surface administration-section-gap">
+              <summary>Permitted store IDs ({capabilities.data.stores.length})</summary>
+              {capabilities.data.stores.length ? (
+                <ul>
+                  {capabilities.data.stores.map((store) => (
+                    <li key={store.id}>
+                      {store.id} · {store.name}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p>No active stores are assigned to this operator.</p>
+              )}
+            </details>
           )}
           <section className="surface">
             <label>
-              Choose inventory CSV{' '}
+              {profile.fileLabel}{' '}
               <input
-                aria-label="Choose inventory CSV"
+                aria-label={profile.fileLabel}
                 type="file"
                 accept=".csv,text/csv"
                 disabled={busy}
@@ -398,8 +484,8 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
                         <th>Record</th>
                         <th>SKU</th>
                         <th>Store</th>
-                        <th>Movement</th>
-                        <th>Quantity</th>
+                        <th>{profile.parent ? 'Action' : 'Movement'}</th>
+                        <th>{profile.parent ? 'Affected assignments' : 'Quantity'}</th>
                         <th>Validation</th>
                       </tr>
                     </thead>
@@ -409,8 +495,22 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
                           <td>{row.rowNumber}</td>
                           <td>{row.cells[0]}</td>
                           <td>{row.cells[1]}</td>
-                          <td>{row.command?.movement || '—'}</td>
-                          <td>{row.command?.quantity || '—'}</td>
+                          <td>
+                            {row.command
+                              ? 'active' in row.command
+                                ? row.command.active
+                                  ? 'Reset and assign'
+                                  : 'Reset and remove'
+                                : row.command.movement
+                              : '—'}
+                          </td>
+                          <td>
+                            {profile.parent
+                              ? (row.familySize ?? '—')
+                              : row.command && 'quantity' in row.command
+                                ? row.command.quantity || '—'
+                                : '—'}
+                          </td>
                           <td>{row.errorCode ? row.message : row.message || 'Ready'}</td>
                         </tr>
                       ))}
@@ -428,6 +528,18 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
                 >
                   Queue import
                 </button>
+                {unknownCreate && (
+                  <p className="administration-notice">
+                    The queue response was not confirmed. Check the original import before retrying.{' '}
+                    <button
+                      className="button secondary"
+                      disabled={busy}
+                      onClick={() => void reconcile()}
+                    >
+                      Check original import
+                    </button>
+                  </p>
+                )}
                 {!preview.canSubmit && (
                   <p className="administration-notice">
                     This file requires an import capability that is currently unavailable.
@@ -542,7 +654,13 @@ export function InventoryImportAdministration({ user }: { user: Principal }) {
         )}
       </section>
       {selected && (
-        <ImportProgress key={selected} user={user} importId={selected} onChange={changed} />
+        <ImportProgress
+          key={selected}
+          user={user}
+          importId={selected}
+          onChange={changed}
+          profile={profile}
+        />
       )}
     </>
   );
