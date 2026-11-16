@@ -37,6 +37,8 @@ import {
 import { readPrivateS3Options } from './modules/administration/private-s3-client.js';
 import { createStoreImageStore } from './modules/administration/store-images.js';
 import { registerAdministration } from './modules/administration/index.js';
+import { registerBarcodeAssignments } from './modules/administration/barcodes/index.js';
+import { registerSecondaryCountrySearch } from './modules/administration/country-search.js';
 import { registerApplicationLinks } from './modules/application-links/index.js';
 import { registerMotivationalQuotes } from './modules/motivational-quotes/index.js';
 import { registerDashboard } from './modules/dashboard/index.js';
@@ -297,6 +299,8 @@ export async function buildApp(
       customerOtpOptions,
       createCustomerOtpDelivery(config, customerOtpOptions),
     );
+  registerBarcodeAssignments(app, config, db);
+  registerSecondaryCountrySearch(app, db);
   await registerCheckout(app, config, db, {
     customerOtp,
     ...(stockProjection

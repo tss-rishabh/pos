@@ -39,6 +39,8 @@ import { pendingSlackConnection } from './pages/administration/slack-return';
 const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default: m.CounterPage })));
 const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
 const DashboardPage = lazy(() => import('./pages/dashboard'));
+const BarcodeAssignmentsPage = lazy(() => import('./pages/administration/barcodes'));
+const SecondaryCountrySearchPage = lazy(() => import('./pages/administration/secondary-countries'));
 const InventoryPage = lazy(() =>
   import('./pages/operations').then((m) => ({ default: m.InventoryPage })),
 );
@@ -208,6 +210,14 @@ const links = [
   { to: '/profile', name: 'Your profile', icon: UserRound },
   { to: '/monitoring', name: 'Fulfillment monitor', icon: Monitor, roles: [1, 2, 3] },
   { to: '/administration', name: 'Administration', icon: Settings, roles: [1, 2, 3] },
+  {
+    to: '/administration/barcodes',
+    name: 'Barcode assignment',
+    icon: QrCode,
+    roles: [1, 2, 3],
+    internalOnly: true,
+  },
+  { to: '/countries', name: 'Country lookup', icon: Building2, roles: [1, 2, 3] },
   { to: '/documentation', name: 'Help & documents', icon: BookOpen },
   { to: '/application-links', name: 'Application links', icon: QrCode },
   { to: '/sync', name: 'Sync center', icon: RefreshCw },
@@ -440,6 +450,11 @@ function Workspace({ user }: { user: Principal }) {
           ) : (
             <Suspense fallback={<Loading />}>
               <Routes>
+                <Route
+                  path="/administration/barcodes"
+                  element={<BarcodeAssignmentsPage user={user} />}
+                />
+                <Route path="/countries" element={<SecondaryCountrySearchPage user={user} />} />
                 <Route path="/dashboard" element={<DashboardPage key={user.id} user={user} />} />
                 <Route
                   path="/offline-worksheet"

@@ -1,9 +1,10 @@
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import {
   addWorksheetLine,
   createWorksheet,
@@ -23,25 +24,40 @@ const item = (productId = '12', quantity = '2', unitPrice = '25.49') => ({
 });
 function sourceCsv(
   lines: { productId: string; name: string; quantity: number; unitPrice: string }[],
-) {
-  const text = readFileSync(
-    fileURLToPath(
-      new URL(
-        '../../../../backend-pos-web/core/templates/offline_billing/biller.html',
-        import.meta.url,
-      ),
+  sourcePath: string | null = fileURLToPath(
+    new URL(
+      '../../../../backend-pos-web/core/templates/offline_billing/biller.html',
+      import.meta.url,
     ),
-    'utf8',
+  ),
+) {
+  const fixture = z
+    .object({
+      sourceCommit: z.literal('78d5b63d6a149a6bf2c748fa1d191799c59ecb8a'),
+      templateSha256: z.literal('127a5eac3a416bd214462ae3827493fecce15a78695fb11049f00b8e2efd9168'),
+      functionsSha256: z.literal(
+        '9d67d9699235ed5f6c0e6a6c20dd3d609e64d6fa08c60c68894fcb0130b28b52',
+      ),
+      javascript: z.string(),
+    })
+    .strict()
+    .parse(
+      JSON.parse(readFileSync(new URL('./source-oracle.json', import.meta.url), 'utf8')) as unknown,
+    );
+  expect(createHash('sha256').update(fixture.javascript).digest('hex')).toBe(
+    fixture.functionsSha256,
   );
-  expect(createHash('sha256').update(text).digest('hex')).toBe(
-    '127a5eac3a416bd214462ae3827493fecce15a78695fb11049f00b8e2efd9168',
-  );
-  const script = [...text.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)]
-    .map((match) => match[1]!)
-    .find((value) => value.includes('function exportTableToCSV'))!;
+  let script = fixture.javascript;
+  if (sourcePath !== null && existsSync(sourcePath)) {
+    const text = readFileSync(sourcePath, 'utf8');
+    expect(createHash('sha256').update(text).digest('hex')).toBe(fixture.templateSha256);
+    script = [...text.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/g)]
+      .map((match) => match[1]!)
+      .find((value) => value.includes('function exportTableToCSV'))!;
+  }
   const source = ts.createSourceFile(
     'original-worksheet.js',
-    script.replaceAll('{{ store.id }}', '1'),
+    script,
     ts.ScriptTarget.Latest,
     true,
     ts.ScriptKind.JS,
@@ -52,9 +68,11 @@ function sourceCsv(
       ['exportTableToCSV', 'getTotalAmount', 'setOrderID'].includes(node.name?.text ?? ''),
   );
   expect(functions).toHaveLength(3);
+  const javascript = functions.map((node) => node.getText(source)).join('\n');
+  expect(javascript).toBe(fixture.javascript);
   let exported = '';
   runInNewContext(
-    functions.map((node) => node.getText(source)).join('\n') + '\nexportTableToCSV("invoice.csv");',
+    javascript.replaceAll('{{ store.id }}', '1') + '\nexportTableToCSV("invoice.csv");',
     {
       Date: class extends Date {
         static override now() {
@@ -80,6 +98,10 @@ function sourceCsv(
 }
 
 describe('separate offline invoice worksheet', () => {
+  it('replays the exact extracted source functions in standalone desktop CI', () => {
+    const sheet = addWorksheetLine(createWorksheet('1', now), item());
+    expect(sourceCsv(sheet.lines, null)).toEqual(sourceCsv(sheet.lines));
+  });
   it('retains the original fourteen-column metadata and per-row quantity/price semantics', () => {
     const sheet = addWorksheetLine(
       addWorksheetLine(createWorksheet('1', now), item()),

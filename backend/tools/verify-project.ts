@@ -61,6 +61,7 @@ if (flags.has('--mysql')) {
     LEGACY_ORDER_IMPORT_MYSQL_TEST_URL: 'pos_rewrite_legacy_order_imports_test',
     INVENTORY_WORKBOOK_MYSQL_TEST_URL: 'pos_rewrite_inventory_workbooks_test',
     DASHBOARD_MYSQL_TEST_URL: 'pos_rewrite_dashboard_test',
+    BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
     GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
     ADMINISTRATION_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_administration_history_test',
   })) {
@@ -738,6 +739,26 @@ const checks: Check[] = [
       'tests/offline-worksheet/tsconfig.json',
     ],
   },
+  {
+    id: 'barcode-assignments-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/administration/barcodes/tsconfig.tests.json',
+    ],
+  },
+  {
+    id: 'barcode-assignments-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/administration/barcodes/tsconfig.tests.json',
+    ],
+  },
 ];
 if (flags.has('--mysql')) {
   checks.push(
@@ -828,6 +849,7 @@ if (flags.has('--browser')) {
       'tests/customer-otp/otp.browser.test.ts',
       'tests/inventory-workbooks/browser.test.ts',
       'tests/dashboard/browser.test.ts',
+      'tests/administration/barcodes/browser.test.ts',
     ],
     environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
   });

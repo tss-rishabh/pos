@@ -65,6 +65,7 @@ export const migrationPaths = [
   'src/modules/operational-reports/migration.sql',
   'src/modules/operational-reports/scheduled-migration.sql',
   'src/modules/catalog-details/maintenance-migration.sql',
+  'src/modules/administration/barcodes/migration.sql',
 ] as const;
 export class MigrationError extends Error {
   constructor(readonly code: string) {

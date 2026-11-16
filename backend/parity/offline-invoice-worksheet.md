@@ -34,3 +34,10 @@ while offline and clearing prior customer labels after an operator change. The
 print frame is intentionally invisible on screen; its prepared content and
 print invocation are verified. These checks do not certify physical printers or
 downstream financial import execution.
+
+Desktop-only CI can replay the three exact extracted functions in
+`frontend/tests/offline-worksheet/source-oracle.json`, bound to the original
+commit/template/function hashes. When the protected source checkout is present,
+the same test also compares that snapshot with the actual pinned template. Full
+project parity verification still requires the clean pinned source checkout;
+the standalone replay does not replace that release requirement.
