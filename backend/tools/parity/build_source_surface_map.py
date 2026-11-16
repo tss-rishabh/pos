@@ -147,14 +147,15 @@ def define_families():
     family('system-health', ['src/app.ts'], ['src/components/error-boundary.tsx'],
            ['tests/api.test.ts', 'tests/logging.test.ts'], scope='Liveness/readiness and safe application error boundary.')
     bind('system-health', ['HealthCheckView'])
-    family('country-search', ['src/modules/administration/service.ts'], ['src/pages/administration/stores.tsx'],
-           ['tests/administration'], ['parity/administration-slack-locations.md'], state='partial',
-           scope='Country options and postal autofill exist.',
-           gaps=['GetCountryNameView uses name icontains and sec_status=1; current countries() uses distinct physical status=1 and an all-name list. Preserve the source secondary-country predicate/search profile separately.'])
+    family('country-search', ['src/modules/administration/country-search.ts', 'src/modules/administration/service.ts'], ['src/pages/administration/secondary-countries.tsx', 'src/pages/administration/stores.tsx'],
+           ['tests/administration/barcodes', 'frontend/tests/administration/barcodes'], ['parity/administration-barcodes-country.md'],
+           scope='Separate source sec_status=1/literal icontains secondary-country POST search, exact blank/whitespace/physical-collation behavior and authenticated lookup UI; standard status=1 directory/postal autofill remains distinct.',
+           notes=['Source store-form Select2 country controls are commented; active postal autofill is not silently changed to the secondary predicate.'])
     bind('country-search', ['GetCountryNameView'])
-    family('catalog-read', ['src/modules/catalog-details'], ['src/pages/catalog'], ['tests/catalog-details', 'frontend/tests/catalog'],
+    family('catalog-read', ['src/modules/catalog-details', 'src/modules/catalog.ts'], ['src/pages/catalog'], ['tests/catalog-details', 'tests/administration/barcodes/mysql.test.ts', 'frontend/tests/catalog'],
            ['parity/catalog-details.md'], scope='Product list/detail/matrix, source field/sort/search profiles and distinct seven-column per-store catalogue snapshot.',
-           external=['Accept actual duplicate GS1/ambiguous membership-price data and configured historical collation/publication contracts.'])
+           external=['Accept actual duplicate GS1/ambiguous membership-price data and configured historical collation/publication contracts.'],
+           notes=['Main store-picker global bypass is internal role1 only; every franchise role receives assigned active FRANCHISE stores, and empty assignments return empty. Native role1–5/type1–2 matrix preserves nullable DTO fields.'])
     bind('catalog-read', ['ProductsView', 'AjaxProductsListView', 'ShowProductView', 'CatalogueView', 'AjaxCatalogueView'])
     family('inventory-audit', ['src/modules/catalog-details/audit.ts'], ['src/pages/catalog'], ['tests/catalog-details', 'frontend/tests/catalog'],
            ['parity/catalog-details.md'], scope='Product/hold/storage audit profiles, current-day DATA reads and historical BigQuery adapters.',
@@ -171,10 +172,11 @@ def define_families():
            notes=['Source-handler differential choices and controlled browser workflows are scoped evidence; no release certification is added. Root integrates the rotating card into the new dashboard.'])
     bind('motivational-quotes', ['AjaxGetQuotesView'])
     bind('motivational-quotes', ['ShortcutDashboardView', 'CreateTabView', 'CreateOrderView'])
-    family('global-barcode-assignment', ['src/modules/catalog-details/maintenance-repair.ts'], ['src/pages/catalog'],
-           ['tests/catalog-details'], state='missing', scope='Existing troubleshooting repairs duplicate barcodes; it does not implement arbitrary SKU→new GTIN assignment.',
-           gaps=['Add source internal-role1–3 barcode assignment with product/GTIN conflict checks, special-permission activity audit and visible form. Keep it distinct from suffix-repair troubleshooting.'])
-    bind('global-barcode-assignment', ['AjaxAddBarcodeView'])
+    family('global-barcode-assignment', ['src/modules/administration/barcodes', 'src/modules/catalog-details/maintenance-service.ts'], ['src/pages/administration/barcodes'],
+           ['tests/administration/barcodes', 'tests/catalog-details/maintenance.mysql.integration.test.ts', 'frontend/tests/administration/barcodes'], ['parity/administration-barcodes-country.md'],
+           scope='Source internal-role1–3 missing-barcode assignment with exact normalization/messages/conflict order, current writer authority, atomic special-permission audit/UUID receipts and scanner form with durable GET recovery; shared mutex coordinates existing suffix repair.',
+           external=['Accept GS1 writer cutover/cooperative locking and duplicate-data handling across remaining legacy/API/ecommerce/import writers. Nonunique physical indexes are retained; scoped rewrite concurrency tests do not certify global uniqueness.'])
+    bind('global-barcode-assignment', ['AjaxAddBarcodeView', 'SpecialPermissionView'])
     family('wallet-adjustments', ['src/modules/checkout/benefit-adjustments'], ['src/pages/checkout/benefit-adjustments'],
            ['tests/checkout', 'frontend/tests'], ['parity/wallet-adjustments.md'], scope='User-approved atomic Money/Points adjustment, FIFO/expiry ledgers, immutable recovery and global activity audits.',
            external=['Accept shared external wallet locking/writer cutover and verified legacy allocation history.'])
@@ -272,8 +274,11 @@ def define_families():
     family('order-to-cart-copy', ['src/modules/checkout/service.ts'], ['src/pages/checkout/CheckoutReview.tsx'], state='missing',
            gaps=['Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source.'])
     bind('order-to-cart-copy', ['AjaxFetchTheProducts', 'CreateOrderView'])
-    family('customer-website-handoff', ['src/modules/checkout/gateway.ts'], ['src/pages/checkout/CheckoutReview.tsx'], state='missing',
-           gaps=['Implement source AjaxOnlineOrderView customer website sign-in handoff with current checkout/customer/store authorization and a purpose-bound receiver; never copy token/api_key query credentials.'])
+    family('customer-website-handoff', ['src/modules/customer-website-handoff', 'compatibility/upstream/customer-website-handoff', 'compatibility/upstream/customer-website-handoff/PosWebsiteHandoff.php', 'compatibility/upstream/customer-website-handoff/routes.review.php', 'tools/customer-website-handoff/check-receiver.mjs'], ['src/pages/customer-website-handoff', 'src/pages/checkout/CheckoutReview.tsx'],
+           ['tests/customer-website-handoff', 'frontend/tests/customer-website-handoff.test.ts'], ['parity/customer-website-handoff.md'],
+           scope='Captured owner/open-checkout/version, current check-in/store/customer/shadow, original revocable session and OTP/contact consent bound to short-lived single-use opaque fragment; browser-bound original-outcome recovery and explicit handoff consent.',
+           external=['Accept the actual current ecommerce receiver/session/customer writer and order-attribution contract plus exact web/Electron opener deployment. The pinned network-disabled PHP candidate is reviewable, not proof of a deployed modern-login receiver.'],
+           notes=['Module owner supplied scoped native/receiver/component evidence. General JWT/api_key/contact credentials are not put in URLs, logs or browser storage.'])
     bind('customer-website-handoff', ['AjaxOnlineOrderView', 'CreateOrderView'])
     family('customer-workspace', ['src/modules/customer-insights'], ['src/pages/customer-insights'],
            ['tests/customer-profile.mysql.integration.test.ts', 'tests/customer-benefits.test.ts', 'frontend/tests/customer-profile'], ['parity/customer-history.md'],

@@ -36,7 +36,8 @@ export function productImage(
 export function catalogService(databases: Databases) {
   return {
     async stores(user: Principal): Promise<StoreDto[]> {
-      if (user.role !== 1 && user.storeIds.length === 0) return [];
+      const global = user.role === 1 && user.userType === 1;
+      if (!global && user.storeIds.length === 0) return [];
       const rows = await databases
         .get('primary')
         .select({
@@ -50,7 +51,8 @@ export function catalogService(databases: Databases) {
         .where(
           and(
             eq(Store.is_active, true),
-            user.role === 1 ? undefined : inArray(Store.id, user.storeIds.map(BigInt)),
+            global ? undefined : inArray(Store.id, user.storeIds.map(BigInt)),
+            user.userType === 2 ? eq(Store.category, 'FRANCHISE') : undefined,
           ),
         )
         .orderBy(asc(Store.store_name));

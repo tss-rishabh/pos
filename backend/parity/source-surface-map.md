@@ -16,15 +16,12 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **country-search (partial)**: GetCountryNameView uses name icontains and sec_status=1; current countries() uses distinct physical status=1 and an all-name list. Preserve the source secondary-country predicate/search profile separately.
-- **global-barcode-assignment (missing)**: Add source internal-role1–3 barcode assignment with product/GTIN conflict checks, special-permission activity audit and visible form. Keep it distinct from suffix-repair troubleshooting.
 - **ecommerce-inventory-sync (partial)**: Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.
 - **offline-scratch-invoice (partial)**: The separate source offline_billing/biller.html manual-price/customer-label scratch invoice and invoice.csv export are not supplied by signed offline cash. Preserve this non-settling worksheet separately, or record an explicit approved semantic replacement; do not enable arbitrary prices in collected-cash receipts.
 - **orders-read (partial)**: Route public order list/detail facts older than one day to a source-matching BigQuery reader. Current orders.ts reads unrestricted historical facts from primary; this is a missing code path, distinct from writer-current financial/authorization probes.
 - **legacy-paid-reversal (missing)**: Resolve/implement the retained AjaxPaymentStatusView status/tender reversal semantics with financial evidence. Source Revert buttons are commented; do not claim ordinary payment recovery implements this API or expose its unsafe overwrites.
 - **pending-order-cancellation (partial)**: Finish the actual source API staging/Go activation membership provenance producers; typed capture/restore alone does not establish their before-state evidence.
 - **order-to-cart-copy (missing)**: Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source.
-- **customer-website-handoff (missing)**: Implement source AjaxOnlineOrderView customer website sign-in handoff with current checkout/customer/store authorization and a purpose-bound receiver; never copy token/api_key query credentials.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
 - **parent-store-assignment-csv (missing)**: Implement retained three-column SkuId/StoreId/IsActive parent-family association task, including source zero/reset/delete/variants and synchronization effects with a safe atomic correction. Its parse_csv_product_store task is not covered by stock CSV or parent repair.
@@ -37,9 +34,9 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 67 | 13 | 4 | 171 |
+| routes | 68 | 12 | 2 | 173 |
 | jobs | 0 | 4 | 2 | 26 |
-| templates | 32 | 18 | 0 | 56 |
+| templates | 32 | 12 | 0 | 62 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 2 | 0 | 0 |
 
@@ -59,7 +56,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:19` | `stock-management/` | inventory | external_acceptance |
 | `core/urls.py:20` | `stock-management/bulk-upload/` | inventory-imports | external_acceptance |
 | `core/urls.py:26` | `products/<int:product_id>/hold-stock-inventory-logs/` | inventory-audit | external_acceptance |
-| `core/urls.py:31` | `get-country-name/` | country-search | partial |
+| `core/urls.py:31` | `get-country-name/` | country-search | implementation_present |
 | `core/urls.py:34` | `products/` | catalog-read | external_acceptance |
 | `core/urls.py:35` | `ajax-products-list/` | catalog-read | external_acceptance |
 | `core/urls.py:36` | `products/<int:product_id>/show/` | catalog-read | external_acceptance |
@@ -77,10 +74,10 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:58` | `salesperson/<int:pk>/delete/` | salespeople | implementation_present |
 | `core/urls.py:59` | `salesperson/<int:pk>/activate/` | salespeople | implementation_present |
 | `core/urls.py:60` | `salesperson/<int:pk>/assign-store/` | salespeople | implementation_present |
-| `core/urls.py:62` | `spl-permission/` | special-permission-history | external_acceptance |
+| `core/urls.py:62` | `spl-permission/` | special-permission-history, global-barcode-assignment | external_acceptance |
 | `core/urls.py:63` | `special_permission_data/` | special-permission-history | external_acceptance |
 | `core/urls.py:66` | `ajax-get-quotes/` | motivational-quotes | implementation_present |
-| `core/urls.py:67` | `ajax-add-barcode/` | global-barcode-assignment | missing |
+| `core/urls.py:67` | `ajax-add-barcode/` | global-barcode-assignment | external_acceptance |
 | `core/urls.py:68` | `ajax-tss-money/` | wallet-adjustments | external_acceptance |
 | `core/urls.py:69` | `ajax-tss-points/` | wallet-adjustments | external_acceptance |
 | `core/urls.py:70` | `ajax-gift-voucher-module/` | global-vouchers | external_acceptance |
@@ -200,7 +197,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:75` | `ajax-check-order-status/` | local-deliveries | external_acceptance |
 | `order/urls.py:78` | `ajax-fetch-the-products/` | order-to-cart-copy | missing |
 | `order/urls.py:80` | `ajax-update-status-vinc/` | legacy-vinculum-status | partial |
-| `order/urls.py:82` | `ajax-online-order/` | customer-website-handoff | missing |
+| `order/urls.py:82` | `ajax-online-order/` | customer-website-handoff | external_acceptance |
 | `order/urls.py:85` | `ajax-gift-voucher-check/` | global-vouchers | external_acceptance |
 | `order/urls.py:86` | `ajax-gift-voucher-convert/` | global-vouchers | external_acceptance |
 | `order/urls.py:88` | `ajax-pg-disc-otp-send/` | discount-approval | external_acceptance |
@@ -387,7 +384,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/salespersons/index.html` | `core/templates/salespersons/index.html` | salespeople | implementation_present |
 | `core/templates/settings/index.html` | `core/templates/settings/index.html` | support | implementation_present |
 | `core/templates/shopify_order_punch/index.html` | `core/templates/shopify_order_punch/index.html` | legacy-order-imports | partial |
-| `core/templates/special_permission/index.html` | `core/templates/special_permission/index.html` | special-permission-history, wallet-adjustments, global-vouchers, global-barcode-assignment | partial |
+| `core/templates/special_permission/index.html` | `core/templates/special_permission/index.html` | special-permission-history, wallet-adjustments, global-vouchers, global-barcode-assignment | external_acceptance |
 | `core/templates/upload_logs/index.html` | `core/templates/upload_logs/index.html` | inventory-imports, legacy-order-imports, parent-store-assignment-csv | partial |
 | `core/templates/user_to_app/index.html` | `core/templates/user_to_app/index.html` | customer-application-handoff | external_acceptance |
 | `dashboard/templates/dashboard/dashboard.html` | `dashboard/templates/dashboard/dashboard.html` | dashboard-summary | external_acceptance |
@@ -432,11 +429,11 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/templates/product/product_inventory.html` | `report/templates/product/product_inventory.html` | inventory-workbooks, catalog-read | external_acceptance |
 | `report/templates/sales/index.html` | `report/templates/sales/index.html` | operational-reports | external_acceptance |
 | `stores/templates/counters/index.html` | `stores/templates/counters/index.html` | counters | implementation_present |
-| `stores/templates/stores/_form.html` | `stores/templates/stores/_form.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/create.html` | `stores/templates/stores/create.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/edit.html` | `stores/templates/stores/edit.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/index.html` | `stores/templates/stores/index.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/show.html` | `stores/templates/stores/show.html` | stores, store-images, location-codes, country-search | partial |
+| `stores/templates/stores/_form.html` | `stores/templates/stores/_form.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/create.html` | `stores/templates/stores/create.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/edit.html` | `stores/templates/stores/edit.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/index.html` | `stores/templates/stores/index.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/show.html` | `stores/templates/stores/show.html` | stores, store-images, location-codes, country-search | external_acceptance |
 | `stores/templates/stores/slack_callback.html` | `stores/templates/stores/slack_callback.html` | store-slack-oauth | external_acceptance |
 | `stores/templates/stores/storage/create.html` | `stores/templates/stores/storage/create.html` | storage | implementation_present |
 | `stores/templates/stores/storage/edit.html` | `stores/templates/stores/storage/edit.html` | storage | implementation_present |

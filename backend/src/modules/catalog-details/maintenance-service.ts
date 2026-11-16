@@ -23,6 +23,7 @@ import {
   type CommandMetadata,
 } from './maintenance-domain.js';
 import { applyCatalogRepair, catalogRepairPlan } from './maintenance-repair.js';
+import { lockBarcodeMutation } from '../administration/barcodes/locks.js';
 import type { CatalogMaintenanceOptions } from './maintenance-options.js';
 import { MaintenanceDeliveryError, type MaintenanceTransports } from './maintenance-transports.js';
 import {
@@ -367,6 +368,7 @@ export function catalogMaintenanceService(
           if (saved) return saved;
           requireTransport('product-sync');
           await quota(transaction, user.id);
+          await lockBarcodeMutation(transaction);
           const plan = await catalogRepairPlan(transaction, productId, 'update');
           if (plan.planHash !== expectedPlanHash)
             throw new AppError(
