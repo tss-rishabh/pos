@@ -37,9 +37,6 @@ The Vite proxy keeps browser requests on the web origin. The local demo cannot
 run with `NODE_ENV=production`. A demo draft does not charge a customer or create
 a real order.
 
-The active workspace already had another process on port 4100, so this project
-uses 4410. Existing services were left running.
-
 ## Verification
 
 ```sh

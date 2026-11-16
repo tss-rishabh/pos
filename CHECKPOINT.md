@@ -1,11 +1,12 @@
 # POS rewrite checkpoint
 
 The application is an implemented review build, not a certified production release.
-`backend/evidence/checkpoint-follow-up.json` records the last passing consolidated
-checkpoint, retaining the original verification report and its two corrected
-test fixtures. New source changes since that checkpoint have focused checks;
-they are not covered by that historical result. `backend/parity/release-coverage.json` remains the
-release authority; component test counts do not certify every original workflow.
+The last shared checkpoint, recorded at `2026-11-16T22:29:31Z`, passes all 73
+checks: 1,211 backend tests, 195 frontend tests and 50 end-to-end browser scenarios.
+`backend/evidence/verification.json` binds that tested input snapshot; no input
+changed during the run. Later integrated features have focused checks and are
+listed below. `backend/parity/release-coverage.json` remains the release authority;
+component test counts do not certify every original workflow.
 
 ## Implemented feature groups
 
@@ -19,6 +20,9 @@ release authority; component test counts do not certify every original workflow.
 | Reports and fulfillment | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                           |
 | Web and desktop         | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Actual Windows runtime, production signing and physical printing remain release gates.                                                    |
 | Cashier conveniences    | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass. |
+| Dashboard and website   | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                  |
+| Barcode and country     | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.          |
+| Invoice worksheet       | Manual prices, customer labels, exact totals, source-format CSV export and sandboxed printing. Fourteen focused checks and two Chromium workflows pass. This worksheet records no payment.                                       |
 
 ## Fixed remaining code checklist
 
@@ -26,14 +30,19 @@ release authority; component test counts do not certify every original workflow.
   encrypted staging, GET-only recovery coordinator and published-history repository
   integration exist; the financial adapters and service/API/worker remain unfinished. See
   `backend/parity/legacy-order-imports.md`.
-- Integrate membership provenance around the actual original staging and
-  activation writers. Typed capture/restore and the fresh-reader compatibility
-  overlay exist; no historical provenance is fabricated.
+- Membership provenance producers are integrated as source-pinned compatibility
+  candidates. Actual Python staging → Go activation → Node cancellation passes
+  native concurrency/rollback checks. Their deployment remains external; no
+  historical provenance is fabricated.
 - Close the retained legacy payment-status reversal API and remaining source-job
   gaps identified by the source audit. Hidden or dormant behavior stays in scope.
-- Integrate the dashboard and customer website handoff slices. Complete order-to-cart
-  copying, global barcode assignment, secondary-country search and the remaining
-  inventory/job/model-administration gaps listed in `backend/parity/source-surface-map.md`.
+- Integrate the completed order-to-cart copy and historical order-reader slices,
+  including offline-cash origin guards. Complete the original order-list filters,
+  sorting, queues and formatter fields; the simplified order cards do not establish
+  their parity.
+- Complete parent/store assignment CSV, ecommerce inventory synchronization,
+  whole-order Vinculum status and the remaining job/model-administration boundaries
+  in `backend/parity/source-surface-map.md`.
 - Correct unrestricted historical reads in public order browsing: both current
   `ordersService` methods still use the primary reader. Keep current financial
   authorization/proof reads separate from historical order facts, which require BigQuery.

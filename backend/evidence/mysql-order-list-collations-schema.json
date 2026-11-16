@@ -1,0 +1,1003 @@
+{
+  "checkedAt": "2026-11-16T23:20:21.088Z",
+  "schema": "tss",
+  "tables": {
+    "payment_method": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "image",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "value",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "status",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "payment_discount",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_discount_type",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "sort_order",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      }
+    ],
+    "payment_status": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "payment_status",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "order_status": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_status",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "display_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "cat",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_terminal_transactions": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "plutus_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "store_pos_code",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "total_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_recieved",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_mode",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "imei",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "platform",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "api_response",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_paytm_transactions": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "store_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "transaction_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "paytm_mid",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "paytm_tid",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "transaction_date_time",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "total_amount",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "cash_recieved",
+        "type": "double",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "payment_mode",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "pos_admin_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "api_response",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_machines": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "machine_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "counter_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "merchant_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "store_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "client_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "hardware_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "imei_no",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "tid",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "merchant_id",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "merchant_store_pos_code",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "security_token",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_paytm_machines": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "store_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "store_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "machine_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "counter_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "merchant_key",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "merchant_name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "paytm_mid",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "device_serial_no",
+        "type": "bigint unsigned",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "paytm_tid",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "channel_id",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "is_active",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": ""
+      }
+    ],
+    "pos_terminal_payment_modes": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment"
+      },
+      {
+        "name": "name",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "value",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "mode_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": ""
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": ""
+      },
+      {
+        "name": "platform",
+        "type": "enum('OTHERS','PINELAB','PAYTM')",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "collation": "latin1_swedish_ci"
+      }
+    ]
+  },
+  "indexes": {
+    "payment_method": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "status",
+        "column": "status",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "sort_order",
+        "column": "sort_order",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "value",
+        "column": "value",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "payment_status": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      }
+    ],
+    "order_status": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      }
+    ],
+    "pos_terminal_transactions": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "store_id",
+        "column": "store_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "transaction_id",
+        "column": "transaction_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "plutus_id",
+        "column": "plutus_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "payment_mode",
+        "column": "payment_mode",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "pos_admin_id",
+        "column": "pos_admin_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "platform",
+        "column": "platform",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "store_pos_code",
+        "column": "store_pos_code",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "pos_paytm_transactions": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "order_id",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "store_id",
+        "column": "store_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "transaction_id",
+        "column": "transaction_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "transaction_date_time",
+        "column": "transaction_date_time",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "paytm_mid",
+        "column": "paytm_mid",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "paytm_tid",
+        "column": "paytm_tid",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "payment_mode",
+        "column": "payment_mode",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "pos_admin_id",
+        "column": "pos_admin_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "platform",
+        "column": "platform",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_is_active",
+        "column": "is_active",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_order_is_active_platform",
+        "column": "order_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "idx_order_is_active_platform",
+        "column": "is_active",
+        "position": 2,
+        "unique": false
+      },
+      {
+        "name": "idx_order_is_active_platform",
+        "column": "platform",
+        "position": 3,
+        "unique": false
+      }
+    ],
+    "pos_machines": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "store_id",
+        "column": "store_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "client_id",
+        "column": "client_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "hardware_id",
+        "column": "hardware_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "imei_no",
+        "column": "imei_no",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "merchant_id",
+        "column": "merchant_id",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "created_at",
+        "column": "created_at",
+        "position": 1,
+        "unique": false
+      }
+    ],
+    "pos_paytm_machines": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      }
+    ],
+    "pos_terminal_payment_modes": [
+      {
+        "name": "PRIMARY",
+        "column": "id",
+        "position": 1,
+        "unique": true
+      },
+      {
+        "name": "name",
+        "column": "name",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "value",
+        "column": "value",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "is_active",
+        "column": "is_active",
+        "position": 1,
+        "unique": false
+      },
+      {
+        "name": "mode_id",
+        "column": "mode_id",
+        "position": 1,
+        "unique": false
+      }
+    ]
+  },
+  "foreignKeys": {},
+  "inboundForeignKeys": [],
+  "locations": [],
+  "errors": []
+}

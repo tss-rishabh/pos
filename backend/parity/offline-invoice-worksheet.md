@@ -26,7 +26,7 @@ of asserting a collected payment or a hardcoded store GST registration.
 The source differential executes the original JavaScript export functions with
 fixed time and synthetic DOM inputs. Its template hash is pinned, and ordinary
 row/metadata/money semantics match in paise; binary float suffixes are replaced
-by exact two-decimal amounts. Thirteen checks cover duplicate deletion,
+by exact two-decimal amounts. Fourteen checks cover duplicate deletion,
 wide IDs, exact paise, malformed input, CSV quoting/formula safety and empty
 worksheets. Two actual Chromium scenarios pass for manual row selection/removal,
 CSV downloads, sandboxed print content, no financial request, cached products
