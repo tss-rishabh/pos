@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { runInNewContext } from 'node:vm';
+import { sourceSmartSearchPattern } from '../source-oracles/datatables-smart-search';
 import { selectLedgerRows, type LedgerRow } from '../../src/pages/finance/ledger-rows';
 const row = (store: string, day: string, cash: string | null, note = ''): LedgerRow => ({
   store_id: store,
@@ -46,24 +45,6 @@ describe('cash-ledger display selection', () => {
     expect(source).toEqual(snapshot);
   });
   it('preserves the shipped DataTables smart-word and quoted-phrase search behavior', () => {
-    const source = readFileSync(
-        new URL(
-          '../../../../backend-pos-web/static/adminlte/plugins/datatables/jquery.dataTables.js',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-      start = source.indexOf('function _fnFilterCreateSearch'),
-      end = source.indexOf('\n\t}', start) + 4,
-      escapeStart = source.indexOf('_re_escape_regex =') + '_re_escape_regex ='.length,
-      escapeEnd = source.indexOf(';', escapeStart),
-      functionSource = source.slice(start, end),
-      escapeSource = source.slice(escapeStart, escapeEnd),
-      create: unknown = runInNewContext(
-        `(function(){var _re_escape_regex=${escapeSource};function _fnEscapeRegex(val){return val.replace(_re_escape_regex,'\\\\$1');}${functionSource};return function(query){return _fnFilterCreateSearch(query,false,true,true).source;};})()`,
-        { $: { map: (items: string[], map: (value: string) => string) => items.map(map) } },
-      );
-    if (typeof create !== 'function') throw new Error('Source search fixture unavailable.');
     const rows = [
       row('1', '2026-11-01', '10.00', 'blue cotton'),
       row('2', '2026-11-02', '20.00', 'cotton blue'),
@@ -80,8 +61,7 @@ describe('cash-ledger display selection', () => {
       'cotton -1.00',
       '',
     ]) {
-      const pattern: unknown = Reflect.apply(create, undefined, [query]);
-      if (typeof pattern !== 'string') throw new Error('Source search pattern unavailable.');
+      const pattern = sourceSmartSearchPattern(query);
       const expected = rows
         .filter((value) => new RegExp(pattern, 'i').test(Object.values(value).slice(1).join('  ')))
         .map((value) => value.store_id);

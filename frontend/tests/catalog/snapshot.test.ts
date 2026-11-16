@@ -1,7 +1,6 @@
 import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { runInNewContext } from 'node:vm';
+import { sourceSmartSearchPattern } from '../source-oracles/datatables-smart-search';
 import type { Principal } from '../../src/api/types';
 import { db } from '../../src/offline/database';
 import {
@@ -52,22 +51,6 @@ describe('permission and session scoped offline product catalogs', () => {
     expect(await loadCatalogSnapshot(user, '1')).toBeNull();
   });
   it('matches the actual shipped DataTables smart-search function for phrases, metacharacters and newlines', () => {
-    const source = readFileSync(
-        new URL(
-          '../../../../backend-pos-web/static/adminlte/plugins/datatables/jquery.dataTables.js',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-      start = source.indexOf('function _fnFilterCreateSearch'),
-      end = source.indexOf('\n\t}', start) + 4,
-      escapeStart = source.indexOf('_re_escape_regex =') + '_re_escape_regex ='.length,
-      escapeEnd = source.indexOf(';', escapeStart);
-    const create: unknown = runInNewContext(
-      `(function(){var _re_escape_regex=${source.slice(escapeStart, escapeEnd)};function _fnEscapeRegex(val){return val.replace(_re_escape_regex,'\\\\$1');}${source.slice(start, end)};return function(query){return _fnFilterCreateSearch(query,false,true,true).source;};})()`,
-      { $: { map: (items: string[], map: (value: string) => string) => items.map(map) } },
-    );
-    if (typeof create !== 'function') throw new Error('Source filter unavailable.');
     const rows: SnapshotRow[] = [
       ['1', 'blue cotton', '123', '1.00', '0.00', 0, 1],
       ['2', 'cotton blue', '456', '2.00', '0.00', 0, 0],
@@ -84,8 +67,7 @@ describe('permission and session scoped offline product catalogs', () => {
       'value',
       '',
     ]) {
-      const pattern: unknown = Reflect.apply(create, undefined, [query]);
-      if (typeof pattern !== 'string') throw new Error('Source filter unavailable.');
+      const pattern = sourceSmartSearchPattern(query);
       expect(filterCatalogSnapshot(rows, query)).toEqual(
         rows.filter((row) =>
           new RegExp(pattern, 'i').test(row.join('  ').replace(/[\r\n\u2028]/g, '')),

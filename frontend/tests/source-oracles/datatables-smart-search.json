@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "sourcePath": "static/adminlte/plugins/datatables/jquery.dataTables.js",
+  "sourceSha256": "ab679fa2da076e735d72fcd717645c575d5ca16c5e9136cca91c65a3c36c2a1b",
+  "functionsSha256": "44e2d73c87f2ba10ec91cc4afd98e67f8d63d9281ba1314beb5209ddaf684878",
+  "regexExpression": " new RegExp( '(\\\\' + [ '/', '.', '*', '+', '?', '|', '(', ')', '[', ']', '{', '}', '\\\\', '$', '^', '-' ].join('|\\\\') + ')', 'g' )",
+  "escapeFunction": "function ( val ) {\n\t\t\treturn val.replace( _re_escape_regex, '\\\\$1' );\n\t\t}",
+  "createFunction": "function _fnFilterCreateSearch( search, regex, smart, caseInsensitive )\n\t{\n\t\tsearch = regex ?\n\t\t\tsearch :\n\t\t\t_fnEscapeRegex( search );\n\t\t\n\t\tif ( smart ) {\n\t\t\t/* For smart filtering we want to allow the search to work regardless of\n\t\t\t * word order. We also want double quoted text to be preserved, so word\n\t\t\t * order is important - a la google. So this is what we want to\n\t\t\t * generate:\n\t\t\t * \n\t\t\t * ^(?=.*?\\bone\\b)(?=.*?\\btwo three\\b)(?=.*?\\bfour\\b).*$\n\t\t\t */\n\t\t\tvar a = $.map( search.match( /\"[^\"]+\"|[^ ]+/g ) || [''], function ( word ) {\n\t\t\t\tif ( word.charAt(0) === '\"' ) {\n\t\t\t\t\tvar m = word.match( /^\"(.*)\"$/ );\n\t\t\t\t\tword = m ? m[1] : word;\n\t\t\t\t}\n\t\n\t\t\t\treturn word.replace('\"', '');\n\t\t\t} );\n\t\n\t\t\tsearch = '^(?=.*?'+a.join( ')(?=.*?' )+').*$';\n\t\t}\n\t\n\t\treturn new RegExp( search, caseInsensitive ? 'i' : '' );\n\t}"
+}
