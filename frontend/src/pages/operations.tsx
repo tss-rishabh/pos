@@ -2,11 +2,16 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Building2, CheckCircle2, Search, X } from 'lucide-react';
 import type { Principal, Store } from '../api/types';
-import { useOnline, useOrders, useProducts } from '../hooks/use-pos';
+import { useOnline, useProducts } from '../hooks/use-pos';
 import { currency } from '../lib/format';
 import { Empty, ErrorState, Loading, Metric, PageTitle } from '../components/common';
 import { request } from '../api/client';
-import { orderDetailSchema } from '../api/schemas';
+import {
+  orderBrowseDetail,
+  orderBrowserDates,
+  orderDateQuery,
+  useOrderBrowse,
+} from './order-history/client';
 import {
   AutomaticInvoicePreview,
   createAutomaticInvoiceRequest,
@@ -124,18 +129,32 @@ export function InventoryPage({ user, storeId }: { user: Principal; storeId: str
 export function OrdersPage({ user, storeId }: { user: Principal; storeId: string }) {
   const online = useOnline(),
     [automaticInvoice, setAutomaticInvoice] = useState<AutomaticInvoiceRequest | null>(null);
-  const orders = useOrders(user.id, storeId),
-    rows = orders.data?.pages.flatMap((p) => p.data) || [];
   const [searchParams, setSearchParams] = useSearchParams(),
     location = useLocation(),
+    dates = orderBrowserDates(searchParams),
     scope = { operatorId: user.id, storeId },
     link = orderLink(searchParams, location.state as unknown, scope),
     selected = link.needsBinding ? '' : link.id;
+  const orders = useOrderBrowse(
+      user.id,
+      storeId,
+      { from: dates.from, to: dates.to },
+      online && dates.valid,
+    ),
+    rows = orders.data?.pages.flatMap((page) => page.data) || [],
+    [dateDraft, setDateDraft] = useState({ from: dates.from, to: dates.to });
+  useEffect(
+    () => setDateDraft({ from: dates.from, to: dates.to }),
+    [dates.from, dates.to, user.id, storeId],
+  );
   useEffect(() => setAutomaticInvoice(null), [user.id, storeId, selected]);
   const setSelected = (id: string) => {
     const next = new URLSearchParams(searchParams);
-    if (id) next.set('orderId', id);
-    else next.delete('orderId');
+    if (id) {
+      next.set('orderId', id);
+      next.set('from', dates.from);
+      next.set('to', dates.to);
+    } else next.delete('orderId');
     setSearchParams(next, {
       replace: true,
       state: orderLinkState(location.state as unknown, id ? scope : null),
@@ -157,13 +176,21 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
     }
   }, [link.mismatch, link.needsBinding, location.key, user.id, storeId]);
   const detail = useQuery({
-    queryKey: [user.id, 'order', storeId, selected],
-    enabled: !!selected,
+    queryKey: [
+      user.id,
+      'order',
+      storeId,
+      selected,
+      dates.explicit ? dates.from : null,
+      dates.explicit ? dates.to : null,
+    ],
+    enabled: !!selected && online && dates.valid,
     queryFn: ({ signal }) =>
       request(
-        `/api/v1/stores/${storeId}/orders/${selected}`,
+        `/api/v1/stores/${storeId}/orders/${selected}` +
+          (dates.explicit ? '?' + orderDateQuery({ from: dates.from, to: dates.to }) : ''),
         { operatorId: user.id, signal },
-        orderDetailSchema,
+        orderBrowseDetail,
       ),
     retry: false,
   });
@@ -180,12 +207,76 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           The order link contains an invalid reference.
         </p>
       )}
+      <form
+        className="surface"
+        aria-label="Order dates"
+        onSubmit={(event) => {
+          event.preventDefault();
+          const next = new URLSearchParams(searchParams);
+          next.set('from', dateDraft.from);
+          next.set('to', dateDraft.to);
+          next.delete('orderId');
+          setSearchParams(next, {
+            replace: true,
+            state: orderLinkState(location.state as unknown, null),
+          });
+        }}
+      >
+        <label>
+          From{' '}
+          <input
+            aria-label="Orders from"
+            type="date"
+            required
+            value={dateDraft.from}
+            onChange={(event) => setDateDraft({ ...dateDraft, from: event.currentTarget.value })}
+          />
+        </label>
+        <label>
+          To{' '}
+          <input
+            aria-label="Orders to"
+            type="date"
+            required
+            value={dateDraft.to}
+            onChange={(event) => setDateDraft({ ...dateDraft, to: event.currentTarget.value })}
+          />
+        </label>
+        <button className="button secondary" type="submit" disabled={!online}>
+          Apply dates
+        </button>
+        <p className="muted">
+          Today opens live store orders. Earlier or mixed dates open a verified historical snapshot.
+          Select up to 62 calendar days.
+        </p>
+      </form>
+      {!dates.valid && (
+        <p className="inline-error" role="alert">
+          Use valid start and end dates.
+        </p>
+      )}
+      {!online && (
+        <p role="status">
+          Offline. Loaded order details are informational; reconnect to refresh or perform an
+          action.
+        </p>
+      )}
       <section className="surface">
         <div className="surface-title">
           <h2>Store orders</h2>
           <span className="muted">Most recent first</span>
         </div>
-        {orders.isPending ? (
+        <p className="muted">
+          {dates.from} through {dates.to}
+          {orders.data?.pages[0]?.reader === 'bigquery'
+            ? ' · Historical snapshot; later source changes may still be replicating.'
+            : ' · Current store selection'}
+        </p>
+        {!dates.valid ? (
+          <Empty title="Choose valid order dates" />
+        ) : !online && !rows.length ? (
+          <Empty title="Connect to load orders" />
+        ) : orders.isPending ? (
           <Loading />
         ) : orders.isError ? (
           <ErrorState error={orders.error} retry={() => void orders.refetch()} />
@@ -207,7 +298,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
               </thead>
               <tbody>
                 {rows.map((o) => (
-                  <tr key={o.id}>
+                  <tr key={`${o.id}:${o.rowId || o.id}`}>
                     <td>
                       <button className="text-button" onClick={() => setSelected(o.id)}>
                         {o.reference || o.id}
@@ -272,7 +363,9 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
             </button>
             <div className="eyebrow">ORDER DETAILS</div>
             <h2 id="order-title">{detail.data?.reference || selected}</h2>
-            {detail.isPending ? (
+            {!online && !detail.data ? (
+              <Empty title="Connect to load order details" />
+            ) : detail.isPending ? (
               <Loading />
             ) : detail.isError ? (
               <ErrorState error={detail.error} />
@@ -281,6 +374,13 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                 <p>
                   {detail.data?.status} · {currency(detail.data?.amount || 0)}
                 </p>
+                <p className="muted">Placed {detail.data?.createdAt}</p>
+                {detail.data?.reader === 'bigquery' && (
+                  <p role="status">
+                    Historical snapshot. Payment, cancellation and invoice actions independently
+                    verify current records.
+                  </p>
+                )}
                 {detail.data?.isPaid && (
                   <InvoiceActions storeId={storeId} orderId={selected} ownerId={user.id} />
                 )}
