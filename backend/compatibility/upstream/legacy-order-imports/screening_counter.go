@@ -6,6 +6,8 @@ import (
 	"bytes"
 	"context"
 	"crypto/hmac"
+ "crypto/sha256"
+ "encoding/hex"
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
@@ -97,43 +99,46 @@ func qualifyScreeningCounter(ctx context.Context, tx *sql.Tx) error {
 			}
 		}
 	}
-	rows, err = tx.QueryContext(ctx, `SELECT TRIGGER_NAME,EVENT_OBJECT_TABLE,EVENT_MANIPULATION,ACTION_TIMING,ACTION_STATEMENT,DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_screening_%'`)
-	if err != nil {
-		return err
+	_,err=counterMetadata(ctx,tx);return err
+}
+var counterOwnerPattern=regexp.MustCompile(`^[A-Za-z0-9_.$-]{1,64}@[A-Za-z0-9_.:%-]{1,255}$`)
+type counterTriggerMetadata struct{ Name string `json:"name"`;TableName string `json:"tableName"`;Event string `json:"event"`;Timing string `json:"timing"`;Hash string `json:"hash"`;Definer string `json:"definer"`;SQLMode string `json:"sqlMode"` }
+type counterProcedureMetadata struct{ Name string `json:"name"`;Kind string `json:"kind"`;Security string `json:"security"`;Hash string `json:"hash"`;Definer string `json:"definer"` }
+type counterMetadataDocument struct{CounterTriggers []counterTriggerMetadata;CounterProcedures []counterProcedureMetadata}
+func counterStatementHash(value string)string{sum:=sha256.Sum256([]byte(counterNormalize(value)));return hex.EncodeToString(sum[:])}
+// A fixed, read-only audit function exposes metadata under an isolated definer.
+// The application never needs TRIGGER authority or EXECUTE on a writer routine.
+func counterMetadata(ctx context.Context,tx *sql.Tx)(counterMetadataDocument,error){
+ var result counterMetadataDocument
+ audit:=os.Getenv("POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER");owner:=os.Getenv("POS_SCREENING_COUNTER_TRIGGER_DEFINER")
+ if !counterOwnerPattern.MatchString(audit)||!counterOwnerPattern.MatchString(owner)||audit==owner{return result,ErrReview}
+ var actor,roles string
+ if tx.QueryRowContext(ctx,`SELECT CURRENT_USER(),CURRENT_ROLE()`).Scan(&actor,&roles)!=nil||!counterOwnerPattern.MatchString(actor)||actor==audit||actor==owner||roles!="NONE"{return result,ErrReview}
+ var definer,security,access,body string
+ if tx.QueryRowContext(ctx,`SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER,SECURITY_TYPE,SQL_DATA_ACCESS,CASE WHEN OCTET_LENGTH(ROUTINE_DEFINITION)<=60000 THEN ROUTINE_DEFINITION ELSE NULL END FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_history_metadata' AND ROUTINE_TYPE='FUNCTION'`).Scan(&definer,&security,&access,&body)!=nil||definer!=audit||security!="DEFINER"||access!="READS SQL DATA"||counterStatementHash(strings.TrimRight(counterNormalize(body),";"))!=screeningCounterMetadataBodyHash{return result,ErrReview}
+ var raw []byte
+ if tx.QueryRowContext(ctx,`SELECT /*+ MAX_EXECUTION_TIME(3000) */ CASE WHEN OCTET_LENGTH(pos_rewrite_origin_history_metadata())<=500000 THEN pos_rewrite_origin_history_metadata() ELSE NULL END`).Scan(&raw)!=nil||len(raw)==0||len(raw)>500000{return result,ErrReview}
+ var sections map[string]json.RawMessage
+ if json.Unmarshal(raw,&sections)!=nil||len(sections)!=15{return result,ErrReview}
+ for _,name:=range []string{"triggers","accounts","roles","proxies","privileges","routineGrants","objects","aliases","tables","foreignKeys","replicationChannels","membershipTriggers","couponTriggers","counterTriggers","counterProcedures"}{
+  var values []json.RawMessage
+  value,ok:=sections[name];if !ok||json.Unmarshal(value,&values)!=nil||values==nil||len(values)>1000{return result,ErrReview}
+ }
+ decode:=func(raw json.RawMessage,target interface{})error{decoder:=json.NewDecoder(bytes.NewReader(raw));decoder.DisallowUnknownFields();if decoder.Decode(target)!=nil{return ErrReview};return nil}
+ if decode(sections["counterTriggers"],&result.CounterTriggers)!=nil||decode(sections["counterProcedures"],&result.CounterProcedures)!=nil||len(result.CounterTriggers)!=9||len(result.CounterProcedures)!=1{return result,ErrReview}
+ d,err:=counterDefinition();if err!=nil{return result,err}
+	if len(result.CounterTriggers)!=9||len(result.CounterProcedures)!=1{return result,ErrReview}
+	seen:=map[string]bool{}
+	if !counterOwnerPattern.MatchString(owner){return result,ErrReview}
+	for _,actual:=range result.CounterTriggers{
+	 matched:=false
+	 for _,expected:=range d.Triggers{if actual.Name==expected.Name&&actual.TableName==expected.Table&&actual.Event==expected.Event&&actual.Timing==expected.Timing&&actual.Hash==counterStatementHash(expected.Statement){matched=true}}
+	 strict:=false;for _,mode:=range strings.Split(actual.SQLMode,","){if mode=="STRICT_TRANS_TABLES"||mode=="STRICT_ALL_TABLES"{strict=true}}
+	 if !matched||seen[actual.Name]||actual.Definer!=owner||!strict{return result,ErrReview};seen[actual.Name]=true
 	}
-	seen := map[string]bool{}
-	owner := ""
-	for rows.Next() {
-		var name, table, event, timing, body, definer string
-		if rows.Scan(&name, &table, &event, &timing, &body, &definer) != nil {
-			rows.Close()
-			return ErrReview
-		}
-		matched := false
-		for _, expected := range d.Triggers {
-			if expected.Name == name && expected.Table == table && expected.Event == event && expected.Timing == timing && counterNormalize(expected.Statement) == counterNormalize(body) {
-				matched = true
-			}
-		}
-		if owner == "" {
-			owner = definer
-		}
-		if !matched || seen[name] || owner != definer {
-			rows.Close()
-			return ErrReview
-		}
-		seen[name] = true
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil || len(seen) != 9 {
-		return ErrReview
-	}
-	var name, kind, security, body, definer string
-	if tx.QueryRowContext(ctx, `SELECT ROUTINE_NAME,ROUTINE_TYPE,SECURITY_TYPE,ROUTINE_DEFINITION,DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'`).Scan(&name, &kind, &security, &body, &definer) != nil || name != d.Procedure.Name || kind != "PROCEDURE" || security != "DEFINER" || definer != owner || counterNormalize(body) != counterNormalize(d.Procedure.Statement) {
-		return ErrReview
-	}
-	return nil
+	procedure:=result.CounterProcedures[0]
+	if procedure.Name!=d.Procedure.Name||procedure.Kind!="PROCEDURE"||procedure.Security!="DEFINER"||procedure.Definer!=owner||procedure.Hash!=counterStatementHash(d.Procedure.Statement){return result,ErrReview}
+ return result,nil
 }
 func counterUint(value interface{}) (uint64, bool) {
 	text, ok := value.(string)
@@ -200,7 +205,9 @@ func readCurrentScreeningCount(ctx context.Context, tx *sql.Tx, customer int64) 
 		return 0, ErrReview
 	}
 	var owner string
-	if tx.QueryRowContext(ctx, `SELECT DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'`).Scan(&owner) != nil || proof["writersOwner"] != owner {
+	metadata,metadataErr:=counterMetadata(ctx,tx)
+	if metadataErr!=nil||len(metadata.CounterProcedures)!=1{return 0,ErrReview};owner=metadata.CounterProcedures[0].Definer
+	if !counterOwnerPattern.MatchString(owner)||owner!=os.Getenv("POS_SCREENING_COUNTER_TRIGGER_DEFINER")||proof["writersOwner"] != owner {
 		return 0, ErrReview
 	}
 	if err = counterRuntimePrivileges(ctx, tx, d, owner); err != nil {
@@ -268,6 +275,9 @@ func counterRuntimePrivileges(ctx context.Context, tx *sql.Tx, d screeningCounte
 	if err != nil || count > 1000 {
 		return ErrReview
 	}
+	var schema string
+	if tx.QueryRowContext(ctx,`SELECT DATABASE()`).Scan(&schema)!=nil||!regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`).MatchString(schema){return ErrReview}
+	metadataGrant:=regexp.MustCompile("(?i)^GRANT EXECUTE ON FUNCTION `?"+regexp.QuoteMeta(schema)+"`?\\.`?pos_rewrite_origin_history_metadata`? TO .+$")
 	rows, err = tx.QueryContext(ctx, `SHOW GRANTS FOR CURRENT_USER`)
 	if err != nil {
 		return err
@@ -275,7 +285,7 @@ func counterRuntimePrivileges(ctx context.Context, tx *sql.Tx, d screeningCounte
 	count = 0
 	for rows.Next() {
 		var grant string
-		if rows.Scan(&grant) != nil || regexp.MustCompile(`(?i)\b(EXECUTE|PROXY)\b|\bWITH GRANT OPTION\b`).MatchString(grant) {
+		if rows.Scan(&grant) != nil || regexp.MustCompile(`(?i)\b(PROXY|TRIGGER)\b|\bWITH GRANT OPTION\b`).MatchString(grant)||regexp.MustCompile(`(?i)\bEXECUTE\b`).MatchString(grant)&&!metadataGrant.MatchString(grant) {
 			rows.Close()
 			return ErrReview
 		}
