@@ -12,6 +12,8 @@ import { MAX_CASH_CENTS } from '../../../offline/cash/contracts';
 import { registerCashDevice, requestCashAuthorization } from '../../../offline/cash/client';
 import { synchronizeOfflineCashScope } from '../../../offline/cash/runner';
 import { useOfflineCashSync } from '../../../offline/cash/use-sync';
+import { requireOfflineCashShell } from '../../../offline/shell-ready';
+import receiptStylesUrl from './styles.css?url&no-inline';
 import type { LocalCashAuthorization, LocalCashReceipt } from '../../../offline/cash/storage-types';
 import { recoveryFor } from '../client';
 import { CashReceiptDialog, cashCurrency } from './receipt';
@@ -282,6 +284,8 @@ export function CashTools({
     setBusy(true);
     setProblem('');
     try {
+      await requireOfflineCashShell(signal, [receiptStylesUrl]);
+      signal.throwIfAborted();
       let device = await db.offlineCashDevices
         .where('[ownerId+storeId+counterId]')
         .equals([user.id, storeId, counterId])
@@ -362,6 +366,8 @@ export function CashTools({
         throw new Error(
           'This copied sale must be completed or cleared online before separate cash can be recorded.',
         );
+      await requireOfflineCashShell(signal, [receiptStylesUrl]);
+      signal.throwIfAborted();
       const prepared = await prepareReview(draft, recoveryFor(user.id, draft.id));
       const record = await db.reviewSnapshots.get([user.id, draft.id]);
       if (record?.checkoutId)
