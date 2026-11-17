@@ -41,6 +41,7 @@ const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
 const DashboardPage = lazy(() => import('./pages/dashboard'));
 const BarcodeAssignmentsPage = lazy(() => import('./pages/administration/barcodes'));
 const ParentStoreImportsPage = lazy(() => import('./pages/administration/parent-store-imports'));
+const OperatorModelAccountsPage = lazy(() => import('./pages/administration/model-accounts'));
 const SecondaryCountrySearchPage = lazy(() => import('./pages/administration/secondary-countries'));
 const InventoryPage = lazy(() =>
   import('./pages/operations').then((m) => ({ default: m.InventoryPage })),
@@ -219,6 +220,13 @@ const links = [
     internalOnly: true,
   },
   { to: '/countries', name: 'Country lookup', icon: Building2, roles: [1, 2, 3] },
+  {
+    to: '/administration/model-accounts',
+    name: 'Advanced account setup',
+    icon: UserRound,
+    roles: [1],
+    internalOnly: true,
+  },
   {
     to: '/administration/parent-store-imports',
     name: 'Product/store assignments',
@@ -461,6 +469,10 @@ function Workspace({ user }: { user: Principal }) {
                   element={<BarcodeAssignmentsPage user={user} />}
                 />
                 <Route path="/countries" element={<SecondaryCountrySearchPage user={user} />} />
+                <Route
+                  path="/administration/model-accounts"
+                  element={<OperatorModelAccountsPage user={user} />}
+                />
                 <Route
                   path="/administration/parent-store-imports"
                   element={<ParentStoreImportsPage user={user} online={sync.online} />}

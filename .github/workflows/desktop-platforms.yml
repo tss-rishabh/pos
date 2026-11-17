@@ -50,7 +50,7 @@ jobs:
         run: npm run test:e2e
         working-directory: frontend
       - name: Browser sign-in, customer and order recovery
-        run: npx vitest run tests/desktop-sso/browser.test.ts tests/customer-profile/browser.test.ts tests/customer-contacts/contacts.browser.test.ts tests/customer-otp/otp.browser.test.ts tests/product-feedback/browser.test.ts tests/order-payments/order-payments.browser.test.ts tests/global-vouchers/vouchers.browser.test.ts tests/inventory-workbooks/browser.test.ts tests/dashboard/browser.test.ts tests/administration/barcodes/browser.test.ts tests/administration/parent-store-imports/browser.test.ts tests/offline-worksheet/browser.test.ts
+        run: npx vitest run tests/desktop-sso/browser.test.ts tests/customer-profile/browser.test.ts tests/customer-contacts/contacts.browser.test.ts tests/customer-otp/otp.browser.test.ts tests/product-feedback/browser.test.ts tests/order-payments/order-payments.browser.test.ts tests/global-vouchers/vouchers.browser.test.ts tests/inventory-workbooks/browser.test.ts tests/dashboard/browser.test.ts tests/administration/barcodes/browser.test.ts tests/administration/parent-store-imports/browser.test.ts tests/administration/model-accounts/browser.test.ts tests/offline-worksheet/browser.test.ts
         working-directory: frontend
         env:
           DESKTOP_SSO_BROWSER_TESTS: 'true'

@@ -64,6 +64,7 @@ if (flags.has('--mysql')) {
     BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
     ORDER_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_order_history_test',
     PARENT_STORE_IMPORTS_MYSQL_TEST_URL: 'pos_rewrite_parent_store_test',
+    MODEL_ACCOUNTS_MYSQL_TEST_URL: 'pos_rewrite_model_accounts_test',
     GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
     ADMINISTRATION_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_administration_history_test',
   })) {
@@ -767,6 +768,26 @@ const checks: Check[] = [
     args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tools/order-copy/tsconfig.json'],
   },
   {
+    id: 'model-accounts-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/administration/model-accounts/tsconfig.tests.json',
+    ],
+  },
+  {
+    id: 'model-accounts-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/administration/model-accounts/tsconfig.tests.json',
+    ],
+  },
+  {
     id: 'parent-store-import-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -916,6 +937,7 @@ if (flags.has('--browser')) {
       'tests/dashboard/browser.test.ts',
       'tests/administration/barcodes/browser.test.ts',
       'tests/administration/parent-store-imports/browser.test.ts',
+      'tests/administration/model-accounts/browser.test.ts',
     ],
     environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
   });

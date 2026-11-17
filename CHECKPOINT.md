@@ -18,7 +18,7 @@ component test counts do not certify every original workflow.
 | Benefits                | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                 |
 | Administration          | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                        |
 | Reports and fulfillment | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                           |
-| Web and desktop         | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both native CI jobs passed unsigned packaging, integrity, sandbox, restart and offline smoke at commit88b7a4e; later changes need another native run. Signing and physical printing remain release gates. |
+| Web and desktop         | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both native CI jobs passed unsigned packaging, integrity, sandbox, restart and offline smoke at commit `88b7a4e`; later changes need another native run. Signing and physical printing remain release gates. |
 | Cashier conveniences    | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass. |
 | Dashboard and website   | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                  |
 | Barcode and country     | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.          |
@@ -43,9 +43,9 @@ component test counts do not certify every original workflow.
   the shared readers, UI recovery and offline-cash guards are already wired.
 - Complete the original order-list filters, sorting, queues and formatter fields;
   the simplified projection's qualified history reader does not certify them.
-- Finish ecommerce inventory synchronization, whole-order Vinculum status and
-  inherited administration add-form boundaries in the source map. Parent/store
-  CSV is integrated. The BD upload templates are explicitly retained as an
+- Finish ecommerce inventory synchronization and whole-order Vinculum status
+  in the source map. Parent/store CSV and source-default account creation are
+  integrated with their operational acceptance still required. The BD upload templates are explicitly retained as an
   inactive prototype: their classes/routes and sidebar are commented in source.
 - Reconcile every source route, template, websocket, administration surface and
   background job against `backend/parity/legacy-inventory.json`; attach full

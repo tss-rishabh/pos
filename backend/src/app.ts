@@ -39,6 +39,7 @@ import { createStoreImageStore } from './modules/administration/store-images.js'
 import { registerAdministration } from './modules/administration/index.js';
 import { registerBarcodeAssignments } from './modules/administration/barcodes/index.js';
 import { registerSecondaryCountrySearch } from './modules/administration/country-search.js';
+import { registerOperatorModelAccounts } from './modules/administration/model-accounts/index.js';
 import {
   registerParentStoreImports,
   readParentStoreImportOptions,
@@ -312,6 +313,7 @@ export async function buildApp(
       createCustomerOtpDelivery(config, customerOtpOptions),
     );
   registerBarcodeAssignments(app, config, db);
+  registerOperatorModelAccounts(app, config, db);
   registerSecondaryCountrySearch(app, db);
   registerParentStoreImports(app, config, db, {
     stockProcedure: stockProjection,
