@@ -32,6 +32,7 @@ import {
   assertFinancialImportAuthority,
 } from './financial-adapter-authority.js';
 import type { LegacyOrderImportPlan } from './plans.js';
+import { assertCorrectionPlanIdentity } from './financial-adapter-corrections.js';
 
 /** No prices/taxes are calculated here: native values must equal the sealed source result. */
 export async function assertNativeImportOrder(
@@ -39,6 +40,7 @@ export async function assertNativeImportOrder(
   state: ImportFinancialState,
   plan: LegacyOrderImportPlan,
   receipt: SourceOrderReceipt,
+  expectedQuantities?: ReadonlyMap<string, number> | null,
 ) {
   const native = await nativeImportOrder(tx, receipt.orderId);
   if (
@@ -66,12 +68,20 @@ export async function assertNativeImportOrder(
   const actual = new Map<string, number>();
   for (const line of native.lines)
     actual.set(line.productId, (actual.get(line.productId) ?? 0) + line.quantity);
+  const expected =
+    expectedQuantities ?? new Map(plan.lines.map((line) => [line.productId, line.quantity]));
   if (
-    actual.size !== plan.lines.length ||
-    plan.lines.some((line) => actual.get(line.productId) !== line.quantity)
+    actual.size !== expected.size ||
+    [...expected].some(
+      ([productId, quantity]) =>
+        !Number.isSafeInteger(quantity) || quantity < 1 || actual.get(productId) !== quantity,
+    )
   )
     throw importFinancialError('ORDER_IMPORT_NATIVE_LINES_MISMATCH');
-  if (plan.kind === 'offline' && receipt.payable !== plan.originalTenderAmount)
+  const tender = state.correction
+    ? assertCorrectionPlanIdentity(state.scope, plan, state.correction).historicalTenderAmount
+    : plan.originalTenderAmount;
+  if (plan.kind === 'offline' && receipt.payable !== tender)
     throw importFinancialError('ORDER_IMPORT_ORIGINAL_TENDER_MISMATCH');
   const [assets] = await tx
     .select({
@@ -123,6 +133,7 @@ export async function settleNativeImport(
   plan: LegacyOrderImportPlan,
   receipt: SourceOrderReceipt,
   options: LegacyImportFinancialOptions,
+  expectedQuantities?: ReadonlyMap<string, number> | null,
 ): Promise<ImportSettlementReceipt> {
   await assertFinancialImportAuthority(tx, state.scope, state.authority);
   const currentClose = await currentImportClose(tx, state.scope, plan.createdAt.slice(0, 10));
@@ -131,7 +142,7 @@ export async function settleNativeImport(
     financialImportHash(options.secret, 'close', state.authority.close)
   )
     throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
-  const native = await assertNativeImportOrder(tx, state, plan, receipt),
+  const native = await assertNativeImportOrder(tx, state, plan, receipt, expectedQuantities),
     now = (options.clock ?? Date.now)();
   const zero = '0.00';
   if (

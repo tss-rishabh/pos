@@ -6,7 +6,12 @@ import { retryTransaction } from '../../db/retry.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import { contactActorVersion } from '../customer-contacts/authority.js';
 import { assertCurrentInventoryAccess } from '../administration/authorization.js';
-import type { ImportFinancialScope } from './financial-contracts.js';
+import type { ImportFinancialScope, ImportFinancialStart } from './financial-contracts.js';
+import type { ImportCorrectionBinding } from './correction-contracts.js';
+import {
+  assertFinancialImportCorrection,
+  type FinancialCorrectionOptions,
+} from './financial-adapter-corrections.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 import {
   captureFinancialImportAuthority,
@@ -28,10 +33,7 @@ import {
   equalImportHash,
   importFinancialError,
 } from './financial-adapter-crypto.js';
-export interface FinancialApprovalOptions {
-  secret: string;
-  clock?: () => number;
-}
+export type FinancialApprovalOptions = FinancialCorrectionOptions;
 export interface FinancialApprovalInput {
   approverId: string;
   scope: ImportFinancialScope;
@@ -39,6 +41,7 @@ export interface FinancialApprovalInput {
   planHash: string;
   commandId: string;
   reason: FinancialImportApprovalView['reason'];
+  correction?: ImportCorrectionBinding;
 }
 export function verifyFinancialApprovalRow(
   row: typeof financialImportApprovals.$inferSelect,
@@ -71,6 +74,7 @@ export async function currentFinancialImportApproval(
   planHash: string,
   authority: FinancialImportAuthority,
   now: number,
+  requiredReason?: FinancialImportApprovalView['reason'],
 ) {
   const rows = await tx
     .select()
@@ -88,6 +92,7 @@ export async function currentFinancialImportApproval(
     const data = verifyFinancialApprovalRow(row, secret);
     if (
       data.actorId !== scope.actorId ||
+      (requiredReason !== undefined && data.reason !== requiredReason) ||
       data.storeId !== scope.storeId ||
       data.counterId !== scope.counterId ||
       data.expiresAt <= now ||
@@ -115,15 +120,24 @@ export function legacyOrderImportFinancialApprovals(
   options: FinancialApprovalOptions,
 ) {
   const now = options.clock ?? Date.now;
-  function validate(scope: ImportFinancialScope, plan: LegacyOrderImportPlan, planHash: string) {
+  function validate(
+    scope: ImportFinancialScope,
+    plan: LegacyOrderImportPlan,
+    planHash: string,
+    correction?: ImportCorrectionBinding,
+  ) {
     financialImportScopeSchema.parse(scope);
     financialImportPlanSchema.parse(plan);
-    if (!equalImportHash(expectedFinancialPlanHash(options.secret, scope, plan), planHash))
+    if (
+      !equalImportHash(expectedFinancialPlanHash(options.secret, scope, plan, correction), planHash)
+    )
       throw importFinancialError('ORDER_IMPORT_PLAN_CHANGED');
   }
   return {
     async request(input: FinancialApprovalInput): Promise<FinancialImportApprovalView> {
-      validate(input.scope, input.plan, input.planHash);
+      validate(input.scope, input.plan, input.planHash, input.correction);
+      if (input.correction && input.reason !== 'historical-correction')
+        throw importFinancialError('ORDER_IMPORT_CORRECTION_APPROVAL_REQUIRED');
       z.uuid().parse(input.commandId);
       const scope = input.scope;
       return retryTransaction(() =>
@@ -143,6 +157,17 @@ export function legacyOrderImportFinancialApprovals(
               approverId: input.approverId,
               reason: input.reason,
             });
+          await assertFinancialImportCorrection(
+            tx,
+            {
+              scope,
+              plan: input.plan,
+              planHash: input.planHash,
+              ...(input.correction ? { correction: input.correction } : {}),
+            },
+            options,
+            authority,
+          );
           const [prior] = await tx
             .select()
             .from(financialImportApprovals)
@@ -252,14 +277,17 @@ export function legacyOrderImportFinancialApprovals(
         return { ...data, status: valid ? 'approved' : 'stale' };
       });
     },
-    async authorizeStart(
-      tx: AdministrationTransaction,
-      input: ImportFinancialScope & { plan: LegacyOrderImportPlan; planHash: string },
-    ) {
-      const { plan, planHash, ...scope } = input;
-      validate(scope, plan, planHash);
+    async authorizeStart(tx: AdministrationTransaction, input: ImportFinancialStart) {
+      const { plan, planHash, correction, ...scope } = input;
+      validate(scope, plan, planHash, correction);
       const authority = await captureFinancialImportAuthority(tx, config, scope, plan, now());
-      if (!importNeedsPeriodApproval(config, plan, authority, now()))
+      await assertFinancialImportCorrection(
+        tx,
+        { scope, plan, planHash, ...(correction ? { correction } : {}) },
+        options,
+        authority,
+      );
+      if (!correction && !importNeedsPeriodApproval(config, plan, authority, now()))
         return { ready: true as const, authority };
       const approval = await currentFinancialImportApproval(
         tx,
@@ -268,6 +296,7 @@ export function legacyOrderImportFinancialApprovals(
         planHash,
         authority,
         now(),
+        correction ? 'historical-correction' : undefined,
       );
       return approval
         ? { ready: true as const, authority: { ...authority, approvalId: approval.id } }

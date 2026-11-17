@@ -116,6 +116,7 @@ export const financialImportCloseImpacts = mysqlTable(
     closeVersion: varchar('close_version', { length: 16 }).notNull(),
     createdAt: bigint('created_at_ms', { mode: 'number' }).notNull(),
   },
+  (table) => [index('ix_import_financial_close_operation').on(table.operationId)],
 );
 
 export const financialImportOrderBindings = mysqlTable(

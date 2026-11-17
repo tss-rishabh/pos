@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { importFinancialFixture, financialClock, sourceKey } from './fixture.js';
@@ -12,6 +13,7 @@ import {
   financialImportSourceEffects,
   financialImportSourceReceipts,
   financialImportStages,
+  financialImportCloseImpacts,
 } from '../../src/modules/legacy-order-imports/financial-adapter-schema.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
@@ -282,5 +284,73 @@ describe.skipIf(!template)('native signed no-effect boundary for manager CSV cor
         .select({ id: financialImportOperations.id })
         .from(financialImportOperations),
     ).toHaveLength(1);
+  });
+  it('retains the original rejection after a fresh login epoch while requiring current access', async () => {
+    const r = await rejected();
+    await f.connection.query(
+      'INSERT INTO pos_rewrite_operator_auth_epochs(operator_id,epoch) VALUES(?,1)',
+      [r.input.actorId],
+    );
+    expect(await r.inspect()).toMatchObject({
+      noFinancialEffects: true,
+      financialRequestHash: r.command.state.requestHash,
+    });
+  });
+  it('preserves the close-impact refusal before/after its forward operation index', async () => {
+    const r = await rejected();
+    const impact = {
+      id: 'target-close',
+      operationId: r.input.operationId,
+      closeId: '1',
+      closeVersion: '1',
+      createdAt: financialClock,
+    };
+    await f.db
+      .get('writer')
+      .insert(financialImportCloseImpacts)
+      .values([
+        ...Array.from({ length: 1000 }, (_, i) => ({
+          ...impact,
+          id: `unrelated-${i}`,
+          operationId: randomUUID(),
+        })),
+        impact,
+      ]);
+    const before = await f.db
+      .get('writer')
+      .select({ id: financialImportCloseImpacts.id })
+      .from(financialImportCloseImpacts)
+      .where(eq(financialImportCloseImpacts.operationId, r.input.operationId))
+      .limit(1);
+    await expect(r.inspect()).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_CORRECTION_NO_EFFECT_REQUIRED',
+    });
+    await f.connection.query(
+      readFileSync('src/modules/legacy-order-imports/financial-close-operation-index.sql', 'utf8'),
+    );
+    const after = await f.db
+      .get('writer')
+      .select({ id: financialImportCloseImpacts.id })
+      .from(financialImportCloseImpacts)
+      .where(eq(financialImportCloseImpacts.operationId, r.input.operationId))
+      .limit(1);
+    expect(after).toEqual(before);
+    const [plan] = await f.connection.query(
+      'EXPLAIN SELECT id FROM pos_rewrite_import_financial_close_impacts WHERE operation_id=? LIMIT 1',
+      [r.input.operationId],
+    );
+    expect(plan).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'ix_import_financial_close_operation' }),
+      ]),
+    );
+    await expect(r.inspect()).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_CORRECTION_NO_EFFECT_REQUIRED',
+    });
+    await f.db
+      .get('writer')
+      .delete(financialImportCloseImpacts)
+      .where(eq(financialImportCloseImpacts.operationId, r.input.operationId));
+    expect((await r.inspect()).noFinancialEffects).toBe(true);
   });
 });

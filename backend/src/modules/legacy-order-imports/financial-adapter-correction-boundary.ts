@@ -7,15 +7,13 @@ import {
 } from './financial-adapter-contracts.js';
 import {
   financialImportOrderBindings,
+  financialImportCloseImpacts,
   financialImportProofs,
   financialImportSourceEffects,
   financialImportSourceReceipts,
   financialImportStages,
 } from './financial-adapter-schema.js';
-import {
-  assertFinancialImportAuthority,
-  lockFinancialImportScope,
-} from './financial-adapter-authority.js';
+import { lockFinancialImportScope } from './financial-adapter-authority.js';
 import { readFinancialImportRecord } from './financial-adapter-record.js';
 import {
   equalImportHash,
@@ -65,7 +63,8 @@ export function financialImportCorrectionBoundary(options: {
         )
       )
         throw unavailable();
-      await assertFinancialImportAuthority(tx, input.scope, loaded.state.authority);
+      // Current access is required above. A later login/contact epoch does not
+      // erase this immutable no-effect receipt; a successor requires fresh approval.
       const stages = await tx
         .select({
           kind: financialImportStages.kind,
@@ -142,7 +141,7 @@ export function financialImportCorrectionBoundary(options: {
         )
       )
         throw unavailable();
-      const [bindings, completions, effects] = await Promise.all([
+      const [bindings, completions, effects, closeImpacts] = await Promise.all([
         tx
           .select({ id: financialImportOrderBindings.orderId })
           .from(financialImportOrderBindings)
@@ -161,8 +160,15 @@ export function financialImportCorrectionBoundary(options: {
           .where(eq(financialImportSourceEffects.operationId, input.scope.operationId))
           .limit(1)
           .for('share'),
+        tx
+          .select({ id: financialImportCloseImpacts.id })
+          .from(financialImportCloseImpacts)
+          .where(eq(financialImportCloseImpacts.operationId, input.scope.operationId))
+          .limit(1)
+          .for('share'),
       ]);
-      if (bindings.length || completions.length || effects.length) throw unavailable();
+      if (bindings.length || completions.length || effects.length || closeImpacts.length)
+        throw unavailable();
       if (proof.review) {
         const { calculation, planHash, stageNonce, rejectedAt } = proof.review;
         if (

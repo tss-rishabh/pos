@@ -3,7 +3,7 @@ import {
   importCorrectionBindingSchema,
   importCorrectionReceiptSchema,
 } from './correction-contracts.js';
-import { financialImportHash } from './financial-adapter-crypto.js';
+import { equalImportHash, financialImportHash } from './financial-adapter-crypto.js';
 import { correctionError } from './correction-domain.js';
 
 export type ImportCorrectionRow = typeof importCorrections.$inferSelect;
@@ -20,7 +20,7 @@ export function verifiedImportCorrectionRecord(row: ImportCorrectionRow, secret:
     original = body.original,
     target = body.successor;
   if (
-    proofHash !== importCorrectionRecordProof(fields, secret) ||
+    !equalImportHash(proofHash, importCorrectionRecordProof(fields, secret)) ||
     body.id !== row.id ||
     receipt.id !== row.id ||
     original.jobId !== row.originalJobId ||

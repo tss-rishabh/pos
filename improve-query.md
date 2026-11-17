@@ -4,6 +4,31 @@ Investigation uses MySQL 8.0.39, schema `tss`, TLS verification and a read-only
 session. No index or schema changes have been executed. Saved query plans and
 bounded comparison results are in `backend/evidence/mysql-readonly.json`.
 
+## Rewrite CSV financial close-impact guard
+
+The no-effect verifier must reject any retained close impact for an import
+operation. The original rewrite table has only its `id` primary key, so this
+bound lookup otherwise scans retained financial history:
+
+```sql
+SELECT id FROM pos_rewrite_import_financial_close_impacts
+WHERE operation_id = ? LIMIT 1;
+```
+
+The forward, rewrite-only migration adds its missing predicate index:
+
+```sql
+CREATE INDEX ix_import_financial_close_operation
+ON pos_rewrite_import_financial_close_impacts(operation_id);
+```
+
+The SELECT, existence predicate and frontend rejection result remain the same;
+no guessed close ID replaces the complete operation predicate. The isolated
+native fixture compares presence/refusal before and after the index and checks
+index eligibility. This is local evidence, without a production latency claim.
+The migration is registered after the original table and does not modify its
+existing migration checksum or run DDL on the supplied shared reader.
+
 ## Historical warehouse parameters and projections
 
 The shared adapter now serializes DATE/DATETIME/TIME/TIMESTAMP parameters with
