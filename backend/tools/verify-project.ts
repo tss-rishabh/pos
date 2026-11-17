@@ -63,6 +63,7 @@ if (flags.has('--mysql')) {
     DASHBOARD_MYSQL_TEST_URL: 'pos_rewrite_dashboard_test',
     BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
     ORDER_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_order_history_test',
+    ORDER_SEARCH_MYSQL_TEST_URL: 'pos_rewrite_order_search_test',
     PARENT_STORE_IMPORTS_MYSQL_TEST_URL: 'pos_rewrite_parent_store_test',
     MODEL_ACCOUNTS_MYSQL_TEST_URL: 'pos_rewrite_model_accounts_test',
     GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
@@ -71,6 +72,10 @@ if (flags.has('--mysql')) {
     url.pathname = '/' + schema;
     childEnvironment[name] = url.href;
   }
+  childEnvironment.ORDER_SEARCH_ORACLE_PYTHON = resolve(
+    backend,
+    'tools/order-search/run-oracle.sh',
+  );
 }
 
 const directories = [
@@ -768,6 +773,21 @@ const checks: Check[] = [
     args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tools/order-copy/tsconfig.json'],
   },
   {
+    id: 'order-search-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/order-search/backend.tsconfig.json',
+    ],
+  },
+  {
+    id: 'order-search-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tests/order-search/tsconfig.json'],
+  },
+  {
     id: 'payment-reversals-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -869,6 +889,11 @@ if (flags.has('--mysql')) {
   );
 }
 if (flags.has('--browser')) {
+  checks.push({
+    id: 'order-search-browser-tests',
+    directory: 'frontend',
+    args: ['tests/order-search/browser-check.mjs'],
+  });
   checks.push({
     id: 'payment-reversals-browser-tests',
     directory: 'frontend',
@@ -1014,16 +1039,19 @@ function sourceBaseline() {
 const sourceBefore = sourceBaseline();
 if (sourceBefore.commit !== inventory.source_commit || !sourceBefore.clean)
   throw new Error('Parity verification requires the clean pinned source checkout.');
-let activeProcess: ReturnType<typeof spawn> | undefined,
-  stopped = false;
-function stopActive(signal: NodeJS.Signals) {
-  if (!activeProcess?.pid) return;
+const activeProcesses = new Set<ReturnType<typeof spawn>>();
+let stopped = false;
+function stopProcess(child: ReturnType<typeof spawn>, signal: NodeJS.Signals) {
+  if (!child.pid) return;
   try {
-    if (process.platform === 'win32') activeProcess.kill(signal);
-    else process.kill(-activeProcess.pid, signal);
+    if (process.platform === 'win32') child.kill(signal);
+    else process.kill(-child.pid, signal);
   } catch {
     /* The child can finish between checking its PID and signalling it. */
   }
+}
+function stopActive(signal: NodeJS.Signals) {
+  for (const child of activeProcesses) stopProcess(child, signal);
 }
 for (const signal of ['SIGTERM', 'SIGINT'] as const)
   process.on(signal, () => {
@@ -1041,24 +1069,24 @@ async function run(check: Check): Promise<CheckResult> {
     stdio: ['ignore', 'pipe', 'pipe'],
     detached: process.platform !== 'win32',
   });
-  activeProcess = child;
+  activeProcesses.add(child);
   const collect = (value: Buffer) => {
     bytes += value.length;
     if (bytes <= 4 * 1024 * 1024) output.push(value);
     else if (!exceeded) {
       exceeded = true;
-      stopActive('SIGTERM');
+      stopProcess(child, 'SIGTERM');
     }
   };
   child.stdout!.on('data', collect);
   child.stderr!.on('data', collect);
-  const timeout = setTimeout(() => stopActive('SIGKILL'), 10 * 60 * 1000);
+  const timeout = setTimeout(() => stopProcess(child, 'SIGKILL'), 10 * 60 * 1000);
   const code = await new Promise<number>((done) => {
     child.once('error', () => done(1));
     child.once('close', (exitCode) => done(exitCode ?? 1));
   });
   clearTimeout(timeout);
-  activeProcess = undefined;
+  activeProcesses.delete(child);
   const log = `backend/evidence/private/verification-${check.id}.log`;
   writeFileSync(resolve(workspace, log), Buffer.concat(output));
   const result = {
@@ -1071,10 +1099,38 @@ async function run(check: Check): Promise<CheckResult> {
   return result;
 }
 const results: CheckResult[] = [];
+const isReadOnlyTypecheck = (check: Check) =>
+  !check.command &&
+  check.args[0] === 'node_modules/typescript/bin/tsc' &&
+  check.args.includes('--noEmit');
+const typecheckResults = new Map<string, CheckResult>();
+let typechecksPrepared = false;
+async function prepareTypechecks() {
+  const pending = checks.filter(isReadOnlyTypecheck);
+  let cursor = 0;
+  // Only no-emit compiler checks run together. Builds, migrations, databases,
+  // browsers and their dependencies retain their original sequential order.
+  await Promise.all(
+    Array.from({ length: 2 }, async () => {
+      while (!stopped) {
+        const check = pending[cursor++];
+        if (!check) return;
+        typecheckResults.set(check.id, await run(check));
+      }
+    }),
+  );
+  typechecksPrepared = true;
+}
 for (const check of checks) {
   if (stopped) break;
   if (check.id === 'browser-tests' && results.some((result) => result.exitCode !== 0)) break;
-  results.push(await run(check));
+  if (isReadOnlyTypecheck(check)) {
+    if (!typechecksPrepared) await prepareTypechecks();
+    if (stopped) break;
+    const result = typecheckResults.get(check.id);
+    if (!result) throw new Error('A required compiler check was not recorded.');
+    results.push(result);
+  } else results.push(await run(check));
 }
 const gate = await run({
   id: 'release-gate',

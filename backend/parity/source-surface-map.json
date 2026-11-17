@@ -18,16 +18,16 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 268,
+      "external_acceptance": 276,
       "implementation_present": 100,
-      "partial": 25,
+      "partial": 17,
       "missing": 3
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 176,
+        "external_acceptance": 181,
         "implementation_present": 68,
-        "partial": 11
+        "partial": 6
       },
       "jobs": {
         "external_acceptance": 27,
@@ -36,8 +36,8 @@
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 63,
-        "partial": 9,
+        "external_acceptance": 66,
+        "partial": 6,
         "missing": 2
       },
       "websockets": {
@@ -49,7 +49,7 @@
       }
     },
     "families": 75,
-    "code_task_groups": 6,
+    "code_task_groups": 5,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -131,13 +131,14 @@
     "backend/parity/order-history.md": "5a85cece3be6b198c7bac24d65afdac2fc19ca238d68ba38af84244c3f83af04",
     "backend/parity/order-messages.md": "b82295d5aebabea8b3d4d196d46e9443b978d018d62b9ef68ead98bac04badc6",
     "backend/parity/order-payments.md": "546228744d2ac60b40d4974348f2ca2c3d0cec900af0073d3c757e19aa89f299",
+    "backend/parity/order-search.md": "d79f98f07f282da5d410233ab5d5a42622aab1e2dc762e7ae0ada95749098cf1",
     "backend/parity/parent-store-imports.md": "d7092221dfcf118e66ba9652b4319001d76dc5e0a871667d0ebf34bfc8f7e200",
     "backend/parity/payment-reversals.md": "79155486c697691e2469b0af96bd4b4ad4ecc74c589e1ccc9b9a51d3de9e95a7",
     "backend/parity/pending-order-cancellation.md": "920296a9c5e99460d0030d6d21e18789d93659e2bbe40d5ec8575d64f67614c1",
     "backend/parity/report-exports.md": "fc6e51d06dc0656132102a3ad32f67781700deaab87915fd89a0ef9e2d98b47f",
     "backend/parity/scheduled-reports.md": "309be1084c4e01a3fbafd868e1bb830cf136ec26c0fe22c4b77a804d42191504",
     "backend/parity/wallet-adjustments.md": "ab1929b2ac1af5bad8d3a2992b76bb659c5cad867fb7a414d968a8c6d2004bb0",
-    "backend/src/app.ts": "4d8e99bd8f032960b53f1cb329e7acf5ca89c979c876e25edfa48c0dc6016ee6",
+    "backend/src/app.ts": "cbd28ec746eef553b8e9debd9dc36b591f379b1037580dbafa975e7ceb5c9f02",
     "backend/src/auth/delivery.ts": "b813640dcda4f8fe910d29cd8d471d03fe2d452ab931c3f45c19cdb342a43d63",
     "backend/src/auth/device-handoff-routes.ts": "ad454f2c02ed3af385118b68fada5eb654f1888fb741e2cd29c3afb601fa0001",
     "backend/src/auth/device-handoff-store.ts": "7b0c168f550954a66a257bb514eeed9f805d6733e76807f138aedac9d3a2f76d",
@@ -642,6 +643,18 @@
     "backend/src/modules/order-history/options.ts": "8d36554c0c98ee3390ac1a53c1075bf5685accffd8808d2261c2771f0983cdc7",
     "backend/src/modules/order-history/reader.ts": "e39975db34ebff9b64700d9ffb4dbc378b6819e562d3876fcd6c9ef2f72231cd",
     "backend/src/modules/order-history/routes.ts": "f5de2b66c09f80fc28a3b0c406cef0187490f32245cd7e88148cc22dd6cc11a6",
+    "backend/src/modules/order-history/search/contacts.ts": "e362c5be4752f01290134385b2c5fb40406b4febb0df70e8f2bb0a625108ea04",
+    "backend/src/modules/order-history/search/contracts.ts": "ec30ea38cf690b0d0b4c62f06e03afe6d557fc542a2104d8f934cb12f7fc3e96",
+    "backend/src/modules/order-history/search/demo.ts": "5fd6c28a305f3ee71c88d3929dab594913a3dfdcf2c0318613150c7873f03aee",
+    "backend/src/modules/order-history/search/format.ts": "8f8c5492d9f51beac7ad93f26588633ccf673c9b623b47ed5e22c20a8cea512b",
+    "backend/src/modules/order-history/search/index.ts": "ca566023168806893b899e1f82947c00e1f5229d5bcba9205821b76aae866414",
+    "backend/src/modules/order-history/search/native.ts": "79d0b64da99a27931232c15440497144c5d8e6a25e21c444fd24ebcc0fb9ea88",
+    "backend/src/modules/order-history/search/options.ts": "62e46754c2db8356971b0b8e694a88223c0e46137f3698fae974b246a3349180",
+    "backend/src/modules/order-history/search/queue.ts": "1903ed55aa3ca087860bd5d454cf35753d12b802cf4de857c9c856bd4a0eb782",
+    "backend/src/modules/order-history/search/reducer.ts": "73412170e5df1073f9ab8a8ac76459f950c21591fcfa1bd71a1e2caf73c81e17",
+    "backend/src/modules/order-history/search/scope.ts": "b9b58d7f6c540511bb24c5cb560f7fcf32667bb99af0e62d7419bc2e84e416cf",
+    "backend/src/modules/order-history/search/service.ts": "fd579081d4d21efa39f3229072c2127b1fec02a77d85ef91bf2f7386d5e27194",
+    "backend/src/modules/order-history/search/warehouse.ts": "fac33d74e7289e6095fe5c8fabf0554dc5df2637d4a93cc3a27f888f376110b2",
     "backend/src/modules/order-history/sql.ts": "f97ceea0cf751a4f404fd1d5a3470bbb072b34fd39afdbe6f243cc0f96becfa9",
     "backend/src/modules/orders.ts": "a48729a3376cf72ba1cbe485c10778824391fd557425d761bab0f5abf5d9d503",
     "backend/src/modules/product-feedback/contracts.ts": "341bc3b25319974f63028981567c316401aa5b5cb072f794d49a6d58568f83df",
@@ -675,7 +688,7 @@
     "backend/tests/administration/settings.test.ts": "9297e21624686910162485ae03674cddf5034175fd1c22e80e9a37e521f3d365",
     "backend/tests/administration/slack-location.test.ts": "650ee4ef7723f92a1c4690bf6cb09df176e01bd2db531db25f7d920325095b99",
     "backend/tests/administration/worker.test.ts": "ccc3550ce3786cfa574a8a6001922ded4b900bf99028c2a071bc2c7d592f3864",
-    "backend/tests/api.test.ts": "30ffefc790d54441fbd4927eaa21c3a0c965531eccb6efb35ebc67ef45f600cb",
+    "backend/tests/api.test.ts": "d1c54a3374677ef1ee8190731b0dcff3ba491648add6b8553a29bdce28bf914c",
     "backend/tests/auth.mysql.integration.test.ts": "285b7d76b8023df0e154da99846923e68f0cbd92e915fe56378fcc02d8c186f7",
     "backend/tests/business-metrics-reachability.test.ts": "45f9ee310b4e24b5bd0550f49a1da609f4ace32d4df64aa650c70d400f2202e3",
     "backend/tests/catalog-details/domain.test.ts": "f335177d6638e9eac2e95a2b796f2aca1674f97004e6cb5dd2355535b21f1a22",
@@ -842,6 +855,12 @@
     "backend/tests/order-history/reader.test.ts": "00e0a629c75f2a85f70abf1b4c023c1622e4a6350f9c3d682d8c172ee84aef1f",
     "backend/tests/order-history/routes.test.ts": "362554df9ad366540f63885416105903c9ef711432e80db8aa0fa14fa3ad9228",
     "backend/tests/order-history/source.test.ts": "665ecdb51293859957df03b783d16dfc5f87d0003e9b16c9d730396b2a1d9930",
+    "backend/tests/order-search/fixtures.ts": "c208521cd6eb061c580c6261dd829180798b4e80e444cac07c7cdefb584e81c3",
+    "backend/tests/order-search/mysql-fixture.ts": "94a4f23f0809b814d09774dec9c03bfabcd9b78abdf53afe0699670d1c1e3750",
+    "backend/tests/order-search/native.test.ts": "055b68790670eb923cb3dad6cd2dba5ef31f4b084af3cf303cfa083a1f7c75bf",
+    "backend/tests/order-search/private-output.test.ts": "0643cb7b3ef0a618e9c620debe1c8af804cd123baf66d8a73c0ef59a8190232d",
+    "backend/tests/order-search/routes.test.ts": "8f8e7f50ac34570a0847ddec4c1e2d0a3d35a9d3f2ae805aae8eb1a939dda954",
+    "backend/tests/order-search/warehouse.test.ts": "cc5423e3615280f94296872bcd5a8a2a21f7f8aeb9b866bacf57b539c2b2e428",
     "backend/tests/otp-delivery.test.ts": "c045d18ffd08a0262b7274a87992a10386b110104d1cfa874b1abf2490c18c0d",
     "backend/tests/product-feedback.mysql.integration.test.ts": "def8b526bc46d0700787a5db14bbd8596c11754bb10074e5c9054a23c6baa385",
     "backend/tests/product-feedback.test.ts": "ee3059ec37baa5123a5bf6e7838f11cd8fd24f1767c52634066684b33e0b114c",
@@ -849,6 +868,7 @@
     "backend/tools/administration/model-accounts/source-oracle.py": "d5ac4f7e7b6e371fd4e17cff3a83f0b172a5ad6e0644bf7f073876b13e79b6c9",
     "backend/tools/administration/parent-store-imports/source-oracle.py": "9e120a1e2e326cfeaf47c33def3dd3d873c6815101c62d462a0bb24858fc6acc",
     "backend/tools/customer-website-handoff/check-receiver.mjs": "a9edc47ef04f06bbf62988ba15a993c56b8443617cb10bcf9ebe3232aad05e87",
+    "backend/tools/order-search/source_oracle.py": "e51847adbae48cdff60394d43f6c62e9d2d67ed530a6362e12e68a859ee21ac2",
     "backend/tools/parity/check_business_metrics_reachability.py": "17aef4f9622964313a7a92c1c83f1a0df3124c5bc652839f3ae641670a21c0df",
     "frontend/e2e/checkout/cashier-shortcuts.spec.ts": "8dd7deb674330d1c795594030d1114e9dd7a35e57f608aa5d63e47f5b7b909d5",
     "frontend/e2e/checkout/checkout-performance.spec.ts": "7b97900410df31a4b0951f7add8eb4da140752027410bc576803bc7d589fd515",
@@ -860,10 +880,10 @@
     "frontend/e2e/checkout/gift-card.spec.ts": "72c48a1156c0d2bf0872c758c39ef2006b59de3ef1e7211169cbfce232ce5fb3",
     "frontend/e2e/checkout/invoice-feedback.spec.ts": "f503d5d7d56a33a90e2d233468880aaee0b8774db0acbe082fc55c6751023a99",
     "frontend/e2e/checkout/invoice-print-probe.ts": "e890a31e7e1485c08f50cc9547a481cecd681f967613c62104b5074dddb5610b",
-    "frontend/e2e/checkout/invoice.spec.ts": "d2945c691cb181b3bf9fc63ee11ad504af613720a4960710d9a9d267304be0be",
+    "frontend/e2e/checkout/invoice.spec.ts": "f7c88ee260218702348f5fa5e077472a3b55608aafc31bdb7b56f7bb6014bb7d",
     "frontend/e2e/checkout/offline-cash.spec.ts": "805669b97b94ca412f0fdef8397536cc0d3167d0ab77538287fe126b75f0edea",
-    "frontend/e2e/checkout/order-link.spec.ts": "f3cb2fd85d4c7dec56ba00abd35a1e46430842fd2046459490705071aa9d2e5e",
-    "frontend/e2e/checkout/order-payments.spec.ts": "2538c4e5bae8c0663cba69a9898444a754e781665010db3ccfdce3989013f6d4",
+    "frontend/e2e/checkout/order-link.spec.ts": "6c981142d6b245adc6d87b230a50ccebe1e1e68effbbc0d05a8b21ea69dfd493",
+    "frontend/e2e/checkout/order-payments.spec.ts": "2ebbc660f6c775d173694f16347e6702257d8896ed469af7ad4280704557c532",
     "frontend/e2e/checkout/product-feedback.spec.ts": "ea4472b0f05ada86a836e7772dbedc9a59a9634b999cc3366deb66e723b3c963",
     "frontend/e2e/checkout/wallet-adjustments.spec.ts": "4316c31ee98c66ed3c6f293f6827d5f67a0f4e17055114078f40938e5ac4312d",
     "frontend/e2e/motivational-quotes.spec.ts": "79337d023bb9b8e72dedba7195ea16bb9a1b459f5d9d457ad25040f76276279c",
@@ -1049,11 +1069,14 @@
     "frontend/src/pages/operational-reports/report-view.tsx": "7f8919a070858fd529c7984c3a994a9e944443b15849375bb75ee3e8151b1060",
     "frontend/src/pages/operational-reports/returned-orders.tsx": "fa8e17c577e3462dd083559f6c79982c85bb591b301a9ec4a94df3fa90d1fa23",
     "frontend/src/pages/operational-reports/style.css": "28334af838dad80297f85b3bc042734f772e2902801ffd0bf3d77e778d101210",
-    "frontend/src/pages/operations.tsx": "fa0f6be062661f1a8bde0a34b0789a1be9d40ab3eb72a04fa88ccee312c1f1f3",
+    "frontend/src/pages/operations.tsx": "fbf261b9733f23094f6f18eee2d461dfca6da32aff60f172d09d8730b5ba06b1",
     "frontend/src/pages/order-copy/client.ts": "0635e0f41bf253c6b995e359f5c9bbbd8700f6acd2f99c2057d8474886a93e3e",
     "frontend/src/pages/order-copy/index.tsx": "3d7f18cc32a1edaa6edd309b1c8ad200971a257ab5c3e0ca28fb95d67f7da6e8",
     "frontend/src/pages/order-copy/marker.ts": "3ae37435c7da14a69bcbce1ec158e14ca168b6733b5c22527d2835c81bcbc2d9",
+    "frontend/src/pages/order-history/SourceOrderList.tsx": "61b4da27e346b9ffb34b1406c9594eeef472529968163e08fc292f73cd36e11f",
     "frontend/src/pages/order-history/client.ts": "0bc307eb08a8b4099e8020599eedcd1c9146b35c8f35c71ab59be78126e3edcd",
+    "frontend/src/pages/order-history/order-search.css": "9a36776bb40d132c7833bef9c38f320899ecea2c78d652284c50958395d1f1cf",
+    "frontend/src/pages/order-history/search-client.ts": "c096ae8c2eecec0512c5a701f3320bee54fc896c7e9a02b14222d164ce83283c",
     "frontend/src/pages/payment-reversals/client.ts": "9f743c3ebb40403bfae623c7b09377db9f0eb2f6aec7b698f8179be251bce6d4",
     "frontend/src/pages/payment-reversals/index.tsx": "b8f0c344a1c095b7bcd4cdea1588a029d5308b7d6a8723277e89bb378e805078",
     "frontend/src/pages/product-feedback/client.ts": "e4265117a2bf3e4a7883c2f96028c437e5a6c998bcf7b6194a7934944c32e61c",
@@ -1165,8 +1188,14 @@
     "frontend/tests/order-history/vitest.config.ts": "7caa4d8e01bfbfe6a9f64951a3e7133c33f347ddd9c061bd1cb85d3210548648",
     "frontend/tests/order-link.test.ts": "c3ce3edff661cce5f675002da30bbbc52bedca91d27d155345e31de3ce54aaa1",
     "frontend/tests/order-payments/harness.tsx": "605ef29d4143cc072d12178507f4f595646a1807f489a6481d43402cec7e90d3",
-    "frontend/tests/order-payments/order-payments.browser.test.ts": "a2d8062ac021a167d78c0f2e736b412830eeeeeac1e8c3f132abb085c46f57d0",
+    "frontend/tests/order-payments/order-payments.browser.test.ts": "1e741bd81058732e5037cf5ad3a17a1c2e207028aa836bde93f85677a8431f57",
     "frontend/tests/order-payments/tsconfig.json": "6828059d4b954f138c989febde69a1b920ed8916eecc99000b6fb940822a6b85",
+    "frontend/tests/order-search/client.test.ts": "74b551092f99024cf4b3cf39dff6056d9b9022a489303fa0fc47903ba3e7d7c0",
+    "frontend/tests/order-search/fixture.html": "f9e11be81f6fad549aeb14257ce50cec4be4932d7a531e21a5a9b952f72e16c8",
+    "frontend/tests/order-search/fixture.tsx": "8831b5bdc9e2d3630a96325d73c4d984fb59cdbb13452b5c1eebc125d4b4063c",
+    "frontend/tests/order-search/source-snapshot.json": "ccf4fad2fc9340b46dda461bde433f06be141c3a0014301f9696f00237c5bb94",
+    "frontend/tests/order-search/tsconfig.json": "d17a011f455477530e1e83602811b79d9f3d40d3b18ca604812c44855144deff",
+    "frontend/tests/order-search/vitest.config.ts": "6078f35440bdd0d255acde3252ab68ddd9c13c91e1ed676d06d22d56c1ec9cfa",
     "frontend/tests/payment-recovery.test.ts": "115af018fed94a525de463d2c7395d8f7690bb0a9ee37b2ce66707824cf266d4",
     "frontend/tests/payment-reversals/browser.test.ts": "2370974b96277f317fd0e20116780b4f300c2667032d22ce952467f7a45917fe",
     "frontend/tests/payment-reversals/harness.tsx": "bc4e60493053ceb53f4ce6de9852099569ea29d80f55c1287dc4eb0a382e9d90",
@@ -3137,6 +3166,7 @@
         "frontend/tests/order-history/client.test.ts",
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
+        "frontend/tests/order-search/client.test.ts",
         "frontend/tests/payment-recovery.test.ts",
         "frontend/tests/payment-reversals/browser.test.ts",
         "frontend/tests/performance-review/performance-review.test.ts",
@@ -3359,6 +3389,7 @@
         "frontend/tests/order-history/client.test.ts",
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
+        "frontend/tests/order-search/client.test.ts",
         "frontend/tests/payment-recovery.test.ts",
         "frontend/tests/payment-reversals/browser.test.ts",
         "frontend/tests/performance-review/performance-review.test.ts",
@@ -3487,7 +3518,7 @@
     },
     {
       "id": "orders-read",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/orders.ts",
         "backend/src/modules/order-history",
@@ -3499,19 +3530,21 @@
       ],
       "tests": [
         "backend/tests/order-history",
+        "backend/tests/order-search",
+        "backend/tools/order-search/source_oracle.py",
         "frontend/tests/order-history",
+        "frontend/tests/order-search",
         "backend/tests/checkout"
       ],
       "parity_documents": [
         "backend/parity/order-history.md",
+        "backend/parity/order-search.md",
         "backend/parity/checkout.md"
       ],
-      "implemented_scope": "Public eight-column list/detail projection with signed association-preserving cursors, PRIMARY interactive/DATA today reports/BigQuery older or mixed dates, bounded unknown-age classification, writer-current authority and post-read session revocation checks.",
-      "remaining_code": [
-        "Finish original AjaxOrderListView ST/HL/HE/N/queue filters, explicit IDs, contact/payment/status filters, source search/sort and formatter/actions. Qualified historical routing of the simplified projection does not certify this complete datatable."
-      ],
+      "implemented_scope": "Full ST/HL/HE/N/queue/explicit-ID order list, contact/payment/status filters, source search/sort/page and formatter/actions are integrated with 43 pinned-Django vectors and 12 browser workflows. Existing detail/paid/invoice/cancellation guards remain. PRIMARY interactive/DATA today/BigQuery old or mixed facts, live-only queue discovery, private HMAC comparisons and post-read session revocation are enforced. Demo uses an explicit synthetic adapter without a database port.",
+      "remaining_code": [],
       "external_acceptance": [
-        "Accept complete common-checkpoint historical warehouse publications, physical source collation/formatters and representative performance."
+        "Accept both complete common-checkpoint historical order/search publications, private contact-key generation/collation identity, real queue/current-source lifecycle and representative workload performance. Native source vectors and local browser checks are not complete production workflow certification."
       ],
       "code_task_required": true,
       "notes": [],
@@ -3561,7 +3594,13 @@
         "backend/tests/order-history/reader.test.ts",
         "backend/tests/order-history/routes.test.ts",
         "backend/tests/order-history/source.test.ts",
-        "frontend/tests/order-history/client.test.ts"
+        "backend/tests/order-search/native.test.ts",
+        "backend/tests/order-search/private-output.test.ts",
+        "backend/tests/order-search/routes.test.ts",
+        "backend/tests/order-search/warehouse.test.ts",
+        "backend/tools/order-search/source_oracle.py",
+        "frontend/tests/order-history/client.test.ts",
+        "frontend/tests/order-search/client.test.ts"
       ]
     },
     {
@@ -3697,6 +3736,7 @@
         "frontend/tests/order-history/client.test.ts",
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
+        "frontend/tests/order-search/client.test.ts",
         "frontend/tests/payment-recovery.test.ts",
         "frontend/tests/payment-reversals/browser.test.ts",
         "frontend/tests/performance-review/performance-review.test.ts",
@@ -5270,13 +5310,6 @@
       "state": "partial",
       "tasks": [
         "Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it."
-      ]
-    },
-    {
-      "family": "orders-read",
-      "state": "partial",
-      "tasks": [
-        "Finish original AjaxOrderListView ST/HL/HE/N/queue filters, explicit IDs, contact/payment/status filters, source search/sort and formatter/actions. Qualified historical routing of the simplified projection does not certify this complete datatable."
       ]
     },
     {
@@ -8065,7 +8098,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8098,7 +8131,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8131,7 +8164,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8162,7 +8195,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8195,7 +8228,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14983,7 +15016,7 @@
         "pending-order-cancellation",
         "local-deliveries"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -15021,7 +15054,7 @@
         "returns-exchanges",
         "invoice-documents"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -15041,7 +15074,7 @@
         "returns-exchanges",
         "invoice-documents"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

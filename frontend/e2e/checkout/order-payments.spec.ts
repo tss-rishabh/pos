@@ -53,6 +53,7 @@ for (const mode of ['cash', 'legacy'] as const) {
     await page.route('**/api/v1/stores/*/orders/**', async (route) => {
       const path = new URL(route.request().url()).pathname,
         method = route.request().method();
+      if (path.endsWith('/orders/searches')) return route.continue();
       const actor = route.request().headers()['x-operator-id'];
       expect(actor).toMatch(/^[1-9]\d*$/);
       if (ownerId) expect(actor).toBe(ownerId);

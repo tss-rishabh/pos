@@ -13,7 +13,7 @@ import {
   recordedPaymentInputSchema,
   recordedLegacyInputSchema,
 } from '../../src/pages/checkout/payment-recovery';
-import type { z } from 'zod';
+import { z } from 'zod';
 import {
   cancellationIntentSchema,
   cancellationReceiptSchema,
@@ -104,6 +104,47 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           });
         }
         expect(route.request().headers()['x-operator-id']).toBe('44');
+        if (method === 'GET' && path === '/api/v1/stores/1/order-search-options')
+          return route.fulfill({
+            json: {
+              stores: [{ id: '1', name: 'Fixture store', locationCode: 'FIXTURE' }],
+              methods: [],
+              paymentStatuses: [],
+              orderStatuses: [],
+              orderTypes: ['ST'],
+              checkedInStoreId: '1',
+            },
+          });
+        if (method === 'POST' && path === '/api/v1/stores/1/orders/searches') {
+          const input = z
+            .object({
+              draw: z.number().int(),
+              pageSize: z.number().int(),
+              from: z.string(),
+              to: z.string(),
+            })
+            .parse(route.request().postDataJSON() as unknown);
+          return route.fulfill({
+            json: {
+              contract: 'pos-source-order-search-v1',
+              draw: input.draw,
+              recordsTotal: '0',
+              recordsFiltered: '0',
+              page: 1,
+              pageSize: input.pageSize,
+              reader: 'primary',
+              data: [],
+              fetchedAt: new Date().toISOString(),
+              generationId: null,
+              range: {
+                from: input.from,
+                to: input.to,
+                timeZone: 'Asia/Kolkata',
+                ignoredForQueue: false,
+              },
+            },
+          });
+        }
         if (method === 'GET' && path === base + '/invoices/capabilities')
           return route.fulfill({ json: { storeId: '1', orderId, actions: [] } });
         if (method === 'GET' && path === '/api/v1/stores/1/orders')

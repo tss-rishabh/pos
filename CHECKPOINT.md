@@ -24,7 +24,7 @@ component test counts do not certify every original workflow.
 | Barcode and country     | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.          |
 | Invoice worksheet       | Manual prices, customer labels, exact totals, source-format CSV export and sandboxed printing. Fourteen focused checks and two Chromium workflows pass. This worksheet records no payment.                                       |
 | Parent/store CSV        | Three-column product-family assignment import, atomic reset/delete/recreate, audit, shared durable worker and separate historical profile are wired. Twenty-nine merged database/source/parser checks and seven import browser workflows pass. Actual stock/sync/publication acceptance remains required. |
-| Historical order reads  | Public date selections now reach PRIMARY/DATA/BigQuery readers, with scoped cursors and post-read session revocation checks. Forty-four backend checks and five browser cases pass. Full original order-list filtering/formatting is still in progress. |
+| Historical order reads  | Public date selections reach PRIMARY/DATA/BigQuery readers, with scoped cursors and post-read session revocation checks. Full source filters/sorting/queues/formatter are integrated: 43 pinned-Django vectors, 12 browser workflows and existing qualified detail/copy readers. Warehouse generations and workload acceptance remain required. |
 | Order copying           | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Thirty-one backend checks, three integrated Chromium and 33 existing offline/fast-cash checks pass. Native customer OTP/contact/session fences are integrated; safe unsent cancellation remains in progress. |
 
 ## Fixed remaining code checklist
@@ -41,8 +41,8 @@ component test counts do not certify every original workflow.
   collections, ledger, DSR and historical publications before enabling it.
 - Finish unsent-operation cancellation for order copying; native customer proof,
   shared readers, UI recovery and offline-cash guards are already wired.
-- Complete the original order-list filters, sorting, queues and formatter fields;
-  the simplified projection's qualified history reader does not certify them.
+- Qualify the source order-search historical publication/contact-key generation
+  and representative queue workload; the complete UI/API/source-filter code is integrated.
 - Finish ecommerce inventory synchronization and whole-order Vinculum status
   in the source map. Parent/store CSV and source-default account creation are
   integrated with their operational acceptance still required. The BD upload templates are explicitly retained as an

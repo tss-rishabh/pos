@@ -65,7 +65,7 @@ test('production invoice frame uses its own restrictive policy and supports in-a
   await page.goto('/');
   await page.getByRole('button', { name: 'Explore demo workspace' }).click();
   await page.getByRole('link', { name: 'Orders', exact: true }).click();
-  await page.getByRole('button', { name: 'View order DEMO-6008' }).click();
+  await page.getByRole('button', { name: 'View order 6008', exact: true }).click();
   await page.getByRole('button', { name: 'Tax invoice', exact: true }).click();
   const frame = page.frameLocator('iframe[title="Tax invoice for order 6008"]');
   await expect(

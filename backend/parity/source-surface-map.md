@@ -17,7 +17,6 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 ## Concrete remaining code, by feature group
 
 - **ecommerce-inventory-sync (partial)**: Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.
-- **orders-read (partial)**: Finish original AjaxOrderListView ST/HL/HE/N/queue filters, explicit IDs, contact/payment/status filters, source search/sort and formatter/actions. Qualified historical routing of the simplified projection does not certify this complete datatable.
 - **legacy-paid-reversal (partial)**: Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow.
 - **order-to-cart-copy (partial)**: Finish serialized cancellation/tombstones for rejected or never-dispatched copy intents so an expired review cannot permanently fence the checkout. A404 or failed HTTP response alone cannot release an in-flight command.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
@@ -29,9 +28,9 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 11 | 0 | 176 |
+| routes | 68 | 6 | 0 | 181 |
 | jobs | 0 | 4 | 1 | 27 |
-| templates | 32 | 9 | 2 | 63 |
+| templates | 32 | 6 | 2 | 66 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 1 | 0 | 1 |
 
@@ -134,11 +133,11 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `dashboard/urls.py:9` | `ajax-feed-live-internet-speed/` | shared-shell | implementation_present |
 | `dashboard/urls.py:10` | `ajax-live-internet-data/` | shared-shell | implementation_present |
 | `notification/urls.py:7` | `ajax-notification-update/` | notifications | external_acceptance |
-| `order/urls.py:8` | `store/` | orders-read | partial |
-| `order/urls.py:9` | `online/` | orders-read | partial |
-| `order/urls.py:10` | `ajax-order-list/` | orders-read | partial |
-| `order/urls.py:11` | `store/<int:order_id>/show/` | orders-read | partial |
-| `order/urls.py:12` | `online/<int:order_id>/show/` | orders-read | partial |
+| `order/urls.py:8` | `store/` | orders-read | external_acceptance |
+| `order/urls.py:9` | `online/` | orders-read | external_acceptance |
+| `order/urls.py:10` | `ajax-order-list/` | orders-read | external_acceptance |
+| `order/urls.py:11` | `store/<int:order_id>/show/` | orders-read | external_acceptance |
+| `order/urls.py:12` | `online/<int:order_id>/show/` | orders-read | external_acceptance |
 | `order/urls.py:13` | `store/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:14` | `online/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:15` | `online_sdd/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
@@ -397,10 +396,10 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/hyperlocal/_progress_content.html` | `order/templates/order/hyperlocal/_progress_content.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/all_stores_dashboard.html` | `order/templates/order/hyperlocal/all_stores_dashboard.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/progress.html` | `order/templates/order/hyperlocal/progress.html` | express-fulfillment | external_acceptance |
-| `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | partial |
+| `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | external_acceptance |
 | `order/templates/order/invoice.html` | `order/templates/order/invoice.html` | invoice-documents | external_acceptance |
-| `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | partial |
-| `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | partial |
+| `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
+| `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
 | `order/templates/order/shipping.html` | `order/templates/order/shipping.html` | shipping-labels | external_acceptance |
 | `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
 | `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | partial |

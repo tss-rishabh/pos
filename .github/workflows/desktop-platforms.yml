@@ -69,6 +69,9 @@ jobs:
       - name: Historical order reader browser checks
         run: node tests/order-history/browser-check.mjs
         working-directory: frontend
+      - name: Source order-list filters, formatter and queues
+        run: node tests/order-search/browser-check.mjs
+        working-directory: frontend
       - name: Recorded cash correction recovery browser checks
         run: npx vitest run tests/payment-reversals/browser.test.ts
         working-directory: frontend

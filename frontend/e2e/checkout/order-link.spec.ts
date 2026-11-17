@@ -7,6 +7,7 @@ test('opens exact order links in the current store and clears selection before a
     requests: string[] = [];
   await page.route('**/api/v1/stores/*/orders/*', async (route) => {
     const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/orders/searches')) return route.continue();
     if (path.endsWith('/cancellations'))
       return route.fulfill({
         json: {

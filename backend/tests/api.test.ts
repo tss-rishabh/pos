@@ -46,6 +46,58 @@ describe('API authorization, validation, and durable-operation contract', () => 
     ])
       expect((await app.inject({ url, headers: { cookie } })).statusCode).toBe(400);
   });
+  it('serves the full order-read contract from explicit synthetic services without database configuration', async () => {
+    const options = await app.inject({
+      url: '/api/v1/stores/1/order-search-options',
+      headers: { cookie },
+    });
+    expect(options.statusCode).toBe(200);
+    expect(options.json<{ orderTypes: string[] }>().orderTypes).toEqual(['ST']);
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/stores/1/orders/searches',
+      headers: { cookie, origin, 'x-operator-id': '900001' },
+      payload: { storeIds: ['1'], pageSize: 2 },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.headers['cache-control']).toBe('no-store');
+    expect(
+      response.json<{ contract: string; data: { id: string; actionStoreId: string }[] }>(),
+    ).toMatchObject({
+      contract: 'pos-source-order-search-v1',
+      data: [
+        { id: '6008', actionStoreId: '1' },
+        { id: '6007', actionStoreId: '1' },
+      ],
+    });
+  });
+  it('keeps synthetic order reads origin-bound and refuses stores outside the original operator scope', async () => {
+    const url = '/api/v1/stores/1/orders/searches';
+    expect(
+      (await app.inject({ method: 'POST', url, headers: { cookie }, payload: { storeIds: ['1'] } }))
+        .statusCode,
+    ).toBe(403);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url,
+          headers: { cookie, origin, 'x-operator-id': '900001' },
+          payload: { storeIds: ['99'] },
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (
+        await app.inject({
+          method: 'POST',
+          url,
+          headers: { cookie, origin, 'x-operator-id': '900001' },
+          payload: { storeIds: ['1'], orderType: 'N' },
+        })
+      ).statusCode,
+    ).toBe(400);
+  });
   it('rejects cross-site mutation requests, including login', async () => {
     for (const headers of [{}, { origin: 'https://evil.example' }])
       expect(

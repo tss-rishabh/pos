@@ -90,6 +90,11 @@ import { ordersService } from './modules/orders.js';
 import { publicOrderHistory } from './modules/order-history/index.js';
 import { registerPublicOrders } from './modules/order-history/routes.js';
 import { historicalOrderCopyFacts } from './modules/order-history/copy-adapter.js';
+import {
+  registerOrderSearch,
+  readOrderSearchOptions,
+} from './modules/order-history/search/index.js';
+import { demoOrderSearch } from './modules/order-history/search/demo.js';
 import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { demoServices, demoUser } from './modules/demo.js';
 import { registerEventCatalog, requestEvent } from './observability/events.js';
@@ -188,6 +193,8 @@ export async function buildApp(
         '/api/v1/stores/:storeId/catalog/products',
         '/api/v1/stores/:storeId/orders',
         '/api/v1/stores/:storeId/orders/:orderId',
+        '/api/v1/stores/:storeId/orders/searches',
+        '/api/v1/stores/:storeId/order-search-options',
         '/api/v1/reports/daily-store-sales',
         '/api/v1/stores/:storeId/cart-drafts',
         '/api/v1/stores/:storeId/cart-drafts/:draftId',
@@ -198,7 +205,9 @@ export async function buildApp(
         !publicRoute &&
         !(
           syntheticResource &&
-          (safeRead || request.routeOptions.config.trace?.resource === 'cart-draft')
+          (safeRead ||
+            request.routeOptions.config.trace?.resource === 'cart-draft' ||
+            (route === '/api/v1/stores/:storeId/orders/searches' && request.method === 'POST'))
         )
       )
         throw new AppError(
@@ -446,6 +455,13 @@ export async function buildApp(
     );
   });
   registerPublicOrders(app, services.orders);
+  await registerOrderSearch(
+    app,
+    config,
+    db,
+    readOrderSearchOptions(),
+    config.DEMO_MODE ? { service: demoOrderSearch(config, services.catalog, services.orders) } : {},
+  );
   app.get('/api/v1/stores/:storeId/cart-drafts', async (request) => {
     const q = scope.parse(request.params);
     return { data: await services.drafts.list(authenticated(request), q.storeId) };

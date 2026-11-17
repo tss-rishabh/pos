@@ -32,7 +32,7 @@ test('desktop web flow: search, durable cart, offline reload, replay, and order 
     timeout: 15000,
   });
   await page.getByRole('link', { name: 'Orders', exact: true }).click();
-  await page.getByRole('button', { name: 'View order DEMO-6008' }).click();
+  await page.getByRole('button', { name: 'View order 6008', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
   await page.getByRole('button', { name: 'Close order' }).click();
   await page.screenshot({ path: 'test-results/orders-desktop.png', fullPage: true });
