@@ -45,6 +45,9 @@ export async function orderCopyFixture(template: string) {
       'src/modules/checkout/migrations/0011_offline_cash.sql',
       'src/modules/administration/migration.sql',
       'src/modules/checkout/order-copy/migration.sql',
+      'migrations/0006_operator_auth_epochs.sql',
+      'src/modules/customer-contacts/contact-revisions-migration.sql',
+      'src/modules/customer-otp/migration.sql',
     ])
       for (const statement of readFileSync(path, 'utf8')
         .replace(/^--.*$/gm, '')

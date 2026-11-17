@@ -33,6 +33,10 @@ const conflict = () =>
     'ORDER_COPY_CONTEXT_CHANGED',
     'Reload the original copy reference before continuing.',
   );
+function publicReview(review: CopyReview) {
+  const { customerAuthority: _customerAuthority, ...value } = review;
+  return value;
+}
 function editable(state: CheckoutState) {
   if (
     state.busyOperationId ||
@@ -126,7 +130,11 @@ export function orderCopyService(
         const command = await repository.command(tx, id);
         if (!command) throw new AppError(404, 'ORDER_COPY_NOT_FOUND', 'Copy operation not found.');
         bound(command, state, user);
-        await repository.source(tx, user, command.review.source);
+        await repository.source(tx, user, command.review.source, {
+          state,
+          kind: 'command',
+          authority: command.review.customerAuthority,
+        });
         return view(command, state);
       },
       true,
@@ -146,7 +154,11 @@ export function orderCopyService(
       const command = await repository.command(tx, id);
       if (!command) throw conflict();
       bound(command, state, user);
-      await repository.source(tx, user, command.review.source);
+      await repository.source(tx, user, command.review.source, {
+        state,
+        kind: 'command',
+        authority: command.review.customerAuthority,
+      });
       if (
         command.leaseId !== leaseId ||
         command.status !== 'pending' ||
@@ -345,8 +357,17 @@ export function orderCopyService(
           )
             throw new AppError(404, 'ORDER_COPY_REVIEW_NOT_FOUND', 'Copy review not found.');
           validReview(review);
-          await repository.source(tx, user, review.source);
-          return review;
+          const command = await repository.commandForReview(tx, review.id);
+          if (command) {
+            bound(command, state, user);
+            if (command.review.hash !== review.hash) throw conflict();
+          }
+          await repository.source(tx, user, review.source, {
+            state,
+            kind: command ? 'command' : 'review',
+            authority: command?.review.customerAuthority ?? review.customerAuthority,
+          });
+          return publicReview(review);
         },
         true,
       );
@@ -360,7 +381,11 @@ export function orderCopyService(
           const command = await repository.command(tx, state.orderCopy.commandId);
           if (!command) throw conflict();
           bound(command, state, user);
-          await repository.source(tx, user, command.review.source);
+          await repository.source(tx, user, command.review.source, {
+            state,
+            kind: 'command',
+            authority: command.review.customerAuthority,
+          });
           return view(command, state);
         },
         true,
@@ -372,7 +397,6 @@ export function orderCopyService(
       input: { reviewId: string; expectedVersion: number; source: CopySource },
     ) {
       const initial = await repository.scope(user, scope, async (tx, state) => {
-        await repository.source(tx, user, input.source);
         const existing = await repository.review(tx, input.reviewId);
         if (existing) {
           validReview(existing);
@@ -383,14 +407,23 @@ export function orderCopyService(
             hash('source', existing.source) !== hash('source', input.source)
           )
             throw conflict();
-          return { existing, state };
+          await repository.source(tx, user, input.source, {
+            state,
+            kind: 'review',
+            authority: existing.customerAuthority,
+          });
+          return { existing, state, customerAuthority: existing.customerAuthority };
         }
         editable(state);
         if (state.version !== input.expectedVersion) throw conflict();
         draftOriginHash(state, secret);
-        return { existing: null, state };
+        const customerAuthority = await repository.source(tx, user, input.source, {
+          state,
+          kind: 'new',
+        });
+        return { existing: null, state, customerAuthority };
       });
-      if (initial.existing) return initial.existing;
+      if (initial.existing) return publicReview(initial.existing);
       const sourceFacts = copyFactsSchema.parse(
         await facts.read({
           source: input.source,
@@ -418,6 +451,7 @@ export function orderCopyService(
           originHash: draftOriginHash(initial.state, secret),
           beforeHash: cartCopyHash(current, secret),
           source: input.source,
+          ...(initial.customerAuthority ? { customerAuthority: initial.customerAuthority } : {}),
           facts: sourceFacts,
           before,
           steps: copySteps(sourceFacts, before),
@@ -426,7 +460,11 @@ export function orderCopyService(
       const review = copyReviewSchema.parse({ ...body, hash: reviewHash(body) });
       return repository.scope(user, scope, async (tx, state) => {
         editable(state);
-        await repository.source(tx, user, input.source);
+        await repository.source(tx, user, input.source, {
+          state,
+          kind: 'review',
+          authority: review.customerAuthority,
+        });
         if (
           state.version !== initial.state.version ||
           state.customerId !== review.customerId ||
@@ -449,7 +487,7 @@ export function orderCopyService(
         )
           throw conflict();
         validReview(saved);
-        return saved;
+        return publicReview(saved);
       });
     },
     async start(
@@ -467,7 +505,11 @@ export function orderCopyService(
         const requestHash = hash('request', input);
         if (existing) {
           bound(existing, state, user);
-          await repository.source(tx, user, existing.review.source);
+          await repository.source(tx, user, existing.review.source, {
+            state,
+            kind: 'command',
+            authority: existing.review.customerAuthority,
+          });
           if (existing.requestHash !== requestHash) throw conflict();
           return { command: existing, replay: true };
         }
@@ -475,7 +517,11 @@ export function orderCopyService(
         const review = await repository.review(tx, input.reviewId);
         if (!review) throw conflict();
         validReview(review);
-        await repository.source(tx, user, review.source);
+        await repository.source(tx, user, review.source, {
+          state,
+          kind: 'review',
+          authority: review.customerAuthority,
+        });
         if (
           review.hash !== input.manifestHash ||
           review.expiresAt <= clock() ||
@@ -541,7 +587,11 @@ export function orderCopyService(
         const command = await repository.command(tx, id);
         if (!command) throw conflict();
         bound(command, state, user);
-        await repository.source(tx, user, command.review.source);
+        await repository.source(tx, user, command.review.source, {
+          state,
+          kind: 'command',
+          authority: command.review.customerAuthority,
+        });
         if (command.continuations.includes(input.operationId)) return null;
         if (
           command.status !== 'pending' ||
@@ -573,7 +623,11 @@ export function orderCopyService(
         const command = await repository.command(tx, id);
         if (!command) throw conflict();
         bound(command, state, user);
-        await repository.source(tx, user, command.review.source);
+        await repository.source(tx, user, command.review.source, {
+          state,
+          kind: 'command',
+          authority: command.review.customerAuthority,
+        });
         if (command.status === 'acknowledged') {
           if (
             command.acknowledgementId !== input.operationId ||

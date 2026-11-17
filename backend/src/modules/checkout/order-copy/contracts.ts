@@ -2,6 +2,21 @@ import { z } from 'zod';
 import { identifier } from '../../../domain/validation.js';
 import type { Principal } from '../../../domain/access.js';
 import type { Cart, CheckoutState } from '../contracts.js';
+import { customerContactBindingSchema } from '../customer-contact-authority.js';
+
+/** Private server authorization captured only after native OTP verification.
+ * Never returned to a browser or synthesized for historical rows. */
+export const copyCustomerAuthoritySchema = z
+  .object({
+    contact: customerContactBindingSchema,
+    actorVersion: z.string().regex(/^[a-f0-9]{64}$/),
+    challengeId: z.uuid(),
+    verifiedUntil: z.number().int().positive(),
+    capturedAt: z.number().int().positive(),
+  })
+  .strict()
+  .refine((value) => value.verifiedUntil > value.capturedAt);
+export type CopyCustomerAuthority = z.infer<typeof copyCustomerAuthoritySchema>;
 
 export const copySourceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('store'), storeId: identifier, orderId: identifier }).strict(),
@@ -80,6 +95,7 @@ export const copyReviewSchema = z
     originHash: z.string().regex(/^[a-f0-9]{64}$/),
     beforeHash: z.string().regex(/^[a-f0-9]{64}$/),
     source: copySourceSchema,
+    customerAuthority: copyCustomerAuthoritySchema.optional(),
     facts: copyFactsSchema,
     before: copyManifestSchema,
     steps: z.array(copyStepSchema).min(1).max(500),

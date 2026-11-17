@@ -724,7 +724,10 @@ export function registerCheckout(
       : undefined,
   });
   registerInvoices(app, config, db);
-  registerOrderCopy(app, config, db, service.orderCopyCart, overrides.orderCopy);
+  registerOrderCopy(app, config, db, service.orderCopyCart, {
+    ...overrides.orderCopy,
+    customerOtp,
+  });
   registerWalletAdjustments(app, config, db);
   registerOfflineCash(app, config, db, {
     stockProcedure: overrides.stockProcedure,

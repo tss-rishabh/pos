@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
@@ -9,8 +9,10 @@ import { copySourceSchema, type CopyCartPort, type CopyFactsPort } from './contr
 import { orderCopyFacts } from './reader.js';
 import { orderCopyRepository } from './repository.js';
 import { orderCopyService } from './service.js';
+import type { CustomerVerificationClient } from '../customer-verification.js';
 
 export interface OrderCopyOptions {
+  customerOtp?: CustomerVerificationClient;
   history?: CopyFactsPort;
   facts?: CopyFactsPort;
   clock?: () => number;
@@ -24,7 +26,7 @@ export function registerOrderCopy(
 ) {
   const service = orderCopyService(
     config,
-    orderCopyRepository(config, db, options.clock),
+    orderCopyRepository(config, db, options.clock, { customerOtp: options.customerOtp }),
     options.facts ?? orderCopyFacts(db, options.history, options.clock),
     cart,
     options.clock,
@@ -46,6 +48,21 @@ export function registerOrderCopy(
         'Order copying is unavailable in this workspace.',
       );
   }
+  async function validSession(request: FastifyRequest) {
+    if (!request.authSessionValid || !(await request.authSessionValid()))
+      throw new AppError(
+        401,
+        'SESSION_EXPIRED',
+        'Sign in again to access this copy reference. Its saved outcome is retained.',
+      );
+  }
+  async function deliver<T>(request: FastifyRequest, work: () => Promise<T>) {
+    await validSession(request);
+    const value = await work();
+    // A revoked response is withheld; an already committed cart/journal change is never undone.
+    await validSession(request);
+    return value;
+  }
   app.post(base + '/order-copy-reviews', trace('order-copy-review', 'create'), async (request) => {
     enabled();
     const user = authenticated(request),
@@ -58,7 +75,7 @@ export function registerOrderCopy(
         })
         .strict()
         .parse(request.body);
-    return service.prepare(user, p, input);
+    return deliver(request, () => service.prepare(user, p, input));
   });
   app.get(
     base + '/order-copy-reviews/:reviewId',
@@ -66,17 +83,19 @@ export function registerOrderCopy(
     async (request) => {
       enabled();
       const p = scope.extend({ reviewId: z.uuid() }).parse(request.params);
-      return service.review(authenticated(request), p, p.reviewId);
+      return deliver(request, () => service.review(authenticated(request), p, p.reviewId));
     },
   );
   app.get(base + '/order-copies/current', trace('order-copy', 'read-current'), async (request) => {
     enabled();
-    return service.current(authenticated(request), scope.parse(request.params));
+    return deliver(request, () =>
+      service.current(authenticated(request), scope.parse(request.params)),
+    );
   });
   app.get(base + '/order-copies/:copyId', trace('order-copy', 'read'), async (request) => {
     enabled();
     const p = scope.extend({ copyId: z.uuid() }).parse(request.params);
-    return service.read(authenticated(request), p, p.copyId);
+    return deliver(request, () => service.read(authenticated(request), p, p.copyId));
   });
   app.post(base + '/order-copies', trace('order-copy', 'create'), async (request) => {
     enabled();
@@ -84,7 +103,9 @@ export function registerOrderCopy(
       .extend({ reviewId: z.uuid(), manifestHash: z.string().regex(/^[a-f0-9]{64}$/) })
       .strict()
       .parse(request.body);
-    return service.start(authenticated(request), scope.parse(request.params), input);
+    return deliver(request, () =>
+      service.start(authenticated(request), scope.parse(request.params), input),
+    );
   });
   app.post(
     base + '/order-copies/:copyId/continuations',
@@ -92,11 +113,13 @@ export function registerOrderCopy(
     async (request) => {
       enabled();
       const p = scope.extend({ copyId: z.uuid() }).parse(request.params);
-      return service.continue(
-        authenticated(request),
-        p,
-        p.copyId,
-        mutation.strict().parse(request.body),
+      return deliver(request, () =>
+        service.continue(
+          authenticated(request),
+          p,
+          p.copyId,
+          mutation.strict().parse(request.body),
+        ),
       );
     },
   );
@@ -110,7 +133,9 @@ export function registerOrderCopy(
           .extend({ resultHash: z.string().regex(/^[a-f0-9]{64}$/) })
           .strict()
           .parse(request.body);
-      return service.acknowledge(authenticated(request), p, p.copyId, input);
+      return deliver(request, () =>
+        service.acknowledge(authenticated(request), p, p.copyId, input),
+      );
     },
   );
   return service;

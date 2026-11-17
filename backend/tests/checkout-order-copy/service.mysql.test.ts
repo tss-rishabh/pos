@@ -335,7 +335,7 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
           expectedVersion: state.version,
           source: { kind: 'customer', orderId: source.orderId },
         }),
-      ).rejects.toMatchObject({ code: 'ORDER_COPY_CONTEXT_CHANGED' });
+      ).rejects.toMatchObject({ code: 'CUSTOMER_VERIFICATION_REQUIRED' });
       const r = await review();
       await expect(
         service.start(operator, scope(), {
@@ -503,6 +503,7 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
       app.decorateRequest('principal', null);
       app.addHook('preHandler', async (request) => {
         request.principal = operator;
+        request.authSessionValid = async () => true;
       });
       app.setErrorHandler((error, _request, reply) => {
         const status =
