@@ -302,6 +302,11 @@ export async function installNativeHeadFixture(
       ),
       names.audit,
     );
+    await grant(
+      'EXECUTE',
+      'FUNCTION ' + scope + '.pos_rewrite_origin_history_metadata',
+      names.audit,
+    );
     for (const name of [
       names.source,
       names.app,
