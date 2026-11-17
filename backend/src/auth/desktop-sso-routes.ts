@@ -14,7 +14,8 @@ import type { SessionService } from './sessions.js';
 export const desktopApprovalCookieName = 'pos_desktop_sso';
 export const desktopApprovalCookiePath = '/api/v1/auth/desktop-sso';
 export const desktopClientCookieName = 'pos_desktop_sso_client';
-export const desktopClientCookiePath = '/api/v1/auth/desktop-sso-sessions';
+export const desktopClientCookiePath = '/api/v1/auth';
+export const desktopLegacyClientCookiePath = '/api/v1/auth/desktop-sso-sessions';
 const params = z.object({ id: z.uuid() }).strict();
 const empty = z.object({}).strict();
 function clientProof(config: Config, request: FastifyRequest) {
@@ -90,6 +91,10 @@ export function registerDesktopSso(
           maxAge: Math.max(0, Math.floor((flow.expires - Date.now()) / 1000)),
         },
       );
+      reply.clearCookie(desktopClientCookieName, {
+        ...authCookieOptions(config),
+        path: desktopLegacyClientCookiePath,
+      });
       return reply.header('Cache-Control', 'private, no-store').send({
         id: flow.id,
         code: flow.code,

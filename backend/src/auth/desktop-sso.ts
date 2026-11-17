@@ -349,7 +349,8 @@ export function desktopSsoService(
       });
     },
     async cancel(id: string, secret: string) {
-      assertAvailable();
+      // Retained client proofs must remain cancellable when new SSO is disabled.
+      if (config.DEMO_MODE) throw unavailable();
       return db.get('writer').transaction(async (tx) => {
         const row = await locked(tx, id, { purpose: 'desktop', value: secret });
         if (row.status === 'consumed') {

@@ -23,12 +23,13 @@ import {
   sessionTokenSchema,
   writeSessionCookie,
 } from './session-cookies.js';
-import { desktopSsoSecret, type DesktopSsoService } from './desktop-sso.js';
+import { desktopSsoSecret, desktopSsoClientProof, type DesktopSsoService } from './desktop-sso.js';
 import {
   desktopApprovalCookieName,
   desktopApprovalCookiePath,
   desktopClientCookieName,
   desktopClientCookiePath,
+  desktopLegacyClientCookiePath,
   setDesktopApprovalCookie,
 } from './desktop-sso-routes.js';
 
@@ -211,6 +212,26 @@ export function registerAuth(
       /* Invalid cookies cannot identify a login proof. */
     }
     if (pending && !config.DEMO_MODE) await challenges.discard(pending);
+    let desktop: z.infer<typeof desktopSsoClientProof> | undefined;
+    try {
+      if (request.cookies[desktopClientCookieName])
+        desktop = desktopSsoClientProof.parse(
+          unseal(request.cookies[desktopClientCookieName]!, config.SESSION_SECRET),
+        );
+    } catch {
+      /* Unauthenticated values cannot identify a flow to cancel. */
+    }
+    if (desktop && desktop.expires > Date.now() && !config.DEMO_MODE && options.desktopSso) {
+      try {
+        await options.desktopSso.cancel(desktop.id, desktop.secret);
+      } catch (error: unknown) {
+        if (
+          !(error instanceof AppError) ||
+          !['DESKTOP_SSO_NOT_FOUND', 'DESKTOP_SSO_EXPIRED'].includes(error.code)
+        )
+          throw error;
+      }
+    }
     reply.clearCookie(cookieName, cookieOptions);
     reply.clearCookie(pendingCookieName, { ...cookieOptions, path: '/api/v1/auth' });
     reply.clearCookie('pos_oidc', { ...cookieOptions, path: '/api/v1/auth' });
@@ -219,6 +240,10 @@ export function registerAuth(
       path: desktopApprovalCookiePath,
     });
     reply.clearCookie(desktopClientCookieName, { ...cookieOptions, path: desktopClientCookiePath });
+    reply.clearCookie(desktopClientCookieName, {
+      ...cookieOptions,
+      path: desktopLegacyClientCookiePath,
+    });
     reply.code(204).send();
   });
   app.get(
