@@ -123,6 +123,33 @@ Hyper retains all shared frame/assets/registry edits and remaining CSK recovery,
 legacy paid-gift finalization/member history; Admin retains provider/recovery
 edges and concrete Go integration. Final verification remains deferred.
 
+Membership foundation `ee35f86` extracts a true scope-independent generation
+qualifier and generic journal demand, preserving the actual Node binding while
+adding real source-command membership reads. The three literal source queries
+have no upper created_at bound: native/BQ/public-consumer future-row refusals
+were removed, without dropping already-recorded future facts. New origin
+documents never manufacture checkout/operation capabilities. Root still owes
+Python origin_membership_history.py, authenticated preview +final command
+bindings, bridge/runtime wiring and shared secure trigger metadata. These are
+CODE gaps, not external qualification substitutes.
+
+Actual CSK same-command preparation/resume `44ca744` is integrated `a879ee6`;
+legacy native cash gift/member finalization `491b576` as `7860960`; static
+resource privacy/method boundaries `0e860e5` as `1e10ee5`. Their additive source
+control SQL is registered/packaged and source manifests regenerated. Consumer
+observer methods now exist, closing the quiet launcher trace-port dependency.
+No tests/checks/builds or live actions ran.
+
+Shared metadata prerequisite: 7 membership and 10 coupon trigger readers must
+consume the authenticated bounded readonly audit function, without granting
+DDL-capable TRIGGER permission to source/capture callers. Root owns old auditor
+and review SQL changes; planned exact export
+`qualified_head_metadata(session) -> {policy,membershipTriggers,couponTriggers}`
+verifies reviewed isolated locked-definer participant specs in the mandatory
+common qualifier. CPP owns only its NEW coupon adapters to that API. Cart and
+pre-hydration eligibility also need a genuine rollback-only preview scope;
+preview documents cannot authorize the final Order. Shared wiring stays Hyper.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only

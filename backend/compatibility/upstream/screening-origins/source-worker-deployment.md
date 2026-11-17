@@ -87,7 +87,7 @@ These launchers call the actual source app with solo concurrency 1, prefetch 1,
 no discovery/gossip or remote-control broadcasts. Raw Celery/source diagnostics
 stay muted through exit. A required source consumer observer emits only fixed
 invocation phases with original command/actor correlation. The observer hook is
-part of the ongoing source implementation; without it the selected launcher
-fails startup. A warm shutdown has a 40-second limit; native SENDING/UNCERTAIN
+implemented in the source consumer; without it the selected launcher fails
+startup. A warm shutdown has a 40-second limit; native SENDING/UNCERTAIN
 receipts preserve recovery after an interrupted original task. Images and
 broker/native behavior have not been validated for this new implementation.

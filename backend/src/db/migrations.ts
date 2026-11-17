@@ -101,6 +101,8 @@ export const migrationPaths = [
   'compatibility/upstream/screening-origins/legacy-effects-migration.sql',
   'compatibility/upstream/screening-origins/assets-migration.sql',
   'compatibility/upstream/screening-origins/effects-migration.sql',
+  'compatibility/upstream/screening-origins/system-preparation-migration.sql',
+  'compatibility/upstream/screening-origins/legacy-assets-migration.sql',
 ] as const;
 export class MigrationError extends Error {
   constructor(readonly code: string) {
