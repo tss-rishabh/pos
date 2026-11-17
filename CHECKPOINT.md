@@ -34,14 +34,16 @@ component test counts do not certify every original workflow.
 
 ## Fixed remaining code checklist
 
-The integrated whole-order feature passed 52 backend/API checks and ten isolated
-Chromium workflows, with backend build and backend/frontend strict checks. This
-focused evidence does not certify the subsequent shared handover integration.
+The latest focused integration passed 171 backend checks across CSV coordination,
+financial approval/settlement, whole-order recovery, API and trace isolation. The
+whole-order and rejected-return UI passed 18 isolated Chromium workflows; CSV
+recovery passed eleven frontend checks. These focused results do not certify the
+subsequent shared handover integration or production providers.
 
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
   encrypted staging, native authorization/preflight, job API, recovery UI,
   worker loop, explicit blocked-job resume and published-history repository are
-  integrated. Seventy-four backend and eleven frontend checks pass, including
+  integrated. Ninety-three backend import and eleven frontend checks pass, including
   original-nonce resume recovery without reimporting completed orders.
   The real financial adapter, purpose-bound approval API and standalone processor
   are now wired, with production contracts unselected. Approval UI, cooperative

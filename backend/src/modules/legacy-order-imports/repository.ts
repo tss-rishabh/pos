@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Databases } from '../../db/pools.js';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
+import { withRequestTrace } from '../../observability/context.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import { authorizeLegacyOrderImport, type ImportAuthorizer } from './authorization.js';
 import {
@@ -703,11 +704,18 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
             storeId: scope.storeId,
             counterId: scope.counterId,
           };
-        if (claimed.start) {
-          result = await adapter.start(financialInput(claimed.job, claimed.row));
-        } else {
-          result = await adapter.read(financialScope);
-        }
+        result = await withRequestTrace(
+          {
+            requestId: claimed.job.requestId ?? scope.operationId,
+            userId: scope.actorId,
+            module: 'administration',
+            resource: 'historical-order-import',
+          },
+          () => {
+            if (claimed.start) return adapter.start(financialInput(claimed.job, claimed.row));
+            return adapter.read(financialScope);
+          },
+        );
       } catch {
         // A throw can occur after a remote commit. Only read the original operation next.
       }

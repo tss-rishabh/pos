@@ -89,3 +89,26 @@ export const importResumptionInput = z.object({ operationId: z.uuid() }).strict(
 export const importResumptionSchema = z
   .object({ operationId: z.uuid(), jobId: z.uuid(), acceptedAt: timestamp })
   .strict();
+export const importApprovalReviewSchema = z
+  .object({
+    operationId: z.uuid(),
+    kind: z.enum(['offline', 'shopify']),
+    storeId: identifier,
+    counterId: identifier,
+    businessDate: z.iso.date(),
+    currency: z.string().regex(/^[A-Z]{3}$/),
+    lineValue: z.string().regex(/^\d+\.\d{2}$/),
+    lines: z
+      .array(
+        z
+          .object({
+            productId: identifier,
+            quantity: z.number().int().min(1).max(999),
+            unitPrice: z.string().regex(/^\d+\.\d{2}$/),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(999),
+  })
+  .strict();

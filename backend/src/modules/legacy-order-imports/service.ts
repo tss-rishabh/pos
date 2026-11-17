@@ -12,8 +12,13 @@ import {
   importPreviewSchema,
   importResultSchema,
   importResumptionSchema,
+  importApprovalReviewSchema,
 } from './domain.js';
-import type { ImportFinancialAdapter, ImportFinancialScope } from './financial-contracts.js';
+import type {
+  ImportFinancialAdapter,
+  ImportFinancialScope,
+  ImportFinancialStart,
+} from './financial-contracts.js';
 import type { legacyOrderImportFinancialApprovals } from './financial-adapter-approval.js';
 import { financialImportApprovalSchema } from './financial-adapter-contracts.js';
 import { legacyOrderImportHistory, readLegacyOrderImportHistoryOptions } from './history.js';
@@ -74,6 +79,22 @@ export function legacyOrderImportService(
       storeId: value.storeId,
       counterId: value.counterId,
     };
+  }
+  function approvalReview(value: ImportFinancialStart) {
+    return importApprovalReviewSchema.parse({
+      operationId: value.operationId,
+      kind: value.plan.kind,
+      storeId: value.storeId,
+      counterId: value.counterId,
+      businessDate: value.plan.createdAt.slice(0, 10),
+      currency: value.plan.kind === 'shopify' ? value.plan.currency : 'INR',
+      lineValue: value.plan.originalTenderAmount,
+      lines: value.plan.lines.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+      })),
+    });
   }
   return {
     ready,
@@ -193,6 +214,7 @@ export function legacyOrderImportService(
       );
       return {
         commandId: commandId ?? null,
+        review: approvalReview(context),
         approval: approval ? financialImportApprovalSchema.parse(approval) : null,
       };
     },
@@ -227,6 +249,7 @@ export function legacyOrderImportService(
       });
       return {
         commandId: input.commandId,
+        review: approvalReview(context),
         approval: financialImportApprovalSchema.parse(approval),
       };
     },

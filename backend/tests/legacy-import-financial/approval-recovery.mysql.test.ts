@@ -2,6 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { legacyOrderImportFinancialApprovals } from '../../src/modules/legacy-order-imports/financial-adapter-approval.js';
 import { financialClock, financialPlan, importFinancialFixture } from './fixture.js';
+import { legacyOrderImportRepository } from '../../src/modules/legacy-order-imports/repository.js';
+import { legacyOrderImportFinancialAdapter } from '../../src/modules/legacy-order-imports/financial-adapter.js';
+import { runtimeImportInput } from '../legacy-order-imports/runtime-fixture.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 describe.skipIf(!template)('exact native approval-command recovery', () => {
@@ -49,5 +52,29 @@ describe.skipIf(!template)('exact native approval-command recovery', () => {
         firstRequest.commandId,
       ),
     ).toBeNull();
+  });
+  it('runs the real financial adapter through the coordinator and retains the initiating request in later worker logs', async () => {
+    await fixture.reset();
+    const repository = legacyOrderImportRepository(fixture.db, { secret: fixture.options.secret }),
+      input = runtimeImportInput(),
+      requests: string[] = [],
+      adapter = legacyOrderImportFinancialAdapter(
+        fixture.config,
+        fixture.db,
+        {
+          ...fixture.options,
+          observe: (event) => requests.push(event.requestId),
+        },
+        fixture.transport(),
+      );
+    input.csv = input.csv.replace('25.49', '25.00');
+    await repository.stage('1', 'initiating-import-request', input);
+    const outcome = await repository.runOne(adapter);
+    expect(outcome).toMatchObject({ jobId: input.id, state: 'IMPORTED', actorId: '1' });
+    expect(await repository.detail('1', input.id)).toMatchObject({
+      state: 'COMPLETED',
+      importedOrders: 1,
+    });
+    expect(requests).toEqual(['initiating-import-request']);
   });
 });

@@ -421,6 +421,16 @@ describe.skipIf(!template)(
       expect(response.headers['cache-control']).toBe('private, no-store');
       expect(response.json()).toMatchObject({
         commandId,
+        review: {
+          operationId: row!.operationId,
+          kind: 'offline',
+          storeId: '1',
+          counterId: '2',
+          businessDate: '2026-06-15',
+          currency: 'INR',
+          lineValue: '50.98',
+          lines: [{ productId: '9007199254740993', quantity: 2, unitPrice: '25.49' }],
+        },
         approval: {
           actorId: '1',
           approverId: '1',

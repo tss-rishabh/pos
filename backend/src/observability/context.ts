@@ -10,6 +10,19 @@ export interface RequestTraceContext {
 }
 const storage = new AsyncLocalStorage<Readonly<RequestTraceContext>>();
 
+/** Reuse an initiating request's identifiers when a durable job runs later. */
+export function withRequestTrace<T>(trace: Readonly<RequestTraceContext>, task: () => T): T {
+  return storage.run(
+    {
+      requestId: trace.requestId,
+      userId: trace.userId,
+      module: trace.module,
+      resource: trace.resource,
+    },
+    task,
+  );
+}
+
 /** Snapshot identifiers only; callers cannot obtain the request, payload or credentials. */
 export function currentRequestTrace(): RequestTraceContext | null {
   const context = storage.getStore();

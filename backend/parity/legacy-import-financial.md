@@ -65,6 +65,14 @@ Strict validation and current sessions surround the operation. An exact grant
 remains readable after the coordinator starts the order. Approval UI and shared
 mutation fences are still being integrated.
 
+Approval responses include an allowlisted original-date/currency/line-value and
+product-ID/quantity/unit-price review. Customer references, contact/address data,
+notes, CSV/source row fragments and private privileges never enter this response.
+The durable coordinator reuses the initiating request/operator identifiers in
+its asynchronous financial trace. Native integration executes the real adapter
+through that coordinator and verifies completion plus original request correlation;
+source transport in this check remains synthetic and is identified as such.
+
 Run `npm run worker:order-imports` for the separately selected processor. Disabled
 and demo startup perform no database or financial I/O. Enabled startup requires
 the qualified financial/source/stock/schema configuration, uses the ordinary
