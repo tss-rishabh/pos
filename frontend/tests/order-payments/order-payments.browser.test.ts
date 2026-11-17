@@ -49,7 +49,15 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         response.end(
           await server.transformIndexHtml(
             '/__order-payment-test__',
-            '<!doctype html><html><body><div id="root"></div><script type="module" src="/tests/order-payments/harness.tsx"></script></body></html>',
+            `<!doctype html><html><body>
+              <script>
+                // These cases control online requests/reply loss via routes.
+                // Declare the online baseline instead of inheriting host link state.
+                document.documentElement.dataset.orderFixtureHostOnline = String(navigator.onLine);
+                Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+              </script>
+              <div id="root"></div><script type="module" src="/tests/order-payments/harness.tsx"></script>
+            </body></html>`,
           ),
         );
       });
@@ -451,6 +459,13 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       ]);
       expect(rows[1]).toEqual([]);
     }
+    async function reportHostOffline(page: Page) {
+      // The document's explicit fixture baseline must win before app modules,
+      // even if the host/browser reports offline when a new context starts.
+      await page.addInitScript(() =>
+        Object.defineProperty(navigator, 'onLine', { configurable: true, value: false }),
+      );
+    }
     const cashPanel = (page: Page) =>
       page.getByRole('region', { name: 'Durable cash return', exact: true });
     async function openManager(
@@ -838,12 +853,59 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.close();
       }
     });
+    it('declares online transport and enforces actual offline payment and cancellation transitions', async () => {
+      const page = await browser.newPage();
+      try {
+        await reportHostOffline(page);
+        const state = await fixture(page, false, true);
+        await page.goto(origin + '/__order-payment-test__');
+        await browserExpect(page.locator('html')).toHaveAttribute(
+          'data-order-fixture-host-online',
+          'false',
+        );
+        const pay = page.getByRole('button', { name: 'Record received payment' }),
+          cancel = page.getByRole('button', { name: 'Cancel pending order', exact: true });
+        await browserExpect(pay).toBeEnabled();
+        await browserExpect(cancel).toBeEnabled();
+        await page.evaluate(() => {
+          Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+          window.dispatchEvent(new Event('offline'));
+        });
+        await browserExpect(pay).toBeDisabled();
+        await browserExpect(cancel).toBeDisabled();
+        await browserExpect(
+          page.getByText('Reconnect to confirm payment. Products remain pending delivery.'),
+        ).toBeVisible();
+        expect(state.starts).toEqual([]);
+        expect(state.cancels).toEqual([]);
+        await page.evaluate(() => {
+          Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+          window.dispatchEvent(new Event('online'));
+        });
+        await browserExpect(pay).toBeEnabled();
+        await pay.click();
+        await browserExpect(
+          page.getByText('Payment confirmed · ORIGINAL-CASH.', { exact: false }),
+        ).toBeVisible();
+        expect(state.starts).toHaveLength(1);
+        expect(state.cancels).toEqual([]);
+        expect(state.unexpected).toEqual([]);
+        await assertCartRetained(page);
+      } finally {
+        await page.close();
+      }
+    });
     it('reloads an absent original cash request GET-only and explicitly retries the exact saved body', async () => {
       const page = await browser.newPage();
       try {
+        await reportHostOffline(page);
         const state = await fixture(page);
         state.loseStart = true;
         await page.goto(origin + '/__order-payment-test__');
+        await browserExpect(page.locator('html')).toHaveAttribute(
+          'data-order-fixture-host-online',
+          'false',
+        );
         await page.getByRole('button', { name: 'Record received payment' }).click();
         await browserExpect(page.getByRole('alert')).toBeVisible();
         await page.reload();
@@ -866,9 +928,14 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
     it('recovers a lost committed legacy adoption without charge or another adoption and enquires explicitly', async () => {
       const page = await browser.newPage();
       try {
+        await reportHostOffline(page);
         const state = await fixture(page, true);
         state.loseAdopt = true;
         await page.goto(origin + '/__order-payment-test__');
+        await browserExpect(page.locator('html')).toHaveAttribute(
+          'data-order-fixture-host-online',
+          'false',
+        );
         await page.getByRole('button', { name: 'Recover original terminal payment' }).click();
         await browserExpect(
           page.getByRole('button', { name: 'Check payment status' }),
@@ -895,9 +962,14 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
     it('recovers a committed lost cancellation after reload with one command and no payment or local cart completion', async () => {
       const page = await browser.newPage();
       try {
+        await reportHostOffline(page);
         const state = await fixture(page, false, true);
         state.loseCancel = 'committed';
         await page.goto(origin + '/__order-payment-test__');
+        await browserExpect(page.locator('html')).toHaveAttribute(
+          'data-order-fixture-host-online',
+          'false',
+        );
         await page.getByRole('button', { name: 'Cancel pending order', exact: true }).click();
         await page.getByRole('button', { name: 'Confirm pending order cancellation' }).click();
         await browserExpect(
@@ -918,9 +990,14 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
     it('keeps an absent cancellation GET-only until an explicit retry of its original UUID and snapshot', async () => {
       const page = await browser.newPage();
       try {
+        await reportHostOffline(page);
         const state = await fixture(page, false, true);
         state.loseCancel = 'absent';
         await page.goto(origin + '/__order-payment-test__');
+        await browserExpect(page.locator('html')).toHaveAttribute(
+          'data-order-fixture-host-online',
+          'false',
+        );
         await page.getByRole('button', { name: 'Cancel pending order', exact: true }).click();
         await page.getByRole('button', { name: 'Confirm pending order cancellation' }).click();
         await browserExpect(
@@ -948,9 +1025,14 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
     it('reviews approved benefit restoration and confirms retained expiry, unavailable voucher value and prior membership without a cash refund', async () => {
       const page = await browser.newPage();
       try {
+        await reportHostOffline(page);
         const state = await fixture(page, false, true);
         state.benefits = true;
         await page.goto(origin + '/__order-payment-test__');
+        await browserExpect(page.locator('html')).toHaveAttribute(
+          'data-order-fixture-host-online',
+          'false',
+        );
         await page.getByRole('button', { name: 'Cancel pending order', exact: true }).click();
         await browserExpect(page.getByText('Restore TSS Money: 15')).toBeVisible();
         await browserExpect(page.getByText(/Already expired value remains unusable/)).toBeVisible();
