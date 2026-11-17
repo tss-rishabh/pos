@@ -10,6 +10,7 @@ import copy
 import inspect
 import json
 import hmac
+import os
 import re
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -169,6 +170,8 @@ def admission(session, cap, plan, key, line_items, snapshot=None):
             pending += other['markerRows']
         elif other['phase'] == 'BOUND' and not native_projection(session, other, other['orderId'])[1]:
             pending += other['markerRows']
+    from screening_origin_pending import pending as other_origin_pending
+    pending += other_origin_pending(session,value['customerId'])
     if bought + pending + quantity > MAXIMUM:
         raise ImportReview('ORDER_IMPORT_SCREENING_LIMIT')
     return value

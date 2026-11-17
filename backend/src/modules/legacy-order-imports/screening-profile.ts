@@ -56,6 +56,7 @@ import {
   readCurrentScreeningCounter,
   type ScreeningCounterOptions,
 } from './screening-counter/reader.js';
+import { readOtherOriginScreeningCredits } from '../screening-origins/pending.js';
 export {
   screeningProfileContract,
   screeningSchemaContract,
@@ -473,6 +474,7 @@ export function screeningImportProfile(
       else if (value.phase === 'BOUND' && !(await structural(tx, value)).counted)
         pending += value.markerRows;
     }
+    pending += await readOtherOriginScreeningCredits(tx, bound.state.authority.customerId);
     const bought = await readScreeningTicketCount(
       tx,
       bound.state.authority.customerId,

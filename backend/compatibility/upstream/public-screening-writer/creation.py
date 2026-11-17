@@ -44,6 +44,8 @@ def reserve(session,cap,key,quantity,line_items,now):
         value=checked_state(row,key)
         if value['phase']=='RESERVED':pending+=value['markerRows']
         elif value['phase']=='BOUND' and not native_projection(session,value,value['orderId'])[1]:pending+=value['markerRows']
+    from screening_origin_pending import pending as other_origin_pending
+    pending+=other_origin_pending(session,cap['customerId'])
     if bought+pending+quantity>2:fail('SCREENING_WRITER_LIMIT')
     value={'contract':RESERVATION_CONTRACT,'scope':scope(cap),'source':SOURCE,'customerId':cap['customerId'],'sku':SKU,'kind':'pos',
            'planHash':plan_hash(key,cap),'requestHash':cap['requestHash'],'authorityHash':authority_hash(key,cap),'catalogHash':cap['cartHash'],
