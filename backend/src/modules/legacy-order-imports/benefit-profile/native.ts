@@ -244,14 +244,20 @@ export async function assertNativeCsvBenefits(
     return result;
   }
   if (BigInt(coupon.couponId) > 2147483647n) throw benefitError();
-  const couponControls = await tx
-    .select({ hash: sql<string>`${sql.raw(couponControlHashSql)}` })
-    .from(importBenefitCouponControls)
-    .where(eq(importBenefitCouponControls.id, Number(coupon.couponId)))
-    .limit(1)
-    .for('share');
-  if (couponControls.length !== 1 || couponControls[0]!.hash !== coupon.couponInputHash)
-    throw benefitError();
+  const consumed = input.phase === 'settled' && order.method === 14;
+  // New use must match today's controls. A confirmed consumption below is an
+  // independently sealed historical fact; later changes to the shared coupon
+  // or another order's assignment counter cannot undo it or authorize a retry.
+  if (!consumed) {
+    const couponControls = await tx
+      .select({ hash: sql<string>`${sql.raw(couponControlHashSql)}` })
+      .from(importBenefitCouponControls)
+      .where(eq(importBenefitCouponControls.id, Number(coupon.couponId)))
+      .limit(1)
+      .for('share');
+    if (couponControls.length !== 1 || couponControls[0]!.hash !== coupon.couponInputHash)
+      throw benefitError();
+  }
   if (
     (header.couponId === null || header.couponId === 0n ? null : String(header.couponId)) !==
       coupon.headerCouponId ||
@@ -307,8 +313,8 @@ export async function assertNativeCsvBenefits(
     )
       throw benefitError();
   }
-  const current = await readCouponUsers(tx, order.customerId, coupon.couponId);
-  if (input.phase === 'staged' || order.method === 15) {
+  if (!consumed) {
+    const current = await readCouponUsers(tx, order.customerId, coupon.couponId);
     if (
       logs.length ||
       input.activation ||
@@ -338,23 +344,12 @@ export async function assertNativeCsvBenefits(
       log.status !== 1 ||
       String(log.customerId) !== order.customerId ||
       String(log.couponId) !== coupon.couponId ||
-      activation.changes.length !== coupon.couponUsersBefore.length ||
-      current.length !== activation.changes.length
+      activation.changes.length !== coupon.couponUsersBefore.length
     )
       throw benefitError();
     for (const change of activation.changes) {
-      const before = coupon.couponUsersBefore.find((row) => row.id === change.id),
-        now = current.find((row) => row.id === change.id);
-      if (
-        !before ||
-        !now ||
-        before.used !== change.before ||
-        now.used !== change.after ||
-        now.inputHash !== change.inputHash ||
-        before.allowed !== now.allowed ||
-        before.monthlyAllowed !== now.monthlyAllowed
-      )
-        throw benefitError();
+      const before = coupon.couponUsersBefore.find((row) => row.id === change.id);
+      if (!before || before.used !== change.before) throw benefitError();
     }
   }
   return result;

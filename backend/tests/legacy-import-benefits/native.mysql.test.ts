@@ -302,7 +302,7 @@ describe.skipIf(!template)(
           9007199254740991n,
         );
       });
-    it('requires all coupon counter/log effects and captures exact source consumption once', async () => {
+    it('retains original sealed consumption after a later coupon counter update', async () => {
       await acceptSchema();
       const value = staged(driver({ consume: true }));
       expect(
@@ -310,9 +310,9 @@ describe.skipIf(!template)(
       ).toBeTruthy();
       expect(value.activation!.value.changes[0]).toMatchObject({ before: '0', after: '1' });
       await connection.query('UPDATE coupons_users SET coupon_used_count=2');
-      await expect(
-        db.get('writer').transaction((tx) => assertNativeCsvBenefits(tx, value)),
-      ).rejects.toMatchObject({ code: 'ORDER_IMPORT_BENEFIT_PROOF_INVALID' });
+      expect(
+        await db.get('writer').transaction((tx) => assertNativeCsvBenefits(tx, value)),
+      ).toBeTruthy();
     });
     it('retains Shopify NULL-to-default0 header, no coupon ledger and original CSV stock quantities', async () => {
       await acceptSchema();

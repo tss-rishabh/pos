@@ -404,11 +404,11 @@ describe.skipIf(!template)(
           { commandId: randomUUID(), reason: 'historical-correction' },
         );
         expect(await queue.runOne(adapter)).toMatchObject({
-          state: scenario === 'completed' ? 'IMPORTED' : 'RECONCILING',
+          state: ['completed', 'changed-counter'].includes(scenario) ? 'IMPORTED' : 'RECONCILING',
         });
         expect(source.failures).toEqual([]);
         const result = await adapter.read(input);
-        if (scenario !== 'completed') {
+        if (!['completed', 'changed-counter'].includes(scenario)) {
           expect(result).toMatchObject({ status: 'unknown', stage: 'settlement' });
           expect(await adapter.start(input)).toEqual(result);
           expect(source.calls).toEqual({ order: 1, confirmation: 1, publication: 0 });
@@ -439,7 +439,9 @@ describe.skipIf(!template)(
         const [counts] = await f.connection.query(
           'SELECT (SELECT COUNT(*) FROM pos_transaction_logs) AS payments,(SELECT COUNT(*) FROM order_coupon_log) AS coupons,(SELECT coupon_used_count FROM coupons_users LIMIT 1) AS used',
         );
-        expect(counts).toEqual([{ payments: '1', coupons: '1', used: '1' }]);
+        expect(counts).toEqual([
+          { payments: '1', coupons: '1', used: scenario === 'changed-counter' ? '2' : '1' },
+        ]);
       },
     );
     it('rejects a verified asset token after its native transaction ends, before a new writer can use it', async () => {
