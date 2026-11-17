@@ -115,7 +115,9 @@ redis.call('SET',KEYS[2],ARGV[1],'EX',ARGV[3]);return 1"""
                 append({'kind':'cache-acquisition','commandId':current.value['id'],'customerId':current.value['customerId'],
                         'expiresAt':int(time.time()*1000)+kwargs['ex']*1000})
                 return True
-            append({'kind':'cache','alias':self.name,'method':name,'args':list(args),'kwargs':kwargs})
+            from origin_cache import observe
+            observed=observe(self.original,self.name,name,list(args),kwargs,ACTIVE.get())
+            append({'kind':'cache','alias':self.name,'method':name,'args':list(args),'kwargs':kwargs,'observations':observed})
             return True
         return capture
 
@@ -128,7 +130,7 @@ def persist(session,command,key,effects,now):
 
 
 def load(session,command,key):
-    row=one(session,'SELECT payload,effects_hash,phase,deliveries FROM pos_rewrite_screening_origin_effects WHERE command_id=:id AND OCTET_LENGTH(payload)<=1400000 FOR UPDATE',{'id':command['id']})
+    row=one(session,'SELECT payload,effects_hash,phase,deliveries,updated_at_ms FROM pos_rewrite_screening_origin_effects WHERE command_id=:id AND OCTET_LENGTH(payload)<=1400000 FOR UPDATE',{'id':command['id']})
     effects=open_effects(key,'screening-origin:'+command['id'],row['payload'],row['effects_hash'])
     if hashlib.sha256(canonical(effects).encode()).hexdigest()!=row['effects_hash']:fail()
     from origin_ledger import creation
@@ -154,6 +156,10 @@ def dispatch(sessions,command_id,key,registry,clock):
             row,effects,deliveries=load(session,value,key)
             if row['phase']=='UNCERTAIN':return {'phase':'UNCERTAIN','completed':len(deliveries)}
             if row['phase']=='COMPLETE':return {'phase':'COMPLETE','completed':len(deliveries)}
+            if row['phase']=='SENDING':
+                if row['updated_at_ms']+120000>clock():return {'phase':'SENDING','completed':len(deliveries)}
+                session.execute(text("UPDATE pos_rewrite_screening_origin_effects SET phase='UNCERTAIN',updated_at_ms=:now WHERE command_id=:id"),{'now':clock(),'id':command_id})
+                return {'phase':'UNCERTAIN','completed':len(deliveries)}
             if row['phase']!='PENDING' or len(deliveries)>len(effects):fail()
             index=len(deliveries)
             if index==len(effects):
@@ -161,6 +167,7 @@ def dispatch(sessions,command_id,key,registry,clock):
                 return {'phase':'COMPLETE','completed':index}
             effect=copy.deepcopy(effects[index])
             effect_id=digest(key,'effect-id',{'commandId':command_id,'index':index,'effect':effect})
+            effect.update(commandId=command_id,ordinal=index)
             session.execute(text("UPDATE pos_rewrite_screening_origin_effects SET phase='SENDING',updated_at_ms=:now WHERE command_id=:id"),{'now':clock(),'id':command_id})
         # The durable SENDING fence precedes the external call, with no SQL lock.
         try:
@@ -169,6 +176,7 @@ def dispatch(sessions,command_id,key,registry,clock):
             elif effect['kind']=='cache':receipt=registry.cache(effect,effect_id)
             elif effect['kind']=='cart':receipt=registry.cart(effect,effect_id)
             elif effect['kind']=='membership-cache':receipt=registry.membership_cache(effect,effect_id)
+            elif effect['kind']=='cart-tracking':receipt=registry.cart_tracking(effect,effect_id)
             elif effect['kind']=='cache-acquisition':receipt={'id':effect_id,'accepted':True}
             else:fail('SCREENING_ORIGIN_EFFECT_UNQUALIFIED')
             if not isinstance(receipt,dict) or set(receipt)!={'id','accepted'} or receipt['accepted'] is not True or not isinstance(receipt['id'],str) or not 1<=len(receipt['id'])<=128:fail()

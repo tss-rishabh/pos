@@ -88,6 +88,7 @@ class OriginBootstrap:
         self.options=options(self.environment)
         self.runtime=None
         self.system=None
+        self.registry=None
     def activate(self,public_bootstrap,namespace,history_provider=None):
         if self.options is None:return self
         if public_bootstrap.middleware is None:fail('SCREENING_ORIGIN_UNAVAILABLE')
@@ -109,6 +110,9 @@ class OriginBootstrap:
             def gift(*args,**kwargs):return self.runtime.assets.construct(original_gift,*args,**kwargs)
             namespace['build_gift_voucher_model']=gift
         install(self.runtime);patch_public_routes()
+        from origin_delivery import OriginEffectRegistry,install_capture
+        install_capture(public_bootstrap.root,tuple(sys.modules.values()))
+        self.registry=OriginEffectRegistry(self.runtime,namespace)
         bind=public_bootstrap.sessions.kw['bind']
         # Both are physical-engine events. RELEASE SAVEPOINT remains legal.
         if not event.contains(bind,'commit',guard_private_commit):event.listen(bind,'commit',guard_private_commit)
@@ -191,6 +195,32 @@ class OriginBootstrap:
             self.system=SystemOrders(self.runtime,vars(external),public_bootstrap.root/'controllers/external/OrderPlacement.py',SOURCE_HASH,
                                      namespace['settings'].PAYMENT_URL+'orders')
         return self
+    def dispatch_effects(self,command_id):
+        if self.runtime is None or self.registry is None:fail('SCREENING_ORIGIN_EFFECT_UNQUALIFIED')
+        if not isinstance(command_id,str) or not __import__('origin_contracts').UUID.fullmatch(command_id):fail()
+        from origin_effects import dispatch
+        result=dispatch(self.runtime.sessions,command_id,self.runtime.key,self.registry,self.runtime.clock)
+        return result
+    def effect_candidates(self,limit=25):
+        if type(limit) is not int or not 1<=limit<=100 or self.runtime is None or self.registry is None:fail()
+        from native import rows
+        with self.runtime.sessions() as session:
+            result=rows(session,"SELECT command_id FROM pos_rewrite_screening_origin_effects WHERE phase='PENDING' OR (phase='SENDING' AND updated_at_ms<:cutoff) ORDER BY updated_at_ms,command_id LIMIT :limit",{'cutoff':self.runtime.clock()-120000,'limit':limit},limit+1)
+        return [row['command_id'] for row in result]
+    def effect_summary(self,command_id):
+        from origin_effects import load
+        from native import one
+        from origin_ledger import read
+        with self.runtime.sessions() as session,session.begin():
+            hint=one(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':command_id})
+            value=read(session,command_id,str(hint['customer_id']),self.runtime.key)
+            row,effects,deliveries=load(session,value,self.runtime.key)
+            return {'phase':row['phase'],'accepted':len(deliveries),'total':len(effects)}
+    def close_worker(self):
+        if self.registry is not None:self.registry.close()
+        if self.runtime is not None:
+            bind=self.runtime.sessions.kw.get('bind')
+            if bind is not None:bind.dispose()
     def register(self,app,settings):
         if self.runtime is None:return
         resource=OriginCommands(self.runtime)

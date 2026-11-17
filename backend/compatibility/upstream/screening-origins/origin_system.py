@@ -285,6 +285,11 @@ class SystemOrders:
             prefix.rollback()
             return self.read(command_id,details)
         finally:ACTIVE.reset(token);prefix.close()
+    def worker_candidates(self,limit=25):
+        if type(limit) is not int or not 1<=limit<=100:fail('SCREENING_ORIGIN_REQUEST_INVALID')
+        with self.runtime.sessions() as session:
+            result=rows(session,"SELECT j.command_id FROM pos_rewrite_screening_origin_system_jobs j LEFT JOIN pos_rewrite_screening_origin_creations c ON c.command_id=j.command_id WHERE JSON_UNQUOTE(JSON_EXTRACT(j.data,'$.state'))='PREPARED' OR (c.command_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(j.data,'$.state')) IN ('SOURCE_RUNNING','PAYMENT_SENDING')) ORDER BY j.command_id LIMIT :limit",{'limit':limit},limit+1)
+        return [row['command_id'] for row in result]
     def read(self,command_id,details):
         with self.runtime.sessions() as session,session.begin():
             current_service(session,self.runtime.key,details)

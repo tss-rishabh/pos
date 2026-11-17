@@ -309,6 +309,7 @@ class OriginRuntime:
             proof=frame.previous
             resp.text=canonical({'order':int(proof['orderId']),'method':proof['method'],'isValid':True,'name':'placed_order'})
             resp.set_header('X-TSS-Screening-Command',proof['commandId'])
+            resp.set_header('X-TSS-Screening-Origin-Contract',CONTRACT)
             return None
         except BaseException as error:
             failure=error
