@@ -1,3 +1,4 @@
+import { emptyControl } from '../../src/modules/checkout/payment-reversals/intent-evidence.js';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it, vi } from 'vitest';
 import { readConfig } from '../../src/config.js';
@@ -281,37 +282,48 @@ describe('daily warehouse publication and offline projection boundaries', () => 
         proofKey,
         publicationTable: 'fixture-project.pos.payment_publications',
       };
-    const queryFor = (baselineHash: string | null) => async () => [
-      sealPaymentCorrectionPartition(
-        {
-          contract: paymentCorrectionPublicationContract,
-          kind: 'daily',
-          generationId: 'fixture_generation_42',
-          sourcePosition: 'mysql-bin.000042:123456',
-          cdcWatermark: '2026-11-16T07:59:30Z',
-          publishedAt: '2026-11-16T07:59:50Z',
-          businessTimezone: 'Asia/Kolkata',
-          storeId: '1',
-          businessDate: '2026-11-15',
-          payload: {
-            storeName: 'Fixture 1',
-            locationCode: 'FIX-1',
-            baselineHash,
-            sourceCashRemoval: '0.00',
-            sourceOnlineRemoval: '0.00',
-            sourceOrderCountRemoval: 0,
-            cashIn: '0.00',
-            cashOut: '0.00',
-            logicalOrderCount: 0,
-          },
-        },
-        proofKey,
-      ),
-    ];
+    const queryFor = (baselineHash: string | null) => async (statement: string) =>
+      statement.includes('GROUP BY generation_id')
+        ? [{ generationId: 'fixture_generation_42' }]
+        : [
+            sealPaymentCorrectionPartition(
+              {
+                contract: paymentCorrectionPublicationContract,
+                kind: 'daily',
+                cashReturnControl: emptyControl('1'),
+                dataReference: {
+                  generationId: 'fixture_generation_42',
+                  sourcePosition: 'mysql-bin.000042:123456',
+                  cdcWatermark: '2026-11-16T07:59:30Z',
+                  publishedAt: '2026-11-16T07:59:50Z',
+                },
+                generationId: 'fixture_generation_42',
+                sourcePosition: 'mysql-bin.000042:123456',
+                cdcWatermark: '2026-11-16T07:59:30Z',
+                publishedAt: '2026-11-16T07:59:50Z',
+                businessTimezone: 'Asia/Kolkata',
+                storeId: '1',
+                businessDate: '2026-11-15',
+                payload: {
+                  storeName: 'Fixture 1',
+                  locationCode: 'FIX-1',
+                  baselineHash,
+                  sourceCashRemoval: '0.00',
+                  sourceOnlineRemoval: '0.00',
+                  sourceOrderCountRemoval: 0,
+                  cashIn: '0.00',
+                  cashOut: '0.00',
+                  logicalOrderCount: 0,
+                },
+              },
+              proofKey,
+            ),
+          ];
     const result = await reportService(config, db, {
       warehouse,
       clock: () => now,
       paymentCorrections,
+      cashReturnHeads: async () => new Map([['1\0' + '2026-11-15', emptyControl('1')]]),
       paymentCorrectionQuery: queryFor('a'.repeat(64)),
     }).daily(user, {
       storeIds: ['1'],
@@ -343,6 +355,7 @@ describe('daily warehouse publication and offline projection boundaries', () => 
           },
           clock: () => now,
           paymentCorrections,
+          cashReturnHeads: async () => new Map([['1\0' + '2026-11-15', emptyControl('1')]]),
           paymentCorrectionQuery: queryFor(null),
         }).daily(user, { storeIds: ['1'], from: '2026-11-15', to: '2026-11-15' })
       ).data,

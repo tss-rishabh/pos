@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { cashReturnViewSchema, returnEvidenceSchema } from './intent-contracts';
 import { post, request } from '../../api/client';
 const id = z.string().regex(/^[1-9]\d{0,18}$/),
   digest = z.string().regex(/^[a-f0-9]{64}$/),
@@ -6,6 +7,8 @@ const id = z.string().regex(/^[1-9]\d{0,18}$/),
 export const correctionInputSchema = z
   .object({
     operationId: z.uuid(),
+    intentId: z.uuid().optional(),
+    claimId: z.uuid().optional(),
     originalPaymentId: z.uuid(),
     counterId: id,
     snapshotHash: digest,
@@ -55,6 +58,8 @@ export const correctionReceiptSchema = z
     benefitsChanged: z.literal(false),
     providerRefunded: z.literal(false),
     goodsRetainedAtCounter: z.literal(true),
+    cashReturn: returnEvidenceSchema.optional(),
+    recordedInstant: z.iso.datetime({ precision: 3 }).optional(),
   })
   .strict();
 export const correctionContextSchema = z
@@ -68,6 +73,7 @@ export const correctionContextSchema = z
     originalPaymentId: z.uuid().nullable(),
     returnedCash: money.nullable(),
     latest: correctionReceiptSchema.nullable(),
+    activeIntent: cashReturnViewSchema.nullable().optional(),
   })
   .strict();
 export type CorrectionInput = z.infer<typeof correctionInputSchema>;
@@ -111,9 +117,13 @@ function matchingReceipt(scope: CorrectionScope, input: CorrectionInput, value: 
   if (
     value.id !== input.operationId ||
     value.originalPaymentId !== input.originalPaymentId ||
+    (input.intentId !== undefined && value.cashReturn?.intentId !== input.intentId) ||
+    (input.claimId !== undefined &&
+      value.cashReturn !== undefined &&
+      value.cashReturn.intentId !== input.claimId) ||
     value.orderId !== scope.orderId ||
     value.storeId !== scope.storeId ||
-    value.operatorId !== scope.ownerId ||
+    (!input.intentId && !input.claimId && value.operatorId !== scope.ownerId) ||
     value.counterId !== input.counterId ||
     value.cashReturnReceiptId !== input.cashReturnReceiptId ||
     value.reason !== input.reason ||
@@ -147,4 +157,69 @@ export async function createCorrection(scope: CorrectionScope, input: Correction
       scope.ownerId,
     ),
   );
+}
+
+export async function readBoundCorrection(
+  scope: CorrectionScope,
+  id: string,
+  originalPaymentId: string,
+  signal?: AbortSignal,
+) {
+  const value = await request(
+    base(scope) + '/' + z.uuid().parse(id),
+    { operatorId: scope.ownerId, signal },
+    correctionReceiptSchema,
+  );
+  if (
+    value.id !== id ||
+    value.storeId !== scope.storeId ||
+    value.orderId !== scope.orderId ||
+    value.originalPaymentId !== originalPaymentId
+  )
+    throw new Error('The original financial receipt belongs to another return.');
+  return value;
+}
+
+export function retainedDeviceReferences(storeId: string) {
+  try {
+    id.parse(storeId);
+    const data: { ownerId: string; orderId: string; original: CorrectionInput }[] = [];
+    for (let index = 0; index < localStorage.length; index++) {
+      const name = localStorage.key(index);
+      if (!name?.startsWith('pos:payment-correction:v1:')) continue;
+      const parts = name.slice('pos:payment-correction:v1:'.length).split(':');
+      if (parts.length !== 3 || parts[1] !== storeId) continue;
+      const ownerId = id.parse(parts[0]),
+        orderId = id.parse(parts[2]),
+        raw = localStorage.getItem(name);
+      if (raw === null) continue;
+      const original = correctionInputSchema.parse(JSON.parse(raw) as unknown);
+      if (original.intentId || original.claimId) continue;
+      data.push({ ownerId, orderId, original });
+      if (data.length > 200)
+        throw new Error(
+          'More than 200 original device references need a controlled intake. Preserve this device and its references.',
+        );
+    }
+    return data.sort(
+      (a, b) => a.orderId.localeCompare(b.orderId) || a.ownerId.localeCompare(b.ownerId),
+    );
+  } catch {
+    throw new Error(
+      'A retained device reference could not be verified. Preserve this device and its original references; the server queue remains available.',
+    );
+  }
+}
+export function clearConfirmedDeviceReferences(
+  storeId: string,
+  orderId: string,
+  operationId: string,
+) {
+  try {
+    for (const row of retainedDeviceReferences(storeId))
+      if (row.orderId === orderId && row.original.operationId === operationId)
+        clearCorrectionIntent({ ownerId: row.ownerId, storeId, orderId });
+  } catch {
+    /* Original evidence stays retained when device storage cannot be read. */
+  }
 }

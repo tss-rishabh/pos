@@ -106,6 +106,7 @@ describe.skipIf(!integration)('offline cash finance projections on isolated veri
       'src/modules/finance/migration.sql',
       'src/modules/checkout/migrations/0003_payments.sql',
       'src/modules/checkout/payment-reversals/migration.sql',
+      'src/modules/checkout/payment-reversals/intent-migration.sql',
       'src/modules/checkout/migrations/0011_offline_cash.sql',
       'src/modules/checkout/migrations/0012_offline_cash_receipt_identity.sql',
       'src/modules/checkout/migrations/0013_offline_cash_import_proof.sql',
@@ -877,7 +878,7 @@ describe.skipIf(!integration)('offline cash finance projections on isolated veri
         banking: 25,
         pending_offline_orders: 0,
       });
-      expect(readers).toEqual(['data']);
+      expect(readers).toEqual(['writer', 'data', 'writer']); // Current metadata brackets the single financial DATA snapshot.
       expect(transaction).toHaveBeenCalledWith(expect.any(Function), {
         isolationLevel: 'repeatable read',
         accessMode: 'read only',

@@ -64,6 +64,8 @@ export async function reversalMysqlFixture(template: string) {
     // Isolated imported-source fixture only. The production repository never changes SQL mode.
     await connection.query("SET SESSION sql_mode='STRICT_TRANS_TABLES'");
     for (const path of [
+      'migrations/0002_auth_sessions.sql',
+      'migrations/0006_operator_auth_epochs.sql',
       'src/modules/administration/migration.sql',
       'src/modules/finance/migration.sql',
       'src/modules/checkout/migrations/0002_checkout.sql',
@@ -77,6 +79,7 @@ export async function reversalMysqlFixture(template: string) {
       'src/modules/checkout/migrations/0017_customer_consent_proof.sql',
       'src/modules/checkout/cancellations/migration.sql',
       'src/modules/checkout/payment-reversals/migration.sql',
+      'src/modules/checkout/payment-reversals/intent-migration.sql',
     ])
       for (const statement of splitMigration(readFileSync(path, 'utf8')))
         await connection.query(statement);

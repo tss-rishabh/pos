@@ -26,6 +26,10 @@ import {
   readPaymentCorrectionPartitions,
   paymentCorrectionBaselineHash,
 } from './payment-correction-publication.js';
+import {
+  assertSameCashReturnHeads,
+  cashReturnPartitionHeads,
+} from '../checkout/payment-reversals/intent-guards.js';
 import { money } from './domain.js';
 import {
   aggregateOfflineCash,
@@ -428,6 +432,14 @@ export function cashLedgerService(
           name: store.name || String(store.id),
         }));
       if (!storeIds.length) return { reader: 'data' as const, range: bounds, data: [] };
+      const heads = await cashReturnPartitionHeads(
+        db.get('writer'),
+        storeIds,
+        bounds.from,
+        bounds.to,
+        'cash-ledger',
+        corrections.proofKey ?? '',
+      );
       let anchors: LedgerAnchor[] = [],
         closes: LedgerClose[] = [],
         banking: LedgerBanking[] = [],
@@ -469,6 +481,7 @@ export function cashLedgerService(
         const publicationOptions = {
           table: corrections.publicationTable,
           proofKey: corrections.proofKey,
+          controlHeads: heads,
         };
         const first = await readPaymentCorrectionPartitions(
           publicationOptions,
@@ -484,7 +497,7 @@ export function cashLedgerService(
             'PAYMENT_CORRECTION_PUBLICATION_INVALID',
             'The cash ledger publication is missing.',
           );
-        const params = { stores: storeIds, end: bounds.to, generation: first.generationId },
+        const params = { stores: storeIds, end: bounds.to, generation: first.dataGenerationId },
           types = { stores: ['STRING'], end: 'DATE', generation: 'STRING' };
         anchors = z
           .array(anchorSchema)
@@ -499,7 +512,20 @@ export function cashLedgerService(
           const rows = anchors.filter((anchor) => anchor.storeId === storeId);
           return rows.length ? [startDay(rows, bounds.from)] : [];
         });
-        if (!starts.length) return { reader, range: bounds, data: [] };
+        if (!starts.length) {
+          assertSameCashReturnHeads(
+            heads,
+            await cashReturnPartitionHeads(
+              db.get('writer'),
+              storeIds,
+              bounds.from,
+              bounds.to,
+              'cash-ledger',
+              corrections.proofKey ?? '',
+            ),
+          );
+          return { reader, range: bounds, data: [] };
+        }
         const start = starts.sort()[0]!,
           chainParams = { ...params, start },
           chainTypes = { ...types, start: 'DATE' };
@@ -527,12 +553,23 @@ export function cashLedgerService(
           start === bounds.from
             ? first
             : await readPaymentCorrectionPartitions(
-                publicationOptions,
+                {
+                  ...publicationOptions,
+                  qualificationGenerationId: first.generationId,
+                  controlHeads: await cashReturnPartitionHeads(
+                    db.get('writer'),
+                    storeIds,
+                    start,
+                    bounds.to,
+                    'cash-ledger',
+                    corrections.proofKey ?? '',
+                  ),
+                },
                 warehouse.queryReport,
                 { kind: 'cash-ledger', storeIds, from: start, to: bounds.to },
                 config.BUSINESS_TIMEZONE,
                 clock(),
-                reference,
+                reference.dataReference,
               );
         const sourceByDay = new Map(sourceSales.map((row) => [`${row.storeId}\0${row.date}`, row]));
         if (sourceByDay.size !== sourceSales.length)
@@ -582,6 +619,17 @@ export function cashLedgerService(
         const database = db.get('data');
         const current = await database.transaction(
           async (transaction) => {
+            assertSameCashReturnHeads(
+              heads,
+              await cashReturnPartitionHeads(
+                transaction,
+                storeIds,
+                bounds.from,
+                bounds.to,
+                'cash-ledger',
+                corrections.proofKey ?? '',
+              ),
+            );
             const anchors = z.array(anchorSchema).parse(
               await transaction
                 .select({
@@ -653,6 +701,17 @@ export function cashLedgerService(
         sales = current.sales;
       }
 
+      assertSameCashReturnHeads(
+        heads,
+        await cashReturnPartitionHeads(
+          db.get('writer'),
+          storeIds,
+          bounds.from,
+          bounds.to,
+          'cash-ledger',
+          corrections.proofKey ?? '',
+        ),
+      );
       return {
         reader,
         range: bounds,

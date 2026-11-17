@@ -11,10 +11,21 @@ import {
   type PaymentCorrectionPartition,
 } from '../../src/modules/finance/payment-correction-publication.js';
 import { applyDailyPaymentCorrectionPartitions } from '../../src/modules/daily-report-corrections.js';
+import { emptyControl } from '../../src/modules/checkout/payment-reversals/intent-evidence.js';
 import { emptyDailyStoreRow } from '../../src/modules/daily-report-offline.js';
 const key = 'fixture-financial-publication-proof-'.repeat(2),
   now = Temporal.Instant.from('2026-11-17T08:00:00Z'),
-  options = { table: 'fixture-project.finance.payment_publications', proofKey: key },
+  options = {
+    table: 'fixture-project.finance.payment_publications',
+    proofKey: key,
+    controlHeads: new Map(
+      ['1', '2'].flatMap((store) =>
+        ['2026-11-14', '2026-11-15', '2026-11-16'].map(
+          (date) => [store + '\0' + date, emptyControl(store)] as const,
+        ),
+      ),
+    ),
+  },
   base = {
     generationId: 'fixture_generation',
     sourcePosition: 'mysql-bin.42:123',
@@ -29,6 +40,8 @@ function partition(
     contract: paymentCorrectionPublicationContract,
     kind: 'daily',
     ...base,
+    dataReference: base,
+    cashReturnControl: emptyControl('1'),
     businessTimezone: 'Asia/Kolkata',
     storeId: '1',
     businessDate: '2026-11-15',
@@ -139,6 +152,11 @@ describe('sealed common-generation payment cash publications', () => {
   );
   it('rejects a correctly signed but stale publication and mixed independent source positions', async () => {
     const stale = partition({
+      dataReference: {
+        ...base,
+        publishedAt: '2026-11-17T07:39:50Z',
+        cdcWatermark: '2026-11-17T07:39:30Z',
+      },
       publishedAt: '2026-11-17T07:40:00Z',
       cdcWatermark: '2026-11-17T07:39:30Z',
     });
@@ -151,7 +169,11 @@ describe('sealed common-generation payment cash publications', () => {
         now,
       ),
     ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_PUBLICATION_STALE' });
-    const second = partition({ storeId: '2', sourcePosition: 'mysql-bin.42:456' });
+    const second = partition({
+      cashReturnControl: emptyControl('2'),
+      storeId: '2',
+      sourcePosition: 'mysql-bin.42:456',
+    });
     await expect(
       readPaymentCorrectionPartitions(
         options,
@@ -269,6 +291,10 @@ describe('sealed common-generation payment cash publications', () => {
         warehouse,
         clock: () => now,
         paymentCorrections: { proofKey: key, publicationTable: options.table },
+        cashReturnHeads: async (_ids, from, to) =>
+          new Map(
+            [...options.controlHeads].filter(([key]) => key.slice(2) >= from && key.slice(2) <= to),
+          ),
         paymentCorrectionQuery: queryFor(
           payloads.map((body) => sealPaymentCorrectionPartition(body, key)),
         ).query,
@@ -308,5 +334,151 @@ describe('sealed common-generation payment cash publications', () => {
       total_revenue: 80,
     });
     expect(get).not.toHaveBeenCalled();
+  });
+  it('rejects v1 and absent/current-mismatched control heads even when a zero amount is signed', async () => {
+    const body = partition(),
+      record = sealPaymentCorrectionPartition(body, key),
+      f = queryFor([record]);
+    await expect(
+      readPaymentCorrectionPartitions(
+        { ...options, controlHeads: undefined },
+        f.query,
+        scope,
+        'Asia/Kolkata',
+        now,
+        base,
+      ),
+    ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_PUBLICATION_INVALID' });
+    expect(f.calls).toEqual([]);
+    const mismatch = new Map(options.controlHeads);
+    mismatch.set('1\0' + scope.from, {
+      ...emptyControl('1'),
+      revision: '1',
+      manifestHash: 'f'.repeat(64),
+    });
+    await expect(
+      readPaymentCorrectionPartitions(
+        { ...options, controlHeads: mismatch },
+        f.query,
+        scope,
+        'Asia/Kolkata',
+        now,
+        base,
+      ),
+    ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_PUBLICATION_INVALID' });
+    const old = JSON.parse(record.body) as Record<string, unknown>;
+    old.contract = 'pos-payment-correction-finance-publication-v1';
+    await expect(
+      readPaymentCorrectionPartitions(
+        options,
+        queryFor([{ ...record, body: JSON.stringify(old) }]).query,
+        scope,
+        'Asia/Kolkata',
+        now,
+        base,
+      ),
+    ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_PUBLICATION_INVALID' });
+  });
+  it('fresh qualification can reuse exact old immutable data but cannot alter its reference or skip the current head', async () => {
+    const historical = {
+        ...base,
+        publishedAt: '2026-10-01T07:59:50Z',
+        cdcWatermark: '2026-10-01T07:59:30Z',
+      },
+      body = partition({ generationId: 'fresh_qualification_2', dataReference: historical }),
+      record = sealPaymentCorrectionPartition(body, key);
+    const statements: { sql: string; params: Record<string, unknown> }[] = [];
+    const query: DailyWarehouseQuery = async (sql, params) => {
+      statements.push({ sql, params });
+      return sql.includes('GROUP BY generation_id')
+        ? [{ generationId: body.generationId }]
+        : [record];
+    };
+    const result = await readPaymentCorrectionPartitions(
+      options,
+      query,
+      scope,
+      'Asia/Kolkata',
+      now,
+      historical,
+    );
+    expect(result.generationId).toBe('fresh_qualification_2');
+    expect(result.dataGenerationId).toBe(base.generationId);
+    expect(statements[0]!.params).toMatchObject({ dataGeneration: base.generationId });
+    expect(statements[0]!.sql).toContain('data_generation_id=@dataGeneration');
+    await expect(
+      readPaymentCorrectionPartitions(options, query, scope, 'Asia/Kolkata', now, {
+        ...historical,
+        sourcePosition: 'different-source:1',
+      }),
+    ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_PUBLICATION_INVALID' });
+    await expect(
+      readPaymentCorrectionPartitions(
+        { ...options, qualificationGenerationId: 'different_qualification' },
+        query,
+        scope,
+        'Asia/Kolkata',
+        now,
+        historical,
+      ),
+    ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_PUBLICATION_INVALID' });
+    expect(body.payload).toEqual(partition().payload);
+  });
+  it('the actual historical DSR refuses a control transition between qualification and response', async () => {
+    let reads = 0;
+    const config = readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'fixture-financial-response-fence-'.repeat(3),
+      }),
+      db: Databases = {
+        get: () => {
+          throw new Error('No MySQL historical facts.');
+        },
+        close: async () => {},
+      },
+      zero = partition({
+        payload: {
+          ...partition().payload,
+          baselineHash: null,
+          sourceOnlineRemoval: '0.00',
+          sourceOrderCountRemoval: 0,
+          cashIn: '0.00',
+          cashOut: '0.00',
+          logicalOrderCount: 0,
+        },
+      });
+    const service = reportService(config, db, {
+      clock: () => now,
+      warehouse: {
+        dailyRollups: async () => ({ publication: base, rows: [] }),
+        auxiliary: async () => ({ footfall: {}, target: {} }),
+      },
+      paymentCorrections: { proofKey: key, publicationTable: options.table },
+      paymentCorrectionQuery: queryFor([sealPaymentCorrectionPartition(zero, key)]).query,
+      cashReturnHeads: async () =>
+        new Map([
+          [
+            '1\0' + scope.from,
+            ++reads === 1
+              ? emptyControl('1')
+              : { ...emptyControl('1'), revision: '1', manifestHash: 'f'.repeat(64) },
+          ],
+        ]),
+    });
+    await expect(
+      service.daily(
+        {
+          id: '1',
+          name: 'Fixture',
+          email: 'fixture@example.invalid',
+          role: 1,
+          userType: 1,
+          storeIds: ['1'],
+        },
+        { storeIds: ['1'], from: scope.from, to: scope.to },
+      ),
+    ).rejects.toMatchObject({ code: 'CASH_RETURN_FINANCIAL_STATE_CHANGED' });
+    expect(reads).toBe(2);
   });
 });
