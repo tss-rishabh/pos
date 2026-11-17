@@ -111,8 +111,25 @@ the old command/creation/payment proof. Customer contact, genuine staff login
 or CSK service-key rotation cannot rewrite that original receipt. New financial
 dispatch still requires its original stage authority. A current service read
 does not silently become authority to resume an old DIRECT financial stage;
-the separately coordinated source stage-recovery descriptor/use is remaining
-implementation work at this checkpoint.
+a source-issued `payment-stage-recovery` descriptor and its immutable accepted
+use permit recovery only of the same already SENDING/PENDING/UNCERTAIN attempt.
+The descriptor carries the original authority, payload/payment request and exact
+attempt version/hash together with genuinely current same-scope authority. Its
+expiry is at most sixty seconds, its `noProviderStart` flag is mandatory, and
+it cannot create an order or new SENDING checkpoint. Completed receipts win
+before recovery processing. Accepted-use replay tolerates only metadata version
+advance on that same immutable attempt. Install source
+`screening-origins/stage-recovery-migration.sql` followed by this directory's
+`stage-recovery-migration.review.sql` before selecting this path.
+
+Authenticated GET `/api/v2/payment/screening-origins/:commandId/payment/effects`
+uses the fresh `payment-read` authorization and current same-scope read authority.
+It returns at most 1000 verified local effect descriptors as phase, sequence,
+priority, timestamp and optional receipt evidence hash. `EMPTY` means this local
+effect journal has no rows; it is not a payment absence receipt. SENDING or
+UNCERTAIN produces `dispatchBlocked=true` and aggregate UNCERTAIN. No effect
+body, delivery response, provider read, resend, cancellation or refund is
+performed by this reader. Delivery receipts remain transport acknowledgments.
 
 The real CSK externally-prepaid declaration remains distinct from bank payment.
 Original express-parent/reshipping/original-prepaid exchange selectors have

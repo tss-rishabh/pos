@@ -92,7 +92,7 @@ func originProvedVoucherDebit(db *gorm.DB,order *Order)error{
 }
 
 func originCaller(c *gin.Context,customer string,system bool)(poscheckout.OriginCaller,error){
-	value:=poscheckout.OriginCaller{CustomerID:customer,System:system,CSKAPIKey:os.Getenv("POS_SCREENING_ORIGIN_CSK_API_KEY"),StaffGrantID:c.GetHeader("X-TSS-Screening-Staff-Grant")}
+	value:=poscheckout.OriginCaller{CustomerID:customer,System:system,CSKAPIKey:os.Getenv("POS_SCREENING_ORIGIN_CSK_API_KEY"),StaffGrantID:c.GetHeader("X-TSS-Screening-Staff-Grant"),StageRecovery:c.GetHeader("X-TSS-Screening-Stage-Recovery")}
 	if system{if c.GetHeader(originAuthorizationHeader)==""{return value,poscheckout.ErrReview};return value,nil}
 	raw:=c.GetHeader("Authorization");if raw==""||len(raw)>16000{return value,poscheckout.ErrReview};token:=raw;value.TwoFA=strings.HasPrefix(raw,"2f.");if value.TwoFA{token=strings.TrimPrefix(raw,"2f.")}
 	if value.TwoFA&&os.Getenv("JWT_KEY_512")==""||!value.TwoFA&&os.Getenv("JWT_KEY")==""{return value,poscheckout.ErrReview};claims,err:=jwt.FromString(token);if err!=nil{return value,poscheckout.ErrReview};if value.TwoFA{err=claims.Verify(jwt.HS512(os.Getenv("JWT_KEY_512")))}else{err=claims.Verify(jwt.HS256(os.Getenv("JWT_KEY")))}
@@ -104,9 +104,12 @@ func otherOriginMissing(c *gin.Context){c.Header("Cache-Control","private, no-st
 func RegisterOtherOriginPaymentRoutes(group *gin.RouterGroup){
 	group.POST("/screening-origins/:commandId/payment",func(c *gin.Context){serveOtherOriginPayment(c,false)})
 	group.GET("/screening-origins/:commandId/payment",func(c *gin.Context){serveOtherOriginPayment(c,true)})
+	group.GET("/screening-origins/:commandId/payment/effects",func(c *gin.Context){serveOtherOriginPaymentView(c,true,true)})
 }
-func serveOtherOriginPayment(c *gin.Context,read bool){
+func serveOtherOriginPayment(c *gin.Context,read bool){serveOtherOriginPaymentView(c,read,false)}
+func serveOtherOriginPaymentView(c *gin.Context,read,effects bool){
 	c.Header("Cache-Control","private, no-store");if c.Request.URL.RawQuery!=""{otherOriginRefused(c);return}
+	if !read&&c.GetHeader("X-TSS-Screening-Stage-Recovery")!=""{otherOriginRefused(c);return}
 	key:=os.Getenv("POS_SCREENING_ORIGIN_PROOF_KEY");purpose:="payment-submission";if read{purpose="payment-read"}
 	if _,err:=poscheckout.OriginMAC(key,"ready",nil);err!=nil{otherOriginRefused(c);return}
 	var origin,customer string;if utils.Db.DB().QueryRowContext(c.Request.Context(),`SELECT origin,CAST(customer_id AS CHAR) FROM pos_rewrite_screening_origin_commands WHERE id=?`,c.Param("commandId")).Scan(&origin,&customer)!=nil{otherOriginRefused(c);return}
@@ -116,6 +119,10 @@ func serveOtherOriginPayment(c *gin.Context,read bool){
 	if !read{raw,e:=io.ReadAll(io.LimitReader(c.Request.Body,16001));if e!=nil||poscheckout.OriginDecode(raw,&input,16000)!=nil{otherOriginRefused(c);return};input.Original=raw}
 	if c.GetHeader(originAuthorizationHeader)!=""{cap,err=poscheckout.OriginAuthorization(c.GetHeader(originAuthorizationHeader),key,purpose,time.Now().UnixMilli())}else if !caller.System{if read{cap,err=engine.NativeReadAuthorization(c.Request.Context(),c.Param("commandId"),caller)}else{cap,err=engine.NativeAuthorization(c.Request.Context(),c.Param("commandId"),caller,input)}}else{err=poscheckout.ErrReview}
 	if read&&errors.Is(err,sql.ErrNoRows){otherOriginMissing(c);return};if err!=nil||cap.CommandID!=c.Param("commandId")||cap.CustomerID!=customer||c.GetHeader(originCommandHeader)!=""&&c.GetHeader(originCommandHeader)!=cap.CommandID{otherOriginRefused(c);return}
+	if effects{
+		if caller.StageRecovery!=""{otherOriginRefused(c);return}
+		view,err:=engine.Effects(c.Request.Context(),cap,caller);if errors.Is(err,sql.ErrNoRows){otherOriginMissing(c);return};if err!=nil{otherOriginRefused(c);return};c.JSON(http.StatusOK,view);return
+	}
 	var view poscheckout.OriginPaymentView
 	if read{view,err=engine.Read(c.Request.Context(),cap,caller,true,c.GetHeader("X-Request-ID"))}else{
 		view,err=engine.Start(c.Request.Context(),cap,caller,input,c.GetHeader("X-Request-ID"))
@@ -134,6 +141,7 @@ func tryOtherOriginProcessOrder(c *gin.Context,order *Order,input POrder,provide
 	serveOtherOriginOriginal(c,order,input,provider,command,false);return true
 }
 func serveOtherOriginOriginal(c *gin.Context,order *Order,input POrder,provider,command string,system bool){
+	if c.GetHeader("X-TSS-Screening-Stage-Recovery")!=""{otherOriginRefused(c);return}
 	engine,err:=originEngine(c,provider,true);if err!=nil{otherOriginRefused(c);return}
 	caller,err:=originCaller(c,strconv.Itoa(order.User),system);if err!=nil{otherOriginRefused(c);return}
 	request:=poscheckout.OriginPaymentInput{Order:int64(input.Order),Method:int64(input.Method),PaymentMethod:input.PayMethod,Platform:input.Platform,OS:input.Ops}

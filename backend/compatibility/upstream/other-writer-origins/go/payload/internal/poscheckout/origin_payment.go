@@ -70,7 +70,7 @@ type OriginPayment struct {
 }
 type OriginPaymentOutcome struct { OriginPayment; NoConfirmation bool `json:"noConfirmation"` }
 type OriginPaymentView struct { Status string `json:"status"`; CommandID string `json:"commandId"`; OrderID string `json:"orderId"`; Response *OriginProviderResponse `json:"response,omitempty"`; Receipt *OriginPayment `json:"receipt,omitempty"`;NoEffect *OriginPaymentNoEffectEnvelope `json:"noEffect,omitempty"` }
-type originUnit struct {engine *OriginEngine;conn *sql.Conn;tx *sql.Tx;command OriginCommand;creation OriginCreation;counter *OriginCounterEntry;released bool}
+type originUnit struct {engine *OriginEngine;conn *sql.Conn;tx *sql.Tx;command OriginCommand;creation OriginCreation;counter *OriginCounterEntry;currentAuthority map[string]interface{};released bool}
 
 func(e *OriginEngine)now()int64{if e.Clock!=nil{return e.Clock().UnixMilli()};return time.Now().UnixMilli()}
 func(e *OriginEngine)ready(newWork bool)error{if e.DB==nil||!originKey.MatchString(e.Key)||e.Key==e.LegacyKey||newWork&&(!originKey.MatchString(e.LegacyKey)||!e.Selected||e.Apply==nil||e.Decline==nil||e.BuildRequest==nil||e.Provider==nil){return ErrReview};return nil}
@@ -80,13 +80,17 @@ func(e *OriginEngine)open(ctx context.Context,cap OriginPaymentAuthorization,cal
 	// Hint authenticates identity without creating a stale repeatable-read view.
 	hint,err:=ReadOriginCommand(ctx,u.tx,cap.CommandID,cap.CustomerID,e.Key,false);if err!=nil{return nil,err}
 	caller.AuthorityClock=e.now
-	if readOnly{_,err=OriginReadAuthorize(ctx,u.tx,hint,caller,e.Key,e.now())}else{_,err=OriginAuthorize(ctx,u.tx,hint,caller,e.Key,e.now())};if err!=nil{return nil,err}
+	if readOnly{_,err=OriginReadAuthorize(ctx,u.tx,hint,caller,e.Key,e.now())}else if mutating&&caller.StageRecovery!=""{u.currentAuthority,err=OriginCurrentAuthority(ctx,u.tx,hint,caller,e.Key,e.now())}else{_,err=OriginAuthorize(ctx,u.tx,hint,caller,e.Key,e.now())};if err!=nil{return nil,err}
 	if cap.ExpiresAt<=e.now(){return nil,ErrReview}
 	u.command,err=ReadOriginCommand(ctx,u.tx,cap.CommandID,cap.CustomerID,e.Key,true);if err!=nil{return nil,err}
 	c:=u.command;if c.Phase!="BOUND"&&c.Phase!="COUNTED"||c.OrderID==nil||*c.OrderID!=cap.OrderID||c.CreationHash==nil||*c.CreationHash!=cap.CreationHash||c.RequestHash!=cap.RequestHash||c.ReferenceHash!=cap.ReferenceHash||c.AuthorityHash!=cap.AuthorityHash{return nil,ErrReview}
 	u.creation,err=ReadOriginCreation(ctx,u.tx,c,e.Key);if err!=nil{return nil,err}
 	if c.Origin=="external-system"{var seal string;if u.tx.QueryRowContext(ctx,`SELECT proof_hash FROM pos_rewrite_screening_origin_system_authorities WHERE command_id=? FOR SHARE`,c.ID).Scan(&seal)!=nil||u.creation.SystemAuthorityHash!=seal{return nil,ErrReview}}
-	if mutating{if !originKey.MatchString(e.LegacyKey){return nil,ErrReview};u.counter,err=enterOriginCounter(ctx,u.tx,c);if err!=nil{return nil,err}}
+	if mutating{
+		a,_,_,readErr:=originReadAttempt(ctx,u.tx,c.ID,e.Key);if readErr!=nil{return nil,readErr};if a.Phase=="CONFIRMED"||a.Phase=="CAPTURED"{return u,nil}
+		if caller.StageRecovery!=""{if err=e.stageRecovery(ctx,u,a,cap,caller.StageRecovery,true);err!=nil{return nil,err}}
+		if !originKey.MatchString(e.LegacyKey){return nil,ErrReview};u.counter,err=enterOriginCounter(ctx,u.tx,c);if err!=nil{return nil,err}
+	}
 	if !readOnly{if err=originNative(ctx,u.tx,c,u.creation,false);err!=nil{return nil,err}};return u,nil
 }
 func(u *originUnit)close(){if u==nil{return};if u.tx!=nil&&!u.released{if u.counter!=nil&&u.counter.release(context.Background(),u.tx)!=nil{u.counter.prelude.counterPoisoned=true};u.tx.Rollback()};if u.conn!=nil{if u.counter!=nil&&u.counter.prelude.counterPoisoned{u.conn.Raw(func(interface{})error{return driver.ErrBadConn})};u.conn.Close()}}
@@ -131,6 +135,7 @@ func(e *OriginEngine)Read(ctx context.Context,cap OriginPaymentAuthorization,cal
 	u,err:=e.open(ctx,cap,caller,false,true);if err!=nil{return OriginPaymentView{},err};defer u.close();attempt,payload,response,err:=originReadAttempt(ctx,u.tx,cap.CommandID,e.Key);if errors.Is(err,sql.ErrNoRows){fence,readErr:=originReadNoEffect(ctx,u.tx,u.command,cap,e.Key);if readErr!=nil{return OriginPaymentView{},readErr};if fence==nil{return OriginPaymentView{},sql.ErrNoRows};return OriginPaymentView{Status:"NO_EFFECT",CommandID:cap.CommandID,OrderID:cap.OrderID,NoEffect:fence},u.commit(ctx)};if err!=nil{return OriginPaymentView{},err};if attempt.PaymentRequestHash!=cap.PaymentRequestHash{return OriginPaymentView{},ErrReview}
 	view,err:=e.view(ctx,u,attempt,payload,response);if err!=nil{return view,err}
 	if !recoverProvider||attempt.Phase=="CONFIRMED"||attempt.Phase=="FAILED"||attempt.Phase=="CAPTURED"{return view,u.commit(ctx)}
+	if caller.StageRecovery!=""{u.currentAuthority,err=OriginCurrentAuthority(ctx,u.tx,u.command,caller,e.Key,e.now());if err!=nil{return view,err};if err=e.stageRecovery(ctx,u,attempt,cap,caller.StageRecovery,false);err!=nil{return view,err}}
 	var request OriginProviderRequest;if originOpen(e.Key,"payment-request:"+cap.CommandID,payload,attempt.PayloadHash,&request)!=nil{return OriginPaymentView{},ErrReview}
 	if e.Provider==nil{return view,u.commit(ctx)};if err=u.commit(ctx);err!=nil{return view,err};u.close();u=nil
 	observation,err:=e.Provider.Recover(ctx,request);if err!=nil{return view,nil};return e.accept(ctx,cap,caller,observation,requestID)

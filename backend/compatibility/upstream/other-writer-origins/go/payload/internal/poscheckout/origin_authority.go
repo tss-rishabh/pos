@@ -14,6 +14,7 @@ type OriginCaller struct {
 	Credential string
 	TwoFA bool
 	StaffGrantID string
+	StageRecovery string
 	System bool
 	CSKAPIKey string
 	CredentialExpiresAt int64
@@ -66,7 +67,7 @@ func originAuthorize(ctx context.Context,tx *sql.Tx,hint OriginCommand,caller Or
 	}else if hint.Origin=="external-system"{
 		if !caller.System||caller.Credential!=""{return nil,ErrReview};if retained{if e:=originSystemRead(ctx,tx,hint,key,caller.CSKAPIKey);e!=nil{return nil,e}}else if e:=originSystem(ctx,tx,hint,key,caller.CSKAPIKey);e!=nil{return nil,e}
 	}else if caller.System||hint.Origin!="customer"{return nil,ErrReview}
-	if retained&&!currentPrincipal&&hint.Origin=="external-system"{return originNativeJSON(ctx,tx,`SELECT JSON_OBJECT('id',id) FROM users WHERE id=? FOR SHARE`,hint.CustomerID)}
+	if retained&&!currentPrincipal&&hint.Origin=="external-system"{return originNativeJSON(ctx,tx,`SELECT JSON_OBJECT('id',id) FROM users WHERE id=? FOR UPDATE`,hint.CustomerID)}
 	identity,e:=originNativeJSON(ctx,tx,`SELECT JSON_OBJECT('id',id,'status',status,'isBlock',is_block,'isDisabled',is_disabled,'isTwoFa',is_two_fa,'email',email,'telephone',telephone) FROM users WHERE id=? FOR UPDATE`,hint.CustomerID);if e!=nil{return nil,e}
 	// Source customer/system fingerprints use the canonical decimal ID string;
 	// actor fingerprints above intentionally keep the native numeric ID.
