@@ -4,6 +4,7 @@ import { identifier } from '../../../domain/validation.js';
 import { benefitDigest } from './crypto.js';
 import { equalImportHash, importFinancialError } from '../financial-adapter-crypto.js';
 import { benefitCount, benefitHash, benefitTimestamp } from './contracts.js';
+import type { CouponHistoryWitness } from './bridge.js';
 
 export const couponHistoryContract = 'pos-csv-coupon-history-v1';
 export const couponHistoryScopeSchema = z
@@ -74,7 +75,10 @@ export const qualifiedCouponHistorySchema = z
 export type CouponHistoryScope = z.infer<typeof couponHistoryScopeSchema>;
 export type QualifiedCouponHistory = z.infer<typeof qualifiedCouponHistorySchema>;
 export interface CsvCouponHistoryPort {
-  read(scope: CouponHistoryScope): Promise<QualifiedCouponHistory>;
+  read(
+    scope: CouponHistoryScope,
+    options?: { witness: CouponHistoryWitness; signal: AbortSignal },
+  ): Promise<QualifiedCouponHistory>;
 }
 export const couponHistoryHash = (value: Omit<QualifiedCouponHistory, 'signature'>, key: string) =>
   benefitDigest('coupon-history', value, key);
