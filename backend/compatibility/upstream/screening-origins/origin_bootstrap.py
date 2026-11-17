@@ -228,11 +228,13 @@ class OriginBootstrap:
         app.add_route(path,OriginBoundary(resource,('on_post',)));app.add_route(path+'/{command_id}',OriginBoundary(resource,('on_get',)))
         app.add_route(path+'/{command_id}/close',OriginBoundary(OriginClose(resource),('on_post',)))
         if self.system is not None:
-            from origin_system import SystemClose,SystemResume
+            from origin_system import SystemClose,SystemResume,SystemSuccessor
             system_path=settings.API_PREFIX+'/external/screening-orders'
             app.add_route(system_path,OriginBoundary(self.system,('on_post',)));app.add_route(system_path+'/{command_id}',OriginBoundary(self.system,('on_get',)))
             app.add_route(system_path+'/{command_id}/close',OriginBoundary(SystemClose(self.system),('on_post',)))
             app.add_route(system_path+'/{command_id}/resume',OriginBoundary(SystemResume(self.system),('on_post',)))
+            app.add_route(system_path+'/{command_id}/successors',OriginBoundary(SystemSuccessor(self.system),('on_post',)))
+            app.add_route(system_path+'/{command_id}/successors/{successor_id}',OriginBoundary(SystemSuccessor(self.system),('on_get',)))
 
 
 class OriginBoundary:

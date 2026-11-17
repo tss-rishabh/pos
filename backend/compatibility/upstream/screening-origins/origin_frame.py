@@ -151,6 +151,10 @@ class Frame:
             return False
         if self.value['phase']=='REJECTED':fail('SCREENING_ORIGIN_CLOSED_NO_ORDER')
         if self.value['phase']!='PREPARED' or self.value['expiresAt']<=self.owner.clock():fail('SCREENING_ORIGIN_EXPIRED')
+        # Append-only outcomes also fence a stale/replayed signed PREPARED row.
+        # A valid old state HMAC cannot erase an already committed disposition.
+        for table in ('pos_rewrite_screening_origin_creations','pos_rewrite_screening_origin_closures','pos_rewrite_screening_origin_payments','pos_rewrite_screening_origin_effects'):
+            if rows(self.session,'SELECT command_id FROM '+table+' WHERE command_id=:id FOR SHARE',{'id':self.command_id},2):fail('SCREENING_ORIGIN_RECONCILIATION_REQUIRED')
         if (self.value['authorityHash']!=authority_hash(self.owner.key,self.principal) or self.value['requestHash']!=request_hash(self.req)
                 or any(self.value[name]!=self.principal[name] for name in ('actorId','customerId','storeId','counterId'))):fail('SCREENING_ORIGIN_SCOPE_CHANGED')
         self.namespace=self.system.namespace() if self.system is not None else namespace(self.principal,self.req)

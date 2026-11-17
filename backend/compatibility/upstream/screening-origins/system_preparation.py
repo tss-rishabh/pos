@@ -61,11 +61,17 @@ def claim(owner,command,details):
     with owner.runtime.sessions() as session,session.begin():
         session.connection(execution_options={'isolation_level':'READ COMMITTED'})
         service=current_service(session,key,details)
+        hint=one(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id',{'id':command})
+        hinted=json_value(hint['data'])
+        if hinted.get('commandId')!=command or digest(key,'system-job',hinted)!=hint['proof_hash']:fail()
+        if hinted.get('state') not in ('PREPARED','SOURCE_READY'):return None
         hints=rows(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':command},2)
         if hints:
             one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':hints[0]['customer_id']})
             value=read(session,command,str(hints[0]['customer_id']),key)
         else:value=None
+        from system_successor import assert_active
+        assert_active(session,hinted['referenceHash'],command,key)
         row,state=job(session,command,key)
         if state['state'] not in ('PREPARED','SOURCE_READY'):return None
         if state.get('serviceHash')!=digest(key,'system-service',service):
@@ -89,6 +95,8 @@ def claim(owner,command,details):
 
 def assert_attempt(session,context):
     key=context.owner.runtime.key
+    from system_successor import assert_active
+    assert_active(session,context.reference_hash,context.command_id,key)
     _row,state=job(session,context.command_id,key)
     if (state.get('state')!='SOURCE_RUNNING' or state.get('attemptId')!=context.attempt_id
             or state.get('attemptExpiresAt',0)<=context.owner.clock()):fail('SCREENING_ORIGIN_SOURCE_DISPATCH_CLOSED')
@@ -96,6 +104,7 @@ def assert_attempt(session,context):
     value=json_value(row['data'])
     if (row['phase']!='RUNNING' or value.get('phase')!='RUNNING' or value.get('id')!=context.attempt_id or value.get('commandId')!=context.command_id
             or value.get('expiresAt')!=state['attemptExpiresAt'] or digest(key,'system-attempt',value)!=row['proof_hash']):fail()
+    if rows(session,'SELECT attempt_id FROM pos_rewrite_screening_origin_system_no_dispatch WHERE attempt_id=:id FOR SHARE',{'id':context.attempt_id},2):fail('SCREENING_ORIGIN_SOURCE_DISPATCH_CLOSED')
     return state
 
 

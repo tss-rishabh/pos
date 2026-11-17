@@ -273,12 +273,18 @@ class SystemOrders:
         with self.runtime.sessions() as session,session.begin():
             service=current_service(session,self.runtime.key,details)
             descriptor['serviceHash']=digest(self.runtime.key,'system-service',service)
+            from system_successor import initialize,head
+            existing_head=head(session,reference_hash,self.runtime.key)
+            if existing_head is None and rows(session,'SELECT command_id FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id FOR SHARE',{'id':command},2):fail('SCREENING_ORIGIN_REFERENCE_STATE_MISSING')
+            active=existing_head or initialize(session,reference_hash,command,self.runtime.key,self.clock())
+            command=active['activeCommandId'];descriptor['commandId']=command
             prior=rows(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id FOR UPDATE',{'id':command},2)
             if prior:
                 old=json_value(prior[0]['data'])
                 if old.get('requestHash')!=request_hash or old.get('referenceHash')!=reference_hash or not hmac.compare_digest(digest(self.runtime.key,'system-job',old),prior[0]['proof_hash']):fail('SCREENING_ORIGIN_REFERENCE_CONFLICT')
                 descriptor=old
             else:
+                if existing_head is not None:fail('SCREENING_ORIGIN_REFERENCE_STATE_MISSING')
                 session.execute(text('INSERT INTO pos_rewrite_screening_origin_system_jobs(command_id,data,proof_hash,payload,payload_hash) VALUES(:id,:data,:proof,:payload,:hash)'),
                     {'id':command,'data':canonical(descriptor),'proof':digest(self.runtime.key,'system-job',descriptor),
                      'payload':seal_effects(self.runtime.key,'system-job:'+command,saved_payload),'hash':hashlib.sha256(canonical(saved_payload).encode()).hexdigest()})
@@ -346,7 +352,12 @@ class SystemOrders:
                     if payments:
                         payment(session,value,self.runtime.key);state['state']='COMPLETE'
                 elif value['phase']=='REJECTED':state={**state,'state':'REJECTED'}
-            return {'commandId':command_id,'phase':state['state'],'orderId':state['orderId']}
+            result={'commandId':command_id,'phase':state['state'],'orderId':state['orderId']}
+            from system_successor import head
+            current=head(session,state['referenceHash'],self.runtime.key,lock=False)
+            if current is not None:result['referenceVersion']=current['version']
+            if state.get('successorId') is not None:result['successorCommandId']=state['successorId']
+            return result
     def finalize_metadata(self,command_id,details):
         # Original build_order_attributes_model(priority2,EXTERNAL_API) runs
         # once, transactionally with its receipt, after the source placement.
@@ -464,3 +475,20 @@ class SystemResume:
         if not UUID.fullmatch(command_id) or req.context.get('data') not in (None,{}):fail('SCREENING_ORIGIN_REQUEST_INVALID')
         from system_preparation import resume
         details=self.system.authenticate(req);resp.text=canonical(resume(self.system,command_id,details));resp.set_header('Cache-Control','no-store')
+
+class SystemSuccessor:
+    def __init__(self,system):self.system=system
+    def on_post(self,req,resp,command_id):
+        import os
+        from system_successor import successor,CONTRACT
+        if os.environ.get('POS_SCREENING_ORIGIN_SYSTEM_SUCCESSOR_CONTRACT')!=CONTRACT:fail('SCREENING_ORIGIN_SUCCESSOR_UNAVAILABLE')
+        if not UUID.fullmatch(command_id):fail('SCREENING_ORIGIN_REQUEST_INVALID')
+        details=self.system.authenticate(req);resp.text=canonical(successor(self.system,command_id,details,req.context.get('data')));resp.set_header('Cache-Control','no-store')
+    def on_get(self,req,resp,command_id,successor_id):
+        from system_successor import receipt
+        if not UUID.fullmatch(command_id) or not UUID.fullmatch(successor_id):fail('SCREENING_ORIGIN_REQUEST_INVALID')
+        self.system.authenticate(req)
+        found=receipt(self.system,command_id,successor_id)
+        resp.set_header('Cache-Control','no-store')
+        if found is None:resp.status='404 Not Found';resp.text=canonical({'code':'SCREENING_ORIGIN_SUCCESSOR_NOT_FOUND'});return
+        resp.text=canonical(found)
