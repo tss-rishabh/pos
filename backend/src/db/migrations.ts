@@ -108,6 +108,7 @@ export const migrationPaths = [
   'compatibility/upstream/screening-origins/origin-coupon-generation-migration.sql',
   'compatibility/upstream/screening-origins/screening-counter-generation-migration.sql',
   'compatibility/upstream/screening-origins/stage-recovery-migration.sql',
+  'compatibility/upstream/screening-origins/preview-migration.sql',
 ] as const;
 export class MigrationError extends Error {
   constructor(readonly code: string) {

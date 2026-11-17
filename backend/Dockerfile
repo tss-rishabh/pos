@@ -54,6 +54,7 @@ COPY compatibility/upstream/screening-origins/origin-coupon-migration.sql ./comp
 COPY compatibility/upstream/screening-origins/origin-coupon-generation-migration.sql ./compatibility/upstream/screening-origins/origin-coupon-generation-migration.sql
 COPY compatibility/upstream/screening-origins/screening-counter-generation-migration.sql ./compatibility/upstream/screening-origins/screening-counter-generation-migration.sql
 COPY compatibility/upstream/screening-origins/stage-recovery-migration.sql ./compatibility/upstream/screening-origins/stage-recovery-migration.sql
+COPY compatibility/upstream/screening-origins/preview-migration.sql ./compatibility/upstream/screening-origins/preview-migration.sql
 COPY src/modules/screening-origins/*.sql ./src/modules/screening-origins/
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql

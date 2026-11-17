@@ -77,9 +77,12 @@ server-owned intent, never a client-controlled database identifier. Missing
 warehouse configuration produces an actionable availability error; it does not
 silently run historical scans on a MySQL reader.
 
-BigQuery report parity requires dataset/table mapping, timezone agreement, CDC
-watermark and deletion/return reconciliation. These details are pending from the
-user. Historical reports remain release-blocked until verified on that dataset.
+The supplied read-only warehouse identity accesses `tssgcp2025.tss_mysql_raw_layer`
+in `asia-south1`. Report parity still requires accepted table/view mapping,
+timezone agreement, CDC watermark and deletion/return reconciliation. Historical
+reports remain release-blocked until verified on that dataset. Independent
+publication writers require separately provisioned credentials; the supplied
+reports reader is never a warehouse writer.
 
 ## Offline semantics
 

@@ -36,14 +36,22 @@ The private bridge now records authenticated actor IDs on eligibility failures
 and distinguishes coupon-preview resources (`ebbed67`). These remain untested
 implementation checkpoints.
 
-Remaining implementation: genuine source cart/early CSK preview rollback and
-replay, membership consumer/bootstrap wiring and recovery resource mounting,
-genuine legacy staff grant forwarding for cart/sync calls, and automatic new
-customer quota discovery/admission in the background publisher. The publisher's
-manual prepare/drain path alone does not complete automatic coverage. Then regenerate
-the composed source artifacts, reconcile every remaining requirement, and only
-after implementation is complete begin consolidated validation. No new tests,
-typechecks, lint, application builds, live writes or deployments were run.
+Implementation integration is now closed against the currently identified code
+inventory: shared preview/member/CSK/worker/recovery mounts are on `1193823` and
+`d2419d8`, genuine legacy staff cart forwarding on `a76957d`, lazy coupon changes
+on `193e18c`, and automatic quota discovery on `763e886`. Root corrected the
+legacy template block spelling, registered/packaged the preview tables and
+regenerated the common/API/legacy/payment source artifacts. The payment tree
+still contains 101 files. All three implementation owners report no remaining
+required code in their assigned families; the whole-scope implementation review
+identified no additional missing family. This is not parity certification.
+
+The next phase is consolidated validation and fixes across the full original
+scope: type/security checks, source differentials, native MySQL, browser/offline,
+performance and Windows/macOS. Preserve and extend the evidence rather than
+weakening gates. Newly discovered implementation gaps must be fixed before their
+workflow can be certified. No new tests, typechecks, lint, application builds,
+live writes or deployments had run before this phase transition.
 The release gate remains unaccepted; historical results below do not certify
 these new changes.
 

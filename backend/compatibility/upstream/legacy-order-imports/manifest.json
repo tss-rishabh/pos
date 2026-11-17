@@ -157,7 +157,7 @@
       "screening_counter_definition.go": "3a7f8be8559a4bbe41e43f92c4dfc781a9e0f8c53af14452b86cce7101676a54",
       "screening-counter-definition.json": "e865eee795ed04746d1a63fbcfa016bfa8f3c2595f6454ea13105d117cb6c84b",
       "screening-counter.review.sql": "5d9605fc9a6870cc2cbac14ec1039942c8316dcadc3582c3ce241ae8e8124a57",
-      "screening-counter-writers.review.sql": "d5109fa2c2ec514cf5c556971e4a2e2f53c4df3dfa8b03b300bd4ad10c88ef7b",
+      "screening-counter-writers.review.sql": "699aebc0b52fad850b43a8d065b27b0c2b546dc746bf587d5ea24ce221d0658f",
       "screening-counter-bigquery.review.sql": "8a579c405a63ae0078d1771cda1f00e5b0cd0ee8065613a2111fba52ef8cac3c",
       "screening-counter-grants.review.sql": "332a613e1e587c8dbe2089547330fd7b1716a5fdadc6fc0dd36cd3a85e3be6e4"
     }

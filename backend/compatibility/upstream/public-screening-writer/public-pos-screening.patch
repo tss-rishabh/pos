@@ -26,7 +26,7 @@
 +
 +from middleware.PosImportOrderGuard import ImportOrderGuard
 +
-+middleware = [_node_screening, DatabaseManager(db_session, db_session_r, mongoDb), BlacklistHandler(), AuthHandler(), JSONTranslator(), CartMiddleware(), WishlistMiddleware(),MultipartMiddleware(), ActiveCartMiddleware(), ImportOrderGuard()]
++middleware = [_node_screening, _screening_origins, DatabaseManager(db_session, db_session_r, mongoDb), BlacklistHandler(), AuthHandler(), JSONTranslator(), CartMiddleware(), WishlistMiddleware(),MultipartMiddleware(), ActiveCartMiddleware(), ImportOrderGuard()]
  
  app = falcon.App(middleware=middleware)
  # app.add_error_handler(Exception, logging_error_handler)  # Disabled: unified JSON logger handles all exceptions
@@ -47,6 +47,13 @@
  app.add_route(settings.POS_API_PREFIX + '/exchange', ExchangeOrderController.PosExchangeOrder())
  app.add_route(settings.POS_API_PREFIX + '/return-payamt-tss-money', OrderController.ReturnPayAmountToTssMoneyPOS())
  app.add_route(settings.API_PREFIX + '/pos-shop', InvoiceController.PosInvoiceShop())
+@@ -563,4 +574,6 @@
+ app.add_route(settings.API_PREFIX + '/show-invoicer', InvoiceController.ShowInvoicerResource())
+ app.add_route(settings.API_PREFIX + '/show-backend-invoice', InvoiceController.BackendInvoiceResource())
+ app.add_route(settings.API_PREFIX + '/store-register', AuthController.StoreRegister())
+-app.add_route(settings.POS_API_PREFIX + '/cancel-pos-order', OrderController.CancelPosorder())+app.add_route(settings.POS_API_PREFIX + '/cancel-pos-order', OrderController.CancelPosorder())
++import sys as _origin_event_stream
++app = _screening_origins.coupon_control_application(app, _origin_event_stream.stdout)
 --- /dev/null
 +++ b/middleware/PosImportOrderGuard.py
 @@ -0,0 +1,111 @@

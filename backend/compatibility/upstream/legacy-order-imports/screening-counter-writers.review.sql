@@ -1,5 +1,5 @@
 -- Review-only legacy-table trigger/definer cutover AFTER control-table migration.
--- Never apply automatically; no application EXECUTE or projection DML.
+-- Never apply automatically; no application EXECUTE except fixed readonly metadata function; no projection DML.
 DELIMITER $$
 CREATE PROCEDURE pos_screening_sync_marker(IN target_marker INT,IN old_exists TINYINT,IN old_customer BIGINT,IN old_order BIGINT,IN old_line BIGINT) SQL SECURITY DEFINER BEGIN
 DECLARE previous_customer BIGINT DEFAULT NULL;

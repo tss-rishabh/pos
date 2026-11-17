@@ -122,7 +122,7 @@ def apply(changes):
     changes[path] = (original, value+BRIDGE)
     path = 'order/templates/order/create_order.html'
     original, value = changes[path]
-    marker = '{% endblock custom_script %}'
+    marker = '{% endblock custom-script %}'
     if value.count(marker) != 1:
         raise RuntimeError('Legacy cart template boundary changed')
     changes[path] = (original, value.replace(marker, TEMPLATE+'\n'+marker, 1))
