@@ -14,21 +14,23 @@
     "pos_node_screening.py": "a199bb17fa41d72824ef8a371e4ee614def6271f97e75eb37c97e8912aa723a5"
   },
   "files": {
-    "writer_protocol.py": "c691e06b1f029164ec77c15905f1aa915b8392f17738d6679d3747698634f88d",
-    "native_authority.py": "8147eb040afd6a5b19e98e4f7df73e2d13990a0bafca737bf9f60fb610e812cc",
+    "writer_protocol.py": "47a7d97a80131325cd5f4105262e9c0c42edc652bfa7174c085d23106f5d3a18",
+    "native_authority.py": "6735ea187883428567ecf2a112aea5282106d08daf474219554eeee1bffac3ea",
     "creation.py": "63c06c958bf9ba51bc8e34b30959bd8ec25f9fd5f66813df69bef4da7d14e2dd",
-    "source_frame.py": "349df69db817ed57f05ee03218da9c0aa9a44e913935a6df1c32954788c127d6",
-    "bootstrap.py": "295840d4d0fd95def276eb837230cf7337f8b9208ebc9f8fd96b1aaa50a065d1",
+    "source_frame.py": "70e2f09a3372b6b27a0280750343b04c6b50c19dfcc9ea0e09694e0c680ed5b3",
+    "bootstrap.py": "f0764433b29d72cff0b366d868e5b28b69291782315600fe4e23d4ae3b33f631",
     "public_effects.py": "34dce2502289593c5e89afa284be33b0091edbaa066b0b385a4c7dfd18cfcfa9",
     "publication_resource.py": "be6e008bc6bb70e0b2600d7a6016cf901121bedfd4f75a1e74082670b44ab679",
-    "migration.review.sql": "c9f8402ce3518910aa6ac64ddc9f5065d8f89e10059f5519857c3f94fbce0603"
+    "negative.py": "c3676b6c0c8fe4cadab4825bffcd55d8b7c92f44175dcafb7195af27193755f3",
+    "negative_resource.py": "2c47efc677df44171ec09a90873ce36c60ba148a80fd80d3a284715d7312ddce",
+    "migration.review.sql": "d3a9eec934e329f470476ae257f15d32e7ec29f01374e50e9be799e919d0ce16"
   },
   "modelComposition": {
     "contract": "pos-import-source-model-v1",
     "activated": false,
     "files": {
       "model_compat.py": "3492926c4c12afba4094a016befb6b6b48d47afdc80b237204a4dd7d6174af65",
-      "transaction.py": "f62781477b97b0a5c18ae4c488a64168af50a25f0e789ff0695f45e564f6474e"
+      "transaction.py": "00f4487027742a96fc1f330187a065504e96a48bfe2dc9df110745cabb07658b"
     }
   },
   "patchSha256": "a5bcffa29ab257ef3eab26173a58575d141f020426195b5eeb359b1d1a0dc3f6"

@@ -31,6 +31,11 @@ import { readPublicCompletion } from './settlement.js';
 import { readPublicPublication } from './publication.js';
 import { equalImportHash } from '../../legacy-order-imports/financial-adapter-crypto.js';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
+import {
+  readPublicScreeningNegative,
+  assertNoPublicScreeningEffects,
+  requestPublicScreeningNegative,
+} from './negative.js';
 
 export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator) {
   async function scope(
@@ -113,7 +118,20 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
       canAbandon: false,
       reviewCode: null,
     };
-    if (!creation)
+    if (!creation) {
+      const negative = await readPublicScreeningNegative(tx, intent.value, coordinator.key());
+      if (negative) {
+        await assertNoPublicScreeningEffects(tx, intent.value, locked.state);
+        const closed = intent.row.status === 'closed-no-order';
+        if (closed && locked.state.screeningAdmission?.status !== 'closed-no-order')
+          throw screeningReconciliationRequired();
+        return publicScreeningViewSchema.parse({
+          ...base,
+          status: closed ? 'closed-no-order' : 'source-rejected',
+          canCloseNoOrder: !closed && locked.state.operatorId === user.id,
+        });
+      }
+      if (intent.row.status === 'closed-no-order') throw screeningReconciliationRequired();
       return publicScreeningViewSchema.parse({
         ...base,
         status:
@@ -124,7 +142,12 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
               : 'awaiting-source',
         reviewCode:
           intent.row.status === 'awaiting-source' ? 'SCREENING_SOURCE_OUTCOME_UNKNOWN' : null,
+        canCloseNoOrder:
+          intent.row.status === 'awaiting-source' &&
+          intent.value.expiresAt <= coordinator.clock() &&
+          locked.state.operatorId === user.id,
       });
+    }
     const tombstone = await abandoned(tx, p.operationId);
     if (tombstone) {
       if (
@@ -181,6 +204,111 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
     );
     await coordinator.session(user);
     return result;
+  }
+  async function closeNative(
+    tx: AdministrationTransaction,
+    user: Principal,
+    p: PublicScreeningScope,
+    requestSource: boolean,
+  ): Promise<'closed-unsent' | 'closed-no-order' | null> {
+    const { creation, state, intent } = await scope(tx, user, p);
+    if (state.operatorId !== user.id)
+      throw new AppError(
+        403,
+        'CHECKOUT_OWNER_REQUIRED',
+        'Only the original operator can close this admission.',
+      );
+    if (creation || state.orderId) throw screeningReconciliationRequired();
+    const negative = await readPublicScreeningNegative(tx, intent.value, coordinator.key());
+    if (negative) {
+      await assertNoPublicScreeningEffects(tx, intent.value, state);
+      if (intent.row.status === 'closed-no-order') {
+        if (state.screeningAdmission?.status !== 'closed-no-order')
+          throw screeningReconciliationRequired();
+        return 'closed-no-order';
+      }
+    } else if (intent.row.status === 'closed-no-order') throw screeningReconciliationRequired();
+    if (
+      !negative &&
+      intent.row.status === 'closed-unsent' &&
+      state.screeningAdmission?.status === 'closed-unsent'
+    )
+      return 'closed-unsent';
+    const [operation] = await tx
+      .select()
+      .from(checkoutOperations)
+      .where(
+        and(
+          eq(checkoutOperations.checkoutId, p.checkoutId),
+          eq(checkoutOperations.id, p.operationId),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    if (
+      !operation ||
+      !['inflight', 'uncertain', 'rejected'].includes(operation.status) ||
+      operation.result !== null
+    )
+      throw screeningReconciliationRequired();
+    if (!negative) {
+      if (intent.value.expiresAt > coordinator.clock())
+        throw new AppError(
+          409,
+          'SCREENING_SUBMISSION_INFLIGHT',
+          'Wait for the original submission before closing it.',
+        );
+      if (intent.row.status === 'awaiting-source' && requestSource) return null;
+      if (intent.row.status !== 'prepared') throw screeningReconciliationRequired();
+      const [dispatch] = await tx
+        .select()
+        .from(publicScreeningSubmissionDispatches)
+        .where(eq(publicScreeningSubmissionDispatches.operationId, p.operationId))
+        .limit(1)
+        .for('share');
+      if (dispatch) throw screeningReconciliationRequired();
+      const [reservation] = await tx.execute(
+        sql`SELECT operation_id FROM pos_rewrite_import_screening_reservations WHERE operation_id=${p.operationId} LIMIT 1`,
+      );
+      if (!Array.isArray(reservation) || reservation.length)
+        throw screeningReconciliationRequired();
+    }
+    const status = negative ? ('closed-no-order' as const) : ('closed-unsent' as const);
+    const next = checkoutStateSchema.parse({
+      ...state,
+      version: state.version + 1,
+      busyOperationId: null,
+      phase: 'quoted',
+      screeningAdmission: { operationId: p.operationId, status },
+      updatedAt: coordinator.clock(),
+    });
+    await tx
+      .update(checkoutSessions)
+      .set({ version: next.version, state: next })
+      .where(eq(checkoutSessions.id, state.id));
+    await tx
+      .update(checkoutOperations)
+      .set({
+        status: 'rejected',
+        errorCode: negative
+          ? 'SCREENING_ADMISSION_CLOSED_NO_ORDER'
+          : 'SCREENING_ADMISSION_CLOSED_UNSENT',
+      })
+      .where(
+        and(
+          eq(checkoutOperations.checkoutId, p.checkoutId),
+          eq(checkoutOperations.id, p.operationId),
+        ),
+      );
+    await tx
+      .update(publicScreeningWork)
+      .set({
+        status,
+        nextCheckAt: Number.MAX_SAFE_INTEGER,
+        updatedAt: coordinator.clock(),
+      })
+      .where(eq(publicScreeningWork.operationId, p.operationId));
+    return status;
   }
   return {
     read: checkedRead,
@@ -259,75 +387,18 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
     },
     async closeUnsent(user: Principal, p: PublicScreeningScope) {
       await coordinator.session(user);
-      await coordinator.transaction(async (tx) => {
-        const locked = await scope(tx, user, p),
-          { creation, state, intent } = locked;
-        if (state.operatorId !== user.id)
-          throw new AppError(
-            403,
-            'CHECKOUT_OWNER_REQUIRED',
-            'Only the original operator can close an unsent admission.',
-          );
-        if (
-          !creation &&
-          !state.orderId &&
-          intent.row.status === 'closed-unsent' &&
-          state.screeningAdmission?.status === 'closed-unsent'
-        )
-          return;
-        if (
-          creation ||
-          state.orderId ||
-          intent.row.status !== 'prepared' ||
-          intent.value.expiresAt > coordinator.clock()
-        )
-          throw screeningReconciliationRequired();
-        const [dispatch] = await tx
-          .select()
-          .from(publicScreeningSubmissionDispatches)
-          .where(eq(publicScreeningSubmissionDispatches.operationId, p.operationId))
-          .limit(1)
-          .for('share');
-        if (dispatch) throw screeningReconciliationRequired();
-        const [reservation] = await tx.execute(
-          sql`SELECT operation_id FROM pos_rewrite_import_screening_reservations WHERE operation_id=${p.operationId} LIMIT 1`,
-        );
-        if (!Array.isArray(reservation) || reservation.length)
-          throw screeningReconciliationRequired();
-        // This closes only a native PREPARED admission whose original sender
-        // never crossed its durable dispatch checkpoint, not a TTL quota release.
-        const next = checkoutStateSchema.parse({
-          ...state,
-          version: state.version + 1,
-          busyOperationId: null,
-          phase: 'quoted',
-          screeningAdmission: { operationId: p.operationId, status: 'closed-unsent' },
-          updatedAt: coordinator.clock(),
-        });
-        await tx
-          .update(checkoutSessions)
-          .set({ version: next.version, state: next })
-          .where(eq(checkoutSessions.id, state.id));
-        await tx
-          .update(checkoutOperations)
-          .set({ status: 'rejected', errorCode: 'SCREENING_ADMISSION_CLOSED_UNSENT' })
-          .where(
-            and(
-              eq(checkoutOperations.checkoutId, p.checkoutId),
-              eq(checkoutOperations.id, p.operationId),
-            ),
-          );
-        await tx
-          .update(publicScreeningWork)
-          .set({
-            status: 'closed-unsent',
-            nextCheckAt: Number.MAX_SAFE_INTEGER,
-            updatedAt: coordinator.clock(),
-          })
-          .where(eq(publicScreeningWork.operationId, p.operationId));
-      });
+      let status = await coordinator.transaction((tx) => closeNative(tx, user, p, true));
+      if (status === null) {
+        // Explicit closure only; GET/reload never sends this request. No SQL
+        // transaction/lock is held during the private source call.
+        await coordinator.session(user);
+        await requestPublicScreeningNegative(coordinator.options, p.operationId);
+        await coordinator.session(user);
+        status = await coordinator.transaction((tx) => closeNative(tx, user, p, false));
+      }
+      if (status === null) throw screeningReconciliationRequired();
       await coordinator.session(user);
-      return { operationId: p.operationId, status: 'closed-unsent' as const };
+      return { operationId: p.operationId, status };
     },
     async abandon(
       user: Principal,

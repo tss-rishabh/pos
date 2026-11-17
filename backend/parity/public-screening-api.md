@@ -94,9 +94,11 @@ also fences its delayed submission callback. Signed/offline collected cash is
 never deleted, refunded or converted into a draft by this action.
 
 Only an expired native PREPARED admission with no dispatch checkpoint, source
-order or reservation can close as unsent. It atomically fences the original busy
-operation/version. Absence/404 after a dispatch, timeout or missing source reply
-never proves no effect and never releases quota. No source call is retried by a
+order or reservation can close as unsent. Dispatched commands instead require
+the authenticated source no-order tombstone and native closure described in
+[public-screening-negative.md](public-screening-negative.md); they are reported
+honestly as `source-rejected` / `closed-no-order`. Absence/404 after a dispatch,
+timeout or missing source reply never proves no effect or releases quota. No source call is retried by a
 GET. A new UI child mounts only for `screeningAdmission`; opaque action IDs are
 saved before a POST, reload/status checks are GET-only and a failed parent
 refresh retains the confirmed result. This child never clears a local cart,
@@ -178,8 +180,9 @@ No real provider, broker, production database, upload or deployment was invoked.
 
 Remaining CODE: website/customer/system origins and their original auth/nonce
 protocols; ticket+new/upgrade/automatic-free membership or gift issuance
-composition; benefit-aware abandonment; a proved negative receipt for an
-already-dispatched source command that created no order. The conservative Node
+composition; benefit-aware abandonment. The dispatched/no-order negative code
+is implemented separately in [public-screening-negative.md](public-screening-negative.md)
+and retains explicit source/runtime/ingress acceptance gates. The conservative Node
 preflight rejects unsupported variants before dispatch. The public protocol
 continues to gate unpatched writer participation. Historical pre-proof funding
 requires explicit reconciliation. A cashier's original local draft is retained

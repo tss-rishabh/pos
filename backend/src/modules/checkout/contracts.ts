@@ -69,7 +69,7 @@ export type CheckoutClearance = z.infer<typeof checkoutClearanceSchema>;
 export interface CheckoutState {
   screeningAdmission?: {
     operationId: string;
-    status: 'pending' | 'created' | 'completed' | 'abandoned' | 'closed-unsent';
+    status: 'pending' | 'created' | 'completed' | 'abandoned' | 'closed-unsent' | 'closed-no-order';
   };
   orderCopy?: CopyBinding | null;
   id: string;
@@ -124,7 +124,14 @@ export const checkoutStateSchema: z.ZodType<CheckoutState> = z.object({
   screeningAdmission: z
     .object({
       operationId: z.uuid(),
-      status: z.enum(['pending', 'created', 'completed', 'abandoned', 'closed-unsent']),
+      status: z.enum([
+        'pending',
+        'created',
+        'completed',
+        'abandoned',
+        'closed-unsent',
+        'closed-no-order',
+      ]),
     })
     .strict()
     .optional(),

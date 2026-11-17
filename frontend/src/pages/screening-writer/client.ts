@@ -17,6 +17,8 @@ export const screeningViewSchema = z
       'completed',
       'abandoned',
       'closed-unsent',
+      'source-rejected',
+      'closed-no-order',
     ]),
     paymentReceiptId: z
       .string()
@@ -26,6 +28,7 @@ export const screeningViewSchema = z
       .enum(['pending', 'processing', 'uncertain', 'accepted', 'cancelled', 'unavailable'])
       .nullable(),
     canAbandon: z.boolean(),
+    canCloseNoOrder: z.boolean().optional(),
     reviewCode: z
       .enum([
         'SCREENING_SOURCE_OUTCOME_UNKNOWN',
@@ -81,7 +84,9 @@ export async function closeUnsentScreening(scope: ScreeningScope) {
   const value = await post(
     base(scope) + '/closures',
     {},
-    z.object({ operationId: z.uuid(), status: z.literal('closed-unsent') }).strict(),
+    z
+      .object({ operationId: z.uuid(), status: z.enum(['closed-unsent', 'closed-no-order']) })
+      .strict(),
     scope.operatorId,
   );
   if (value.operationId !== scope.operationId)

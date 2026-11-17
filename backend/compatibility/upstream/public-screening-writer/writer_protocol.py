@@ -38,17 +38,9 @@ def _unique(pairs):
     return result
 
 
-def verify(value,secret,now):
-    derived=key(secret)
+def validate_saved(cap):
+    """Bounded immutable shape only; not authorization or a renewed capability."""
     try:
-        if not isinstance(value,str) or len(value)>4096:fail()
-        parts=value.split('.')
-        if len(parts)!=2 or not re.fullmatch(r'[A-Za-z0-9_-]+',parts[0]) or not re.fullmatch(r'[a-f0-9]{64}',parts[1]):fail()
-        raw=base64.urlsafe_b64decode(parts[0]+'='*((4-len(parts[0])%4)%4))
-        if base64.urlsafe_b64encode(raw).decode().rstrip('=')!=parts[0]:fail()
-        signature=hmac.new(derived,(CONTRACT+'\n'+parts[0]).encode(),hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(signature,parts[1]):fail()
-        cap=json.loads(raw.decode('utf-8'),object_pairs_hook=_unique)
         if not isinstance(cap,dict) or set(cap)!=FIELDS or type(cap['v']) is not int or cap['v']!=1 or cap['contract']!=CONTRACT:fail()
         for name in ('operationId','checkoutId'):
             if not isinstance(cap[name],str) or not re.fullmatch(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}',cap[name]):fail()
@@ -62,7 +54,24 @@ def verify(value,secret,now):
             if not isinstance(number,str) or not re.fullmatch(r'(?:0|[1-9][0-9]{0,19})',number) or int(number)>18446744073709551615:fail()
         for name in ('checkoutVersion','issuedAt','expiresAt'):
             if type(cap[name]) is not int or not 0<=cap[name]<=SAFE:fail()
-        if cap['issuedAt']<1 or cap['issuedAt']>now or cap['expiresAt']<=now or cap['expiresAt']<=cap['issuedAt'] or cap['expiresAt']>cap['issuedAt']+60000:fail()
+        if cap['issuedAt']<1 or cap['expiresAt']<=cap['issuedAt'] or cap['expiresAt']>cap['issuedAt']+60000:fail()
+        return cap
+    except ScreeningWriterError:raise
+    except Exception:fail()
+
+
+def verify(value,secret,now):
+    derived=key(secret)
+    try:
+        if not isinstance(value,str) or len(value)>4096:fail()
+        parts=value.split('.')
+        if len(parts)!=2 or not re.fullmatch(r'[A-Za-z0-9_-]+',parts[0]) or not re.fullmatch(r'[a-f0-9]{64}',parts[1]):fail()
+        raw=base64.urlsafe_b64decode(parts[0]+'='*((4-len(parts[0])%4)%4))
+        if base64.urlsafe_b64encode(raw).decode().rstrip('=')!=parts[0]:fail()
+        signature=hmac.new(derived,(CONTRACT+'\n'+parts[0]).encode(),hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(signature,parts[1]):fail()
+        cap=validate_saved(json.loads(raw.decode('utf-8'),object_pairs_hook=_unique))
+        if cap['issuedAt']>now or cap['expiresAt']<=now:fail()
         return cap
     except ScreeningWriterError:raise
     except Exception:fail()

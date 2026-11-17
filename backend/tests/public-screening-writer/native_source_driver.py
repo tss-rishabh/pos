@@ -51,7 +51,7 @@ def run(value):
         len(url.database)!=len('pos_rewrite_import_runtime_')+12 or url.query):raise RuntimeError('Isolated localhost fixture required')
     engine=create_engine(url.set(drivername='mysql+pymysql'),echo=False,hide_parameters=True)
     event.listen(Session,'before_flush',normalize_source_sentinels)
-    event.listen(Session,'before_commit',guard_private_commit)
+    event.listen(engine,'commit',guard_private_commit)
     event.listen(engine,'before_cursor_execute',guard_private_statement)
     sessions=sessionmaker(bind=engine,expire_on_commit=False)
     source=NativePipeline(value['sourceRoot'],None)
@@ -137,6 +137,7 @@ def run(value):
     try:
         cap={'scope':{'actorId':frame.cap['actorId'],'storeId':frame.cap['storeId'],'counterId':frame.cap['counterId']}}
         source.order_pipeline(frame.source,user,plan,cap)
+        if value.get('escapeCommit'):frame.session.connection().commit()
         if value.get('lateFailure'):raise ScreeningWriterError('SCREENING_WRITER_FIXTURE_LATE_FAILURE')
         if value.get('gate'):
             print('PUBLIC_BODY_READY',flush=True)
@@ -146,6 +147,7 @@ def run(value):
                 time.sleep(.01)
     except Exception as error:
         failure=error
+    if 'finishNow' in value:value['now']=value['finishNow']
     try:frame.finish(req,resp,failure is None)
     except ScreeningWriterError as error:
         if failure is None:failure=error

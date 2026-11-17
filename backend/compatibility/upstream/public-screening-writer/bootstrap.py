@@ -34,7 +34,9 @@ class Bootstrap:
         if bind is None:fail('SCREENING_WRITER_UNAVAILABLE')
         self.sessions=sessionmaker(bind=bind,expire_on_commit=False)
         event.listen(bind,'before_cursor_execute',guard_private_statement)
-        event.listen(self.sessions.class_,'before_commit',guard_private_commit)
+        # Session.before_commit also fires for RELEASE SAVEPOINT. Guard the
+        # physical connection COMMIT so nested source rollback stays available.
+        event.listen(bind,'commit',guard_private_commit)
         event.listen(self.sessions.class_,'before_flush',normalize_source_sentinels)
         for module in self.modules:
             for name in ('Session','SessionR','SessionC','SessionReadCMS'):
@@ -54,6 +56,7 @@ class Bootstrap:
                 try:return resource.on_post(req,resp)
                 except Exception as error:
                     if FRAME.get() is None:raise
+                    FRAME.get().remember_rejection(error)
                     static_http_error(error)
         return ProtectedOrder()
     def activate(self,namespace):

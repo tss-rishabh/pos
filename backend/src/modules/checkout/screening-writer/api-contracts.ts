@@ -16,6 +16,8 @@ export const publicScreeningViewSchema = z
       'completed',
       'abandoned',
       'closed-unsent',
+      'source-rejected',
+      'closed-no-order',
     ]),
     paymentReceiptId: z
       .string()
@@ -25,6 +27,7 @@ export const publicScreeningViewSchema = z
       .enum(['pending', 'processing', 'uncertain', 'accepted', 'cancelled', 'unavailable'])
       .nullable(),
     canAbandon: z.boolean(),
+    canCloseNoOrder: z.boolean().optional(),
     reviewCode: z
       .enum([
         'SCREENING_SOURCE_OUTCOME_UNKNOWN',

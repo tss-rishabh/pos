@@ -17,10 +17,11 @@ from writer_protocol import CONTRACT,HEADER,ScreeningWriterError,fail,verify,por
 from native_authority import lock_authority,rows
 from creation import reserve,bind,read_creation
 from protocol import canonical,ImportReview,digest
-from transaction import private_session,PrivateSessionProxy,CURRENT,guard_private_commit,guard_private_statement
+from transaction import private_session,PrivateSessionProxy,CURRENT,VIOLATION,guard_private_commit,guard_private_statement
 from effects import CAPTURE,Tasks
 from receiver import seal_effects,Receiver
 from source_runtime import PINS,checked_source,SilentLogger,ReadOnlyCache,SOURCE_REDIS_ALIASES
+from negative import assert_open,seal as seal_negative,CODES as NEGATIVE_CODES
 
 FRAME=ContextVar('pos_node_screening_writer',default=None)
 CONTEXT='pos_node_screening_writer'
@@ -93,7 +94,10 @@ def after_validate(req):
         if any(str(row.get('prod_id'))=='390238' for row in cart.get(ItemTypes.PRODUCTS)):
             fail('SCREENING_WRITER_ORIGIN_UNQUALIFIED')
         return
-    frame.after_validate(req)
+    try:frame.after_validate(req)
+    except Exception as error:
+        frame.remember_rejection(error)
+        raise
 
 
 class _Frame:
@@ -101,19 +105,35 @@ class _Frame:
         self.owner,self.req,self.cap=owner,req,cap
         self.session=owner.sessions()
         self.effects=[];self.tokens=[];self.validated=False;self.reservation=None
+        self.rejection_code=None
     def open(self):
         self.transaction=self.session.begin()
         connection=self.session.connection(execution_options={'isolation_level':'READ COMMITTED'})
+        self.connection=connection
         if connection.get_isolation_level()!='READ COMMITTED':fail()
         self.state,self.customer=lock_authority(self.session,self.cap,self.owner.clock())
+        assert_open(self.session,self.cap,self.owner.proof_key)
+        # Keep authority/creation locks outside the source savepoint. A typed
+        # native denial rolls back every original write, then seals its nonce
+        # in this same outer transaction, without an unlocked create window.
+        self.savepoint=self.session.begin_nested()
         self.tokens.append((FRAME,FRAME.set(self)))
         self.tokens.append((CAPTURE,CAPTURE.set(self.effects)))
         self.private=private_session(self.session)
         self.source=self.private.__enter__()
         self.tainted=False
+    def rollback(self):
+        # A refused physical COMMIT invalidates the DBAPI connection. Discard
+        # its session too instead of trying to roll back detached savepoints.
+        connection=getattr(self,'connection',None)
+        if connection is not None and connection.invalidated:self.session.invalidate()
+        else:self.session.rollback()
+    def remember_rejection(self,error):
+        if isinstance(error,ScreeningWriterError) and error.code in NEGATIVE_CODES:
+            self.rejection_code=error.code
     def abort(self):
         try:
-            self.session.rollback()
+            self.rollback()
             private=getattr(self,'private',None)
             if private is not None:private.__exit__(None,None,None)
         finally:
@@ -163,7 +183,8 @@ class _Frame:
     def finish(self,req,resp,succeeded):
         error=None
         try:
-            if not succeeded or not str(resp.status).startswith('200') or not self.validated or self.tainted:fail()
+            if not succeeded or not str(resp.status).startswith('200') or not self.validated or self.tainted:
+                fail(self.rejection_code or 'SCREENING_WRITER_RECONCILIATION_REQUIRED')
             result=json.loads(resp.body if resp.body else resp.text)
             now=self.owner.clock()
             # Native flag changes cannot race held rows; TTL is checked again
@@ -179,11 +200,27 @@ class _Frame:
                 {'op':self.cap['operationId'],'payload':seal_effects(self.owner.proof_key,'public-screening:'+self.cap['operationId'],self.effects),
                  'hash':effects_hash,'now':now})
             self.private.__exit__(None,None,None);self.private=None
+            self.savepoint.commit()
             self.transaction.commit()
             resp.set_header('X-POS-Screening-Writer-Contract',CONTRACT)
         except Exception as caught:
             error=caught
-            self.session.rollback()
+            # Unknown SQL/driver/COMMIT outcomes are never native negatives.
+            # Only explicit native business denials can take this branch, and
+            # only before a physical commit was attempted.
+            eligible=(isinstance(caught,ScreeningWriterError) and caught.code in NEGATIVE_CODES and
+                      self.savepoint.is_active and self.transaction.is_active and not self.tainted and not VIOLATION.get())
+            if eligible:
+                try:
+                    if self.private is not None:
+                        self.private.__exit__(type(caught),caught,None);self.private=None
+                    self.savepoint.rollback()
+                    seal_negative(self.session,self.cap,self.state,self.owner.proof_key,caught.code,self.owner.clock())
+                    self.transaction.commit()
+                except Exception:
+                    self.rollback()
+                    error=ScreeningWriterError('SCREENING_WRITER_RECONCILIATION_REQUIRED')
+            else:self.rollback()
         finally:
             try:
                 if self.private is not None:

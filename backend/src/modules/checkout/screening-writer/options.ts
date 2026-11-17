@@ -8,6 +8,9 @@ export interface PublicScreeningOptions {
   publicationUrl?: string;
   publicationKey?: string;
   publicationContract?: 'pos-node-screening-publication-resource-v1';
+  negativeUrl?: string;
+  negativeKey?: string;
+  negativeContract?: 'pos-node-screening-negative-resource-v1';
   clock?: () => number;
   fetcher?: typeof fetch;
 }
@@ -25,6 +28,11 @@ export function publicScreeningOptions(
       UPSTREAM_POS_PUBLIC_SCREENING_PUBLICATION_CONTRACT: optional(
         z.literal('pos-node-screening-publication-resource-v1'),
       ),
+      TSS_POS_PUBLIC_SCREENING_NEGATIVE_URL: optional(z.url()),
+      TSS_POS_PUBLIC_SCREENING_NEGATIVE_KEY: optional(z.string().regex(/^[!-~]{32,4096}$/)),
+      UPSTREAM_POS_PUBLIC_SCREENING_NEGATIVE_CONTRACT: optional(
+        z.literal('pos-node-screening-negative-resource-v1'),
+      ),
     })
     .parse(env);
   return {
@@ -33,5 +41,8 @@ export function publicScreeningOptions(
     publicationUrl: value.TSS_POS_PUBLIC_SCREENING_PUBLICATION_URL,
     publicationKey: value.TSS_POS_PUBLIC_SCREENING_PUBLICATION_KEY,
     publicationContract: value.UPSTREAM_POS_PUBLIC_SCREENING_PUBLICATION_CONTRACT,
+    negativeUrl: value.TSS_POS_PUBLIC_SCREENING_NEGATIVE_URL,
+    negativeKey: value.TSS_POS_PUBLIC_SCREENING_NEGATIVE_KEY,
+    negativeContract: value.UPSTREAM_POS_PUBLIC_SCREENING_NEGATIVE_CONTRACT,
   };
 }

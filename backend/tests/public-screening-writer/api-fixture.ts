@@ -110,7 +110,7 @@ export async function publicApiFixture(template: string) {
     unitPrice = '25.00',
     dispatch = true,
   ) {
-    const p = await f.prepare(),
+    const p = await f.prepare(2, false, undefined, false),
       lines = [{ productId: '390238', quantity: 2, unitPrice }],
       quote = unitPrice === '25.00' ? p.state.quote : run({ action: 'quote', lines }),
       state = checkoutStateSchema.parse({
@@ -144,7 +144,7 @@ export async function publicApiFixture(template: string) {
     };
   }
   async function initialQuoted() {
-    const p = await f.prepare(),
+    const p = await f.prepare(2, false, undefined, false),
       state = checkoutStateSchema.parse({ ...p.state, busyOperationId: null });
     await f.connection.execute('UPDATE pos_rewrite_checkout_sessions SET state=? WHERE id=?', [
       JSON.stringify(state),

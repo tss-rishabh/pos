@@ -11,6 +11,7 @@ import {
   signNodeScreeningWriter,
   nodeScreeningWriterContract,
 } from '../../src/modules/checkout/screening-writer/capability.js';
+import { publicScreeningHash } from '../../src/modules/checkout/screening-writer/proof.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 import {
   importFinancialFixture,
@@ -69,6 +70,8 @@ export async function publicScreeningFixture(template: string) {
     'src/modules/checkout/cancellations/benefit-migration.sql',
     'src/modules/checkout/cancellations/membership-producer-migration.sql',
     'compatibility/upstream/public-screening-writer/migration.review.sql',
+    'src/modules/checkout/screening-writer/negative-migration.sql',
+    'src/modules/checkout/screening-writer/migration.sql',
   ])
     for (const statement of splitMigration(readFileSync(path, 'utf8')))
       await f.connection.query(statement);
@@ -92,6 +95,12 @@ export async function publicScreeningFixture(template: string) {
   async function reset() {
     for (const table of [
       'pos_rewrite_public_screening_abandonments',
+      'pos_rewrite_public_screening_negatives',
+      'pos_rewrite_public_screening_work',
+      'pos_rewrite_public_screening_submission_dispatches',
+      'pos_rewrite_public_screening_payment_evidence',
+      'pos_rewrite_public_screening_publication_dispatches',
+      'pos_rewrite_public_screening_publication_replies',
       'pos_rewrite_public_screening_completions',
       'pos_rewrite_public_screening_effects',
       'pos_rewrite_public_screening_orders',
@@ -149,6 +158,7 @@ export async function publicScreeningFixture(template: string) {
     quantity = 2,
     unitMode = false,
     scope = { actorId: '1', customerId: '77', storeId: '1', counterId: '2' },
+    journaled = true,
   ) {
     const lines = [{ productId: '390238', quantity, unitPrice: '25.00' }],
       quote = JSON.parse(
@@ -178,6 +188,7 @@ export async function publicScreeningFixture(template: string) {
         lineSalespersons: {},
         giftCards: {},
         busyOperationId: operationId,
+        screeningAdmission: { operationId, status: 'pending' },
         draftId: randomUUID(),
         draftVersion: 12,
         draftImport: {
@@ -223,6 +234,36 @@ export async function publicScreeningFixture(template: string) {
       'INSERT INTO pos_rewrite_customer_cart_leases VALUES(?,?,?) ON DUPLICATE KEY UPDATE checkout_id=VALUES(checkout_id),expires_at_ms=VALUES(expires_at_ms)',
       [scope.customerId, state.id, financialClock + 300000],
     );
+    if (journaled) {
+      await f.connection.execute(
+        "INSERT INTO pos_rewrite_public_screening_work(operation_id,checkout_id,actor_id,store_id,data,proof_hash,status,next_check_at_ms,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,'awaiting-source',?,?,?)",
+        [
+          operationId,
+          state.id,
+          scope.actorId,
+          scope.storeId,
+          JSON.stringify(signed.value),
+          publicScreeningHash(sourceKey, 'intent', signed.value),
+          financialClock + 15000,
+          financialClock,
+          financialClock,
+        ],
+      );
+      const dispatch = {
+        contract: 'pos-node-screening-submission-dispatch-v1',
+        operationId,
+        requestHash: signed.value.requestHash,
+        dispatchedAt: financialClock,
+      };
+      await f.connection.execute(
+        'INSERT INTO pos_rewrite_public_screening_submission_dispatches VALUES(?,?,?)',
+        [
+          operationId,
+          JSON.stringify(dispatch),
+          publicScreeningHash(sourceKey, 'submission-dispatch', dispatch),
+        ],
+      );
+    }
     return {
       state,
       signed,

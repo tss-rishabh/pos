@@ -13,6 +13,7 @@ import {
 const intentSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('reconcile') }).strict(),
   z.object({ kind: z.literal('close-unsent') }).strict(),
+  z.object({ kind: z.literal('close-no-order') }).strict(),
   z.object({ kind: z.literal('abandon'), input: screeningAbandonSchema }).strict(),
 ]);
 type Intent = z.infer<typeof intentSchema>;
@@ -45,6 +46,7 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
     [intent, setIntent] = useState<Intent | null>(null),
     [error, setError] = useState(''),
     [notice, setNotice] = useState('');
+  const [storageBlocked, setStorageBlocked] = useState(false);
   const alive = useRef(true),
     pending = useRef(onPending),
     saved = useRef(onSaved);
@@ -56,7 +58,15 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
     return signal;
   };
   function persist(value: Intent) {
-    localStorage.setItem(key, JSON.stringify(intentSchema.parse(value)));
+    try {
+      localStorage.setItem(key, JSON.stringify(intentSchema.parse(value)));
+    } catch {
+      setStorageBlocked(true);
+      pending.current(true);
+      throw new Error(
+        'The original recovery reference could not be saved. Keep the sale reference.',
+      );
+    }
     setIntent(value);
     pending.current(true);
   }
@@ -64,6 +74,7 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
     try {
       localStorage.removeItem(key);
     } catch {
+      setStorageBlocked(true);
       /* Retained result remains authoritative. */
     }
     setIntent(null);
@@ -76,7 +87,8 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
     const confirmed =
       original &&
       ((original.kind === 'abandon' && result.status === 'abandoned') ||
-        (original.kind === 'close-unsent' && result.status === 'closed-unsent') ||
+        ((original.kind === 'close-unsent' || original.kind === 'close-no-order') &&
+          (result.status === 'closed-unsent' || result.status === 'closed-no-order')) ||
         (original.kind === 'reconcile' && result.orderId !== null));
     if (confirmed) {
       // A failed parent refresh must not turn a confirmed action into a retry.
@@ -122,6 +134,7 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
       setIntent(restored);
       pending.current(Boolean(restored));
     } catch {
+      setStorageBlocked(true);
       setError('Saved screening recovery could not be read. Keep the original sale reference.');
       pending.current(true);
     }
@@ -140,7 +153,7 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
     } catch {
       return;
     }
-    if (!online || disabled || busy || intent) return;
+    if (!online || disabled || busy || intent || storageBlocked) return;
     setBusy(true);
     setError('');
     setNotice('');
@@ -179,9 +192,13 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
             ? 'The original unpaid order is fenced. Its audit is retained.'
             : view?.status === 'closed-unsent'
               ? 'The unsent admission is closed.'
-              : view?.status === 'awaiting-payment'
-                ? 'The original order exists. Confirm its payment or ask a manager to review the unpaid order.'
-                : 'Keep the original screening reference while its outcome is checked.'}
+              : view?.status === 'closed-no-order'
+                ? 'The source proved that no order was created. The original command is fenced and your cart is retained.'
+                : view?.status === 'source-rejected'
+                  ? 'The source rejected and fenced the original command without creating an order. Close this admission to continue with the retained cart.'
+                  : view?.status === 'awaiting-payment'
+                    ? 'The original order exists. Confirm its payment or ask a manager to review the unpaid order.'
+                    : 'Keep the original screening reference while its outcome is checked.'}
       </p>
       {view?.publicationStatus && !['accepted', 'cancelled'].includes(view.publicationStatus) && (
         <p>Order notifications are awaiting reconciliation.</p>
@@ -194,7 +211,7 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
       {view?.orderId && !['completed', 'abandoned'].includes(view.status) && (
         <button
           className="button secondary"
-          disabled={!online || disabled || busy || Boolean(intent)}
+          disabled={!online || disabled || busy || Boolean(intent) || storageBlocked}
           onClick={() => void action({ kind: 'reconcile' })}
         >
           Recover original order
@@ -203,16 +220,60 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
       {view?.status === 'prepared' && (
         <button
           className="button secondary"
-          disabled={!online || disabled || busy || Boolean(intent)}
+          disabled={!online || disabled || busy || Boolean(intent) || storageBlocked}
           onClick={() => void action({ kind: 'close-unsent' })}
         >
           Close expired unsent admission
         </button>
       )}
+      {view?.canCloseNoOrder && (
+        <button
+          className="button secondary"
+          disabled={!online || disabled || busy || Boolean(intent) || storageBlocked}
+          onClick={() => void action({ kind: 'close-no-order' })}
+        >
+          Close original command with source proof
+        </button>
+      )}
+      {intent?.kind === 'close-no-order' &&
+        view?.canCloseNoOrder &&
+        ['source-rejected', 'awaiting-source'].includes(view.status) && (
+          <button
+            className="button secondary"
+            disabled={!online || disabled || busy || storageBlocked}
+            onClick={() => {
+              // Explicit same-nonce closure retry after GET. It never repeats
+              // creation/payment or treats an absent receipt as no-effects proof.
+              void (async () => {
+                let signal: AbortSignal;
+                try {
+                  signal = current();
+                } catch {
+                  return;
+                }
+                setBusy(true);
+                try {
+                  await closeUnsentScreening(scope);
+                  signal.throwIfAborted();
+                  await adopt(await readScreening(scope), intent, signal);
+                } catch {
+                  if (!signal.aborted && alive.current)
+                    setError('The source fence is retained. Check the original closure again.');
+                } finally {
+                  if (!signal.aborted && alive.current) setBusy(false);
+                }
+              })();
+            }}
+          >
+            {view.status === 'source-rejected'
+              ? 'Finish original closure'
+              : 'Retry original closure'}
+          </button>
+        )}
       {view?.canAbandon && (
         <button
           className="button secondary"
-          disabled={!online || disabled || busy || Boolean(intent)}
+          disabled={!online || disabled || busy || Boolean(intent) || storageBlocked}
           onClick={() =>
             void action({
               kind: 'abandon',

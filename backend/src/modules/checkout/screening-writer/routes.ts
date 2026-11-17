@@ -28,7 +28,7 @@ export function registerPublicScreening(
       .parse(request.body ?? {});
     return publicScreeningRequest(request, user, () => service.reconcile(user, p));
   });
-  app.post(base + '/closures', trace('close-unsent'), async (request) => {
+  app.post(base + '/closures', trace('close'), async (request) => {
     const user = authenticated(request),
       p = publicScreeningScopeSchema.parse(request.params);
     z.object({})

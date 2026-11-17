@@ -159,5 +159,150 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.close();
       }
     });
+    it('lost no-order closure reloads via GET only and keeps only the original operation marker', async () => {
+      const page = await browser.newPage(),
+        methods: string[] = [];
+      let closed = false;
+      await page.route('**/api/v1/**', async (route) => {
+        const req = route.request();
+        methods.push(req.method());
+        if (req.method() === 'POST') {
+          expect(req.url()).toContain('/closures');
+          expect(req.postDataJSON()).toEqual({});
+          closed = true;
+          await route.abort('connectionfailed');
+        } else
+          await route.fulfill({
+            json: {
+              ...base,
+              orderId: null,
+              status: closed ? 'closed-no-order' : 'awaiting-source',
+              canCloseNoOrder: !closed,
+              canAbandon: false,
+              reviewCode: closed ? null : 'SCREENING_SOURCE_OUTCOME_UNKNOWN',
+            },
+          });
+      });
+      try {
+        await page.goto(origin + '/__screening-test__');
+        await page
+          .getByRole('button', { name: 'Close original command with source proof' })
+          .click();
+        await webExpect(page.getByRole('alert')).toBeVisible();
+        const before = await page.evaluate(() => JSON.stringify(localStorage));
+        expect(before).toContain('close-no-order');
+        expect(before).not.toMatch(/customer|cashAmount|price|contact|token/i);
+        await page.reload();
+        await webExpect(
+          page.getByText(
+            'The source proved that no order was created. The original command is fenced and your cart is retained.',
+          ),
+        ).toBeVisible();
+        await webExpect(page.locator('output')).toHaveText('Saved 1; pending false');
+        expect(methods.filter((method) => method === 'POST')).toHaveLength(1);
+      } finally {
+        await page.close();
+      }
+    });
+    it('unknown closure is retained across reload and only explicit same-nonce retry can finish it', async () => {
+      const page = await browser.newPage(),
+        paths: string[] = [];
+      let posts = 0,
+        closed = false;
+      await page.route('**/api/v1/**', async (route) => {
+        const req = route.request();
+        paths.push(req.method() + ' ' + new URL(req.url()).pathname);
+        if (req.method() === 'POST') {
+          posts++;
+          if (posts === 1) await route.abort('connectionfailed');
+          else {
+            closed = true;
+            await route.fulfill({
+              json: { operationId: base.operationId, status: 'closed-no-order' },
+            });
+          }
+        } else
+          await route.fulfill({
+            json: {
+              ...base,
+              orderId: null,
+              status: closed ? 'closed-no-order' : 'awaiting-source',
+              canCloseNoOrder: !closed,
+              canAbandon: false,
+              reviewCode: closed ? null : 'SCREENING_SOURCE_OUTCOME_UNKNOWN',
+            },
+          });
+      });
+      try {
+        await page.goto(origin + '/__screening-test__');
+        await page
+          .getByRole('button', { name: 'Close original command with source proof' })
+          .click();
+        await webExpect(page.getByRole('alert')).toBeVisible();
+        await page.reload();
+        await webExpect(page.getByRole('button', { name: 'Retry original closure' })).toBeEnabled();
+        expect(posts).toBe(1);
+        await page.getByRole('button', { name: 'Retry original closure' }).click();
+        await webExpect(page.locator('output')).toHaveText('Saved 1; pending false');
+        expect(posts).toBe(2);
+        expect(paths.filter((path) => path.startsWith('POST '))).toEqual(
+          Array(2).fill(
+            `POST /api/v1/stores/1/checkout-sessions/${base.checkoutId}/screening-admissions/${base.operationId}/closures`,
+          ),
+        );
+      } finally {
+        await page.close();
+      }
+    });
+    it('corrupt or unwritable recovery storage blocks the new source closure action', async () => {
+      for (const kind of ['corrupt', 'unwritable'] as const) {
+        const page = await browser.newPage(),
+          methods: string[] = [];
+        await page.addInitScript((failure) => {
+          if (failure === 'corrupt')
+            localStorage.setItem(
+              'pos-screening-recovery:' +
+                JSON.stringify([
+                  '1',
+                  '1',
+                  '11111111-1111-4111-8111-111111111111',
+                  '22222222-2222-4222-8222-222222222222',
+                ]),
+              '{bad',
+            );
+          else
+            Storage.prototype.setItem = () => {
+              throw new Error('Fixture storage denied');
+            };
+        }, kind);
+        await page.route('**/api/v1/**', async (route) => {
+          methods.push(route.request().method());
+          await route.fulfill({
+            json: {
+              ...base,
+              orderId: null,
+              status: 'awaiting-source',
+              canCloseNoOrder: true,
+              canAbandon: false,
+              reviewCode: 'SCREENING_SOURCE_OUTCOME_UNKNOWN',
+            },
+          });
+        });
+        try {
+          await page.goto(origin + '/__screening-test__');
+          const button = page.getByRole('button', {
+            name: 'Close original command with source proof',
+          });
+          if (kind === 'unwritable') {
+            await button.click();
+            await webExpect(page.getByRole('alert')).toBeVisible();
+          }
+          await webExpect(button).toBeDisabled();
+          expect(methods.every((method) => method === 'GET')).toBe(true);
+        } finally {
+          await page.close();
+        }
+      }
+    });
   },
 );

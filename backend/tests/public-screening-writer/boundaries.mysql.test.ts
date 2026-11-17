@@ -100,7 +100,8 @@ describe.skipIf(!template)('screening native zero/unsent/late authority boundari
         url: url(p.scope) + '/closures',
         payload: {},
       });
-      expect(blocked.statusCode, blocked.body).toBe(409);
+      expect(blocked.statusCode, blocked.body).toBe(503);
+      expect(blocked.json()).toMatchObject({ code: 'SCREENING_NEGATIVE_UNAVAILABLE' });
     } finally {
       await app.close();
     }

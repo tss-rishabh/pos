@@ -35,7 +35,7 @@ def actor_version(actor,epoch):
     return hashlib.sha256((base+':'+str(epoch)).encode()).hexdigest()
 
 
-def lock_authority(session,cap,now):
+def lock_authority(session,cap,now,closing=False):
     # Archive/revocation holds actor before retiring check-ins. Match the
     # shared actor/epoch -> Store prefix; never take check-in before actor.
     # Every read is locking until the customer is held; the owned TX is RC.
@@ -62,16 +62,18 @@ def lock_authority(session,cap,now):
     if (checkout['operator_id']!=cap['actorId'] or checkout['store_id']!=cap['storeId'] or checkout['version']!=cap['checkoutVersion'] or
         not isinstance(state,dict) or state.get('id')!=cap['checkoutId'] or state.get('version')!=cap['checkoutVersion'] or
         state.get('operatorId')!=cap['actorId'] or state.get('storeId')!=cap['storeId'] or state.get('counterId')!=cap['counterId'] or
-        state.get('busyOperationId')!=cap['operationId'] or state.get('phase')!='quoted' or state.get('orderId') is not None or
+        closing and (not isinstance(state.get('screeningAdmission'),dict) or state['screeningAdmission'].get('operationId')!=cap['operationId']) or
+        (state.get('busyOperationId') not in (None,cap['operationId']) if closing else state.get('busyOperationId')!=cap['operationId']) or
+        (state.get('phase') not in ('quoted','uncertain') if closing else state.get('phase')!='quoted') or state.get('orderId') is not None or
         (state.get('customerId') or state.get('operatorCustomerId'))!=cap['customerId'] or
         not isinstance(state.get('draftImport'),dict) or state['draftImport'].get('status')!='complete' or
         state.get('orderCopy') is not None and state['orderCopy'].get('status')!='acknowledged' or
         portable_hash(quote_snapshot(state.get('quote')))!=cap['cartHash']):fail()
     if state.get('customerId') is not None:
         lease=one(session,'SELECT checkout_id,expires_at_ms FROM pos_rewrite_customer_cart_leases WHERE customer_id=:id FOR UPDATE',{'id':cap['customerId']})
-        if lease['checkout_id']!=cap['checkoutId'] or lease['expires_at_ms']<=now:fail()
-    operation=one(session,'SELECT status FROM pos_rewrite_checkout_operations WHERE checkout_id=:checkout AND id=:id',{'checkout':cap['checkoutId'],'id':cap['operationId']})
-    if operation['status']!='inflight':fail()
+        if lease['checkout_id']!=cap['checkoutId'] or not closing and lease['expires_at_ms']<=now:fail()
+    operation=one(session,'SELECT status FROM pos_rewrite_checkout_operations WHERE checkout_id=:checkout AND id=:id FOR UPDATE',{'checkout':cap['checkoutId'],'id':cap['operationId']})
+    if (operation['status'] not in ('inflight','uncertain','rejected') if closing else operation['status']!='inflight'):fail()
     customer=one(session,'SELECT users.*,'+CONTACT+' AS contact_digest FROM users WHERE id=:id FOR UPDATE',{'id':cap['customerId']})
     revisions=rows(session,'SELECT revision FROM pos_rewrite_customer_contact_revisions WHERE customer_id=:id FOR SHARE',{'id':cap['customerId']},1)
     if (customer['status']!=1 or customer['is_block'] not in (None,0) or customer['is_disabled'] not in (None,0) or

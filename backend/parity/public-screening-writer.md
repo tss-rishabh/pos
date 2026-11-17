@@ -183,7 +183,12 @@ runtime has been deployed/accepted.
   real membership producer/cache journal or gift funding proof first; these are
   CODE gaps, not missing environment variables. Existing unchanged membership
   remains eligible subject to the separate fresh-reader contract.
-- Benefit-aware abandonment and a negative receipt for an already-dispatched never-created source command remain CODE. Actual ordinary paid/zero completion, API/UI recovery and a POST-once/GET-only publication worker are implemented in the Node follow-up.
+- Benefit-aware abandonment remains CODE. An authenticated negative for an
+  already-dispatched never-created source command is now implemented in
+  [public-screening-negative.md](public-screening-negative.md), with explicit
+  source/schema/private ingress acceptance. Actual ordinary paid/zero
+  completion, API/UI recovery and a POST-once/GET-only publication worker are
+  implemented in the Node follow-up.
 - Pre-proof historical ticket funding/admission needs explicit reconciliation;
   no backfilled receipt or causal success is fabricated from current rows.
 
