@@ -9,6 +9,7 @@ import copy
 import hashlib
 import importlib
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace,ModuleType
@@ -20,7 +21,7 @@ from transaction import CURRENT
 from contextvars import ContextVar
 from profiles import assert_plain_profile
 from membership_profile import MembershipProfile, selected as membership_selected, compile_writers, compile_order, compile_free_membership
-from cart_preparation import automatic_membership,catalog_build,guard_history,read_only_preview,preview_effect
+from cart_preparation import automatic_membership,catalog_build,guard_history,read_only_preview
 
 UNSAFE_HTTP=ContextVar('pos_import_unsafe_http',default=False)
 SOURCE_REDIS_ALIASES=('redis_object','redis_pos_object','redis_catalogue_object','cms_redis_object',
@@ -50,6 +51,22 @@ PINS={
 class SilentLogger:
     def __getattr__(self,_name):
         return lambda *_args,**_kwargs: None
+
+
+def install_silent_logger(root):
+    # Close the legacy handler before any database/controller import can log
+    # a failed connection, payload or credential-bearing source exception.
+    path=Path(root)/'utils/logger.py'
+    if hashlib.sha256(path.read_bytes()).hexdigest()!='0e7020dd6a4f8af696f47ff009e0ee5c66894a2f1e117344d0cec56a2e261ad2':
+        raise ImportReview('ORDER_IMPORT_SOURCE_REVISION_UNVERIFIED')
+    old=sys.modules.get('utils.logger')
+    if old is not None and getattr(old,'__pos_private_logger__',None)!=str(Path(root).resolve()):
+        raise ImportReview('ORDER_IMPORT_PRIVATE_SCOPE_REQUIRED')
+    from private_celery import _package
+    value=ModuleType('utils.logger');value.__file__=str(path)
+    value.logger=SilentLogger();value.get_logger=lambda:value.logger
+    value.__pos_private_logger__=str(Path(root).resolve())
+    _package(Path(root),'utils').logger=value;sys.modules['utils.logger']=value
 
 
 class ReadOnlyCache:
@@ -108,6 +125,12 @@ def bind_source_sessions(root,proxy):
                     # Drop the arguments too: original credential-bearing URI
                     # formatting is not needed for the owned writer Session.
                     return ast.copy_location(ast.Call(func=ast.Name(id='_private_'+node.func.id,ctx=ast.Load()),args=[],keywords=[]),node)
+                if (name=='database.database' and isinstance(node.func,ast.Attribute)
+                        and isinstance(node.func.value,ast.Name) and node.func.value.id=='redis' and node.func.attr=='Redis'):
+                    # Keep original read settings, but aliases are read-only
+                    # before a controller can capture them during import.
+                    return ast.copy_location(ast.Call(func=ast.Name(id='_private_cache',ctx=ast.Load()),
+                        args=[self.generic_visit(node)],keywords=[]),node)
                 return self.generic_visit(node)
         tree=Controlled().visit(tree)
         if found!=counts:
@@ -132,7 +155,7 @@ def bind_source_sessions(root,proxy):
         module.__pos_private_source_sessions__=str(root)
         module.__dict__.update(_private_create_engine=lambda:engine,
                                _private_sessionmaker=lambda:factory,
-                               _private_scoped_session=lambda:proxy)
+                               _private_scoped_session=lambda:proxy,_private_cache=ReadOnlyCache)
         # Publish safe aliases before source settings/import cycles can see
         # this module. Only the reviewed source declarations may replace them.
         for alias in exports:setattr(module,alias,proxy)
@@ -173,16 +196,26 @@ class SourceRuntime:
         # this transaction and cannot produce a no-effects success receipt.
         import requests
         requests.sessions.Session.request=prohibit_source_http
+        install_silent_logger(source_root)
+        # Selected private factories are installed before any real task module
+        # can broadcast add_consumer or instantiate the source Redis broker.
+        from private_celery import bind,TaskRegistry
+        celery,broker_options=bind(source_root,os.environ)
+        from private_cache import configure as configure_cache
+        configure_cache(source_root,importlib.import_module('settings'))
         proxy=PrivateSessionProxy()
         bind_source_sessions(source_root,proxy)
+        from cart_tracking import install as install_cart_tracking
+        self.settings=importlib.import_module('settings')
+        cart_helper,cart_task=install_cart_tracking(source_root,self.settings,broker_options['queues'],celery.abandon_cart_app,SilentLogger())
         modules={name:importlib.import_module(name) for name in (
             'controllers.OrderController','controllers.CheckoutController','controllers.CartController',
             'controllers.CatalogController','middleware.CartMiddleware','controllers.KinesisProducer')}
         from model_compat import install_model_codec
         models=importlib.import_module('models.Order')
         install_model_codec(models.OrderModel,models.OrderStoreModel,models.HasProductModel)
-        self.tasks=importlib.import_module('tasks')
-        self.settings=importlib.import_module('settings')
+        self.tasks=TaskRegistry(importlib.import_module('tasks'),cart_task,broker_options)
+        self.tasks.assert_ready()
         self.item_types=importlib.import_module('controllers.cart.Cart').ItemTypes
         # Private worker only: imported source functions may emit legacy debug
         # logs or analytics; these cannot become request/body/customer logs.
@@ -205,7 +238,7 @@ class SourceRuntime:
             if hasattr(module,'push_cart_event'):
                 module.push_cart_event=lambda *_a,**_k: None
             for attr in ('push_process_order_event','push_after_payment_event'):
-                if hasattr(module,attr):setattr(module,attr,preview_effect(getattr(module,attr)))
+                if hasattr(module,attr):setattr(module,attr,getattr(cart_helper,attr))
         order_globals=dict(vars(modules['controllers.OrderController']))
         order_globals.update(logger=SilentLogger(),tasks=Tasks())
         # Select the approved per-HP refund function from the deployed composed
@@ -245,6 +278,8 @@ class SourceRuntime:
         namespace['tasks']=Tasks()
         self.producer=compile_class(source_root,'controllers/KinesisProducer.py','SyncOrderById',namespace)()
         self.controller_hash=CORRECTED_CONTROLLER_SHA256
+        if UNSAFE_HTTP.get():
+            raise ImportReview('ORDER_IMPORT_HTTP_EFFECT_UNQUALIFIED')
 
     def membership_execution_point(self):
         # Exact source Cart.py clock. Only sampled if literal history criteria
@@ -298,6 +333,10 @@ class SourceRuntime:
                      'pos_rewrite_fresh_customer':{'subject':str(user['user_id']),'loaded':True}},
             get_header=lambda *_args,**_kwargs:None,headers={},access_route=[],remote_addr=None,user_agent=None,
             uri='/internal/pos/legacy-order-imports',url='/internal/pos/legacy-order-imports',referer=None)
+        # Literal CatalogController.pdp_data reads gender_type through Falcon's
+        # get_param even when no query parameters were provided. The private
+        # request has an empty, owned parameter dictionary, not a browser URL.
+        req.get_param=lambda name,default=None,**_kwargs:req.params.get(name,default)
         resp=SimpleNamespace(status='200 OK',body='',text='',set_header=lambda *_args:None)
         cart=self.cart_factory.empty_cart(is_pos=True)
         cart.context=req.context

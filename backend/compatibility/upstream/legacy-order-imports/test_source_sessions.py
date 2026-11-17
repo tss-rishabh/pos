@@ -115,6 +115,18 @@ class Startup(unittest.TestCase):
         modules['middleware.CartMiddleware'].PricelistManager=object()
         modules['controllers.cart.Cart'].ItemTypes=object()
         modules['controllers.cart.Cart'].datetime=__import__('datetime').datetime
+        # This constructor-boundary unit keeps external factories inert; actual
+        # Celery import/configuration is exercised by the network-none probe.
+        import ssl
+        app=SimpleNamespace(conf=SimpleNamespace(broker_url='amqps://fixture.invalid/private',
+            broker_use_ssl={'cert_reqs':ssl.CERT_REQUIRED,'ca_certs':'fixture-ca','check_hostname':True},
+            broker_transport_options={'confirm_publish':True},task_publish_retry=False,
+            task_default_delivery_mode=2,task_create_missing_queues=False,task_always_eager=False,
+            task_send_sent_event=False,worker_send_task_events=False))
+        modules['tasks'].app=app
+        cart_task=SimpleNamespace(app=app)
+        cart_helper=SimpleNamespace(push_process_order_event=lambda *_a:None,push_after_payment_event=lambda *_a:None)
+        broker_options={'broker':app.conf.broker_url,'ca':'fixture-ca','queues':('fixture-default',)}
         for name in ('OrderModel','OrderStoreModel','HasProductModel'):setattr(modules['models.Order'],name,type(name,(),{}))
         codec=ModuleType('model_compat');codec.install_model_codec=lambda *_args:None;modules['model_compat']=codec
         requests=ModuleType('requests');requests.sessions=SimpleNamespace(Session=type('Session',(),{'request':lambda *_args,**_kwargs:(_ for _ in ()).throw(AssertionError('HTTP during bootstrap'))}));modules['requests']=requests
@@ -124,7 +136,7 @@ class Startup(unittest.TestCase):
             if name not in modules:raise AssertionError('Unqualified source import: '+name)
             return modules[name]
         def source_class(*_args,**_kwargs):return type('ControlledFixture',(),{})
-        with patch.dict(sys.modules,modules),patch.dict(os.environ,{'POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT':''}),patch('source_runtime.compile_class',side_effect=source_class),patch('sqlalchemy.create_engine',side_effect=AssertionError('Original SQL engine constructed')),patch('source_runtime.importlib.import_module',side_effect=import_module):
+        with patch.dict(sys.modules,modules),patch.dict(os.environ,{'POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT':''}),patch('source_runtime.install_silent_logger'),patch('private_celery.bind',return_value=(SimpleNamespace(abandon_cart_app=app),broker_options)),patch('private_cache.configure'),patch('cart_tracking.install',return_value=(cart_helper,cart_task)),patch('source_runtime.compile_class',side_effect=source_class),patch('sqlalchemy.create_engine',side_effect=AssertionError('Original SQL engine constructed')),patch('source_runtime.importlib.import_module',side_effect=import_module):
             runtime=SourceRuntime(ROOT,ROOT)
             self.assertIsNotNone(runtime.order)
             self.assertIsNotNone(runtime.producer)

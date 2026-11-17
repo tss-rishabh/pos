@@ -28,6 +28,11 @@ def _create_application():
     proof=os.environ.get('POS_LEGACY_IMPORT_PROOF_KEY','')
     if not re.fullmatch(r'[!-~]{32,4096}',key) or not re.fullmatch(r'[!-~]{32,4096}',proof) or key==proof:
         raise ImportReview('ORDER_IMPORT_KEY_UNAVAILABLE')
+    # This optional resource has a separate confidential caller key. Validate
+    # selection before source imports or any writer connection is opened.
+    sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'public-screening-writer'))
+    from publication_resource import options as publication_options
+    public_options=publication_options(os.environ,proof,(key,os.environ.get('TSS_POS_CUSTOMER_CONTEXT_KEY','')))
     url=make_url(os.environ['POS_LEGACY_IMPORT_MYSQL_WRITER_URL'])
     ca=Path(os.environ['POS_LEGACY_IMPORT_MYSQL_CA_FILE']).resolve(strict=True)
     if url.drivername!='mysql+pymysql' or not all((url.host,url.username,url.password,url.database)) or url.query:
@@ -57,7 +62,11 @@ def _create_application():
     receiver=Receiver(factory,pipeline,key,proof,zone=os.environ.get('BUSINESS_TIMEZONE','Asia/Kolkata'),
                       correction_contract=os.environ.get('POS_LEGACY_IMPORT_CORRECTION_CONTRACT'))
     from http_app import private_application
-    return private_application(receiver,key,emit_stream)
+    application=private_application(receiver,key,emit_stream)
+    if public_options is not None:
+        from publication_resource import PublicationResource,private_application as publication_application
+        application=publication_application(PublicationResource(factory,proof,pipeline.tasks),public_options['key'],emit_stream,application,public_options['allowPost'])
+    return application
 
 
 def create_application():

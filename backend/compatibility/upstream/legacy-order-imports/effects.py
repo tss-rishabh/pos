@@ -5,12 +5,13 @@ uncertain delivery, never an excuse to republish a job with a new identity.
 """
 from types import SimpleNamespace
 from protocol import ImportReview, canonical
+from transaction import VIOLATION
 
 KINDS = {'make_assign_warehouse_request':'warehouse','create_cashback_for_pos':'cashback',
          'sendFacebookEvents':'facebook','netcore_events_task':'engagement',
          'mirror_order_to_post_order':'shadow','sync_kinesis_orders':'kinesis-chain',
          'insert_into_kinesis':'kinesis-chain','send_order_placed_sms':'sms',
-         'pos_import_invalidate_membership':'membership-cache'}
+         'pos_import_invalidate_membership':'membership-cache','process_abandon_cart_data':'cart-tracking'}
 
 
 class EffectCall:
@@ -41,8 +42,14 @@ CAPTURE = ContextVar('pos_import_effects',default=None)
 
 def collector_record(value):
     target=CAPTURE.get()
-    if target is None or len(target)>=20 or len(canonical(value).encode())>256000:
-        raise ImportReview('ORDER_IMPORT_EFFECT_UNQUALIFIED')
+    try:
+        if target is None or len(target)>=20 or len(canonical(value).encode())>256000:
+            raise ValueError()
+    except Exception:
+        # Original producer branches often catch Exception. A refused/invalid
+        # effect must still taint the outer owned transaction, never vanish.
+        VIOLATION.set(True)
+        raise ImportReview('ORDER_IMPORT_EFFECT_UNQUALIFIED') from None
     target.append(value)
     return SimpleNamespace(id='deferred-source-effect')
 
@@ -72,6 +79,10 @@ class Tasks:
 
 def prepared_calls(tasks,intent):
     def options(value,task,args,kwargs):
+        # Production registry routes each original task through its own app
+        # (FastQueue has a second app). Fixture brokers retain their old port.
+        route=getattr(tasks,'route',None)
+        if callable(route):return route(task,value,args,kwargs)
         chosen=tasks.app.amqp.router.route({**value,'retry':False,'delivery_mode':2,'mandatory':True},task.name,args=args,kwargs=kwargs)
         queue=chosen.get('queue')
         if isinstance(queue,str):queue=tasks.app.amqp.queues.get(queue)

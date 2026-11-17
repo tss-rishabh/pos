@@ -277,6 +277,8 @@ class Receiver:
         return {'recorded':True}
 
     def assert_publisher(self):
+        ready=getattr(self.pipeline.tasks,'assert_ready',None)
+        if callable(ready):ready()
         conf=self.pipeline.tasks.app.conf
         if (not str(conf.broker_url).startswith('amqps://') or
             conf.broker_transport_options.get('confirm_publish') is not True or conf.task_publish_retry is not False or
