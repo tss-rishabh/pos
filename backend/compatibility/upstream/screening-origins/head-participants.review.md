@@ -59,6 +59,12 @@ pending capture/publication jobs and cached eligibility documents, then
 recapture and publish using the new native head/configuration. Membership
 writers hashes also include the v3 policy. Existing coupon wire definition
 hashes remain stable, so the explicit controls revision cutover is mandatory.
+Rebuild every existing quota baseline from a new authenticated full generation
+and install it with the publisher's expected-generation CAS before reopening
+quota-dependent writers. Retained baselines from the old TRIGGER-grant policy
+do not establish a clean starting state. Preserve head revisions and use the
+reviewed publisher replacement/recovery path rather than direct projection
+edits or counter resets.
 Never reset revisions, reuse an old generation after cutover, or update a head
 while ordinary writers are active.
 

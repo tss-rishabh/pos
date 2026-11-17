@@ -19,10 +19,18 @@ queue connection and background coupon demand drain are wired on `63336d1`
 with subsequent preview integration in progress. Additive coupon/successor
 tables are registered; upstream account/trigger/Go review SQL remains manual.
 
+The shared TypeScript metadata audit, native member/coupon publisher hooks and
+explicit isolated counter-publication qualifier are integrated through
+`2ed635a`. Native membership heads bind the same v3 policy on both Python and
+TypeScript. The literal membership date predicate now includes future-dated
+delivered records consistently across CSV/public/origin paths. The current
+payment source assembly contains 101 files; the common/API/legacy source
+manifests were regenerated on `d8eec33`. These are source artifacts, not builds
+or validation evidence.
+
 Remaining implementation: genuine source cart/early CSK preview rollback and
 replay, membership consumer/bootstrap wiring, same-order source stage-recovery
-issuer, runnable quota projection publisher, shared TypeScript metadata
-qualification and native member/coupon publisher configuration. Then regenerate
+issuer, and runnable quota projection publisher. Then regenerate
 the composed source artifacts, reconcile every remaining requirement, and only
 after implementation is complete begin consolidated validation. No new tests,
 typechecks, lint, application builds, live writes or deployments were run.
