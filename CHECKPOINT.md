@@ -18,11 +18,14 @@ component test counts do not certify every original workflow.
 | Benefits                | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                 |
 | Administration          | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                        |
 | Reports and fulfillment | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                           |
-| Web and desktop         | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Actual Windows runtime, production signing and physical printing remain release gates.                                                    |
+| Web and desktop         | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both native CI jobs passed unsigned packaging, integrity, sandbox, restart and offline smoke at commit88b7a4e; later changes need another native run. Signing and physical printing remain release gates. |
 | Cashier conveniences    | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass. |
 | Dashboard and website   | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                  |
 | Barcode and country     | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.          |
 | Invoice worksheet       | Manual prices, customer labels, exact totals, source-format CSV export and sandboxed printing. Fourteen focused checks and two Chromium workflows pass. This worksheet records no payment.                                       |
+| Parent/store CSV        | Three-column product-family assignment import, atomic reset/delete/recreate, audit, shared durable worker and separate historical profile are wired. Twenty-nine merged database/source/parser checks and seven import browser workflows pass. Actual stock/sync/publication acceptance remains required. |
+| Historical order reads  | Public date selections now reach PRIMARY/DATA/BigQuery readers, with scoped cursors and post-read session revocation checks. Forty-four backend checks and five browser cases pass. Full original order-list filtering/formatting is still in progress. |
+| Order copying           | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Three integrated Chromium and 33 existing offline/fast-cash checks pass. Customer-proof hardening and safe unsent cancellation remain in progress. |
 
 ## Fixed remaining code checklist
 
@@ -34,18 +37,16 @@ component test counts do not certify every original workflow.
   candidates. Actual Python staging → Go activation → Node cancellation passes
   native concurrency/rollback checks. Their deployment remains external; no
   historical provenance is fabricated.
-- Close the retained legacy payment-status reversal API and remaining source-job
-  gaps identified by the source audit. Hidden or dormant behavior stays in scope.
-- Integrate the completed order-to-cart copy and historical order-reader slices,
-  including offline-cash origin guards. Complete the original order-list filters,
-  sorting, queues and formatter fields; the simplified order cards do not establish
-  their parity.
-- Complete parent/store assignment CSV, ecommerce inventory synchronization,
-  whole-order Vinculum status and the remaining job/model-administration boundaries
-  in `backend/parity/source-surface-map.md`.
-- Correct unrestricted historical reads in public order browsing: both current
-  `ordersService` methods still use the primary reader. Keep current financial
-  authorization/proof reads separate from historical order facts, which require BigQuery.
+- Integrate the implemented payment-status reversal slice into financial
+  collections, ledger, DSR and historical publications before enabling it.
+- Finish customer proof and unsent-operation cancellation for order copying;
+  the shared readers, UI recovery and offline-cash guards are already wired.
+- Complete the original order-list filters, sorting, queues and formatter fields;
+  the simplified projection's qualified history reader does not certify them.
+- Finish ecommerce inventory synchronization, whole-order Vinculum status and
+  inherited administration add-form boundaries in the source map. Parent/store
+  CSV is integrated. The BD upload templates are explicitly retained as an
+  inactive prototype: their classes/routes and sidebar are commented in source.
 - Reconcile every source route, template, websocket, administration surface and
   background job against `backend/parity/legacy-inventory.json`; attach full
   workflow evidence to the release coverage ledger. It currently certifies no
@@ -58,8 +59,8 @@ component test counts do not certify every original workflow.
   in an approved writable sandbox with the real payment/notification providers.
 - Historical BigQuery table coverage, projections and complete publication/CDC
   proofs. Read-only project access is supplied; it does not establish completeness.
-- Windows/macOS native release tests, signing, printer/device acceptance and
-  representative performance measurements.
+- Repeat Windows/macOS native checks for the final source, then signing,
+  printer/device acceptance and representative performance measurements.
 - Reviewed migration/backup/rollback rehearsal and production configuration.
 
 ## Verification
