@@ -64,12 +64,30 @@ def invalidate(session_factory, key, operation_id, receipt_hash, callback, clock
     if not isinstance(receipt_hash,str) or not re.fullmatch(r'[a-f0-9]{64}',receipt_hash):
         raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
     clock = clock or (lambda: int(time.time() * 1000))
-    adapter = producer()
     proof=retained_hint(session_factory,key,operation_id,receipt_hash)
     scope=retained_scope(proof)
     with session_factory() as session:
         with owned(session,scope):
             lock_retained_operation(session,key,proof,scope)
+            locked = one(session, "SELECT proof,proof_hash,status,request_hash FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=:op AND kind='membership' FOR SHARE", {'op': operation_id})
+            if (locked['status'] != 'completed' or locked['request_hash'] != proof['requestHash']
+                    or locked['proof_hash'] != receipt_hash or json_value(locked['proof']) != proof):
+                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+            prior = rows(session, "SELECT status,proof,proof_hash FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=:op AND kind=:kind FOR UPDATE", {'op': operation_id, 'kind': KIND}, 2)
+            if prior:
+                if len(prior)!=1:
+                    raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+                # Immutable factual ACK precedes current customer/EAV/config
+                # lookup. A completed task can never become a second Redis call.
+                original = json_value(prior[0]['proof'])
+                if (original.get('membershipHash') != receipt_hash or original.get('operationId') != operation_id or original.get('status') != prior[0]['status'] or prior[0]['proof_hash'] != digest(key, KIND, original)):
+                    raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+                if prior[0]['status'] == 'completed':
+                    return
+                # A prior processing checkpoint may have invalidated Redis.
+                # Retrying it cannot be justified by a missing task ACK.
+                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNCERTAIN')
+            adapter = producer()
             customer = one(session, 'SELECT id,email FROM users WHERE id=:id FOR UPDATE', {'id': proof['customerId']})
             mark_customer(session,scope,str(customer['id']))
             # Shared actor/Store→operation→global customer→Order, matching Go
@@ -79,28 +97,21 @@ def invalidate(session_factory, key, operation_id, receipt_hash, callback, clock
             if str(order['user_id']) != proof['customerId']:
                 raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
             current = adapter._decode(one(session, 'SELECT * FROM pos_rewrite_cancellation_membership_provenance WHERE order_id=:id FOR UPDATE', {'id': proof['orderId']}))
-            locked = one(session, "SELECT proof,proof_hash,status,request_hash FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=:op AND kind='membership' FOR UPDATE", {'op': operation_id})
-            if (locked['status'] != 'completed' or locked['request_hash'] != proof['requestHash']
-                    or locked['proof_hash'] != receipt_hash or json_value(locked['proof']) != proof):
-                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
-            prior = rows(session, "SELECT status,proof,proof_hash FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=:op AND kind=:kind FOR UPDATE", {'op': operation_id, 'kind': KIND}, 2)
-            if prior:
-                original = json_value(prior[0]['proof'])
-                if (original.get('membershipHash') != receipt_hash or original.get('operationId') != operation_id or original.get('status') != prior[0]['status'] or prior[0]['proof_hash'] != digest(key, KIND, original)):
-                    raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
-                if prior[0]['status'] == 'completed':
-                    return
-                # A prior processing checkpoint may have invalidated Redis.
-                # Retrying it cannot be justified by a missing task ACK.
-                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNCERTAIN')
             member_key, _ = adapter.config()
-            if proof['provenance']['entityDigest'] != adapter._hash('pending-cancellation.membership-entity.v1', customer['email'], member_key):
-                from membership_reference import validate
-                validate(session,key,proof,receipt_hash,current,customer,adapter)
             staged = proof['provenance']
+            if current['entityDigest'] != staged['entityDigest']:
+                from membership_staged_reference import activated
+                activated(session,key,proof,receipt_hash,current,adapter)
+            if current['entityDigest'] != adapter._hash('pending-cancellation.membership-entity.v1', customer['email'], member_key):
+                if current['contract']=='pos-cancellation-membership-staged-v2':
+                    from membership_staged_reference import pending
+                    pending(session,key,proof,receipt_hash,current,customer,adapter)
+                else:
+                    from membership_reference import validate
+                    validate(session,key,proof,receipt_hash,current,customer,adapter)
             if (current['orderId'] != staged['orderId'] or current['customerId'] != staged['customerId']
                     or current['before'] != staged['before'] or current['operationId'] != staged['operationId']
-                    or current['headerHash'] != staged['headerHash'] or current['entityDigest'] != staged['entityDigest']
+                    or current['headerHash'] != staged['headerHash']
                     or not hmac.compare_digest(current['proofHash'], adapter.proof_hash(current, member_key))):
                 raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
             binding = one(session, 'SELECT order_id,request_hash FROM pos_rewrite_import_financial_order_bindings WHERE operation_id=:op FOR SHARE', {'op': operation_id})

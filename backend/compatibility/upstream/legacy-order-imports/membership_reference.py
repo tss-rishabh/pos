@@ -63,10 +63,15 @@ def validate(session, key, proof, membership_hash, activation, customer, adapter
             or confirmed['operationId'] != data['operationId'] or confirmed['orderId'] != data['orderId']
             or confirmed['headerHash'] != activation['headerHash']):
         _fail()
+    validate_transfers(session,key,data,activation['entityDigest'])
+    return envelope
+
+
+def validate_transfers(session,key,data,original_entity):
     transfers = data['transfers']
     if not isinstance(transfers, list) or not 1 <= len(transfers) <= 16:
         _fail()
-    previous = activation['entityDigest']
+    previous = original_entity
     for transfer in transfers:
         if transfer['previousEntity'] != previous:
             _fail()
@@ -92,4 +97,3 @@ def validate(session, key, proof, membership_hash, activation, customer, adapter
         previous = transfer['nextEntity']
     if previous != data['currentEntity']:
         _fail()
-    return envelope

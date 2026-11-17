@@ -5,6 +5,11 @@ import type {
 } from '../financial-adapter-contracts.js';
 import { csvMembershipError, csvMembershipReceiptSchema } from './domain.js';
 import { csvMembershipReferenceSchema } from './reference-contracts.js';
+import {
+  csvMembershipStagedReferenceSchema,
+  csvMembershipReferenceActivationSchema,
+  assertReferenceActivationMutation,
+} from './staged-reference-contracts.js';
 
 export const csvMembershipSnapshotMaximumBytes = 262144;
 export const csvMembershipCompletionSnapshotSchema = z
@@ -13,6 +18,14 @@ export const csvMembershipCompletionSnapshotSchema = z
     /** Original completed membership descriptor's source proof_hash. */
     sourceReceiptHash: z.string().regex(/^[a-f0-9]{64}$/),
     reference: csvMembershipReferenceSchema.optional(),
+    stagedReference: csvMembershipStagedReferenceSchema.optional(),
+    referenceActivation: z
+      .object({
+        data: csvMembershipReferenceActivationSchema,
+        sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
+      })
+      .strict()
+      .optional(),
   })
   .strict()
   .refine(
@@ -87,7 +100,11 @@ export function validateCsvMembershipCompletionSnapshot(
       r.activation.orderId !== value.provenance.orderId ||
       r.activation.customerId !== value.provenance.customerId ||
       r.activation.operationId !== value.provenance.operationId ||
-      r.activation.entityDigest !== value.provenance.entityDigest ||
+      r.activation.entityDigest !==
+        (snapshot.referenceActivation?.data.activation.entityDigest ??
+          value.provenance.entityDigest) ||
+      (snapshot.referenceActivation &&
+        r.activation.proofHash !== snapshot.referenceActivation.data.activation.proofHash) ||
       r.activation.headerHash !== value.provenance.headerHash ||
       r.activation.createdAt !== value.provenance.createdAt ||
       JSON.stringify(r.activation.before) !== JSON.stringify(value.provenance.before) ||
@@ -103,6 +120,43 @@ export function validateCsvMembershipCompletionSnapshot(
         throw csvMembershipError();
     }
   }
+  if (snapshot.stagedReference) {
+    const r = snapshot.stagedReference.data;
+    if (
+      r.operationId !== scope.operationId ||
+      r.requestHash !== completed.requestHash ||
+      r.planHash !== completed.planHash ||
+      r.namespace !== value.namespace ||
+      r.orderId !== order.orderId ||
+      r.customerId !== order.customerId ||
+      r.sourceReceiptHash !== snapshot.sourceReceiptHash ||
+      JSON.stringify(r.original) !== JSON.stringify(value.provenance) ||
+      r.transfers[0]?.previousEntity !== r.original.entityDigest ||
+      r.transfers.at(-1)?.nextEntity !== r.currentEntity
+    )
+      throw csvMembershipError();
+    if (completed.kind === 'offline') {
+      const a = snapshot.referenceActivation?.data;
+      if (
+        !a ||
+        a.referenceHash !== snapshot.stagedReference.sourceHash ||
+        a.originalStageHash !== r.original.proofHash ||
+        a.sourceReceiptHash !== r.sourceReceiptHash ||
+        a.operationId !== scope.operationId ||
+        a.orderId !== order.orderId ||
+        a.customerId !== order.customerId ||
+        a.requestHash !== completed.requestHash ||
+        a.planHash !== completed.planHash ||
+        a.activation.entityDigest !== r.currentEntity ||
+        JSON.stringify(a.activation.before) !== JSON.stringify(r.original.before)
+      )
+        throw csvMembershipError();
+      assertReferenceActivationMutation(snapshot.stagedReference, a, {
+        kind: value.kind,
+        productId: value.memberLines[0]!.productId,
+      });
+    } else if (snapshot.referenceActivation) throw csvMembershipError();
+  } else if (snapshot.referenceActivation) throw csvMembershipError();
   const lines = new Map(order.lines.map((line) => [line.id, line]));
   if (lines.size !== order.lines.length) throw csvMembershipError();
   for (const member of [...value.memberLines, ...value.additionalLines]) {

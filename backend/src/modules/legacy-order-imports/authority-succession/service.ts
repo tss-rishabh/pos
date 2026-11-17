@@ -590,6 +590,12 @@ export function legacyImportAuthoritySuccession(
             managerId: data.managerId,
             issuedAt: data.issuedAt,
           });
+        else
+          await ports.profiles.captureStagedReferences(tx, value.loaded, evidence.order, {
+            id: data.id,
+            managerId: data.managerId,
+            issuedAt: data.issuedAt,
+          });
         await ports.journal.save(tx, {
           ...value.loaded.state,
           authoritySuccession: successionRef(envelope),

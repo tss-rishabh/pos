@@ -80,6 +80,12 @@ export interface FinancialImportProfileHooks {
     order: SourceOrderReceipt,
     approval: { id: string; managerId: string; issuedAt: number },
   ): Promise<void>;
+  captureStagedReferences?(
+    transaction: Transaction,
+    context: Context,
+    order: SourceOrderReceipt,
+    approval: { id: string; managerId: string; issuedAt: number },
+  ): Promise<void>;
   completionSnapshot?(
     transaction: Transaction,
     context: Context,
@@ -280,6 +286,11 @@ export function financialAdapterProfiles(
         result = candidate;
       }
       return result;
+    },
+    async captureStagedReferences(tx, context, order, approval) {
+      assertBindings(context.state);
+      for (const extension of extensions)
+        await extension.captureStagedReferences?.(tx, context, order, approval);
     },
     async captureConsumedReferences(tx, context, order, approval) {
       assertBindings(context.state);

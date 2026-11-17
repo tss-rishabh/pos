@@ -18,11 +18,16 @@ import {
   csvMembershipContract,
   csvMembershipError,
   csvMembershipProvenanceSchema,
+  csvMemberStateSchema,
   membershipProvenanceHash,
   stagedMembershipContract,
   verifyCsvMembershipDescriptor,
 } from './domain.js';
 import { consumedMembershipReference } from './references.js';
+import {
+  stagedMembershipReference,
+  readMembershipReferenceActivation,
+} from './staged-references.js';
 
 export interface CsvMembershipOptions {
   contract: string;
@@ -32,6 +37,7 @@ export interface CsvMembershipOptions {
   productIds: readonly string[];
   freeProductId: string;
   referenceContract?: string;
+  stagedReferenceContract?: string;
   contactSecret?: string;
   businessTimezone?: string;
 }
@@ -145,7 +151,6 @@ export async function assertCsvMembershipProfile(
     member.headerHash !== staged.headerHash ||
     member.operationId !== staged.operationId ||
     member.createdAt !== staged.createdAt ||
-    member.entityDigest !== staged.entityDigest ||
     JSON.stringify(member.before) !== JSON.stringify(staged.before) ||
     member.contract !==
       (input.phase === 'staged' || plan.kind === 'shopify'
@@ -154,7 +159,7 @@ export async function assertCsvMembershipProfile(
     (member.contract === stagedMembershipContract && member.proofHash !== staged.proofHash)
   )
     throw csvMembershipError();
-  const rows = await tx
+  const rawRows = await tx
     .select({
       attribute: cancellationMembershipRows.attribute,
       value: cancellationMembershipRows.value,
@@ -173,6 +178,31 @@ export async function assertCsvMembershipProfile(
     .orderBy(asc(cancellationMembershipRows.attribute))
     .limit(3)
     .for('update');
+  const rows = csvMemberStateSchema.array().length(2).parse(rawRows);
+  const referenceActivation =
+    member.contract === activatedMembershipContract && member.entityDigest !== staged.entityDigest
+      ? await readMembershipReferenceActivation(
+          tx,
+          {
+            state,
+            order,
+            original: staged,
+            current: member,
+            sourceReceiptHash: sealed.proofHash,
+            source: {
+              kind: result.receipt.kind,
+              productId: result.receipt.memberLines[0]!.productId,
+            },
+          },
+          options,
+        )
+      : null;
+  if (
+    member.contract === activatedMembershipContract &&
+    member.entityDigest !== staged.entityDigest &&
+    !referenceActivation
+  )
+    throw csvMembershipError();
   const sameEntity =
     member.entityDigest ===
     operationHash(
@@ -182,6 +212,23 @@ export async function assertCsvMembershipProfile(
     );
   // Only a genuinely consumed offline activation can survive a proved email
   // reference transfer. Staged/Shopify entitlements retain current eligibility.
+  const stagedReference =
+    !sameEntity && member.contract === stagedMembershipContract
+      ? await stagedMembershipReference(
+          tx,
+          {
+            state,
+            order,
+            sourceReceiptHash: sealed.proofHash,
+            original: member,
+            currentEmail: customer.email,
+            currentRevision: String(version.revision),
+            rows,
+            sourceRecordedAt: sealed.createdAt,
+          },
+          options,
+        )
+      : null;
   const reference =
     !sameEntity && input.phase === 'settled' && plan.kind === 'offline'
       ? await consumedMembershipReference(
@@ -200,6 +247,7 @@ export async function assertCsvMembershipProfile(
       : null;
   if (
     !reference &&
+    !stagedReference &&
     (!sameEntity ||
       member.revision !== String(version.revision) ||
       JSON.stringify(rows) !== JSON.stringify(member.confirmed))
@@ -226,5 +274,5 @@ export async function assertCsvMembershipProfile(
     )
       throw csvMembershipError();
   }
-  return { ...result, reference };
+  return { ...result, reference, stagedReference, referenceActivation };
 }

@@ -37,6 +37,7 @@ type importCapability struct {
 	Authority importAuthority `json:"authority"`
 	Succession *importSuccessionEnvelope `json:"succession,omitempty"`
 	authKey string
+	memberReferenceMutation *importMemberSourceMutation
 	IssuedAt  int64 `json:"issuedAt"`
 	ExpiresAt int64 `json:"expiresAt"`
 	raw       map[string]interface{}
@@ -328,6 +329,7 @@ func recordLegacyImportConfirmation(ctx context.Context, tx *sql.Tx, c *importCa
 	if err != nil {
 		return err
 	}
+	if err = recordLegacyMembershipReferenceActivation(ctx, tx, c, seal); err != nil { return err }
 	return recordLegacyImportCoupon(ctx, tx, c, coupon, seal)
 }
 
@@ -449,6 +451,7 @@ type importMembershipReceipt struct {
 	Provenance         importMembershipRecord   `json:"provenance"`
 	CacheInvalidations int                      `json:"cacheInvalidations"`
 	HistoryEvidence    *importMembershipHistory `json:"historyEvidence"`
+	Replacement json.RawMessage `json:"replacement,omitempty"`
 }
 
 // Source stage provenance is mandatory before any import membership activation.
@@ -509,7 +512,11 @@ func verifyLegacyImportMembership(ctx context.Context, tx *sql.Tx, c *importCapa
 		return ErrReview
 	}
 	captured := membershipProof{OrderID: orderID, CustomerID: current.CustomerID, Revision: stagedRevision, HeaderHash: staged.HeaderHash, Before: staged.Before, Confirmed: staged.Confirmed, Contract: staged.Contract, OperationID: staged.OperationID, CreatedAt: staged.CreatedAt, EntityDigest: staged.EntityDigest, ProofHash: staged.ProofHash}
-	if current.OrderID != orderID || strconv.FormatInt(current.CustomerID, 10) != c.Authority.CustomerID || staged.OrderID != c.OrderID || staged.CustomerID != c.Authority.CustomerID || staged.HeaderHash != current.HeaderHash || staged.Contract != MembershipStagedContract || staged.OperationID != current.OperationID || staged.CreatedAt != current.CreatedAt || staged.EntityDigest != current.EntityDigest || !sameMemberStates(staged.Before, current.Before) || !validMemberMAC(captured, config.key) || !validMemberMAC(current, config.key) {
+	if current.EntityDigest != staged.EntityDigest {
+	 if current.Contract != MembershipContract { return ErrReview }
+	 if err = verifyLegacyMembershipReferenceApplied(ctx,tx,c,staged,current); err != nil { return err }
+	}
+	if current.OrderID != orderID || strconv.FormatInt(current.CustomerID, 10) != c.Authority.CustomerID || staged.OrderID != c.OrderID || staged.CustomerID != c.Authority.CustomerID || staged.HeaderHash != current.HeaderHash || staged.Contract != MembershipStagedContract || staged.OperationID != current.OperationID || staged.CreatedAt != current.CreatedAt || !sameMemberStates(staged.Before, current.Before) || !validMemberMAC(captured, config.key) || !validMemberMAC(current, config.key) {
 		return ErrReview
 	}
 	if current.Contract == MembershipStagedContract {

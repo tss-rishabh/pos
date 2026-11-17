@@ -49,6 +49,17 @@ export function assertCompletedAuthoritySuccession(proof: ImportCompletedProof) 
     )
       throw importFinancialError('ORDER_IMPORT_SUCCESSION_PROOF_INVALID');
   }
+  const stagedReference = proof.membership?.stagedReference;
+  if (stagedReference) {
+    const grant = value.grants.find((item) => item.data.id === stagedReference.data.grantId);
+    if (
+      !grant ||
+      grant.data.managerId !== stagedReference.data.managerId ||
+      grant.data.issuedAt !== stagedReference.data.approvedAt ||
+      grant.data.orderId !== stagedReference.data.orderId
+    )
+      throw importFinancialError('ORDER_IMPORT_SUCCESSION_PROOF_INVALID');
+  }
   for (const claim of value.claims) {
     const grant = value.grants.find((v) => v.data.id === claim.grant.id);
     if (

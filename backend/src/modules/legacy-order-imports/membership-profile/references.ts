@@ -134,6 +134,52 @@ export async function consumedMembershipReference(
       counterId: order.counterId,
     });
 
+    const { transfers, currentEntity, currentRowsHash } = await proveMembershipContactTransfer(
+      tx,
+      {
+        customerId: order.customerId,
+        provenance: activation,
+        currentEmail: input.currentEmail,
+        rows: input.rows,
+        notBefore: confirmed.data.confirmedAt,
+      },
+      options,
+    );
+    return {
+      contract: csvMembershipReferenceContract,
+      operationId: state.scope.operationId,
+      requestHash: state.requestHash,
+      planHash: state.planHash,
+      namespace: state.namespace,
+      orderId: order.orderId,
+      customerId: order.customerId,
+      sourceReceiptHash: input.sourceReceiptHash,
+      confirmationHash: confirmation.proofHash,
+      activation,
+      currentEntity,
+      currentRevision: input.currentRevision,
+      currentRowsHash,
+      transfers,
+    };
+  } catch {
+    throw csvMembershipError();
+  }
+}
+
+/** Genuine retained contact commit, reused by staged and consumed proofs. */
+export async function proveMembershipContactTransfer(
+  tx: AdministrationTransaction,
+  input: {
+    customerId: string;
+    provenance: CsvMembershipProvenance;
+    currentEmail: string;
+    rows: Rows;
+    notBefore: number;
+  },
+  options: CsvMembershipOptions,
+) {
+  if (!options.contactSecret || !options.businessTimezone) throw csvMembershipError();
+  try {
     const candidates = await tx
       .select({
         id: challenges.id,
@@ -147,6 +193,7 @@ export async function consumedMembershipReference(
         currentVerifiedAt: challenges.currentVerifiedAt,
         newVerifiedAt: challenges.newVerifiedAt,
         createdAt: challenges.createdAt,
+        expiresAt: challenges.expiresAt,
         encryptedInput: sql<
           string | null
         >`CASE WHEN OCTET_LENGTH(${challenges.encryptedInput})<=342000 THEN ${challenges.encryptedInput} ELSE NULL END`,
@@ -154,7 +201,7 @@ export async function consumedMembershipReference(
       .from(challenges)
       .where(
         and(
-          eq(challenges.customerId, order.customerId),
+          eq(challenges.customerId, input.customerId),
           eq(challenges.kind, 'email'),
           inArray(challenges.status, ['COMMITTING', 'COMMITTED', 'UNCERTAIN']),
         ),
@@ -163,7 +210,7 @@ export async function consumedMembershipReference(
       .limit(17);
     if (!candidates.length || candidates.length > 16) throw csvMembershipError();
     const transfers: MembershipContactTransfer[] = [];
-    let previous = activation.entityDigest;
+    let previous = input.provenance.entityDigest;
     const transferWalls = new Set<string>();
     for (const challenge of candidates) {
       if (!challenge.encryptedInput) throw csvMembershipError();
@@ -202,7 +249,7 @@ export async function consumedMembershipReference(
       if (
         effects.length !== 1 ||
         !delivery?.encryptedPayload ||
-        delivery.customerId !== order.customerId ||
+        delivery.customerId !== input.customerId ||
         delivery.operatorId !== challenge.operatorId
       )
         throw csvMembershipError();
@@ -229,13 +276,17 @@ export async function consumedMembershipReference(
         mutation.operatorId !== challenge.operatorId ||
         mutation.checkoutId !== challenge.checkoutId ||
         mutation.createdAt !== delivery.createdAt ||
-        mutation.createdAt < confirmed.data.confirmedAt ||
+        mutation.createdAt < input.notBefore ||
         mutation.createdAt < challenge.createdAt ||
+        mutation.createdAt >= challenge.expiresAt ||
+        mutation.createdAt >= challenge.newVerifiedAt + 600000 ||
+        challenge.currentVerifiedAt < challenge.createdAt ||
+        challenge.newVerifiedAt < challenge.currentVerifiedAt ||
         challenge.currentVerifiedAt > mutation.createdAt ||
         challenge.newVerifiedAt > mutation.createdAt ||
         effect.kind !== 'email' ||
         effect.challengeId !== challenge.id ||
-        effect.customerId !== order.customerId ||
+        effect.customerId !== input.customerId ||
         effect.operatorId !== challenge.operatorId ||
         effect.checkoutId !== challenge.checkoutId ||
         effect.storeId !== challenge.storeId ||
@@ -280,11 +331,13 @@ export async function consumedMembershipReference(
     if (
       !transfers.length ||
       previous !== entity(input.currentEmail, options) ||
-      input.rows.length !== activation.confirmed.length
+      input.rows.length !== input.provenance.confirmed.length
     )
       throw csvMembershipError();
     for (const row of input.rows) {
-      const original = activation.confirmed.find((value) => value.attribute === row.attribute);
+      const original = input.provenance.confirmed.find(
+        (value) => value.attribute === row.attribute,
+      );
       if (
         !original ||
         row.value !== original.value ||
@@ -294,22 +347,8 @@ export async function consumedMembershipReference(
       )
         throw csvMembershipError();
     }
-    return {
-      contract: csvMembershipReferenceContract,
-      operationId: state.scope.operationId,
-      requestHash: state.requestHash,
-      planHash: state.planHash,
-      namespace: state.namespace,
-      orderId: order.orderId,
-      customerId: order.customerId,
-      sourceReceiptHash: input.sourceReceiptHash,
-      confirmationHash: confirmation.proofHash,
-      activation,
-      currentEntity: previous,
-      currentRevision: input.currentRevision,
-      currentRowsHash: rowHash(input.rows, options),
-      transfers,
-    };
+
+    return { transfers, currentEntity: previous, currentRowsHash: rowHash(input.rows, options) };
   } catch {
     throw csvMembershipError();
   }
@@ -321,6 +360,7 @@ export async function captureMembershipReference(
   approval: { id: string; managerId: string; issuedAt: number },
   options: CsvMembershipOptions,
 ) {
+  if (approval.issuedAt < facts.transfers.at(-1)!.committedAt) throw csvMembershipError();
   const data = {
       ...facts,
       grantId: approval.id,
@@ -347,16 +387,14 @@ export async function captureMembershipReference(
       throw csvMembershipError();
     return proof;
   }
-  await tx
-    .insert(csvMembershipReferences)
-    .values({
-      id: proof.sourceHash,
-      operationId: facts.operationId,
-      orderId: facts.orderId,
-      grantId: approval.id,
-      data: proof,
-      createdAt: approval.issuedAt,
-    });
+  await tx.insert(csvMembershipReferences).values({
+    id: proof.sourceHash,
+    operationId: facts.operationId,
+    orderId: facts.orderId,
+    grantId: approval.id,
+    data: proof,
+    createdAt: approval.issuedAt,
+  });
   return proof;
 }
 

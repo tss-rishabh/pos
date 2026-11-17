@@ -27,6 +27,11 @@ import {
   type CsvMembershipCompletionSnapshot,
 } from './completion.js';
 import { captureMembershipReference, readCapturedMembershipReference } from './references.js';
+import {
+  captureStagedMembershipReference,
+  readStagedMembershipReference,
+  sameStagedReferenceFacts,
+} from './staged-references.js';
 
 type Transaction = AdministrationTransaction;
 type Context = FinancialImportProfileContext;
@@ -205,6 +210,8 @@ export function csvMembershipImportProfile(
       ...found,
       expectedQuantities: checked.expectedQuantities,
       reference: checked.reference,
+      stagedReference: checked.stagedReference,
+      referenceActivation: checked.referenceActivation,
     };
   }
   return {
@@ -219,6 +226,11 @@ export function csvMembershipImportProfile(
     },
     async expectedQuantities(tx, context, order, phase) {
       return (await current(tx, context, order, phase))?.expectedQuantities ?? null;
+    },
+    async captureStagedReferences(tx, context, order, approval) {
+      const found = await current(tx, context, order, 'staged');
+      if (found?.stagedReference)
+        await captureStagedMembershipReference(tx, found.stagedReference, approval, options);
     },
     async captureConsumedReferences(tx, context, order, approval) {
       // Shopify/staged membership has no consumed activation to authenticate.
@@ -237,11 +249,30 @@ export function csvMembershipImportProfile(
             options,
           )
         : null;
+      const stagedReference = found?.stagedReference
+        ? await readStagedMembershipReference(
+            tx,
+            context.state.scope.operationId,
+            context.state.authoritySuccession?.id ?? '',
+            options,
+          )
+        : (found?.referenceActivation?.reference ?? null);
+      if (found?.stagedReference && stagedReference)
+        sameStagedReferenceFacts(stagedReference, found.stagedReference);
       return found
         ? csvMembershipCompletionSnapshotSchema.parse({
             receipt: found.receipt,
             sourceReceiptHash: found.sourceReceiptHash,
             ...(reference ? { reference } : {}),
+            ...(stagedReference ? { stagedReference } : {}),
+            ...(found.referenceActivation
+              ? {
+                  referenceActivation: {
+                    data: found.referenceActivation.activation,
+                    sourceHash: found.referenceActivation.sourceHash,
+                  },
+                }
+              : {}),
           })
         : null;
     },

@@ -163,13 +163,53 @@ append-only proof table and a bounded customer/kind/status index on the rewrite
 contact-challenge table. Common source packaging must include
 `membership_reference.py` and fingerprint the changed cache consumer.
 
-A changed email **before** original membership activation is still refused in
-this consumed-only commit. It requires an explicit staged successor/Go binding
-that preserves the actual prior/current entitlement and original activation bit;
-that next code slice must not rewrite the original source descriptor or invent
-an earlier activation. Shopify remains staged/pending and gains no paid receipt.
-Unproved legacy contact transfers and arbitrary account edits remain explicit
-reconciliation boundaries, not permission to move or regrant membership.
+The staged successor follow-up implements changed-email **before** activation.
+Explicit manager approval calls `captureStagedReferences` and appends
+`pos_rewrite_import_membership_staged_references` in the same grant transaction.
+Its source HMAC binds the original signed staged record, exact contact commit,
+current native EAV/revision and unchanged pending activation bits. The original
+source receipt and native staged provenance are not rewritten by approval.
+
+The private Go wrapper locks and checks that descriptor at the original
+confirmation nonce. Its in-memory activation view uses the proved current email
+reference and native revision, retaining original before-entitlement, operation,
+creation time and staged expiry. The existing source Apply executes once. The
+activation finalizer CASes the original staged seal to the actual activated
+provenance and records `member-reference` in the same SQL transaction as original
+confirmation/projection. Its transition binds original stage, approved reference,
+actual activated seal, confirmation hash/nonce and explicit source mutation.
+
+Pinned payments commit `434f3e438d1cb48c64e5723222c6efda506db571`,
+`juspay/model.go:2355–2361`, activates new/free memberships by setting both active
+bits. The separate upgrade branch at `2378–2425` adds the source's **second** expiry
+delta and changes the member value; `getExpiryDelta` at `1994–2016` uses the actual
+365/330/270 environment mapping, returning zero for a missing key. This follow-up
+preserves those source branches. It freezes their selected delta before Apply,
+checks actual after-values, and seals the branch/delta/expiry before/after. It
+never selects a corrected upgrade duration or extends value merely because a
+contact changed. Unaligned/ambiguous source product settings fail before Apply.
+
+Shopify uses the signed staged-reference snapshot for its original pending
+settlement/publication. It never enters Go activation, acquires a confirmation or
+paid receipt, or flips activation bits. Node/source cache readers recognize the
+actual staged or activated transition; completed financial/cache acknowledgments
+are retained facts and do not require current EAV/contact/session/profile settings
+or another cache invalidation. Unknown processing remains quarantined.
+
+Additional selector:
+`POS_LEGACY_IMPORT_MEMBERSHIP_STAGED_REFERENCE_CONTRACT=pos-csv-membership-staged-reference-v1`.
+Additional migration: `membership-profile/staged-reference-migration.sql`.
+Additional source helper: `membership_staged_reference.py`.
+Additional Go helper: `legacy_import_membership_reference.go`.
+Root's common generator replaces only the existing new-confirmation
+`lockMembership`/`finishMembership` pair with these wrappers and copies/hashes that
+helper. A nil/no-reference ordinary path delegates unchanged. Existing public
+membership and source-frame ownership are untouched.
+
+Unproved legacy contact transfers or arbitrary direct account/EAV edits remain
+explicit reconciliation boundaries. These proofs do not invent missing historical
+activation or move/regrant an entity. All source contracts remain unselected until
+the later source/native/race/security validation and deployment acceptance phase.
 
 Pending final validation includes source/native race and delayed-request fencing,
 rollback, current session/actor/contact/check-in revocation, lost replies, original

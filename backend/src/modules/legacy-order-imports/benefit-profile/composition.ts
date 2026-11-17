@@ -325,6 +325,15 @@ export function csvFinancialBenefitProfile(
         kind: context.plan.kind,
       });
     },
+    async captureStagedReferences(tx, context, order, approval) {
+      const result = await checked(tx, context, order, 'staged');
+      await member.captureStagedReferences?.(
+        tx,
+        result ? { ...context, plan: result.view.plan } : context,
+        result?.view.order ?? order,
+        approval,
+      );
+    },
     async captureConsumedReferences(tx, context, order, approval) {
       const result = await checked(tx, context, order, 'settled');
       await member.captureConsumedReferences?.(

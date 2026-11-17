@@ -10,6 +10,7 @@ import type { LegacyImportFinancialOptions } from '../financial-adapter-options.
 import type { CsvMembershipOptions } from './native.js';
 import { csvMembershipContract } from './domain.js';
 import { csvMembershipReferenceContract } from './reference-contracts.js';
+import { csvMembershipStagedReferenceContract } from './staged-reference-contracts.js';
 
 const key = z.string().regex(/^[!-~]{32,4096}$/);
 const optional = <T extends z.ZodType>(schema: T) =>
@@ -52,6 +53,9 @@ export function readCsvImportMembershipOptions(
       POS_LEGACY_IMPORT_MEMBERSHIP_REFERENCE_CONTRACT: optional(
         z.literal(csvMembershipReferenceContract),
       ),
+      POS_LEGACY_IMPORT_MEMBERSHIP_STAGED_REFERENCE_CONTRACT: optional(
+        z.literal(csvMembershipStagedReferenceContract),
+      ),
       CUSTOMER_CONTACTS_SECRET: optional(key),
       BUSINESS_TIMEZONE: z.string().min(1).max(80).default('Asia/Kolkata'),
       POS_MEMBERSHIP_PRODUCT_IDS: productIds.prefault('[]'),
@@ -76,7 +80,8 @@ export function readCsvImportMembershipOptions(
   )
     throw importFinancialError('ORDER_IMPORT_MEMBERSHIP_CONFIGURATION_REQUIRED', 503);
   if (
-    value.POS_LEGACY_IMPORT_MEMBERSHIP_REFERENCE_CONTRACT &&
+    (value.POS_LEGACY_IMPORT_MEMBERSHIP_REFERENCE_CONTRACT ||
+      value.POS_LEGACY_IMPORT_MEMBERSHIP_STAGED_REFERENCE_CONTRACT) &&
     (!value.CUSTOMER_CONTACTS_SECRET ||
       !value.POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT ||
       value.CUSTOMER_CONTACTS_SECRET === value.POS_MEMBERSHIP_PROOF_KEY ||
@@ -91,6 +96,7 @@ export function readCsvImportMembershipOptions(
     productIds: value.POS_MEMBERSHIP_PRODUCT_IDS,
     freeProductId: value.EXCLUSIVE_QUARTERLY_ID_FREE ?? '',
     referenceContract: value.POS_LEGACY_IMPORT_MEMBERSHIP_REFERENCE_CONTRACT,
+    stagedReferenceContract: value.POS_LEGACY_IMPORT_MEMBERSHIP_STAGED_REFERENCE_CONTRACT,
     contactSecret: value.CUSTOMER_CONTACTS_SECRET,
     businessTimezone: value.BUSINESS_TIMEZONE,
   };
