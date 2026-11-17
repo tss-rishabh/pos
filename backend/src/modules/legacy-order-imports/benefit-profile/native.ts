@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { Order, Product } from '../../../db/legacy-schema.js';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
@@ -249,7 +249,7 @@ export async function assertNativeCsvBenefits(
     .from(importBenefitCouponControls)
     .where(eq(importBenefitCouponControls.id, Number(coupon.couponId)))
     .limit(1)
-    .for('update');
+    .for('share');
   if (couponControls.length !== 1 || couponControls[0]!.hash !== coupon.couponInputHash)
     throw benefitError();
   if (
@@ -367,6 +367,7 @@ export async function readCsvBenefitDescriptors(
 ) {
   const rows = await tx
     .select({
+      id: financialImportSourceReceipts.id,
       kind: financialImportSourceReceipts.kind,
       requestHash: financialImportSourceReceipts.requestHash,
       status: financialImportSourceReceipts.status,
@@ -383,11 +384,19 @@ export async function readCsvBenefitDescriptors(
     .where(
       and(
         eq(financialImportSourceReceipts.operationId, operationId),
-        inArray(financialImportSourceReceipts.kind, [
-          'coupon-benefit',
-          'pos-complement',
-          'coupon-consume',
-        ]),
+        or(
+          inArray(financialImportSourceReceipts.kind, [
+            'coupon-benefit',
+            'pos-complement',
+            'coupon-consume',
+          ]),
+          inArray(
+            financialImportSourceReceipts.id,
+            ['coupon-benefit', 'pos-complement', 'coupon-consume'].map(
+              (kind) => operationId + ':' + kind,
+            ),
+          ),
+        ),
       ),
     )
     .orderBy(asc(financialImportSourceReceipts.kind))
@@ -396,7 +405,12 @@ export async function readCsvBenefitDescriptors(
   if (
     rows.length > 3 ||
     rows.some(
-      (row) => row.oversized !== 0 || row.requestHash !== requestHash || row.status !== 'completed',
+      (row) =>
+        row.oversized !== 0 ||
+        row.requestHash !== requestHash ||
+        row.status !== 'completed' ||
+        !['coupon-benefit', 'pos-complement', 'coupon-consume'].includes(row.kind) ||
+        row.id !== operationId + ':' + row.kind,
     ) ||
     new Set(rows.map((row) => row.kind)).size !== rows.length
   )

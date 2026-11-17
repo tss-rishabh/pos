@@ -26,6 +26,8 @@ import {
   validateCsvMembershipCompletionSnapshot,
   assertCsvMembershipPublication,
 } from './membership-profile/completion.js';
+import { validateCsvFinancialBenefitSnapshot } from './benefit-profile/completion.js';
+import { readCsvBenefitDescriptors } from './benefit-profile/native.js';
 /** Native financial/address/date digests never serialize a MySQL FLOAT through JavaScript. */
 export const importOrderHeaderHashExpression = `LOWER(SHA2(CAST(JSON_OBJECT('financial_header_hash',${checkoutHeaderHashSql},'created_at',DATE_FORMAT(orders.created_at,'%Y-%m-%d %H:%i:%s'),'currency',orders.currency,'currency_conv_rate',orders.currency_conv_rate,'shipping_amt',orders.shipping_amt,'order_amt',orders.order_amt,'fraction_value',orders.fraction_value,'first_name',orders.first_name,'last_name',orders.last_name,'address1',orders.address1,'address2',orders.address2,'address3',orders.address3,'phone_no',orders.phone_no,'country_id',orders.country_id,'zone_id',orders.zone_id,'postal_code',orders.postal_code,'city',orders.city) AS CHAR CHARACTER SET utf8mb4),256))`;
 export const importOrderLineHashExpression =
@@ -204,6 +206,9 @@ export async function readAuthenticatedImportCompletion(
     if (member) throw importFinancialError('ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID');
   }
   assertCsvMembershipPublication(proof.membership ?? null, proof.publication);
+  if (proof.benefits !== undefined) validateCsvFinancialBenefitSnapshot(proof.benefits, proof);
+  else if (Object.keys(await readCsvBenefitDescriptors(tx, operationId, proof.requestHash)).length)
+    throw importFinancialError('ORDER_IMPORT_BENEFIT_PROOF_INVALID');
   return proof;
 }
 export async function assertImportCompletionOwnership(

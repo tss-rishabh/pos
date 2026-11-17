@@ -16,6 +16,7 @@ import { financialImportCorrectionBoundary } from './financial-adapter-correctio
 import { configuredFinancialImportProfiles } from './membership-profile/options.js';
 import { configuredSourceOrderPreparation } from './source-order-preparation-runtime.js';
 import type { sourceOrderPreparation } from './source-order-preparation.js';
+import { configuredCsvImportBenefits } from './benefit-profile/options.js';
 
 /** Configuration inspection is pure: disabled/demo startup performs no I/O. */
 export function configuredLegacyOrderImports(
@@ -48,6 +49,7 @@ export function configuredLegacyOrderImports(
       environment,
       options.preparation,
     ),
+    benefits = configuredCsvImportBenefits(financial, environment),
     approvals = legacyOrderImportFinancialApprovals(config, db, financial),
     corrections = legacyOrderImportCorrections(db, config, {
       secret: key,
@@ -65,7 +67,7 @@ export function configuredLegacyOrderImports(
       corrections,
       correctionForOperation: corrections.correctionForOperation,
     };
-  let canStart = preparation.ready;
+  let canStart = preparation.ready && benefits.ready;
   try {
     transport.assertReady();
   } catch (error: unknown) {
@@ -83,7 +85,11 @@ export function configuredLegacyOrderImports(
       financial,
       transport,
       configuredFinancialImportProfiles(financial, environment, {
-        ...(preparation.guard ? { extensions: [preparation.guard] } : {}),
+        benefits: benefits.options,
+        extensions: [
+          ...(preparation.guard ? [preparation.guard] : []),
+          ...(benefits.guard ? [benefits.guard] : []),
+        ],
       }),
       preparation.port,
     ),

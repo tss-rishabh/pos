@@ -35,6 +35,7 @@ COPY src/modules/checkout/payment-reversals/*.sql ./src/modules/checkout/payment
 COPY src/modules/checkout/payments/*.sql ./src/modules/checkout/payments/
 COPY src/modules/checkout/cancellations/*.sql ./src/modules/checkout/cancellations/
 COPY src/modules/legacy-order-imports/*.sql ./src/modules/legacy-order-imports/
+COPY compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql ./compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql
 COPY compatibility/upstream/ordinary/migration.sql ./compatibility/upstream/ordinary/migration.sql
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql

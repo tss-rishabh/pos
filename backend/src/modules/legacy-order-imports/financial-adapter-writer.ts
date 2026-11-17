@@ -33,6 +33,12 @@ import {
 } from './financial-adapter-authority.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 import { assertCorrectionPlanIdentity } from './financial-adapter-corrections.js';
+import {
+  assertCsvBenefitQualification,
+  type CsvBenefitQualification,
+} from './benefit-profile/composition.js';
+import { importBenefitLines } from './benefit-profile/schema.js';
+import type { FinancialProfilePhase } from './financial-adapter-profiles.js';
 
 /** No prices/taxes are calculated here: native values must equal the sealed source result. */
 export async function assertNativeImportOrder(
@@ -41,7 +47,12 @@ export async function assertNativeImportOrder(
   plan: LegacyOrderImportPlan,
   receipt: SourceOrderReceipt,
   expectedQuantities?: ReadonlyMap<string, number> | null,
+  benefits?: CsvBenefitQualification | null,
+  phase: FinancialProfilePhase = 'staged',
 ) {
+  const qualified = benefits
+    ? assertCsvBenefitQualification(tx, benefits, state, receipt, phase)
+    : null;
   const native = await nativeImportOrder(tx, receipt.orderId);
   if (
     receipt.operationId !== state.scope.operationId ||
@@ -104,6 +115,19 @@ export async function assertNativeImportOrder(
     .where(eq(GiftVoucher.order_id, BigInt(receipt.orderId)))
     .limit(1)
     .for('update');
+  const [unqualifiedFreebie] = qualified
+    ? []
+    : await tx
+        .select({ id: importBenefitLines.id })
+        .from(importBenefitLines)
+        .where(
+          and(
+            eq(importBenefitLines.orderId, BigInt(receipt.orderId)),
+            eq(importBenefitLines.type, 'FREEBIE'),
+          ),
+        )
+        .limit(1)
+        .for('share');
   if (
     !assets ||
     assets.money !== 0 ||
@@ -111,10 +135,11 @@ export async function assertNativeImportOrder(
     assets.cashback !== 0 ||
     (assets.voucherId ?? 0n) !== 0n ||
     (assets.voucher ?? 0) !== 0 ||
-    (assets.coupon ?? 0n) !== 0n ||
+    (assets.coupon ?? 0n) !== (qualified?.couponId ? BigInt(qualified.couponId) : 0n) ||
     (assets.parent ?? 0n) !== 0n ||
     (assets.original ?? 0n) !== 0n ||
-    funded
+    funded ||
+    unqualifiedFreebie
   )
     throw importFinancialError('ORDER_IMPORT_UNQUALIFIED_BENEFITS');
   await assertOrderRefundAllocations(tx, {
@@ -134,6 +159,7 @@ export async function settleNativeImport(
   receipt: SourceOrderReceipt,
   options: LegacyImportFinancialOptions,
   expectedQuantities?: ReadonlyMap<string, number> | null,
+  benefits?: CsvBenefitQualification | null,
 ): Promise<ImportSettlementReceipt> {
   await assertFinancialImportAuthority(tx, state.scope, state.authority);
   const currentClose = await currentImportClose(tx, state.scope, plan.createdAt.slice(0, 10));
@@ -142,7 +168,15 @@ export async function settleNativeImport(
     financialImportHash(options.secret, 'close', state.authority.close)
   )
     throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
-  const native = await assertNativeImportOrder(tx, state, plan, receipt, expectedQuantities),
+  const native = await assertNativeImportOrder(
+      tx,
+      state,
+      plan,
+      receipt,
+      expectedQuantities,
+      benefits,
+      'settled',
+    ),
     now = (options.clock ?? Date.now)();
   const zero = '0.00';
   if (

@@ -14,7 +14,15 @@ import type { screeningImportProfile } from './screening-profile.js';
 import { screeningTicketSku } from './screening-contracts.js';
 import { importFinancialError } from './financial-adapter-crypto.js';
 import { identifier } from '../../domain/validation.js';
-import { csvMembershipImportProfile } from './membership-profile/adapter.js';
+import {
+  csvFinancialBenefitProfile,
+  type CsvBenefitQualification,
+} from './benefit-profile/composition.js';
+import type { CsvBenefitProfileOptions } from './benefit-profile/adapter.js';
+import {
+  csvFinancialBenefitSnapshotSchema,
+  type CsvFinancialBenefitSnapshot,
+} from './benefit-profile/completion.js';
 import type { CsvMembershipOptions } from './membership-profile/native.js';
 import type { NativePreparationClosure } from './financial-adapter-preparation-contracts.js';
 import {
@@ -70,6 +78,17 @@ export interface FinancialImportProfileHooks {
     context: Context,
     order: SourceOrderReceipt,
   ): Promise<CsvMembershipCompletionSnapshot | null>;
+  qualifiedBenefits?(
+    transaction: Transaction,
+    context: Context,
+    order: SourceOrderReceipt,
+    phase: FinancialProfilePhase,
+  ): Promise<CsvBenefitQualification | null>;
+  benefitSnapshot?(
+    transaction: Transaction,
+    context: Context,
+    order: SourceOrderReceipt,
+  ): Promise<CsvFinancialBenefitSnapshot | null>;
 }
 export interface FinancialImportProfiles extends Required<FinancialImportProfileHooks> {
   readonly requiresCurrentReads: boolean;
@@ -78,6 +97,7 @@ export interface FinancialImportProfiles extends Required<FinancialImportProfile
 export interface FinancialAdapterProfileOptions {
   /** Trusted options only; a default unselected descriptor guard is mandatory. */
   readonly membership?: CsvMembershipOptions;
+  readonly benefits?: CsvBenefitProfileOptions;
   readonly screening?: {
     readonly profile: ReturnType<typeof screeningImportProfile>;
     /** Trusted source deployment setting; never accepted from an import request. */
@@ -96,7 +116,7 @@ export function financialAdapterProfiles(
   const screening = options.screening,
     lineItemsEnabled = screening?.lineItemsEnabled,
     extensions = [
-      csvMembershipImportProfile(
+      csvFinancialBenefitProfile(
         options.membership ?? {
           contract: '',
           sourceProofKey: '',
@@ -105,6 +125,7 @@ export function financialAdapterProfiles(
           productIds: [],
           freeProductId: '',
         },
+        options.benefits ?? { sourceProofKey: options.membership?.sourceProofKey ?? '' },
       ),
       ...(options.extensions ?? []),
     ];
@@ -234,6 +255,29 @@ export function financialAdapterProfiles(
         const parsed = csvMembershipCompletionSnapshotSchema.safeParse(value);
         if (!parsed.success || (result && JSON.stringify(result) !== JSON.stringify(parsed.data)))
           throw importFinancialError('ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID');
+        result = parsed.data;
+      }
+      return result;
+    },
+    async qualifiedBenefits(tx, context, order, phase) {
+      let result: CsvBenefitQualification | null = null;
+      for (const extension of extensions) {
+        const value = await extension.qualifiedBenefits?.(tx, context, order, phase);
+        if (value == null) continue;
+        if (result && result !== value)
+          throw importFinancialError('ORDER_IMPORT_PROFILE_QUANTITIES_CONFLICT');
+        result = value;
+      }
+      return result;
+    },
+    async benefitSnapshot(tx, context, order) {
+      let result: CsvFinancialBenefitSnapshot | null = null;
+      for (const extension of extensions) {
+        const value = await extension.benefitSnapshot?.(tx, context, order);
+        if (value == null) continue;
+        const parsed = csvFinancialBenefitSnapshotSchema.safeParse(value);
+        if (!parsed.success || (result && JSON.stringify(result) !== JSON.stringify(parsed.data)))
+          throw importFinancialError('ORDER_IMPORT_BENEFIT_PROOF_INVALID');
         result = parsed.data;
       }
       return result;

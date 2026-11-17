@@ -73,6 +73,7 @@ export const migrationPaths = [
   'src/modules/finance/migration.sql',
   'src/modules/legacy-order-imports/financial-proof-migration.sql',
   'src/modules/legacy-order-imports/preparation-migration.sql',
+  'compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql',
   'src/modules/legacy-order-imports/financial-close-operation-index.sql',
   'src/modules/legacy-order-imports/correction-migration.sql',
   'src/modules/legacy-order-imports/correction-command-migration.sql',

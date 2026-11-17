@@ -141,7 +141,8 @@ export function legacyOrderImportFinancialAdapter(
     await profiles.lock(tx, loaded);
     await profiles.sourceReceipt(tx, loaded, receipt);
     const expected = await profiles.expectedQuantities(tx, loaded, receipt, 'staged');
-    await assertNativeImportOrder(tx, state, loaded.plan, receipt, expected);
+    const benefits = await profiles.qualifiedBenefits(tx, loaded, receipt, 'staged');
+    await assertNativeImportOrder(tx, state, loaded.plan, receipt, expected, benefits, 'staged');
     return receipt;
   }
   async function publication(
@@ -304,7 +305,16 @@ export function legacyOrderImportFinancialAdapter(
     const published = await publication(tx, state, order);
     if (!published) return null;
     const expected = await profiles.expectedQuantities(tx, loaded, order, 'settled'),
-      native = await assertNativeImportOrder(tx, state, loaded.plan, order, expected);
+      qualified = await profiles.qualifiedBenefits(tx, loaded, order, 'settled'),
+      native = await assertNativeImportOrder(
+        tx,
+        state,
+        loaded.plan,
+        order,
+        expected,
+        qualified,
+        'settled',
+      );
     if (
       (loaded.plan.kind === 'offline' &&
         (native.header.paymentStatus !== 4n ||
@@ -340,7 +350,8 @@ export function legacyOrderImportFinancialAdapter(
       binding.status !== 'held'
     )
       throw importFinancialError('ORDER_IMPORT_ORDER_HELD');
-    const membership = await profiles.completionSnapshot(tx, loaded, order);
+    const membership = await profiles.completionSnapshot(tx, loaded, order),
+      benefits = await profiles.benefitSnapshot(tx, loaded, order);
     assertCsvMembershipPublication(membership, published);
     const proof = importCompletedProofSchema.parse({
       contract: financialImportContract,
@@ -355,6 +366,7 @@ export function legacyOrderImportFinancialAdapter(
       settlement,
       publication: published,
       ...(membership ? { membership } : {}),
+      ...(benefits ? { benefits } : {}),
       ...(state.correction ? { correction: state.correction } : {}),
       finalizedAt: now(),
     });
@@ -515,6 +527,7 @@ export function legacyOrderImportFinancialAdapter(
         if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
         await profiles.lock(tx, loaded);
         const expected = await profiles.expectedQuantities(tx, loaded, order, 'settled');
+        const benefits = await profiles.qualifiedBenefits(tx, loaded, order, 'settled');
         const settlement = await settleNativeImport(
           tx,
           loaded.state,
@@ -522,6 +535,7 @@ export function legacyOrderImportFinancialAdapter(
           order,
           options,
           expected,
+          benefits,
         );
         await journal.confirm(tx, loaded.state, 'settlement', settlement);
       });

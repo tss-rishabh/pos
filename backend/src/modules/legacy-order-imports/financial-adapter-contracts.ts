@@ -5,6 +5,7 @@ import { customerContactBindingSchema } from '../checkout/customer-contact-autho
 import { isLegacyLatinText } from '../checkout/settlement-note.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 import { csvMembershipCompletionSnapshotSchema } from './membership-profile/completion.js';
+import { csvFinancialBenefitSnapshotSchema } from './benefit-profile/completion.js';
 import {
   importCorrectionBindingSchema,
   importCorrectionCalculationSchema,
@@ -282,6 +283,7 @@ export const importCompletedProofSchema = z
     publication: importPublicationReceiptSchema,
     // Absence is preserved for existing HMACs. Never inject a default null.
     membership: csvMembershipCompletionSnapshotSchema.optional(),
+    benefits: csvFinancialBenefitSnapshotSchema.optional(),
     correction: importCorrectionBindingSchema.optional(),
     finalizedAt: time,
   })
