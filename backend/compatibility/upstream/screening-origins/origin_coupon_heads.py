@@ -54,6 +54,8 @@ class OriginCouponHeads:
     def scope(self,frame,selections):
         from origin_frame import CURRENT_ORIGIN
         session=frame.session
+        from transaction import CURRENT
+        if CURRENT.get() is not None:reject()
         if (CURRENT_ORIGIN.get() is not frame or not isinstance(session,Session) or not session.in_transaction()
                 or INFO in session.info or session.connection().get_isolation_level()!='READ COMMITTED'):reject()
         check_command(session,frame.value,frame.owner.key)
@@ -71,6 +73,7 @@ class OriginCouponHeads:
             if scope.validated is None:reject()
         finally:
             try:
+                if CURRENT.get() is not None:reject()
                 connection.execute(text('SET @pos_rewrite_coupon_history_owner=NULL'));scope.cleaned=True
             except BaseException:
                 connection.invalidate();raise
@@ -80,6 +83,8 @@ class HeadScope:
     def __init__(self,port,frame,selections):
         self.port,self.frame=port,frame;self.session=frame.session;self.connection=self.session.connection()
         self.transaction=self.session.get_transaction();self.selections=copy.deepcopy(selections)
+        self.savepoint=frame.savepoint;self.original=copy.deepcopy(frame.value);self.savepoint_rolled_back=False
+        if self.savepoint.parent is not self.transaction:reject()
         self.validated=None;self.cleaned=False;self.commit_guard=self._commit
     def validate(self):
         if self.validated is not None:return
@@ -100,6 +105,7 @@ class HeadScope:
             from transaction import CURRENT
             if (connection is not self.connection or not self.cleaned or self.validated is None or CURRENT.get() is not None
                     or self.session.get_transaction() is not self.transaction or self.session.new or self.session.dirty or self.session.deleted):reject()
+            self.frame.coupon_state.assert_current()
             for selection in self.selections:
                 if self.port.policy(connection)!=selection['originHistoryPolicy']:reject()
             for scope,expected in self.validated:
@@ -116,10 +122,45 @@ def ended(session,transaction):
         if not scope.cleaned:scope.connection.invalidate()
 
 
+def rolled_back(session,previous_transaction):
+    scope=session.info.get(INFO)
+    if (isinstance(scope,HeadScope) and previous_transaction is scope.savepoint
+            and session.get_transaction() is scope.transaction and scope.transaction.is_active):
+        scope.savepoint_rolled_back=True
+
+
+def abort_after_rollback(frame):
+    from origin_ledger import read
+    from native import rows
+    from transaction import CURRENT
+    session=frame.session;scope=session.info.get(INFO)
+    if scope is None:
+        if getattr(frame,'coupon_state',None) is not None:reject()
+        return
+    if (not isinstance(scope,HeadScope) or scope.frame is not frame or scope.connection is not session.connection()
+            or scope.transaction is not session.get_transaction() or scope.transaction is not frame.transaction
+            or not scope.transaction.is_active or scope.savepoint is not frame.savepoint or scope.savepoint.is_active
+            or not scope.savepoint_rolled_back or not scope.cleaned or CURRENT.get() is not None
+            or session.get_nested_transaction() is not None or frame.order_id is not None
+            or session.new or session.dirty or session.deleted):reject()
+    actual=read(session,scope.original['id'],scope.original['customerId'],frame.owner.key)
+    if actual!=scope.original or actual['phase']!='PREPARED' or actual['orderId'] is not None:reject()
+    if scope.connection.execute(text('SELECT @pos_rewrite_coupon_history_owner')).scalar_one() is not None:reject()
+    for table in ('pos_rewrite_screening_origin_creations','pos_rewrite_screening_origin_payments',
+                  'pos_rewrite_screening_origin_effects','pos_rewrite_screening_origin_assets',
+                  'pos_rewrite_screening_origin_coupons','pos_rewrite_screening_origin_birthday_claims',
+                  'pos_rewrite_screening_origin_legacy_cash'):
+        if rows(session,'SELECT command_id FROM '+table+' WHERE command_id=:id LIMIT 1 FOR SHARE',{'id':actual['id']},1):reject()
+    if not event.contains(scope.connection,'commit',scope.commit_guard):reject()
+    event.remove(scope.connection,'commit',scope.commit_guard)
+    session.info.pop(INFO,None);scope.connection.info.pop(INFO,None)
+
+
 def returned(_connection,record):
     scope=record.info.pop(INFO,None)
     if isinstance(scope,HeadScope) and not scope.cleaned:record.invalidate()
 
 
 event.listen(Session,'after_transaction_end',ended)
+event.listen(Session,'after_soft_rollback',rolled_back)
 event.listen(Pool,'checkin',returned)

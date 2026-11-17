@@ -89,11 +89,13 @@ def capture(frame,state,header_hash,now):
     discount=money(calc.get('coupon_discount',0));amount=money(header['amount'])
     if discount!=amount:unsafe('SCREENING_ORIGIN_COUPON_AMOUNT_CHANGED')
     document=state.document
+    if document is None and state.cache.claim is not None:unsafe('SCREENING_ORIGIN_COUPON_HISTORY_REQUIRED')
     body={'contract':CONTRACT,'sourceCommit':SOURCE,'commandId':value['id'],'origin':value['origin'],
         **{name:value[name] for name in ('actorId','customerId','storeId','counterId','authorityHash','requestHash','cartHash','namespaceHash')},
         'orderId':order_id,'headerHash':header_hash,'couponId':coupon_id,'couponInputHash':controls['hash'],
         'configurationHash':state.selection['configurationHash'],'originConfigurationHash':state.selection['originConfigurationHash'],
-        'history':{'generationId':document['generationId'],'documentHash':document['signature'],'witnessHash':digest(frame.owner.key,'coupon-witness',document['witness'])},
+        'historyRequirement':'bigquery' if document is not None else 'current-controls',
+        'history':None if document is None else {'generationId':document['generationId'],'documentHash':document['signature'],'witnessHash':digest(frame.owner.key,'coupon-witness',document['witness'])},
         'birthdayClaim':copy.deepcopy(state.cache.claim),'cartCouponDiscount':discount,'headerCouponAmount':amount,
         'consumption':'source-prepaid' if source_consumed else 'go-confirmation',
         'couponUsersBefore':before,'couponUsersAfter':after,'sourceLog':source_log,'allocations':allocations,'createdAt':now}

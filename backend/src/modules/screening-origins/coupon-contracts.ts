@@ -85,13 +85,15 @@ export const originCouponReceiptSchema = z
     couponInputHash: originHashSchema,
     configurationHash: originHashSchema,
     originConfigurationHash: originHashSchema,
+    historyRequirement: z.enum(['current-controls', 'bigquery']),
     history: z
       .object({
         generationId: originHashSchema,
         documentHash: originHashSchema,
         witnessHash: originHashSchema,
       })
-      .strict(),
+      .strict()
+      .nullable(),
     birthdayClaim: z
       .object({
         id: z.uuid(),
@@ -138,4 +140,14 @@ export const originCouponReceiptSchema = z
       .optional(),
     createdAt: point,
   })
-  .strict();
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      (value.historyRequirement === 'bigquery') !== (value.history !== null) ||
+      (value.historyRequirement === 'current-controls' && value.birthdayClaim !== null)
+    )
+      context.addIssue({
+        code: 'custom',
+        message: 'Coupon history evidence does not match its source branch',
+      });
+  });

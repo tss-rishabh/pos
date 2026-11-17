@@ -48,10 +48,10 @@ class OriginCouponControls:
         if not isinstance(coupon_id,str) or not re.fullmatch(r'[1-9][0-9]{0,9}',coupon_id) or int(coupon_id)>2147483647:unsafe('SCREENING_ORIGIN_COUPON_CONTROLS_INVALID')
         # Real cache reads precede all SQL. There is deliberately no birthday
         # customer guard or source/customer operation in this background API.
-        raw={}
-        for name in CONFIG_KEYS:
-            if self.coupons.source_cache.exists(name):
-                value=self.coupons.source_cache.get(name)
+        raw={};values=self.coupons.source_cache.mget(CONFIG_KEYS)
+        if not isinstance(values,(list,tuple)) or len(values)!=len(CONFIG_KEYS):unsafe('SCREENING_ORIGIN_COUPON_CONTROLS_INVALID')
+        for name,value in zip(CONFIG_KEYS,values):
+            if value is not None:
                 if isinstance(value,bytes):value=value.decode('utf-8')
                 if not isinstance(value,str) or len(value.encode())>16000:unsafe('SCREENING_ORIGIN_COUPON_CONTROLS_INVALID')
                 raw[name]=value
@@ -65,6 +65,7 @@ class OriginCouponControls:
             native=one(session,'SELECT '+COUPON_CONTROL+' AS native_hash FROM coupons WHERE id=:id LIMIT 2',{'id':coupon_id})
             policy=self.coupons.heads.policy(session);identity=self.coupons.heads._identity(session)
             heads=_public_heads(_heads(session,{'couponId':coupon_id},controls_only=True))
+            if self.coupons._point().date()!=point.date():unsafe('SCREENING_ORIGIN_COUPON_CONTROLS_EXPIRED')
             observed=self.coupons.clock();zone=self.coupons.zone
             from zoneinfo import ZoneInfo
             end=int(datetime.combine(point.date()+timedelta(days=1),datetime.min.time(),tzinfo=ZoneInfo(zone)).timestamp()*1000)
@@ -87,7 +88,7 @@ def private_application(resource,key,emit_stream,fallback=None):
         status,code='503 Service Unavailable','SCREENING_ORIGIN_COUPON_CONTROLS_UNAVAILABLE'
         try:
             supplied=environ.get('HTTP_X_POS_ORIGIN_COUPON_CONTROLS_KEY')
-            if not isinstance(supplied,str) or not hmac.compare_digest(key,supplied):
+            if not isinstance(supplied,str) or not re.fullmatch(r'[!-~]{32,4096}',supplied) or not hmac.compare_digest(key,supplied):
                 status,code='401 Unauthorized','SCREENING_ORIGIN_COUPON_CONTROLS_UNAUTHORIZED';raise ValueError()
             coupon_id=path[len(PREFIX):]
             if (environ.get('REQUEST_METHOD')!='GET' or environ.get('QUERY_STRING')

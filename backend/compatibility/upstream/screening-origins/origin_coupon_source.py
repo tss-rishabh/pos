@@ -85,6 +85,9 @@ class Probe:
 
 
 def qualified(document,value,selection,key,now):
+    if selection.get('requiresHistory') is False:
+        if document is not None:unsafe('SCREENING_ORIGIN_COUPON_HISTORY_UNEXPECTED')
+        return None
     keys={'contract','commandId','origin','customerId','requestHash','cartHash','authorityHash','selection','witness','generationId',
           'publication','facts','reader','complete','fetchedAt','expiresAt','signature'}
     if (not isinstance(document,dict) or set(document)!=keys or document['contract']!=HISTORY
@@ -112,11 +115,10 @@ class SourceCoupons:
         from transaction import CURRENT
         if CURRENT.get() is not None:unsafe('SCREENING_ORIGIN_COUPON_SQL_SCOPE')
         customer=identifier(customer_id);values={}
-        for name in CONFIG_KEYS:
-            exists=self.source_cache.exists(name)
-            if type(exists) not in (bool,int) or exists not in (0,1):unsafe('SCREENING_ORIGIN_COUPON_CACHE_UNQUALIFIED')
-            if exists:
-                raw=self.source_cache.get(name)
+        raw_values=self.source_cache.mget(CONFIG_KEYS)
+        if not isinstance(raw_values,(list,tuple)) or len(raw_values)!=len(CONFIG_KEYS):unsafe('SCREENING_ORIGIN_COUPON_CACHE_UNQUALIFIED')
+        for name,raw in zip(CONFIG_KEYS,raw_values):
+            if raw is not None:
                 if isinstance(raw,bytes):raw=raw.decode('utf-8')
                 if not isinstance(raw,str) or len(raw.encode())>16000:unsafe('SCREENING_ORIGIN_COUPON_CACHE_UNQUALIFIED')
                 if raw and not isinstance(json.loads(raw),dict):unsafe('SCREENING_ORIGIN_COUPON_CACHE_UNQUALIFIED')
@@ -155,7 +157,7 @@ class SourceCoupons:
         if not isinstance(cart_meta,dict) or not isinstance(cart_meta.get('items',[]),list) or len(cart_meta.get('items',[]))>2000:unsafe('SCREENING_ORIGIN_COUPON_CART_AMBIGUOUS')
         manual=[item for item in cart_meta.get('items',[]) if isinstance(item,dict) and item.get('name')=='coupon']
         if len(manual)>1:unsafe('SCREENING_ORIGIN_COUPON_CART_AMBIGUOUS')
-        identities=[]
+        identities=[];automatic_ids=set()
         if manual:
             code=manual[0].get('coupon')
             if not isinstance(code,str) or not 1<=len(code)<=255:unsafe('SCREENING_ORIGIN_COUPON_CART_AMBIGUOUS')
@@ -163,18 +165,28 @@ class SourceCoupons:
             if len(found)!=1:unsafe('SCREENING_ORIGIN_COUPON_CODE_AMBIGUOUS')
             identities.append(identifier(found[0]['id']))
         if (auto.get('value')=='birthday_coupon' and int(auto.get('status',0))==1 and birthday and birthday_name and int(status)==1
-                and ns['check_birthday_month'](reader,value['customerId'])):identities.append(identifier(birthday))
+                and ns['check_birthday_month'](reader,value['customerId'])):
+            automatic_ids.add(identifier(birthday));identities.append(identifier(birthday))
         selections=[]
         policy=self.heads.policy(session) if identities else None
         for coupon_id in sorted(set(identities),key=int):
             current=current_coupon_control(session,coupon_id)
-            selections.append({'couponId':coupon_id,'couponInputHash':current['native_hash'],
+            assignments=current_coupon_assignments(session,value['customerId'],coupon_id)
+            if current['user_specific']==1 and len(assignments)>1:unsafe('SCREENING_ORIGIN_COUPON_USER_AMBIGUOUS')
+            needs_history=(coupon_id in automatic_ids or current['no_times_allowed']<1000 or current['for_new_user']==1
+                or bool(current['coupon_lot_no']) or (current['user_specific']==1 and any(row['coupon_month_allowed_count']>0 for row in assignments)))
+            selections.append({'couponId':coupon_id,'couponInputHash':current['native_hash'],'requiresHistory':bool(needs_history),
                 'configurationHash':seal('coupon-configuration',{'cache':cache.values,'settings':self.coupon_settings,'couponInputHash':current['native_hash'],'originHistoryPolicy':policy},self.history_key),
                 'originConfigurationHash':digest(self.key,'coupon-configuration',{'cache':snapshot['config'],'effective':cache.values,'settings':self.coupon_settings,'prepaid':self.prepaid,'kind':kind,'couponInputHash':current['native_hash']}),
                 'asOf':point_value.strftime('%Y-%m-%d %H:%M:%S'),'sourceTimeZone':self.zone,'originHistoryPolicy':policy,
                 'witness':self.heads.capture(session,value['customerId'],coupon_id)})
         return selections
+    def fetch(self,value,selections,provider):
+        from transaction import CURRENT
+        if CURRENT.get() is not None:unsafe('SCREENING_ORIGIN_COUPON_SQL_SCOPE')
+        return [provider.read(self.request(value,selection)) if selection['requiresHistory'] else None for selection in selections]
     def request(self,value,selection):
+        if selection.get('requiresHistory') is not True:unsafe('SCREENING_ORIGIN_COUPON_HISTORY_UNEXPECTED')
         now=self.clock()
         return {'command':copy.deepcopy(value),'commandProof':digest(self.key,'command',value),
             'selection':{name:selection[name] for name in ('couponId','configurationHash','originConfigurationHash','couponInputHash','asOf','sourceTimeZone')},
@@ -229,6 +241,10 @@ class SourceCoupons:
         ns['get_auto_apply_coupon'](reader);ns['get_birthday_coupon_details'](reader)
         policy=self.heads.policy(frame.session) if expected else None
         for selection,document in zip(expected,body['documents']):
+            at=datetime.strptime(selection['asOf'],'%Y-%m-%d %H:%M:%S')
+            instant=int(at.replace(tzinfo=ZoneInfo(self.zone)).timestamp()*1000)
+            if not 0<=self.clock()-instant<60000 or at.date()!=self._point().date():unsafe('SCREENING_ORIGIN_COUPON_HISTORY_EXPIRED')
+            if type(selection.get('requiresHistory')) is not bool:unsafe()
             if selection.get('originHistoryPolicy')!=policy:unsafe('SCREENING_ORIGIN_COUPON_POLICY_CHANGED')
             current=current_coupon_control(frame.session,selection['couponId'])
             wanted=seal('coupon-configuration',{'cache':cache.values,'settings':self.coupon_settings,'couponInputHash':current['native_hash'],'originHistoryPolicy':policy},self.history_key)
@@ -236,7 +252,18 @@ class SourceCoupons:
             if wanted!=selection['configurationHash'] or origin!=selection['originConfigurationHash'] or current['native_hash']!=selection['couponInputHash']:unsafe('SCREENING_ORIGIN_COUPON_CONFIGURATION_CHANGED')
             qualified(document,frame.value,selection,self.key,self.clock())
         return expected
+    def abort_after_rollback(self,frame):
+        from origin_coupon_heads import abort_after_rollback
+        abort_after_rollback(frame)
     def capture(self,frame,header_hash,now):return capture_receipt(frame,getattr(frame,'coupon_state',None),header_hash,now)
+
+
+class OriginalCouponReplay(CouponHistoryReplay):
+    def __init__(self,*args,requires_history):
+        super().__init__(*args);self.requires_history=requires_history
+    def execute(self,query,*args,**kwargs):
+        if not self.requires_history and re.search(r'\bcount\s*\(',str(query),re.I):unsafe('SCREENING_ORIGIN_COUPON_HISTORY_REQUIRED')
+        return super().execute(query,*args,**kwargs)
 
 
 class CouponScope:
@@ -249,7 +276,8 @@ class CouponScope:
             coupon=current_coupon_control(frame.session,selection['couponId'])
             assignments=current_coupon_assignments(frame.session,frame.value['customerId'],selection['couponId'])
             scope={'customerId':frame.value['customerId'],'couponId':selection['couponId'],'asOf':selection['asOf']}
-            replay=CouponHistoryReplay({'scope':scope,**document['facts']},frame.session,coupon,assignments)
+            replay=OriginalCouponReplay({'scope':scope,**(document['facts'] if document is not None else {})},frame.session,coupon,assignments,
+                requires_history=selection['requiresHistory'])
             point_value=datetime.strptime(selection['asOf'],'%Y-%m-%d %H:%M:%S')
             namespace=compile_coupon(owner.root,settings_namespace(owner.coupon_settings,point_value,replay,self.cache,ValidationException,ItemTypes,self.consent))
             self.entries[selection['couponId']]={'selection':selection,'document':document,'namespace':namespace,'replay':replay,
@@ -330,7 +358,14 @@ class CouponScope:
         if self.welcome_consent is not None and self.welcome_consent!=proof:unsafe('SCREENING_ORIGIN_COUPON_WELCOME_CHANGED')
         self.welcome_consent=proof
         return bool(found)
-    def validate_after_native(self):self.heads.validate()
+    def assert_current(self):
+        for entry in self.entries.values():
+            selection=entry['selection'];at=datetime.strptime(selection['asOf'],'%Y-%m-%d %H:%M:%S')
+            instant=int(at.replace(tzinfo=ZoneInfo(self.owner.zone)).timestamp()*1000)
+            if not 0<=self.owner.clock()-instant<60000 or at.date()!=self.owner._point().date():unsafe('SCREENING_ORIGIN_COUPON_HISTORY_EXPIRED')
+            qualified(entry['document'],self.frame.value,selection,self.owner.key,self.owner.clock())
+    def validate_after_native(self):
+        self.assert_current();self.heads.validate()
 
 
 def install():

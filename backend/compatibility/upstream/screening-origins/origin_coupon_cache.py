@@ -43,7 +43,9 @@ class OriginCouponCache:
         if name.startswith('birthday_coupon_'):unsafe('SCREENING_ORIGIN_COUPON_SCOPE_CHANGED')
         return self.config.exists(name)
     def get(self,name):
-        if name=='welcome_coupon':return self.snapshot['config'].get(name)
+        if name=='welcome_coupon':
+            value=self.snapshot['config'].get(name)
+            return value.encode('utf-8') if isinstance(value,str) else value
         if name=='birthday_coupon_'+self.value['customerId']:return b'{"is_applied":true}' if self.exists(name) else None
         return self.config.get(name)
     def set(self,name,value,ex=None):
