@@ -99,6 +99,7 @@ export const migrationPaths = [
   'src/modules/screening-origins/history-generation-migration.sql',
   'compatibility/upstream/screening-origins/system-migration.sql',
   'compatibility/upstream/screening-origins/legacy-effects-migration.sql',
+  'compatibility/upstream/screening-origins/assets-migration.sql',
 ] as const;
 export class MigrationError extends Error {
   constructor(readonly code: string) {

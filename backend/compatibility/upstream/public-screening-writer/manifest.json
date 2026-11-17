@@ -75,6 +75,7 @@
       "pos_screening_origins.py": "8f9a092b7d5ad61699ca85bdb2454e542e2ed144b4b1c40752419f2f0107911d"
     },
     "files": {
+      "assets-migration.sql": "2a2686ac84c645c6959c5182b57c95c210c92f5423e831221e0ffd0b282e673b",
       "customer-command.mjs": "81c9c496211dee509f86219c82832e410c6c11f068b24f0dffb04116e1d15e82",
       "history-grants.review.sql": "792279f7ac761f3d441ac4965cc7f2a82cf124689dee1c7a1a3090493e03411f",
       "history-heads.review.sql": "db19d1bb551e45b450b1d3e9b737987d9f73d42c8e26ddcaa9cf3275333cfa98",
@@ -90,12 +91,13 @@
       "legacy_staff.py": "9792bd414b8b788542ef6ed0453f5f58f7ae43969f1bfd44c6eca66da088c856",
       "legacy_worker.py": "fde76292f5c03c38067920d102228e434f403359fed7b32260a6d49e72e1e12b",
       "migration.sql": "c284515eeaa25c2999a3d4126e6a557c57586b5392dadc938808e2d94afc8ffa",
+      "origin_assets.py": "cc6393e795e1143e4199ae63edf9c84e30ab0ab4542e554a3b072a415e5886fa",
       "origin_assets_guard.py": "a3eaf40031116e530f739568b7a00deff17252aeb7a42aaea25004a63395b51c",
       "origin_auth.py": "207b833e92a9e6a34f6d7995b18b51688acfcd98153e9d56a048c9431e69948e",
-      "origin_bootstrap.py": "d304a16229e1da49f9ce9e8b83bc35fca99346effec5ed1b636486d9f6f1f03a",
+      "origin_bootstrap.py": "cf9991c0d3175ed6e43857a0ad9e685557f9d5db52f537fa6b43681908cd0c6f",
       "origin_contracts.py": "b9039b0edd0e3cca7126e6d430b206785da4833476c5ad1e76e4d131e9ad7e8f",
       "origin_effects.py": "cea4aa2f6c33245b13e3d99db0b65023d76a5750afbbaa6155c238660d554eb3",
-      "origin_frame.py": "938769534b252e5f24ad7909b0e55600a0c3a829a1b1497b5d9cb1b8c33c8f29",
+      "origin_frame.py": "8cde39546b4c0bd0145f44820f90b48784f3be6335b293c40ca8967f41c5221d",
       "origin_history.py": "c83a5bd94a95ea33bd7c475ba1311a36822a35e200b4b4513fee18f0008d1025",
       "origin_history_http.py": "caa4e05a1cf7da887ce70e0a1d258c52a0e56bedffa1db43b7ab54904d4dc7bd",
       "origin_history_privileges.py": "761ce865174fea941ecb4239e2cd22f7d8642ef216438bdd304efdb3890aac5e",

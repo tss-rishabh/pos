@@ -91,6 +91,14 @@ blanket refusal or user policy question is needed. Ordinary customer/staff
 method3 retains its source zero-payable restriction. Technical refusal receipts
 cannot stand in for completing an existing feature.
 
+Source membership/gift asset producer `1e26fb1` is integrated as `28de6cf`.
+Root registers/packages its additive assets table and exposes the explicit blank
+asset selector; API/legacy source manifests have been regenerated. The native
+HP guard now reads physical `gift_voucher_id AS gv_id`. This implements the
+source producer, not a complete variant: Admin's exact Go asset verification,
+source variant effects/coupon composition and remaining recovery paths still
+require code. No tests/checks/builds/live actions ran.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only
