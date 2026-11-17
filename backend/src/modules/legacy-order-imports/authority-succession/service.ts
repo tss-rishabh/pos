@@ -101,7 +101,12 @@ export function legacyImportAuthoritySuccession(
       .where(and(eq(rows.jobId, jobId), eq(rows.operationId, operationId)))
       .limit(1);
     if (!value) throw importFinancialError('ORDER_IMPORT_SUCCESSION_NOT_FOUND', 404);
-    return { ...value, operationId };
+    return {
+      actorId: value.actorId,
+      operationId,
+      storeId: value.storeId,
+      counterId: value.counterId,
+    };
   }
   async function context(
     tx: AdministrationTransaction,

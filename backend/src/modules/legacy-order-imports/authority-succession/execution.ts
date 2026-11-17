@@ -12,18 +12,20 @@ interface Execution {
   grant: ImportSuccessionEnvelope;
   clock: () => number;
 }
+const scopeKey = (scope: ImportFinancialScope) =>
+  JSON.stringify([scope.actorId, scope.operationId, scope.storeId, scope.counterId]);
 const scopes = new WeakMap<AdministrationTransaction, string>();
 export function registerSuccessionReadScope(
   tx: AdministrationTransaction,
   scope: ImportFinancialScope,
 ) {
-  const key = JSON.stringify(scope),
+  const key = scopeKey(scope),
     prior = scopes.get(tx);
   if (prior && prior !== key) throw importFinancialError('ORDER_IMPORT_SUCCESSION_SCOPE_CHANGED');
   scopes.set(tx, key);
 }
 export function successionScopePrefix(tx: AdministrationTransaction, scope: ImportFinancialScope) {
-  return scopes.get(tx) === JSON.stringify(scope);
+  return scopes.get(tx) === scopeKey(scope);
 }
 const executions = new WeakMap<AdministrationTransaction, Execution>();
 /** Native ledger verifier installs this only after current authority/Store/
@@ -41,7 +43,7 @@ export function successionExecution(
   const value = executions.get(tx);
   if (!value) return null;
   if (
-    JSON.stringify(scope) !== JSON.stringify(value.scope) ||
+    scopeKey(scope) !== scopeKey(value.scope) ||
     JSON.stringify(original) !== JSON.stringify(value.original) ||
     value.clock() >= value.grant.data.expiresAt
   )
