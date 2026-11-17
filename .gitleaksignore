@@ -272,3 +272,7 @@ dc7ef99c97c63d06e157c04f050f8728109c3bef:backend/compatibility/upstream/legacy-o
 e3e056fa3385fa99946dfe303d19828764c78771:backend/evidence/verification.json:generic-api-key:804
 e3e056fa3385fa99946dfe303d19828764c78771:backend/evidence/verification.json:generic-api-key:1670
 e3e056fa3385fa99946dfe303d19828764c78771:backend/evidence/verification.json:generic-api-key:2347
+
+# Exact screening source-commit metadata verified against the immutable API-v2 commit object.
+b6fa814667e5acf32dbd484cf3a4c969285fedae:backend/compatibility/upstream/legacy-order-imports/screening_profile.py:generic-api-key:24
+b6fa814667e5acf32dbd484cf3a4c969285fedae:backend/src/modules/legacy-order-imports/screening-profile.ts:generic-api-key:44
