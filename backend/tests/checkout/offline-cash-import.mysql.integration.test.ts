@@ -68,6 +68,8 @@ const legacyTables = [
   'flag_history',
   'amount_to_be_refunded_log',
   'order_cancel_message_mapping',
+  'pos_user',
+  'user_stores',
 ] as const;
 const integration = process.env.CHECKOUT_MYSQL_TEST_URL;
 describe.skipIf(!integration)(
@@ -205,6 +207,13 @@ describe.skipIf(!integration)(
         ) as unknown,
       );
       const fixture = verifiedMysqlFixture(connection);
+      await fixture.insert('pos_user', {
+        id: manager.id,
+        role: manager.role,
+        user_type: manager.userType,
+        is_active: 1,
+      });
+      await fixture.insert('user_stores', { id: 1, django_user_id: manager.id, store_id: 1 });
       await fixture.insert('stores', {
         id: 1,
         location_code: 'FIXTURE',

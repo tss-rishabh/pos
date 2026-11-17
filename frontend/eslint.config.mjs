@@ -1,6 +1,6 @@
 import tseslint from 'typescript-eslint';
 export default tseslint.config(
-  { ignores: ['dist/**', 'release/**', 'test-results/**', 'playwright-report/**', 'electron/**'] },
+  { ignores: ['dist/**', 'release/**', 'test-results/**', 'playwright-report/**', 'electron/**', '**/.cache/**'] },
   ...tseslint.configs.recommended,
   {
     files: ['**/*.ts', '**/*.tsx'],

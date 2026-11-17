@@ -66,11 +66,14 @@ describe('validated checkout HTTP boundaries', () => {
   });
   it('records explicit resource trace metadata for every checkout and payment route', () => {
     const routes = resourceRoutes(app);
-    expect(routes).toHaveLength(84);
+    expect(routes).toHaveLength(91);
     expect(
       routes.every((route) => route.module === 'checkout' && route.authentication === 'session'),
     ).toBe(true);
-    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(84);
+    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(91);
+    expect(
+      routes.filter((route) => ['order-copy', 'order-copy-review'].includes(route.resource)),
+    ).toHaveLength(7);
     expect(
       routes.filter((route) =>
         ['legacy-payment-recovery', 'order-payment-context', 'pending-order-cancellation'].includes(

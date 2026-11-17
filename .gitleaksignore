@@ -160,3 +160,27 @@ b90b4be7dfd2a4c67f4e6fe336f7013afa7067c2:backend/tools/checkout/pending_cancella
 b90b4be7dfd2a4c67f4e6fe336f7013afa7067c2:backend/tools/customer-otp/source-otp-oracle.py:generic-api-key:12
 b90b4be7dfd2a4c67f4e6fe336f7013afa7067c2:backend/tools/global-vouchers/source-oracle.py:generic-api-key:22
 f745f336b8157738deee8ef17b84f68434c6b6fb:backend/evidence/verification.json:generic-api-key:1948
+
+# Reviewed generated source/dependency SHA-256 metadata; exact historical findings only.
+8dc4e81b9688ccd960c96b26a9fbcf5c2b7d9c72:backend/parity/source-surface-map.json:generic-api-key:2121
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:confluent-secret-key:548
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:208
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:269
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:287
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:385
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:593
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:693
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:694
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:696
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:744
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:761
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:818
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:819
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:865
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:903
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:904
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1012
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1053
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1089
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1098
+7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1117

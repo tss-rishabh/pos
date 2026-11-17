@@ -21,6 +21,7 @@ inventory = json.loads(INVENTORY.read_text())
 administration = json.loads(ADMIN_MAP.read_text())
 PIN = inventory['source_commit']
 EXPECTED = {'routes': 255, 'jobs': 32, 'templates': 106, 'websockets': 1, 'administration': 2}
+IGNORED_INPUT_DIRECTORIES = {'.git', '.venv', 'node_modules', '__pycache__', '.cache', '.pytest_cache', '.ruff_cache', 'private'}
 families = {}
 route_groups = defaultdict(list)
 source_cache = {}
@@ -57,7 +58,12 @@ def references(paths, base='backend'):
                 input_hashes[relative] = sha(path.read_bytes())
             else:
                 for child in sorted(path.rglob('*')):
-                    if child.is_file() and child.suffix in ['.ts','.tsx','.sql','.py','.json','.html','.md','.css']:
+                    if (
+                        child.is_file()
+                        and not child.is_symlink()
+                        and not any(part in IGNORED_INPUT_DIRECTORIES for part in child.relative_to(WORKSPACE).parts)
+                        and child.suffix in ['.ts','.tsx','.sql','.py','.json','.html','.md','.css']
+                    ):
                         input_hashes[str(child.relative_to(WORKSPACE))] = sha(child.read_bytes())
     return output
 

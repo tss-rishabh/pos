@@ -237,6 +237,11 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
     });
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schemaName)}`);
     await connection.changeUser({ database: schemaName });
+    for (const statement of readFileSync('migrations/0006_operator_auth_epochs.sql', 'utf8')
+      .replace(/^--.*$/gm, '')
+      .split(';')
+      .filter((value) => value.trim()))
+      await connection.query(statement);
     for (const table of tables) {
       const config = getTableConfig(table),
         definitions = config.columns.map(
@@ -887,7 +892,14 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
         pay_amt: 0,
         is_exchange_order: false,
       });
-      await expect(ordersService(db).detail(operator, '1', String(id))).rejects.toMatchObject({
+      await expect(
+        ordersService(db, undefined, undefined, () => Date.parse('2026-11-16T12:00:00Z')).detail(
+          operator,
+          '1',
+          String(id),
+          { from: '2026-11-16', to: '2026-11-16' },
+        ),
+      ).rejects.toMatchObject({
         code: 'ORDER_NOT_FOUND',
       });
     }
@@ -2629,7 +2641,14 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       'total amount refunded': 53.25,
     });
     expect(JSON.stringify(complete)).not.toContain('Private fixture');
-    await expect(ordersService(db).detail(operator, '1', fixture.orderId)).rejects.toMatchObject({
+    await expect(
+      ordersService(db, undefined, undefined, () => Date.parse('2026-11-16T12:00:00Z')).detail(
+        operator,
+        '1',
+        fixture.orderId,
+        { from: '2026-11-16', to: '2026-11-16' },
+      ),
+    ).rejects.toMatchObject({
       code: 'ORDER_NOT_FOUND',
     });
     repository = checkoutRepository(db);
