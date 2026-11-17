@@ -229,17 +229,17 @@ class Frame:
         if str(header['user_id'])!=self.value['customerId'] or header['payment_method']!=result['method'] or header['order_status']!=0 or header['payment_status']!=0:fail()
         lines=rows(self.session,'SELECT id,prod_id,qty,sub_prod_id,gift_voucher_id AS gv_id,'+LINE+' AS hash FROM has_products WHERE order_id=:id ORDER BY id LIMIT 1001',{'id':self.order_id},1002)
         if not 1<=len(lines)<=1000:fail('SCREENING_ORIGIN_LINE_LIMIT')
-        assets_hash=None
+        now=self.owner.clock();assets_hash=None
         if self.owner.assets is None:
             from origin_assets_guard import no_new_assets
             no_new_assets(self,lines)
-        else:assets_hash=self.owner.assets.capture(self,header['hash'],self.owner.clock())
+        else:assets_hash=self.owner.assets.capture(self,header['hash'],now)
         ticket=[{'id':str(row['id']),'quantity':row['qty']} for row in lines if str(row['prod_id'])=='390238']
         markers=rows(self.session,'SELECT id,has_product_id,user_id FROM spiderman_screening_orders FORCE INDEX(idx_order_id) WHERE order_id=:id ORDER BY id LIMIT 3',{'id':self.order_id},4)
         if len(markers)!=self.value['markerRows'] or any(str(row['user_id'])!=self.value['customerId'] for row in markers):fail()
         if self.cart_persist is not None:effect({'kind':'cart','namespace':self.namespace,'customerId':self.value['customerId'],
                                               'expectedHash':self.value['cartHash'],'value':self.cart_persist})
-        now=self.owner.clock();effects_hash=persist_effects(self.session,self.value,self.owner.key,self.effects,now)
+        effects_hash=persist_effects(self.session,self.value,self.owner.key,self.effects,now)
         proof={'contract':CREATION,'commandId':self.value['id'],'origin':self.value['origin'],'customerId':self.value['customerId'],
             'actorId':self.value['actorId'],'storeId':self.value['storeId'],'counterId':self.value['counterId'],
             'authorityHash':self.value['authorityHash'],'requestHash':self.value['requestHash'],'cartHash':self.value['cartHash'],

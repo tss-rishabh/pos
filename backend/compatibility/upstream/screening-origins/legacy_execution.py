@@ -70,6 +70,14 @@ def original_request(function):
         if request.META.get('HTTP_X_TSS_SCREENING_ACTOR')!=actor_id:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
         with transaction.atomic(using=alias),connection.cursor() as cursor:
             native,_identity=actor(cursor,actor_id,secret);assert_request_epoch(request,native,origin)
+            # If the original order already exists, its genuine current Store
+            # authority precedes the request-row lock on replay as on payment.
+            hints=rows(cursor,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_creations WHERE command_id=%s',(command,))
+            if hints:
+                existing=json.loads(hints[0]['data']) if isinstance(hints[0]['data'],str) else hints[0]['data']
+                if (existing.get('actorId')!=actor_id or existing.get('origin')!=origin
+                        or not hmac.compare_digest(digest(secret,'creation',existing),hints[0]['proof_hash'])):fail()
+                scope(cursor,native,existing['storeId'],existing['counterId'])
             prior=work(cursor,command,secret)
             if prior is not None:
                 row,value=prior
@@ -158,8 +166,20 @@ def cash_completion(original):
             if (creation.get('orderId')!=str(order_id) or creation.get('actorId')!=str(user_id) or creation.get('storeId')!=str(store_id)
                     or not hmac.compare_digest(digest(secret,'creation',creation),origin['proof_hash'])):fail()
             scope(cursor,native,store_id,creation['counterId'])
+            now=int(time.time()*1000)
+            actual_origin,actual_actor,session_hash,session_record=authenticated(current['request'],secret,now)
+            assert_request_epoch(current['request'],native,actual_origin)
+            if (actual_origin!=value['origin'] or actual_actor!=value['actorId'] or session_hash!=value['sessionHash']
+                    or session_record is not None and session_record.get('identityHash')!=_identity):fail('SCREENING_ORIGIN_STAFF_REVOKED')
+            retained=one(cursor,'SELECT data,proof_hash,revoked FROM pos_rewrite_screening_origin_sessions WHERE session_hash=%s FOR SHARE',(session_hash,))
+            record=json.loads(retained['data']) if isinstance(retained['data'],str) else retained['data']
+            if (retained['revoked']!=0 or record.get('actorId')!=actual_actor or record.get('origin')!=actual_origin
+                    or record.get('identityHash')!=_identity or record.get('expiresAt',0)<=now
+                    or not hmac.compare_digest(digest(secret,'mpos-session' if actual_origin=='mpos' else 'legacy-session',record),retained['proof_hash'])):fail('SCREENING_ORIGIN_STAFF_REVOKED')
+            from helpers.helpers import Helpers
+            checked=Helpers.get_checkin_data(actual_actor)
+            if not checked or str(checked[0])!=str(store_id):fail('SCREENING_ORIGIN_STAFF_REVOKED')
             one(cursor,'SELECT id FROM users WHERE id=%s FOR UPDATE',(creation['customerId'],))
-            one(cursor,'SELECT id FROM orders WHERE id=%s FOR UPDATE',(order_id,))
             _row,saved=work(cursor,value['commandId'],secret)
             prior=rows(cursor,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_legacy_cash WHERE command_id=%s FOR UPDATE',(value['commandId'],))
             if prior:
@@ -170,6 +190,18 @@ def cash_completion(original):
             paid=json.loads(payment['data']) if isinstance(payment['data'],str) else payment['data']
             if (paid.get('status')!='CONFIRMED' or paid.get('creationHash')!=origin['proof_hash'] or
                 not hmac.compare_digest(digest(secret,'payment',paid),payment['proof_hash'])):fail('SCREENING_ORIGIN_PAYMENT_PROOF_REQUIRED')
+            from legacy_assets import prepare as prepare_assets,lock_order_assets,finish as finish_assets
+            asset_state=prepare_assets(cursor,creation,origin['proof_hash'],paid,payment['proof_hash'],secret)
+            from native import HEADER,LINE
+            order=one(cursor,'SELECT user_id,payment_status,order_status,'+HEADER+' AS hash FROM orders WHERE id=%s FOR UPDATE',(order_id,))
+            if (str(order['user_id'])!=creation['customerId'] or order['hash']!=creation['headerHash']
+                    or order['order_status']!=paid.get('after',{}).get('orderStatus') or order['payment_status']!=paid.get('after',{}).get('paymentStatus')
+                    or order['order_status'] in (0,4,17)):fail('SCREENING_ORIGIN_CASH_RECONCILIATION_REQUIRED')
+            if order['payment_status']==4 and (cash!=0 or amount!=0):fail('SCREENING_ORIGIN_CASH_ALREADY_FUNDED')
+            lines=rows(cursor,'SELECT id,prod_id,qty,'+LINE+' AS hash FROM has_products WHERE order_id=%s ORDER BY id LIMIT 1001 FOR UPDATE',(order_id,))
+            expected=[{'id':str(line['id']),'productId':str(line['prod_id']),'quantity':line['qty'],'inputHash':line['hash']} for line in lines]
+            if expected!=creation['lines']:fail('SCREENING_ORIGIN_CASH_RECONCILIATION_REQUIRED')
+            lock_order_assets(cursor,creation,asset_state)
             native_effects=[];token=NATIVE.set(native_effects)
             try:
                 with counter_entry(cursor,creation['customerId'],order_id):
@@ -179,6 +211,8 @@ def cash_completion(original):
                 proof={'contract':'pos-screening-legacy-cash-v1','commandId':value['commandId'],'orderId':str(order_id),'actorId':str(user_id),
                     'storeId':str(store_id),'inputHash':signature,'creationHash':origin['proof_hash'],'paymentHash':payment['proof_hash'],
                     'nativeFinalHash':final['hash'],'effectsHash':hashlib.sha256(canonical(native_effects).encode()).hexdigest(),'createdAt':int(time.time()*1000)}
+                final_assets=finish_assets(cursor,creation,origin['proof_hash'],asset_state,proof,secret,proof['createdAt'])
+                if final_assets is not None:proof['assetFinalizationHash']=final_assets
                 cursor.execute('INSERT INTO pos_rewrite_screening_origin_legacy_cash(command_id,order_id,data,proof_hash,effects,phase) VALUES(%s,%s,%s,%s,%s,%s)',
                     (value['commandId'],order_id,canonical(proof),digest(secret,'legacy-cash',proof),canonical(native_effects),'PENDING'))
                 return True

@@ -73,7 +73,7 @@ class LegacyScreeningRecovery(View):
             with transaction.atomic(using=alias),connection.cursor() as cursor:
                 native,_identity=actor(cursor,actor_id,secret)
                 assert_request_epoch(request,native,origin)
-                prior=work(cursor,command_id,secret)
+                prior=work(cursor,command_id,secret,lock=False)
                 if prior is None:return JsonResponse({'commandId':command_id,'state':'missing'},status=404)
                 row,value=prior
                 if value['actorId']!=actor_id or value['origin']!=origin:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
