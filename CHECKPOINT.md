@@ -27,6 +27,15 @@ physical-commit head fence are implemented. Bridge concurrency is bounded on
 startup were run. Independent publisher and genuine source integration remain
 active implementation work.
 
+Root added the deployment-oriented `upstream/assemble_payments.py` on `e32da02`
+and isolated its Git context on `360a4fa`. It composes manifest-bound exchange,
+ordinary and CSV/current/public adapters onto a new pinned source archive, then
+calls Admin's stable non-POS origin composer last. It generates source only and
+has not been executed; the coherent origin payload is still with that agent.
+The first-order query replacement and its review-only database plans are now
+recorded in `improve-query.md` on `5345121`, without claiming new parity or
+performance evidence. No tests/checks/builds or live actions were run.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only

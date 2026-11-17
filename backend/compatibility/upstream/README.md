@@ -1,5 +1,9 @@
 # POS upstream compatibility patches
 
+The [payments source assembler](payments-assembly.md) produces a separate pinned
+build tree with the complete adapter composition. It performs source generation
+only; application build, final validation and deployment remain separate steps.
+
 The ordinary checkout transaction, wallet/stock proof and durable delivery worker are documented in [ordinary/README.md](ordinary/README.md). Its payments patch composes with the exchange patch below. Neither patch has been deployed.
 
 The separate physical gift-card patch and source evidence are documented in [gift-card.md](gift-card.md). Both API-v2 patches apply together to the pinned source; neither has been deployed.
