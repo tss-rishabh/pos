@@ -110,9 +110,11 @@ class Startup(unittest.TestCase):
             module=ModuleType(name);module.__file__=str(ROOT/(name.replace('.','/')+'.py'));modules[name]=module
         modules['controllers.CatalogController'].PosProductDetail=lambda:object()
         modules['controllers.CartController'].Cart=lambda:object()
+        modules['controllers.CartController'].AddFreeMembership=type('FixtureMembership',(),{})
         modules['middleware.CartMiddleware'].PosCartFactory=object()
         modules['middleware.CartMiddleware'].PricelistManager=object()
         modules['controllers.cart.Cart'].ItemTypes=object()
+        modules['controllers.cart.Cart'].datetime=__import__('datetime').datetime
         for name in ('OrderModel','OrderStoreModel','HasProductModel'):setattr(modules['models.Order'],name,type(name,(),{}))
         codec=ModuleType('model_compat');codec.install_model_codec=lambda *_args:None;modules['model_compat']=codec
         requests=ModuleType('requests');requests.sessions=SimpleNamespace(Session=type('Session',(),{'request':lambda *_args,**_kwargs:(_ for _ in ()).throw(AssertionError('HTTP during bootstrap'))}));modules['requests']=requests

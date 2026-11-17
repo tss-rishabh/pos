@@ -17,6 +17,14 @@ import { financialSourceHash, importFinancialError } from './financial-adapter-c
 import { assertCheckoutProjectionReady } from '../checkout/projection.js';
 import { assertRefundAllocationReady } from '../checkout/refund-allocation.js';
 import type { CsvMembershipPrefetch } from './membership-profile/bridge.js';
+import { operationHash } from '../checkout/crypto.js';
+import { financialImportHash, equalImportHash } from './financial-adapter-crypto.js';
+import {
+  sourceOrderPreparationContract,
+  sourceOrderPreviewSchema,
+  type SourceOrderPreview,
+  type SourceOrderPreparationInput,
+} from './source-order-preparation-contracts.js';
 export interface FinancialSourceCommand {
   state: ImportFinancialState;
   plan: LegacyOrderImportPlan;
@@ -113,6 +121,13 @@ export function legacyImportFinancialTransport(
     phase: 'order' | 'confirmation' | 'publication',
     orderId: string | null,
   ) {
+    if (
+      phase === 'order' &&
+      'preparationContract' in input.state &&
+      input.state.preparationContract !== undefined &&
+      input.state.preparationContract !== sourceOrderPreparationContract
+    )
+      throw importFinancialError('ORDER_IMPORT_PREPARATION_INVALID');
     const value = {
       contract: financialSourceContract,
       phase,
@@ -127,6 +142,11 @@ export function legacyImportFinancialTransport(
       nonce: input.nonce,
       issuedAt: input.issuedAt,
       expiresAt: input.expiresAt,
+      ...(phase === 'order' &&
+      'preparationContract' in input.state &&
+      input.state.preparationContract
+        ? { preparationContract: sourceOrderPreparationContract }
+        : {}),
       ...(phase === 'order' && input.state.correction
         ? {
             correctionHash: financialSourceHash(
@@ -211,6 +231,155 @@ export function legacyImportFinancialTransport(
         { capability: capability(input, 'publication', order.orderId), orderId: order.orderId },
         headers(input),
       );
+    },
+  };
+}
+
+/** A separate purpose: no order-stage nonce, dispatch, financial endpoint or
+ * retry. Core owns the native RUNNING attempt and calls this outside SQL. */
+export function legacyImportPreparationTransport(
+  config: Pick<Config, 'NODE_ENV'>,
+  options: Pick<
+    LegacyImportFinancialOptions,
+    'secret' | 'sourceUrl' | 'sourceAuthKey' | 'sourceProofKey' | 'fetcher' | 'clock'
+  >,
+) {
+  const clock = options.clock ?? Date.now,
+    fetcher = options.fetcher ?? fetch;
+  const proof = (kind: string, value: unknown, key: string) =>
+    operationHash('legacy-order-imports.source.' + kind + '.v1', value, key);
+  return {
+    async preview(
+      input: SourceOrderPreparationInput,
+      supplied: { signal: AbortSignal; membershipHistory?: CsvMembershipPrefetch },
+    ): Promise<SourceOrderPreview> {
+      supplied.signal.throwIfAborted();
+      let base: URL;
+      try {
+        base = new URL(options.sourceUrl ?? '');
+        if (
+          (base.protocol !== 'https:' &&
+            !(
+              config.NODE_ENV === 'test' &&
+              base.protocol === 'http:' &&
+              ['127.0.0.1', 'localhost'].includes(base.hostname)
+            )) ||
+          base.username ||
+          base.password ||
+          base.search ||
+          base.hash ||
+          base.pathname !== '/internal/pos/legacy-order-imports' ||
+          !/^[!-~]{32,4096}$/.test(options.sourceAuthKey ?? '') ||
+          !/^[!-~]{32,4096}$/.test(options.sourceProofKey ?? '') ||
+          new Set([options.secret, options.sourceAuthKey, options.sourceProofKey]).size !== 3
+        )
+          throw new Error();
+      } catch {
+        throw importFinancialError('ORDER_IMPORT_PREPARATION_UNAVAILABLE', 503);
+      }
+      const issuedAt = clock(),
+        expiresAt = Math.min(input.expiresAt, issuedAt + 60000);
+      if (
+        !Number.isSafeInteger(issuedAt) ||
+        !Number.isSafeInteger(expiresAt) ||
+        expiresAt <= issuedAt
+      )
+        throw importFinancialError('ORDER_IMPORT_PREPARATION_EXPIRED');
+      const value = {
+        contract: sourceOrderPreparationContract,
+        purpose: 'source-cart-preview',
+        operationId: input.state.scope.operationId,
+        attemptId: input.attemptId,
+        requestHash: input.state.requestHash,
+        planHash: input.state.planHash,
+        namespace: input.state.namespace,
+        planDigest: proof('plan', input.plan, options.sourceAuthKey!),
+        authorityHash: financialImportHash(
+          options.secret,
+          'preparation-authority',
+          input.state.authority,
+        ),
+        scope: input.state.scope,
+        authority: input.state.authority,
+        issuedAt,
+        expiresAt,
+        attemptExpiresAt: input.expiresAt,
+        ...(supplied.membershipHistory
+          ? {
+              membershipHistoryHash: proof(
+                'membership-history',
+                supplied.membershipHistory,
+                options.sourceAuthKey!,
+              ),
+            }
+          : {}),
+      };
+      const response = await fetcher(
+        new URL(base.href + '/' + value.operationId + '/preparation'),
+        {
+          method: 'POST',
+          redirect: 'error',
+          signal: AbortSignal.any([
+            supplied.signal,
+            AbortSignal.timeout(Math.min(30000, expiresAt - issuedAt)),
+          ]),
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+            'X-POS-Legacy-Import-Key': options.sourceAuthKey!,
+            'X-POS-Operator-ID': input.state.scope.actorId,
+            'X-Request-ID': input.state.requestId,
+          },
+          body: stringifyNumericJson({
+            capability: {
+              ...value,
+              signature: proof('preparation-capability', value, options.sourceAuthKey!),
+            },
+            plan: input.plan,
+            ...(supplied.membershipHistory
+              ? { membershipHistory: supplied.membershipHistory }
+              : {}),
+          }),
+        },
+      ).catch(() => {
+        supplied.signal.throwIfAborted();
+        throw importFinancialError('ORDER_IMPORT_PREPARATION_UNAVAILABLE', 503);
+      });
+      if (!response.ok) {
+        await response.body?.cancel();
+        throw importFinancialError('ORDER_IMPORT_PREPARATION_UNAVAILABLE', 503);
+      }
+      const raw = await boundedJson(response, 16000).catch(() => {
+        supplied.signal.throwIfAborted();
+        throw importFinancialError('ORDER_IMPORT_PREPARATION_INVALID');
+      });
+      const parsed = sourceOrderPreviewSchema.safeParse(raw);
+      supplied.signal.throwIfAborted();
+      if (!parsed.success) throw importFinancialError('ORDER_IMPORT_PREPARATION_INVALID');
+      const result = parsed.data,
+        { signature, ...body } = result,
+        now = clock();
+      if (
+        !equalImportHash(signature, proof('preparation-result', body, options.sourceProofKey!)) ||
+        result.operationId !== value.operationId ||
+        result.attemptId !== value.attemptId ||
+        result.requestHash !== value.requestHash ||
+        result.planHash !== value.planHash ||
+        result.scope.actorId !== value.scope.actorId ||
+        result.scope.operationId !== value.scope.operationId ||
+        result.scope.storeId !== value.scope.storeId ||
+        result.scope.counterId !== value.scope.counterId ||
+        result.authorityHash !== value.authorityHash ||
+        result.planDigest !== value.planDigest ||
+        result.attemptExpiresAt !== value.attemptExpiresAt ||
+        result.expiresAt !== expiresAt ||
+        result.issuedAt < issuedAt ||
+        result.issuedAt > now ||
+        now >= expiresAt ||
+        result.membershipHistoryHash !== (value.membershipHistoryHash ?? null)
+      )
+        throw importFinancialError('ORDER_IMPORT_PREPARATION_INVALID');
+      return result;
     },
   };
 }

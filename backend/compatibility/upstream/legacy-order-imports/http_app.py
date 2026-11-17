@@ -5,7 +5,7 @@ import re
 from protocol import ImportReview
 from tracing import TRUSTED_ACTOR
 
-ROUTE=re.compile(r'^/internal/pos/legacy-order-imports/([a-f0-9-]{36})/(order|publication)$')
+ROUTE=re.compile(r'^/internal/pos/legacy-order-imports/([a-f0-9-]{36})/(order|publication|preparation)$')
 
 
 def private_application(receiver,key,emit_stream):
@@ -18,7 +18,7 @@ def private_application(receiver,key,emit_stream):
             match=ROUTE.fullmatch(environ.get('PATH_INFO',''))
             supplied=environ.get('HTTP_X_POS_LEGACY_IMPORT_KEY','')
             length=int(environ.get('CONTENT_LENGTH','0'))
-            limit=1400000 if match and match[2]=='order' else 256000
+            limit=1400000 if match and match[2] in ('order','preparation') else 256000
             if (not match or environ.get('REQUEST_METHOD')!='POST' or environ.get('QUERY_STRING') or
                 environ.get('CONTENT_TYPE','').split(';')[0]!='application/json' or
                 not 0<length<=limit or not isinstance(supplied,str) or not hmac.compare_digest(key,supplied)):
@@ -37,8 +37,10 @@ def private_application(receiver,key,emit_stream):
             code=error.code if isinstance(error,ImportReview) else 'ORDER_IMPORT_SOURCE_REVIEW'
             body=json.dumps({'code':code},separators=(',',':')).encode()
         try:
-            event={'module':'legacy-order-imports','resource':'financial-receivers',
-                'eventId':'legacy-order-imports.financial-receivers.recorded' if status=='200 OK' else 'legacy-order-imports.financial-receivers.review',
+            resource='order-preparation' if match and match[2]=='preparation' else 'financial-receivers'
+            action='previewed' if resource=='order-preparation' else 'recorded'
+            event={'module':'legacy-order-imports','resource':resource,
+                'eventId':'legacy-order-imports.'+resource+'.'+(action if status=='200 OK' else 'review'),
                 'requestId':request_id,'userId':TRUSTED_ACTOR.get()}
             # An optional log sink failure cannot change a known SQL outcome.
             try:

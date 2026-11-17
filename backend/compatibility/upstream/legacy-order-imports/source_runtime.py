@@ -20,6 +20,7 @@ from transaction import CURRENT
 from contextvars import ContextVar
 from profiles import assert_plain_profile
 from membership_profile import MembershipProfile, selected as membership_selected, compile_writers, compile_order, compile_free_membership
+from cart_preparation import automatic_membership,catalog_build,guard_history,read_only_preview,preview_effect
 
 UNSAFE_HTTP=ContextVar('pos_import_unsafe_http',default=False)
 SOURCE_REDIS_ALIASES=('redis_object','redis_pos_object','redis_catalogue_object','cms_redis_object',
@@ -203,6 +204,8 @@ class SourceRuntime:
                     setattr(module,attr,ReadOnlyCache(getattr(module,attr)))
             if hasattr(module,'push_cart_event'):
                 module.push_cart_event=lambda *_a,**_k: None
+            for attr in ('push_process_order_event','push_after_payment_event'):
+                if hasattr(module,attr):setattr(module,attr,preview_effect(getattr(module,attr)))
         order_globals=dict(vars(modules['controllers.OrderController']))
         order_globals.update(logger=SilentLogger(),tasks=Tasks())
         # Select the approved per-HP refund function from the deployed composed
@@ -223,20 +226,30 @@ class SourceRuntime:
             self.order=compile_class(source_root,'controllers/OrderController.py','PosOrder',order_globals)()
         self.process=compile_class(source_root,'controllers/OrderController.py','ProcessingOrder',dict(order_globals))()
         self.validate=compile_class(source_root,'controllers/CheckoutController.py','ValidateCheckout',dict(vars(modules['controllers.CheckoutController'])))()
-        self.product=modules['controllers.CatalogController'].PosProductDetail()
+        cart_namespace=dict(vars(modules['controllers.CartController']))
+        cart_module=importlib.import_module('controllers.cart.Cart')
+        self.source_clock=cart_module.datetime
         if self.membership:
-            cart_namespace=dict(vars(modules['controllers.CartController']))
-            cart_module=importlib.import_module('controllers.cart.Cart')
             cart_namespace['AddFreeMembership']=compile_free_membership(source_root,dict(vars(cart_module)))
-            self.cart_reader=compile_class(source_root,'controllers/CartController.py','Cart',cart_namespace)()
-        else:
-            self.cart_reader=modules['controllers.CartController'].Cart()
+        cart_namespace['AddFreeMembership']=automatic_membership(cart_namespace['AddFreeMembership'])
+        self.cart_reader=compile_class(source_root,'controllers/CartController.py','Cart',cart_namespace)()
+        # PosProductDetail auto-add calls an imported Cart alias. Bind that
+        # alias to the same isolated qualified Cart, including on intermediate
+        # product additions; the original alias would bypass history admission.
+        catalog_namespace=dict(vars(modules['controllers.CatalogController']))
+        catalog_namespace['Cart']=lambda:self.cart_reader
+        self.product=compile_class(source_root,'controllers/CatalogController.py','PosProductDetail',catalog_namespace)()
         self.cart_factory=modules['middleware.CartMiddleware'].PosCartFactory
         self.pricelist_manager=modules['middleware.CartMiddleware'].PricelistManager
         namespace=dict(vars(modules['controllers.KinesisProducer']))
         namespace['tasks']=Tasks()
         self.producer=compile_class(source_root,'controllers/KinesisProducer.py','SyncOrderById',namespace)()
         self.controller_hash=CORRECTED_CONTROLLER_SHA256
+
+    def membership_execution_point(self):
+        # Exact source Cart.py clock. Only sampled if literal history criteria
+        # is reached; its wall-clock zone must match accepted configuration.
+        return self.source_clock.now()
 
     def order_pipeline(self,session,user,plan,capability):
         if self.membership:
@@ -247,6 +260,38 @@ class SourceRuntime:
         return self._order_pipeline(session,user,plan,capability)
 
     def _order_pipeline(self,session,user,plan,capability):
+        req,resp,cart,base=self._cart_pipeline(session,user,plan,capability)
+        calc=cart.get_item(self.item_types.META,{'name':'calculations'})
+        # The selected profile must prove original membership staging and any
+        # explicit source-added rows. Shopify remains method15/pending.
+        assert_plain_profile(cart,self.item_types,self.settings,plan,calc)
+        req.context['data']={**base,'payment_method':'coc' if plan['kind']=='offline' else 'shopify',
+            'id':14 if plan['kind']=='offline' else 15,'custom_created_at':plan['createdAt']}
+        self.order.on_post(req,resp)
+        if UNSAFE_HTTP.get():
+            raise ImportReview('ORDER_IMPORT_HTTP_EFFECT_UNQUALIFIED')
+        result=json.loads(resp.body)
+        if result.get('isValid') is not True or result.get('method')!=(14 if plan['kind']=='offline' else 15):
+            raise ImportReview('ORDER_IMPORT_SOURCE_ORDER_UNCONFIRMED')
+        return str(result['order']),cart
+
+    def preparation_pipeline(self,session,user,plan,capability):
+        # Literal catalog/cart/validation/calculator only. The receiver owns
+        # rollback even when old code calls nested Session.commit().
+        with read_only_preview():
+            if self.membership:
+                with self.membership.scope(session,user,plan,capability):
+                    self._cart_pipeline(session,user,plan,capability)
+            else:
+                self._cart_pipeline(session,user,plan,capability)
+        if UNSAFE_HTTP.get():
+            raise ImportReview('ORDER_IMPORT_HTTP_EFFECT_UNQUALIFIED')
+
+    def _cart_pipeline(self,session,user,plan,capability):
+        with guard_history(session) as current:
+            return self._cart_body(current,user,plan,capability)
+
+    def _cart_body(self,session,user,plan,capability):
         UNSAFE_HTTP.set(False)
         req=SimpleNamespace(params={},path='/internal/pos/legacy-order-imports',method='POST',
             context={'session':session,'session_r':session,'user':user,'active_cart':None,
@@ -263,15 +308,16 @@ class SourceRuntime:
               'custom_data':custom,'tabId':capability['namespace'],'end_user':False}
         req.context.update(data=base,is_pos=True,store_id=int(capability['scope']['storeId']))
         req.context['pricelist_manager']=self.pricelist_manager(req.context)
-        for line in plan['lines']:
-            barcode=session.execute('SELECT gtin FROM products_gs1 WHERE product_id=:id ORDER BY id LIMIT 2',{'id':int(line['productId'])}).fetchall()
-            if len(barcode)!=1:
-                raise ImportReview('ORDER_IMPORT_BARCODE_REVIEW')
-            for _ in range(line['quantity']):
-                req.context['data']={**base,'barcode':barcode[0][0],'auto_add_to_cart':1}
-                self.product.on_post(req,resp)
-                if not str(resp.status).startswith('200'):
-                    raise ImportReview('ORDER_IMPORT_SOURCE_CART_REJECTED')
+        with catalog_build(capability):
+            for line in plan['lines']:
+                barcode=session.execute('SELECT gtin FROM products_gs1 WHERE product_id=:id ORDER BY id LIMIT 2',{'id':int(line['productId'])}).fetchall()
+                if len(barcode)!=1:
+                    raise ImportReview('ORDER_IMPORT_BARCODE_REVIEW')
+                for _ in range(line['quantity']):
+                    req.context['data']={**base,'barcode':barcode[0][0],'auto_add_to_cart':1}
+                    self.product.on_post(req,resp)
+                    if not str(resp.status).startswith('200'):
+                        raise ImportReview('ORDER_IMPORT_SOURCE_CART_REJECTED')
         req.context['data']={**base,'payload':{'operation':'get'}}
         serialized=self.cart_reader.on_post(req,resp)
         if not isinstance(serialized,str) or not isinstance(json.loads(serialized),dict):
@@ -279,19 +325,9 @@ class SourceRuntime:
         req.context['data']=dict(base)
         self.validate.on_post(req,resp)
         self.process.on_post(req,resp)
-        calc=cart.get_item(self.item_types.META,{'name':'calculations'})
-        # The selected profile must prove original membership staging and any
-        # explicit source-added rows. Shopify remains method15/pending.
-        assert_plain_profile(cart,self.item_types,self.settings,plan,calc)
-        req.context['data']={**base,'payment_method':'coc' if plan['kind']=='offline' else 'shopify',
-            'id':14 if plan['kind']=='offline' else 15,'custom_created_at':plan['createdAt']}
-        self.order.on_post(req,resp)
         if UNSAFE_HTTP.get():
             raise ImportReview('ORDER_IMPORT_HTTP_EFFECT_UNQUALIFIED')
-        result=json.loads(resp.body)
-        if result.get('isValid') is not True or result.get('method')!=(14 if plan['kind']=='offline' else 15):
-            raise ImportReview('ORDER_IMPORT_SOURCE_ORDER_UNCONFIRMED')
-        return str(result['order']),cart
+        return req,resp,cart,base
 
     def publication_intents(self,order_id):
         calls=[]

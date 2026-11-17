@@ -71,6 +71,12 @@ def outputs():
         'apiGuardBaseSha256':hashlib.sha256(public_main.encode()).hexdigest(),
         'sourceFiles':{path:hashlib.sha256((SOURCE/path).read_bytes()).hexdigest() for path in source_paths},
         'modelContract':'pos-import-source-model-v1',
+        'preparation':{'contract':'pos-import-order-preparation-v1','activated':False,
+            'purpose':'source-cart-preview; no order/absence/payment receipt',
+            'transaction':'fresh current authority; SELECT-only source execution; always rollback',
+            'membershipBatch':'native preparationContract; defer automatic process only during catalog population',
+            'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
+                'order_preparation.py','cart_preparation.py','source_runtime.py','receiver.py','protocol.py','http_app.py')}},
         'sourceTransaction':{'contract':'pos-import-customer-first-snapshot-v1','activated':False,
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in ('screening_transaction.py','receiver.py')}},
         'correction':{'contract':'pos-import-manager-correction-v1','activated':False,
@@ -86,7 +92,7 @@ def outputs():
             'historyContract':'pos-csv-membership-history-v1',
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
                 'membership_profile.py','membership_history.py','membership_handoff.py','membership_cache.py','membership_consumer.py',
-                'source_runtime.py','profiles.py','native.py','receiver.py','effects.py','runtime.py','protocol.py','http_app.py')},
+                'source_runtime.py','cart_preparation.py','order_preparation.py','profiles.py','native.py','receiver.py','effects.py','runtime.py','protocol.py','http_app.py')},
             'sourceFiles':__import__('membership_profile').PINS,
             'ordinaryProducerSha256':hashlib.sha256((HERE.parent/'pending-cancellation/membership_provenance.py').read_bytes()).hexdigest()}}
     return {HERE/'payments-import-overlay.patch':patch,HERE/'api-import-guard.patch':public_patch,HERE/'manifest.json':json.dumps(manifest,indent=2)+'\n'}

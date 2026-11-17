@@ -109,6 +109,10 @@ class Receiver:
         self.zone=zone
         self.correction_contract=correction_contract
 
+    def preparation(self,operation_id,body):
+        from order_preparation import prepare
+        return prepare(self,operation_id,body)
+
     def order(self,operation_id,body):
         if not isinstance(body,dict) or set(body) not in ({'capability','plan'},{'capability','plan','membershipHistory'}):
             raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
@@ -149,6 +153,8 @@ class Receiver:
             try:
                 with owned(session,cap):
                     state=lock_command(session,cap,'order')
+                    if state.get('preparationContract')!=cap.get('preparationContract'):
+                        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
                     verify_capability(self.auth_key,body['capability'],operation_id,'order',plan,self.clock())
                     existing=prior(session,operation_id,'order')
                     if existing:

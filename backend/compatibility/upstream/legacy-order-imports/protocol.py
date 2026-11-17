@@ -10,6 +10,7 @@ from uuid import UUID
 SOURCE_CONTRACT = 'pos-legacy-order-import-source-v1'
 PUBLICATION_CONTRACT = 'pos-legacy-order-import-publication-v1'
 SOURCE_COMMIT = '2960acbea10c4eaf16b6d99e15ff6e03ef7724c5'
+PREPARATION_CONTRACT = 'pos-import-order-preparation-v1'
 
 
 class ImportReview(RuntimeError):
@@ -49,7 +50,7 @@ def identifier(value):
 def verify_capability(key, supplied, operation_id, phase, plan=None, now_ms=None):
     expected = {'contract','phase','operationId','requestHash','planHash','namespace','planDigest',
                 'scope','authority','orderId','nonce','issuedAt','expiresAt','signature'}
-    optional={'correctionHash','membershipHistoryHash'}
+    optional={'correctionHash','membershipHistoryHash','preparationContract'}
     if (not isinstance(supplied, dict) or not expected.issubset(supplied)
             or set(supplied)-expected-optional):
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
@@ -63,9 +64,11 @@ def verify_capability(key, supplied, operation_id, phase, plan=None, now_ms=None
         not supplied['issuedAt'] <= current < supplied['expiresAt'] <= supplied['issuedAt'] + 60000):
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     scope = supplied['scope']
-    for name in optional:
+    for name in ('correctionHash','membershipHistoryHash'):
         if name in supplied and (phase!='order' or not isinstance(supplied[name],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied[name])):
             raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
+    if 'preparationContract' in supplied and (phase!='order' or supplied['preparationContract']!=PREPARATION_CONTRACT):
+        raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     if not isinstance(scope,dict) or set(scope) != {'actorId','operationId','storeId','counterId'} or scope['operationId'] != operation_id:
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     for name in ('actorId','storeId','counterId'):
@@ -87,6 +90,43 @@ def amount(value):
     if not number.is_finite() or number < 0 or number > Decimal('9999999999.99') or number * 100 != (number * 100).to_integral_value():
         raise ImportReview('ORDER_IMPORT_AMOUNT_REVIEW')
     return format(number, '.2f')
+
+
+def verify_preparation(key,supplied,operation_id,plan,now_ms):
+    """A preview capability cannot be used as an order-stage capability."""
+    expected={'contract','purpose','operationId','attemptId','requestHash','planHash','namespace',
+              'planDigest','authorityHash','scope','authority','issuedAt','expiresAt',
+              'attemptExpiresAt','signature'}
+    if (not isinstance(supplied,dict) or not expected.issubset(supplied)
+            or set(supplied)-expected-{'membershipHistoryHash'}):
+        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    value={name:item for name,item in supplied.items() if name!='signature'}
+    if (supplied['contract']!=PREPARATION_CONTRACT or supplied['purpose']!='source-cart-preview'
+            or supplied['operationId']!=uuid(operation_id) or uuid(supplied['attemptId'])!=supplied['attemptId']
+            or supplied['namespace']!='pos-import-v1:'+operation_id
+            or type(now_ms) is not int or type(supplied['issuedAt']) is not int
+            or type(supplied['expiresAt']) is not int or type(supplied['attemptExpiresAt']) is not int
+            or not supplied['issuedAt']<=now_ms<supplied['expiresAt']<=min(supplied['attemptExpiresAt'],supplied['issuedAt']+60000)
+            or not isinstance(supplied['signature'],str)
+            or not hmac.compare_digest(digest(key,'preparation-capability',value),supplied['signature'])):
+        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    scope=supplied['scope']
+    if not isinstance(scope,dict) or set(scope)!={'actorId','operationId','storeId','counterId'} or scope['operationId']!=operation_id:
+        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    for name in ('actorId','storeId','counterId'):identifier(scope[name])
+    for name in ('requestHash','planHash','planDigest','authorityHash'):
+        if not isinstance(supplied[name],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied[name]):
+            raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    if ('membershipHistoryHash' in supplied and
+            (not isinstance(supplied['membershipHistoryHash'],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied['membershipHistoryHash']))):
+        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    if not isinstance(plan,dict) or not hmac.compare_digest(supplied['planDigest'],digest(key,'plan',plan)):
+        raise ImportReview('ORDER_IMPORT_PLAN_CHANGED')
+    if (not isinstance(supplied['authority'],dict) or set(supplied['authority'])!=
+            {'customerId','contact','actorVersion','actorEpoch','approvalId','close'}):
+        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    identifier(supplied['authority']['customerId'])
+    return supplied
 
 
 def source_custom_data(plan):
