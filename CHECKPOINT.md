@@ -53,6 +53,16 @@ website/customer/system/legacy/non-POS writer entry, with original auth/nonce
 semantics. Public membership publisher and authority succession remain active
 parallel code work. Release evidence and acceptance status remain unchanged.
 
+The durable public membership history publisher is integrated from `445f82f`
+as `427eb3f`, with concrete checkout demand injection, registered additive journal
+migration, npm command, Docker target and deployment settings on `100d77d`.
+Its purpose-specific worker uses explicit separate source/reader/writer identity
+and retained deterministic job recovery. No worker, cloud/native action or test
+was executed. Worker lifecycle request-ID fallback was implemented in `fb33e37`.
+Remaining assigned code is manager authority succession, other writer-origin
+frames/callers and any unfinished offline/desktop runtime wiring. Full final
+parity/testing stays deferred until these implementations are complete.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
