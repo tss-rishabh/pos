@@ -8,11 +8,11 @@
     "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad"
   },
   "candidate": {
-    "main.py": "19e478a9c915013196a04fcc1093259ecb94da4f950d5bef5db06daa3c3c84cd",
+    "main.py": "aacd3df7e4962ca6c69be8f0f6219a9d0779c520ddc6db9edb542f61b1007f41",
     "middleware/PosImportOrderGuard.py": "1c82e092914b5797f3a18629016443739c272a73a406240d29bb148a8ff5ab71",
     "controllers/OrderController.py": "d6889729a1d858512a76a3cd3aee12ce80af6a9e4125aca35237b03e1af3609e",
     "pos_node_screening.py": "a199bb17fa41d72824ef8a371e4ee614def6271f97e75eb37c97e8912aa723a5",
-    "pos_screening_origins.py": "8f9a092b7d5ad61699ca85bdb2454e542e2ed144b4b1c40752419f2f0107911d"
+    "pos_screening_origins.py": "bb7ae3a47ce81154f81af8d891d080417625b1f361b37b4bea3b0b8fc4008001"
   },
   "files": {
     "writer_protocol.py": "48d4ad25cb610164af043e43c398060c764634482b277cbcbbd692430d98507d",
@@ -68,19 +68,21 @@
     "apiCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
     "legacyCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
     "candidate": {
-      "main.py": "19e478a9c915013196a04fcc1093259ecb94da4f950d5bef5db06daa3c3c84cd",
+      "main.py": "aacd3df7e4962ca6c69be8f0f6219a9d0779c520ddc6db9edb542f61b1007f41",
       "middleware/PosImportOrderGuard.py": "1c82e092914b5797f3a18629016443739c272a73a406240d29bb148a8ff5ab71",
       "controllers/OrderController.py": "d6889729a1d858512a76a3cd3aee12ce80af6a9e4125aca35237b03e1af3609e",
       "pos_node_screening.py": "a199bb17fa41d72824ef8a371e4ee614def6271f97e75eb37c97e8912aa723a5",
-      "pos_screening_origins.py": "8f9a092b7d5ad61699ca85bdb2454e542e2ed144b4b1c40752419f2f0107911d"
+      "pos_screening_origins.py": "bb7ae3a47ce81154f81af8d891d080417625b1f361b37b4bea3b0b8fc4008001"
     },
     "files": {
       "assets-migration.sql": "2a2686ac84c645c6959c5182b57c95c210c92f5423e831221e0ffd0b282e673b",
       "customer-command.mjs": "81c9c496211dee509f86219c82832e410c6c11f068b24f0dffb04116e1d15e82",
-      "history-grants.review.sql": "792279f7ac761f3d441ac4965cc7f2a82cf124689dee1c7a1a3090493e03411f",
+      "effect_consumer_worker.py": "c84194148c88dae0f88c8e185e6a12c2782d98b040e05eb0d1ff7387082649c6",
+      "effects-migration.sql": "54c2e75da7325b768457975d8459ffed4c728ec6722c59b6546f4f9196fa4ec9",
+      "history-grants.review.sql": "8c10129ad34af6674bb1de1bf5dd3859da5eacc36e18a21e72cad7e9975be500",
       "history-heads.review.sql": "db19d1bb551e45b450b1d3e9b737987d9f73d42c8e26ddcaa9cf3275333cfa98",
       "history-publication.review.sql": "3721385bdba584320a064341583706f9242bda8e8d86ce9f7dd4fca8a2da8613",
-      "history-security.review.sql": "286066e89f51830012e151229ee633dd1527e1bac9a932962b412a6a06d5b8a9",
+      "history-security.review.sql": "5aa3b099fea63474becff6129d23a32137ebe6e0bcb93fc16f6d13e5ca004e63",
       "history-versions-migration.sql": "d8494d5152aa4d4ba47de10d88fedb2257426fc9f0813a8d2706d00ccd8501d6",
       "history_capture.py": "2ebed1736133c870e16009a8f4fb85ae87e2cfc471617f378ee611211d5410d6",
       "legacy-effects-migration.sql": "702e2fe71be3c380a58bc4e51cdb68e5ab2807cf06d34489bd0c93e20343fcb8",
@@ -95,21 +97,24 @@
       "origin_assets.py": "cc6393e795e1143e4199ae63edf9c84e30ab0ab4542e554a3b072a415e5886fa",
       "origin_assets_guard.py": "a3eaf40031116e530f739568b7a00deff17252aeb7a42aaea25004a63395b51c",
       "origin_auth.py": "207b833e92a9e6a34f6d7995b18b51688acfcd98153e9d56a048c9431e69948e",
-      "origin_bootstrap.py": "cf9991c0d3175ed6e43857a0ad9e685557f9d5db52f537fa6b43681908cd0c6f",
+      "origin_bootstrap.py": "d1839952e2e24595f8aa61c8828a6de0746976c6c2860712a92c95d79f3c65a9",
+      "origin_cache.py": "616c4da08daa5260c072c47e013ed047bce5b1b7ebfb8f3af9a5fbeaf690ba65",
+      "origin_consumer.py": "7ae8dcf8e49ac329d71a119558de805efacd05815d41aba56db0441d5c27adb4",
       "origin_contracts.py": "b9039b0edd0e3cca7126e6d430b206785da4833476c5ad1e76e4d131e9ad7e8f",
-      "origin_effects.py": "cea4aa2f6c33245b13e3d99db0b65023d76a5750afbbaa6155c238660d554eb3",
-      "origin_frame.py": "8cde39546b4c0bd0145f44820f90b48784f3be6335b293c40ca8967f41c5221d",
+      "origin_delivery.py": "177d4ced6ad3bf01be6ea444716b0dd921df7a83aec43c31d9e91f6ac550b0cd",
+      "origin_effects.py": "0d47fc25b9795baf83c7c5945e688b28c6ace4d368f523b0acc08ca1fbeeb19b",
+      "origin_frame.py": "ad70e3e58d36d90c17c1a9bdc03caefba7caa925e8219f28166e81b1d7092e49",
       "origin_history.py": "c83a5bd94a95ea33bd7c475ba1311a36822a35e200b4b4513fee18f0008d1025",
       "origin_history_http.py": "caa4e05a1cf7da887ce70e0a1d258c52a0e56bedffa1db43b7ab54904d4dc7bd",
-      "origin_history_privileges.py": "761ce865174fea941ecb4239e2cd22f7d8642ef216438bdd304efdb3890aac5e",
+      "origin_history_privileges.py": "d0efb28e3af9eec1bf4dd8e7aec5374fa26add2768b8012656051e192eea6d7c",
       "origin_ledger.py": "e1c0e8fbee129fcbc1034ecc054e5f2e163be63f898551d2223fcd7fe436778c",
       "origin_resource.py": "f298dee518c0a3ea68944681f515f41cfd5e54939850c06e339a1b799e9c7a9d",
-      "origin_system.py": "9f65a6cf5224c2f88c37d8b2ea2991cf3d16efb501c0af2e9188413ab9701b99",
+      "origin_system.py": "83788c5a9d9261de50fc2328d5b96d53466b2e8fe2f91004b27a5807c93c015b",
       "prepare.py": "a0f534a8ce705876b50b20e56ba7d2fde7ae3f5e1ed44f8a79b973bc4bb786e2",
-      "source_hooks.py": "45bce810694f7892b630bd994490bb2f3ebe6b7d7cdd59c664cb3c89f5750852",
-      "source_worker.py": "fab8424e79636c11981e1b13cb5b0db92583195024abf253e3ededa7b3464129",
+      "source_hooks.py": "2952f66cfb97d8879e48b5310e882dfd123804db58546f0bfa5641b2bc52895c",
+      "source_worker.py": "b4a282ef3c2baaa873abefed850f089b4dfab7d568d19da5cf43e2f7bf180811",
       "system-migration.sql": "a23c78333a15653d8e7aa60b900497de65aa81d7b875c7d43e59ce6b1570f933"
     }
   },
-  "patchSha256": "dc9245d20b835096b08edcae2134da2b40a55d4f7fea6f837973c4e823ebe0fd"
+  "patchSha256": "0feef729fcbe0aca141f0a556d85f5ccf455d523238411a5a2bc7ecd34a62678"
 }

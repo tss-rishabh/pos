@@ -99,6 +99,30 @@ source producer, not a complete variant: Admin's exact Go asset verification,
 source variant effects/coupon composition and remaining recovery paths still
 require code. No tests/checks/builds/live actions ran.
 
+Latest integration: MPos/proved failed-credit recovery `5b8f286` → `c38d507`;
+Root actual supervised source worker `bd57d0b`; Go native asset consumer and
+source-authorized CSK funding `6b9e1e9` → `e4a8592`; bounded history audit
+`ea82e2a` → `5810368`; original source registry/consumer/runtime ports
+`3c6cd17` → `cbc9d2c`. Root is registering effects SQL and adding quiet,
+explicitly selected tasks/abandon consumer launchers. Hyper still owes their
+per-invocation observer setter/events; selected consumers refuse without that
+trace port. Original source diagnostics remain muted through process exit.
+
+The composed payments source was generated at
+`/tmp/pos-payments-origin-assembly-20261118-assets` (88 files), with manual
+review SQL and current asset/funding hashes retained in the assembly manifest.
+API/legacy source patches/manifests have been regenerated for the real MPos,
+effects registry and worker wiring. This ran only source producers, no application
+build/test/parity/live service. Selectors stay disabled by default.
+
+CPP's publisher/runtime implementation has no known remaining connection gaps;
+its current exclusive assignment is NEW origin_coupon* / Node coupon-* modules
+for genuine other-origin coupon composition. Operational welcome registration is
+bounded current native eligibility, while lifetime/monthly history remains BQ.
+Hyper retains all shared frame/assets/registry edits and remaining CSK recovery,
+legacy paid-gift finalization/member history; Admin retains provider/recovery
+edges and concrete Go integration. Final verification remains deferred.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only

@@ -158,6 +158,7 @@ def main(arguments=None):
             return 0
         if (env.get(PREFIX + 'CONTRACT') != CONTRACT
                 or env.get('POS_SCREENING_ORIGIN_CONTRACT') != 'pos-screening-origins-v1'
+                or env.get('POS_SCREENING_ORIGIN_EFFECTS_CONTRACT') != 'pos-screening-origin-effects-v1'
                 or not re.fullmatch(r'[!-~]{32,4096}', env.get('POS_SCREENING_ORIGIN_PROOF_KEY', ''))):
             raise ValueError()
         system = flag(env.get(PREFIX + 'SYSTEM_ENABLED'))

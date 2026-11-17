@@ -1,16 +1,18 @@
 --- a/main.py
 +++ b/main.py
-@@ -3,6 +3,9 @@
+@@ -3,6 +3,11 @@
  from falcon_cors import CORS
  
  import settings
++from pos_screening_origins import prepare as _prepare_origins
++_prepare_origins(__file__)
 +from pos_node_screening import install
 +_node_screening = install(__file__)
 +
  from controllers import (ArtistsSync, AuthController, CancelDuplicateCouponOrder, CancelDuplicateVoucher, CartController,
                           CatalogController, CatalogSync, CategorySync,
                           CheckoutController, DgraphController, ProductSyncController,
-@@ -96,9 +99,14 @@
+@@ -96,9 +101,14 @@
                                  'http://dev.thesouledstore.ml', 'https://tss.now.sh', 'https://zeus-ssr.now.sh', 'https://zeus-ssr-git-menu.jibinthomas.now.sh', 'https://35.154.143.199', 'http://35.154.143.199','https://feedback.thesouledstore.com',
                                  ], allow_all_headers=True,
              allow_all_methods=True)
@@ -28,7 +30,7 @@
  
  app = falcon.App(middleware=middleware)
  # app.add_error_handler(Exception, logging_error_handler)  # Disabled: unified JSON logger handles all exceptions
-@@ -218,6 +226,7 @@
+@@ -218,6 +228,7 @@
  # Different Thank You Page API
  app.add_route(settings.API_PREFIX + '/thank-you', UserController.ThankYou())
  # Order
@@ -36,7 +38,7 @@
  app.add_route(settings.API_PREFIX + '/order', OrderController.Order())
  app.add_route(settings.API_PREFIX + '/exchange_order', ExchangeOrderController.ExchangeOrder())
  app.add_route(settings.NEW_API_PREFIX + '/order', OrderController.OrderWithProductStatus())
-@@ -553,7 +562,7 @@
+@@ -553,7 +564,7 @@
  app.add_route(settings.API_PREFIX + '/omnichannel-sendotp', AuthController.OmniChannelSendOtp())
  app.add_route(settings.API_PREFIX + '/store-discount-pg', DiscountController.StoreDiscountPG())
  app.add_route(settings.API_PREFIX + '/omnichannel-verifyotp', AuthController.OmniChannelVerifyOtp())
@@ -196,12 +198,17 @@
 +def install(main_file):return Bootstrap(Path(main_file).resolve().parent)
 --- /dev/null
 +++ b/pos_screening_origins.py
-@@ -0,0 +1,8 @@
+@@ -0,0 +1,13 @@
 +"""Purpose-specific original customer/staff/system writer installation."""
 +import os
 +import sys
 +from pathlib import Path
 +_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()
-+sys.path.insert(0,str(_root/'screening-origins'))
-+from origin_bootstrap import OriginBootstrap
-+def install():return OriginBootstrap()
++for name in ('legacy-order-imports','offline-cash-pricing','public-screening-writer','screening-origins'):sys.path.insert(0,str(_root/name))
++def prepare(main_file):
++    if not os.environ.get('POS_SCREENING_ORIGIN_CONTRACT'):return
++    from origin_delivery import prepare as early
++    early(main_file)
++def install():
++    from origin_bootstrap import OriginBootstrap
++    return OriginBootstrap()

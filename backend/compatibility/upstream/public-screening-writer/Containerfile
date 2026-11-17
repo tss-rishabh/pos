@@ -45,5 +45,12 @@ ENV POS_SCREENING_ORIGIN_SOURCE_WORKER_SOURCE_ROOT=/opt/pos-public-source \
     POS_SCREENING_ORIGIN_SOURCE_WORKER_EFFECTS_ENABLED=false
 CMD ["python3","/opt/pos-source-adapters/screening-origins/source_worker.py"]
 
+FROM source-origin-worker AS source-origin-task-consumer
+ENV POS_SCREENING_ORIGIN_EFFECT_CONSUMER_ENABLED=false POS_SCREENING_ORIGIN_EFFECT_CONSUMER_LANE=tasks
+CMD ["python3","/opt/pos-source-adapters/screening-origins/effect_consumer_worker.py"]
+
+FROM source-origin-task-consumer AS source-origin-abandon-consumer
+ENV POS_SCREENING_ORIGIN_EFFECT_CONSUMER_LANE=abandon
+
 # Keep the default target a disabled queue consumer.
 FROM public-membership-cache-worker AS runtime

@@ -65,3 +65,29 @@ Source logs/stdout/stderr remain muted through interpreter exit. The independent
 allowlisted events include module/resource/event IDs, original command UUID
 correlation, optional authenticated actor IDs and UTC timestamps, never payloads,
 paths, tokens, URLs, raw SQL or exception text. This supervisor performs no DDL.
+
+## Original task consumers
+
+The same Containerfile provides `source-origin-task-consumer` and
+`source-origin-abandon-consumer`. Both run `effect_consumer_worker.py` and start
+disabled before any source or broker import. Use the task target for the original
+main app and the abandon target for the original abandoned-cart app. Mount the
+same immutable base/candidate and supply the qualified private broker settings.
+
+Select `POS_SCREENING_ORIGIN_EFFECT_CONSUMER_ENABLED=true` with
+`POS_SCREENING_ORIGIN_EFFECT_CONSUMER_CONTRACT=pos-screening-origin-effects-v1`
+and `POS_SCREENING_ORIGIN_EFFECTS_CONTRACT=pos-screening-origin-effects-v1`.
+The target fixes the default `...EFFECT_CONSUMER_LANE` to `tasks` or `abandon`.
+`...EFFECT_CONSUMER_QUEUES` is an explicit JSON array for that lane and must be
+a subset of `POS_LEGACY_IMPORT_EFFECT_QUEUES`. Assign queues according to actual
+original task routing; the two apps' queues are not interchangeable. Do not
+pass broker credentials or arbitrary Celery options on the command line.
+
+These launchers call the actual source app with solo concurrency 1, prefetch 1,
+no discovery/gossip or remote-control broadcasts. Raw Celery/source diagnostics
+stay muted through exit. A required source consumer observer emits only fixed
+invocation phases with original command/actor correlation. The observer hook is
+part of the ongoing source implementation; without it the selected launcher
+fails startup. A warm shutdown has a 40-second limit; native SENDING/UNCERTAIN
+receipts preserve recovery after an interrupted original task. Images and
+broker/native behavior have not been validated for this new implementation.

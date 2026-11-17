@@ -46,6 +46,7 @@ COPY compatibility/upstream/screening-origins/history-versions-migration.sql ./c
 COPY compatibility/upstream/screening-origins/system-migration.sql ./compatibility/upstream/screening-origins/system-migration.sql
 COPY compatibility/upstream/screening-origins/legacy-effects-migration.sql ./compatibility/upstream/screening-origins/legacy-effects-migration.sql
 COPY compatibility/upstream/screening-origins/assets-migration.sql ./compatibility/upstream/screening-origins/assets-migration.sql
+COPY compatibility/upstream/screening-origins/effects-migration.sql ./compatibility/upstream/screening-origins/effects-migration.sql
 COPY src/modules/screening-origins/*.sql ./src/modules/screening-origins/
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql
