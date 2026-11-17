@@ -32,11 +32,13 @@ export async function registerOriginCouponHistoryBridge(
         data.issuedAt > now ||
         data.expiresAt <= now ||
         data.expiresAt > Math.min(data.issuedAt + 30000, data.command.expiresAt) ||
-        !sameOriginHash(originDigest(key, 'coupon-history-request', data), proofHash)
+        !sameOriginHash(originDigest(key, 'coupon-history-request', data), proofHash) ||
+        !sameOriginHash(originDigest(key, 'command', data.command), data.commandProof)
       )
         throw originError('SCREENING_ORIGIN_COUPON_HISTORY_UNAUTHORIZED');
+      req.auditUserId =
+        data.command.origin === 'customer' ? data.command.customerId : data.command.actorId;
       const result = await history.read(data, AbortSignal.timeout(25000));
-      req.auditUserId = data.command.actorId;
       reply.header('Cache-Control', 'no-store');
       return result;
     },

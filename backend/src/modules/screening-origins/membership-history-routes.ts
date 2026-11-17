@@ -71,11 +71,13 @@ export async function registerOriginMembershipHistoryBridge(
         data.issuedAt > now ||
         data.expiresAt <= now ||
         data.expiresAt > Math.min(data.issuedAt + 30000, data.command.expiresAt) ||
-        !sameOriginHash(originDigest(key, 'membership-history-request', data), proofHash)
+        !sameOriginHash(originDigest(key, 'membership-history-request', data), proofHash) ||
+        !sameOriginHash(originDigest(key, 'command', data.command), data.commandProof)
       )
         throw originError('SCREENING_ORIGIN_MEMBERSHIP_UNAUTHORIZED');
+      req.auditUserId =
+        data.command.origin === 'customer' ? data.command.customerId : data.command.actorId;
       const result = await history.read(data, AbortSignal.timeout(25000));
-      req.auditUserId = data.command.actorId;
       reply.header('Cache-Control', 'no-store');
       return result;
     },
@@ -100,11 +102,13 @@ export async function registerOriginMembershipHistoryBridge(
         data.issuedAt < data.preview.issuedAt ||
         data.expiresAt <= now ||
         data.expiresAt > Math.min(data.issuedAt + 30000, data.preview.expiresAt) ||
-        !sameOriginHash(originDigest(key, 'membership-preview-request', data), proofHash)
+        !sameOriginHash(originDigest(key, 'membership-preview-request', data), proofHash) ||
+        !sameOriginHash(originDigest(key, 'preview-context', data.preview), data.previewProof)
       )
         throw originError('SCREENING_ORIGIN_MEMBERSHIP_UNAUTHORIZED');
+      req.auditUserId =
+        data.preview.origin === 'customer' ? data.preview.customerId : data.preview.actorId;
       const result = await history.readPreview(data, AbortSignal.timeout(25000));
-      req.auditUserId = data.preview.actorId;
       reply.header('Cache-Control', 'no-store');
       return result;
     },

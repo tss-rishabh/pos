@@ -31,12 +31,14 @@ export async function registerOriginCouponPreviewBridge(
         data.issuedAt > now ||
         data.expiresAt <= now ||
         data.expiresAt > Math.min(data.issuedAt + 30000, data.preview.expiresAt) ||
-        !sameOriginHash(originDigest(key, 'coupon-preview-request', data), proofHash)
+        !sameOriginHash(originDigest(key, 'coupon-preview-request', data), proofHash) ||
+        !sameOriginHash(originDigest(key, 'preview-context', data.preview), data.previewProof)
       )
         throw originError('SCREENING_ORIGIN_COUPON_PREVIEW_UNAUTHORIZED');
+      req.auditUserId =
+        data.preview.origin === 'customer' ? data.preview.customerId : data.preview.actorId;
       const { issuedAt: _issuedAt, expiresAt: _expiresAt, ...input } = data;
       const result = await history.read(input, AbortSignal.timeout(25000));
-      req.auditUserId = data.preview.actorId;
       reply.header('Cache-Control', 'no-store');
       return result;
     },

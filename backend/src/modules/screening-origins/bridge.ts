@@ -9,7 +9,12 @@ import { registerOriginMembershipHistoryBridge } from './membership-history-rout
 
 export interface OriginHistoryBridgeEvent {
   module: 'screening-origins';
-  resource: 'customer-history' | 'coupon-history' | 'membership-history' | 'history-bridge-runtime';
+  resource:
+    | 'customer-history'
+    | 'coupon-history'
+    | 'coupon-preview'
+    | 'membership-history'
+    | 'history-bridge-runtime';
   eventId: string;
   eventInstanceId: string;
   timestamp: string;
@@ -128,9 +133,11 @@ export async function createOriginHistoryBridge(options: {
     const resource =
       selectedResource === 'history-bridge-runtime' ||
       selectedResource === 'coupon-history' ||
+      selectedResource === 'coupon-preview' ||
+      selectedResource === 'customer-history' ||
       selectedResource === 'membership-history'
         ? selectedResource
-        : 'customer-history';
+        : 'history-bridge-runtime';
     const code = errors.get(request);
     try {
       options.observe?.({

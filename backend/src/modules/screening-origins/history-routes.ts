@@ -52,12 +52,14 @@ export async function registerOriginHistoryBridge(
         data.expiresAt <= now ||
         data.expiresAt > data.issuedAt + 30000 ||
         data.expiresAt > data.command.expiresAt ||
-        !sameOriginHash(originDigest(key, 'history-request', data), proofHash)
+        !sameOriginHash(originDigest(key, 'history-request', data), proofHash) ||
+        !sameOriginHash(originDigest(key, 'command', data.command), data.commandProof)
       )
         throw originError('SCREENING_ORIGIN_HISTORY_UNAUTHORIZED');
+      req.auditUserId =
+        data.command.origin === 'customer' ? data.command.customerId : data.command.actorId;
       const signal = AbortSignal.timeout(25000);
       const value = await history.read(data, signal);
-      req.auditUserId = data.command.actorId;
       reply.header('Cache-Control', 'no-store');
       return value;
     },
