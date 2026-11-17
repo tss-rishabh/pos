@@ -45,7 +45,10 @@ export function financialSourceHash(
     | 'calculation'
     | 'correction'
     | 'membership-history'
-    | 'coupon-history',
+    | 'coupon-history'
+    | 'authority-succession'
+    | 'succession-original-authority'
+    | 'succession-stage',
   value: unknown,
 ) {
   return operationHash('legacy-order-imports.source.' + kind + '.v1', value, sourceKey);

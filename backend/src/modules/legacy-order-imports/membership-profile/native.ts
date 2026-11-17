@@ -22,6 +22,7 @@ import {
   stagedMembershipContract,
   verifyCsvMembershipDescriptor,
 } from './domain.js';
+import { consumedMembershipReference } from './references.js';
 
 export interface CsvMembershipOptions {
   contract: string;
@@ -30,6 +31,9 @@ export interface CsvMembershipOptions {
   freshReaderContract: string;
   productIds: readonly string[];
   freeProductId: string;
+  referenceContract?: string;
+  contactSecret?: string;
+  businessTimezone?: string;
 }
 /** Invoke inside the caller's writer transaction, before original confirmation/settlement.
  * New work checks the current revision. Historical completed reads keep the
@@ -135,7 +139,6 @@ export async function assertCsvMembershipProfile(
     staged = result.receipt.provenance;
   if (
     member.proofHash !== membershipProvenanceHash(member, options.membershipProofKey) ||
-    member.revision !== String(version.revision) ||
     member.orderId !== staged.orderId ||
     member.customerId !== staged.customerId ||
     member.headerHash !== header.hash ||
@@ -143,12 +146,6 @@ export async function assertCsvMembershipProfile(
     member.operationId !== staged.operationId ||
     member.createdAt !== staged.createdAt ||
     member.entityDigest !== staged.entityDigest ||
-    member.entityDigest !==
-      operationHash(
-        'pending-cancellation.membership-entity.v1',
-        customer.email,
-        options.membershipProofKey,
-      ) ||
     JSON.stringify(member.before) !== JSON.stringify(staged.before) ||
     member.contract !==
       (input.phase === 'staged' || plan.kind === 'shopify'
@@ -176,7 +173,38 @@ export async function assertCsvMembershipProfile(
     .orderBy(asc(cancellationMembershipRows.attribute))
     .limit(3)
     .for('update');
-  if (JSON.stringify(rows) !== JSON.stringify(member.confirmed)) throw csvMembershipError();
+  const sameEntity =
+    member.entityDigest ===
+    operationHash(
+      'pending-cancellation.membership-entity.v1',
+      customer.email,
+      options.membershipProofKey,
+    );
+  // Only a genuinely consumed offline activation can survive a proved email
+  // reference transfer. Staged/Shopify entitlements retain current eligibility.
+  const reference =
+    !sameEntity && input.phase === 'settled' && plan.kind === 'offline'
+      ? await consumedMembershipReference(
+          tx,
+          {
+            state,
+            order,
+            sourceReceiptHash: sealed.proofHash,
+            activation: member,
+            currentEmail: customer.email,
+            currentRevision: String(version.revision),
+            rows,
+          },
+          options,
+        )
+      : null;
+  if (
+    !reference &&
+    (!sameEntity ||
+      member.revision !== String(version.revision) ||
+      JSON.stringify(rows) !== JSON.stringify(member.confirmed))
+  )
+    throw csvMembershipError();
   for (const extra of result.receipt.additionalLines) {
     const [line] = await tx
       .select({
@@ -198,5 +226,5 @@ export async function assertCsvMembershipProfile(
     )
       throw csvMembershipError();
   }
-  return result;
+  return { ...result, reference };
 }

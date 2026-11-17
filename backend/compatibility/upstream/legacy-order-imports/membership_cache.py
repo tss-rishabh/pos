@@ -95,7 +95,8 @@ def invalidate(session_factory, key, operation_id, receipt_hash, callback, clock
                 raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNCERTAIN')
             member_key, _ = adapter.config()
             if proof['provenance']['entityDigest'] != adapter._hash('pending-cancellation.membership-entity.v1', customer['email'], member_key):
-                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+                from membership_reference import validate
+                validate(session,key,proof,receipt_hash,current,customer,adapter)
             staged = proof['provenance']
             if (current['orderId'] != staged['orderId'] or current['customerId'] != staged['customerId']
                     or current['before'] != staged['before'] or current['operationId'] != staged['operationId']

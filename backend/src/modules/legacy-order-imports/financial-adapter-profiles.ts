@@ -73,6 +73,13 @@ export interface FinancialImportProfileHooks {
     order: SourceOrderReceipt,
     phase: FinancialProfilePhase,
   ): Promise<ReadonlyMap<string, number> | null>;
+  /** Explicit manager approval only; never run from GET/completed recovery. */
+  captureConsumedReferences?(
+    transaction: Transaction,
+    context: Context,
+    order: SourceOrderReceipt,
+    approval: { id: string; managerId: string; issuedAt: number },
+  ): Promise<void>;
   completionSnapshot?(
     transaction: Transaction,
     context: Context,
@@ -273,6 +280,11 @@ export function financialAdapterProfiles(
         result = candidate;
       }
       return result;
+    },
+    async captureConsumedReferences(tx, context, order, approval) {
+      assertBindings(context.state);
+      for (const extension of extensions)
+        await extension.captureConsumedReferences?.(tx, context, order, approval);
     },
     async completionSnapshot(tx, context, order) {
       assertBindings(context.state);

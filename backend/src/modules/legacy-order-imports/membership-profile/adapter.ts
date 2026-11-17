@@ -26,6 +26,7 @@ import {
   csvMembershipSnapshotMaximumBytes,
   type CsvMembershipCompletionSnapshot,
 } from './completion.js';
+import { captureMembershipReference, readCapturedMembershipReference } from './references.js';
 
 type Transaction = AdministrationTransaction;
 type Context = FinancialImportProfileContext;
@@ -200,7 +201,11 @@ export function csvMembershipImportProfile(
     const checked = await assertCsvMembershipProfile(tx, { ...context, order, phase }, options);
     if (!checked || JSON.stringify(checked.receipt) !== JSON.stringify(found.receipt))
       throw csvMembershipError();
-    return { ...found, expectedQuantities: checked.expectedQuantities };
+    return {
+      ...found,
+      expectedQuantities: checked.expectedQuantities,
+      reference: checked.reference,
+    };
   }
   return {
     requiresCurrentReads: true,
@@ -215,12 +220,28 @@ export function csvMembershipImportProfile(
     async expectedQuantities(tx, context, order, phase) {
       return (await current(tx, context, order, phase))?.expectedQuantities ?? null;
     },
+    async captureConsumedReferences(tx, context, order, approval) {
+      // Shopify/staged membership has no consumed activation to authenticate.
+      if (context.plan.kind !== 'offline') return;
+      const found = await current(tx, context, order, 'settled');
+      if (found?.reference)
+        await captureMembershipReference(tx, found.reference, approval, options);
+    },
     async completionSnapshot(tx, context, order) {
       const found = await current(tx, context, order, 'settled');
+      const reference = found?.reference
+        ? await readCapturedMembershipReference(
+            tx,
+            found.reference,
+            context.state.authoritySuccession?.id ?? '',
+            options,
+          )
+        : null;
       return found
         ? csvMembershipCompletionSnapshotSchema.parse({
             receipt: found.receipt,
             sourceReceiptHash: found.sourceReceiptHash,
+            ...(reference ? { reference } : {}),
           })
         : null;
     },

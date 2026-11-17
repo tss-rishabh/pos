@@ -131,16 +131,45 @@ validation phase. All source repository siblings remain read-only.
 ## Scope still protected in the base handoff
 
 Actor succession, phone/contact revision succession and ordinary customer email
-succession are implemented. Existing membership provenance remains strict. For a
-membership EMAIL change, existing customer-contacts code already atomically moves/
-copies EAV references and retains authenticated encrypted challenge/effect payload
-plus mutation receipts. The current membership verifier still compares current
-email/revision to the original activation, so this specific case remains refused
-until the follow-up authenticates that genuine reference transfer and original
-activation as past facts. Manager approval does not fabricate an entity move,
-reactivate membership, extend expiry, or revoke unrelated current entitlement.
-This is explicitly remaining CODE, not a deployment-only condition or claimed
-complete changed-email membership coverage.
+succession are implemented. The follow-up `membership-profile/references.ts`
+authenticates an **already activated offline** entitlement from its original Go
+confirmation, original native projection, signed staged descriptor and activated
+per-order provenance. It verifies the existing contact transaction's authenticated
+encrypted input/effects and successful immutable commit receipt. The current EAV
+member value, expiry, active bits and creation timestamps must match the original
+activation; only the reference/hash and the exact contact-copy update timestamp
+may differ. No membership row, expiry or prior provenance is mutated.
+
+Explicit manager approval appends a source-authenticated reference attestation in
+`pos_rewrite_import_membership_references` in that same transaction. The financial
+completion seal embeds it. The source `membership_reference.py` reader checks
+its native grant, exact retained contact records, original confirmation and
+unchanged current entitlement before the existing once-only cache invalidation.
+It receives no contact-decryption key. Current contact/evidence changes still
+refuse new work; existing immutable completed results remain independently readable.
+The existing contact pruner expires only uncommitted verification challenges and
+clears only OTP payloads. Committed/uncertain encrypted challenge input, permanent
+successful mutation receipts and encrypted source-effects payloads remain retained
+by the existing prune/worker paths. Reference recovery does not require expired
+OTP codes or an unexpired challenge; no new PII retention exception is added.
+
+The selector is `POS_LEGACY_IMPORT_MEMBERSHIP_REFERENCE_CONTRACT` with literal
+`pos-csv-membership-contact-reference-v1`. Node additionally uses the existing
+`CUSTOMER_CONTACTS_SECRET` and `BUSINESS_TIMEZONE` only for private reference
+verification. Source uses its existing source-proof, source-auth and membership
+keys under distinct purposes; it never receives the contact secret. The additive
+migration is `membership-profile/reference-migration.sql`; it creates one
+append-only proof table and a bounded customer/kind/status index on the rewrite
+contact-challenge table. Common source packaging must include
+`membership_reference.py` and fingerprint the changed cache consumer.
+
+A changed email **before** original membership activation is still refused in
+this consumed-only commit. It requires an explicit staged successor/Go binding
+that preserves the actual prior/current entitlement and original activation bit;
+that next code slice must not rewrite the original source descriptor or invent
+an earlier activation. Shopify remains staged/pending and gains no paid receipt.
+Unproved legacy contact transfers and arbitrary account edits remain explicit
+reconciliation boundaries, not permission to move or regrant membership.
 
 Pending final validation includes source/native race and delayed-request fencing,
 rollback, current session/actor/contact/check-in revocation, lost replies, original

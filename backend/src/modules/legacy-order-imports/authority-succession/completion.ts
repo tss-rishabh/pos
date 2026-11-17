@@ -38,6 +38,17 @@ export function assertCompletedAuthoritySuccession(proof: ImportCompletedProof) 
     )
       throw importFinancialError('ORDER_IMPORT_SUCCESSION_PROOF_INVALID');
   }
+  const reference = proof.membership?.reference;
+  if (reference) {
+    const grant = value.grants.find((item) => item.data.id === reference.data.grantId);
+    if (
+      !grant ||
+      grant.data.managerId !== reference.data.managerId ||
+      grant.data.issuedAt !== reference.data.approvedAt ||
+      grant.data.orderId !== reference.data.orderId
+    )
+      throw importFinancialError('ORDER_IMPORT_SUCCESSION_PROOF_INVALID');
+  }
   for (const claim of value.claims) {
     const grant = value.grants.find((v) => v.data.id === claim.grant.id);
     if (

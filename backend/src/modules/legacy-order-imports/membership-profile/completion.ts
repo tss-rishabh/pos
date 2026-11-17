@@ -4,6 +4,7 @@ import type {
   ImportPublicationReceipt,
 } from '../financial-adapter-contracts.js';
 import { csvMembershipError, csvMembershipReceiptSchema } from './domain.js';
+import { csvMembershipReferenceSchema } from './reference-contracts.js';
 
 export const csvMembershipSnapshotMaximumBytes = 262144;
 export const csvMembershipCompletionSnapshotSchema = z
@@ -11,6 +12,7 @@ export const csvMembershipCompletionSnapshotSchema = z
     receipt: csvMembershipReceiptSchema,
     /** Original completed membership descriptor's source proof_hash. */
     sourceReceiptHash: z.string().regex(/^[a-f0-9]{64}$/),
+    reference: csvMembershipReferenceSchema.optional(),
   })
   .strict()
   .refine(
@@ -71,6 +73,36 @@ export function validateCsvMembershipCompletionSnapshot(
     value.provenance.customerId !== order.customerId
   )
     throw csvMembershipError();
+  if (snapshot.reference) {
+    const r = snapshot.reference.data;
+    if (
+      completed.kind !== 'offline' ||
+      r.operationId !== scope.operationId ||
+      r.requestHash !== completed.requestHash ||
+      r.planHash !== completed.planHash ||
+      r.namespace !== value.namespace ||
+      r.orderId !== order.orderId ||
+      r.customerId !== order.customerId ||
+      r.sourceReceiptHash !== snapshot.sourceReceiptHash ||
+      r.activation.orderId !== value.provenance.orderId ||
+      r.activation.customerId !== value.provenance.customerId ||
+      r.activation.operationId !== value.provenance.operationId ||
+      r.activation.entityDigest !== value.provenance.entityDigest ||
+      r.activation.headerHash !== value.provenance.headerHash ||
+      r.activation.createdAt !== value.provenance.createdAt ||
+      JSON.stringify(r.activation.before) !== JSON.stringify(value.provenance.before) ||
+      r.transfers[0]?.previousEntity !== r.activation.entityDigest ||
+      r.transfers.at(-1)?.nextEntity !== r.currentEntity
+    )
+      throw csvMembershipError();
+    for (let index = 1; index < r.transfers.length; index++) {
+      if (
+        r.transfers[index]!.previousEntity !== r.transfers[index - 1]!.nextEntity ||
+        r.transfers[index]!.committedAt < r.transfers[index - 1]!.committedAt
+      )
+        throw csvMembershipError();
+    }
+  }
   const lines = new Map(order.lines.map((line) => [line.id, line]));
   if (lines.size !== order.lines.length) throw csvMembershipError();
   for (const member of [...value.memberLines, ...value.additionalLines]) {

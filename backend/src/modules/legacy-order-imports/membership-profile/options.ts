@@ -9,6 +9,7 @@ import {
 import type { LegacyImportFinancialOptions } from '../financial-adapter-options.js';
 import type { CsvMembershipOptions } from './native.js';
 import { csvMembershipContract } from './domain.js';
+import { csvMembershipReferenceContract } from './reference-contracts.js';
 
 const key = z.string().regex(/^[!-~]{32,4096}$/);
 const optional = <T extends z.ZodType>(schema: T) =>
@@ -48,6 +49,11 @@ export function readCsvImportMembershipOptions(
         z.literal('pos-membership-native-revision-v1'),
       ),
       POS_MEMBERSHIP_PROOF_KEY: optional(key),
+      POS_LEGACY_IMPORT_MEMBERSHIP_REFERENCE_CONTRACT: optional(
+        z.literal(csvMembershipReferenceContract),
+      ),
+      CUSTOMER_CONTACTS_SECRET: optional(key),
+      BUSINESS_TIMEZONE: z.string().min(1).max(80).default('Asia/Kolkata'),
       POS_MEMBERSHIP_PRODUCT_IDS: productIds.prefault('[]'),
       EXCLUSIVE_QUARTERLY_ID_FREE: z.preprocess(
         (value) => (value === '0' || value === '' ? undefined : value),
@@ -69,6 +75,14 @@ export function readCsvImportMembershipOptions(
       !value.POS_MEMBERSHIP_PRODUCT_IDS.includes(value.EXCLUSIVE_QUARTERLY_ID_FREE))
   )
     throw importFinancialError('ORDER_IMPORT_MEMBERSHIP_CONFIGURATION_REQUIRED', 503);
+  if (
+    value.POS_LEGACY_IMPORT_MEMBERSHIP_REFERENCE_CONTRACT &&
+    (!value.CUSTOMER_CONTACTS_SECRET ||
+      !value.POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT ||
+      value.CUSTOMER_CONTACTS_SECRET === value.POS_MEMBERSHIP_PROOF_KEY ||
+      value.CUSTOMER_CONTACTS_SECRET === financial.sourceProofKey)
+  )
+    throw importFinancialError('ORDER_IMPORT_MEMBERSHIP_CONFIGURATION_REQUIRED', 503);
   return {
     contract: value.POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT ?? '',
     freshReaderContract: value.POS_MEMBERSHIP_FRESH_READER_CONTRACT ?? '',
@@ -76,6 +90,9 @@ export function readCsvImportMembershipOptions(
     membershipProofKey: value.POS_MEMBERSHIP_PROOF_KEY ?? '',
     productIds: value.POS_MEMBERSHIP_PRODUCT_IDS,
     freeProductId: value.EXCLUSIVE_QUARTERLY_ID_FREE ?? '',
+    referenceContract: value.POS_LEGACY_IMPORT_MEMBERSHIP_REFERENCE_CONTRACT,
+    contactSecret: value.CUSTOMER_CONTACTS_SECRET,
+    businessTimezone: value.BUSINESS_TIMEZONE,
   };
 }
 export function configuredFinancialImportProfiles(

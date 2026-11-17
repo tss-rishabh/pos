@@ -254,8 +254,8 @@ export function legacyImportAuthoritySuccession(
       businessDate: value.loaded.plan.createdAt.slice(0, 10),
       payable: evidence.order.payable,
       kind: value.loaded.plan.kind,
-      status: evidence.code ? 'blocked' : 'ready',
-      code: evidence.code,
+      status: evidence.code || !evidence.next ? 'blocked' : 'ready',
+      code: evidence.code ?? (!evidence.next ? 'ORDER_IMPORT_SUCCESSION_RECONCILE_REQUIRED' : null),
       next: evidence.next,
       head: head ? successionRef(head.envelope) : null,
       reviewHash,
@@ -583,6 +583,12 @@ export function legacyImportAuthoritySuccession(
           .values({ ...headFields, proofHash: successionHeadProof(headFields, options.secret) })
           .onDuplicateKeyUpdate({
             set: { ...headFields, proofHash: successionHeadProof(headFields, options.secret) },
+          });
+        if (evidence.confirmation)
+          await ports.profiles.captureConsumedReferences(tx, value.loaded, evidence.order, {
+            id: data.id,
+            managerId: data.managerId,
+            issuedAt: data.issuedAt,
           });
         await ports.journal.save(tx, {
           ...value.loaded.state,
