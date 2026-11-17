@@ -31,12 +31,41 @@ After the durable start checkpoint, lease recovery and uncertain responses use
 only the original operation lookup. Cancelling affects only unsent orders;
 completed results older than 24 hours refuse MySQL history fallback.
 
-The 47 focused checks comprise 37 CSV/plan/source-method cases and 10 native
-MySQL coordinator cases. The coordinator's financial adapter is synthetic:
-twenty contenders, lost responses, missing remote records, lease takeover,
-revoked access, tampered ciphertext, partial completion, pending-only cancellation,
-wrong operation/date proofs and late local rollback are exercised. This is not
-evidence of a live financial import or completed historical workflow.
+The focused backend suite now has69 checks across CSV/plans, pinned source methods,
+native coordination, historical publication, and the actual job API/worker. Twenty
+contenders, lost responses, missing remote records, lease takeover, revoked access,
+tampered ciphertext, partial completion, pending-only cancellation, wrong operation/date
+proofs and late local rollback are exercised. Native API checks also prove current
+role/type/assignment/counter authority, session validation before and after work,
+encrypted storage and allowlisted worker logs. Its financial port remains synthetic
+in these component tests: these results do not prove a real financial import.
+
+## Authenticated runtime and recovery UI
+
+`registerLegacyOrderImports` exposes seven traced resources under
+`/api/v1/admin/order-imports`: capabilities, exact source templates, previews,
+creation, original job/results reads, and unsent cancellation. No customer payload
+is returned in preview or public rows. Role1–3 internal authority and every active
+store/counter are rechecked natively. Store/counter/assignment checks use bounded
+batches independent of CSV row count. Historical completed results use the existing
+qualified BigQuery reader with no old-MySQL fallback.
+
+The React page keeps the file only in memory. Before POST it stores an owner-bound
+opaque job UUID, exact-input digest and store/counter identifiers; it never persists
+CSV, filenames, contact/address/message data or customer references. Reload reads
+the original UUID with GET only. A404 cannot retire it or create another nonce.
+An explicit retry requires the identical original file and scope. Storage failure
+prevents dispatch; actor changes abort late reads. The operator can retire the
+local reference only after reading a terminal job. The worker uses the existing
+durable coordinator, a bounded batch, structured resource/request/actor events and
+orderly shutdown. Production registration and its standalone entry depend on the
+real financial adapter below; no synthetic adapter is registered in the app.
+
+The native approval preflight runs under the job/row lock **before** `STARTING`.
+A required or stale grant retains `PENDING` with `ORDER_IMPORT_APPROVAL_REQUIRED`
+and a bounded retry lease. It does not burn the original nonce or dispatch from
+GET. The private `financialContext` helper opens only an owned unsent plan for
+the server approval service; HTTP resources never return that private payload.
 
 ## Remaining financial orchestration
 
@@ -48,6 +77,7 @@ The remaining runtime adapter must bind private source-price/date privileges,
 closed-period approval, current customer/contact state, coherent stock/projection,
 and historical settlement or Shopify publication. Its contract is defined in
 `financial-contracts.ts`; no synthetic adapter is registered in the application.
-The API/UI/worker and published BigQuery history integration are unfinished.
-No live source or data has been changed. This component work is held while the
-current application checkpoint is consolidated.
+The job API, UI, worker loop and published-history repository composition are
+implemented. Financial execution/approval adapters, production entry/registration
+and actual downstream/shared-writer/warehouse acceptance remain unfinished.
+No live source or data has been changed.

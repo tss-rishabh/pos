@@ -8,8 +8,10 @@ import type { AdministrationTransaction } from '../administration/checkins.js';
 import { authorizeLegacyOrderImport, type ImportAuthorizer } from './authorization.js';
 import {
   importFinancialResultSchema,
+  importStartAuthorizationSchema,
   type ImportFinancialAdapter,
   type ImportFinancialResult,
+  type ImportFinancialStart,
 } from './financial-contracts.js';
 import { prepareLegacyOrderImport } from './preparation.js';
 import type { legacyOrderImportHistory, LegacyOrderImportHistoryAnchor } from './history.js';
@@ -79,6 +81,23 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
     authorize = options.authorize ?? authorizeLegacyOrderImport;
   // Validate the purpose key during construction, before a job can be staged.
   importDigest(options.secret, 'request', 'configuration');
+
+  function financialInput(job: LegacyImportJob, row: LegacyImportRow): ImportFinancialStart {
+    const scope = binding(job, row),
+      { plan } = openImportGroup(options.secret, scope, row.payload);
+    return {
+      actorId: scope.actorId,
+      operationId: scope.operationId,
+      storeId: scope.storeId,
+      counterId: scope.counterId,
+      plan,
+      planHash: importDigest(
+        options.secret,
+        'group',
+        JSON.stringify(['pos-import-plan-v1', scope.actorId, scope.storeId, scope.counterId, plan]),
+      ),
+    };
+  }
 
   async function owned(tx: AdministrationTransaction, actorId: string, id: string) {
     const [anchor] = await tx.select().from(jobs).where(eq(jobs.id, id)).limit(1);
@@ -227,7 +246,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
       .where(eq(jobs.id, job.id));
   }
 
-  async function claim(): Promise<Claim | null> {
+  async function claim(adapter: ImportFinancialAdapter): Promise<Claim | null> {
     return db.get('writer').transaction(async (tx) => {
       const timestamp = sqlTime(now()),
         [candidate] = await tx
@@ -297,9 +316,10 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
           .where(eq(jobs.id, job.id));
         return null;
       }
+      let startInput: ImportFinancialStart | undefined;
       if (row.state === 'PENDING') {
         try {
-          openImportGroup(options.secret, binding(job, row), row.payload);
+          startInput = financialInput(job, row);
         } catch {
           await tx
             .update(jobs)
@@ -314,16 +334,38 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
           return null;
         }
       }
+      if (startInput && adapter.authorizeStart) {
+        const authorization = importStartAuthorizationSchema.parse(
+          await adapter.authorizeStart(tx, startInput),
+        );
+        if (!authorization.ready) {
+          await tx
+            .update(rows)
+            .set({ errorCode: authorization.code, updatedAt: timestamp })
+            .where(and(eq(rows.jobId, job.id), eq(rows.sequence, row.sequence)));
+          await tx
+            .update(jobs)
+            .set({
+              errorCode: authorization.code,
+              claimToken: null,
+              leaseUntil: sqlTime(now() + 30000),
+              updatedAt: timestamp,
+            })
+            .where(eq(jobs.id, job.id));
+          return null;
+        }
+      }
       const token = randomUUID(),
         start = row.state === 'PENDING';
       await tx
         .update(rows)
-        .set({ state: start ? 'STARTING' : 'RECONCILING', updatedAt: timestamp })
+        .set({ state: start ? 'STARTING' : 'RECONCILING', errorCode: null, updatedAt: timestamp })
         .where(and(eq(rows.jobId, job.id), eq(rows.sequence, row.sequence)));
       await tx
         .update(jobs)
         .set({
           state: 'RUNNING',
+          errorCode: null,
           claimToken: token,
           leaseUntil: sqlTime(now() + leaseMilliseconds),
           updatedAt: timestamp,
@@ -624,8 +666,31 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         return jobDto(current!);
       });
     },
+    /** Private approval input; never return this plan through an HTTP resource. */
+    async financialContext(actor: string, id: string, operationId: string) {
+      const actorId = identifier.parse(actor);
+      z.uuid().parse(id);
+      z.uuid().parse(operationId);
+      return db.get('writer').transaction(async (tx) => {
+        const { job } = await owned(tx, actorId, id);
+        assertCurrentResult(job);
+        const [row] = await tx
+          .select()
+          .from(rows)
+          .where(and(eq(rows.jobId, id), eq(rows.operationId, operationId)))
+          .limit(1)
+          .for('share');
+        if (!row || row.state !== 'PENDING')
+          throw new AppError(
+            409,
+            'ORDER_IMPORT_APPROVAL_NOT_PENDING',
+            'Only an unsent order can receive historical import approval.',
+          );
+        return financialInput(job, row);
+      });
+    },
     async runOne(adapter: ImportFinancialAdapter) {
-      const claimed = await claim();
+      const claimed = await claim(adapter);
       if (!claimed) return null;
       let result: ImportFinancialResult | null = null;
       try {
@@ -637,22 +702,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
             counterId: scope.counterId,
           };
         if (claimed.start) {
-          const { plan } = openImportGroup(options.secret, scope, claimed.row.payload);
-          result = await adapter.start({
-            ...financialScope,
-            plan,
-            planHash: importDigest(
-              options.secret,
-              'group',
-              JSON.stringify([
-                'pos-import-plan-v1',
-                scope.actorId,
-                scope.storeId,
-                scope.counterId,
-                plan,
-              ]),
-            ),
-          });
+          result = await adapter.start(financialInput(claimed.job, claimed.row));
         } else {
           result = await adapter.read(financialScope);
         }
