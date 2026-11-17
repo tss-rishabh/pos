@@ -50,6 +50,7 @@ export function couponGenerationWorker(
       ...(external ? [external] : []),
     ]);
     active = (async () => {
+      await Promise.resolve();
       const result = { attempted: 0, advanced: 0, unavailable: 0 };
       try {
         if (signal.aborted) return result;

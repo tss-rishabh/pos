@@ -52,6 +52,7 @@ export interface GenerationSourcePort {
   capture(
     scope: GenerationScope,
     control: GenerationControlDescriptor,
+    signal?: AbortSignal,
   ): Promise<GenerationSourceSnapshot>;
 }
 async function oneCount(tx: Transaction, query: SQL) {
@@ -99,7 +100,7 @@ export function couponGenerationSource(
   )
     throw generationError('CONFIGURATION', 503);
   return {
-    async capture(input, controlInput) {
+    async capture(input, controlInput, signal) {
       const scope = generationScopeSchema.parse(input),
         control = verifyGenerationControl(controlInput, authority.sourceKey, clock());
       const descriptor = control.data;
@@ -125,8 +126,10 @@ export function couponGenerationSource(
         monthEnd = point.with({ day: 1 }).add({ months: 1 }).toString();
       const started = performance.now();
       const budget = () => {
+        signal?.throwIfAborted();
         if (performance.now() - started > timeout) throw generationError('SOURCE_BUDGET', 503);
       };
+      budget();
       try {
         return await origin.database().transaction(
           async (tx) => {
@@ -187,24 +190,24 @@ export function couponGenerationSource(
             )
               throw generationError('CONTROL_CHANGED', 503);
             budget();
-            const globalUsage = await oneCount(
-                tx,
+            const boundedCount = (query: SQL) => {
+              budget();
+              return oneCount(tx, query);
+            };
+            const globalUsage = await boundedCount(
                 sql`SELECT /*+ MAX_EXECUTION_TIME(5000) */ CAST(COUNT(1) AS CHAR) AS value
             FROM orders o WHERE o.order_status NOT IN (0,4,7,15,17,22,31,33) AND o.coupon_used=${scope.couponId}`,
               ),
-              birthdayTodayUsage = await oneCount(
-                tx,
+              birthdayTodayUsage = await boundedCount(
                 sql`SELECT /*+ MAX_EXECUTION_TIME(5000) */ CAST(COUNT(id) AS CHAR) AS value
             FROM orders WHERE created_at>=${today} AND created_at<${tomorrow}
             AND order_status NOT IN (0,17) AND user_id=${sql`CAST(${scope.customerId} AS SIGNED)`} AND coupon_used=${scope.couponId}`,
               ),
-              customerOrderCount = await oneCount(
-                tx,
+              customerOrderCount = await boundedCount(
                 sql`SELECT /*+ MAX_EXECUTION_TIME(5000) */ CAST(COUNT(id) AS CHAR) AS value
             FROM orders WHERE user_id=${sql`CAST(${scope.customerId} AS SIGNED)`} AND order_status NOT IN (0,17)`,
               ),
-              monthlyJoinedUsage = await oneCount(
-                tx,
+              monthlyJoinedUsage = await boundedCount(
                 sql`SELECT /*+ MAX_EXECUTION_TIME(5000) */ CAST(COUNT(ocl.id) AS CHAR) AS value
             FROM order_coupon_log ocl JOIN orders o ON ocl.user_id=o.user_id AND ocl.coupon_id=o.coupon_used
             AND o.order_status NOT IN (0,17) WHERE ocl.created_at>=${monthStart} AND ocl.created_at<${monthEnd}

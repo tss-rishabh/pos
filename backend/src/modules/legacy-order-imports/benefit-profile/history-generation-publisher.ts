@@ -89,7 +89,9 @@ export function couponGenerationPublisher(
       input: GenerationScope,
       descriptor: GenerationControlDescriptor,
       bind?: (tx: GenerationJournalTransaction, record: GenerationJournalRecord) => Promise<void>,
+      signal?: AbortSignal,
     ) {
+      signal?.throwIfAborted();
       if (!enabled()) throw generationError('WRITER_REQUIRED', 503);
       requireGenerationOptions(options, 'read');
       requireGenerationOptions(options, 'candidate');
@@ -105,7 +107,8 @@ export function couponGenerationPublisher(
         d.sourceDay !== scope.sourceDay
       )
         throw generationError('CONTROL_REQUIRED', 503);
-      const snapshot = await dependencies.source.capture(scope, control);
+      const snapshot = await dependencies.source.capture(scope, control, signal);
+      signal?.throwIfAborted();
       if (!enabled()) throw generationError('WRITER_REQUIRED', 503);
       const plan = generationWritePlan(snapshot, options, keys.sourceKey, undefined, clock());
       return dependencies.journal.create(snapshot, options, plan, bind);
@@ -135,6 +138,7 @@ export function couponGenerationPublisher(
         },
         control,
         bind,
+        signal,
       );
     },
     async advance(id: string, signal: AbortSignal): Promise<GenerationJournalRecord> {

@@ -284,3 +284,51 @@ After that bind, only the original generation's publisher/GET recovery runs; no
 source-order action is retried. Additive queue review DDL is
 `compatibility/warehouse/coupon-history-generations/demands.review.sql`.
 Runnable background startup/configuration is a separate follow-up handoff.
+
+## Executable background publisher
+
+The emitted command is
+`node --env-file-if-exists=.env dist/modules/legacy-order-imports/benefit-profile/history-generation-worker-main.js`.
+It accepts no arguments. Importing it starts no work; a disabled worker exits before
+credential-file or pool I/O. `readGenerationPublisherConfiguration` is a pure
+loader; the executable performs explicit startup afterward. Root packages the
+command/Docker target separately.
+
+The command drains the encrypted trusted-preview demand queue, leases one bounded
+readonly preparation per cycle, and atomically binds it to the generation journal.
+The independent publication loop continues while readonly native preparation is
+running, so one capture cannot delay all original-job recovery. After binding,
+materialization/publication follows only the saved original job IDs. Startup
+failure and SIGINT/SIGTERM clean up all created pools/workers. Static structured
+lifecycle events contain module/resource/eventId, event-instance UUID, process-run
+requestId, timestamp and userId:null; no credential, SQL, source URL, scope,
+customer/log ID or caught error/stack is printed.
+
+Additional explicit configuration:
+
+| Environment                              | Requirement                                                             |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| CSV_COUPON_GENERATION_WORKER_ENABLED     | false by default; enables the separate command                          |
+| CSV_COUPON_GENERATION_NEW_WORK_ENABLED   | false by default; recovery still works without it                       |
+| CSV_COUPON_GENERATION_DEMAND_CONTRACT    | pos-csv-coupon-generation-demands-v1 for new preparation                |
+| CSV_COUPON_GENERATION_JOURNAL_KEY        | independent retained queue/journal master; separate purpose derivations |
+| TSS_POS_LEGACY_IMPORT_PROOF_KEY          | genuine source proof key, never replaced by journal key                 |
+| CSV_COUPON_PUBLICATION_KEY               | independent coupon publication key, not membership publication key      |
+| CSV_COUPON_HISTORY_KEY                   | existing operation-history signing key                                  |
+| CSV_COUPON_GENERATION_READER_KEY_FILE    | explicit absolute readonly service-account file                         |
+| CSV_COUPON_GENERATION_WRITER_KEY_FILE    | explicit absolute distinct writer service-account file                  |
+| CSV_COUPON_GENERATION_WRITER_CONTRACT    | pos-csv-coupon-generation-writer-v1 for new writes                      |
+| CSV_COUPON_GENERATION_SOURCE_URL         | explicit SELECT-only credentials on the qualified writer origin         |
+| CSV_COUPON_GENERATION_SOURCE_SERVER_UUID | actual expected writer UUID, matching authenticated controls            |
+| CSV_COUPON_GENERATION_SOURCE_SCHEMA      | exact native schema, matching connection and controls                   |
+| CSV_COUPON_GENERATION_SOURCE_TLS_CA_FILE | optional separate source CA; standard verified TLS remains required     |
+
+Both credential files are required for an enabled process; there is no ADC fallback.
+The command rejects the same real path, equal identities and the known authorized
+readonly identity as writer. Files are capped at 64 KB with bounded reads even if
+grown after stat. SDK clients are still lazy. New-work-disabled recovery does not
+open the optional native source pool or capture history. Standard MYSQL writer/TLS
+configuration serves only the rewrite-owned queue/journal; the explicit source
+connection is a separate readonly pool. Query budgets and current source/head
+proofs are unchanged. The command and queue follow-up remain pending the final
+validation phase; no live command, DDL, warehouse write or provider was run.

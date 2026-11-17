@@ -14,6 +14,7 @@ export function couponGenerationDemandWorker(
       if (!Number.isSafeInteger(limit) || limit < 1 || limit > 100) throw generationError('DEMAND');
       if (active) return active;
       active = (async () => {
+        await Promise.resolve();
         const result = { claimed: 0, prepared: 0, unavailable: 0 };
         try {
           if (!newWorkEnabled() || signal.aborted) return result;
