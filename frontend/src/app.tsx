@@ -30,6 +30,7 @@ import { useCheckoutPerformance } from './hooks/use-checkout-performance';
 import { useWorkspace } from './state/workspace';
 import { request, setRequestOperator } from './api/client';
 import { clearLocalIdentity } from './offline/clear-identity';
+import { useOfflineCashSync } from './offline/cash/use-sync';
 import { Login } from './pages/login';
 import { Empty, ErrorState, Loading } from './components/common';
 import type { Principal } from './api/types';
@@ -301,6 +302,14 @@ function Workspace({ user }: { user: Principal }) {
     counters = useCounters(user.id, state.storeId),
     sync = useSync(user.id);
   useCheckoutPerformance(user.id, state.storeId, state.counterId, sync.online);
+  useOfflineCashSync(
+    user,
+    state.storeId,
+    state.counterId,
+    sync.online &&
+      Boolean(stores.data?.some((store) => store.id === state.storeId)) &&
+      Boolean(counters.data?.some((counter) => counter.id === state.counterId)),
+  );
   const [logoutError, setLogoutError] = useState<unknown>(null);
   const capabilities = useQuery({
     queryKey: ['capabilities'],
