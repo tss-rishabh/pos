@@ -18,7 +18,10 @@ import {
   counterGenerationId,
   sealCounterGenerationSnapshot,
 } from './counter-generation-contracts.js';
-import type { counterGenerationJournal } from './counter-generation-journal.js';
+import type {
+  CounterGenerationTransaction,
+  counterGenerationJournal,
+} from './counter-generation-journal.js';
 import type { CounterGenerationOptions } from './counter-generation-options.js';
 export function counterGenerationWorker(
   options: CounterGenerationOptions,
@@ -73,7 +76,15 @@ export function counterGenerationWorker(
   }
   let running: Promise<{ processed: number; unavailable: number }> | undefined;
   const service = {
-    async prepare(customerId: string, expectedGeneration: string | null, signal: AbortSignal) {
+    async prepare(
+      customerId: string,
+      expectedGeneration: string | null,
+      signal: AbortSignal,
+      bind?: (
+        tx: CounterGenerationTransaction,
+        record: Awaited<ReturnType<typeof dependencies.journal.read>>,
+      ) => Promise<void>,
+    ) {
       signal.throwIfAborted();
       if (!dependencies.enabled()) throw counterError('GENERATION_DISABLED');
       counterCustomer.parse(customerId);
@@ -95,6 +106,7 @@ export function counterGenerationWorker(
         snapshot,
         counterGenerationPlan(snapshot, options),
         expectedGeneration,
+        bind,
       );
     },
     async advance(id: string, signal: AbortSignal) {
@@ -118,7 +130,8 @@ export function counterGenerationWorker(
       if (record.phase === 'prepared') {
         const claim = await dependencies.journal.claim(id, 'prepared');
         if (!claim.send) return claim.record;
-        if (signal.aborted || !dependencies.enabled()) return claim.record;
+        if (signal.aborted || !dependencies.enabled())
+          return dependencies.journal.finish(id, false);
         return dependencies.journal.acknowledge(
           id,
           await dependencies.warehouse.start(claim.record.plan, signal),
@@ -143,21 +156,41 @@ export function counterGenerationWorker(
         const publication = assertCounterPublication(record.publication, options.publicationKey),
           claim = await dependencies.journal.claim(id, 'verified');
         if (!claim.send) return claim.record;
-        signal.throwIfAborted();
-        if (!dependencies.enabled()) return claim.record;
-        await initializeScreeningCounter(
-          dependencies.projection,
-          { publication, rows: record.snapshot.rows },
-          options.publicationKey,
-          record.expectedGeneration,
-          clock(),
-          {
-            headMetadata: options.headMetadata,
-            configuration: record.snapshot.configuration,
-            purpose: 'counter-publication',
-            clock,
-          },
-        );
+        if (signal.aborted || !dependencies.enabled())
+          return dependencies.journal.finish(id, false);
+        try {
+          await initializeScreeningCounter(
+            dependencies.projection,
+            { publication, rows: record.snapshot.rows },
+            options.publicationKey,
+            record.expectedGeneration,
+            clock(),
+            {
+              headMetadata: options.headMetadata,
+              configuration: record.snapshot.configuration,
+              purpose: 'counter-publication',
+              clock,
+            },
+          );
+        } catch (error) {
+          // These local refusals reject before commit and return only after
+          // transaction rollback. Driver/commit uncertainty remains seeding.
+          if (
+            error instanceof Error &&
+            'code' in error &&
+            typeof error.code === 'string' &&
+            [
+              'SCREENING_COUNTER_BASELINE_INVALID',
+              'SCREENING_COUNTER_SOURCE_IDENTITY',
+              'SCREENING_COUNTER_WRITERS_UNQUALIFIED',
+              'SCREENING_COUNTER_BASELINE_CHANGED',
+              'SCREENING_COUNTER_SOURCE_CHANGED',
+              'ORDER_IMPORT_SCREENING_SCOPE_CHANGED',
+            ].includes(error.code)
+          )
+            return dependencies.journal.finish(id, false);
+          throw error;
+        }
         // The native commit is factual even if the abort fires after commit. Keep
         // its acknowledgement when available; the seeding recovery reads it only.
         return dependencies.journal.finish(id, true);

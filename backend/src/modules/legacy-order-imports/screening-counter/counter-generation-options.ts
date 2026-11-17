@@ -23,9 +23,11 @@ const file = z.string().min(1).max(4096).refine(isAbsolute),
         return false;
       }
     }),
-  table = z.string().regex(/^tssgcp2025\.[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/);
+  table = z.string().regex(/^tssgcp2025\.tss_mysql_raw_layer\.[A-Za-z_][A-Za-z0-9_]*$/);
 export function readCounterGenerationOptions(env: NodeJS.ProcessEnv = process.env) {
   if (!env.POS_SCREENING_COUNTER_GENERATION_CONTRACT) return undefined;
+  if (env.DEMO_MODE !== undefined && env.DEMO_MODE !== 'false')
+    throw counterError('GENERATION_CONFIGURATION');
   const v = z
     .object({
       POS_SCREENING_COUNTER_GENERATION_CONTRACT: z.literal(counterGenerationContract),
@@ -50,13 +52,31 @@ export function readCounterGenerationOptions(env: NodeJS.ProcessEnv = process.en
         .int()
         .min(1)
         .max(1000000000)
-        .default(1000000000),
+        .default(50000000),
       POS_SCREENING_COUNTER_GENERATION_TIMEOUT_MS: z.coerce
         .number()
         .int()
         .min(100)
         .max(10000)
         .default(8000),
+      POS_SCREENING_COUNTER_GENERATION_DISCOVERY_BATCH_SIZE: z.coerce
+        .number()
+        .int()
+        .min(1)
+        .max(100)
+        .default(20),
+      POS_SCREENING_COUNTER_GENERATION_DISCOVERY_INTERVAL_MS: z.coerce
+        .number()
+        .int()
+        .min(1000)
+        .max(60000)
+        .default(5000),
+      POS_SCREENING_COUNTER_GENERATION_MAX_DISCOVERY: z.coerce
+        .number()
+        .int()
+        .min(2)
+        .max(10)
+        .default(2),
       POS_SCREENING_COUNTER_GENERATION_INTERVAL_MS: z.coerce
         .number()
         .int()
@@ -71,7 +91,7 @@ export function readCounterGenerationOptions(env: NodeJS.ProcessEnv = process.en
     projection = new URL(p.POS_SCREENING_COUNTER_GENERATION_PROJECTION_URL),
     metadata = readNativeHeadMetadataOptions(env);
   if (
-    source.username === projection.username ||
+    decodeURIComponent(source.username) === decodeURIComponent(projection.username) ||
     p.POS_SCREENING_COUNTER_GENERATION_READER_KEY_FILE ===
       p.POS_SCREENING_COUNTER_GENERATION_WRITER_KEY_FILE ||
     new Set([
@@ -108,6 +128,9 @@ export function readCounterGenerationOptions(env: NodeJS.ProcessEnv = process.en
     timeoutMs: p.POS_SCREENING_COUNTER_GENERATION_TIMEOUT_MS,
     intervalMs: p.POS_SCREENING_COUNTER_GENERATION_INTERVAL_MS,
     headMetadata: metadata,
+    discoveryBatchSize: p.POS_SCREENING_COUNTER_GENERATION_DISCOVERY_BATCH_SIZE,
+    discoveryIntervalMs: p.POS_SCREENING_COUNTER_GENERATION_DISCOVERY_INTERVAL_MS,
+    maxDiscovery: p.POS_SCREENING_COUNTER_GENERATION_MAX_DISCOVERY,
   };
 }
 export type CounterGenerationOptions = NonNullable<ReturnType<typeof readCounterGenerationOptions>>;

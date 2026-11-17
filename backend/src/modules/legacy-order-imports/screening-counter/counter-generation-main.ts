@@ -13,6 +13,11 @@ import {
   counterGenerationCredentialSchema,
 } from './counter-generation-warehouse.js';
 import { screeningCounterSourceCapture } from './publisher.js';
+import { counterGenerationDemands } from './counter-generation-demands.js';
+import {
+  counterGenerationDiscovery,
+  counterGenerationDiscoverySource,
+} from './counter-generation-discovery.js';
 function credentials(path: string) {
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
   try {
@@ -90,9 +95,9 @@ export async function runScreeningCounterGeneration(
     config.DEMO_MODE ||
     !config.MYSQL_WRITER_URL ||
     new Set([
-      new URL(config.MYSQL_WRITER_URL).username,
-      new URL(options.sourceUrl).username,
-      new URL(options.projectionUrl).username,
+      decodeURIComponent(new URL(config.MYSQL_WRITER_URL).username),
+      decodeURIComponent(new URL(options.sourceUrl).username),
+      decodeURIComponent(new URL(options.projectionUrl).username),
     ]).size !== 3
   )
     throw counterError('GENERATION_CONFIGURATION');
@@ -168,6 +173,40 @@ export async function runScreeningCounterGeneration(
         projection,
         enabled: () => options.newWorkEnabled && !controller.signal.aborted,
       });
+    const discovery = sourcePool
+      ? counterGenerationDiscovery(options, {
+          source: counterGenerationDiscoverySource({ get: () => drizzle(sourcePool) }, options),
+          demands: counterGenerationDemands(journalDb, options.journalKey),
+          worker,
+          journal,
+          enabled: () => options.newWorkEnabled && !controller.signal.aborted,
+        })
+      : undefined;
+    const runPass = async (signal: AbortSignal) => {
+      const summary = { processed: 0, unavailable: 0 };
+      if (discovery) {
+        try {
+          await discovery.discover(signal);
+        } catch {
+          summary.unavailable++;
+        }
+        if (!signal.aborted) {
+          try {
+            const prepared = await discovery.prepare(signal);
+            summary.processed += prepared.processed;
+            summary.unavailable += prepared.unavailable;
+          } catch {
+            summary.unavailable++;
+          }
+        }
+      }
+      if (!signal.aborted) {
+        const advanced = await worker.drain(signal);
+        summary.processed += advanced.processed;
+        summary.unavailable += advanced.unavailable;
+      }
+      return summary;
+    };
     if (args[0] === 'prepare') {
       const record = await worker.prepare(args[1]!, args[2] ?? null, AbortSignal.timeout(40000));
       event(requestId, 'prepared', { generationId: record.id, phase: record.phase });
@@ -179,12 +218,12 @@ export async function runScreeningCounterGeneration(
       return;
     }
     if (args[0] === 'drain') {
-      event(requestId, 'drained', await worker.drain(AbortSignal.timeout(40000)));
+      event(requestId, 'drained', await runPass(AbortSignal.timeout(40000)));
       return;
     }
     const tick = async () => {
       try {
-        const summary = await worker.drain(
+        const summary = await runPass(
           AbortSignal.any([controller.signal, AbortSignal.timeout(40000)]),
         );
         if (summary.unavailable) event(requestId, 'unavailable', summary);

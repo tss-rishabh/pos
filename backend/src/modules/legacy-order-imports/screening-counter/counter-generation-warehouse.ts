@@ -31,7 +31,7 @@ export function counterGenerationPlan(
   options: Pick<CounterGenerationOptions, 'rows' | 'publications'>,
 ): CounterGenerationPlan {
   for (const table of [options.rows, options.publications])
-    if (!/^tssgcp2025\.[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/.test(table))
+    if (!/^tssgcp2025\.tss_mysql_raw_layer\.[A-Za-z_][A-Za-z0-9_]*$/.test(table))
       throw counterError('GENERATION_CONFIGURATION');
   const c = snapshot.capture,
     id = counterGenerationId(snapshot),
@@ -224,6 +224,7 @@ export function counterGenerationWarehouse(
   };
   return {
     async start(plan: CounterGenerationPlan, signal: AbortSignal) {
+      let submitted = false;
       try {
         const wanted = new Set(
             [...plan.preflight.matchAll(/@([A-Za-z][A-Za-z0-9_]*)/g)].map((v) => v[1]!),
@@ -241,6 +242,7 @@ export function counterGenerationWarehouse(
           signal,
         );
         signal.throwIfAborted();
+        submitted = true;
         const [job] = await bounded(
           writeClient().createQueryJob({
             ...queryOptions,
@@ -259,7 +261,7 @@ export function counterGenerationWarehouse(
         );
         return checkedReply(plan, job.metadata);
       } catch {
-        return reply(plan, 'unknown');
+        return reply(plan, submitted ? 'unknown' : 'failed');
       }
     },
     async recover(plan: CounterGenerationPlan, signal: AbortSignal) {

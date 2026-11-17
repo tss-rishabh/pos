@@ -25,6 +25,7 @@ export const counterGenerationJobs = mysqlTable(
   (t) => [index('ix_screening_counter_generation_phase').on(t.phase, t.updatedAt, t.id)],
 );
 type Tx = Parameters<Parameters<ReturnType<Databases['get']>['transaction']>[0]>[0];
+export type CounterGenerationTransaction = Tx;
 export function counterGenerationJournal(
   db: Pick<Databases, 'get'>,
   keys: { journalKey: string; sourceKey: string },
@@ -114,6 +115,7 @@ export function counterGenerationJournal(
       snapshot: CounterGenerationSnapshot,
       plan: CounterGenerationPlan,
       expectedGeneration: string | null,
+      bind?: (tx: Tx, record: CounterGenerationRecord) => Promise<void>,
     ) {
       verifyCounterGenerationSnapshot(snapshot, keys.sourceKey);
       if (expectedGeneration !== null) counterHash.parse(expectedGeneration);
@@ -142,6 +144,7 @@ export function counterGenerationJournal(
           stored.expectedGeneration !== expectedGeneration
         )
           throw counterError('GENERATION_JOURNAL');
+        await bind?.(tx, stored);
         return stored;
       });
     },
