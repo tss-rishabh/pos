@@ -25,7 +25,11 @@ import {
   type GenerationWriteReply,
   type GenerationWritePort,
 } from './history-generation-writer.js';
-import type { GenerationJournal, GenerationJournalRecord } from './history-generation-journal.js';
+import type {
+  GenerationJournal,
+  GenerationJournalRecord,
+  GenerationJournalTransaction,
+} from './history-generation-journal.js';
 import type { GenerationSourcePort } from './history-generation-source.js';
 import type { GenerationCandidatePort } from './history-generation-candidate.js';
 import type { GenerationAuthority } from './history-generation-runtime.js';
@@ -81,7 +85,11 @@ export function couponGenerationPublisher(
     return dependencies.journal.acknowledge(record.id, kind, result);
   }
   const service = {
-    async prepare(input: GenerationScope, descriptor: GenerationControlDescriptor) {
+    async prepare(
+      input: GenerationScope,
+      descriptor: GenerationControlDescriptor,
+      bind?: (tx: GenerationJournalTransaction, record: GenerationJournalRecord) => Promise<void>,
+    ) {
       if (!enabled()) throw generationError('WRITER_REQUIRED', 503);
       requireGenerationOptions(options, 'read');
       requireGenerationOptions(options, 'candidate');
@@ -100,10 +108,14 @@ export function couponGenerationPublisher(
       const snapshot = await dependencies.source.capture(scope, control);
       if (!enabled()) throw generationError('WRITER_REQUIRED', 503);
       const plan = generationWritePlan(snapshot, options, keys.sourceKey, undefined, clock());
-      return dependencies.journal.create(snapshot, options, plan);
+      return dependencies.journal.create(snapshot, options, plan, bind);
     },
     read: (id: string) => dependencies.journal.read(id),
-    async prepareCustomer(customerId: string, signal: AbortSignal) {
+    async prepareCustomer(
+      customerId: string,
+      signal: AbortSignal,
+      bind?: (tx: GenerationJournalTransaction, record: GenerationJournalRecord) => Promise<void>,
+    ) {
       if (!generationPositiveId.safeParse(customerId).success) throw generationError('SCOPE');
       if (!enabled() || !dependencies.control) throw generationError('CONTROL_REQUIRED', 503);
       const control = verifyGenerationControl(
@@ -122,6 +134,7 @@ export function couponGenerationPublisher(
           sourceDay: d.sourceDay,
         },
         control,
+        bind,
       );
     },
     async advance(id: string, signal: AbortSignal): Promise<GenerationJournalRecord> {

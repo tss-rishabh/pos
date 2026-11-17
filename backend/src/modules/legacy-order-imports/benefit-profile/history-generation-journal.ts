@@ -85,7 +85,9 @@ const recordSchema = z
   })
   .strict();
 export type GenerationJournalRecord = z.infer<typeof recordSchema>;
-type Transaction = Parameters<Parameters<ReturnType<Databases['get']>['transaction']>[0]>[0];
+export type GenerationJournalTransaction = Parameters<
+  Parameters<ReturnType<Databases['get']>['transaction']>[0]
+>[0];
 /** Own durable intent, encrypted native export and exact original job IDs.
  * Existing outcomes remain readable independently of new-work selection. */
 export function generationJournal(
@@ -162,7 +164,7 @@ export function generationJournal(
       throw generationError('JOURNAL');
     }
   }
-  async function load(tx: Transaction, id: string) {
+  async function load(tx: GenerationJournalTransaction, id: string) {
     if (!/^[a-f0-9]{64}$/.test(id)) throw generationError('JOURNAL');
     const [row] = await tx
       .select()
@@ -172,7 +174,7 @@ export function generationJournal(
     if (!row) throw generationError('JOURNAL_MISSING', 404);
     return decode(row);
   }
-  async function save(tx: Transaction, record: GenerationJournalRecord) {
+  async function save(tx: GenerationJournalTransaction, record: GenerationJournalRecord) {
     const next = recordSchema.parse({
       ...record,
       version: (BigInt(record.version) + 1n).toString(),
@@ -196,6 +198,7 @@ export function generationJournal(
       snapshot: GenerationSourceSnapshot,
       options: GenerationOptions,
       materialize: GenerationWritePlan,
+      bind?: (tx: GenerationJournalTransaction, record: GenerationJournalRecord) => Promise<void>,
     ) {
       verifyGenerationCapture(snapshot.capture, authority.sourceKey, clock());
       restoreGenerationWritePlan(materialize, authority.sourceKey);
@@ -214,17 +217,19 @@ export function generationJournal(
           updatedAt: clock(),
         }),
         encoded = encode(record);
-      await db
-        .get('writer')
-        .insert(generationJournalTable)
-        .values({
-          id: record.id,
-          version: 1n,
-          phase: record.phase,
-          ...encoded,
-          updatedAt: record.updatedAt,
-        });
-      return record;
+      return db.get('writer').transaction(async (tx) => {
+        await tx
+          .insert(generationJournalTable)
+          .values({
+            id: record.id,
+            version: 1n,
+            phase: record.phase,
+            ...encoded,
+            updatedAt: record.updatedAt,
+          });
+        if (bind) await bind(tx, record);
+        return record;
+      });
     },
     async read(id: string) {
       return db.get('writer').transaction((tx) => load(tx, id));

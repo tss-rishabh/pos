@@ -257,3 +257,30 @@ exp(-lambda*L). This is a capacity warning, not a measured model of production.
 Measure capture/CDC/materialization/qualification latency and rejection/ready rate
 before performance acceptance. Never extend stale generations, suppress head
 changes or use native runtime history to conceal insufficient throughput.
+
+## Trusted preview demand queue
+
+`history-generation-demands.ts` exports the pure
+`couponGenerationDemands(db,{journalKey,sourceKey},clock?)` constructor and
+`GenerationDemandPort`. Root selects it only with
+`CSV_COUPON_GENERATION_DEMAND_CONTRACT=pos-csv-coupon-generation-demands-v1` and
+`CSV_COUPON_GENERATION_JOURNAL_KEY`, retaining full key separation. The port is:
+`enqueue(scope:CouponHistoryScope,{witness:CouponHistoryWitness,signal?})` returning
+an opaque ID, pending/preparing/prepared/failed status and nullable generationId.
+
+Only a fully validated signed source preview may call it. Root owns that hook,
+only after the selected reader's GENERATION_INCOMPLETE result. Abort propagates;
+a queue failure must not replace the original history refusal. Enqueue performs
+one native encrypted queue transaction and no native history, HTTP, BQ or source
+financial dispatch. Exact original scope+witness is deduped by a separate-purpose
+HMAC; cleartext customer/plan/nonce data is not indexed or logged.
+
+`couponGenerationDemandWorker` leases bounded readonly preparation work. Its
+publisher capture may retry before any warehouse journal exists. A successful
+capture inserts the generation journal intent and binds the original demand
+**in one SQL transaction**, through journal.create's optional binding callback.
+A crash commits both or neither. This closes an untracked-publication interval.
+After that bind, only the original generation's publisher/GET recovery runs; no
+source-order action is retried. Additive queue review DDL is
+`compatibility/warehouse/coupon-history-generations/demands.review.sql`.
+Runnable background startup/configuration is a separate follow-up handoff.
