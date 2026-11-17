@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, it, expect } from 'vitest';
+import { afterAll, beforeAll, describe, it, expect, vi } from 'vitest';
 import { chromium, expect as browserExpect, type Browser, type Page } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
@@ -161,6 +161,26 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
     it('requires an exact native fence before a fresh review, and never treats404 or500 as proof', async () => {
       const page = await browser.newPage(),
         state = await correctionBrowserFixture(page);
+      // The fixture observes the request before awaiting its journal check and
+      // committing a receipt. Keep that boundary open deterministically.
+      let holdJournalCheck = false,
+        journalRequested = () => {},
+        releaseJournal = () => {};
+      const journalEntered = new Promise<void>((resolve) => {
+          journalRequested = resolve;
+        }),
+        journalReleased = new Promise<void>((resolve) => {
+          releaseJournal = resolve;
+        }),
+        evaluate = page.evaluate.bind(page),
+        evaluation = vi.spyOn(page, 'evaluate').mockImplementation(async (script, argument) => {
+          if (holdJournalCheck) {
+            holdJournalCheck = false;
+            journalRequested();
+            await journalReleased;
+          }
+          return evaluate(script, argument);
+        });
       state.drop = 'before';
       state.recovery = '404';
       try {
@@ -169,16 +189,39 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
         await attest(page);
         await browserExpect.poll(() => state.posts.length).toBe(1);
         const old = state.posts[0]!;
-        await page
-          .getByRole('button', { name: 'Check original correction status', exact: true })
-          .click();
+        const checkOriginal = page.getByRole('button', {
+          name: 'Check original correction status',
+          exact: true,
+        });
+        const [missing] = await Promise.all([
+          page.waitForResponse(
+            (response) =>
+              response.request().method() === 'GET' &&
+              new URL(response.url()).pathname.endsWith('/corrections/' + old.id),
+          ),
+          checkOriginal.click(),
+        ]);
+        expect(missing.status()).toBe(404);
+        await browserExpect(checkOriginal).toBeEnabled();
         await browserExpect(
           page.getByRole('button', { name: 'Begin fresh review after this fence', exact: true }),
         ).toHaveCount(0);
+        expect(state.fences.size).toBe(0);
         state.recovery = '500';
-        await page
-          .getByRole('button', { name: 'Check original correction status', exact: true })
-          .click();
+        const [failed] = await Promise.all([
+          page.waitForResponse(
+            (response) =>
+              response.request().method() === 'GET' &&
+              new URL(response.url()).pathname.endsWith('/corrections/' + old.id),
+          ),
+          checkOriginal.click(),
+        ]);
+        expect(failed.status()).toBe(500);
+        await browserExpect(checkOriginal).toBeEnabled();
+        await browserExpect(
+          page.getByRole('button', { name: 'Begin fresh review after this fence', exact: true }),
+        ).toHaveCount(0);
+        expect(state.fences.size).toBe(0);
         expect(state.posts).toHaveLength(1);
         state.recovery = 'native';
         await page
@@ -188,14 +231,23 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
           .getByRole('button', { name: 'Begin fresh review after this fence', exact: true })
           .click();
         state.drop = 'none';
+        holdJournalCheck = true;
         await attest(page);
+        await journalEntered;
         await browserExpect.poll(() => state.posts.length).toBe(2);
+        expect(state.receipts.size).toBe(0);
+        releaseJournal();
+        await browserExpect(
+          page.getByRole('status', { name: 'Recorded correction receipt' }),
+        ).toContainText(state.posts[1]!.id);
         expect(state.posts[1]!.id).not.toBe(old.id);
         expect(state.fences.has(old.id)).toBe(true);
         expect(state.receipts.size).toBe(1);
         expect(state.otherMutations).toEqual([]);
         expect(state.errors).toEqual([]);
       } finally {
+        releaseJournal();
+        evaluation.mockRestore();
         await page.close();
       }
     });
