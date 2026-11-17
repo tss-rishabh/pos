@@ -38,11 +38,25 @@ The three missing labels are explicit source dispositions:
 - `stores/tasks.py:11` — `create_random_user_accounts_new`: the source prints generated credentials and its actual account insert is commented out. A replacement must preserve the diagnostic inventory without introducing credential logging or an invented bulk-account feature. [The source map records this distinction](source-surface-map.md).
 - `report/templates/bd_report/daily_report_matric_report_datatable.html` and `report/templates/bd_report/daily_report_matric_upload.html`: both belong to an inactive prototype. Their classes, routes and render handlers are commented, and the sidebar link is inside a Django comment block. The [pinned reachability audit](business-metrics-prototype.md) retains both templates as unverified inventory; it establishes no active uploader to replace.
 
-Known concrete code still to finish at this snapshot:
+Implementation updates after the earlier verification snapshot (validation is
+deferred under the standing code-first instruction):
+
+- Coupon history now has an operation-independent generation runtime, encrypted
+  demand/publication journals, actual import preparation wiring, current source
+  controls and a runnable background publisher with separate read/write
+  identities. See `3978c5a`, `5ca0dce`, `f395a18` and
+  [deployment inputs](../compatibility/warehouse/coupon-history-generations/DEPLOYMENT.md).
+- Public new/upgrade/automatic-free membership, gift staging, benefit-aware
+  abandonment and recovery UI are integrated on `1650f23`; HTTP checkout and
+  the financial worker install preparation on `a37bb65`. Dedicated public
+  warehouse settings are integrated on `9bfd925`. The cache task has a separate
+  [consumer image](../compatibility/upstream/public-screening-writer/worker-deployment.md).
+  The durable public membership history publisher is still implementation work.
+
+Concrete code still to finish:
 
 - Replace the remaining source/Node/Go all-time screening-counter reads with a genuinely initialized operational projection/BQ baseline and atomic writer contributions. The rollback preview needs an exact in-memory source-helper replay; moving raw historical COUNT outside its SQL guard is not an acceptable replacement.
-- Complete the coupon-history path: bounded warehouse candidate/provider and signed generation workflow, generic-generation runtime registration and publication. The source benefit preparation/capability transport and physical late current-head validator are merged and pass actual source/native cases. The late native validator accounting for the source transaction's own mutations is now implemented in `20d7380`; its combined head/history/immutable-marker recovery check passes 103 cases. [Focused evidence](../evidence/coupon-head-and-bindings-20d7380.json), [publication boundary](csv-coupon-history-publication.md), [core boundary](csv-benefit-command-bindings.md).
-- Compose public screening tickets with new/upgrade/automatic-free membership or gift issuance; add benefit-aware abandonment. These variants currently refuse or retain uncertainty safely. Ordinary paid/zero completion, API/UI recovery and the publication worker exist. [Public API scope](public-screening-api.md), [writer scope](public-screening-writer.md).
+- Finish the runnable durable public membership-history publisher, encrypted demand/journal wiring and its separately credentialed warehouse publication path. Callable capture/seal helpers do not complete that worker. Regenerate the combined source payload manifests after counter integration.
 - Implement the remaining website/customer/system and other writer-origin protocols with their own original authority/nonce semantics. An internal operator capability cannot stand in for those participants. [Remaining participants](public-screening-writer.md).
 - Provide explicit proof-bound successor/reference transfer when original actor/contact authority changes before a new discretionary settlement/publication. Existing completed receipts remain immutable; this gap must not be bypassed by a fabricated principal or a new order. [Consumed-fact recovery boundary](csv-consumed-benefit-recovery.md).
 
