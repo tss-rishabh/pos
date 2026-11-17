@@ -183,6 +183,34 @@ def compile_free_membership(root, namespace):
             return history_clock.get() or source_clock.now()
     scope['datetime']=FrozenSourceClock
     class QualifiedFreeMembership(source):
+        def remove_exclusive_membership(self):
+            state=CONTEXT.get()
+            if state is None or state.get('replacement') is not None:
+                refuse('ORDER_IMPORT_MEMBERSHIP_SCOPE_REQUIRED')
+            original=str(self.em_prod.get('prod_id',''))
+            free=str(self.prod_id)
+            declared=[line for line in state['plan']['lines'] if line['productId']==original]
+            member_ids={str(value) for value in scope['MEMBERSHIP_PROD_ID']}
+            planned=[line for line in state['plan']['lines'] if line['productId'] in member_ids]
+            if (len(declared)!=1 or len(planned)!=1 or original==free
+                    or original not in {str(value) for value in scope['EXCLUSIVE_PRODUCT']}
+                    or self.user.get('is_exclusive') or declared[0]['quantity']!=1
+                    or self.em_prod.get('quantity')!=1
+                    or state.get('eligibility') not in ('source-cart-over-2000','source-qualified-history')):
+                refuse('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
+            # Record causality at the actual pinned removal call, after it has
+            # completed. Matching final quantities alone is never this proof.
+            result=super().remove_exclusive_membership()
+            products=self.cart.get(scope['ItemTypes'].PRODUCTS)
+            members=[row for row in products if str(row['prod_id']) in member_ids]
+            if (any(str(row['prod_id'])==original for row in products) or len(members)!=1
+                    or str(members[0]['prod_id'])!=free or members[0]['quantity']!=1):
+                refuse('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
+            state['replacement']={'contract':'pos-csv-membership-replacement-v1',
+                'sourceAction':'AddFreeMembership.remove_exclusive_membership',
+                'originalLine':copy.deepcopy(declared[0]),'replacementProductId':free}
+            return result
+
         def check_criteria(self):
             state = CONTEXT.get()
             if state is None:
@@ -259,7 +287,8 @@ class MembershipProfile:
         state = {'profile': self, 'session': session, 'user': user, 'plan': plan,
                  'capability': capability, 'before': before, 'invalidations': 0,
                  'eligibility': 'not-added', 'extras': [], 'kind': None,
-                 'historyReader':CURRENT_HISTORY.get() or self.history_reader, 'historyEvidence':None}
+                 'historyReader':CURRENT_HISTORY.get() or self.history_reader, 'historyEvidence':None,
+                 'replacement':None}
         token = CONTEXT.set(state)
         try:
             yield state
@@ -294,9 +323,14 @@ class MembershipProfile:
             state['kind'] = 'new'
         else:
             free = str(self.settings.FREE_EXCLUSIVE_PRODUCT)
+            planned_members=[line for line in plan['lines'] if line['productId'] in new | upgrade]
+            replacement=state.get('replacement')
             if (active or sku != free or state['eligibility'] not in ('source-cart-over-2000','source-qualified-history')
                     or float(row.get('spl_price') or row.get('price') or 0) != 0
-                    or any(key in new | upgrade for key in planned)):
+                    or (planned_members and (len(planned_members)!=1 or not replacement
+                        or replacement['originalLine']!=planned_members[0]
+                        or replacement['replacementProductId']!=free))
+                    or (not planned_members and replacement)):
                 refuse('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
             state['kind'] = 'auto-free'
             state['extras'] = [{'productId': sku, 'quantity': 1, 'unitPrice': '0.00'}]
@@ -326,7 +360,8 @@ class MembershipProfile:
         # into the source cart. Receiver publishes it in the same order TX.
         cart.pos_import_membership = {'kind': state['kind'], 'extras': state['extras'],
             'eligibility': state['eligibility'], 'provenance': proof,
-            'invalidations': state['invalidations'], 'historyEvidence':state.get('historyEvidence')}
+            'invalidations': state['invalidations'], 'historyEvidence':state.get('historyEvidence'),
+            **({'replacement':copy.deepcopy(state['replacement'])} if state.get('replacement') else {})}
         return cart.pos_import_membership
 
 
@@ -342,6 +377,12 @@ def additional_lines(cart):
     return [] if value is None else value['extras']
 
 
+def replaced_lines(cart):
+    value=getattr(cart,'pos_import_membership',None)
+    replacement=None if value is None else value.get('replacement')
+    return [] if replacement is None else [copy.deepcopy(replacement['originalLine'])]
+
+
 def receipt(cart, cap, plan, order_id, header, lines, line_hash):
     value = getattr(cart, 'pos_import_membership', None)
     if value is None:
@@ -350,7 +391,7 @@ def receipt(cart, cap, plan, order_id, header, lines, line_hash):
     members = [line for line in lines if line['productId'] in member_ids]
     if not members or sum(line['quantity'] for line in members) != 1:
         refuse('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
-    return {'contract': CONTRACT, 'operationId': cap['operationId'], 'requestHash': cap['requestHash'],
+    result={'contract': CONTRACT, 'operationId': cap['operationId'], 'requestHash': cap['requestHash'],
             'planHash': cap['planHash'], 'namespace': cap['namespace'], 'orderId': order_id,
             'actorId':cap['scope']['actorId'],
             'authorityHash':digest(os.environ['POS_LEGACY_IMPORT_PROOF_KEY'],'membership-authority',cap['authority']),
@@ -360,3 +401,10 @@ def receipt(cart, cap, plan, order_id, header, lines, line_hash):
             'headerHash': header['native_hash'], 'lineHash': line_hash, 'memberLines': members,
             'additionalLines': [line for line in members if line['productId'] in {item['productId'] for item in value['extras']}],
             'provenance': value['provenance'], 'cacheInvalidations': value['invalidations'], 'historyEvidence':value.get('historyEvidence')}
+    if value.get('replacement'):
+        replacement=value['replacement']
+        if replacement['replacementProductId']!=members[0]['productId']:
+            refuse('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
+        result['replacement']={key:copy.deepcopy(replacement[key]) for key in ('contract','sourceAction','originalLine')}
+        result['replacement']['memberLine']=members[0]
+    return result

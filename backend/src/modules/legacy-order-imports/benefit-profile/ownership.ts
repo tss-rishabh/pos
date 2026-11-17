@@ -81,11 +81,12 @@ export function verifyCsvBenefitComposition(input: BenefitCompositionInput) {
     lines: order.lines.filter((row) => !selections.has(row.productId)),
   };
   let membership = null;
+  let membershipQuantities: ReadonlyMap<string, number> | null = null;
   if (input.membership) {
     // The existing independently sealed membership verifier still owns membership
     // entitlement/causality. Its view removes ONLY separately proved POS selections;
     // full plan/header/line hashes remain unchanged and are checked by both profiles.
-    membership = verifyCsvMembershipDescriptor({
+    const checked = verifyCsvMembershipDescriptor({
       state,
       plan: ordinaryPlan,
       order: ordinaryOrder,
@@ -95,17 +96,17 @@ export function verifyCsvBenefitComposition(input: BenefitCompositionInput) {
       membershipProofKey: input.membership.membershipProofKey,
       productIds: input.membership.productIds,
       freeProductId: input.membership.freeProductId,
-    }).receipt;
+    });
+    membership = checked.receipt;
+    membershipQuantities = checked.expectedQuantities;
     for (const hp of membership.memberLines) {
       if (owners.has(hp.id)) throw benefitError();
       owners.set(hp.id, 'membership');
     }
   }
-  const expected = new Map(ordinaryPlan.lines.map((row) => [row.productId, row.quantity]));
-  for (const row of membership?.additionalLines ?? []) {
-    if (expected.has(row.productId)) throw benefitError();
-    expected.set(row.productId, row.quantity);
-  }
+  const expected = membershipQuantities
+    ? new Map(membershipQuantities)
+    : new Map(ordinaryPlan.lines.map((row) => [row.productId, row.quantity]));
   const counts = new Map<string, number>();
   for (const hp of ordinaryOrder.lines) {
     if (!expected.has(hp.productId)) throw benefitError();

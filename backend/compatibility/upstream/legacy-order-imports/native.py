@@ -76,7 +76,7 @@ def fresh_authority(session,capability):
     return customer
 
 
-def native_order(session,order_id,plan,capability,additional=None):
+def native_order(session,order_id,plan,capability,additional=None,replaced=None):
     from correction_profile import effective_tender
     header=one(session,'SELECT orders.*,DATE_FORMAT(created_at,\'%Y-%m-%d %H:%i:%s\') AS recorded_at,'+HEADER+' AS native_hash FROM orders WHERE id=:id FOR UPDATE',{'id':order_id})
     mapping=one(session,'SELECT store_id,counter_id FROM order_stores WHERE order_id=:id FOR UPDATE',{'id':order_id})
@@ -92,6 +92,14 @@ def native_order(session,order_id,plan,capability,additional=None):
     if any(row['productId'] in {line['productId'] for line in plan['lines']} or row['quantity']!=1 or row['unitPrice']!='0.00' for row in additional) or len(additional)>1:
         raise ImportReview('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
     expected={row['productId']:row for row in [*plan['lines'],*additional]}
+    replaced=replaced or []
+    if len(replaced)>1 or (replaced and len(additional)!=1):
+        raise ImportReview('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
+    for original in replaced:
+        declared=next((row for row in plan['lines'] if row['productId']==original.get('productId')),None)
+        if original!=declared or original.get('quantity')!=1:
+            raise ImportReview('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
+        del expected[original['productId']]
     counts={}
     result=[]
     for line in values:

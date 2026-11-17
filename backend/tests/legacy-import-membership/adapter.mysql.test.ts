@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import Fastify from 'fastify';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -102,12 +102,15 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
     free = false,
     command?: FinancialSourceCommand,
     profileOptions: CsvMembershipOptions = adapterOptions,
+    replacement = false,
   ) {
     const evidence = memberEvidence(kind, free),
-      j = legacyImportFinancialJournal(f.config, f.db, f.options),
-      reserved = command ?? (await j.reserve(f.input(evidence.plan)));
+      j = legacyImportFinancialJournal(f.config, f.db, f.options);
+    if (replacement) evidence.plan = replacementPlan(kind);
+    const reserved = command ?? (await j.reserve(f.input(evidence.plan)));
     evidence.state = { ...reserved.state, orderId: '5001', stage: 'confirmation' };
     evidence.plan = reserved.plan;
+    const payable = replacement ? '2300.00' : evidence.plan.originalTenderAmount;
     await f.fixture.insert('orders', {
       id: '5001',
       user_id: '77',
@@ -116,8 +119,8 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       order_status: kind === 'offline' ? 0 : 1,
       created_at: evidence.plan.createdAt,
       updated_at: evidence.plan.createdAt,
-      pay_amt: Number(evidence.plan.originalTenderAmount),
-      order_amt: Number(evidence.plan.originalTenderAmount),
+      pay_amt: Number(payable),
+      order_amt: Number(payable),
       cashback_used: 0,
       tss_money_used: 0,
       tss_points_used: 0,
@@ -144,9 +147,8 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
         prod_id: line.productId,
         sub_prod_id: 0,
         qty: 1,
-        price: free && line.productId === '12' ? 0 : Number(evidence.plan.originalTenderAmount),
-        amount_to_be_refunded:
-          free && line.productId === '12' ? 0 : Number(evidence.plan.originalTenderAmount),
+        price: free && line.productId === '12' ? 0 : Number(payable),
+        amount_to_be_refunded: free && line.productId === '12' ? 0 : Number(payable),
         status: 'INCOMPLETE',
         created_at: evidence.plan.createdAt,
         updated_at: evidence.plan.createdAt,
@@ -155,8 +157,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
         order_id: '5001',
         prod_id: line.productId,
         has_product_id: line.id,
-        amount_to_be_refunded:
-          free && line.productId === '12' ? 0 : Number(evidence.plan.originalTenderAmount),
+        amount_to_be_refunded: free && line.productId === '12' ? 0 : Number(payable),
       });
     }
     const native = await f.db.get('writer').transaction((tx) => nativeImportOrder(tx, '5001'));
@@ -168,6 +169,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       headerHash: native.header.headerHash,
       lineHash: native.lineHash,
       lines: native.lines,
+      ...(replacement ? { payable: '2300.00' } : {}),
     });
     for (const row of evidence.snapshot.receipt.provenance.confirmed)
       await f.fixture.insert('user_eav', {
@@ -202,6 +204,17 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       memberLines: [{ ...member, quantity: 1 }],
       additionalLines: free ? [{ ...member, quantity: 1 }] : [],
     });
+    if (replacement)
+      receipt.replacement = {
+        contract: 'pos-csv-membership-replacement-v1',
+        sourceAction: 'AddFreeMembership.remove_exclusive_membership',
+        originalLine: {
+          ...evidence.plan.lines[0]!,
+          quantity: 1,
+          sourceRows: [...evidence.plan.lines[0]!.sourceRows],
+        },
+        memberLine: { ...member, quantity: 1 },
+      };
     Object.assign(receipt.provenance, {
       revision: String(revision!.revision),
       headerHash,
@@ -239,6 +252,19 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       });
     return evidence;
   }
+  function replacementPlan(kind: 'offline' | 'shopify') {
+    const plan = memberEvidence(kind, true).plan;
+    plan.lines = [
+      { productId: '10', quantity: 1, unitPrice: '100.00', sourceRows: [2] },
+      { productId: '11', quantity: 1, unitPrice: '2300.00', sourceRows: [3] },
+    ];
+    plan.originalTenderAmount = '2400.00';
+    if (plan.kind === 'shopify') {
+      plan.declaredSubtotal = '2400.00';
+      plan.declaredTotal = '2400.00';
+    }
+    return plan;
+  }
   async function activate(evidence: Awaited<ReturnType<typeof prepare>>) {
     await f.connection.query(
       "UPDATE user_eav SET is_active=1 WHERE entity='private-import@example.test'",
@@ -267,6 +293,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
     free = false,
     qualified = true,
     originalInput?: ImportFinancialStart,
+    replacement = false,
   ) {
     for (const [index, product] of ['10', '11', '12'].entries()) {
       await f.fixture.insert('products', {
@@ -293,7 +320,9 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
     const membership = { ...adapterOptions, sourceProofKey: sourceKey },
       profile = financialAdapterProfiles(qualified ? { membership } : {}),
       options = { ...f.options },
-      input = originalInput ?? f.input(memberEvidence(kind, free).plan),
+      input =
+        originalInput ??
+        f.input(replacement ? replacementPlan(kind) : memberEvidence(kind, free).plan),
       transport = f.transport();
     let evidence: Awaited<ReturnType<typeof prepare>> | null = null,
       cacheJobs = 1,
@@ -302,7 +331,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       if (!ready) throw new Error('isolated disabled source');
     });
     transport.order = vi.fn(async (command) => {
-      evidence = await prepare(kind, free, command, membership);
+      evidence = await prepare(kind, free, command, membership, replacement);
       await f.db
         .get('writer')
         .insert(financialImportSourceReceipts)
@@ -332,10 +361,11 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       await originalConfirm(...args);
       if (!evidence) throw new Error('isolated member source missing');
       await activate(evidence);
-      await f.connection.query(
-        'UPDATE product_store SET stock=99 WHERE product_id=? AND store_id=1',
-        [free ? '11' : '10'],
-      );
+      for (const sku of replacement ? ['10', '11'] : [free ? '11' : '10'])
+        await f.connection.query(
+          'UPDATE product_store SET stock=99 WHERE product_id=? AND store_id=1',
+          [sku],
+        );
     });
     transport.publication = vi.fn(async (command, order) => {
       const proof = {
@@ -399,6 +429,40 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       await profile.sourceReceipt!(tx, evidence, evidence.order);
       return profile.expectedQuantities!(tx, evidence, evidence.order, phase);
     });
+  }
+  function nativeReplacement(
+    e: Awaited<ReturnType<typeof prepare>>,
+    replaced: ReadonlyArray<(typeof e.plan.lines)[number]>,
+  ) {
+    const raw = execFileSync(
+      'compatibility/upstream/offline-cash-pricing/.venv/bin/python',
+      ['-B', 'tools/legacy-import-membership/native_replacement.py'],
+      {
+        input: JSON.stringify({
+          url: f.config.MYSQL_WRITER_URL,
+          plan: e.plan,
+          capability: { scope: e.state.scope, authority: e.state.authority },
+          additional: [{ productId: '12', quantity: 1, unitPrice: '0.00' }],
+          replaced,
+        }),
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: { PATH: process.env.PATH, HOME: process.env.HOME },
+        stdio: ['pipe', 'pipe', 'pipe'],
+      },
+    );
+    return z
+      .union([
+        z.object({ code: z.string() }).strict(),
+        z
+          .object({
+            lines: sourceOrderReceiptSchema.shape.lines,
+            lineHash: z.string().regex(/^[a-f0-9]{64}$/),
+            payable: z.string(),
+          })
+          .strict(),
+      ])
+      .parse(JSON.parse(raw) as unknown);
   }
   function recoveryRegistration(workerEnabled = true, creationSelected = false) {
     return configuredLegacyOrderImports(f.config, f.db, {
@@ -789,6 +853,72 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
     expect(frozen).toEqual(e.snapshot);
     await activate(e);
     await expect(execute(e, 'settled')).rejects.toThrow();
+  });
+  it.each(['offline', 'shopify'] as const)(
+    'validates native %s HP/provenance for an authenticated paid-to-free replacement',
+    async (kind) => {
+      const e = await prepare(kind, true, undefined, adapterOptions, true),
+        original = structuredClone(e.plan),
+        expected = new Map([
+          ['11', 1],
+          ['12', 1],
+        ]);
+      expect(await execute(e, 'staged')).toEqual(expected);
+      if (kind === 'offline') await activate(e);
+      expect(await execute(e, 'settled')).toEqual(expected);
+      expect(e.plan).toEqual(original);
+      const profile = csvMembershipImportProfile(adapterOptions),
+        snapshot = await f.db.get('writer').transaction(async (tx) => {
+          await profile.lock!(tx, e);
+          return profile.completionSnapshot(tx, e, e.order);
+        });
+      expect(snapshot?.receipt.replacement?.originalLine).toEqual(original.lines[0]);
+      expect(snapshot?.receipt.memberLines[0]?.productId).toBe('12');
+    },
+  );
+  it.each(['offline', 'shopify'] as const)(
+    'native Python/Node SQL agree on replaced %s HP while retaining original tender guard',
+    async (kind) => {
+      const e = await prepare(kind, true, undefined, adapterOptions, true),
+        before = await financialEffects();
+      expect(nativeReplacement(e, [])).toEqual({ code: 'ORDER_IMPORT_NATIVE_LINES_MISMATCH' });
+      expect(nativeReplacement(e, [e.plan.lines[0]!])).toEqual(
+        kind === 'offline'
+          ? { code: 'ORDER_IMPORT_ORIGINAL_TENDER_MISMATCH' }
+          : { lines: e.order.lines, lineHash: e.order.lineHash, payable: '2300.00' },
+      );
+      expect(nativeReplacement(e, [{ ...e.plan.lines[0]!, unitPrice: '99.99' }])).toEqual({
+        code: 'ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW',
+      });
+      expect(await financialEffects()).toEqual(before);
+    },
+  );
+  it('completes Shopify with replaced HP, original stock scope and immutable recovery', async () => {
+    const c = await core('shopify', true, true, undefined, true),
+      original = structuredClone(c.input.plan),
+      result = await c.adapter.start(c.input);
+    expect(result.status).toBe('completed');
+    const proof = await f.db
+      .get('writer')
+      .transaction((tx) => verifiedImportCompletion(tx, c.input.operationId, c.options.secret));
+    expect(proof?.membership?.receipt.replacement?.originalLine).toEqual(original.lines[0]);
+    const [stock] = await f.connection.query(
+      'SELECT CAST(product_id AS CHAR) AS product,stock FROM product_store ORDER BY product_id',
+    );
+    expect(stock).toEqual([
+      { product: '10', stock: 99 },
+      { product: '11', stock: 99 },
+      { product: '12', stock: 100 },
+      { product: '9007199254740993', stock: 100 },
+    ]);
+    const effects = await financialEffects();
+    c.disable();
+    expect(await c.adapter.start(c.input)).toEqual(result);
+    expect(c.input.plan).toEqual(original);
+    expect(await financialEffects()).toEqual(effects);
+    expect(c.transport.order).toHaveBeenCalledTimes(1);
+    expect(c.transport.confirm).not.toHaveBeenCalled();
+    expect(c.transport.publication).toHaveBeenCalledTimes(1);
   });
   it('requires the early exact customer lock witness before invoking native Order/provenance checks', async () => {
     const e = await prepare(),

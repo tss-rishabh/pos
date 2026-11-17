@@ -47,6 +47,21 @@ export const csvMembershipProvenanceSchema = z
 const line = z
   .object({ id: identifier, productId: identifier, quantity: z.literal(1), inputHash: hash })
   .strict();
+export const csvMembershipReplacementSchema = z
+  .object({
+    contract: z.literal('pos-csv-membership-replacement-v1'),
+    sourceAction: z.literal('AddFreeMembership.remove_exclusive_membership'),
+    originalLine: z
+      .object({
+        productId: identifier,
+        quantity: z.literal(1),
+        unitPrice: z.string().regex(/^(?:0|[1-9]\d{0,9})\.\d{2}$/),
+        sourceRows: z.array(z.number().int().min(2).max(50001)).min(1).max(999),
+      })
+      .strict(),
+    memberLine: line,
+  })
+  .strict();
 export const csvMembershipReceiptSchema = z
   .object({
     contract: z.literal(csvMembershipContract),
@@ -73,6 +88,8 @@ export const csvMembershipReceiptSchema = z
     lineHash: hash,
     memberLines: z.array(line).length(1),
     additionalLines: z.array(line).max(1),
+    /** Absent on old receipts; never inject a default into their signed bytes. */
+    replacement: csvMembershipReplacementSchema.optional(),
     provenance: csvMembershipProvenanceSchema.refine(
       (value) => value.contract === stagedMembershipContract,
     ),
@@ -118,6 +135,16 @@ export const csvMembershipReceiptSchema = z
       }
     } else if (value.historyEvidence)
       ctx.addIssue({ code: 'custom', message: 'Unexpected history evidence.' });
+    if (
+      value.replacement &&
+      (value.kind !== 'auto-free' ||
+        value.replacement.originalLine.productId === member!.productId ||
+        JSON.stringify(value.replacement.memberLine) !== JSON.stringify(member) ||
+        value.provenance.before.some(
+          (row) => row.attribute === 'EXCLUSIVE_MEMBER' && row.active === 1,
+        ))
+    )
+      ctx.addIssue({ code: 'custom', message: 'An explicit source replacement is required.' });
   });
 export type CsvMembershipReceipt = z.infer<typeof csvMembershipReceiptSchema>;
 export type CsvMembershipProvenance = z.infer<typeof csvMembershipProvenanceSchema>;
@@ -197,6 +224,25 @@ export function verifyCsvMembershipDescriptor(input: {
   )
     throw csvMembershipError();
   const expected = new Map(plan.lines.map((row) => [row.productId, row.quantity]));
+  if (expected.size !== plan.lines.length) throw csvMembershipError();
+  if (value.replacement) {
+    const original = value.replacement.originalLine,
+      declared = plan.lines.find((row) => row.productId === original.productId),
+      plannedMembers = plan.lines.filter((row) => ids.has(row.productId));
+    if (
+      !declared ||
+      plannedMembers.length !== 1 ||
+      !ids.has(original.productId) ||
+      original.productId === input.freeProductId ||
+      member.productId !== input.freeProductId ||
+      declared.quantity !== original.quantity ||
+      declared.unitPrice !== original.unitPrice ||
+      JSON.stringify(declared.sourceRows) !== JSON.stringify(original.sourceRows) ||
+      order.lines.some((row) => row.productId === original.productId)
+    )
+      throw csvMembershipError();
+    expected.delete(original.productId);
+  }
   for (const extra of value.additionalLines) {
     if (extra.productId !== input.freeProductId || expected.has(extra.productId))
       throw csvMembershipError();

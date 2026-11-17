@@ -15,6 +15,10 @@ def assert_plain_profile(cart,types,settings,plan,calculations):
     if any(str(row['prod_id'])=='390238' for row in products):
         raise ImportReview('ORDER_IMPORT_SCREENING_PROFILE_REQUIRED')
     expected={str(row['productId']):row['quantity'] for row in [*plan['lines'],*additional]}
+    if member_context is not None and member_context.get('replacement'):
+        # admit() above validates the actual source-removal causality and the
+        # unchanged original CSV line before projecting its replacement.
+        del expected[member_context['replacement']['originalLine']['productId']]
     actual={}
     for row in products:
         key=str(row['prod_id'])

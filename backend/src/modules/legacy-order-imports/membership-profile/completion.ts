@@ -86,5 +86,10 @@ export function validateCsvMembershipCompletionSnapshot(
   const member = value.memberLines[0]!;
   if (order.lines.filter((line) => line.productId === member.productId).length !== 1)
     throw csvMembershipError();
+  if (
+    value.replacement &&
+    order.lines.some((line) => line.productId === value.replacement!.originalLine.productId)
+  )
+    throw csvMembershipError();
   return snapshot;
 }
