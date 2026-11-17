@@ -206,7 +206,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             if (item['schema']!=schema or item['routine'] not in owner_specs[owner]['procedures']
                     or item['kind']!=owner_specs[owner]['procedures'][item['routine']] or privileges!={'EXECUTE'}):refused()
             continue
-        if (owner==audit or item['schema']!=schema or item['routine']!=INFO
+        if (item['schema']!=schema or item['routine']!=INFO
                 or item['kind']!='FUNCTION' or privileges!={'EXECUTE'}):refused()
 
     objects=set()

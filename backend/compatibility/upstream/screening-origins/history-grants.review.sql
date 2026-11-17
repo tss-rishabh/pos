@@ -14,6 +14,10 @@ GRANT INSERT ON SOURCE_SCHEMA.pos_rewrite_screening_origin_history_changes TO 'p
 -- locked account; no other object may use its definer and no PROXY/role may
 -- expose it. The fixed function never returns credentials or unknown SQL bodies.
 GRANT SELECT,SHOW VIEW,SHOW_ROUTINE,TRIGGER,EVENT ON *.* TO 'pos_origin_history_audit'@'%';
+-- After installing the exact function from history-security.review.sql, grant
+-- its locked definer EXECUTE on that function itself. MySQL requires this for
+-- SQL SECURITY DEFINER execution; no other routine/global EXECUTE qualifies.
+GRANT EXECUTE ON FUNCTION SOURCE_SCHEMA.pos_rewrite_origin_history_metadata TO 'pos_origin_history_audit'@'%';
 -- Grant these individually to each participating app/readonly-origin account:
 -- GRANT SHOW_ROUTINE ON *.* TO 'ACTUAL_APP'@'ACTUAL_HOST';
 -- GRANT EXECUTE ON FUNCTION SOURCE_SCHEMA.pos_rewrite_origin_history_metadata TO 'ACTUAL_APP'@'ACTUAL_HOST';

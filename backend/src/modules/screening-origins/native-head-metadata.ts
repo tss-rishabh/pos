@@ -654,7 +654,7 @@ export async function readNativeHeadMetadata(
         !rights.has('EXECUTE')
       )
         return refuse();
-    } else if (item.name === audit || !metadata) return refuse();
+    } else if (!metadata) return refuse();
   }
   const objects = new Set<string>();
   const identity = (schemaName: string, name: string, kind: string) =>

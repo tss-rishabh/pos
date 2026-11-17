@@ -9,6 +9,9 @@ dictionary visibility checked by `origin_history_privileges.py`; the function
 returns bounded metadata, never history, credentials or request values. Grant
 application and capture accounts EXECUTE on this one function, SELECT on the
 required head tables, and SHOW_ROUTINE so they can compare its exact body.
+After function creation, grant its locked audit definer EXECUTE on that exact
+function too; MySQL requires this self-execution right. The qualifier permits
+no other executable object or blanket EXECUTE privilege for the audit account.
 Remove their old TRIGGER grants. Neither a global/schema EXECUTE grant nor a
 role-based substitute qualifies.
 
