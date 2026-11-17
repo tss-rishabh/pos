@@ -11,6 +11,7 @@ interface Props {
   orderId: string;
   online: boolean;
   deferUntilOpened?: boolean;
+  showPendingQueue?: boolean;
   onCorrected?: (receipt: CorrectionReceipt) => Promise<void>;
 }
 export function PaymentReversalPanel(props: Props) {
@@ -45,7 +46,13 @@ function PaymentReversalEntry(props: Props) {
           ) : (
             <CashReturnIntentPanel {...props} />
           )}
-          <CashReturnPendingQueue user={props.user} storeId={props.storeId} online={props.online} />
+          {props.showPendingQueue !== false && (
+            <CashReturnPendingQueue
+              user={props.user}
+              storeId={props.storeId}
+              online={props.online}
+            />
+          )}
         </>
       );
     } catch {
@@ -55,7 +62,13 @@ function PaymentReversalEntry(props: Props) {
             Original cash-return recovery storage is unreadable. Preserve the original reference and
             ask a store manager to review the server cash-return queue. Do not return cash again.
           </p>
-          <CashReturnPendingQueue user={props.user} storeId={props.storeId} online={props.online} />
+          {props.showPendingQueue !== false && (
+            <CashReturnPendingQueue
+              user={props.user}
+              storeId={props.storeId}
+              online={props.online}
+            />
+          )}
         </>
       );
     }

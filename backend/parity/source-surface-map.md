@@ -16,9 +16,8 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **legacy-paid-reversal (partial)**: Finish durable prepare/attestation and the manager queue for unknown physical cash-return intents across authorized operators/devices, including final-finance guards. The existing device journal and order action retain original references but are not a complete centralized reconciliation workflow.
-- **legacy-vinculum-status (partial)**: Compose the shared cash-return and imported-order handover fences in the public and separately deployed private receiver entries. Durable rejected-return obligations, the bounded dispatcher and scoped manager recovery are integrated.
-- **legacy-order-imports (partial)**: Complete the approval UI, common mutation/handover fences and concrete private source/Go runtime qualification. The real financial adapter, approval API and standalone worker are wired with production flags unselected; source grouping/job API/browser tests still use a synthetic financial port and do not certify financial imports.
+- **legacy-vinculum-status (partial)**: Finish the standalone private receiver entry with the shared cash-return and imported-order handover fences already composed in the public app. Durable rejected-return obligations, the bounded dispatcher and scoped manager recovery are integrated.
+- **legacy-order-imports (partial)**: Imported membership/provenance, automatic benefit spending, extra complementary lines, screening-ticket profiles and CSV-tender/source-header rounding differences still require source-supported code profiles; refusal is not full parity. The real adapter, purpose-bound approval API/UI, standalone worker, public handover fences and ordinary mutation guards are integrated with production flags unselected. The executable pinned private source receiver and Go confirmation overlay have bounded native/source evidence; the full runtime/broker and cooperating writers remain unqualified.
 
 These are code gaps, distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.
 
@@ -26,7 +25,7 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 2 | 0 | 185 |
+| routes | 68 | 1 | 0 | 186 |
 | jobs | 0 | 3 | 1 | 28 |
 | templates | 32 | 4 | 2 | 68 |
 | websockets | 0 | 0 | 0 | 1 |
@@ -163,7 +162,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:37` | `ajax-order-cancel/` | pending-order-cancellation | external_acceptance |
 | `order/urls.py:38` | `ajax-add-salesperson/` | checkout-cart | external_acceptance |
 | `order/urls.py:39` | `ajax-add-salesperson-per-product/` | checkout-cart | external_acceptance |
-| `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | partial |
+| `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | external_acceptance |
 | `order/urls.py:41` | `ajax-check-save-gc/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:42` | `ajax-save-gc-date/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:43` | `ajax-extend-return/` | returns-exchanges | external_acceptance |

@@ -376,6 +376,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                   <PaymentReversalPanel
                     key={`cash-correction:${cashScopeKey}:${selected}`}
                     deferUntilOpened
+                    showPendingQueue={false}
                     user={user}
                     storeId={storeId}
                     orderId={selected}

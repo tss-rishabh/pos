@@ -28,39 +28,46 @@ component test counts do not certify every original workflow.
 | Parent/store CSV         | Three-column product-family assignment import, atomic reset/delete/recreate, audit, shared durable worker and separate historical profile are wired. Twenty-nine merged database/source/parser checks and seven import browser workflows pass. Actual stock/sync/publication acceptance remains required.                                                                                                                                               |
 | Historical order reads   | Public date selections reach PRIMARY/DATA/BigQuery readers, with scoped cursors and post-read session revocation checks. Full source filters/sorting/queues/formatter are integrated: 43 pinned-Django vectors, 12 browser workflows and existing qualified detail/copy readers. Warehouse generations and workload acceptance remain required.                                                                                                         |
 | Order copying            | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Native OTP/contact/session fences, serialized unsent cancellation and dedicated validated terminal clear are integrated. Fifty-three affected backend and 21 scoped frontend checks pass, including five actual Counter/Review Chromium flows and lost-clear recovery without another POST. |
-| Cash payment corrections | Native cash reversals and subsequent cash receipts now compose with current collections, ledger, DSR and sealed historical deltas. The actual Orders page includes a deferred manager action; reports expose cash returned and net cash. Ninety-five focused finance checks and 15 affected browser workflows pass; durable pending-return manager reconciliation remains in progress and production contracts stay unselected.                         |
+| Cash payment corrections | Durable prepare/arm/attest/record commands, cross-manager pending-return recovery and retained device claims are integrated. Native corrections compose with current collections, ledger, DSR and sealed historical deltas. The actual Orders page preserves confirmed receipts after a failed refresh and shows one scoped manager queue. Focused native/source/browser checks pass; production contracts stay unselected. |
 | Ecommerce inventory sync | Source threshold selection, writer-current system projection/checkpoints, authenticated complete catalog bridge and the actual settings recovery UI are wired into the existing queue/worker. Twenty-four merged backend checks (including 16 bridge subcases) and eight frontend checks pass, with strict checks. Actual stock/writer/catalog coordination and provider deployment acceptance remain required.                                         |
-| Whole-order fulfillment  | Dedicated PACK/SHIP/DELIVER commands, full immutable order-line scope, source-pinned STORE worker, public resources and deferred Orders recovery UI are integrated. Migration, container artifacts and desktop verification are registered. Atomic rejected-return obligations, bounded dispatch and manager recovery are integrated. Shared financial handover composition remains pending; the production dispatcher stays disabled.                  |
+| Whole-order fulfillment  | Dedicated PACK/SHIP/DELIVER commands, full immutable order-line scope, source-pinned STORE worker, public resources and deferred Orders recovery UI are integrated. Atomic rejected-return obligations, bounded dispatch, manager recovery and public financial handover guards are integrated. The standalone private receiver composition remains pending; production contracts stay disabled. |
 
 ## Fixed remaining code checklist
 
-The latest focused integration passed 171 backend checks across CSV coordination,
-financial approval/settlement, whole-order recovery, API and trace isolation. The
-whole-order and rejected-return UI passed 18 isolated Chromium workflows; CSV
-recovery passed eleven frontend checks. These focused results do not certify the
-subsequent shared handover integration or production providers.
+Recent focused checks cover CSV coordination, financial approval/settlement,
+whole-order recovery, private source/Go boundaries, API and trace isolation. The
+approval/import UI passed 37 checks, including 23 Chromium workflows; the actual
+Orders page passed 16 Chromium cases. These are bounded feature results. A fresh
+consolidated run is still required for the latest composition, and no production
+provider or complete original workflow is certified by these counts.
 
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
   encrypted staging, native authorization/preflight, job API, recovery UI,
   worker loop, explicit blocked-job resume and published-history repository are
-  integrated. Ninety-three backend import and eleven frontend checks pass, including
-  original-nonce resume recovery without reimporting completed orders.
+  integrated, including original-nonce resume recovery without reimporting completed orders.
   The real financial adapter, purpose-bound approval API and standalone processor
-  are now wired, with production contracts unselected. Approval UI, cooperative
-  writer fences and actual private receiver/Go qualification remain unfinished. See
+  are now wired, with production contracts unselected. Ordinary payment,
+  cancellation, return, exchange and finalization guards are integrated; original
+  provider evidence survives a newly encountered hold. Financial approval UI,
+  public handover composition and the executable pinned private Python receiver
+  and Go confirmation overlay are integrated. Full source-runtime, durable broker
+  and cooperating-writer qualification remain unaccepted.
+  Imported membership/benefit/complementary-line, screening and dual tender/header
+  rounding profiles remain
+  explicit code gaps until their source-supported behavior is implemented. See
   `backend/parity/legacy-order-imports.md`.
 - Membership provenance producers are integrated as source-pinned compatibility
   candidates. Actual Python staging → Go activation → Node cancellation passes
   native concurrency/rollback checks. Their deployment remains external; no
   historical provenance is fabricated.
-- Finish durable preparation/attestation and the manager queue for unknown
-  physical cash returns across operators/devices, with final-finance guards.
-  Current collection/ledger/DSR and sealed historical correction deltas are
-  integrated; actual publisher/source-barrier acceptance remains external.
+- Qualify the integrated durable cash-return preparation/attestation, manager
+  queue and financial guards as part of the consolidated workflow run. Current
+  collection/ledger/DSR and sealed historical correction deltas are integrated;
+  actual publisher/source-barrier acceptance remains external.
 - Qualify the source order-search historical publication/contact-key generation
   and representative queue workload; the complete UI/API/source-filter code is integrated.
-- Finish composition of the whole-order shared financial handover fences in both
-  public and private entries. The dedicated API/UI, source-pinned STORE chain,
+- Finish the standalone private whole-order receiver with the same shared
+  financial handover fences already injected in the public entry. The dedicated API/UI, source-pinned STORE chain,
   atomic rejected-return obligations, bounded dispatcher and scoped manager
   recovery are integrated. Ecommerce stock/catalog
   synchronization, parent/store CSV and source-default account creation are

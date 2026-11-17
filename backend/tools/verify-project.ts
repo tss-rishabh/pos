@@ -491,6 +491,12 @@ const checks: Check[] = [
     ],
   },
   {
+    id: 'legacy-import-source-boundary-tests',
+    directory: 'backend',
+    command: 'sh',
+    args: ['compatibility/upstream/legacy-order-imports/run-source-tests.sh'],
+  },
+  {
     id: 'whole-order-status-browser-fixture-typecheck',
     directory: 'frontend',
     args: [
@@ -498,6 +504,16 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tests/legacy-order-status/tsconfig.json',
+    ],
+  },
+  {
+    id: 'import-order-holds-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/import-order-holds/backend.tsconfig.json',
     ],
   },
   {
@@ -540,7 +556,12 @@ const checks: Check[] = [
       'tools/administration/gift-card-batches.tsconfig.json',
     ],
   },
-  { id: 'backend-tests', directory: 'backend', args: ['node_modules/vitest/vitest.mjs', 'run'] },
+  {
+    id: 'backend-tests',
+    directory: 'backend',
+    // Bound concurrent native fixture DDL while other isolated workers are active.
+    args: ['node_modules/vitest/vitest.mjs', 'run', '--maxWorkers=4'],
+  },
   {
     id: 'frontend-typecheck',
     directory: 'frontend',
@@ -955,6 +976,12 @@ const checks: Check[] = [
 if (flags.has('--mysql')) {
   checks.push(
     {
+      id: 'legacy-import-confirmation-native-tests',
+      directory: 'backend',
+      command: 'sh',
+      args: ['compatibility/upstream/legacy-order-imports/run-go-tests.sh'],
+    },
+    {
       id: 'membership-native-producer-tests',
       directory: 'backend',
       command: 'sh',
@@ -993,7 +1020,12 @@ if (flags.has('--browser')) {
     {
       id: 'legacy-order-import-browser-tests',
       directory: 'frontend',
-      args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/order-imports', '--maxWorkers=1'],
+      args: [
+        'node_modules/vitest/vitest.mjs',
+        'run',
+        '--config',
+        'tests/order-imports/vitest.config.ts',
+      ],
       environment: { ORDER_IMPORT_BROWSER_TESTS: 'true' },
     },
     {
