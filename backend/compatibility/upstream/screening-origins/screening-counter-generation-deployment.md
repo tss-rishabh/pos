@@ -12,12 +12,22 @@ tables and participating writer cutover are ready. The worker does not install
 native triggers, change grants or create warehouse schemas. Apply the registered
 `screening-counter-generation-migration.sql` through the normal migration plan.
 
-The default command runs a bounded publisher/recovery loop. Explicit commands
+The default command runs a bounded discovery/publisher/recovery loop. Explicit commands
 are `prepare <customerId> [expectedGenerationHash]`, `advance <generationHash>`
 and `drain`. Pass them after `--` with npm. Preparation captures a genuine
 source snapshot and queues it; it is an infrastructure operation, never an
 interactive checkout fallback. No supplied customer ID is treated as authority
 to create a sale or payment.
+
+With new work enabled, current-user PK discovery feeds an encrypted durable
+demand queue automatically. A newest-customer lane runs independently of the
+backfill lane; fair retry rotation prevents a failed identity from starving
+older work. Cursor advancement and queue admission share a transaction, as do
+demand binding and generation creation. Discovery reads current users, heads
+and baseline metadata only; historical source capture belongs exclusively to
+the background generation worker. New customers therefore do not require an
+operator to run `prepare` individually. The `drain` command also performs a
+bounded discovery/preparation pass.
 
 Configure independent accounts and mounted credential files:
 
@@ -49,6 +59,11 @@ blindly reseeding. Replacing a baseline requires its exact expected generation.
 it false during recovery-only operation. This stops new dispatch without
 discarding retained jobs. The loop interval defaults to 5000 ms, query timeout
 to 8000 ms, and maximum bytes to 50000000. The options parser bounds all three.
+Discovery batch size defaults to 20 (maximum 100), its interval to 5000 ms,
+and new preparations per cycle to 2 (allowed 2–10) through the corresponding
+`DISCOVERY_BATCH_SIZE`, `DISCOVERY_INTERVAL_MS` and `MAX_DISCOVERY` variables
+under the `POS_SCREENING_COUNTER_GENERATION_` prefix. Both discovery and new
+capture stop in recovery-only mode.
 No worker-owned source transaction spans a warehouse call or sleep.
 
 Use the shared metadata options described in `head-participants.review.md`,
