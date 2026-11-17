@@ -4,6 +4,7 @@ import ast
 import difflib
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 
@@ -51,7 +52,7 @@ logger = get_logger()""")
 
 
 def build(source_root=None, write=False):
-    repository = Path(source_root) if source_root else ROOT.parents[4] / "backend-tss-api_v2"
+    repository = Path(source_root) if source_root else Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(ROOT.parents[4] / "backend-tss-api_v2")))
     actual = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=repository, text=True).strip()
     if actual != COMMIT:
         raise RuntimeError("API-v2 is not at the reviewed customer-context commit")

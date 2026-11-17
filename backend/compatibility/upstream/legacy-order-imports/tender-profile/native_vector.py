@@ -109,6 +109,13 @@ def run(value):
         re_init=lambda:SimpleNamespace(persist=lambda:None),persist=lambda:None)
     plan={'kind':'offline','createdAt':'2026-06-15 12:00:00','originalTenderAmount':str(sum(float(price)*qty for price,qty in vector['lines'])),
         'lines':[{'productId':str(9007199254740993+i),'quantity':qty,'unitPrice':price} for i,(price,qty) in enumerate(vector['lines'])]}
+    def original_diagnostic_admission(_cart,_types,_settings,supplied,_calculations):
+        # This child-only oracle measures the OLD source mismatch/coupon
+        # behavior, before the rewrite's approved refusal. It never dispatches
+        # Go/provider effects or produces an import acceptance receipt.
+        if supplied is not plan:
+            raise RuntimeError('Original diagnostic scope changed.')
+    native_source_driver.assert_plain_profile=original_diagnostic_admission
     pipeline=NativePipeline(str(API),None);pipeline.settings.IS_LINE_ITEM_ENABLED=int(line_items)
     original_compile=native_source_driver.compile_class
     def with_member_attributes(root,path,name,namespace):

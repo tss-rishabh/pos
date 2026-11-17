@@ -76,6 +76,21 @@ diagnostics under the ignored `backend/evidence/private/` folder. A passing
 verification run does not imply production readiness: the release gate remains
 separate. Add `--release` to require that gate to pass too.
 
+Source oracles also require the reviewed API baseline
+`2960acbea10c4eaf16b6d99e15ff6e03ef7724c5`. When the developer's API checkout
+has moved on, use a separate, clean Git checkout of that commit and set both
+`POS_LEGACY_IMPORT_SOURCE_ROOT` and `SCREENING_SOURCE_ROOT` to its directory
+before starting verification. Do not reset or modify the developer's checkout.
+The alternate location preserves each consumer's original commit/byte checks;
+it does not select another source revision. Fixture launchers forward only
+that source location rather than inherited service credentials. Generated
+exchange metadata records repository/commit identity instead of a local path.
+
+The `6d8a4bc` combined result remains failed because eight older fixture files
+did not use that pinned source consistently. All 64 cases in those files and
+the 52 main browser cases pass in the focused follow-up. That evidence does
+not replace a fresh consolidated run or certify complete legacy parity.
+
 The inventory workbook source oracle additionally needs its isolated Python
 environment. Install `backend/tools/inventory-workbooks/requirements-oracle.txt`
 into `backend/tools/inventory-workbooks/.venv` with Python 3.10 before running

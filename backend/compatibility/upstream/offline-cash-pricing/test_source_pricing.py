@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import io
 import json
+import os
 import random
 import sys
 import unittest
@@ -26,7 +27,7 @@ from source_calculator import (
     minor_units,
 )
 
-ROOT = Path(__file__).resolve().parents[5] / "backend-tss-api_v2"
+ROOT = Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(Path(__file__).resolve().parents[5] / "backend-tss-api_v2")))
 NOW = 1794801600000  # 2026-11-16 04:00 UTC, same signed Asia/Kolkata business day.
 KEY = "offline-pricing-fixture-key-" * 2
 SETTINGS = SimpleNamespace(

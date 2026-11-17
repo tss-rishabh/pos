@@ -20,7 +20,7 @@ component test counts do not certify every original workflow.
 | Benefits                 | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                                                                                                                                                                                                                                                      |
 | Administration           | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                                                                                                                                                                                                                                                             |
 | Reports and fulfillment  | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                                                                                                                                                                                                                                                                |
-| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both native CI jobs passed unsigned packaging, integrity, sandbox, restart and offline smoke at commit `cd589c5` (run `44032882645`); later CSV integrations need another native run. Signing and physical printing remain release gates.                                                                                                                                      |
+| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. On `6d8a4bc`, macOS passed the full CI job; Windows passed native Electron/offline checks and failed five later payment-recovery browser cases. The Windows fixture correction passes locally and still needs its target-OS rerun. Signing and physical printing remain release gates.                                                                                                  |
 | Cashier conveniences     | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass.                                                                                                                                                                                                                                      |
 | Dashboard and website    | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                                                                                                                                                                                                                                                       |
 | Barcode and country      | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.                                                                                                                                                                                                                                               |
@@ -41,13 +41,21 @@ Orders page passed 16 Chromium cases. These are bounded feature results. A fresh
 consolidated run is still required for the latest composition, and no production
 provider or complete original workflow is certified by these counts.
 
-The combined local run on `56f2543` passed all 1,616 backend tests, 241 frontend
-unit tests and every executed recovery-browser suite. Two readonly assignments
-in a CSV test fixture failed its compiler check, so the verifier correctly skipped
-the main browser suite and retained a failed overall result. The corrected
-fixture compiler check and all 50 main Playwright cases then passed; the exact
-follow-up scope is `backend/evidence/integration-followup-56f2543.json`.
-Subsequent code requires another consolidated run. Native source/candidate tests
+The combined local run on `6d8a4bc` passed 113 of 114 normal checks, with no
+input changes during execution. Its backend suite passed 2,058 cases, failed
+44 and skipped 23. The failed cases were confined to eight source-fixture files:
+older launchers followed a mutable sibling checkout instead of the reviewed
+baseline, and the original-tender diagnostic invoked the rewrite admission
+guard instead of measuring the original behavior. The main browser suite was
+correctly skipped in that failed combined run. The follow-up passes all 64 tests
+across those eight files, with no skips, plus all 52 main Playwright cases.
+Fixture compiler/lint checks and the exchange patch generator also pass; patch
+bytes, original source commits and byte checks remain unchanged. The independent
+clean Git fixture checkout leaves the user's original checkout untouched.
+`backend/evidence/verification.json` retains the failed combined result, while
+`backend/evidence/integration-followup-6d8a4bc.json` records the narrower recovery.
+These focused results do not establish a passing consolidated snapshot.
+Native source/candidate tests
 now also cover 41 CSV tender scenarios and 13 review cases, plus four Python
 checks over 20 frozen source vectors. The user selected pausing tender/header
 mismatches for manager correction before import. The correction API/UI and native
@@ -90,7 +98,15 @@ Windows exposed two first-workflow 5-second deadline failures; cold Vite setup
 now finishes in fixture startup, with all 14 affected cases passing locally.
 macOS exposed a correction fixture checking its receipt before commit; the
 controlled-race fix passes all 8 cases. No deadlines or retries were increased.
-Another native run is required. See `backend/parity/native-browser-readiness.md`.
+On the subsequent `6d8a4bc` run, macOS passed every step. Windows passed native
+Electron/offline checks, then failed five existing-order payment-recovery
+browser cases. Their original host connectivity value was not captured. A
+controlled offline-host reproduction exposes the same first-action timeout;
+the fixture correction and offline-to-online regression pass all 17 local cases
+without increased deadlines or retries. That correction still needs integration
+and a Windows rerun. `backend/evidence/desktop-ci-6d8a4bc.json` retains the failed
+Windows and successful macOS outcomes. See
+`backend/parity/native-browser-readiness.md`.
 
 Membership completion snapshots and actual application/worker recovery are now
 integrated. On `6ec6824`, 125 membership, runtime, repository and resumptions

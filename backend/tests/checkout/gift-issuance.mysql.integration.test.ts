@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { pinnedSourceEnvironment } from '../../tools/pinned-source-env.js';
 import { randomBytes } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -61,6 +62,7 @@ describe.skipIf(!template)('native pinned gift voucher constructor and issuance 
                 encoding: 'utf8',
                 timeout: 25_000,
                 env: {
+                  ...pinnedSourceEnvironment(),
                   PATH: process.env.PATH,
                   HOME: process.env.HOME,
                   UV_PROJECT_ENVIRONMENT: join(tmpdir(), 'pos-gift-issuance-runtime'),

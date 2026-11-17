@@ -7,6 +7,7 @@ fixture supplied on stdin, never the source/live endpoint.
 import hashlib
 import io
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -26,7 +27,7 @@ from contract import CONTRACT, PATH, SyncError, create_app, encode, request_sign
 from source_runner import verified_source, bind_stock_readers
 from store import CommandStore, commands, registry, reconciliations
 
-SOURCE = Path('/Users/rishabhbhatia/code/backend-tss-api_v2')
+SOURCE = Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(Path(__file__).resolve().parents[5] / 'backend-tss-api_v2')))
 from source_io_fixture import source_io, stock_reader_fixture
 from runtime import execute
 from worker_fixture import completed_source

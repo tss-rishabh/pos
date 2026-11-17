@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { cashPriceSnapshotSchema } from '../../src/modules/checkout/offline-cash/contracts.js';
+import { pinnedSourceEnvironment } from '../../tools/pinned-source-env.js';
 
 const script = fileURLToPath(
   new URL(
@@ -27,6 +28,7 @@ function sourceRuntimeChecks(filename: string) {
       encoding: 'utf8',
       timeout: 30_000,
       env: {
+        ...pinnedSourceEnvironment(),
         PATH: process.env.PATH,
         HOME: process.env.HOME,
         UV_PROJECT_ENVIRONMENT: join(tmpdir(), 'pos-offline-pricing-runtime'),
@@ -42,6 +44,7 @@ export function sourcePricingFixture(mode: '--snapshot' | '--tax-plan') {
     timeout: 20_000,
     maxBuffer: 8_000_000,
     env: {
+      ...pinnedSourceEnvironment(),
       PATH: process.env.PATH,
       PYTHONDONTWRITEBYTECODE: '1',
       PYTHONWARNINGS: 'ignore',
@@ -55,6 +58,7 @@ describe('source-executed private offline cash pricing', () => {
       encoding: 'utf8',
       timeout: 20_000,
       env: {
+        ...pinnedSourceEnvironment(),
         PATH: process.env.PATH,
         PYTHONDONTWRITEBYTECODE: '1',
         PYTHONWARNINGS: 'ignore',

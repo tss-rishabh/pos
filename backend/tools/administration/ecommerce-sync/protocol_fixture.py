@@ -1,6 +1,7 @@
 """Local-only Node/Python protocol fixture; all source/provider operations are stubbed."""
 import io
 import json
+import os
 import sys
 import threading
 import uuid
@@ -29,7 +30,8 @@ def main():
             accepted = store.claim(str(uuid.uuid4()))
             if accepted is None:
                 raise RuntimeError('No fixture command claimed')
-            execute(store, accepted, json.dumps({'sourceRoot':'/Users/rishabhbhatia/code/backend-tss-api_v2'}), threading.Event(), child_target=completed_source)
+            source=Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(Path(__file__).resolve().parents[5] / 'backend-tss-api_v2')))
+            execute(store, accepted, json.dumps({'sourceRoot':str(source)}), threading.Event(), child_target=completed_source)
             print(json.dumps(store.read(accepted['operationId'])))
             return
         req = data['request']; raw = req['body'].encode(); headers = req['headers']

@@ -1,0 +1,92 @@
+{
+  "version": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "recordedAt": "2026-11-17T12:58:24.036932+00:00",
+  "command": "Pinned-source fixture follow-up for all eight failed files; separate complete main Playwright suite.",
+  "exitCode": 0,
+  "productionReady": false,
+  "fullProjectVerification": false,
+  "applicationAndRuntimeCommit": "6d8a4bc718743d5f2d3b3b5664e717260a79d5d3",
+  "runtimeSourceUnchanged": true,
+  "consolidatedRun": {
+    "evidence": "backend/evidence/verification.json",
+    "exitCode": 1,
+    "changedInputs": [],
+    "backendPassed": 2058,
+    "backendFailed": 44,
+    "backendSkipped": 23,
+    "normalChecksPassed": 113,
+    "normalChecksFailed": [
+      "backend-tests"
+    ],
+    "mainBrowserWasSkipped": true
+  },
+  "followUp": [
+    {
+      "id": "all-failed-source-fixture-files",
+      "files": 8,
+      "testsPassed": 64,
+      "testsSkipped": 0,
+      "maxWorkers": 2,
+      "status": "passed"
+    },
+    {
+      "id": "complete-main-browser-suite",
+      "testsPassed": 52,
+      "workers": 1,
+      "status": "passed"
+    },
+    {
+      "id": "source-pricing-fixture-typecheck",
+      "status": "passed"
+    },
+    {
+      "id": "gift-issuance-fixture-typecheck",
+      "status": "passed"
+    },
+    {
+      "id": "changed-typescript-lint",
+      "status": "passed"
+    },
+    {
+      "id": "exchange-patch-generator",
+      "status": "passed",
+      "patchBytesUnchanged": true
+    }
+  ],
+  "pinnedApiSource": {
+    "commit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+    "kind": "Independent clean local Git clone; original working tree untouched.",
+    "originalCommitAndByteChecksPreserved": true
+  },
+  "limitations": [
+    "This is focused follow-up evidence, not a new passing consolidated snapshot.",
+    "Full legacy parity, current Windows native result and external release requirements remain unverified."
+  ],
+  "checksums": {
+    "backend/tests/administration/ecommerce-sync/bridge.mysql.test.ts": "372671b94f352888ee3d10214d88e2ab8a38b3a0100a44e3a77250324983ef1a",
+    "backend/tests/checkout/customer-context.test.ts": "98b28864f072433eed3300115cba67523cd9749c9ab134f8c8028b5fac3c3f31",
+    "backend/tests/checkout/gift-issuance.mysql.integration.test.ts": "d4d6380616e2b15d7a42ea316c8bfe15461b695ca53546bffc4dfc6a72fbaebf",
+    "backend/tests/checkout/offline-cash-import.mysql.integration.test.ts": "e366656f79032c909f462dc5c56021373a4227d174ca797b3bd15abbbb36041d",
+    "backend/tests/checkout/offline-cash-source-pricing.mysql.integration.test.ts": "49eddc9d693eed4e12e427d0420cb38dac1bd09b8519f826808d6b2728c4865a",
+    "backend/tests/checkout/offline-cash-source-pricing.test.ts": "96484cebbfe5c2fc974b48d5b513ddb1bfa7bb2c4d1401ae3989d853d0519d08",
+    "backend/tests/checkout/pending-cancellation-source.test.ts": "0a39b67e63c5df5b7dde9e98c37d7bbf25e14368a09054bf404b6378ba3203d5",
+    "backend/tests/legacy-import-tender/source.mysql.test.ts": "d5c63613421dc017a73f281f4f86ac01a9321a9874ce7d0fa0b20722568334e6",
+    "backend/tools/pinned-source-env.ts": "08b85d41709a5b480604ebbc67d05caf4e0bcc7d5ef14b649a5a1747e36a268a",
+    "backend/tools/checkout/offline-source-template-fixture.ts": "07b673f268f1221957945b1ef90d685f995eab1416b597517e0c7c1c946989b1",
+    "backend/compatibility/upstream/prepare_patches.py": "ba21824eb264562a1051e3c62b2ba7b1deef0909ad681fef00ed27196f1e6cf0",
+    "backend/compatibility/upstream/manifest.json": "7131317b95a1b7de3c966968b05cb1f7c4713aac396d6dd0a1c322301ffacb14",
+    "backend/compatibility/upstream/customer-context/prepare.py": "73f6f972a42f9743538b1d7faa43aa3b0a0362afb19fbc2b95148f8340e7419d",
+    "backend/compatibility/upstream/customer-context/test_customer_context.py": "e1a5b8f17f6b05c08cecc85e24b202aed4789cbf7719ebd247f186bffc95f96d",
+    "backend/compatibility/upstream/offline-cash-pricing/test_source_pricing.py": "743a8ded0aa7aa8042e99fae37f6bb48b75f74273eee50ccec2e3aa5da47c3e3",
+    "backend/compatibility/upstream/offline-cash-pricing/test_source_refund_query.py": "2c99d77a297641d9494a8df3e6096ed62d3ea57eebc6e78f5a390a643c7a9c5e",
+    "backend/compatibility/upstream/legacy-order-imports/tender-profile/native_vector.py": "e074dcb9bd4bca2605b3b356f0feb12279b683bdde13e8eb38665f35fd817423",
+    "backend/tools/checkout/screening_cancellation_oracle.py": "31cdfd0c1759822c04e0e9a74922a58707f2f1889a9cf7e3bf82a0aba69e6fa7",
+    "backend/tools/administration/ecommerce-sync/bridge-oracle.py": "8309f2825dbee07bd951c4922ba03facd911bc49b704d2e4cf75b9a8f1e8957b",
+    "backend/tools/administration/ecommerce-sync/source_io_fixture.py": "3c5e0ab29055da04616dbb6e055d490014cf7693d3fdf19f4ed506d0d5d6a825",
+    "backend/tools/administration/ecommerce-sync/protocol_fixture.py": "ac7ab661e88140aef37dec9301922f98265299dfc9efc87959607e2214af9806",
+    "backend/package-lock.json": "f9720784789d7ca8b2780a671fe592776303701569f8d9f0f0e270e94a5a9e69",
+    "frontend/package-lock.json": "58672f2fc8fb9740e70b8cc935ffd42efd2ebcc866da42f0d43fec6f96b44ef9",
+    "backend/parity/legacy-inventory.json": "2893078e431fd66bf74661368e776b60fbce7a2125e8f00a6aeae9eac305c85a"
+  }
+}

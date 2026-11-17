@@ -6,6 +6,7 @@ import ast
 import copy
 import itertools
 import json
+import os
 import re
 import sqlite3
 import sys
@@ -28,7 +29,7 @@ from refund_query_candidate import (  # noqa: E402
     sha256,
 )
 
-ROOT = Path(__file__).resolve().parents[5] / "backend-tss-api_v2"
+ROOT = Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(Path(__file__).resolve().parents[5] / "backend-tss-api_v2")))
 FUNCTIONS = {
     "_round2",
     "_distribute_amount_to_be_refunded",

@@ -1,0 +1,309 @@
+{
+  "conclusion": "failure",
+  "databaseId": 44079638874,
+  "headSha": "6d8a4bc718743d5f2d3b3b5664e717260a79d5d3",
+  "jobs": [
+    {
+      "name": "Desktop on macos-latest",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-11-17T12:03:56Z",
+      "completedAt": "2026-11-17T12:11:52Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npx playwright install chromium",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run typecheck",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test -- --maxWorkers=2",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native Electron and offline browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Browser sign-in, customer and order recovery",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Ecommerce settings and stock recovery",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Scoped invoice browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Historical order browsing and checkout copy recovery",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Historical CSV job recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Manager import correction validation",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Manager import correction recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Historical order reader browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Whole-order fulfillment recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rejected-return repair recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Source order-list filters, formatter and queues",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Recorded cash correction recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package unsigned review artifact on its target OS",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify packaged integrity, native restart, sandbox and offline profile",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain review artifacts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Desktop on windows-latest",
+      "status": "completed",
+      "conclusion": "failure",
+      "startedAt": "2026-11-17T12:03:56Z",
+      "completedAt": "2026-11-17T12:14:42Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npx playwright install chromium",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run typecheck",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test -- --maxWorkers=2",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native Electron and offline browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Browser sign-in, customer and order recovery",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Ecommerce settings and stock recovery",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Scoped invoice browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Historical order browsing and checkout copy recovery",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Historical CSV job recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Manager import correction validation",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Manager import correction recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Historical order reader browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Whole-order fulfillment recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Rejected-return repair recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Source order-list filters, formatter and queues",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Recorded cash correction recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package unsigned review artifact on its target OS",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Verify packaged integrity, native restart, sandbox and offline profile",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Retain review artifacts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/thesouledstore-tss/pos/actions/runs/44079638874",
+  "productionReady": false,
+  "scope": "macOS passed all native steps. Windows passed native Electron/offline checks and failed five later existing-order payment-recovery browser cases; investigation remains active. No passing Windows release result is claimed."
+}

@@ -2,11 +2,11 @@
   "sources": {
     "api-v2": {
       "commit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
-      "path": "/Users/rishabhbhatia/code/backend-tss-api_v2"
+      "repository": "backend-tss-api_v2"
     },
     "payments": {
       "commit": "434f3e438d1cb48c64e5723222c6efda506db571",
-      "path": "/Users/rishabhbhatia/code/security-scans-20261113/backend-tss-domestic_payments_api"
+      "repository": "backend-tss-domestic_payments_api"
     }
   },
   "contract": "pos-exchange-stock-v1",

@@ -1,5 +1,6 @@
 import { splitMigration } from '../../src/db/migrations.js';
 import { execFileSync } from 'node:child_process';
+import { pinnedSourceEnvironment } from '../../tools/pinned-source-env.js';
 import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -202,6 +203,7 @@ describe.skipIf(!integration)(
               encoding: 'utf8',
               timeout: 30000,
               env: {
+                ...pinnedSourceEnvironment(),
                 PATH: process.env.PATH,
                 HOME: process.env.HOME,
                 UV_PROJECT_ENVIRONMENT: join(tmpdir(), 'pos-offline-pricing-runtime'),

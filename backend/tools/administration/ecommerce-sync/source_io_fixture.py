@@ -3,6 +3,7 @@ import ast
 import datetime
 import enum
 import json
+import os
 import warnings
 from http import HTTPStatus
 from pathlib import Path
@@ -10,7 +11,7 @@ from types import ModuleType, SimpleNamespace
 from source_runner import instrument, Tracker
 from contract import SyncError
 warnings.filterwarnings('ignore', category=SyntaxWarning)
-SOURCE = Path('/Users/rishabhbhatia/code/backend-tss-api_v2')
+SOURCE = Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(Path(__file__).resolve().parents[5] / 'backend-tss-api_v2')))
 
 
 def stock_reader_fixture(read_only=0):

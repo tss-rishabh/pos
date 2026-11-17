@@ -6,13 +6,14 @@ import argparse
 import difflib
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parent
 WORKSPACE = ROOT.parents[3]
 TARGETS = {
-    'api-v2': (WORKSPACE / 'backend-tss-api_v2', '2960acbea10c4eaf16b6d99e15ff6e03ef7724c5'),
+    'api-v2': (Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(WORKSPACE / 'backend-tss-api_v2'))), '2960acbea10c4eaf16b6d99e15ff6e03ef7724c5'),
     'payments': (WORKSPACE / 'security-scans-20261113/backend-tss-domestic_payments_api', '434f3e438d1cb48c64e5723222c6efda506db571'),
 }
 
@@ -96,7 +97,11 @@ class PosExchangeOrder():''')
     go_patch=diff('juspay/Order.go', original_go, go)
     for target, path in [('internal/posstock/stock.go',ROOT/'go/internal/posstock/stock.go'),('internal/posstock/stock_test.go',ROOT/'go/internal/posstock/stock_test.go'),('juspay/pos_exchange_http.go',ROOT/'payload/juspay/pos_exchange_http.go')]:
         go_patch+=diff(target,None,path.read_text())
-    manifest={'sources':{key:{'commit':value[1],'path':str(value[0])} for key,value in TARGETS.items()},'contract':'pos-exchange-stock-v1','patches':{name:hashlib.sha256(value.encode()).hexdigest() for name,value in [('api-v2-pos-exchange.patch',api_patch),('payments-pos-exchange.patch',go_patch)]}}
+    # Artifact identity is the reviewed repository+commit, not this machine's
+    # checkout location. Alternate immutable fixture roots reproduce the same
+    # patches without recording a developer path in deployment artifacts.
+    repositories={'api-v2':'backend-tss-api_v2','payments':'backend-tss-domestic_payments_api'}
+    manifest={'sources':{key:{'commit':value[1],'repository':repositories[key]} for key,value in TARGETS.items()},'contract':'pos-exchange-stock-v1','patches':{name:hashlib.sha256(value.encode()).hexdigest() for name,value in [('api-v2-pos-exchange.patch',api_patch),('payments-pos-exchange.patch',go_patch)]}}
     artifacts = {ROOT/'patches/api-v2-pos-exchange.patch':api_patch,ROOT/'patches/payments-pos-exchange.patch':go_patch,ROOT/'manifest.json':json.dumps(manifest,indent=2)+'\n'}
     for path, content in artifacts.items():
         if write:

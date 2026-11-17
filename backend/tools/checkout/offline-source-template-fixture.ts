@@ -1,5 +1,6 @@
 /** Only synthetic evidence in an explicit isolated localhost schema. No live service calls. */
 import { execFileSync } from 'node:child_process';
+import { pinnedSourceEnvironment } from '../pinned-source-env.js';
 import { generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
@@ -196,6 +197,7 @@ export async function nativeSourceCashTemplate(
         encoding: 'utf8',
         timeout: 30_000,
         env: {
+          ...pinnedSourceEnvironment(),
           PATH: process.env.PATH,
           HOME: process.env.HOME,
           UV_PROJECT_ENVIRONMENT: join(tmpdir(), 'pos-offline-pricing-runtime'),

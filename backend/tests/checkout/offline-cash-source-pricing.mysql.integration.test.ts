@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process';
+import { pinnedSourceEnvironment } from '../../tools/pinned-source-env.js';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
 import { tmpdir } from 'node:os';
@@ -94,7 +95,11 @@ describe.skipIf(!integration)('source offline cash tax projection on native MySQ
         JSON.parse(
           execFileSync('python3', [script, '--tax-plan'], {
             encoding: 'utf8',
-            env: { PATH: process.env.PATH, PYTHONDONTWRITEBYTECODE: '1' },
+            env: {
+              ...pinnedSourceEnvironment(),
+              PATH: process.env.PATH,
+              PYTHONDONTWRITEBYTECODE: '1',
+            },
             timeout: 10_000,
           }),
         ),
@@ -231,7 +236,12 @@ describe.skipIf(!integration)('source offline cash tax projection on native MySQ
       ),
     );
     const child = spawn('python3', [script, '--native-snapshot'], {
-      env: { PATH: process.env.PATH, PYTHONDONTWRITEBYTECODE: '1', PYTHONWARNINGS: 'ignore' },
+      env: {
+        ...pinnedSourceEnvironment(),
+        PATH: process.env.PATH,
+        PYTHONDONTWRITEBYTECODE: '1',
+        PYTHONWARNINGS: 'ignore',
+      },
       stdio: ['pipe', 'pipe', 'pipe'],
     });
     const exited = new Promise<number | null>((resolve, reject) => {
@@ -316,6 +326,7 @@ describe.skipIf(!integration)('source offline cash tax projection on native MySQ
                 encoding: 'utf8',
                 timeout: 30_000,
                 env: {
+                  ...pinnedSourceEnvironment(),
                   PATH: process.env.PATH,
                   HOME: process.env.HOME,
                   UV_PROJECT_ENVIRONMENT: join(tmpdir(), 'pos-offline-pricing-runtime'),

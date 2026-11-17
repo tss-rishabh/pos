@@ -6,9 +6,10 @@ an authoritative denial for the source's stated ticket non-cancellation intent.
 import ast
 import hashlib
 import json
+import os
 from pathlib import Path
 
-repo=Path(__file__).resolve().parents[4]/'backend-tss-api_v2'
+repo=Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(Path(__file__).resolve().parents[4]/'backend-tss-api_v2')))
 controller=(repo/'controllers/OrderController.py').read_bytes()
 if hashlib.sha256(controller).hexdigest()!='821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad':
     raise RuntimeError('Pinned cancellation source changed')

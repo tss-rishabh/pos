@@ -167,7 +167,7 @@ class CustomerContextTests(unittest.TestCase):
     def test_actual_patched_auth_method_bypasses_cache_and_keeps_fresh_membership_context(self):
         import subprocess
         source = subprocess.check_output(["git", "show", "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5:middleware/AuthHandler.py"],
-                                         cwd=ROOT.parents[4] / "backend-tss-api_v2", text=True)
+                                         cwd=Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT', str(ROOT.parents[4] / "backend-tss-api_v2"))), text=True)
         auth_class = next(node for node in ast.parse(candidate(source)).body
                           if isinstance(node, ast.ClassDef) and node.name == "AuthHandler")
         namespace = dict(self.namespace)
