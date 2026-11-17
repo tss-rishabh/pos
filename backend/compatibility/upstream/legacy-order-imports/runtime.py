@@ -15,6 +15,16 @@ from uuid import UUID, uuid4
 from protocol import ImportReview,SOURCE_CONTRACT
 
 
+def _write_resource_event(stream,module,resource,event_id,request_id,user_id=None):
+    event={'module':module,'resource':resource,'eventId':event_id,
+           'eventInstanceId':str(uuid4()),'timestamp':datetime.now(timezone.utc).isoformat(),
+           'requestId':request_id,'userId':user_id}
+    try:
+        stream.write(json.dumps(event,separators=(',',':'))+'\n')
+        stream.flush()
+    except Exception: pass
+
+
 def _public_cache_emitter(stream):
     """Allow only fixed task events and opaque operator/request identifiers."""
     def emit(value):
@@ -28,13 +38,7 @@ def _public_cache_emitter(stream):
         except (TypeError,ValueError,AttributeError): request=str(uuid4())
         actor=value.get('userId')
         if not isinstance(actor,str) or not re.fullmatch(r'[1-9][0-9]{0,18}',actor): actor=None
-        event={'module':'public-screening','resource':'membership-cache','eventId':event_id,
-               'eventInstanceId':str(uuid4()),'timestamp':datetime.now(timezone.utc).isoformat(),
-               'requestId':request,'userId':actor}
-        try:
-            stream.write(json.dumps(event,separators=(',',':'))+'\n')
-            stream.flush()
-        except Exception: pass
+        _write_resource_event(stream,'public-screening','membership-cache',event_id,request,actor)
     return emit
 
 
@@ -125,7 +129,14 @@ def _create_application():
 
 
 def create_application():
+    stream=sys.stdout
+    request_id=str(uuid4())
     try:
-        return _create_application()
+        application=_create_application()
     except Exception:
+        _write_resource_event(stream,'legacy-order-imports','private-source-runtime',
+                              'legacy-order-imports.private-source-runtime.startup-failed',request_id)
         raise ImportReview('ORDER_IMPORT_SOURCE_UNAVAILABLE') from None
+    _write_resource_event(stream,'legacy-order-imports','private-source-runtime',
+                          'legacy-order-imports.private-source-runtime.started',request_id)
+    return application
