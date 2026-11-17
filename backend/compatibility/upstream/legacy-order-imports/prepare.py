@@ -140,6 +140,9 @@ def outputs():
                 'screening_counter.py','screening_preparation.py','screening_profile.py','screening_counter.go',
                 'screening_counter_definition.go','screening-counter-definition.json','screening-counter.review.sql',
                 'screening-counter-writers.review.sql','screening-counter-bigquery.review.sql','screening-counter-grants.review.sql')}},
+        'otherOriginCredits':{'contract':'pos-screening-origins-v1','activated':False,
+            'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
+                'screening_origin_pending.py','screening_profile.py')}},
         'publicBenefitBindingAbi':{'contract':'pos-node-screening-benefits-v1','activated':False,
             'scope':'optional immutable source descriptor/intent binding only; native asset/funding gates retained',
             'goSha256':hashlib.sha256((HERE/'public_screening_benefits.go').read_bytes()).hexdigest()},

@@ -8,15 +8,16 @@
     "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad"
   },
   "candidate": {
-    "main.py": "e724e075af87a963865cf3b8972546a24f2e8a136b9ac58b309d999b41ea5d31",
+    "main.py": "19e478a9c915013196a04fcc1093259ecb94da4f950d5bef5db06daa3c3c84cd",
     "middleware/PosImportOrderGuard.py": "1c82e092914b5797f3a18629016443739c272a73a406240d29bb148a8ff5ab71",
     "controllers/OrderController.py": "d6889729a1d858512a76a3cd3aee12ce80af6a9e4125aca35237b03e1af3609e",
-    "pos_node_screening.py": "a199bb17fa41d72824ef8a371e4ee614def6271f97e75eb37c97e8912aa723a5"
+    "pos_node_screening.py": "a199bb17fa41d72824ef8a371e4ee614def6271f97e75eb37c97e8912aa723a5",
+    "pos_screening_origins.py": "8f9a092b7d5ad61699ca85bdb2454e542e2ed144b4b1c40752419f2f0107911d"
   },
   "files": {
     "writer_protocol.py": "48d4ad25cb610164af043e43c398060c764634482b277cbcbbd692430d98507d",
     "native_authority.py": "6735ea187883428567ecf2a112aea5282106d08daf474219554eeee1bffac3ea",
-    "creation.py": "8ecbec16066728e3bc496fc7aeecfa9af7741b915eda16fdcfb4a524a7f8bb9a",
+    "creation.py": "2ff2ffcbe3186c8f6c151fac8e842a2ac4846e11e5f5f170e4e56c586375e859",
     "source_frame.py": "1cf58c2929907adfd0361774543ea92768151a52bb7db4fd29f5825aea916b7e",
     "bootstrap.py": "f2d84f7d4896e75f529582bc27f5e614c27546e62776ce0c36d0d05084f063b9",
     "public_effects.py": "34dce2502289593c5e89afa284be33b0091edbaa066b0b385a4c7dfd18cfcfa9",
@@ -61,5 +62,39 @@
       "membership-history-writers.review.sql": "f21fd440ef9f3704e807e53d1b714939336d40964300ee0c26b16befb8367c93"
     }
   },
-  "patchSha256": "a5bcffa29ab257ef3eab26173a58575d141f020426195b5eeb359b1d1a0dc3f6"
+  "otherOrigins": {
+    "contract": "pos-screening-origins-v1",
+    "activated": false,
+    "apiCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+    "legacyCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+    "candidate": {
+      "main.py": "19e478a9c915013196a04fcc1093259ecb94da4f950d5bef5db06daa3c3c84cd",
+      "middleware/PosImportOrderGuard.py": "1c82e092914b5797f3a18629016443739c272a73a406240d29bb148a8ff5ab71",
+      "controllers/OrderController.py": "d6889729a1d858512a76a3cd3aee12ce80af6a9e4125aca35237b03e1af3609e",
+      "pos_node_screening.py": "a199bb17fa41d72824ef8a371e4ee614def6271f97e75eb37c97e8912aa723a5",
+      "pos_screening_origins.py": "8f9a092b7d5ad61699ca85bdb2454e542e2ed144b4b1c40752419f2f0107911d"
+    },
+    "files": {
+      "customer-command.mjs": "81c9c496211dee509f86219c82832e410c6c11f068b24f0dffb04116e1d15e82",
+      "history-heads.review.sql": "677f9247a34889243a6db4d1c18ebf45c1556d7f539670c7b5e2d54a7b450d75",
+      "history-publication.review.sql": "a3d3c27d3ccba9634ec5aaa384b4e8d2f5cbbacd4a16150dc6b5e23edb96b833",
+      "history_capture.py": "02e75dc429236c5882dd9a70e9feb77cc412087e4936fcab8d2fdd160911d42e",
+      "legacy_client.py": "c2d457e5a39ea300c0f3ba07aab03ec7c3ef5ca103e70913725b77d55370fff7",
+      "legacy_execution.py": "ca19d7eeec727f5e34f9638d794774fc855592367d30a7874addf6211eb1fdfe",
+      "legacy_staff.py": "a99d4d4cba303358b2659a68b5e3aaec4e8802c79ec0cca686e12642d39147ce",
+      "migration.sql": "c284515eeaa25c2999a3d4126e6a557c57586b5392dadc938808e2d94afc8ffa",
+      "origin_auth.py": "adf30f74601915903002818f39e3586b46a1f413ecb3518b6f00d5d8408af163",
+      "origin_bootstrap.py": "8f0686dae5d5f39212ef018386301873377b98460b1ca40a86814adc88f5c587",
+      "origin_contracts.py": "b9039b0edd0e3cca7126e6d430b206785da4833476c5ad1e76e4d131e9ad7e8f",
+      "origin_effects.py": "0e847f020bf1497a6e5efaaf2a27a95b219d5e70488369c19b2f1239750247a9",
+      "origin_frame.py": "44f633c3281a600962bfe7535c223c8e26a44c2f114cf389c98605f56ae14525",
+      "origin_history.py": "a6f910d0b17b9e70b3280cacd54b09c759b07188141fb8fdf7f0fb7dd9a0b0a5",
+      "origin_history_http.py": "caa4e05a1cf7da887ce70e0a1d258c52a0e56bedffa1db43b7ab54904d4dc7bd",
+      "origin_ledger.py": "460256790a9f7ccfb48c2c2747bc373e9f94901a458d61661b76eb2319e9fec4",
+      "origin_resource.py": "69e6dd6bc6946db61f9c6c5e08a88ca5a00012381c3a6f0076c5f2c0b9fdfc1b",
+      "prepare.py": "a0f534a8ce705876b50b20e56ba7d2fde7ae3f5e1ed44f8a79b973bc4bb786e2",
+      "source_hooks.py": "6253184d04cee9fd4b357babb4e25ee6f2cc97cc7d3533c021c5844460cf9fbd"
+    }
+  },
+  "patchSha256": "dc9245d20b835096b08edcae2134da2b40a55d4f7fea6f837973c4e823ebe0fd"
 }

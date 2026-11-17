@@ -1,0 +1,143 @@
+--- a/order/views.py
++++ b/order/views.py
+@@ -2876,7 +2876,19 @@
+         if not end_user_cart:
+             payload.update({"tab_id":tab_id})
+ 
+-        return requests.post(url, json=payload, headers=headers)
++        from pos_screening_origin_legacy import order_headers as screening_headers, original_response as screening_response, command_created
++        prepared = screening_headers(self.request, auth_token, payload, url)
++        if prepared and prepared.get('recovered'):
++            command_created(prepared['commandId'], prepared['recovered']['order'])
++            return screening_response(prepared['recovered'])
++        if prepared:
++            headers.update(prepared['headers'])
++        else:
++            return requests.post(url, json=payload, headers=headers)
++        result = requests.post(url, json=payload, headers=headers, timeout=(5, 30), allow_redirects=False)
++        if prepared and result.status_code == 200:
++            command_created(prepared['commandId'], result.json()['order'])
++        return result
+     
+     def orders(self, auth_token, order, method, isValid, name, store_id):
+         url = PAYMENT_MICROSERVICE_ORDER_URL
+@@ -2894,7 +2906,8 @@
+             "store_id" : store_id
+         }
+            
+-        return requests.post(url, json=payload, headers=headers)
++        from pos_screening_origin_legacy import payment as screening_payment
++        return screening_payment(self.request, auth_token, payload, url)
+ 
+ 
+ class AjaxOrderCancelView(LoginRequiredMixin, View):
+@@ -5585,4 +5598,6 @@
+         try:
+             return datetime.datetime.strptime(raw, self.DATETIME_FMT)
+         except ValueError:
+-            return None+            return None
++from pos_screening_origin_legacy import install as _install_screening_origins
++_install_screening_origins(globals())
+--- a/users/views.py
++++ b/users/views.py
+@@ -171,6 +171,8 @@
+     def get(self, request):
+         user_id = request.user.id
+         if user_id:
++            from pos_screening_origin_legacy import revoke
++            revoke(user_id)
+             list_keys = redis_instance.keys('check_in_list_*')
+             for key in list_keys:
+                 redis_instance.lrem(key,0,user_id)
+@@ -1122,23 +1124,32 @@
+         password = req_data.get("password", "")
+         pos_otp = req_data.get("pos_otp", "")
+         auth_check = False
++        authenticated_user = None
+         if MPOS_QR_TAKE_PASSWORD:
+             user = authenticate(username=email, password=password)
+             if user:
+                 auth_check = self.mpos_check_otp(user.id, pos_otp)
++                if auth_check:
++                    authenticated_user = user
+         else :
+             if pos_otp:
+                 user_obj = User.objects.filter(email=email).first()
+                 if user_obj:
+                     auth_check = self.mpos_check_otp(user_obj.id, pos_otp)
++                    if auth_check:
++                        authenticated_user = user_obj
+             elif password:
+                 auth_check = authenticate(username=email, password=password)
++                if auth_check:
++                    authenticated_user = auth_check
+             
+         if auth_check:
+-            return HttpResponse(
++            response = HttpResponse(
+                 json.dumps({"status": "success", "message": str(email), "is_authenticated": True}),
+                 content_type='application/json'
+             )
++            from pos_screening_origin_legacy import authenticated_mpos
++            return authenticated_mpos(request, response, authenticated_user)
+         
+         return HttpResponse(
+             json.dumps({"status": "failed", "message": "No user found", "is_authenticated": False}),
+--- a/helpers/helpers.py
++++ b/helpers/helpers.py
+@@ -799,6 +799,8 @@
+         st_obj = Store.objects.filter(id=check_in_store).first()
+         if st_obj:
+             store_name = st_obj.store_name
++        from pos_screening_origin_legacy import revoke
++        revoke(user_id)
+         value = [check_in_store, store_name]
+         key = f"check_in_{user_id}"
+         l_key = f"check_in_list_{check_in_store}"
+--- /dev/null
++++ b/pos_screening_origin_legacy.py
+@@ -0,0 +1,44 @@
++"""Selected-only original legacy authority/nonce hooks."""
++import os
++import sys
++from pathlib import Path
++def selected():return os.environ.get('POS_SCREENING_ORIGIN_CONTRACT')=='pos-screening-origins-v1'
++def modules():
++    root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()
++    for name in ('public-screening-writer','screening-origins'):sys.path.insert(0,str(root/name))
++def install(namespace):
++    if selected():
++        modules()
++        from legacy_execution import install as apply
++        apply(namespace)
++def authenticated_mpos(request,response,user):
++    if not selected():return response
++    modules()
++    from legacy_staff import after_mpos_authentication
++    return after_mpos_authentication(request,response,user)
++def revoke(actor_id):
++    if selected():
++        modules()
++        from legacy_staff import revoke_actor
++        revoke_actor(actor_id)
++def order_headers(*args,**kwargs):
++    if not selected():return {}
++    modules()
++    from legacy_client import headers
++    return headers(*args,**kwargs)
++def original_response(*args,**kwargs):
++    modules()
++    from legacy_client import response
++    return response(*args,**kwargs)
++def command_created(*args):
++    if selected():
++        modules()
++        from legacy_execution import command_created as created
++        return created(*args)
++def payment(request,token,body,url):
++    if not selected():
++        import requests
++        return requests.post(url,json=body,headers={'Content-Type':'application/json','Authorization':token})
++    modules()
++    from legacy_client import payment as submit
++    return submit(request,token,body,url)

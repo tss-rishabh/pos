@@ -1,0 +1,40 @@
+{
+  "contract": "pos-screening-origins-v1",
+  "activated": false,
+  "apiCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "legacyCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "candidate": {
+    "order/views.py": "24d3b00f8d9584c5ee7e5fdce721b719e07df4c6e95a49f0d0df905fa2300e8f",
+    "users/views.py": "0b613341989600ae26ab4ac306116200febdbdee9b0f808c2e7f8f73edd1ee01",
+    "helpers/helpers.py": "d85bccf9e614f171e5bb10d860b0611ae65e2d8d19a74ff8e5c577f754176e2d",
+    "pos_screening_origin_legacy.py": "52f2d0fd664c21ef1d6770ac84a6b72e3fd46dd907373cbca351b4a4a92e283d"
+  },
+  "scope": "original legacy Django/MPos caller",
+  "base": {
+    "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+    "users/views.py": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0",
+    "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0"
+  },
+  "patchSha256": "fb03587bbc2a79c36f0e21d8bbb29471a8fd119fa0cca94d750a6caafa1e70be",
+  "files": {
+    "customer-command.mjs": "81c9c496211dee509f86219c82832e410c6c11f068b24f0dffb04116e1d15e82",
+    "history-heads.review.sql": "677f9247a34889243a6db4d1c18ebf45c1556d7f539670c7b5e2d54a7b450d75",
+    "history-publication.review.sql": "a3d3c27d3ccba9634ec5aaa384b4e8d2f5cbbacd4a16150dc6b5e23edb96b833",
+    "history_capture.py": "02e75dc429236c5882dd9a70e9feb77cc412087e4936fcab8d2fdd160911d42e",
+    "legacy_client.py": "c2d457e5a39ea300c0f3ba07aab03ec7c3ef5ca103e70913725b77d55370fff7",
+    "legacy_execution.py": "ca19d7eeec727f5e34f9638d794774fc855592367d30a7874addf6211eb1fdfe",
+    "legacy_staff.py": "a99d4d4cba303358b2659a68b5e3aaec4e8802c79ec0cca686e12642d39147ce",
+    "migration.sql": "c284515eeaa25c2999a3d4126e6a557c57586b5392dadc938808e2d94afc8ffa",
+    "origin_auth.py": "adf30f74601915903002818f39e3586b46a1f413ecb3518b6f00d5d8408af163",
+    "origin_bootstrap.py": "8f0686dae5d5f39212ef018386301873377b98460b1ca40a86814adc88f5c587",
+    "origin_contracts.py": "b9039b0edd0e3cca7126e6d430b206785da4833476c5ad1e76e4d131e9ad7e8f",
+    "origin_effects.py": "0e847f020bf1497a6e5efaaf2a27a95b219d5e70488369c19b2f1239750247a9",
+    "origin_frame.py": "44f633c3281a600962bfe7535c223c8e26a44c2f114cf389c98605f56ae14525",
+    "origin_history.py": "a6f910d0b17b9e70b3280cacd54b09c759b07188141fb8fdf7f0fb7dd9a0b0a5",
+    "origin_history_http.py": "caa4e05a1cf7da887ce70e0a1d258c52a0e56bedffa1db43b7ab54904d4dc7bd",
+    "origin_ledger.py": "460256790a9f7ccfb48c2c2747bc373e9f94901a458d61661b76eb2319e9fec4",
+    "origin_resource.py": "69e6dd6bc6946db61f9c6c5e08a88ca5a00012381c3a6f0076c5f2c0b9fdfc1b",
+    "prepare.py": "a0f534a8ce705876b50b20e56ba7d2fde7ae3f5e1ed44f8a79b973bc4bb786e2",
+    "source_hooks.py": "6253184d04cee9fd4b357babb4e25ee6f2cc97cc7d3533c021c5844460cf9fbd"
+  }
+}

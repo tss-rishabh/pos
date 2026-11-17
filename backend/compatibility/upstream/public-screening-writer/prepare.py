@@ -54,6 +54,10 @@ def outputs():
     changes.update({'main.py':(original,main),'controllers/OrderController.py':(controller,controller_candidate)})
     entry='''"""Installed only with the reviewed source bundle and explicit contracts."""\nimport os\nimport sys\nfrom pathlib import Path\n_module_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()\nsys.path.insert(0,str(_module_root/'legacy-order-imports'))\nsys.path.insert(0,str(_module_root/'offline-cash-pricing'))\nsys.path.insert(0,str(_module_root/'public-screening-writer'))\nfrom bootstrap import Bootstrap,after_validate\ndef install(main_file):return Bootstrap(Path(main_file).resolve().parent)\n'''
     changes['pos_node_screening.py']=('',entry)
+    origins=HERE.parent/'screening-origins'
+    sys.path.insert(0,str(origins))
+    from source_hooks import api_changes,manifest as origin_manifest
+    changes=api_changes(changes)
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+name if old else '/dev/null',tofile='b/'+name)) for name,(old,new) in changes.items())
     files=('writer_protocol.py','native_authority.py','creation.py','source_frame.py','bootstrap.py','public_effects.py','publication_resource.py','negative.py','negative_resource.py','migration.review.sql')
     benefit_files=('benefit_preparation.py','membership_history_heads.py','public_benefit_cache.py','public_benefits.py',
@@ -72,6 +76,9 @@ def outputs():
                     'screening_counter.py','screening_preparation.py','screening-counter-definition.json','screening-counter.review.sql')}},
               'benefits':{'contract':'pos-node-screening-benefits-v1','activated':False,
                 'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in benefit_files}},
+              'otherOrigins':{**origin_manifest(changes),
+                'files':{path.name:hashlib.sha256(path.read_bytes()).hexdigest()
+                         for path in sorted(origins.iterdir()) if path.suffix in ('.py','.sql','.mjs')}},
               'patchSha256':hashlib.sha256(patch.encode()).hexdigest()}
     return {'public-pos-screening.patch':patch,'manifest.json':json.dumps(manifest,indent=2)+'\n'}
 

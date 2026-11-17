@@ -152,7 +152,7 @@
     "files": {
       "screening_counter.py": "4c8c4842cbe59c0e8d5832658fc5c785c990bb641e3d2b86cac78a842317199c",
       "screening_preparation.py": "99a9bbc48f1eafa10d68ebfeb266b7cc262f7d86323884e8f4f1b9257c032762",
-      "screening_profile.py": "a28b59a00001e67b5493b514d2b15e72cc107f083c8d6f2027457b4d8b8ff4ce",
+      "screening_profile.py": "b1bccfc7f2a5b1ee199da693541b692571ee18acd5c330bf49c3e3c7e1086f6d",
       "screening_counter.go": "b6f1752bffb23a6459f4def6b076512903dac604acf634959b40ad7e0a639f93",
       "screening_counter_definition.go": "c595071549546f8b3338c1ef29ce97dc18e19b69b80883ab848405ff06097591",
       "screening-counter-definition.json": "e865eee795ed04746d1a63fbcfa016bfa8f3c2595f6454ea13105d117cb6c84b",
@@ -160,6 +160,14 @@
       "screening-counter-writers.review.sql": "d5109fa2c2ec514cf5c556971e4a2e2f53c4df3dfa8b03b300bd4ad10c88ef7b",
       "screening-counter-bigquery.review.sql": "8a579c405a63ae0078d1771cda1f00e5b0cd0ee8065613a2111fba52ef8cac3c",
       "screening-counter-grants.review.sql": "5921f4cec11a27236595e595ec7b07c4daaf639de2b12ab2420318b3023a5d08"
+    }
+  },
+  "otherOriginCredits": {
+    "contract": "pos-screening-origins-v1",
+    "activated": false,
+    "files": {
+      "screening_origin_pending.py": "f173d528df7208fc9f05c8a1ce410dd604c551ebc7738fe7beb040a8c5055413",
+      "screening_profile.py": "b1bccfc7f2a5b1ee199da693541b692571ee18acd5c330bf49c3e3c7e1086f6d"
     }
   },
   "publicBenefitBindingAbi": {

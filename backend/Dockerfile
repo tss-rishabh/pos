@@ -41,6 +41,7 @@ COPY src/modules/legacy-order-imports/authority-succession/*.sql ./src/modules/l
 COPY src/modules/legacy-order-imports/membership-profile/*.sql ./src/modules/legacy-order-imports/membership-profile/
 COPY compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql ./compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql
 COPY compatibility/upstream/ordinary/migration.sql ./compatibility/upstream/ordinary/migration.sql
+COPY compatibility/upstream/screening-origins/migration.sql ./compatibility/upstream/screening-origins/migration.sql
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql
 COPY src/modules/legacy-fulfillment/migration.sql ./src/modules/legacy-fulfillment/migration.sql

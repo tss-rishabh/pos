@@ -10,7 +10,7 @@
  from controllers import (ArtistsSync, AuthController, CancelDuplicateCouponOrder, CancelDuplicateVoucher, CartController,
                           CatalogController, CatalogSync, CategorySync,
                           CheckoutController, DgraphController, ProductSyncController,
-@@ -96,9 +99,12 @@
+@@ -96,9 +99,14 @@
                                  'http://dev.thesouledstore.ml', 'https://tss.now.sh', 'https://zeus-ssr.now.sh', 'https://zeus-ssr-git-menu.jibinthomas.now.sh', 'https://35.154.143.199', 'http://35.154.143.199','https://feedback.thesouledstore.com',
                                  ], allow_all_headers=True,
              allow_all_methods=True)
@@ -19,6 +19,8 @@
 -middleware = [DatabaseManager(db_session, db_session_r, mongoDb), BlacklistHandler(), AuthHandler(), JSONTranslator(), CartMiddleware(), WishlistMiddleware(),MultipartMiddleware(), ActiveCartMiddleware()]
 +(db_session, db_session_r) = _node_screening.routes(*make_sessions())
 +_node_screening.activate(vars(OrderController))
++from pos_screening_origins import install as _install_origins
++_screening_origins = _install_origins().activate(_node_screening, vars(OrderController))
 +
 +from middleware.PosImportOrderGuard import ImportOrderGuard
 +
@@ -26,7 +28,15 @@
  
  app = falcon.App(middleware=middleware)
  # app.add_error_handler(Exception, logging_error_handler)  # Disabled: unified JSON logger handles all exceptions
-@@ -553,7 +559,7 @@
+@@ -218,6 +226,7 @@
+ # Different Thank You Page API
+ app.add_route(settings.API_PREFIX + '/thank-you', UserController.ThankYou())
+ # Order
++_screening_origins.register(app, settings)
+ app.add_route(settings.API_PREFIX + '/order', OrderController.Order())
+ app.add_route(settings.API_PREFIX + '/exchange_order', ExchangeOrderController.ExchangeOrder())
+ app.add_route(settings.NEW_API_PREFIX + '/order', OrderController.OrderWithProductStatus())
+@@ -553,7 +562,7 @@
  app.add_route(settings.API_PREFIX + '/omnichannel-sendotp', AuthController.OmniChannelSendOtp())
  app.add_route(settings.API_PREFIX + '/store-discount-pg', DiscountController.StoreDiscountPG())
  app.add_route(settings.API_PREFIX + '/omnichannel-verifyotp', AuthController.OmniChannelVerifyOtp())
@@ -184,3 +194,14 @@
 +sys.path.insert(0,str(_module_root/'public-screening-writer'))
 +from bootstrap import Bootstrap,after_validate
 +def install(main_file):return Bootstrap(Path(main_file).resolve().parent)
+--- /dev/null
++++ b/pos_screening_origins.py
+@@ -0,0 +1,8 @@
++"""Purpose-specific original customer/staff/system writer installation."""
++import os
++import sys
++from pathlib import Path
++_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()
++sys.path.insert(0,str(_root/'screening-origins'))
++from origin_bootstrap import OriginBootstrap
++def install():return OriginBootstrap()
