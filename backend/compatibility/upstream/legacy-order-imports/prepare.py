@@ -24,12 +24,16 @@ def outputs():
     base=HERE.parent/'go/internal/poscheckout'
     changes={}
     before=(base/'confirmation.go').read_text()
-    after=once(before,'\titems, err := tx.QueryContext(ctx,',
-        '\tlegacyImport, err := lockLegacyImport(ctx, tx, orderID, userID, storeID, counterID)\n\tif err != nil { return Confirmation{}, err }\n\titems, err := tx.QueryContext(ctx,')
+    after=once(before,'\ttx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})',
+        '\ttx, importPrelude, err := beginImportConfirmation(ctx, db, orderID)')
+    after=once(after,'\titems, err := tx.QueryContext(ctx,',
+        '\tif err = validateImportConfirmation(ctx, tx, importPrelude, orderID, userID, storeID, counterID); err != nil { return Confirmation{}, err }\n\tlegacyImport, err := lockLegacyImport(ctx, tx, orderID, userID, storeID, counterID)\n\tif err != nil { return Confirmation{}, err }\n\tif err = checkScreeningConfirmation(ctx, tx, importPrelude, legacyImport, orderID); err != nil { return Confirmation{}, err }\n\titems, err := tx.QueryContext(ctx,')
+    after=once(after,'\tif err = applySafely(tx, apply); err != nil {',
+        '\tif err = beforeImportMutation(ctx, tx, importPrelude, legacyImport); err != nil { return Confirmation{}, err }\n\tif err = applySafely(tx, apply); err != nil {')
     # The sole new-proof COMMIT follows the source proof insertion. Existing
     # proof replay never creates a second import confirmation receipt.
     marker='\tif err = tx.Commit(); err != nil {\n\t\treturn Confirmation{}, err\n\t}\n\treturn confirmation(true,'
-    replacement='\tif err = recordLegacyImportConfirmation(ctx, tx, legacyImport, orderID); err != nil { return Confirmation{}, err }\n'+marker
+    replacement='\tif err = checkScreeningConfirmation(ctx, tx, importPrelude, legacyImport, orderID); err != nil { return Confirmation{}, err }\n\tif err = recordLegacyImportConfirmation(ctx, tx, legacyImport, orderID); err != nil { return Confirmation{}, err }\n'+marker
     after=once(after,marker,replacement)
     changes['internal/poscheckout/confirmation.go']=(before,after)
     before=(base/'privacy.go').read_text()
@@ -47,6 +51,7 @@ def outputs():
     changes['internal/poscheckout/effects.go']=(before,after)
     helper=(HERE/'legacy_import.go').read_text()+'\nconst LegacyImportHeaderSQL = '+json.dumps(HEADER)+'\n'
     changes['internal/poscheckout/legacy_import.go']=('',helper)
+    changes['internal/poscheckout/screening.go']=('',(HERE/'screening.go').read_text())
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+path if old else '/dev/null',tofile='b/'+path)) for path,(old,new) in changes.items())
     public_main=(SOURCE/'main.py').read_text()
     guarded_main=once(public_main,'middleware = [DatabaseManager(',
@@ -67,6 +72,10 @@ def outputs():
         'modelContract':'pos-import-source-model-v1',
         'sourceTransaction':{'contract':'pos-import-customer-first-snapshot-v1','activated':False,
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in ('screening_transaction.py','receiver.py')}},
+        'screening':{'contract':'pos-csv-screening-2960-v1','schema':'pos-screening-schema-v1',
+            'writers':'pos-screening-all-writers-v1','activated':False,
+            'count':'marker-first nonlocking under owned read-committed customer witness',
+            'physicalMetadataCommit':'34b2c65','goSha256':hashlib.sha256((HERE/'screening.go').read_bytes()).hexdigest()},
         'membership':{'contract':'pos-legacy-import-membership-v1','activated':False,
             'stagedContract':'pos-cancellation-membership-staged-v2',
             'activatedContract':'pos-cancellation-membership-provenance-v2',

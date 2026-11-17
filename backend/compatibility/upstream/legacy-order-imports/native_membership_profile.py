@@ -41,7 +41,7 @@ for node in ast.parse(source('libs/helper.py')).body:
 namespace.update(cache=SimpleNamespace(region_invalidate=lambda *_a,**_k:(_ for _ in ()).throw(AssertionError('precommit invalidation'))),get_exclusive_token=lambda *_a:None)
 kind=os.environ['POS_CSV_MEMBERSHIP_KIND'];upgrade=kind.endswith('upgrade');free=kind.endswith('auto-free') or kind.endswith('auto-history');history=kind.endswith('auto-history');free_value=1999 if history else 2300;shopify=kind.startswith('shopify')
 settings=SimpleNamespace(EXCLUSIVE_PRODUCT={} if upgrade else {'10':{'expiry_delta':90 if free else 365}},EXCLUSIVE_UPGRADE_PRODUCT={'10':{'expiry_delta':365}} if upgrade else {},FREE_EXCLUSIVE_PRODUCT=10)
-profile=MembershipProfile(HERE.parents[4]/'backend-tss-api_v2',settings)
+profile=MembershipProfile(Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT',str(HERE.parents[4]/'backend-tss-api_v2'))),settings)
 namespace=compile_writers(profile.root,namespace,profile.adapter)
 block=next(node for node in ast.walk(membership_order_tree(profile.root)) if isinstance(node,ast.With) and any(isinstance(item.context_expr,ast.Call) and isinstance(item.context_expr.func,ast.Name) and item.context_expr.func.id=='membership_order_stage' for item in node.items))
 code=compile(ast.Module(body=[block],type_ignores=[]),'<pinned-CSV-PosOrder-member-block>','exec')

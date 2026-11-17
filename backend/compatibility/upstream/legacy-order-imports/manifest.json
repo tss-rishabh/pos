@@ -9,12 +9,13 @@
     "internal/poscheckout/effects.go": "030d126e70372eb7a0d7213a6991125bdc948993689cd1c14bc5f141455863be"
   },
   "candidate": {
-    "internal/poscheckout/confirmation.go": "92281e810267446d6761a2d66a0740332c28bdabb03703a26bff837fb80cf24b",
+    "internal/poscheckout/confirmation.go": "bcaf35e4798dd6e934516959746e4bec9df6dc1b194c56f3ad6b3bb76aa1b7bd",
     "internal/poscheckout/privacy.go": "322dd6eae7955f2c7f4bcd35b8737dddd3f28116022097334e814e4d132a0c38",
     "internal/poscheckout/effects.go": "62b26ebc1a75b0cfc98b8691176a952c682cc0b14fae9af973f616a53c41233a",
-    "internal/poscheckout/legacy_import.go": "3f011c54ae31f4228c3b936ba6cbde5c87e517a22f747b3fff7db332f6ff9226"
+    "internal/poscheckout/legacy_import.go": "da788ccebf4620c8574a5d35471fbf971750fbb0aafea82f35911bf9f839a5c7",
+    "internal/poscheckout/screening.go": "9247c6fb5d60f36354585f244964007307cec92b9f87e4c8105a8050782534e3"
   },
-  "patchSha256": "621f658ef5c310414835864c27f2846c5e599a07fc69c78425f4af0f13115720",
+  "patchSha256": "558f1c772d28bed2a7de58f155bf2ed78af95f406a4a6a72a2e7eca02871978d",
   "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
   "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
   "sourceFiles": {
@@ -33,6 +34,15 @@
       "screening_transaction.py": "f05c13db2fb1ca65d6f0b073466c90b78e07ab56baa204868aeb5008235941b4",
       "receiver.py": "354228ca6a18f3f78b59ee246496644bfdc5a8d828065bc514c28de6543552f6"
     }
+  },
+  "screening": {
+    "contract": "pos-csv-screening-2960-v1",
+    "schema": "pos-screening-schema-v1",
+    "writers": "pos-screening-all-writers-v1",
+    "activated": false,
+    "count": "marker-first nonlocking under owned read-committed customer witness",
+    "physicalMetadataCommit": "34b2c65",
+    "goSha256": "9247c6fb5d60f36354585f244964007307cec92b9f87e4c8105a8050782534e3"
   },
   "membership": {
     "contract": "pos-legacy-import-membership-v1",

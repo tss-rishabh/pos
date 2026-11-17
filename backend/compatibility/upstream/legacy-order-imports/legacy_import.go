@@ -302,6 +302,9 @@ func recordLegacyImportConfirmation(ctx context.Context, tx *sql.Tx, c *importCa
 	if c == nil {
 		return nil
 	}
+	if c.IssuedAt > time.Now().UnixMilli() || c.ExpiresAt <= time.Now().UnixMilli() {
+		return ErrReview
+	}
 	key := os.Getenv("POS_LEGACY_IMPORT_PROOF_KEY")
 	if !ProjectionKeyValid(key, key) {
 		return ErrReview
