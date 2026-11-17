@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "rootDir": "../..", "noEmit": true },
+  "include": [
+    "../../src/modules/legacy-order-imports/membership-profile/bigquery.ts",
+    "../../src/modules/legacy-order-imports/membership-profile/bridge.ts",
+    "../../tests/legacy-order-imports/membership-bigquery*.ts",
+    "../../tests/legacy-order-imports/membership-bridge.test.ts",
+    "./membership-bigquery*.ts"
+  ]
+}
