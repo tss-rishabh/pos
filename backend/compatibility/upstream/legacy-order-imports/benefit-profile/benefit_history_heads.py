@@ -29,6 +29,11 @@ _READ = """SELECT kind,scope_id AS scopeId,CAST(revision AS CHAR) AS revision,
  FROM pos_rewrite_coupon_history_heads
  WHERE (kind='controls' AND scope_id='0') OR (kind='coupon' AND scope_id=:coupon)
  OR (kind='customer' AND scope_id=:customer) ORDER BY kind,scope_id LIMIT 4"""
+_CONTROL_READ = """SELECT kind,scope_id AS scopeId,CAST(revision AS CHAR) AS revision,
+ last_owner_nonce AS owner,CAST(owner_start_revision AS CHAR) AS start
+ FROM pos_rewrite_coupon_history_heads
+ WHERE (kind='controls' AND scope_id='0') OR (kind='coupon' AND scope_id=:coupon)
+ ORDER BY kind,scope_id LIMIT 3"""
 
 
 def _reject(code='ORDER_IMPORT_COUPON_HEADS_CHANGED'):
@@ -75,14 +80,18 @@ def _rows(session, sql, parameters=None, maximum=10):
         result.close()
 
 
-def _heads(session, scope, *, lock=False):
+def _heads(session, scope, *, lock=False, controls_only=False):
     # The transaction already owns X locks for heads its triggers changed.
     # Shared late locks fence foreign changes without serializing unrelated
     # coupon transactions through the unchanged global controls head.
-    values = _rows(session, _READ + (' FOR SHARE' if lock else ''),
-                   {'coupon': scope['couponId'], 'customer': scope['customerId']}, 3)
-    expected = [('controls', '0'), ('coupon', scope['couponId']), ('customer', scope['customerId'])]
-    if len(values) != 3: _reject()
+    parameters = {'coupon': scope['couponId']}
+    expected = [('controls', '0'), ('coupon', scope['couponId'])]
+    if not controls_only:
+        parameters['customer'] = scope['customerId']
+        expected.append(('customer', scope['customerId']))
+    values = _rows(session, (_CONTROL_READ if controls_only else _READ) + (' FOR SHARE' if lock else ''),
+                   parameters, len(expected))
+    if len(values) != len(expected): _reject()
     for value, (kind, identity) in zip(values, expected):
         if value['kind'] != kind or value['scopeId'] != identity: _reject()
         _revision(value['revision'])
@@ -190,8 +199,8 @@ class NativeCouponHistoryHeads:
                 _reject('ORDER_IMPORT_COUPON_HEADS_UNAVAILABLE')
         return self.manifest
 
-    def capture(self, session, supplied):
-        manifest, scope = self.assert_ready(), _scope(supplied)
+    def _identity(self, session):
+        manifest = self.assert_ready()
         if not isinstance(session, Session) or not session.in_transaction(): _reject()
         # Open each watched table without reading history. MDL prevents trigger
         # replacement between metadata qualification and the enclosing commit.
@@ -216,8 +225,19 @@ class NativeCouponHistoryHeads:
         _uuid(identity['serverUuid'])
         if not isinstance(identity['sourceSchema'], str) or not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]{0,63}', identity['sourceSchema']):
             _reject()
-        return {'writersContract': _CONTRACT, 'writersDefinitionHash': manifest['definitionHash'],
-                **identity, 'heads': _public_heads(_heads(session, scope))}
+        return {'writersContract': _CONTRACT, 'writersDefinitionHash': manifest['definitionHash'], **identity}
+
+    def capture(self, session, supplied):
+        scope = _scope(supplied)
+        return {**self._identity(session), 'heads': _public_heads(_heads(session, scope))}
+
+    def capture_controls(self, session, coupon_id):
+        """Global publisher metadata without inventing a financial operation."""
+        if (not isinstance(coupon_id, str) or not re.fullmatch(r'[1-9][0-9]{0,9}', coupon_id)
+                or int(coupon_id) > 2147483647):
+            _reject()
+        return {**self._identity(session),
+                'heads': _public_heads(_heads(session, {'couponId': coupon_id}, controls_only=True))}
 
     def head_hash(self, scope, witness):
         return seal('coupon-control-head', {'scope': scope, **{

@@ -37,7 +37,7 @@
       "private_cache.py": "9d8013157dc4e6c8babbe13a9dc20afba63229c5b4a7295ff0a0737d38a1d6ff",
       "cart_tracking.py": "e9d02a51fffc4b6d8973401dca21068eaa40be81ea6ab0e4ea37279487c4061a",
       "source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
-      "runtime.py": "892d134b3326d778187c565ed8db1c0aed891f5cfcd3e366b94086ab752eb9d9",
+      "runtime.py": "912baf9408988c037990f33cd785d06d58f5fe8a2f905bc721a51e076ad7f042",
       "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
       "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac",
       "transaction.py": "00f4487027742a96fc1f330187a065504e96a48bfe2dc9df110745cabb07658b",
@@ -75,7 +75,10 @@
       "benefit-profile/benefit_native.py": "5c982dd1b44ad569adddae3c2847b7bbbd1ab6786a6427cb4b4e1ab4d8a28918",
       "benefit-profile/benefit_runtime.py": "2d8fe33edff8029de18712e784a5e771047f7cf719d33c3ca747f71259c4974e",
       "benefit-profile/coupon_handoff.py": "c9839eef3216ed9a4ffda2693b9fef0508931b8b6bd86741c26fe37adb99bd25",
-      "benefit-profile/benefit_history_heads.py": "5e23eb8bd11f836aee15e5e647a35e77a6156486916b8836e9f37930970f3c4e",
+      "benefit-profile/benefit_history_heads.py": "7d811027e5199659ce5ed760b9bec7bca2a03233cf69915236730f155ad68462",
+      "benefit-profile/configuration_cache_snapshot.py": "cfd8f1b9fa914db1b01278ae1596ccc4b9d7d0475f0335b2a5c292a7743278ff",
+      "benefit-profile/coupon_generation_controls.py": "466ded658f371f9a1ba4ef79d38e6506e184a3a09456f5371c8dd26b990694b3",
+      "benefit-profile/coupon_generation_resource.py": "161a594919d3f3d3247e735dedbd0825b52c7ed48bc7635ab5b04503ed212c61",
       "benefit-profile/coupon-history-writers.review.json": "4221426d0def19fc05b16d33d5531fad681a48187342b925ec783d0c339eabb7"
     }
   },
@@ -111,7 +114,7 @@
       "native.py": "e980393f1949980d2c62f55e9c709d3151f0262b649a1d8647d642c53a2b3a77",
       "protocol.py": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea",
       "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
-      "runtime.py": "892d134b3326d778187c565ed8db1c0aed891f5cfcd3e366b94086ab752eb9d9"
+      "runtime.py": "912baf9408988c037990f33cd785d06d58f5fe8a2f905bc721a51e076ad7f042"
     }
   },
   "screening": {
@@ -148,7 +151,7 @@
       "native.py": "e980393f1949980d2c62f55e9c709d3151f0262b649a1d8647d642c53a2b3a77",
       "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
       "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac",
-      "runtime.py": "892d134b3326d778187c565ed8db1c0aed891f5cfcd3e366b94086ab752eb9d9",
+      "runtime.py": "912baf9408988c037990f33cd785d06d58f5fe8a2f905bc721a51e076ad7f042",
       "protocol.py": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea",
       "http_app.py": "b3b1905c59795de0ab953f172a95b8cb6f7752df459d6e61a685f5c4407b1b7a"
     },

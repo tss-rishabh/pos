@@ -1,0 +1,52 @@
+# Current source controls for coupon publication
+
+Implementation is complete in this change; parity and testing are deferred until
+the remaining feature/integration code is complete, following the user's work
+order. This document does not certify deployment or production readiness.
+
+The private source factory optionally mounts:
+
+```text
+GET /internal/pos/coupon-history/controls/current
+X-POS-Coupon-History-Controls-Key: <separate confidential caller key>
+```
+
+Enable it with `POS_COUPON_GENERATION_CONTROLS_CONTRACT` set to
+`pos-csv-coupon-generation-controls-v1` and
+`POS_COUPON_GENERATION_CONTROLS_KEY` set to an independent key. Both are required;
+the default is unselected. The caller key must differ from the source proof,
+import, customer-context, publication, negative-recovery, history and birthday
+guard keys. Serve this route only through the private authenticated ingress.
+
+The resource has no query, body, customer ID, order nonce, request hash or plan.
+It snapshots the source's two actual global Redis keys with bounded GET-only
+access before SQL. Literal source automatic/birthday control functions run
+against that frozen snapshot and bounded current coupon/settings reads. The
+original usage-count call stops before any historical SQL executes. Source
+fallback cache writes remain invocation-local and do not modify Redis.
+
+The writer snapshot is READ ONLY, repeatable read, and always rolled back. It
+checks the installed writer-definition bodies and reads the actual source
+server/schema plus controls/coupon head revisions. The current coupon input
+hash and the exact cache/settings combination use the existing source
+`coupon-configuration` signing purpose. The response is `{data, proofHash}`;
+the proof uses `coupon-generation-config` under the retained source proof key.
+
+The descriptor includes only its contract, coupon ID, configuration/input
+hashes, source zone/day/second, writer identity/definition, two heads, observation
+time and expiry. Expiry is bounded by 60 seconds and the source day boundary.
+Raw cache/settings values, coupon codes, credentials and personal data are not
+returned or logged. Resource events include the module/resource, event ID,
+event instance ID, request ID and a null user ID for this service operation.
+
+The background publisher derives its generic scope from this authenticated
+descriptor. Its separate writer-origin snapshot must recheck the descriptor
+before qualifying historical data. Checkout readers consume only prepublished
+generations; this endpoint neither calculates history nor refreshes a generation
+for a checkout request. Missing controls or writer coverage are unavailable
+states, never an inferred empty history.
+
+The shared private runtime mounts the resource after source construction, while
+validating its selector/key before database bootstrap. The source manifest
+includes all three new modules. No production keys, DDL, cache writes, warehouse
+writes or financial actions are executed by this implementation handoff.

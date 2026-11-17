@@ -36,6 +36,14 @@ def _create_application():
     from negative_resource import options as negative_options
     no_order_options=negative_options(os.environ,proof,(key,os.environ.get('TSS_POS_CUSTOMER_CONTEXT_KEY',''),
         os.environ.get('POS_PUBLIC_SCREENING_PUBLICATION_KEY','')))
+    sys.path.insert(0,str(Path(__file__).resolve().parent/'benefit-profile'))
+    from coupon_generation_resource import options as coupon_control_options
+    control_options=coupon_control_options(os.environ,proof,(
+        key,os.environ.get('TSS_POS_CUSTOMER_CONTEXT_KEY',''),
+        os.environ.get('POS_PUBLIC_SCREENING_PUBLICATION_KEY',''),
+        os.environ.get('POS_PUBLIC_SCREENING_NEGATIVE_KEY',''),
+        os.environ.get('POS_LEGACY_IMPORT_COUPON_HISTORY_KEY',''),
+        os.environ.get('POS_LEGACY_IMPORT_COUPON_GUARD_KEY','')))
     url=make_url(os.environ['POS_LEGACY_IMPORT_MYSQL_WRITER_URL'])
     ca=Path(os.environ['POS_LEGACY_IMPORT_MYSQL_CA_FILE']).resolve(strict=True)
     if url.drivername!='mysql+pymysql' or not all((url.host,url.username,url.password,url.database)) or url.query:
@@ -76,6 +84,10 @@ def _create_application():
         from negative_resource import resource as negative_resource,private_application as negative_application
         application=negative_application(negative_resource(factory,proof),no_order_options['key'],emit_stream,
                                          application,no_order_options['allowPost'])
+    if control_options is not None:
+        from coupon_generation_resource import resource as control_resource,private_application as control_application
+        application=control_application(control_resource(factory,proof,pipeline.benefits),
+                                        control_options['key'],emit_stream,application)
     return application
 
 
