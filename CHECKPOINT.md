@@ -104,6 +104,15 @@ remaining code is membership contact-reference recovery (consumed and staged)
 and the separate customer/staff/service/provider/cron writer-origin protocols.
 Their source deployment/credential acceptance remains distinct from code work.
 
+Consumed membership contact-reference proof is integrated from `00a9ed9` as
+`cea74db`, with registered additive reference/index migration, source helper
+hashing and ordinary producer/fence modules in the private/cache consumer image.
+It authenticates retained non-OTP contact commit/effect receipts and the original
+Go activation; routine OTP expiry does not remove those proof inputs. It makes
+no EAV move or new grant. The staged-provenance/Go activation view remains the
+next explicit code gap. Other origin adapters remain assigned. Source artifacts
+were regenerated; no test, worker, provider or database write was executed.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
