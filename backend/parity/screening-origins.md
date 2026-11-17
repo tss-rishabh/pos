@@ -55,7 +55,11 @@ Root integration hooks for this foundation:
   reviewable bytes, not edits to that checkout. Its nonce caller is installed
   only for the selected screening flow; existing plain calls remain unchanged.
 - Node history bridge export is `registerOriginHistoryBridge`; its producer is
-  `originCustomerHistory(config, options, sourceProofKey, warehouse?, clock?)`.
+  `originCustomerHistory(config, options, sourceProofKey, dependencies?)`, with
+  a bounded SELECT port, optional encrypted demand queue and clock. The runnable
+  service is `npm run receiver:origin-history` and the container target is
+  `origin-history-receiver`. It mounts the authenticated route independently of
+  the public app. See [deployment configuration](../compatibility/upstream/screening-origins/history-bridge-deployment.md).
   It uses only explicit BQ publications/counts, complete cohort conservation and
   the immutable native mutation witness. No historical MySQL request fallback.
 
@@ -83,3 +87,11 @@ history publisher/candidate and privileges qualification. Admin independently
 owns the genuine non-POS Go confirmation/failure/effect adapters. CPP owns the
 history handoff/publisher continuation. These are CODE work, not external-only
 acceptance. Final source/native/browser/Go tests and parity follow feature code.
+
+The bounded runtime and encrypted queue are integrated on `86ca3d0`; the actual
+private process, configuration, migration registration and packaging are on
+`47dcd22`. Unchanged customer-head generations no longer expire solely because
+their publication is older than a minute; operation responses retain their
+60-second maximum lifetime. The independent source capture and publisher are
+still implementation work. These commits have not undergone the deferred final
+validation phase.

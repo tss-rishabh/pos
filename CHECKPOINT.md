@@ -8,6 +8,15 @@ same work order is recorded in AGENTS.md for future continuations and agents.
 The user explicitly requested this approach be retained in memory: complete
 all implementation first; only then begin parity and testing.
 
+Latest implementation: bounded source-origin history reader and independent
+encrypted generation queue integrated on `86ca3d0`; runnable private bridge on
+`47dcd22`. The actual npm command, Docker target, TLS journal configuration,
+reader-only BigQuery identity, safe lifecycle/request events and additive queue
+migration are wired. No service was started and no tests/checks were run.
+Remaining parallel code: the independent first-order history publisher; genuine
+customer/legacy/MPos/CSK caller and effects integration; non-POS Go callbacks,
+cron and original allocation composition. Final validation remains deferred.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only
