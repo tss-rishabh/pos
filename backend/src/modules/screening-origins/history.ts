@@ -1,138 +1,261 @@
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { identifier } from '../../domain/validation.js';
-import { warehouseService } from '../warehouse.js';
-import { originCommandSchema, originDigest, originError, originHashSchema, sameOriginHash } from './contracts.js';
-
-const point = z.number().int().safe().positive();
-const count = z.string().regex(/^(?:0|[1-9]\d{0,19})$/);
-const table = z.string().regex(/^[A-Za-z][A-Za-z0-9_-]*\.[A-Za-z_][A-Za-z0-9_]*\.[A-Za-z_][A-Za-z0-9_]*$/);
-export const originHistoryWitnessSchema = z.object({
-  contract: z.literal('pos-screening-origin-history-head-v1'),
-  sourceSchema: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/),
-  sourceServerUuid: z.uuid(),
-  revision: count,
-  writersHash: originHashSchema,
-}).strict();
-export const originHistoryDocumentSchema = z.object({
-  contract: z.literal('pos-screening-origin-history-v1'),
-  commandId: z.uuid(), customerId: identifier, requestHash: originHashSchema, cartHash: originHashSchema,
-  witness: originHistoryWitnessSchema, generationId: originHashSchema,
-  sourceCompleteThrough: point, reader: z.literal('bigquery'), complete: z.literal(true),
-  welcomeCount: count, appCashbackCount: count, webCashbackCount: count,
-  fetchedAt: point, expiresAt: point, signature: originHashSchema,
-}).strict();
-export type OriginHistoryDocument = z.infer<typeof originHistoryDocumentSchema>;
-const publicationSchema = z.object({
-  contract: z.literal('pos-screening-origin-history-publication-v1'),
-  generationId: originHashSchema, customerId: identifier, witness: originHistoryWitnessSchema,
-  sourceComplete: z.literal(true), sourceCompleteThrough: point, publishedAt: point,
-  orderRows: count, uniqueOrders: count, welcomeCount: count, appCashbackCount: count, webCashbackCount: count,
-  rowsHash: originHashSchema, signature: originHashSchema,
-}).strict();
+import {
+  boundedWarehouseSelect,
+  qualifiedWarehouseTable,
+  type BoundedSelectPort,
+} from '../warehouse/bounded-select.js';
+import {
+  originCommandSchema,
+  originDigest,
+  originError,
+  originHashSchema,
+  sameOriginHash,
+} from './contracts.js';
+import {
+  originHistoryWitnessSchema,
+  originHistoryDocumentSchema,
+  originHistoryPublicationSchema,
+  originHistoryCount,
+  originHistoryKeys,
+  originHistoryFacts,
+  sameHistoryWitness,
+  type OriginHistoryDocument,
+} from './history-contracts.js';
+import type { OriginHistoryDemandPort } from './history-generation-demand.js';
+export { originHistoryWitnessSchema, originHistoryDocumentSchema } from './history-contracts.js';
+export type { OriginHistoryDocument } from './history-contracts.js';
 export interface OriginHistoryOptions {
   contract?: 'pos-screening-origin-history-v1';
   publicationsView?: string;
   countsView?: string;
   publicationKey?: string;
+  maxBytes?: number;
+  timeoutMs?: number;
 }
-export function readOriginHistoryOptions(env: NodeJS.ProcessEnv = process.env): OriginHistoryOptions {
-  const selected = env.POS_SCREENING_ORIGIN_HISTORY_CONTRACT;
-  if (selected && selected !== 'pos-screening-origin-history-v1') throw originError('SCREENING_ORIGIN_HISTORY_CONFIGURATION');
-  for (const value of [env.BQ_SCREENING_ORIGIN_HISTORY_PUBLICATIONS_VIEW, env.BQ_SCREENING_ORIGIN_HISTORY_COUNTS_VIEW])
-    if (value && !table.safeParse(value).success) throw originError('SCREENING_ORIGIN_HISTORY_CONFIGURATION');
-  return {
-    ...(selected ? { contract: selected as OriginHistoryOptions['contract'] } : {}),
-    ...(env.BQ_SCREENING_ORIGIN_HISTORY_PUBLICATIONS_VIEW ? { publicationsView: env.BQ_SCREENING_ORIGIN_HISTORY_PUBLICATIONS_VIEW } : {}),
-    ...(env.BQ_SCREENING_ORIGIN_HISTORY_COUNTS_VIEW ? { countsView: env.BQ_SCREENING_ORIGIN_HISTORY_COUNTS_VIEW } : {}),
-    ...(env.POS_SCREENING_ORIGIN_HISTORY_PUBLICATION_KEY ? { publicationKey: env.POS_SCREENING_ORIGIN_HISTORY_PUBLICATION_KEY } : {}),
-  };
+export interface OriginHistoryDependencies {
+  select?: BoundedSelectPort;
+  demand?: OriginHistoryDemandPort;
+  clock?: () => number;
 }
-/** One complete independently published customer cohort, including explicit
- * zero generations. Raw CDC max apply timestamps are not completeness proofs. */
+export function readOriginHistoryOptions(
+  env: NodeJS.ProcessEnv = process.env,
+): OriginHistoryOptions {
+  const parsed = z
+    .object({
+      contract: z.literal('pos-screening-origin-history-v1').optional(),
+      publicationsView: qualifiedWarehouseTable.optional(),
+      countsView: qualifiedWarehouseTable.optional(),
+      publicationKey: z
+        .string()
+        .regex(/^[!-~]{32,4096}$/)
+        .optional(),
+      maxBytes: z.coerce.number().int().min(1).max(1000000000).default(50000000),
+      timeoutMs: z.coerce.number().int().min(100).max(25000).default(8000),
+    })
+    .strict()
+    .safeParse({
+      contract: env.POS_SCREENING_ORIGIN_HISTORY_CONTRACT || undefined,
+      publicationsView: env.BQ_SCREENING_ORIGIN_HISTORY_PUBLICATIONS_VIEW || undefined,
+      countsView: env.BQ_SCREENING_ORIGIN_HISTORY_COUNTS_VIEW || undefined,
+      publicationKey: env.POS_SCREENING_ORIGIN_HISTORY_PUBLICATION_KEY || undefined,
+      maxBytes: env.POS_SCREENING_ORIGIN_HISTORY_MAX_BYTES || undefined,
+      timeoutMs: env.POS_SCREENING_ORIGIN_HISTORY_TIMEOUT_MS || undefined,
+    });
+  if (!parsed.success) throw originError('SCREENING_ORIGIN_HISTORY_CONFIGURATION');
+  return parsed.data;
+}
+/** Generic prepublished customer/head generation -> fresh original-command
+ * response. Native historical capture/publishing is not imported or reachable. */
 export function originCustomerHistory(
-  config: Config,
+  config: Pick<Config, 'BIGQUERY_MAX_BYTES_BILLED'>,
   options: OriginHistoryOptions,
   sourceProofKey: string,
-  warehouse: Pick<ReturnType<typeof warehouseService>, 'queryReport'> = warehouseService(config),
-  clock = Date.now,
+  dependencies: OriginHistoryDependencies = {},
 ) {
+  const clock = dependencies.clock ?? Date.now;
+  const maxBytes = Math.min(options.maxBytes ?? 50000000, config.BIGQUERY_MAX_BYTES_BILLED);
+  const select =
+    dependencies.select ??
+    boundedWarehouseSelect({
+      maxBytes,
+      timeoutMs: options.timeoutMs ?? 8000,
+      maxDocumentBytes: 262144,
+      resource: 'origin-first-order-history',
+    });
   return {
-    async read(input: {
-      command: z.infer<typeof originCommandSchema>;
-      commandProof: string;
-      witness: z.infer<typeof originHistoryWitnessSchema>;
-    }, signal?: AbortSignal): Promise<OriginHistoryDocument> {
-      const command = originCommandSchema.parse(input.command);
-      const witness = originHistoryWitnessSchema.parse(input.witness);
-      if (command.phase !== 'PREPARED' || !sameOriginHash(originDigest(sourceProofKey, 'command', command), input.commandProof))
+    async read(
+      input: {
+        command: z.infer<typeof originCommandSchema>;
+        commandProof: string;
+        witness: z.infer<typeof originHistoryWitnessSchema>;
+      },
+      suppliedSignal?: AbortSignal,
+    ): Promise<OriginHistoryDocument> {
+      const signal = suppliedSignal ?? AbortSignal.timeout(options.timeoutMs ?? 8000),
+        command = originCommandSchema.parse(input.command),
+        witness = originHistoryWitnessSchema.parse(input.witness);
+      if (
+        command.phase !== 'PREPARED' ||
+        command.orderId !== null ||
+        !sameOriginHash(originDigest(sourceProofKey, 'command', command), input.commandProof)
+      )
         throw originError('SCREENING_ORIGIN_HISTORY_SCOPE_CHANGED');
-      if (options.contract !== 'pos-screening-origin-history-v1' || !options.countsView || !options.publicationsView ||
-          !options.publicationKey || options.publicationKey === sourceProofKey ||
-          !table.safeParse(options.countsView).success || !table.safeParse(options.publicationsView).success)
+      if (
+        options.contract !== 'pos-screening-origin-history-v1' ||
+        !options.countsView ||
+        !options.publicationsView ||
+        !options.publicationKey ||
+        options.countsView === options.publicationsView
+      )
         throw originError('SCREENING_ORIGIN_HISTORY_REQUIRED');
-      if (!Number.isSafeInteger(config.BIGQUERY_MAX_BYTES_BILLED) || config.BIGQUERY_MAX_BYTES_BILLED < 1 || config.BIGQUERY_MAX_BYTES_BILLED > 1000000000)
-        throw originError('SCREENING_ORIGIN_HISTORY_BUDGET_REQUIRED');
+      originHistoryKeys(sourceProofKey, options.publicationKey);
       const before = clock();
-      if (signal?.aborted || before >= command.expiresAt) throw originError('SCREENING_ORIGIN_HISTORY_EXPIRED');
-      const rows = await warehouse.queryReport(originHistoryStatement(options), {
-        customer: command.customerId,
-        shard: String(BigInt(command.customerId) % 1024n),
-        revision: witness.revision,
-        schema: witness.sourceSchema,
-        server: witness.sourceServerUuid,
-        writers: witness.writersHash,
-        from: new Date(before - 60000).toISOString().slice(0, 10),
-        to: new Date(before).toISOString().slice(0, 10),
-      }, {
-        customer: 'STRING', shard: 'INT64', revision: 'STRING', schema: 'STRING', server: 'STRING', writers: 'STRING', from: 'DATE', to: 'DATE',
-      }, 'screening-origin-history');
-      if (signal?.aborted || rows.length !== 1 || typeof rows[0]?.document !== 'string') throw originError('SCREENING_ORIGIN_HISTORY_UNAVAILABLE');
+      signal.throwIfAborted();
+      if (before >= command.expiresAt) throw originError('SCREENING_ORIGIN_HISTORY_EXPIRED');
+      const statement = {
+        sql: originHistoryStatement(options),
+        params: {
+          customer: command.customerId,
+          shard: String(BigInt(command.customerId) % 1024n),
+          revision: witness.revision,
+          schema: witness.sourceSchema,
+          server: witness.sourceServerUuid,
+          writers: witness.writersHash,
+        },
+        types: {
+          customer: 'STRING',
+          shard: 'INT64',
+          revision: 'STRING',
+          schema: 'STRING',
+          server: 'STRING',
+          writers: 'STRING',
+        },
+      };
       let raw: unknown;
-      try { raw = JSON.parse(rows[0].document); } catch { throw originError('SCREENING_ORIGIN_HISTORY_UNAVAILABLE'); }
-      const result = z.object({
-        publications: z.array(publicationSchema).length(1),
-        facts: z.array(z.object({ generationId: originHashSchema, customerId: identifier, revision: count,
-          orderRows: count, uniqueOrders: count, welcomeCount: count, appCashbackCount: count, webCashbackCount: count, rowsHash: originHashSchema }).strict()).length(1),
-      }).strict().parse(raw);
-      const publication = result.publications[0]!;
-      const facts = result.facts[0]!;
-      const { signature, ...unsigned } = publication;
-      const now = clock();
-      if (!sameOriginHash(originDigest(options.publicationKey, 'history-publication', unsigned), signature) ||
-          publication.customerId !== command.customerId || JSON.stringify(publication.witness) !== JSON.stringify(witness) ||
-          publication.sourceCompleteThrough > publication.publishedAt || publication.publishedAt > now || now - publication.publishedAt > 60000 ||
-          publication.orderRows !== publication.uniqueOrders || facts.generationId !== publication.generationId || facts.customerId !== command.customerId || facts.revision !== witness.revision ||
-          (['orderRows','uniqueOrders','welcomeCount','appCashbackCount','webCashbackCount','rowsHash'] as const).some((field) => facts[field] !== publication[field]) ||
-          [publication.welcomeCount, publication.appCashbackCount, publication.webCashbackCount].some((value) => BigInt(value) > BigInt(publication.orderRows)))
+      try {
+        raw = JSON.parse(await select.read(statement, signal)) as unknown;
+      } catch {
+        signal.throwIfAborted();
+        throw originError('SCREENING_ORIGIN_HISTORY_UNAVAILABLE');
+      }
+      const parsed = z
+        .object({
+          publications: z.array(originHistoryPublicationSchema).max(2),
+          facts: z
+            .array(
+              z
+                .object({
+                  generationId: originHashSchema,
+                  customerId: identifier,
+                  revision: originHistoryCount,
+                  ...originHistoryFacts,
+                })
+                .strict(),
+            )
+            .max(2),
+        })
+        .strict()
+        .safeParse(raw);
+      if (!parsed.success) throw originError('SCREENING_ORIGIN_HISTORY_UNQUALIFIED');
+      const { publications, facts } = parsed.data;
+      if (!publications.length && !facts.length) {
+        try {
+          await dependencies.demand?.enqueue(
+            {
+              commandId: command.id,
+              customerId: command.customerId,
+              requestHash: command.requestHash,
+              cartHash: command.cartHash,
+              witness,
+            },
+            { signal },
+          );
+        } catch {
+          signal.throwIfAborted();
+        }
+        throw originError('SCREENING_ORIGIN_HISTORY_GENERATION_REQUIRED');
+      }
+      if (publications.length !== 1 || facts.length !== 1)
         throw originError('SCREENING_ORIGIN_HISTORY_UNQUALIFIED');
+      const publication = publications[0]!,
+        actual = facts[0]!,
+        { signature, ...unsigned } = publication,
+        now = clock();
+      if (
+        !sameOriginHash(
+          originDigest(options.publicationKey, 'history-publication', unsigned),
+          signature,
+        ) ||
+        publication.customerId !== command.customerId ||
+        !sameHistoryWitness(publication.witness, witness) ||
+        publication.sourceCompleteThrough !== publication.capturedAt ||
+        publication.capturedAt > publication.publishedAt ||
+        publication.publishedAt > now ||
+        publication.orderRows !== publication.uniqueOrders ||
+        actual.generationId !== publication.generationId ||
+        actual.customerId !== command.customerId ||
+        actual.revision !== witness.revision ||
+        (Object.keys(originHistoryFacts) as (keyof typeof originHistoryFacts)[]).some(
+          (field) => actual[field] !== publication[field],
+        ) ||
+        [publication.welcomeCount, publication.appCashbackCount, publication.webCashbackCount].some(
+          (value) => BigInt(value) > BigInt(publication.orderRows),
+        )
+      )
+        throw originError('SCREENING_ORIGIN_HISTORY_UNQUALIFIED');
+      signal.throwIfAborted();
       const document = {
-        contract: 'pos-screening-origin-history-v1' as const, commandId: command.id, customerId: command.customerId,
-        requestHash: command.requestHash, cartHash: command.cartHash, witness,
-        generationId: publication.generationId, sourceCompleteThrough: publication.sourceCompleteThrough,
-        reader: 'bigquery' as const, complete: true as const,
-        welcomeCount: publication.welcomeCount, appCashbackCount: publication.appCashbackCount, webCashbackCount: publication.webCashbackCount,
-        fetchedAt: now, expiresAt: Math.min(now + 60000, command.expiresAt),
+        contract: 'pos-screening-origin-history-v1' as const,
+        commandId: command.id,
+        customerId: command.customerId,
+        requestHash: command.requestHash,
+        cartHash: command.cartHash,
+        witness,
+        generationId: publication.generationId,
+        sourceCompleteThrough: publication.sourceCompleteThrough,
+        reader: 'bigquery' as const,
+        complete: true as const,
+        welcomeCount: publication.welcomeCount,
+        appCashbackCount: publication.appCashbackCount,
+        webCashbackCount: publication.webCashbackCount,
+        fetchedAt: now,
+        expiresAt: Math.min(now + 60000, command.expiresAt),
       };
       if (document.expiresAt <= now) throw originError('SCREENING_ORIGIN_HISTORY_EXPIRED');
-      return originHistoryDocumentSchema.parse({ ...document, signature: originDigest(sourceProofKey, 'history', document) });
+      return originHistoryDocumentSchema.parse({
+        ...document,
+        signature: originDigest(sourceProofKey, 'history', document),
+      });
     },
   };
 }
+export function originHistoryRuntime(
+  config: Pick<Config, 'BIGQUERY_MAX_BYTES_BILLED'>,
+  environment: NodeJS.ProcessEnv,
+  authority: { sourceKey: string },
+  dependencies: OriginHistoryDependencies = {},
+) {
+  const options = readOriginHistoryOptions(environment);
+  return options.contract
+    ? originCustomerHistory(config, options, authority.sourceKey, dependencies)
+    : undefined;
+}
 export function originHistoryStatement(options: OriginHistoryOptions) {
-  const publications = table.parse(options.publicationsView), counts = table.parse(options.countsView);
+  const publications = qualifiedWarehouseTable.parse(options.publicationsView),
+    counts = qualifiedWarehouseTable.parse(options.countsView);
   return `WITH publication AS (
-SELECT document FROM \`${publications}\`
-WHERE publication_date BETWEEN @from AND @to AND scope_shard=@shard AND customer_id=@customer
+SELECT document FROM \`${publications}\` WHERE scope_shard=@shard AND customer_id=@customer
 AND head_revision=@revision AND source_schema=@schema AND source_server_uuid=@server AND writers_hash=@writers
 ), facts AS (
 SELECT generation_id AS generationId,customer_id AS customerId,head_revision AS revision,
 CAST(order_rows AS STRING) AS orderRows,CAST(unique_orders AS STRING) AS uniqueOrders,
 CAST(welcome_count AS STRING) AS welcomeCount,CAST(app_cashback_count AS STRING) AS appCashbackCount,
 CAST(web_cashback_count AS STRING) AS webCashbackCount,rows_hash AS rowsHash FROM \`${counts}\`
-WHERE publication_date BETWEEN @from AND @to AND scope_shard=@shard AND customer_id=@customer AND head_revision=@revision
+WHERE scope_shard=@shard AND customer_id=@customer AND head_revision=@revision
+AND source_schema=@schema AND source_server_uuid=@server AND writers_hash=@writers
 )
-SELECT TO_JSON_STRING(STRUCT(
-ARRAY(SELECT PARSE_JSON(document) FROM publication LIMIT 2) AS publications,
+SELECT TO_JSON_STRING(STRUCT(ARRAY(SELECT PARSE_JSON(document) FROM publication LIMIT 2) AS publications,
 ARRAY(SELECT AS STRUCT * FROM facts LIMIT 2) AS facts)) AS document`;
 }
