@@ -11,11 +11,14 @@ import {
   type CsvMembershipHistoryStatement,
   type CsvMembershipHistoryQueryPort,
   csvMembershipHistorySdk,
+  readCsvMembershipBigQueryOptions,
+  csvMembershipBigQueryContract,
 } from '../../legacy-order-imports/membership-profile/bigquery.js';
 
 export const publicMemberHistoryContract = 'pos-public-screening-membership-history-v1';
 export const membershipGenerationContract = 'pos-membership-history-generation-v1';
 export const membershipGenerationPublicationContract = 'pos-membership-history-publication-v1';
+export const publicMembershipBigQueryContract = 'pos-public-screening-membership-bigquery-v1';
 const hash = z.string().regex(/^[a-f0-9]{64}$/),
   count = z
     .string()
@@ -128,6 +131,32 @@ export const publicMembershipHistoryError = () =>
     'SCREENING_MEMBERSHIP_HISTORY_UNQUALIFIED',
     'Complete membership history and its current source witness are required before creating this order.',
   );
+/** Separate publication resources from the older operation-scoped CSV view.
+ * Only the read-only SDK transport/budgets are reused; public generations have
+ * their own source/publication/document contracts and no CSV authority. */
+export function readPublicMembershipBigQueryOptions(
+  env: NodeJS.ProcessEnv = process.env,
+): CsvMembershipBigQueryOptions {
+  if (
+    env.PUBLIC_SCREENING_MEMBERSHIP_BIGQUERY_CONTRACT &&
+    env.PUBLIC_SCREENING_MEMBERSHIP_BIGQUERY_CONTRACT !== publicMembershipBigQueryContract
+  )
+    throw publicMembershipHistoryError();
+  return readCsvMembershipBigQueryOptions({
+    CSV_MEMBERSHIP_BIGQUERY_CONTRACT: env.PUBLIC_SCREENING_MEMBERSHIP_BIGQUERY_CONTRACT
+      ? csvMembershipBigQueryContract
+      : undefined,
+    BQ_CSV_MEMBERSHIP_PUBLICATIONS_VIEW: env.BQ_PUBLIC_SCREENING_MEMBERSHIP_PUBLICATIONS_VIEW,
+    BQ_CSV_MEMBERSHIP_ORDERS_VIEW: env.BQ_PUBLIC_SCREENING_MEMBERSHIP_ORDERS_VIEW,
+    BQ_CSV_MEMBERSHIP_LINES_VIEW: env.BQ_PUBLIC_SCREENING_MEMBERSHIP_LINES_VIEW,
+    CSV_MEMBERSHIP_SOURCE_TIMEZONE: env.PUBLIC_SCREENING_MEMBERSHIP_SOURCE_TIMEZONE,
+    CSV_MEMBERSHIP_MAX_BYTES_BILLED: env.PUBLIC_SCREENING_MEMBERSHIP_MAX_BYTES_BILLED,
+    CSV_MEMBERSHIP_QUERY_TIMEOUT_MS: env.PUBLIC_SCREENING_MEMBERSHIP_QUERY_TIMEOUT_MS,
+    CSV_MEMBERSHIP_MAX_ORDERS: env.PUBLIC_SCREENING_MEMBERSHIP_MAX_ORDERS,
+    CSV_MEMBERSHIP_MAX_LINES: env.PUBLIC_SCREENING_MEMBERSHIP_MAX_LINES,
+    CSV_MEMBERSHIP_MAX_LAG_SECONDS: env.PUBLIC_SCREENING_MEMBERSHIP_MAX_LAG_SECONDS,
+  });
+}
 export function assertMembershipHistoryKeys(...keys: string[]) {
   if (new Set(keys).size !== keys.length || keys.some((key) => !/^[!-~]{32,4096}$/.test(key)))
     throw publicMembershipHistoryError();
@@ -208,6 +237,7 @@ export function bindPublicMembershipGeneration(input: {
   historyKey: string;
   expiresAt: number;
   now: number;
+  maximumAgeMs?: number;
 }): PublicMembershipHistory {
   const r = publicMembershipHistoryRequestSchema.parse(input.request),
     h = publicMembershipHeadSchema.parse(input.head),
@@ -224,7 +254,8 @@ export function bindPublicMembershipGeneration(input: {
     { signature: publicationSignature, ...publicationBody } = p,
     sourceAt = csvMembershipSourceInstant(g.asOf, g.sourceTimeZone),
     executionAt = csvMembershipSourceInstant(r.asOf, r.sourceTimeZone),
-    keys = [input.sourceKey, input.publicationKey, input.historyKey];
+    keys = [input.sourceKey, input.publicationKey, input.historyKey],
+    maximumAge = input.maximumAgeMs ?? 60000;
   const uniqueOrders = [
     ...new Map(
       [
@@ -235,6 +266,9 @@ export function bindPublicMembershipGeneration(input: {
   ];
   if (
     new Set(keys).size !== 3 ||
+    !Number.isSafeInteger(maximumAge) ||
+    maximumAge < 1000 ||
+    maximumAge > 60000 ||
     keys.some((key) => !/^[!-~]{32,4096}$/.test(key)) ||
     sourceSignature !== membershipHistoryDigest('generation', sourceBody, input.sourceKey) ||
     publicationSignature !==
@@ -253,7 +287,7 @@ export function bindPublicMembershipGeneration(input: {
     p.publishedAt < g.capturedAt ||
     g.capturedAt < sourceAt ||
     g.capturedAt - sourceAt >= 1000 ||
-    input.now - sourceAt >= 60000 ||
+    input.now - sourceAt >= maximumAge ||
     membershipSelectionHash(selected) !== g.selectionHash ||
     membershipSelectionHash(warehouse) !== g.selectionHash ||
     p.warehouseSelectionHash !== g.selectionHash ||
@@ -287,7 +321,7 @@ export function bindPublicMembershipGeneration(input: {
     reader: 'bigquery' as const,
     complete: true as const,
     fetchedAt: input.now,
-    expiresAt: Math.min(input.expiresAt, sourceAt + 60000, executionAt + 60000),
+    expiresAt: Math.min(input.expiresAt, sourceAt + maximumAge, executionAt + maximumAge),
     selection,
   };
   if (body.expiresAt <= input.now) throw publicMembershipHistoryError();
@@ -411,6 +445,7 @@ export function publicMembershipBigQueryHistory(
           ...authority,
           expiresAt: call.expiresAt,
           now: clock(),
+          maximumAgeMs: options.CSV_MEMBERSHIP_MAX_LAG_SECONDS * 1000,
         });
         if (value.generationId !== record.generationId) throw publicMembershipHistoryError();
         return value;

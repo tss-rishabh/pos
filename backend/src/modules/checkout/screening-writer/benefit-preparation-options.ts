@@ -10,9 +10,9 @@ import {
 } from './benefit-preparation.js';
 import {
   publicMembershipBigQueryHistory,
+  readPublicMembershipBigQueryOptions,
   type PublicMembershipHistoryPort,
 } from './membership-history.js';
-import { readCsvMembershipBigQueryOptions } from '../../legacy-order-imports/membership-profile/bigquery.js';
 
 export function readPublicBenefitPreparationOptions(env: NodeJS.ProcessEnv = process.env) {
   const optional = <T extends z.ZodType>(schema: T) =>
@@ -54,7 +54,7 @@ export function configuredPublicBenefitPreparation(
     const history: PublicMembershipHistoryPort = dependencies.history ?? {
       read(request, head, call) {
         return publicMembershipBigQueryHistory(
-          readCsvMembershipBigQueryOptions(env),
+          readPublicMembershipBigQueryOptions(env),
           {
             sourceKey: publicOptions.proofKey ?? '',
             publicationKey: options.PUBLIC_SCREENING_MEMBERSHIP_PUBLICATION_KEY ?? '',
