@@ -40,12 +40,8 @@ export function counterGenerationJournal(
     const nonce = randomBytes(12),
       cipher = createCipheriv('aes-256-gcm', secret, nonce);
     cipher.setAAD(header(record));
-    return Buffer.concat([
-      nonce,
-      cipher.getAuthTag(),
-      cipher.update(bytes),
-      cipher.final(),
-    ]).toString('base64url');
+    const encrypted = Buffer.concat([cipher.update(bytes), cipher.final()]);
+    return Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString('base64url');
   }
   function decode(row: typeof counterGenerationJobs.$inferSelect) {
     try {

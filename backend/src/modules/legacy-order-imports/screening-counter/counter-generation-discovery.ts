@@ -24,7 +24,7 @@ const rowSchema = z.object({
   bought: counterCount.nullable(),
   baselineHash: z.string().nullable(),
   baseline: z.unknown(),
-  hasProjection: z.union([z.literal(0), z.literal(1)]),
+  hasProjection: z.enum(['0', '1']),
 });
 interface Candidate {
   request: CounterGenerationDemandRequest;
@@ -61,7 +61,7 @@ export function counterGenerationDiscoverySource(
           await tx.execute(sql`SELECT CAST(u.id AS CHAR) AS customerId,CAST(COALESCE(h.revision,0) AS CHAR) AS headRevision,
     CAST(c.revision AS CHAR) AS projectionRevision,CAST(c.bought AS CHAR) AS bought,c.baseline_hash AS baselineHash,
     CASE WHEN OCTET_LENGTH(c.baseline)<=12000 THEN c.baseline ELSE NULL END AS baseline,
-    CASE WHEN c.customer_id IS NULL THEN 0 ELSE 1 END AS hasProjection
+    CAST(CASE WHEN c.customer_id IS NULL THEN 0 ELSE 1 END AS CHAR) AS hasProjection
     FROM users u LEFT JOIN pos_rewrite_screening_counter_heads h ON h.customer_id=u.id
     LEFT JOIN pos_rewrite_screening_counters c ON c.customer_id=u.id
     WHERE ${filter} AND u.id>0 ORDER BY u.id ${latest ? sql`DESC` : sql`ASC`} LIMIT ${customerId ? 1 : options.discoveryBatchSize}`);
@@ -72,7 +72,7 @@ export function counterGenerationDiscoverySource(
             headRevision: row.headRevision,
             expectedGeneration: null,
           };
-          if (!row.hasProjection) return { request, needed: true, available: true };
+          if (row.hasProjection === '0') return { request, needed: true, available: true };
           try {
             const input = Buffer.isBuffer(row.baseline)
               ? (JSON.parse(row.baseline.toString('utf8')) as unknown)

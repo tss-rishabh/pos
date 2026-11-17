@@ -87,12 +87,8 @@ export function counterGenerationDemands(
     cipher.setAAD(Buffer.from(JSON.stringify(aad)));
     const bytes = Buffer.from(JSON.stringify(value));
     if (bytes.length > 16000) throw counterError('GENERATION_DEMAND_INVALID');
-    return Buffer.concat([
-      nonce,
-      cipher.getAuthTag(),
-      cipher.update(bytes),
-      cipher.final(),
-    ]).toString('base64url');
+    const encrypted = Buffer.concat([cipher.update(bytes), cipher.final()]);
+    return Buffer.concat([nonce, cipher.getAuthTag(), encrypted]).toString('base64url');
   }
   function decrypt(payload: string, aad: unknown): unknown {
     try {
