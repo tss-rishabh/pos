@@ -4,6 +4,47 @@ Investigation uses MySQL 8.0.39, schema `tss`, TLS verification and a read-only
 session. No index or schema changes have been executed. Saved query plans and
 bounded comparison results are in `backend/evidence/mysql-readonly.json`.
 
+## Customer first-order history: implementation pending final validation
+
+Pinned API-v2 order creation performs three customer-wide, all-time reads:
+
+```sql
+SELECT COUNT(id) FROM orders
+WHERE user_id = ? AND NOT order_status = 4;
+SELECT COUNT(id) AS order_count FROM orders
+WHERE user_id = ? AND order_status = 3 AND flag_id = 18;
+SELECT COUNT(id) AS order_count FROM orders
+WHERE user_id = ? AND order_status = 3 AND flag_id != 18;
+```
+
+The replacement in `backend/src/modules/screening-origins/history.ts` reads
+one independently published customer/head cohort from BigQuery. It preserves
+the literal status/flag predicates, including SQL NULL exclusion, without
+adding a paid/date filter or joining order lines. The source replay adds only
+the exact newly inserted native order when that row satisfies each original
+predicate. This keeps old-order scans outside the interactive MySQL path.
+
+The database-side candidate is
+`backend/compatibility/upstream/screening-origins/history-heads.review.sql`,
+with the separate security/grant plans in that directory. Its four triggers
+advance operational customer revisions and retain change identities in the
+same transaction as relevant user/order writes. The source verifies actual
+trigger bodies, owners, physical keys and privileges, then fences the final
+revision at physical commit. A changed customer head requires a newly qualified
+generation; missing evidence never becomes a zero count. The background native
+capture requires an existing customer-leading order index and explicit read-only
+writer-origin credentials. It exports a bounded customer snapshot; it does not
+silently add an index or execute a replica scan during checkout.
+
+All native trigger/definer/grant changes remain review-only and are excluded
+from automatic migrations. No such DDL has been executed on the supplied reader.
+The standalone bridge bounds concurrent reads, dry-run bytes, execution time and
+result size. See [the exact history contract](backend/parity/screening-origin-history.md).
+Response parity, query plans and representative performance measurements for
+this new path are deferred until implementation is complete, following the
+user's work order. Existing evidence elsewhere in this file does not certify
+this new path.
+
 ## Coupon consumption logs and assignments
 
 The native coupon proof checks retain duplicate detection and exact ID ordering:
