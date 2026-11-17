@@ -1,4 +1,5 @@
 import { isAbsolute } from 'node:path';
+import { readNativeHeadMetadataOptions } from '../../screening-origins/native-head-metadata.js';
 import { z } from 'zod';
 import { generationError, generationWriterContract } from './history-generation-contracts.js';
 import { readGenerationOptions, requireGenerationOptions } from './history-generation-options.js';
@@ -117,6 +118,9 @@ export function readGenerationPublisherConfiguration(env: NodeJS.ProcessEnv = pr
     options,
     authority,
     origin,
+    sourceOptions: newWorkEnabled
+      ? { headMetadata: readNativeHeadMetadataOptions(env) }
+      : undefined,
     controlHttp,
     newWorkEnabled,
     readerKeyFile: v.CSV_COUPON_GENERATION_READER_KEY_FILE,

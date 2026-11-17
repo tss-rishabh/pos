@@ -115,6 +115,44 @@ export function assertCouponHistoryWriterDefinitions(input: unknown) {
   return couponHistoryWritersDefinitionHash;
 }
 
+/** Same installed definitions through the approved isolated metadata descriptor.
+ * Only normalized statement digests cross its definer boundary. */
+export function assertCouponHistoryWriterMetadata(input: unknown) {
+  const parsed = z
+    .array(
+      z
+        .object({
+          name: z.string(),
+          tableName: z.string(),
+          event: z.string(),
+          timing: z.string(),
+          hash: z.string().regex(/^[a-f0-9]{64}$/),
+          definer: z.string(),
+          sqlMode: z.string(),
+        })
+        .strict(),
+    )
+    .length(10)
+    .safeParse(input);
+  if (!parsed.success || new Set(parsed.data.map((row) => row.name)).size !== 10)
+    throw couponPublicationError('WRITERS_UNQUALIFIED', 503);
+  for (const expected of couponHistoryWriterDefinitions) {
+    const row = parsed.data.find((value) => value.name === expected.name);
+    if (
+      !row ||
+      row.tableName !== expected.table ||
+      row.event !== expected.event ||
+      row.timing !== expected.timing ||
+      row.hash !== createHash('sha256').update(normalized(expected.statement)).digest('hex') ||
+      !row.sqlMode
+        .split(',')
+        .some((mode) => mode === 'STRICT_TRANS_TABLES' || mode === 'STRICT_ALL_TABLES')
+    )
+      throw couponPublicationError('WRITERS_UNQUALIFIED', 503);
+  }
+  return couponHistoryWritersDefinitionHash;
+}
+
 export function couponHistoryWritersReviewSql() {
   return `-- REVIEW ONLY. No application migration, live DDL or cutover is authorized here.
 -- Install every trigger, seed existing keys and qualify the installed bodies

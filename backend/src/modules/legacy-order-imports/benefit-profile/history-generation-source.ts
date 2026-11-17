@@ -12,10 +12,11 @@ import { benefitCount, benefitHash, benefitSourceCommit } from './contracts.js';
 import { couponControlHashSql } from './native.js';
 import { couponSourceQueryContract, couponPublicationFactsSchema } from './history-publication.js';
 import { couponHistoryWitnessSchema } from './bridge.js';
+import { assertCouponHistoryWriterMetadata } from './history-writers.js';
 import {
-  assertCouponHistoryWriterDefinitions,
-  couponHistoryWriterDefinitions,
-} from './history-writers.js';
+  readNativeHeadMetadata,
+  type NativeHeadMetadataOptions,
+} from '../../screening-origins/native-head-metadata.js';
 import {
   couponComparisonSchema,
   couponComparisonFingerprint,
@@ -67,6 +68,7 @@ export function couponGenerationSource(
   origin: GenerationSourceOrigin,
   authority: { sourceKey: string; comparisonFingerprint: string; sourceTimeZone: string },
   options: {
+    headMetadata?: NativeHeadMetadataOptions;
     clock?: () => number;
     maxRows?: number;
     maxLogs?: number;
@@ -101,6 +103,7 @@ export function couponGenerationSource(
     throw generationError('CONFIGURATION', 503);
   return {
     async capture(input, controlInput, signal) {
+      if (!options.headMetadata) throw generationError('CONFIGURATION', 503);
       const scope = generationScopeSchema.parse(input),
         control = verifyGenerationControl(controlInput, authority.sourceKey, clock());
       const descriptor = control.data;
@@ -168,14 +171,10 @@ export function couponGenerationSource(
             );
             for (const table of ['orders', 'order_coupon_log', 'coupons', 'users'])
               await tx.execute(sql.raw('SELECT id FROM ' + table + ' LIMIT 0'));
-            const names = sql.join(
-              couponHistoryWriterDefinitions.map((v) => sql`${v.name}`),
-              sql`,`,
-            );
-            const [triggers] = await tx.execute(
-              sql`SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS \`table\`,EVENT_MANIPULATION AS \`event\`,ACTION_TIMING AS \`timing\`,ACTION_STATEMENT AS \`statement\` FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_SCHEMA=DATABASE() AND TRIGGER_NAME IN(${names}) LIMIT 11`,
-            );
-            const writersDefinitionHash = assertCouponHistoryWriterDefinitions(triggers),
+            const headMetadata = await readNativeHeadMetadata(tx, options.headMetadata!);
+            const writersDefinitionHash = assertCouponHistoryWriterMetadata(
+                headMetadata.couponTriggers,
+              ),
               witness = couponHistoryWitnessSchema.parse({
                 writersContract: 'pos-csv-coupon-history-all-writers-v1',
                 writersDefinitionHash,

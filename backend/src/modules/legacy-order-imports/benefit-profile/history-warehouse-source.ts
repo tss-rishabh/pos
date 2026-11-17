@@ -3,10 +3,11 @@ import { z } from 'zod';
 import type { Databases } from '../../../db/pools.js';
 import { couponControlHashSql } from './native.js';
 import { benefitHash } from './contracts.js';
+import { assertCouponHistoryWriterMetadata } from './history-writers.js';
 import {
-  assertCouponHistoryWriterDefinitions,
-  couponHistoryWriterDefinitions,
-} from './history-writers.js';
+  readNativeHeadMetadata,
+  type NativeHeadMetadataOptions,
+} from '../../screening-origins/native-head-metadata.js';
 import {
   couponHeadSchema,
   verifyCouponSourceCapture,
@@ -28,7 +29,11 @@ import {
 export function couponWarehouseSourceControls(
   db: Pick<Databases, 'get'>,
   authority: { sourceKey: string; comparisonFingerprint: string },
-  options: { clock?: () => number; maxControls?: number } = {},
+  options: {
+    headMetadata?: NativeHeadMetadataOptions;
+    clock?: () => number;
+    maxControls?: number;
+  } = {},
 ) {
   const clock = options.clock ?? Date.now,
     maxControls = options.maxControls ?? couponWarehouseMaximumControls;
@@ -42,6 +47,7 @@ export function couponWarehouseSourceControls(
     throw couponPublicationError('CONFIGURATION', 503);
   return {
     async capture(supplied: CouponSourceCapture) {
+      if (!options.headMetadata) throw couponPublicationError('CONFIGURATION', 503);
       const capture = verifyCouponSourceCapture(supplied, authority.sourceKey, clock());
       try {
         return await db.get('primary').transaction(
@@ -124,14 +130,11 @@ WHERE r.coupon_id IS NOT NULL ORDER BY r.coupon_id LIMIT ${maxControls + 1}`);
               );
             // The exact native equality/PAD SPACE semantics are resolved here; no raw
             // voucher/lot string crosses this source boundary or enters BQ parameters.
-            const names = sql.join(
-              couponHistoryWriterDefinitions.map((row) => sql`${row.name}`),
-              sql`,`,
-            );
-            const [definitions] =
-              await tx.execute(sql`SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS \`table\`,EVENT_MANIPULATION AS \`event\`,ACTION_TIMING AS \`timing\`,ACTION_STATEMENT AS \`statement\`
-FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_SCHEMA=DATABASE() AND TRIGGER_NAME IN(${names}) LIMIT 11`);
-            if (assertCouponHistoryWriterDefinitions(definitions) !== capture.writersDefinitionHash)
+            const headMetadata = await readNativeHeadMetadata(tx, options.headMetadata!);
+            if (
+              assertCouponHistoryWriterMetadata(headMetadata.couponTriggers) !==
+              capture.writersDefinitionHash
+            )
               throw couponPublicationError('WRITERS_UNQUALIFIED', 503);
             verifyCouponSourceCapture(capture, authority.sourceKey, clock());
             return {

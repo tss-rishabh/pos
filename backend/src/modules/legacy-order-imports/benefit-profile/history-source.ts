@@ -19,10 +19,11 @@ import {
   verifyCouponSourceCapture,
   type CouponSourceCapture,
 } from './history-publication.js';
+import { assertCouponHistoryWriterMetadata } from './history-writers.js';
 import {
-  assertCouponHistoryWriterDefinitions,
-  couponHistoryWriterDefinitions,
-} from './history-writers.js';
+  readNativeHeadMetadata,
+  type NativeHeadMetadataOptions,
+} from '../../screening-origins/native-head-metadata.js';
 
 export interface CouponSourceCapturePort {
   capture(scope: CouponHistoryScope): Promise<CouponSourceCapture>;
@@ -45,6 +46,7 @@ async function oneCount(tx: Transaction, statement: SQL) {
 export function couponHistorySourceCapture(
   db: Pick<Databases, 'get'>,
   options: {
+    headMetadata?: NativeHeadMetadataOptions;
     contract: typeof couponSourceCaptureContract;
     sourceKey: string;
     sourceTimeZone: string;
@@ -60,6 +62,7 @@ export function couponHistorySourceCapture(
     clock = dependencies.clock ?? Date.now;
   return {
     async capture(supplied) {
+      if (!options.headMetadata) throw couponPublicationError('CONFIGURATION', 503);
       const parsed = couponHistoryScopeSchema.safeParse(supplied);
       if (!parsed.success || parsed.data.sourceTimeZone !== options.sourceTimeZone)
         throw couponPublicationError('SOURCE_CLOCK');
@@ -165,16 +168,10 @@ export function couponHistorySourceCapture(
               });
             // All source tables have now been read under the snapshot, holding
             // their metadata locks. Verify the installed mutation coverage too.
-            const names = sql.join(
-              couponHistoryWriterDefinitions.map((row) => sql`${row.name}`),
-              sql`,`,
-            );
-            const [triggers] =
-                await tx.execute(sql`SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS \`table\`,
-            EVENT_MANIPULATION AS \`event\`,ACTION_TIMING AS \`timing\`,ACTION_STATEMENT AS \`statement\`
-            FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_SCHEMA=DATABASE()
-            AND TRIGGER_NAME IN (${names}) LIMIT 11`),
-              writersDefinitionHash = assertCouponHistoryWriterDefinitions(triggers),
+            const headMetadata = await readNativeHeadMetadata(tx, options.headMetadata!);
+            const writersDefinitionHash = assertCouponHistoryWriterMetadata(
+                headMetadata.couponTriggers,
+              ),
               finishedAt = clock();
             const body: Omit<CouponSourceCapture, 'signature'> = {
               contract: couponSourceCaptureContract,
