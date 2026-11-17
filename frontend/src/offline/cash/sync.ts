@@ -12,6 +12,7 @@ import {
 } from './contracts';
 
 export interface CashReplayOptions {
+  counterId?: string;
   database?: PosDatabase;
   signal?: AbortSignal;
   clock?: () => number;
@@ -60,15 +61,27 @@ export async function replayOfflineCash(
 ) {
   const database = options.database || db,
     signal = options.signal || captureOperatorScope(user.id),
-    clock = options.clock || Date.now,
-    send = options.send || acceptCashReceipt;
+    clock = options.clock || Date.now;
   const manager = [1, 2, 3, 4].includes(user.role);
   if (!(user.role === 1 && user.userType === 1) && !user.storeIds.includes(storeId))
     throw new Error('This operator cannot reconcile cash for this store.');
   signal.throwIfAborted();
-  const work = await database.offlineCashSync
-    .where(manager ? '[storeId+state]' : '[ownerId+state]')
-    .anyOf(['pending', 'retry', 'sending'].map((state) => [manager ? storeId : user.id, state]))
+  const candidates = options.counterId
+    ? database.offlineCashSync
+        .where(manager ? '[storeId+counterId+state]' : '[ownerId+storeId+counterId+state]')
+        .anyOf(
+          ['pending', 'retry', 'sending'].map((state) =>
+            manager
+              ? [storeId, options.counterId!, state]
+              : [user.id, storeId, options.counterId!, state],
+          ),
+        )
+    : database.offlineCashSync
+        .where(manager ? '[storeId+state]' : '[ownerId+state]')
+        .anyOf(
+          ['pending', 'retry', 'sending'].map((state) => [manager ? storeId : user.id, state]),
+        );
+  const work = await candidates
     .filter(
       (job) =>
         job.storeId === storeId &&
@@ -79,6 +92,13 @@ export async function replayOfflineCash(
     .toArray();
   for (const candidate of work) {
     signal.throwIfAborted();
+    if (options.counterId) {
+      const local = await database.offlineCashReceipts.get([
+        candidate.ownerId,
+        candidate.receiptId,
+      ]);
+      if (!local || local.envelope.receipt.counterId !== options.counterId) continue;
+    }
     const claimId = crypto.randomUUID();
     const claimed = await database.transaction(
       'rw',
@@ -120,7 +140,11 @@ export async function replayOfflineCash(
       ]);
       if (!local) throw new Error('The saved cash receipt is unavailable.');
       const receipt = local.envelope.receipt,
-        accepted = cashReceiptAcceptanceSchema.parse(await send(user.id, storeId, local.envelope));
+        accepted = cashReceiptAcceptanceSchema.parse(
+          await (options.send
+            ? options.send(user.id, storeId, local.envelope)
+            : acceptCashReceipt(user.id, storeId, local.envelope, { signal })),
+        );
       assertAcceptedCash(local.envelope, accepted);
       signal.throwIfAborted();
       await database.transaction(
@@ -184,6 +208,7 @@ export async function replayOfflineCash(
 }
 
 export interface CashRefreshOptions {
+  counterId?: string;
   database?: PosDatabase;
   signal?: AbortSignal;
   clock?: () => number;
@@ -209,6 +234,7 @@ export async function refreshOfflineCashReceipt(
     return;
   const local = await database.offlineCashReceipts.get([job.ownerId, receiptId]);
   if (!local) return;
+  if (options.counterId && local.envelope.receipt.counterId !== options.counterId) return;
   const session = await database.sessions.get('current');
   if (
     !session ||
@@ -218,7 +244,7 @@ export async function refreshOfflineCashReceipt(
   )
     return;
   const detail = cashReceiptDetailSchema.parse(
-    await (options.read || readCashReceipt)(user.id, storeId, receiptId),
+    await (options.read || readCashReceipt)(user.id, storeId, receiptId, { signal }),
   );
   if (canonicalCashJson(local.envelope) !== canonicalCashJson(detail.envelope))
     throw new Error('The server changed the original signed cash receipt.');
@@ -291,9 +317,18 @@ export async function refreshOfflineCash(
   const database = options.database || db,
     manager = [1, 2, 3, 4].includes(user.role),
     signal = options.signal || captureOperatorScope(user.id);
-  const jobs = await database.offlineCashSync
-    .where(manager ? '[storeId+state]' : '[ownerId+state]')
-    .equals([manager ? storeId : user.id, 'accepted'])
+  const candidates = options.counterId
+    ? database.offlineCashSync
+        .where(manager ? '[storeId+counterId+state]' : '[ownerId+storeId+counterId+state]')
+        .equals(
+          manager
+            ? [storeId, options.counterId, 'accepted']
+            : [user.id, storeId, options.counterId, 'accepted'],
+        )
+    : database.offlineCashSync
+        .where(manager ? '[storeId+state]' : '[ownerId+state]')
+        .equals([manager ? storeId : user.id, 'accepted']);
+  const jobs = await candidates
     .filter((job) => job.storeId === storeId)
     .limit(20)
     .toArray();

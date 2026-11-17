@@ -17,6 +17,7 @@ import {
   verifyCashDeviceReceipt,
 } from './crypto';
 import type { LocalCashReceipt } from './storage-types';
+import { offlineCashReadyEvent } from './events';
 
 function assertNotSignedOut(signal: AbortSignal) {
   signal.throwIfAborted();
@@ -136,7 +137,7 @@ export async function completeOfflineCash(
   await verifyCashAuthorization(verified.envelope, verified.snapshot, verified.serverKey);
   const verifiedGrant = canonicalCashJson(verified.envelope),
     verifiedPrices = canonicalCashJson(verified.snapshot);
-  return database.transaction(
+  const completed = await database.transaction(
     'rw',
     [
       database.sessions,
@@ -328,6 +329,7 @@ export async function completeOfflineCash(
         receiptId: receipt.id,
         ownerId: original.ownerId,
         storeId: original.storeId,
+        counterId: original.counterId,
         state: 'pending',
         attempts: 0,
         nextAttemptAt: 0,
@@ -347,4 +349,10 @@ export async function completeOfflineCash(
       return { alreadyCompleted: false, value };
     },
   );
+  try {
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(offlineCashReadyEvent));
+  } catch {
+    /* A wake notification cannot change committed cash or its receipt. */
+  }
+  return completed;
 }

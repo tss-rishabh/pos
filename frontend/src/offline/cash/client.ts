@@ -40,12 +40,22 @@ export const acceptCashReceipt = (
   operatorId: string,
   storeId: string,
   envelope: SignedCashReceipt,
+  options: { signal?: AbortSignal } = {},
 ) =>
-  post(root(storeId) + '/offline-cash-receipts', envelope, cashReceiptAcceptanceSchema, operatorId);
-export const readCashReceipt = (operatorId: string, storeId: string, receiptId: string) =>
+  request(
+    root(storeId) + '/offline-cash-receipts',
+    { method: 'POST', body: JSON.stringify(envelope), operatorId, signal: options.signal },
+    cashReceiptAcceptanceSchema,
+  );
+export const readCashReceipt = (
+  operatorId: string,
+  storeId: string,
+  receiptId: string,
+  options: { signal?: AbortSignal } = {},
+) =>
   request(
     root(storeId) + '/offline-cash-receipts/' + encodeURIComponent(receiptId),
-    { operatorId },
+    { operatorId, signal: options.signal },
     cashReceiptDetailSchema,
   );
 export const listCashReceipts = (
@@ -107,10 +117,10 @@ export const importCashReceiptOrder = (
   storeId: string,
   receiptId: string,
   input: CashOrderImportRequest,
+  options: { signal?: AbortSignal } = {},
 ) =>
-  post(
+  request(
     root(storeId) + '/offline-cash-receipts/' + encodeURIComponent(receiptId) + '/order-imports',
-    input,
+    { method: 'POST', body: JSON.stringify(input), operatorId, signal: options.signal },
     cashReceiptAcceptanceSchema,
-    operatorId,
   );

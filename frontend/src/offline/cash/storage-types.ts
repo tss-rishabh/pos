@@ -51,6 +51,8 @@ export interface LocalCashSync {
   receiptId: string;
   ownerId: string;
   storeId: string;
+  /** Backfilled from the immutable receipt when upgrading older ledgers. */
+  counterId?: string;
   state: 'pending' | 'sending' | 'retry' | 'accepted' | 'imported';
   attempts: number;
   nextAttemptAt: number;

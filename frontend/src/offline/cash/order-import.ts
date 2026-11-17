@@ -51,6 +51,10 @@ async function dispatchImport(
   // Automatic import belongs to the original cashier. A manager's handoff never
   // silently imports another cashier's receipt, including a clean receipt.
   if (!existing || existing.ownerId !== user.id || existing.storeId !== storeId) return;
+  if (options.counterId) {
+    const original = await database.offlineCashReceipts.get([user.id, receiptId]);
+    if (!original || original.envelope.receipt.counterId !== options.counterId) return;
+  }
   if (!retry && existing.orderImport) return;
 
   // This read can prove a lost response committed. It never creates an order.
@@ -128,7 +132,9 @@ async function dispatchImport(
         expectedVersion: intent.expectedVersion,
       },
       result = cashReceiptAcceptanceSchema.parse(
-        await (options.send || importCashReceiptOrder)(user.id, storeId, receiptId, input),
+        await (options.send || importCashReceiptOrder)(user.id, storeId, receiptId, input, {
+          signal,
+        }),
       ),
       local = await database.offlineCashReceipts.get([user.id, receiptId]);
     if (!local) throw new Error('The original cash receipt is unavailable.');
@@ -189,9 +195,12 @@ export async function startOfflineCashOrderImports(
 ) {
   const database = options.database || db,
     signal = options.signal || captureOperatorScope(user.id);
-  const jobs = await database.offlineCashSync
-    .where('[ownerId+state]')
-    .equals([user.id, 'accepted'])
+  const candidates = options.counterId
+    ? database.offlineCashSync
+        .where('[ownerId+storeId+counterId+state]')
+        .equals([user.id, storeId, options.counterId, 'accepted'])
+    : database.offlineCashSync.where('[ownerId+state]').equals([user.id, 'accepted']);
+  const jobs = await candidates
     .filter(
       (job) => job.storeId === storeId && !job.orderImport && job.autoImportEligible !== false,
     )

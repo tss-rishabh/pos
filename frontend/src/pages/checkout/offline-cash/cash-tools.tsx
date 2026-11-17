@@ -10,8 +10,8 @@ import { createCashDeviceKeys, verifyCashAuthorization } from '../../../offline/
 import { cashLines, cashTotals } from '../../../offline/cash/evidence';
 import { MAX_CASH_CENTS } from '../../../offline/cash/contracts';
 import { registerCashDevice, requestCashAuthorization } from '../../../offline/cash/client';
-import { refreshOfflineCash, replayOfflineCash } from '../../../offline/cash/sync';
-import { startOfflineCashOrderImports } from '../../../offline/cash/order-import';
+import { synchronizeOfflineCashScope } from '../../../offline/cash/runner';
+import { useOfflineCashSync } from '../../../offline/cash/use-sync';
 import type { LocalCashAuthorization, LocalCashReceipt } from '../../../offline/cash/storage-types';
 import { recoveryFor } from '../client';
 import { CashReceiptDialog, cashCurrency } from './receipt';
@@ -189,6 +189,7 @@ export function CashTools({
   onOpenChange,
   onCompleted,
 }: CashToolsProps) {
+  useOfflineCashSync(user, storeId, counterId, online);
   const [authorization, setAuthorization] = useState<LocalCashAuthorization | null>(null),
     [receipts, setReceipts] = useState<LocalCashReceipt[]>([]),
     [snapshot, setSnapshot] = useState<LocalDraft | null>(null),
@@ -265,9 +266,7 @@ export function CashTools({
     setSyncing(true);
     syncLock.current = true;
     try {
-      await replayOfflineCash(user, storeId, { signal });
-      await refreshOfflineCash(user, storeId, { signal });
-      await startOfflineCashOrderImports(user, storeId, { signal });
+      await synchronizeOfflineCashScope(user, storeId, counterId, { signal });
     } catch (error) {
       if (!signal.aborted)
         setProblem(error instanceof Error ? error.message : 'Cash synchronization is pending.');
@@ -276,12 +275,6 @@ export function CashTools({
       if (!signal.aborted) setSyncing(false);
     }
   }
-  useEffect(() => {
-    if (!online || !storeId) return;
-    void synchronize();
-    const timer = setInterval(() => void synchronize(), 30_000);
-    return () => clearInterval(timer);
-  }, [user, storeId, online]);
   async function enable() {
     if (!online || busy || authorization) return;
     const signal = operatorSignal(user.id);

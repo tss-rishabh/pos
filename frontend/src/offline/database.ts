@@ -124,6 +124,29 @@ export class PosDatabase extends Dexie {
       performanceCaptures: '[ownerId+draftId],ownerId,[ownerId+checkoutId]',
       performanceCommands: 'id,ownerId,[ownerId+storeId+counterId+state+nextAttemptAt]',
     });
+    this.version(9)
+      .stores({
+        offlineCashSync:
+          'receiptId,ownerId,storeId,[ownerId+state],[storeId+state],nextAttemptAt,[ownerId+storeId+counterId+state],[storeId+counterId+state]',
+      })
+      .upgrade(async (transaction) => {
+        const jobs = transaction.table<LocalCashSync, string>('offlineCashSync'),
+          receipts = transaction.table<LocalCashReceipt, [string, string]>('offlineCashReceipts');
+        // Only queue routing metadata changes. Never replace a signed receipt,
+        // create another cash claim or clear an incomplete/uncertain record.
+        for (const id of await jobs.toCollection().primaryKeys()) {
+          const job = await jobs.get(id);
+          if (!job) continue;
+          const receipt = await receipts.get([job.ownerId, job.receiptId]);
+          if (
+            receipt?.ownerId === job.ownerId &&
+            receipt.receiptId === job.receiptId &&
+            receipt.storeId === job.storeId &&
+            receipt.counterId === receipt.envelope.receipt.counterId
+          )
+            await jobs.update(id, { counterId: receipt.counterId });
+        }
+      });
   }
 }
 export const db = new PosDatabase();
