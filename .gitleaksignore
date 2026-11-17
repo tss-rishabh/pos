@@ -267,3 +267,8 @@ dc7ef99c97c63d06e157c04f050f8728109c3bef:backend/compatibility/upstream/legacy-o
 165033658cf553ccb7c860cc70ebdb90d0c920ef:backend/evidence/integration-followup-56f2543.json:generic-api-key:1798
 165033658cf553ccb7c860cc70ebdb90d0c920ef:backend/evidence/integration-followup-56f2543.json:generic-api-key:1811
 165033658cf553ccb7c860cc70ebdb90d0c920ef:backend/evidence/integration-followup-56f2543.json:generic-api-key:1830
+
+# Exact input SHA256 metadata verified against the recorded56f2543 combined-run snapshot.
+e3e056fa3385fa99946dfe303d19828764c78771:backend/evidence/verification.json:generic-api-key:804
+e3e056fa3385fa99946dfe303d19828764c78771:backend/evidence/verification.json:generic-api-key:1670
+e3e056fa3385fa99946dfe303d19828764c78771:backend/evidence/verification.json:generic-api-key:2347
