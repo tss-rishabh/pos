@@ -2,6 +2,7 @@
 import argparse
 import difflib
 import hashlib
+import importlib.util
 import json
 import os
 import sys
@@ -20,8 +21,14 @@ def once(value,old,new):
 
 
 def outputs():
-    original=checked_source(SOURCE,'main.py')
-    main=once(original,'from controllers import (','from pos_node_screening import install\n_node_screening = install(__file__)\n\nfrom controllers import (')
+    # A single reviewed patch owns main.py. Preserve the private-import guard
+    # rather than asking operators to apply two incompatible main.py overlays.
+    spec=importlib.util.spec_from_file_location('pos_private_import_artifacts',COMMON/'prepare.py')
+    private=importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(private)
+    changes=private.api_guard_changes()
+    original,main=changes['main.py']
+    main=once(main,'from controllers import (','from pos_node_screening import install\n_node_screening = install(__file__)\n\nfrom controllers import (')
     main=once(main,'(db_session, db_session_r) = make_sessions()',
               '(db_session, db_session_r) = _node_screening.routes(*make_sessions())\n_node_screening.activate(vars(OrderController))')
     main=once(main,'middleware = [DatabaseManager(','middleware = [_node_screening, DatabaseManager(')
@@ -44,13 +51,13 @@ def outputs():
     added=[line[1:] for line in approved.splitlines() if line.startswith('+') and not line.startswith('+++')]
     if len(removed)!=2 or len(added)!=2:raise RuntimeError('Approved refund patch changed')
     for old,new in zip(removed,added):controller_candidate=once(controller_candidate,old,new)
-    changes={'main.py':(original,main),'controllers/OrderController.py':(controller,controller_candidate)}
+    changes.update({'main.py':(original,main),'controllers/OrderController.py':(controller,controller_candidate)})
     entry='''"""Installed only with the reviewed source bundle and explicit contracts."""\nimport os\nimport sys\nfrom pathlib import Path\n_module_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()\nsys.path.insert(0,str(_module_root/'legacy-order-imports'))\nsys.path.insert(0,str(_module_root/'offline-cash-pricing'))\nsys.path.insert(0,str(_module_root/'public-screening-writer'))\nfrom bootstrap import Bootstrap,after_validate\ndef install(main_file):return Bootstrap(Path(main_file).resolve().parent)\n'''
     changes['pos_node_screening.py']=('',entry)
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+name if old else '/dev/null',tofile='b/'+name)) for name,(old,new) in changes.items())
     files=('writer_protocol.py','native_authority.py','creation.py','source_frame.py','bootstrap.py','public_effects.py','migration.review.sql')
     manifest={'contract':'pos-node-screening-writer-v1','activated':False,'sourceCommit':'2960acbea10c4eaf16b6d99e15ff6e03ef7724c5',
-              'scope':'Node POS origin only; other public/system writers unqualified',
+              'scope':'Node POS origin plus private-import order guard; other public/system writers unqualified',
               'base':{name:hashlib.sha256(old.encode()).hexdigest() for name,(old,_) in changes.items() if old},
               'candidate':{name:hashlib.sha256(new.encode()).hexdigest() for name,(_,new) in changes.items()},
               'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in files},

@@ -20,6 +20,16 @@ def once(value,old,new):
     return value.replace(old,new,1)
 
 
+def api_guard_changes():
+    public_main=checked_source(SOURCE,'main.py')
+    guarded_main=once(public_main,'middleware = [DatabaseManager(',
+        'from middleware.PosImportOrderGuard import ImportOrderGuard\n\nmiddleware = [DatabaseManager(')
+    guarded_main=once(guarded_main,'MultipartMiddleware(), ActiveCartMiddleware()]',
+        'MultipartMiddleware(), ActiveCartMiddleware(), ImportOrderGuard()]')
+    return {'main.py':(public_main,guarded_main),
+        'middleware/PosImportOrderGuard.py':('',(HERE/'order_guard.py').read_text())}
+
+
 def outputs():
     for name in PINS:checked_source(SOURCE,name)
     base=HERE.parent/'go/internal/poscheckout'
@@ -58,12 +68,8 @@ def outputs():
     changes['internal/poscheckout/public_screening.go']=('',(HERE/'public_screening.go').read_text())
     changes['internal/poscheckout/coupon_consumption.go']=('',(HERE/'coupon_consumption.go').read_text())
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+path if old else '/dev/null',tofile='b/'+path)) for path,(old,new) in changes.items())
-    public_main=(SOURCE/'main.py').read_text()
-    guarded_main=once(public_main,'middleware = [DatabaseManager(',
-        'from middleware.PosImportOrderGuard import ImportOrderGuard\n\nmiddleware = [DatabaseManager(')
-    guarded_main=once(guarded_main,'MultipartMiddleware(), ActiveCartMiddleware()]',
-        'MultipartMiddleware(), ActiveCartMiddleware(), ImportOrderGuard()]')
-    public_changes={'main.py':(public_main,guarded_main),'middleware/PosImportOrderGuard.py':('',(HERE/'order_guard.py').read_text())}
+    public_changes=api_guard_changes()
+    public_main=public_changes['main.py'][0]
     public_patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+path if old else '/dev/null',tofile='b/'+path)) for path,(old,new) in public_changes.items())
     source_paths=['models/Order.py','libs/OrderHelper.py','controllers/CheckoutController.py','controllers/CatalogController.py','controllers/KinesisProducer.py','main.py']
     manifest={'paymentsCommit':'434f3e438d1cb48c64e5723222c6efda506db571',

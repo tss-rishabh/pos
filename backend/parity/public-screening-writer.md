@@ -78,6 +78,13 @@ key. The generated public patch retains the source authentication decorator and
 composes the separately approved per-HP refund correction. Zero-pay POS is
 source method 3; online PREPAID is 7 and ordinary positive POS is method 14.
 
+The public patch also composes the private-import order guard into the same
+`main.py` candidate and includes its middleware module. Apply this combined
+public patch to the pinned baseline; do not stack the separate
+`api-import-guard.patch` on top of it. Both generators share the reviewed guard
+builder. The generated payment overlay retains both public screening and CSV
+coupon-consumption helpers, so one integration cannot erase the other.
+
 ## Explicit unpaid abandonment
 
 ```

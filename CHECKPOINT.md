@@ -20,7 +20,7 @@ component test counts do not certify every original workflow.
 | Benefits                 | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                                                                                                                                                                                                                                                      |
 | Administration           | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                                                                                                                                                                                                                                                             |
 | Reports and fulfillment  | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                                                                                                                                                                                                                                                                |
-| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. On `6d8a4bc`, macOS passed the full CI job; Windows passed native Electron/offline checks and failed five later payment-recovery browser cases. The Windows fixture correction passes locally and still needs its target-OS rerun. Signing and physical printing remain release gates.                                                                                                  |
+| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. On `0f865c8`, macOS passed the full CI job; Windows passed the five payment-recovery cases and native Electron/offline checks, then failed the first customer-profile browser workflow at its existing five-second limit. Its cold-fixture preparation passes all 23 local cases and still needs a target-OS rerun. Signing and physical printing remain release gates.                                 |
 | Cashier conveniences     | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass.                                                                                                                                                                                                                                      |
 | Dashboard and website    | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                                                                                                                                                                                                                                                       |
 | Barcode and country      | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.                                                                                                                                                                                                                                               |
@@ -103,10 +103,20 @@ Electron/offline checks, then failed five existing-order payment-recovery
 browser cases. Their original host connectivity value was not captured. A
 controlled offline-host reproduction exposes the same first-action timeout;
 the fixture correction and offline-to-online regression pass all 17 local cases
-without increased deadlines or retries. That correction still needs integration
-and a Windows rerun. `backend/evidence/desktop-ci-6d8a4bc.json` retains the failed
+without increased deadlines or retries. That correction is now integrated.
+`backend/evidence/desktop-ci-6d8a4bc.json` retains the failed
 Windows and successful macOS outcomes. See
 `backend/parity/native-browser-readiness.md`.
+
+The `0f865c8` follow-up passed all five formerly failing payment-recovery cases
+on Windows and the complete macOS job. Windows now has one failed first
+customer-profile browser case (105 passed in that step). Its original five-second
+workflow deadline included cold development-server compilation/rendering. The
+fixture now loads the same harness in its existing startup hook, uses a fresh
+temporary Vite cache and closes its throwaway browser context without any API
+request or retained state. All 23 local cases and the strict fixture check pass;
+Windows acceptance remains pending. No deadline, retry or product assertion changed.
+`backend/evidence/desktop-ci-0f865c8.json` retains the actual CI outcome.
 
 Membership completion snapshots and actual application/worker recovery are now
 integrated. On `6ec6824`, 125 membership, runtime, repository and resumptions
@@ -125,15 +135,22 @@ the literal eligibility code uses memory only and retains its original execution
 second. Source short circuits still run without history. The latest affected
 regression passed 266 checks; its separately compiled original-Go case passed
 as well. Protocol/startup/tender checks and strict compilation passed. Async
-preparation selection, durable no-dispatch closure/resume and complete warehouse
-freshness remain code/integration work. See `backend/parity/csv-membership-handoff.md`.
+preparation and durable no-dispatch closure/resume candidates are now merged;
+their actual runtime and explicit-resumption UI installation is in `afd9658`.
+Eighty focused preparation/runtime checks and 39 UI checks pass, including
+native API/worker recovery. The merged preparation/public-protocol checks pass
+101 cases with two Go-dependent cases initially skipped; the compiled public
+native runner then passes all 36 cases, and the coupon Go runner passes all 28.
+These bounded results do not certify every source origin or warehouse freshness.
+See `backend/parity/csv-membership-handoff.md` and `import-order-preparation.md`.
 
 Automatic coupon and POS complementary profile candidates are merged, with
 71 focused checks passing on a disposable MySQL fixture. Original eligibility,
 per-HP refunds, exact counter/log/grant evidence and exhaustive line ownership
-are covered. Their source/core composition, original-Go consumption emitter,
+are covered. Their source/core composition,
 qualified coupon warehouse history and cooperating-writer cutover remain code
-work. Review-only legacy enum changes are not applied automatically.
+work. The original-Go consumption emitter is merged and passes its 28 native
+checks. Review-only legacy enum changes are not applied automatically.
 
 The project verifier includes membership, benefit and check-in fixture compiler
 checks, the isolated native publication database input, the dedicated benefit

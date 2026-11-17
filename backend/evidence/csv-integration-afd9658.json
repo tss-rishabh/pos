@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-17T14:03:49.923591+00:00",
+  "applicationCommit": "afd9658389244c02f818147d43995d22c1a910b0",
+  "productionReady": false,
+  "fullProjectVerification": false,
+  "exitCode": 0,
+  "checks": [
+    {
+      "id": "merged-preparation-runtime-options",
+      "passed": 80,
+      "skipped": 0,
+      "files": 8
+    },
+    {
+      "id": "compiled-public-screening-native",
+      "passed": 36,
+      "skipped": 0,
+      "files": 5
+    },
+    {
+      "id": "original-go-coupon-consumption",
+      "passed": 28,
+      "skipped": 0
+    },
+    {
+      "id": "customer-profile-cold-browser",
+      "passed": 23,
+      "skipped": 0
+    },
+    {
+      "id": "new-fixture-strict-checks",
+      "configs": [
+        "tests/legacy-import-preparation/tsconfig.json",
+        "tools/legacy-import-preparation/tsconfig.json",
+        "tools/public-screening-writer/tsconfig.json",
+        "tools/legacy-import-coupon-go/tsconfig.json",
+        "frontend/tests/customer-profile/tsconfig.json"
+      ],
+      "passed": true
+    },
+    {
+      "id": "changed-verifier-and-customer-fixture-lint",
+      "passed": true
+    },
+    {
+      "id": "combined-public-patch-applies-to-reviewed-source",
+      "passed": true
+    }
+  ],
+  "limitations": [
+    "Focused integration evidence; the retained full-project run remains failed.",
+    "The latest target Windows run remains failed; customer-profile fixture correction needs its native rerun.",
+    "Full source-origin parity, performance benchmarks and production integrations remain unverified."
+  ],
+  "selectedInputChecksums": {
+    "backend/compatibility/upstream/legacy-order-imports/prepare.py": "4b8275f1f70ca048e2e510a397a14a7c36a17360dc4a42c51d497b74d9d2770a",
+    "backend/compatibility/upstream/legacy-order-imports/manifest.json": "50090b58cdf7f82cc1d78fbe78085f4c9d55314b2d06c43279512f8abdc8ef24",
+    "backend/compatibility/upstream/legacy-order-imports/payments-import-overlay.patch": "d71649caea429419cc65d00906d1b4f4f0ffa5a3809d6562506dadb9e4592eb8",
+    "backend/compatibility/upstream/public-screening-writer/prepare.py": "2e70ad661e6f69617154544677d912ceb8a2486ac98b5556d3ef106b1e380bf0",
+    "backend/compatibility/upstream/public-screening-writer/manifest.json": "f4f250dffcba761c47962459f2153cad959f62752651c43bdfbc6ff99ff6d4ff",
+    "backend/compatibility/upstream/public-screening-writer/public-pos-screening.patch": "a5bcffa29ab257ef3eab26173a58575d141f020426195b5eeb359b1d1a0dc3f6",
+    "backend/src/modules/legacy-order-imports/runtime.ts": "f322295feda383df649b7de559d159a5ce352f6934f9d2f1837f045fa8414077",
+    "backend/src/modules/legacy-order-imports/source-order-preparation-runtime.ts": "0ee37b2933c6b3f8b57eb7a3d77105c2a2d545e0514de79b8eaf9fec8936dbac",
+    "backend/src/db/migrations.ts": "d387017c922a9e26e3aff72e38dbb9dd4201c0006a5304a276ed44fda2e039fd",
+    "backend/tests/legacy-import-preparation/runtime.mysql.test.ts": "1525232bcdf0ea3c05c2d29bf183298617be04480497ac03493b0a1641f19fc4",
+    "backend/tools/verify-project.ts": "cff3177a6fed95c9d19390fdd610ae6ba76e1a45369caa0a4c0b8bd56ca28841",
+    "frontend/tests/customer-profile/browser.test.ts": "b40ee01a9493626b72e77abca6a497b94adb520522ccfde4ec34756c985e8fa8",
+    "frontend/tests/prepare-browser-fixture.ts": "e5d0890bd7e87e230502248317fb4a649133eee7e7acdf846a0bf2fdc496af26"
+  }
+}

@@ -2,13 +2,14 @@
   "contract": "pos-node-screening-writer-v1",
   "activated": false,
   "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
-  "scope": "Node POS origin only; other public/system writers unqualified",
+  "scope": "Node POS origin plus private-import order guard; other public/system writers unqualified",
   "base": {
     "main.py": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
     "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad"
   },
   "candidate": {
-    "main.py": "a5739440fb41a5dc7530d5a9898b6a0445f836157cc05491153ebb4684d05462",
+    "main.py": "e724e075af87a963865cf3b8972546a24f2e8a136b9ac58b309d999b41ea5d31",
+    "middleware/PosImportOrderGuard.py": "1c82e092914b5797f3a18629016443739c272a73a406240d29bb148a8ff5ab71",
     "controllers/OrderController.py": "d6889729a1d858512a76a3cd3aee12ce80af6a9e4125aca35237b03e1af3609e",
     "pos_node_screening.py": "a199bb17fa41d72824ef8a371e4ee614def6271f97e75eb37c97e8912aa723a5"
   },
@@ -29,5 +30,5 @@
       "transaction.py": "f62781477b97b0a5c18ae4c488a64168af50a25f0e789ff0695f45e564f6474e"
     }
   },
-  "patchSha256": "b33fd664fdf5b3965ea4a0062fd49f5c66a08d190338bc2da653ec704d0c5947"
+  "patchSha256": "a5bcffa29ab257ef3eab26173a58575d141f020426195b5eeb359b1d1a0dc3f6"
 }

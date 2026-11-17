@@ -513,6 +513,46 @@ const checks: Check[] = [
     args: ['compatibility/upstream/legacy-order-imports/run-source-tests.sh'],
   },
   {
+    id: 'legacy-import-preparation-core-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/legacy-import-preparation/tsconfig.json',
+    ],
+  },
+  {
+    id: 'legacy-import-preparation-source-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-preparation/tsconfig.json',
+    ],
+  },
+  {
+    id: 'public-screening-writer-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/public-screening-writer/tsconfig.json',
+    ],
+  },
+  {
+    id: 'legacy-import-coupon-go-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-coupon-go/tsconfig.json',
+    ],
+  },
+  {
     id: 'legacy-import-tender-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -1068,6 +1108,18 @@ if (flags.has('--mysql')) {
       directory: 'backend',
       command: 'sh',
       args: ['compatibility/upstream/legacy-order-imports/benefit-profile/run-native-tests.sh'],
+    },
+    {
+      id: 'legacy-import-coupon-consumption-native-tests',
+      directory: 'backend',
+      command: 'sh',
+      args: ['compatibility/upstream/legacy-order-imports/run-coupon-tests.sh'],
+    },
+    {
+      id: 'public-screening-writer-native-tests',
+      directory: 'backend',
+      command: 'sh',
+      args: ['compatibility/upstream/public-screening-writer/run-native-tests.sh'],
     },
     {
       id: 'membership-native-producer-tests',

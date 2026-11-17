@@ -30,6 +30,19 @@ original final assertions. Separate waits ensure the original 404 and 500
 responses are both exercised and neither creates a native fence. All 8
 correction-browser cases pass locally, along with their strict compiler check.
 
+Run `44091182603` on `0f865c8` passes the complete macOS job. Windows passes
+the previously failing order-payment cases, native Electron/offline checks and
+105 browser cases, then fails the first customer-profile workflow at its existing
+five-second deadline. No browser trace captured the exact point of that deadline;
+cold setup is a possible contributor, not a proved product latency diagnosis.
+
+The customer-profile suite now prepares its real harness in `beforeAll` using
+the same helper and a fresh temporary Vite cache. The throwaway page reaches
+the actual controls, makes no API requests and closes before each independent
+workflow context begins. All 23 local cases, including escaping, offline privacy,
+lost replies and authority changes, pass with their original deadlines. The
+strict fixture compiler check passes. Target Windows acceptance remains pending.
+
 These changes validate fixture ordering. They do not establish production
 latency, complete legacy parity, signing, hardware printing or a passing native
 release gate. Both target operating systems must run the published revision.

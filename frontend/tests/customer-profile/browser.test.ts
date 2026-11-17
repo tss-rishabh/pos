@@ -1,8 +1,12 @@
-import { existsSync } from 'node:fs';
+import { existsSync, realpathSync } from 'node:fs';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chromium, expect as browserExpect, type Browser, type Page } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
+import { prepareBrowserFixture } from '../prepare-browser-fixture';
 import {
   profileAdjustmentInput,
   type ProfileAdjustmentInput,
@@ -11,14 +15,20 @@ import {
 describe.skipIf(process.env.CUSTOMER_PROFILE_BROWSER_TESTS !== 'true')(
   'checkout customer details in isolated Chromium',
   () => {
-    let server: ViteDevServer, browser: Browser, origin: string;
+    let server: ViteDevServer, browser: Browser, origin: string, cache: string;
     beforeAll(async () => {
+      cache = await mkdtemp(join(tmpdir(), 'pos-customer-profile-browser-'));
       server = await createServer({
         configFile: false,
-        cacheDir: 'node_modules/.vite-customer-profile-tests',
+        cacheDir: cache,
         plugins: [react()],
         appType: 'custom',
-        server: { host: '127.0.0.1', port: 0, hmr: false },
+        server: {
+          host: '127.0.0.1',
+          port: 0,
+          hmr: false,
+          fs: { allow: [process.cwd(), realpathSync('node_modules'), cache] },
+        },
         logLevel: 'silent',
       });
       server.middlewares.use(async (request, response, next) => {
@@ -48,10 +58,16 @@ describe.skipIf(process.env.CUSTOMER_PROFILE_BROWSER_TESTS !== 'true')(
         headless: true,
         ...(executablePath ? { executablePath } : {}),
       });
+      await prepareBrowserFixture(browser, async (page) => {
+        const prepared = await workspace({}, page);
+        expect(prepared.requests).toEqual([]);
+        await server.waitForRequestsIdle();
+      });
     }, 20_000);
     afterAll(async () => {
       await browser?.close();
       await server?.close();
+      if (cache) await rm(cache, { recursive: true, force: true });
     });
     const response = () => ({
       customerId: '777',
@@ -86,9 +102,11 @@ describe.skipIf(process.env.CUSTOMER_PROFILE_BROWSER_TESTS !== 'true')(
         wrongLineOrder?: boolean;
         badHistoryCursor?: boolean;
       } = {},
+      preparedPage?: Page,
     ) {
-      const context = await browser.newContext({ serviceWorkers: 'block' });
-      const page = await context.newPage();
+      const context =
+        preparedPage?.context() ?? (await browser.newContext({ serviceWorkers: 'block' }));
+      const page = preparedPage ?? (await context.newPage());
       const errors: string[] = [];
       const requests: string[] = [];
       const mutationInputs: ProfileAdjustmentInput[] = [];
