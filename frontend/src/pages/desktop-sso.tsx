@@ -4,6 +4,14 @@ import { z } from 'zod';
 import { ApiError, request } from '../api/client';
 import { principalSchema, sessionSchema } from '../api/schemas';
 import { ErrorState, Loading } from '../components/common';
+import {
+  clearDesktopSsoReference,
+  readDesktopSsoReference,
+  saveDesktopSsoReference,
+  markDesktopSsoCreation,
+  hasPendingDesktopSsoCreation,
+  type DesktopSsoReference,
+} from '../offline/desktop-sso';
 export { isDesktopRuntime } from '../lib/desktop-runtime';
 
 const proof = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
@@ -28,12 +36,15 @@ const statusSchema = z
     expires: z.number().int().positive().safe(),
   })
   .strict();
-type Flow = z.infer<typeof flowSchema>;
+const currentFlowSchema = statusSchema.extend({ id: z.uuid() }).strict();
+type CreatedFlow = z.infer<typeof flowSchema>;
+type Flow = DesktopSsoReference &
+  Partial<Pick<CreatedFlow, 'code' | 'browserUrl'>> & { recoveredWithoutBrowser?: boolean };
 type Session = z.infer<typeof sessionSchema>;
 function flowPath(flow: Flow) {
   return '/api/v1/auth/desktop-sso-sessions/' + encodeURIComponent(flow.id);
 }
-function validateBrowserUrl(flow: Flow): void {
+function validateBrowserUrl(flow: CreatedFlow): void {
   const url = new URL(flow.browserUrl);
   if (
     url.origin !== window.location.origin ||
@@ -63,6 +74,9 @@ export function DesktopSsoLogin({
 }) {
   const [flow, setFlow] = useState<Flow | null>(null),
     [working, setWorking] = useState(false);
+  const [resumable, setResumable] = useState<DesktopSsoReference | null>(null),
+    [resumeReady, setResumeReady] = useState(false),
+    [creationUnknown, setCreationUnknown] = useState(false);
   const [problem, setProblem] = useState<unknown>(null),
     [unknown, setUnknown] = useState(false),
     [confirmed, setConfirmed] = useState(false);
@@ -76,6 +90,14 @@ export function DesktopSsoLogin({
   useEffect(() => {
     const controller = new AbortController();
     lifetime.current = controller;
+    try {
+      const previous = readDesktopSsoReference();
+      setResumable(previous);
+      setCreationUnknown(!previous && hasPendingDesktopSsoCreation());
+      setResumeReady(true);
+    } catch (error) {
+      setProblem(error);
+    }
     return () => {
       controller.abort();
       current.current = null;
@@ -91,6 +113,7 @@ export function DesktopSsoLogin({
     dispatch.current = 'confirmed';
     setConfirmed(true);
     setUnknown(false);
+    clearDesktopSsoReference(target.id);
     await callbacks.current.onSession(saved);
     if (current.current !== target || lifetime.current.signal.aborted) return;
     current.current = null;
@@ -131,6 +154,14 @@ export function DesktopSsoLogin({
     busy.current = true;
     setWorking(true);
     try {
+      if (target.expires <= Date.now()) {
+        clearDesktopSsoReference(target.id);
+        current.current = null;
+        setFlow(null);
+        callbacks.current.onActiveChange(false);
+        setProblem(new Error('The original sign-in expired. Start a new sign-in.'));
+        return;
+      }
       const value = await request(
         flowPath(target),
         { signal: signal(), cache: 'no-store' },
@@ -140,6 +171,7 @@ export function DesktopSsoLogin({
       if (value.expires !== target.expires)
         throw new Error('The desktop sign-in changed. Start again.');
       if (['cancelled', 'locked'].includes(value.status) || value.expires <= Date.now()) {
+        clearDesktopSsoReference(target.id);
         current.current = null;
         setFlow(null);
         callbacks.current.onActiveChange(false);
@@ -157,9 +189,10 @@ export function DesktopSsoLogin({
       if (current.current !== target || lifetime.current.signal.aborted) return;
       setProblem(error);
       if (error instanceof ApiError && [401, 404, 410].includes(error.status)) {
-        current.current = null;
-        setFlow(null);
-        callbacks.current.onActiveChange(false);
+        // A missing/unavailable reply never proves that the original sign-in
+        // did not commit. Retain its UUID and use only its status/consumption.
+        dispatch.current = 'unknown';
+        setUnknown(true);
       }
     } finally {
       busy.current = false;
@@ -173,13 +206,26 @@ export function DesktopSsoLogin({
     return () => clearInterval(timer);
   }, [flow, check]);
   async function start() {
-    if (busy.current || disabled || !enabled || current.current) return;
+    if (
+      busy.current ||
+      disabled ||
+      !enabled ||
+      current.current ||
+      resumable ||
+      !resumeReady ||
+      creationUnknown
+    )
+      return;
     busy.current = true;
     setWorking(true);
     setProblem(null);
     callbacks.current.onActiveChange(true);
+    let dispatched = false;
     try {
       await callbacks.current.beforeStart();
+      lifetime.current.signal.throwIfAborted();
+      markDesktopSsoCreation();
+      dispatched = true;
       const created = await request(
         '/api/v1/auth/desktop-sso-sessions',
         { method: 'POST', body: '{}', signal: signal() },
@@ -187,6 +233,7 @@ export function DesktopSsoLogin({
       );
       lifetime.current.signal.throwIfAborted();
       validateBrowserUrl(created);
+      saveDesktopSsoReference({ id: created.id, expires: created.expires });
       current.current = created;
       credential.current = null;
       dispatch.current = 'never';
@@ -194,6 +241,120 @@ export function DesktopSsoLogin({
       setConfirmed(false);
       setFlow(created);
       window.open(created.browserUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      if (!lifetime.current.signal.aborted) {
+        if (dispatched && !current.current) setCreationUnknown(true);
+        setProblem(error);
+        callbacks.current.onActiveChange(false);
+      }
+    } finally {
+      busy.current = false;
+      if (!lifetime.current.signal.aborted) setWorking(false);
+    }
+  }
+  async function restoreCurrent() {
+    if (current.current || busy.current || disabled || !enabled) return;
+    busy.current = true;
+    setWorking(true);
+    setProblem(null);
+    try {
+      await callbacks.current.beforeStart();
+      const original = await request(
+        '/api/v1/auth/desktop-sso-sessions/current',
+        { cache: 'no-store', signal: signal() },
+        currentFlowSchema,
+      );
+      lifetime.current.signal.throwIfAborted();
+      if (original.expires <= Date.now() || ['cancelled', 'locked'].includes(original.status)) {
+        clearDesktopSsoReference(original.id);
+        setCreationUnknown(false);
+        setResumable(null);
+        setProblem(new Error('The original sign-in has ended. Start a new sign-in.'));
+        return;
+      }
+      const target = {
+        id: original.id,
+        expires: original.expires,
+        recoveredWithoutBrowser: creationUnknown,
+      };
+      current.current = target;
+      credential.current = null;
+      dispatch.current = original.status === 'consumed' ? 'unknown' : 'never';
+      setUnknown(original.status === 'consumed');
+      setConfirmed(false);
+      setCreationUnknown(false);
+      setResumable(null);
+      setFlow(target);
+      callbacks.current.onActiveChange(true);
+      saveDesktopSsoReference({ id: target.id, expires: target.expires });
+    } catch (error) {
+      if (!lifetime.current.signal.aborted) {
+        setProblem(error);
+        // Missing cookies/rows and unavailable replies are not an instruction
+        // to issue a new nonce. Only this explicit GET can recover creation.
+        if (!current.current) {
+          setCreationUnknown(true);
+          callbacks.current.onActiveChange(false);
+        }
+      }
+    } finally {
+      busy.current = false;
+      if (!lifetime.current.signal.aborted) setWorking(false);
+    }
+  }
+  async function reset() {
+    if (busy.current || disabled || !enabled) return;
+    busy.current = true;
+    setWorking(true);
+    setProblem(null);
+    try {
+      await request('/api/v1/auth/sessions/current', { method: 'DELETE', signal: signal() });
+      lifetime.current.signal.throwIfAborted();
+      // An acknowledged idempotent logout clears the HttpOnly desktop proof.
+      // A missing/failed response keeps the dispatch marker and original UUID.
+      clearDesktopSsoReference();
+      current.current = null;
+      credential.current = null;
+      dispatch.current = 'never';
+      setFlow(null);
+      setResumable(null);
+      setUnknown(false);
+      setConfirmed(false);
+      setCreationUnknown(false);
+      callbacks.current.onActiveChange(false);
+    } catch (error) {
+      if (!lifetime.current.signal.aborted) setProblem(error);
+    } finally {
+      busy.current = false;
+      if (!lifetime.current.signal.aborted) setWorking(false);
+    }
+  }
+  async function resume() {
+    if (!resumable || busy.current || disabled || !enabled || current.current) return;
+    busy.current = true;
+    setWorking(true);
+    setProblem(null);
+    callbacks.current.onActiveChange(true);
+    try {
+      if (resumable.expires <= Date.now()) {
+        clearDesktopSsoReference(resumable.id);
+        setResumable(null);
+        callbacks.current.onActiveChange(false);
+        setProblem(new Error('The original sign-in expired. Start a new sign-in.'));
+        return;
+      }
+      await callbacks.current.beforeStart();
+      lifetime.current.signal.throwIfAborted();
+      const original = { ...resumable };
+      current.current = original;
+      credential.current = null;
+      dispatch.current = 'never';
+      setResumable(null);
+      setUnknown(false);
+      setConfirmed(false);
+      setFlow(original);
+      // The effect performs an authenticated GET first. Browser/code material
+      // is deliberately unavailable after restart and is never reissued here.
     } catch (error) {
       if (!lifetime.current.signal.aborted) {
         setProblem(error);
@@ -233,13 +394,19 @@ export function DesktopSsoLogin({
         z.object({ cancelled: z.literal(true) }),
       );
       if (current.current !== target) return;
+      clearDesktopSsoReference(target.id);
       current.current = null;
       credential.current = null;
+      setCreationUnknown(false);
       setFlow(null);
       setProblem(null);
       callbacks.current.onActiveChange(false);
     } catch (error) {
-      if (!lifetime.current.signal.aborted) setProblem(error);
+      if (!lifetime.current.signal.aborted) {
+        setProblem(error);
+        setUnknown(true);
+        dispatch.current = 'unknown';
+      }
     } finally {
       busy.current = false;
       if (!lifetime.current.signal.aborted) setWorking(false);
@@ -251,27 +418,50 @@ export function DesktopSsoLogin({
         <button
           className="button secondary full"
           type="button"
-          disabled={!enabled || disabled || working}
-          onClick={() => void start()}
+          disabled={!enabled || disabled || working || !resumeReady}
+          onClick={() => void (resumable ? resume() : creationUnknown ? restoreCurrent() : start())}
         >
-          Continue with Google
+          {resumable
+            ? 'Resume previous Google sign-in'
+            : creationUnknown
+              ? 'Recover original Google sign-in'
+              : 'Continue with Google'}
         </button>
       ) : (
         <section aria-label="Google desktop sign-in">
-          <p>Complete Google sign-in in your browser, then enter this code there:</p>
-          <p className="desktop-sso-code" aria-label="Desktop pairing code">
-            {flow.code}
-          </p>
+          {flow.code ? (
+            <>
+              <p>Complete Google sign-in in your browser, then enter this code there:</p>
+              <p className="desktop-sso-code" aria-label="Desktop pairing code">
+                {flow.code}
+              </p>
+            </>
+          ) : flow.recoveredWithoutBrowser ? (
+            <p>
+              The original request was found, but its browser link and pairing code were not
+              received. Cancel this original sign-in and wait for confirmation before starting a new
+              sign-in.
+            </p>
+          ) : (
+            <p>
+              Checking the original sign-in from this device. If its browser was already opened,
+              finish approval there. Otherwise cancel this original sign-in before starting another.
+            </p>
+          )}
           <p className="caption">
-            Return here after approving the code. The code expires in 10 minutes.
+            Return here after approval. This sign-in expires at{' '}
+            {new Date(flow.expires).toLocaleTimeString()}.
           </p>
           <div className="toolbar">
-            {!unknown && !confirmed && (
+            {!unknown && !confirmed && flow.browserUrl && (
               <button
                 className="button secondary"
                 type="button"
                 disabled={disabled || working}
-                onClick={() => window.open(flow.browserUrl, '_blank', 'noopener,noreferrer')}
+                onClick={() => {
+                  if (flow.browserUrl)
+                    window.open(flow.browserUrl, '_blank', 'noopener,noreferrer');
+                }}
               >
                 Open browser
               </button>
@@ -304,6 +494,26 @@ export function DesktopSsoLogin({
             </button>
           </div>
         </section>
+      )}
+      {!flow && !resumable && !creationUnknown && (
+        <button
+          className="button secondary full"
+          type="button"
+          disabled={!enabled || disabled || working || !resumeReady}
+          onClick={() => void restoreCurrent()}
+        >
+          Check previous Google sign-in
+        </button>
+      )}
+      {(creationUnknown || unknown) && (
+        <button
+          className="button secondary full"
+          type="button"
+          disabled={!enabled || disabled || working}
+          onClick={() => void reset()}
+        >
+          Reset desktop sign-in
+        </button>
       )}
       {working && (
         <p role="status" className="caption">
