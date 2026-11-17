@@ -31,6 +31,9 @@ import {
 } from './schema.js';
 import type { ImportCorrectionBinding } from './correction-contracts.js';
 import { correctedImportPlanHash } from './correction-domain.js';
+import { financialTransaction } from './screening-transactions.js';
+import { nativePreparationPauseCodes } from './financial-adapter-preparation.js';
+import type { FinancialPreparationExecution } from './financial-adapter-preparation-contracts.js';
 
 const terminalRows = ['IMPORTED', 'FAILED', 'CANCELLED'] as const;
 const pendingRows = ['PENDING', 'STARTING', 'RECONCILING'] as const;
@@ -86,6 +89,7 @@ interface Claim {
   token: string;
   start: boolean;
   input?: ImportFinancialStart;
+  execution?: FinancialPreparationExecution;
 }
 
 export function legacyOrderImportRepository(db: Databases, options: LegacyImportRepositoryOptions) {
@@ -137,7 +141,16 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
       : input;
   }
 
-  async function owned(tx: AdministrationTransaction, actorId: string, id: string) {
+  async function owned(
+    tx: AdministrationTransaction,
+    actorId: string,
+    id: string,
+    beforeAuthorize?: (
+      tx: AdministrationTransaction,
+      actorId: string,
+      scopes: readonly { storeId: string; counterId: string }[],
+    ) => Promise<void>,
+  ) {
     const [anchor] = await tx.select().from(jobs).where(eq(jobs.id, id)).limit(1);
     if (!anchor || anchor.actorId !== actorId) throw missing();
     const scopes = await tx
@@ -152,6 +165,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         'ORDER_IMPORT_STATE_INVALID',
         'This order import requires reconciliation.',
       );
+    await beforeAuthorize?.(tx, actorId, scopes);
     await authorize(tx, actorId, scopes);
     const [job] = await tx.select().from(jobs).where(eq(jobs.id, id)).limit(1).for('update');
     if (!job || job.actorId !== actorId) throw missing();
@@ -289,7 +303,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
     mode: LegacyImportProcessingMode,
     owner?: { actorId: string; jobId: string },
   ): Promise<Claim | null> {
-    return db.get('writer').transaction(async (tx) => {
+    const work = async (tx: AdministrationTransaction) => {
       const eligibleStates = mode === 'recovery' ? recoveryRows : pendingRows;
       const timestamp = sqlTime(now()),
         [candidate] = await tx
@@ -326,11 +340,21 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
       let authorized = false;
       if (candidateRow?.state === 'PENDING') {
         try {
+          await adapter.preparation?.lock(tx, {
+            actorId: candidate.actorId,
+            storeId: candidateRow.storeId,
+            counterId: candidateRow.counterId,
+          });
           await authorize(tx, candidate.actorId, [
             { storeId: candidateRow.storeId, counterId: candidateRow.counterId },
           ]);
           authorized = true;
-        } catch {
+        } catch (error: unknown) {
+          if (
+            adapter.preparation &&
+            (!(error instanceof AppError) || ![401, 403, 409].includes(error.status))
+          )
+            throw error;
           // A current access failure only blocks a not-yet-started financial operation.
         }
       }
@@ -427,8 +451,24 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
           updatedAt: timestamp,
         })
         .where(eq(jobs.id, job.id));
-      return { job, row, token, start, input: startInput };
-    });
+      const execution =
+        start && startInput && adapter.preparation
+          ? await withRequestTrace(
+              {
+                requestId: job.requestId ?? row.operationId,
+                userId: job.actorId,
+                module: 'administration',
+                resource: 'historical-order-import',
+              },
+              () =>
+                adapter.preparation!.claim(tx, startInput!, { jobId: job.id, claimToken: token }),
+            )
+          : undefined;
+      return { job, row, token, start, input: startInput, execution };
+    };
+    return adapter.preparation
+      ? financialTransaction(db, true, work)
+      : db.get('writer').transaction(work);
   }
   async function retainResult(claimed: Claim, value: ImportFinancialResult | null) {
     return db.get('writer').transaction(async (tx) => {
@@ -478,6 +518,24 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
             updatedAt: timestamp,
           })
           .where(eq(jobs.id, job.id));
+      } else if (
+        result?.status === 'rejected' &&
+        nativePreparationPauseCodes.some((code) => code === result.code)
+      ) {
+        await tx
+          .update(rows)
+          .set({ state: 'PENDING', errorCode: result.code, updatedAt: timestamp })
+          .where(and(eq(rows.jobId, job.id), eq(rows.sequence, row.sequence)));
+        await tx
+          .update(jobs)
+          .set({
+            state: 'BLOCKED',
+            errorCode: result.code,
+            claimToken: null,
+            leaseUntil: null,
+            updatedAt: timestamp,
+          })
+          .where(eq(jobs.id, job.id));
       } else if (result?.status === 'rejected') {
         await tx
           .update(rows)
@@ -521,9 +579,12 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         state:
           result?.status === 'completed'
             ? 'IMPORTED'
-            : result?.status === 'rejected'
-              ? 'FAILED'
-              : 'RECONCILING',
+            : result?.status === 'rejected' &&
+                nativePreparationPauseCodes.some((code) => code === result.code)
+              ? 'BLOCKED'
+              : result?.status === 'rejected'
+                ? 'FAILED'
+                : 'RECONCILING',
       };
     });
   }
@@ -558,7 +619,9 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
                 'ORDER_IMPORT_PAYLOAD_INVALID',
                 'The original import input needs review.',
               );
-            return adapter.start(claimed.input);
+            return claimed.execution
+              ? adapter.start(claimed.input, claimed.execution)
+              : adapter.start(claimed.input);
           }
           return adapter.read(financialScope);
         },
@@ -681,7 +744,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         return jobDto({ ...job, state: 'QUEUED', claimToken: null });
       });
     },
-    ...importResumptions(db, options.secret, now, owned),
+    ...importResumptions(db, options.secret, now, owned, financialInput),
     async detail(actor: string, id: string) {
       return readOwned(
         actor,
@@ -720,11 +783,53 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         (history, anchor) => history.results(anchor, after, limit),
       );
     },
-    async cancel(actor: string, id: string) {
+    async cancel(actor: string, id: string, adapter?: ImportFinancialAdapter) {
       const actorId = identifier.parse(actor);
       z.uuid().parse(id);
-      return db.get('writer').transaction(async (tx) => {
-        const { job } = await owned(tx, actorId, id);
+      const [hint] =
+        !adapter?.preparation && adapter?.preparationRecovery
+          ? await db
+              .get('writer')
+              .select({ id: jobs.id })
+              .from(jobs)
+              .where(
+                and(
+                  eq(jobs.id, id),
+                  eq(jobs.actorId, actorId),
+                  exists(
+                    db
+                      .get('writer')
+                      .select({ sequence: rows.sequence })
+                      .from(rows)
+                      .where(
+                        and(
+                          eq(rows.jobId, jobs.id),
+                          eq(rows.state, 'PENDING'),
+                          inArray(rows.errorCode, [...nativePreparationPauseCodes]),
+                        ),
+                      ),
+                  ),
+                ),
+              )
+              .limit(1)
+          : [];
+      const control = adapter?.preparation ?? (hint ? adapter?.preparationRecovery : undefined);
+      const work = async (tx: AdministrationTransaction) => {
+        const { job } = await owned(
+          tx,
+          actorId,
+          id,
+          control
+            ? async (current, actor, scopes) => {
+                for (const scope of scopes)
+                  await control.lock(current, {
+                    actorId: actor,
+                    storeId: scope.storeId,
+                    counterId: scope.counterId,
+                  });
+              }
+            : undefined,
+        );
         assertCurrentResult(job);
         if (job.claimToken)
           throw new AppError(
@@ -734,7 +839,12 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
           );
         if (['COMPLETED', 'PARTIAL', 'FAILED', 'CANCELLED'].includes(job.state)) return jobDto(job);
         const remaining = await tx
-          .select({ sequence: rows.sequence, state: rows.state })
+          .select({
+            sequence: rows.sequence,
+            state: rows.state,
+            errorCode: rows.errorCode,
+            operationId: rows.operationId,
+          })
           .from(rows)
           .where(and(eq(rows.jobId, id), inArray(rows.state, [...pendingRows])))
           .for('update');
@@ -744,6 +854,36 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
             'ORDER_IMPORT_IN_FLIGHT',
             'Reconcile the active import operation before cancelling pending orders.',
           );
+        const prepared = remaining.filter(
+          (row) =>
+            row.errorCode !== null &&
+            nativePreparationPauseCodes.some((code) => code === row.errorCode),
+        );
+        if (prepared.length) {
+          if (!control || prepared.length !== 1)
+            throw new AppError(
+              503,
+              'ORDER_IMPORT_PREPARATION_UNAVAILABLE',
+              'The original preparation must be reconciled before cancellation.',
+            );
+          const [paused] = await tx
+            .select({
+              operationId: rows.operationId,
+              storeId: rows.storeId,
+              counterId: rows.counterId,
+            })
+            .from(rows)
+            .where(and(eq(rows.jobId, id), eq(rows.operationId, prepared[0]!.operationId)))
+            .limit(1)
+            .for('update');
+          if (!paused) throw missing();
+          await control.cancel(tx, {
+            actorId: job.actorId,
+            operationId: paused.operationId,
+            storeId: paused.storeId,
+            counterId: paused.counterId,
+          });
+        }
         const cancelled = remaining.length;
         if (!Number.isSafeInteger(cancelled) || cancelled < 0 || cancelled > 50000)
           throw new AppError(
@@ -762,7 +902,8 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         await finishJob(tx, job, sqlTime(now()));
         const [current] = await tx.select().from(jobs).where(eq(jobs.id, id)).limit(1);
         return jobDto(current!);
-      });
+      };
+      return control ? financialTransaction(db, true, work) : db.get('writer').transaction(work);
     },
     /** Private approval input; never return this plan through an HTTP resource. */
     async financialContext(actor: string, id: string, operationId: string, requirePending = true) {

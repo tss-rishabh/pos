@@ -5,6 +5,7 @@ import { AppError } from '../../domain/errors.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import {
   financialImportScopeSchema,
+  financialOrderPreparationContract,
   type ImportFinancialState,
 } from './financial-adapter-contracts.js';
 import {
@@ -167,7 +168,12 @@ export async function verifiedNativeAdmissionRejection(
         value.kind === 'preparation' || value.id === state.scope.operationId + ':preparation',
     );
   if (!row) {
-    if (state.status === 'rejected' && state.stage === 'preparation') throw invalid();
+    if (
+      state.status === 'rejected' &&
+      state.stage === 'preparation' &&
+      state.preparationContract !== financialOrderPreparationContract
+    )
+      throw invalid();
     return null;
   }
   const found = await evidence(tx, state.scope.operationId, stages);

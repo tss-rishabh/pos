@@ -14,6 +14,7 @@ export const financialImportContract = 'pos-legacy-order-import-financial-v1';
 export const financialSourceContract = 'pos-legacy-order-import-source-v1';
 export const financialPublicationContract = 'pos-legacy-order-import-publication-v1';
 export const financialConfirmationContract = 'pos-legacy-order-import-confirmation-v1';
+export const financialOrderPreparationContract = 'pos-import-order-preparation-v1';
 export const importProofHash = z.string().regex(/^[a-f0-9]{64}$/);
 const amount = z.string().regex(/^\d{1,10}\.\d{2}$/),
   time = z.number().int().safe().positive();
@@ -294,6 +295,7 @@ export const importFinancialStateSchema = z
     authority: financialImportAuthoritySchema,
     status: z.enum(['running', 'unknown', 'rejected', 'completed']),
     correction: importCorrectionBindingSchema.optional(),
+    preparationContract: z.literal(financialOrderPreparationContract).optional(),
     stage: financialImportStageSchema,
     orderId: identifier.nullable(),
     errorCode: z

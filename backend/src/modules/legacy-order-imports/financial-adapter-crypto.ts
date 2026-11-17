@@ -9,7 +9,10 @@ import { AppError } from '../../domain/errors.js';
 import { operationHash } from '../checkout/crypto.js';
 import type { ImportFinancialScope } from './financial-contracts.js';
 import { importDigest } from './sealed-groups.js';
-import { financialImportPlanSchema } from './financial-adapter-contracts.js';
+import {
+  financialImportPlanSchema,
+  financialOrderPreparationContract,
+} from './financial-adapter-contracts.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 import {
   importCorrectionBindingSchema,
@@ -95,8 +98,14 @@ export function financialImportRequestHash(
     plan: LegacyOrderImportPlan;
     authority: FinancialImportAuthority;
     correction?: ImportCorrectionBinding;
+    preparationContract?: typeof financialOrderPreparationContract;
   },
 ) {
+  if (
+    input.preparationContract !== undefined &&
+    input.preparationContract !== financialOrderPreparationContract
+  )
+    throw importFinancialError('ORDER_IMPORT_PREPARATION_PROOF_INVALID');
   return financialImportHash(secret, 'request', {
     scope: input.scope,
     planHash: input.planHash,
@@ -105,6 +114,7 @@ export function financialImportRequestHash(
     ...(input.correction
       ? { correction: importCorrectionBindingSchema.parse(input.correction) }
       : {}),
+    ...(input.preparationContract ? { preparationContract: input.preparationContract } : {}),
   });
 }
 export function sealFinancialPlan(

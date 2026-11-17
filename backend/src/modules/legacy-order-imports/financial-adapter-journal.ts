@@ -14,6 +14,7 @@ import {
   importFinancialStateSchema,
   financialImportPlanSchema,
   financialImportScopeSchema,
+  financialOrderPreparationContract,
   type ImportFinancialState,
   type FinancialImportStage,
 } from './financial-adapter-contracts.js';
@@ -46,6 +47,9 @@ import {
 } from './financial-adapter-admission.js';
 import { financialTransaction, financialSavepoint } from './screening-transactions.js';
 import { recoverImportCompletion } from './financial-adapter-proof.js';
+import { financialPreparationLedger } from './financial-adapter-preparation-ledger.js';
+import { assertScreeningTransaction } from './screening-transactions.js';
+import type { FinancialPreparationExecution } from './financial-adapter-preparation-contracts.js';
 
 /** Retained receipt reads lock scope without requiring the original actor to
  * remain active; current caller authorization stays at its existing boundary. */
@@ -79,11 +83,20 @@ export function legacyImportFinancialJournal(
   db: Databases,
   options: FinancialApprovalOptions,
   profiles: FinancialImportProfiles = financialAdapterProfiles(),
+  preparationSelected = false,
 ) {
   const now = options.clock ?? Date.now,
-    approvals = legacyOrderImportFinancialApprovals(config, db, options);
-  const transaction = <T>(work: (tx: AdministrationTransaction) => Promise<T>) =>
-    financialTransaction(db, profiles.requiresCurrentReads, work);
+    approvals = legacyOrderImportFinancialApprovals(config, db, options),
+    preparation = financialPreparationLedger(options.secret, now);
+  const transaction = <T>(
+    work: (tx: AdministrationTransaction) => Promise<T>,
+    currentReads = false,
+  ) =>
+    financialTransaction(
+      db,
+      profiles.requiresCurrentReads || preparationSelected || currentReads,
+      work,
+    );
   async function load(tx: AdministrationTransaction, scope: ImportFinancialScope) {
     const boundScope = financialImportScopeSchema.parse({
       actorId: scope.actorId,
@@ -105,12 +118,16 @@ export function legacyImportFinancialJournal(
     approvals,
     load,
     save,
-    transaction<T>(work: (tx: AdministrationTransaction) => Promise<T>) {
-      return transaction(work);
+    transaction<T>(work: (tx: AdministrationTransaction) => Promise<T>, currentReads = false) {
+      return transaction(work, currentReads);
     },
     async reserve(
       input: ImportFinancialStart,
       beforeCreate?: (tx: AdministrationTransaction) => Promise<void>,
+      reservation?: {
+        transaction: AdministrationTransaction;
+        preparationContract: typeof financialOrderPreparationContract;
+      },
     ) {
       const { plan: raw, planHash, correction } = input;
       const scope = financialImportScopeSchema.parse({
@@ -127,19 +144,22 @@ export function legacyImportFinancialJournal(
       )
         throw importFinancialError('ORDER_IMPORT_PLAN_CHANGED');
       const plan = financialImportPlanSchema.parse(raw);
-      return transaction(async (tx) => {
+      const work = async (tx: AdministrationTransaction) => {
+        if (reservation) assertScreeningTransaction(tx);
         await lockFinancialImportScope(tx, scope);
         const existing = await load(tx, scope);
         if (existing) {
           if (existing.state.planHash !== planHash)
             throw importFinancialError('ORDER_IMPORT_PLAN_CHANGED');
-          const admission = await verifiedNativeAdmissionRejection(
-            tx,
-            existing.state,
-            options.secret,
-          );
-          if (!admission && !(await recoverImportCompletion(tx, existing, options.secret)))
-            await profiles.lock(tx, existing);
+          const completed = await recoverImportCompletion(tx, existing, options.secret);
+          const admission = completed
+            ? null
+            : await verifiedNativeAdmissionRejection(tx, existing.state, options.secret);
+          const closed =
+            !completed && !admission && existing.state.preparationContract
+              ? (await preparation.latest(tx, existing.state)).phase === 'CLOSED'
+              : false;
+          if (!admission && !completed && !closed) await profiles.lock(tx, existing);
           return { ...existing, created: false, admission };
         }
         // Pure transport readiness + bounded native schema checks happen only
@@ -154,6 +174,7 @@ export function legacyImportFinancialJournal(
             plan,
             authority: access.authority,
             ...(correction ? { correction } : {}),
+            ...(reservation ? { preparationContract: reservation.preparationContract } : {}),
           }),
           time = now(),
           state = importFinancialStateSchema.parse({
@@ -163,6 +184,7 @@ export function legacyImportFinancialJournal(
             namespace: `pos-import-v1:${scope.operationId}`,
             authority: access.authority,
             ...(correction ? { correction } : {}),
+            ...(reservation ? { preparationContract: reservation.preparationContract } : {}),
             status: 'running',
             stage: 'preparation',
             orderId: null,
@@ -229,16 +251,33 @@ export function legacyImportFinancialJournal(
           }
         }
         return { state, plan, created: true, admission: null };
-      });
+      };
+      return reservation ? work(reservation.transaction) : transaction(work);
     },
-    async dispatch(scope: ImportFinancialScope, kind: FinancialImportStage) {
+    async dispatch(
+      scope: ImportFinancialScope,
+      kind: FinancialImportStage,
+      prepared?: {
+        transaction: AdministrationTransaction;
+        execution: FinancialPreparationExecution;
+        output: unknown;
+      },
+    ) {
       scope = financialImportScopeSchema.parse({
         actorId: scope.actorId,
         operationId: scope.operationId,
         storeId: scope.storeId,
         counterId: scope.counterId,
       });
-      return transaction(async (tx) => {
+      const work = async (tx: AdministrationTransaction) => {
+        if (prepared) {
+          assertScreeningTransaction(tx);
+          await lockFinancialImportStore(tx, scope);
+          if (prepared.execution.kind !== 'preparation')
+            throw importFinancialError('ORDER_IMPORT_PREPARATION_PROOF_INVALID');
+          if (prepared.execution.queue)
+            await preparation.queue(tx, scope, prepared.execution.queue);
+        }
         const loaded = await load(tx, scope);
         if (!loaded || loaded.state.status !== 'running')
           throw importFinancialError('ORDER_IMPORT_ORIGINAL_STAGE_UNCERTAIN');
@@ -260,6 +299,21 @@ export function legacyImportFinancialJournal(
             throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
         }
         await profiles.dispatch(tx, loaded, kind);
+        let output: Awaited<ReturnType<typeof preparation.dispatched>> | undefined;
+        if (kind === 'order' && loaded.state.preparationContract) {
+          if (!prepared) throw importFinancialError('ORDER_IMPORT_PREPARATION_RETRY_REQUIRED');
+          output = await preparation.dispatched(
+            tx,
+            loaded.state,
+            prepared.execution,
+            prepared.output,
+          );
+        } else if (prepared) throw importFinancialError('ORDER_IMPORT_PREPARATION_PROOF_INVALID');
+        else if (
+          loaded.state.preparationContract &&
+          (await preparation.latest(tx, loaded.state)).phase !== 'DISPATCHED'
+        )
+          throw importFinancialError('ORDER_IMPORT_PREPARATION_PROOF_INVALID');
         const id = `${scope.operationId}:${kind}`,
           [prior] = await tx
             .select()
@@ -290,8 +344,9 @@ export function legacyImportFinancialJournal(
         });
         const state = { ...loaded.state, stage: kind, updatedAt: time };
         await save(tx, state);
-        return { ...loaded, state, nonce, issuedAt: time, expiresAt: time + 60000 };
-      });
+        return { ...loaded, state, nonce, issuedAt: time, expiresAt: time + 60000, ...output };
+      };
+      return prepared ? work(prepared.transaction) : transaction(work);
     },
     async confirm(
       tx: AdministrationTransaction,

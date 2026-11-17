@@ -45,6 +45,7 @@ import type { LegacyImportFinancialOptions } from './financial-adapter-options.j
 import {
   legacyImportFinancialTransport,
   type LegacyImportFinancialTransport,
+  type FinancialSourceCommand,
 } from './financial-adapter-transport.js';
 import {
   financialAdapterProfiles,
@@ -53,6 +54,11 @@ import {
 } from './financial-adapter-profiles.js';
 import { verifiedNativeAdmissionRejection } from './financial-adapter-admission.js';
 import { assertCsvMembershipPublication } from './membership-profile/completion.js';
+import { financialOrderPreparation } from './financial-adapter-preparation.js';
+import type { FinancialOrderPreparationPort } from './financial-adapter-preparation-contracts.js';
+import { usesCurrentFinancialReads } from './screening-transactions.js';
+
+class PreparationCurrentReadsRequired extends Error {}
 
 /** Every remote stage is checkpointed once. GET never starts an unstarted stage. */
 export function legacyOrderImportFinancialAdapter(
@@ -61,9 +67,26 @@ export function legacyOrderImportFinancialAdapter(
   options: LegacyImportFinancialOptions,
   transport: LegacyImportFinancialTransport = legacyImportFinancialTransport(config, options),
   profiles: FinancialImportProfiles = financialAdapterProfiles(),
+  orderPreparation?: FinancialOrderPreparationPort,
 ): ImportFinancialAdapter {
-  const journal = legacyImportFinancialJournal(config, db, options, profiles),
-    now = options.clock ?? Date.now;
+  const journal = legacyImportFinancialJournal(
+      config,
+      db,
+      options,
+      profiles,
+      Boolean(orderPreparation),
+    ),
+    now = options.clock ?? Date.now,
+    preparation = financialOrderPreparation(
+      options,
+      journal,
+      profiles,
+      async (tx) => {
+        transport.assertReady();
+        await assertCashOrderSchema(tx, options.orderSchemaContract);
+      },
+      orderPreparation,
+    );
   function observe(result: ImportFinancialResult, state: ImportFinancialState) {
     try {
       options.observe?.({
@@ -231,6 +254,8 @@ export function legacyOrderImportFinancialAdapter(
       return completed(existing);
     }
     if (state.status === 'completed') throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
+    const prepared = await preparation.recover(tx, loaded);
+    if (prepared) return prepared;
     if (state.status === 'rejected') return null;
     // New completion still requires every current profile gate before Order.
     await profiles.lock(tx, loaded);
@@ -373,74 +398,163 @@ export function legacyOrderImportFinancialAdapter(
     await profiles.completed(tx, loaded, verified);
     return completed(verified);
   }
-  async function read(scope: ImportFinancialScope): Promise<ImportFinancialResult | null> {
-    return journal.transaction(async (tx) => {
-      const loaded = await journal.load(tx, scope);
-      if (!loaded) return null;
-      const admission = await verifiedNativeAdmissionRejection(tx, loaded.state, options.secret);
-      if (admission)
-        return { status: 'rejected', operationId: scope.operationId, code: admission.code };
-      const receipt = await finish(tx, loaded);
-      if (receipt) return receipt;
-      const [negative] = await tx
-        .select()
-        .from(financialImportSourceReceipts)
-        .where(
-          and(
-            eq(financialImportSourceReceipts.operationId, scope.operationId),
-            eq(financialImportSourceReceipts.kind, 'order'),
-            eq(financialImportSourceReceipts.status, 'rejected'),
-          ),
-        )
-        .limit(1)
-        .for('share');
-      if (negative) {
-        const proof = sourceRejectionReceiptSchema.parse(negative.proof);
-        const [binding] = await tx
-          .select({ id: financialImportOrderBindings.orderId })
-          .from(financialImportOrderBindings)
-          .where(eq(financialImportOrderBindings.operationId, scope.operationId))
+  async function read(
+    scope: ImportFinancialScope,
+    currentReads = false,
+  ): Promise<ImportFinancialResult | null> {
+    try {
+      return await journal.transaction(async (tx) => {
+        const loaded = await journal.load(tx, scope);
+        if (!loaded) return null;
+        // A retained preparation may outlive its deployment flags. Reopen only
+        // this authenticated native read in an owned current-read transaction;
+        // the first transaction performs no mutation and starts no work.
+        if (loaded.state.preparationContract && !usesCurrentFinancialReads(tx))
+          throw new PreparationCurrentReadsRequired();
+        const admission = await verifiedNativeAdmissionRejection(tx, loaded.state, options.secret);
+        if (admission)
+          return { status: 'rejected', operationId: scope.operationId, code: admission.code };
+        const receipt = await finish(tx, loaded);
+        if (receipt) return receipt;
+        const [negative] = await tx
+          .select()
+          .from(financialImportSourceReceipts)
+          .where(
+            and(
+              eq(financialImportSourceReceipts.operationId, scope.operationId),
+              eq(financialImportSourceReceipts.kind, 'order'),
+              eq(financialImportSourceReceipts.status, 'rejected'),
+            ),
+          )
           .limit(1)
           .for('share');
-        if (
-          binding ||
-          proof.operationId !== scope.operationId ||
-          proof.requestHash !== loaded.state.requestHash ||
-          proof.namespace !== loaded.state.namespace ||
-          negative.requestHash !== proof.requestHash ||
-          !equalImportHash(
-            negative.proofHash,
-            financialSourceHash(options.sourceProofKey ?? '', 'rejection', proof),
+        if (negative) {
+          const proof = sourceRejectionReceiptSchema.parse(negative.proof);
+          const [binding] = await tx
+            .select({ id: financialImportOrderBindings.orderId })
+            .from(financialImportOrderBindings)
+            .where(eq(financialImportOrderBindings.operationId, scope.operationId))
+            .limit(1)
+            .for('share');
+          if (
+            binding ||
+            proof.operationId !== scope.operationId ||
+            proof.requestHash !== loaded.state.requestHash ||
+            proof.namespace !== loaded.state.namespace ||
+            negative.requestHash !== proof.requestHash ||
+            !equalImportHash(
+              negative.proofHash,
+              financialSourceHash(options.sourceProofKey ?? '', 'rejection', proof),
+            )
           )
-        )
-          throw importFinancialError('ORDER_IMPORT_REJECTION_UNCONFIRMED');
-        await profiles.rejected(tx, loaded, proof);
-        await journal.save(tx, {
-          ...loaded.state,
-          status: 'rejected',
-          errorCode: proof.code,
-          updatedAt: now(),
+            throw importFinancialError('ORDER_IMPORT_REJECTION_UNCONFIRMED');
+          await profiles.rejected(tx, loaded, proof);
+          await journal.save(tx, {
+            ...loaded.state,
+            status: 'rejected',
+            errorCode: proof.code,
+            updatedAt: now(),
+          });
+          return { status: 'rejected', operationId: scope.operationId, code: proof.code };
+        }
+        // No side effect is inferred from equal cart quantities, HTTP status or mutable paid flags.
+        const order = await readSourceOrderReceipt(
+          tx,
+          scope.operationId,
+          options.sourceProofKey ?? '',
+        );
+        return unknown({ ...loaded.state, orderId: order?.orderId ?? loaded.state.orderId });
+      }, currentReads);
+    } catch (error: unknown) {
+      if (error instanceof PreparationCurrentReadsRequired && !currentReads)
+        return read(scope, true);
+      throw error;
+    }
+  }
+  async function execute(
+    reserved: FinancialImportProfileContext,
+    firstCommand?: FinancialSourceCommand,
+  ): Promise<ImportFinancialResult> {
+    const scope = reserved.state.scope;
+    try {
+      const orderCommand = firstCommand ?? (await journal.dispatch(scope, 'order'));
+      await transport.order(orderCommand);
+      const order = await journal.transaction(async (tx) => {
+        const loaded = await journal.load(tx, scope);
+        if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
+        const receipt = await nativeSource(tx, loaded.state);
+        await journal.confirm(tx, loaded.state, 'order', receipt);
+        await journal.save(tx, { ...loaded.state, orderId: receipt.orderId, updatedAt: now() });
+        return receipt;
+      });
+      if (reserved.plan.kind === 'offline') {
+        const command = await journal.dispatch(scope, 'confirmation');
+        const customer = await checkoutRepository(db).customer(
+          reserved.state.authority.customerId,
+          'writer',
+        );
+        if (!customer) throw importFinancialError('ORDER_IMPORT_CUSTOMER_UNAVAILABLE');
+        await transport.confirm(command, order, customer);
+        await journal.transaction(async (tx) => {
+          const loaded = await journal.load(tx, scope);
+          if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
+          await profiles.lock(tx, loaded);
+          await assertCheckoutProjection(tx, {
+            orderId: order.orderId,
+            storeId: scope.storeId,
+            counterId: scope.counterId,
+            customerId: loaded.state.authority.customerId,
+          });
+          const proof = await confirmation(tx, loaded.state, order);
+          await journal.confirm(tx, loaded.state, 'confirmation', proof);
         });
-        return { status: 'rejected', operationId: scope.operationId, code: proof.code };
       }
-      // No side effect is inferred from equal cart quantities, HTTP status or mutable paid flags.
-      const order = await readSourceOrderReceipt(
-        tx,
-        scope.operationId,
-        options.sourceProofKey ?? '',
-      );
-      return unknown({ ...loaded.state, orderId: order?.orderId ?? loaded.state.orderId });
-    });
+      await journal.dispatch(scope, 'settlement');
+      await journal.transaction(async (tx) => {
+        const loaded = await journal.load(tx, scope);
+        if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
+        await profiles.lock(tx, loaded);
+        const expected = await profiles.expectedQuantities(tx, loaded, order, 'settled');
+        const settlement = await settleNativeImport(
+          tx,
+          loaded.state,
+          loaded.plan,
+          order,
+          options,
+          expected,
+        );
+        await journal.confirm(tx, loaded.state, 'settlement', settlement);
+      });
+      const publishCommand = await journal.dispatch(scope, 'publication');
+      await transport.publication(publishCommand, order);
+      return observe((await read(scope)) ?? unknown(reserved.state), reserved.state);
+    } catch {
+      await journal.uncertain(scope);
+      return observe((await read(scope)) ?? unknown(reserved.state), reserved.state);
+    }
   }
   return {
+    preparationRecovery: preparation.recovery,
+    ...(preparation.hooks ? { preparation: preparation.hooks } : {}),
     async authorizeStart(tx, input) {
       profiles.assertReady(input.plan);
       transport.assertReady();
       await assertCashOrderSchema(tx, options.orderSchemaContract);
+      if (orderPreparation) await journal.load(tx, input);
       const result = await journal.approvals.authorizeStart(tx, input);
       return result.ready ? { ready: true } : result;
     },
-    async start(input) {
+    async start(input, execution) {
+      if (orderPreparation) {
+        const prepared = await preparation.prepare(input, execution);
+        if (!prepared.command)
+          return observe(
+            (await read(prepared.context.state.scope)) ?? unknown(prepared.context.state),
+            prepared.context.state,
+          );
+        return execute(prepared.context, prepared.command);
+      }
+      if (execution) throw importFinancialError('ORDER_IMPORT_PREPARATION_UNAVAILABLE', 503);
       const reserved = await journal.reserve(input, async (tx) => {
           // assertReady is configuration-only; no transport runs under SQL.
           transport.assertReady();
@@ -453,62 +567,7 @@ export function legacyOrderImportFinancialAdapter(
           reserved.state,
         );
       if (!reserved.created) return (await read(scope)) ?? unknown(reserved.state);
-      try {
-        const orderCommand = await journal.dispatch(scope, 'order');
-        await transport.order(orderCommand);
-        const order = await journal.transaction(async (tx) => {
-          const loaded = await journal.load(tx, scope);
-          if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
-          const receipt = await nativeSource(tx, loaded.state);
-          await journal.confirm(tx, loaded.state, 'order', receipt);
-          await journal.save(tx, { ...loaded.state, orderId: receipt.orderId, updatedAt: now() });
-          return receipt;
-        });
-        if (input.plan.kind === 'offline') {
-          const command = await journal.dispatch(scope, 'confirmation');
-          const customer = await checkoutRepository(db).customer(
-            reserved.state.authority.customerId,
-            'writer',
-          );
-          if (!customer) throw importFinancialError('ORDER_IMPORT_CUSTOMER_UNAVAILABLE');
-          await transport.confirm(command, order, customer);
-          await journal.transaction(async (tx) => {
-            const loaded = await journal.load(tx, scope);
-            if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
-            await profiles.lock(tx, loaded);
-            await assertCheckoutProjection(tx, {
-              orderId: order.orderId,
-              storeId: scope.storeId,
-              counterId: scope.counterId,
-              customerId: loaded.state.authority.customerId,
-            });
-            const proof = await confirmation(tx, loaded.state, order);
-            await journal.confirm(tx, loaded.state, 'confirmation', proof);
-          });
-        }
-        await journal.dispatch(scope, 'settlement');
-        await journal.transaction(async (tx) => {
-          const loaded = await journal.load(tx, scope);
-          if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
-          await profiles.lock(tx, loaded);
-          const expected = await profiles.expectedQuantities(tx, loaded, order, 'settled');
-          const settlement = await settleNativeImport(
-            tx,
-            loaded.state,
-            loaded.plan,
-            order,
-            options,
-            expected,
-          );
-          await journal.confirm(tx, loaded.state, 'settlement', settlement);
-        });
-        const publishCommand = await journal.dispatch(scope, 'publication');
-        await transport.publication(publishCommand, order);
-        return observe((await read(scope)) ?? unknown(reserved.state), reserved.state);
-      } catch {
-        await journal.uncertain(scope);
-        return observe((await read(scope)) ?? unknown(reserved.state), reserved.state);
-      }
+      return execute(reserved);
     },
     async read(scope) {
       const result = await read(scope);

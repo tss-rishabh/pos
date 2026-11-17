@@ -34,6 +34,12 @@ import { financialImportScopeSchema } from './financial-adapter-contracts.js';
 import type { ImportFinancialScope } from './financial-contracts.js';
 import { FinancialImportAdmissionDenied } from './financial-adapter-admission.js';
 import {
+  financialPreparationLedger,
+  assertPreparationNoDispatch,
+  nativePreparationClosureHash,
+} from './financial-adapter-preparation-ledger.js';
+import type { NativePreparationClosure } from './financial-adapter-preparation-contracts.js';
+import {
   assertScreeningCustomer,
   assertScreeningTransaction,
   lockScreeningCustomer,
@@ -234,7 +240,9 @@ export function screeningImportProfile(
       secret: options.financialSecret,
       clock: options.clock,
     }),
-    clock = options.clock ?? Date.now;
+    clock = options.clock ?? Date.now,
+    preparation = financialPreparationLedger(options.financialSecret, clock),
+    rearming = new WeakMap<AdministrationTransaction, string>();
   function scopeValue(scope: ImportFinancialScope) {
     return financialImportScopeSchema.parse({
       actorId: scope.actorId,
@@ -372,152 +380,229 @@ export function screeningImportProfile(
     await lockScreeningCustomer(tx, bound.state.authority.customerId);
     return bound;
   }
+  async function reserve(
+    tx: AdministrationTransaction,
+    scope: ImportFinancialScope,
+    lineItemsEnabled: boolean,
+  ): Promise<ScreeningReservation | null> {
+    ready();
+    scope = scopeValue(scope);
+    z.boolean().parse(lineItemsEnabled);
+    let rearm: ScreeningReservation | undefined;
+    const bound = await admissionContext(tx, scope),
+      line = bound.plan.lines.find((value) => value.productId === screeningTicketSku);
+    if (!line) return null;
+    enforceScreeningTicketLimit(0n, line.quantity);
+    const authorityHash = screeningProof(options.proofKey, 'authority', bound.state.authority),
+      prior = await tx
+        .select()
+        .from(screeningReservations)
+        .where(eq(screeningReservations.operationId, scope.operationId))
+        .limit(1)
+        .for('update');
+    if (prior[0]) {
+      const saved = parsed(prior[0]);
+      if (
+        JSON.stringify(saved.scope) !== JSON.stringify(scopeValue(scope)) ||
+        saved.authorityHash !== authorityHash ||
+        saved.planHash !== bound.state.planHash ||
+        saved.requestHash !== bound.state.requestHash ||
+        saved.lineItemsEnabled !== lineItemsEnabled ||
+        saved.quantity !== line.quantity ||
+        saved.kind !== bound.plan.kind
+      )
+        throw importFinancialError('ORDER_IMPORT_SCREENING_COMMAND_CHANGED');
+      if (saved.phase === 'REJECTED' && rearming.get(tx) === scope.operationId) rearm = saved;
+      else return saved;
+    }
+    const [catalog] = await tx
+      .select({ id: Product.id, parentId: Product.parent_prod_id, type: Product.prod_type })
+      .from(Product)
+      .where(eq(Product.id, BigInt(screeningTicketSku)))
+      .limit(1)
+      .for('share');
+    const associations = await tx
+      .select({
+        id: ProductStore.id,
+        stock: ProductStore.stock,
+        available: ProductStore.is_avail,
+        archived: ProductStore.is_del,
+      })
+      .from(ProductStore)
+      .where(
+        and(
+          eq(ProductStore.product, BigInt(screeningTicketSku)),
+          eq(ProductStore.store, BigInt(scope.storeId)),
+        ),
+      )
+      .limit(2)
+      .for('update');
+    const barcodes = await tx
+      .select({ id: ProductBarcode.id, value: ProductBarcode.gtin })
+      .from(ProductBarcode)
+      .where(eq(ProductBarcode.product, BigInt(screeningTicketSku)))
+      .orderBy(asc(ProductBarcode.id))
+      .limit(2)
+      .for('share');
+    const association = associations[0];
+    if (
+      !catalog ||
+      associations.length !== 1 ||
+      !association?.available ||
+      association.archived ||
+      association.stock < line.quantity ||
+      barcodes.length !== 1 ||
+      !barcodes[0]!.value
+    )
+      throw new FinancialImportAdmissionDenied('ORDER_IMPORT_SCREENING_CATALOG_REVIEW');
+    const all = await tx
+      .select()
+      .from(screeningReservations, { forceIndex: 'ix_import_screening_customer' })
+      .where(
+        and(
+          eq(screeningReservations.customerId, bound.state.authority.customerId),
+          eq(screeningReservations.sku, screeningTicketSku),
+        ),
+      )
+      .orderBy(asc(screeningReservations.operationId))
+      .limit(1001);
+    if (all.length > 1000)
+      throw importFinancialError('ORDER_IMPORT_SCREENING_RECONCILIATION_REQUIRED');
+    let pending = 0;
+    for (const existing of all) {
+      const value = parsed(existing);
+      if (value.phase === 'RESERVED') pending += value.markerRows;
+      else if (value.phase === 'BOUND' && !(await structural(tx, value)).counted)
+        pending += value.markerRows;
+    }
+    const bought = await readScreeningTicketCount(tx, bound.state.authority.customerId);
+    enforceScreeningTicketLimit(bought, line.quantity, pending);
+    const now = clock(),
+      value = screeningReservationSchema.parse({
+        contract: screeningProfileContract,
+        scope,
+        source: screeningSource,
+        customerId: bound.state.authority.customerId,
+        sku: screeningTicketSku,
+        kind: bound.plan.kind,
+        planHash: bound.state.planHash,
+        requestHash: bound.state.requestHash,
+        authorityHash,
+        catalogHash: screeningProof(options.proofKey, 'catalog', {
+          id: String(catalog.id),
+          parentId: String(catalog.parentId),
+          type: String(catalog.type),
+          associationId: String(association.id),
+          stock: association.stock,
+          barcodeId: String(barcodes[0]!.id),
+          barcode: String(barcodes[0]!.value),
+        }),
+        quantity: line.quantity,
+        lineItemsEnabled,
+        markerRows: lineItemsEnabled ? line.quantity : 1,
+        sourceCountBefore: String(bought),
+        pendingBefore: pending,
+        phase: 'RESERVED',
+        orderId: null,
+        lines: [],
+        markers: [],
+        sourceReceiptHash: null,
+        completionHash: null,
+        rejectionHash: null,
+        version: rearm ? rearm.version + 1 : 1,
+        createdAt: rearm?.createdAt ?? now,
+        updatedAt: now,
+      });
+    if (rearm) return save(tx, value);
+    await tx.insert(screeningReservations).values({
+      operationId: scope.operationId,
+      customerId: value.customerId,
+      sku: screeningTicketSku,
+      orderId: null,
+      data: value,
+      proofHash: screeningProof(options.proofKey, 'state', value),
+    });
+    return value;
+  }
   return {
     assertReady: ready,
     qualified:
       options.contract === screeningProfileContract &&
       options.schemaContract === screeningSchemaContract &&
       options.writerContract === screeningWriterContract,
-    async reserve(
+    reserve,
+    async releaseUndispatched(
       tx: AdministrationTransaction,
       scope: ImportFinancialScope,
-      lineItemsEnabled: boolean,
-    ): Promise<ScreeningReservation | null> {
-      ready();
-      scope = scopeValue(scope);
-      z.boolean().parse(lineItemsEnabled);
-      const bound = await admissionContext(tx, scope),
-        line = bound.plan.lines.find((value) => value.productId === screeningTicketSku);
-      if (!line) return null;
-      enforceScreeningTicketLimit(0n, line.quantity);
-      const authorityHash = screeningProof(options.proofKey, 'authority', bound.state.authority),
-        prior = await tx
-          .select()
-          .from(screeningReservations)
-          .where(eq(screeningReservations.operationId, scope.operationId))
-          .limit(1)
-          .for('update');
-      if (prior[0]) {
-        const saved = parsed(prior[0]);
-        if (
-          JSON.stringify(saved.scope) !== JSON.stringify(scopeValue(scope)) ||
-          saved.authorityHash !== authorityHash ||
-          saved.planHash !== bound.state.planHash ||
-          saved.requestHash !== bound.state.requestHash ||
-          saved.lineItemsEnabled !== lineItemsEnabled ||
-          saved.quantity !== line.quantity ||
-          saved.kind !== bound.plan.kind
-        )
-          throw importFinancialError('ORDER_IMPORT_SCREENING_COMMAND_CHANGED');
-        return saved;
-      }
-      const [catalog] = await tx
-        .select({ id: Product.id, parentId: Product.parent_prod_id, type: Product.prod_type })
-        .from(Product)
-        .where(eq(Product.id, BigInt(screeningTicketSku)))
-        .limit(1)
-        .for('share');
-      const associations = await tx
-        .select({
-          id: ProductStore.id,
-          stock: ProductStore.stock,
-          available: ProductStore.is_avail,
-          archived: ProductStore.is_del,
-        })
-        .from(ProductStore)
-        .where(
-          and(
-            eq(ProductStore.product, BigInt(screeningTicketSku)),
-            eq(ProductStore.store, BigInt(scope.storeId)),
-          ),
-        )
-        .limit(2)
-        .for('update');
-      const barcodes = await tx
-        .select({ id: ProductBarcode.id, value: ProductBarcode.gtin })
-        .from(ProductBarcode)
-        .where(eq(ProductBarcode.product, BigInt(screeningTicketSku)))
-        .orderBy(asc(ProductBarcode.id))
-        .limit(2)
-        .for('share');
-      const association = associations[0];
+      proof: NativePreparationClosure,
+    ) {
+      const value = await retained(tx, scope),
+        bound = await journal.load(tx, scopeValue(scope));
+      if (!bound) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
+      const history = await preparation.history(tx, bound.state),
+        latest = history[0],
+        signature = nativePreparationClosureHash(options.financialSecret, proof);
+      await assertPreparationNoDispatch(tx, bound.state);
       if (
-        !catalog ||
-        associations.length !== 1 ||
-        !association?.available ||
-        association.archived ||
-        association.stock < line.quantity ||
-        barcodes.length !== 1 ||
-        !barcodes[0]!.value
+        !latest ||
+        latest.phase !== 'CLOSED' ||
+        latest.id !== proof.attemptId ||
+        latest.closureHash !== signature ||
+        proof.requestHash !== value.requestHash ||
+        proof.planHash !== value.planHash
       )
-        throw new FinancialImportAdmissionDenied('ORDER_IMPORT_SCREENING_CATALOG_REVIEW');
-      const all = await tx
-        .select()
-        .from(screeningReservations, { forceIndex: 'ix_import_screening_customer' })
-        .where(
-          and(
-            eq(screeningReservations.customerId, bound.state.authority.customerId),
-            eq(screeningReservations.sku, screeningTicketSku),
-          ),
-        )
-        .orderBy(asc(screeningReservations.operationId))
-        .limit(1001);
-      if (all.length > 1000)
-        throw importFinancialError('ORDER_IMPORT_SCREENING_RECONCILIATION_REQUIRED');
-      let pending = 0;
-      for (const existing of all) {
-        const value = parsed(existing);
-        if (value.phase === 'RESERVED') pending += value.markerRows;
-        else if (value.phase === 'BOUND' && !(await structural(tx, value)).counted)
-          pending += value.markerRows;
+        throw importFinancialError('ORDER_IMPORT_SCREENING_NO_EFFECTS_REQUIRED');
+      if (value.phase === 'REJECTED') {
+        if (!history.some((attempt) => attempt.closureHash === value.rejectionHash))
+          throw importFinancialError('ORDER_IMPORT_SCREENING_PROOF_INVALID');
+        // A re-admission may fail inside its savepoint before taking new quota.
+        // Advance the already-released row to that positively closed attempt;
+        // the old proof remains in the append-only attempt history.
+        return value.rejectionHash === signature
+          ? value
+          : save(tx, { ...value, rejectionHash: signature, version: value.version + 1 });
       }
-      const bought = await readScreeningTicketCount(tx, bound.state.authority.customerId);
-      enforceScreeningTicketLimit(bought, line.quantity, pending);
-      const now = clock(),
-        value = screeningReservationSchema.parse({
-          contract: screeningProfileContract,
-          scope,
-          source: screeningSource,
-          customerId: bound.state.authority.customerId,
-          sku: screeningTicketSku,
-          kind: bound.plan.kind,
-          planHash: bound.state.planHash,
-          requestHash: bound.state.requestHash,
-          authorityHash,
-          catalogHash: screeningProof(options.proofKey, 'catalog', {
-            id: String(catalog.id),
-            parentId: String(catalog.parentId),
-            type: String(catalog.type),
-            associationId: String(association.id),
-            stock: association.stock,
-            barcodeId: String(barcodes[0]!.id),
-            barcode: String(barcodes[0]!.value),
-          }),
-          quantity: line.quantity,
-          lineItemsEnabled,
-          markerRows: lineItemsEnabled ? line.quantity : 1,
-          sourceCountBefore: String(bought),
-          pendingBefore: pending,
-          phase: 'RESERVED',
-          orderId: null,
-          lines: [],
-          markers: [],
-          sourceReceiptHash: null,
-          completionHash: null,
-          rejectionHash: null,
-          version: 1,
-          createdAt: now,
-          updatedAt: now,
-        });
-      await tx.insert(screeningReservations).values({
-        operationId: scope.operationId,
-        customerId: value.customerId,
-        sku: screeningTicketSku,
-        orderId: null,
-        data: value,
-        proofHash: screeningProof(options.proofKey, 'state', value),
+      if (value.phase !== 'RESERVED' || value.orderId !== null || value.sourceReceiptHash !== null)
+        throw importFinancialError('ORDER_IMPORT_SCREENING_NO_EFFECTS_REQUIRED');
+      return save(tx, {
+        ...value,
+        phase: 'REJECTED',
+        rejectionHash: signature,
+        version: value.version + 1,
       });
-      return value;
+    },
+    async rearmUndispatched(
+      tx: AdministrationTransaction,
+      scope: ImportFinancialScope,
+      proof: NativePreparationClosure,
+      lineItemsEnabled: boolean,
+    ) {
+      ready();
+      const bound = await admissionContext(tx, scope),
+        value = await row(tx, scope),
+        history = await preparation.history(tx, bound.state),
+        latest = history[0],
+        previous = history[1],
+        signature = nativePreparationClosureHash(options.financialSecret, proof);
+      await assertPreparationNoDispatch(tx, bound.state);
+      if (
+        !latest ||
+        latest.phase !== 'RESERVED' ||
+        latest.previousId !== proof.attemptId ||
+        !previous ||
+        previous.phase !== 'CLOSED' ||
+        previous.id !== proof.attemptId ||
+        previous.closureHash !== signature ||
+        value.phase !== 'REJECTED' ||
+        value.rejectionHash !== signature
+      )
+        throw importFinancialError('ORDER_IMPORT_SCREENING_NO_EFFECTS_REQUIRED');
+      rearming.set(tx, scope.operationId);
+      try {
+        return await reserve(tx, scope, lineItemsEnabled);
+      } finally {
+        rearming.delete(tx);
+      }
     },
     /** Called in the source order's outer transaction, never after its visible commit. */
     async bind(tx: AdministrationTransaction, scope: ImportFinancialScope, orderId: string) {

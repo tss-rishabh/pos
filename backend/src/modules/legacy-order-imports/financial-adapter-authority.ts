@@ -20,7 +20,7 @@ import {
 import { importFinancialError } from './financial-adapter-crypto.js';
 export async function lockFinancialImportScope(
   tx: AdministrationTransaction,
-  scope: ImportFinancialScope,
+  scope: Pick<ImportFinancialScope, 'actorId' | 'storeId' | 'counterId'>,
   lock: 'share' | 'update' = 'update',
 ) {
   const [actor] = await tx

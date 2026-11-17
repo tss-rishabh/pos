@@ -3,6 +3,10 @@ import { identifier } from '../../domain/validation.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import type { ImportCorrectionBinding } from './correction-contracts.js';
+import type {
+  FinancialPreparationHooks,
+  FinancialPreparationExecution,
+} from './financial-adapter-preparation-contracts.js';
 
 export const importFinancialResultSchema = z.discriminatedUnion('status', [
   z
@@ -49,11 +53,16 @@ export const importStartAuthorizationSchema = z.discriminatedUnion('ready', [
 ]);
 /** A trusted adapter must resolve current authority and verify native financial receipts. */
 export interface ImportFinancialAdapter {
+  readonly preparation?: FinancialPreparationHooks;
+  readonly preparationRecovery?: Pick<FinancialPreparationHooks, 'lock' | 'cancel'>;
   /** Native checks only, under the coordinator lock and before any dispatch checkpoint. */
   authorizeStart?(
     tx: AdministrationTransaction,
     input: ImportFinancialStart,
   ): Promise<z.infer<typeof importStartAuthorizationSchema>>;
-  start(input: ImportFinancialStart): Promise<ImportFinancialResult>;
+  start(
+    input: ImportFinancialStart,
+    execution?: FinancialPreparationExecution,
+  ): Promise<ImportFinancialResult>;
   read(input: ImportFinancialScope): Promise<ImportFinancialResult | null>;
 }

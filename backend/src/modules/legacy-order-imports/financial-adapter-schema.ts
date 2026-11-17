@@ -1,5 +1,6 @@
 import {
   bigint,
+  int,
   index,
   json,
   mediumtext,
@@ -13,6 +14,20 @@ import type {
   ImportCompletedProof,
   ImportFinancialState,
 } from './financial-adapter-contracts.js';
+import type { FinancialPreparationAttempt } from './financial-adapter-preparation-contracts.js';
+
+export const financialImportPreparations = mysqlTable(
+  'pos_rewrite_import_financial_preparations',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    operationId: varchar('operation_id', { length: 36 }).notNull(),
+    sequence: int('sequence_no', { unsigned: true }).notNull(),
+    data: json('data').$type<FinancialPreparationAttempt>().notNull(),
+    proofHash: varchar('proof_hash', { length: 64 }).notNull(),
+    artifact: mediumtext('artifact'),
+  },
+  (table) => [uniqueIndex('uq_import_preparation_sequence').on(table.operationId, table.sequence)],
+);
 export const financialImportOperations = mysqlTable(
   'pos_rewrite_import_financial_operations',
   {

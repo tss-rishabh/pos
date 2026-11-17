@@ -13,13 +13,22 @@ import {
   legacyOrderImports as jobs,
   legacyOrderImportRows as rows,
   type LegacyImportJob,
+  type LegacyImportRow,
 } from './schema.js';
+import type { ImportFinancialAdapter, ImportFinancialStart } from './financial-contracts.js';
+import { financialTransaction } from './screening-transactions.js';
+import { nativePreparationPauseCodes } from './financial-adapter-preparation.js';
 
 type Resumption = typeof resumptions.$inferSelect;
 type OwnedImport = (
   tx: AdministrationTransaction,
   actorId: string,
   jobId: string,
+  beforeAuthorize?: (
+    tx: AdministrationTransaction,
+    actorId: string,
+    scopes: readonly { storeId: string; counterId: string }[],
+  ) => Promise<void>,
 ) => Promise<{ job: LegacyImportJob }>;
 
 export function importResumptions(
@@ -27,6 +36,11 @@ export function importResumptions(
   secret: string,
   clock: () => number,
   owned: OwnedImport,
+  financialInput?: (
+    tx: AdministrationTransaction,
+    job: LegacyImportJob,
+    row: LegacyImportRow,
+  ) => Promise<ImportFinancialStart>,
 ) {
   function digest(value: Omit<Resumption, 'proofHash'>) {
     return importDigest(
@@ -88,87 +102,138 @@ export function importResumptions(
       return receipt(value, job);
     });
   }
-  async function resume(actor: string, jobId: string, operationId: string, requestId: string) {
+  async function resume(
+    actor: string,
+    jobId: string,
+    operationId: string,
+    requestId: string,
+    adapter?: ImportFinancialAdapter,
+  ) {
     const actorId = identifier.parse(actor);
     z.uuid().parse(jobId);
     z.uuid().parse(operationId);
     z.string().min(1).max(128).parse(requestId);
-    return retryTransaction(() =>
-      db.get('writer').transaction(async (tx) => {
-        // Native actor/store/counter authority is locked before the original job.
-        const { job } = await owned(tx, actorId, jobId),
-          claimToken = randomUUID(),
-          value = {
-            id: operationId,
-            jobId,
-            actorId,
-            jobRequestHash: job.requestHash,
-            requestId,
-            claimToken,
-            acceptedAt: new Date(clock()).toISOString().slice(0, 23).replace('T', ' '),
-          };
-        await tx
-          .insert(resumptions)
-          .values({ ...value, proofHash: digest(value) })
-          .onDuplicateKeyUpdate({ set: { id: sql`${resumptions.id}` } });
-        const [saved] = await tx
+    const work = async (tx: AdministrationTransaction) => {
+      // Native actor/store/counter authority is locked before the original job.
+      const { job } = await owned(
+          tx,
+          actorId,
+          jobId,
+          adapter?.preparation
+            ? async (current, actor, scopes) => {
+                for (const scope of scopes)
+                  await adapter.preparation!.lock(current, {
+                    actorId: actor,
+                    storeId: scope.storeId,
+                    counterId: scope.counterId,
+                  });
+              }
+            : undefined,
+        ),
+        claimToken = randomUUID(),
+        value = {
+          id: operationId,
+          jobId,
+          actorId,
+          jobRequestHash: job.requestHash,
+          requestId,
+          claimToken,
+          acceptedAt: new Date(clock()).toISOString().slice(0, 23).replace('T', ' '),
+        };
+      await tx
+        .insert(resumptions)
+        .values({ ...value, proofHash: digest(value) })
+        .onDuplicateKeyUpdate({ set: { id: sql`${resumptions.id}` } });
+      const [saved] = await tx
+        .select()
+        .from(resumptions)
+        .where(eq(resumptions.id, operationId))
+        .limit(1)
+        .for('update');
+      if (!saved)
+        throw new AppError(409, 'ORDER_IMPORT_RESUMPTION_CONFLICT', 'Refresh the resume receipt.');
+      const result = receipt(saved, job);
+      // A replay can only read the original acceptance, including after a
+      // later access block. It cannot requeue that later block implicitly.
+      if (saved.claimToken !== claimToken) return result;
+      const preparation =
+        job.errorCode !== null &&
+        nativePreparationPauseCodes.some((code) => code === job.errorCode);
+      if (
+        job.state !== 'BLOCKED' ||
+        (job.errorCode !== 'ORDER_IMPORT_ACCESS_CHANGED' && !preparation) ||
+        job.claimToken ||
+        job.completedAt
+      )
+        throw new AppError(
+          409,
+          'ORDER_IMPORT_RESUME_NOT_AVAILABLE',
+          'Only an import with a verified unsent operation can be resumed.',
+        );
+      const [uncertain] = await tx
+        .select({ sequence: rows.sequence })
+        .from(rows)
+        .where(and(eq(rows.jobId, jobId), inArray(rows.state, ['STARTING', 'RECONCILING'])))
+        .limit(1)
+        .for('update');
+      if (uncertain)
+        throw new AppError(
+          409,
+          'ORDER_IMPORT_IN_FLIGHT',
+          'Reconcile the active financial operation before resuming this import.',
+        );
+      const [pending] = await tx
+        .select({ sequence: rows.sequence })
+        .from(rows)
+        .where(and(eq(rows.jobId, jobId), eq(rows.state, 'PENDING')))
+        .limit(1)
+        .for('update');
+      if (!pending)
+        throw new AppError(
+          409,
+          'ORDER_IMPORT_RESUME_NOT_AVAILABLE',
+          'This import has no unsent orders to resume.',
+        );
+      if (preparation) {
+        if (!adapter?.preparation || !financialInput)
+          throw new AppError(
+            503,
+            'ORDER_IMPORT_PREPARATION_UNAVAILABLE',
+            'Configure the qualified preparation recovery before resuming.',
+          );
+        const paused = await tx
           .select()
-          .from(resumptions)
-          .where(eq(resumptions.id, operationId))
-          .limit(1)
-          .for('update');
-        if (!saved)
-          throw new AppError(
-            409,
-            'ORDER_IMPORT_RESUMPTION_CONFLICT',
-            'Refresh the resume receipt.',
-          );
-        const result = receipt(saved, job);
-        // A replay can only read the original acceptance, including after a
-        // later access block. It cannot requeue that later block implicitly.
-        if (saved.claimToken !== claimToken) return result;
-        if (
-          job.state !== 'BLOCKED' ||
-          job.errorCode !== 'ORDER_IMPORT_ACCESS_CHANGED' ||
-          job.claimToken ||
-          job.completedAt
-        )
-          throw new AppError(
-            409,
-            'ORDER_IMPORT_RESUME_NOT_AVAILABLE',
-            'Only an import blocked by changed access can be resumed.',
-          );
-        const [uncertain] = await tx
-          .select({ sequence: rows.sequence })
           .from(rows)
-          .where(and(eq(rows.jobId, jobId), inArray(rows.state, ['STARTING', 'RECONCILING'])))
-          .limit(1)
+          .where(
+            and(
+              eq(rows.jobId, jobId),
+              eq(rows.state, 'PENDING'),
+              inArray(rows.errorCode, [...nativePreparationPauseCodes]),
+            ),
+          )
+          .limit(2)
           .for('update');
-        if (uncertain)
+        if (paused.length !== 1)
           throw new AppError(
             409,
-            'ORDER_IMPORT_IN_FLIGHT',
-            'Reconcile the active financial operation before resuming this import.',
+            'ORDER_IMPORT_STATE_INVALID',
+            'The original preparation pause needs review.',
           );
-        const [pending] = await tx
-          .select({ sequence: rows.sequence })
-          .from(rows)
-          .where(and(eq(rows.jobId, jobId), eq(rows.state, 'PENDING')))
-          .limit(1)
-          .for('update');
-        if (!pending)
-          throw new AppError(
-            409,
-            'ORDER_IMPORT_RESUME_NOT_AVAILABLE',
-            'This import has no unsent orders to resume.',
-          );
-        await tx
-          .update(jobs)
-          .set({ state: 'QUEUED', errorCode: null, leaseUntil: null, updatedAt: value.acceptedAt })
-          .where(eq(jobs.id, jobId));
-        return result;
-      }),
-    );
+        await adapter.preparation.resume(
+          tx,
+          await financialInput(tx, job, paused[0]!),
+          operationId,
+        );
+      }
+      await tx
+        .update(jobs)
+        .set({ state: 'QUEUED', errorCode: null, leaseUntil: null, updatedAt: value.acceptedAt })
+        .where(eq(jobs.id, jobId));
+      return result;
+    };
+    return adapter?.preparation
+      ? financialTransaction(db, true, work)
+      : retryTransaction(() => db.get('writer').transaction(work));
   }
   return { resume, readResumption: read };
 }

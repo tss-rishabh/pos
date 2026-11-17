@@ -16,6 +16,7 @@ import { importFinancialError } from './financial-adapter-crypto.js';
 import { identifier } from '../../domain/validation.js';
 import { csvMembershipImportProfile } from './membership-profile/adapter.js';
 import type { CsvMembershipOptions } from './membership-profile/native.js';
+import type { NativePreparationClosure } from './financial-adapter-preparation-contracts.js';
 import {
   csvMembershipCompletionSnapshotSchema,
   type CsvMembershipCompletionSnapshot,
@@ -48,6 +49,16 @@ export interface FinancialImportProfileHooks {
     proof: ImportCompletedProof,
   ): Promise<void>;
   rejected?(transaction: Transaction, context: Context, proof: Rejection): Promise<void>;
+  preparationClosed?(
+    transaction: Transaction,
+    context: Context,
+    proof: NativePreparationClosure,
+  ): Promise<void>;
+  preparationResumed?(
+    transaction: Transaction,
+    context: Context,
+    proof: NativePreparationClosure,
+  ): Promise<void>;
   expectedQuantities?(
     transaction: Transaction,
     context: Context,
@@ -169,6 +180,20 @@ export function financialAdapterProfiles(
         await profile.releaseRejected(tx, context.state.scope);
       }
       for (const extension of extensions) await extension.rejected?.(tx, context, proof);
+    },
+    async preparationClosed(tx, context, proof) {
+      if (usesScreening(context.plan)) {
+        if (!screening?.profile)
+          throw importFinancialError('ORDER_IMPORT_SCREENING_UNQUALIFIED', 503);
+        await screening.profile.releaseUndispatched(tx, context.state.scope, proof);
+      }
+      for (const extension of extensions) await extension.preparationClosed?.(tx, context, proof);
+    },
+    async preparationResumed(tx, context, proof) {
+      const profile = requireScreening(context.plan);
+      if (profile)
+        await profile.rearmUndispatched(tx, context.state.scope, proof, lineItemsEnabled!);
+      for (const extension of extensions) await extension.preparationResumed?.(tx, context, proof);
     },
     async expectedQuantities(tx, context, order, phase) {
       phase = z.enum(['staged', 'settled']).parse(phase);

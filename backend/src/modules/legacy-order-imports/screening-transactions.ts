@@ -37,6 +37,10 @@ export function assertScreeningTransaction(tx: AdministrationTransaction) {
   if (!active.has(tx))
     throw importFinancialError('ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED', 503);
 }
+/** Inspection only: this does not mint authority or change caller isolation. */
+export function usesCurrentFinancialReads(tx: AdministrationTransaction): boolean {
+  return active.has(tx);
+}
 export async function financialSavepoint<T>(
   tx: AdministrationTransaction,
   work: (savepoint: AdministrationTransaction) => Promise<T>,

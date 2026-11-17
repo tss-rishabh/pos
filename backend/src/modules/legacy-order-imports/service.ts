@@ -198,7 +198,11 @@ export function legacyOrderImportService(
     },
     async cancel(user: Principal, jobId: string) {
       return importJobSchema.parse(
-        await configuredRepository().cancel(permitted(user), z.uuid().parse(jobId)),
+        await configuredRepository().cancel(
+          permitted(user),
+          z.uuid().parse(jobId),
+          options.adapter,
+        ),
       );
     },
     async resume(user: Principal, jobId: string, operationId: string, requestId: string) {
@@ -210,7 +214,7 @@ export function legacyOrderImportService(
           'Historical order processing is not enabled. The import has not been resumed.',
         );
       return importResumptionSchema.parse(
-        await configuredRepository().resume(actor, jobId, operationId, requestId),
+        await configuredRepository().resume(actor, jobId, operationId, requestId, options.adapter),
       );
     },
     async readResumption(user: Principal, jobId: string, operationId: string) {

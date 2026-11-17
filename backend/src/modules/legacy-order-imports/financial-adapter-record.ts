@@ -59,6 +59,7 @@ export async function readFinancialImportRecord(
         plan,
         authority: state.authority,
         ...(state.correction ? { correction: state.correction } : {}),
+        ...(state.preparationContract ? { preparationContract: state.preparationContract } : {}),
       }),
     )
   )
