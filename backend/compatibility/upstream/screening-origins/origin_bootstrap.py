@@ -100,6 +100,14 @@ class OriginBootstrap:
         for name in ('EXCLUSIVE_PRODUCT','EXCLUSIVE_UPGRADE_PRODUCT'):
             configured=getattr(namespace['settings'],name,{})
             if isinstance(configured,dict):self.runtime.member_product_ids.update(str(value) for value in configured if str(value).isdigit())
+        asset_contract=self.environment.get('POS_SCREENING_ORIGIN_ASSET_CONTRACT')
+        if asset_contract:
+            from origin_assets import OriginAssets
+            self.runtime.assets=OriginAssets(namespace['settings'],self.options['key'],asset_contract)
+            original_gift=namespace['build_gift_voucher_model']
+            @functools.wraps(original_gift)
+            def gift(*args,**kwargs):return self.runtime.assets.construct(original_gift,*args,**kwargs)
+            namespace['build_gift_voucher_model']=gift
         install(self.runtime);patch_public_routes()
         bind=public_bootstrap.sessions.kw['bind']
         # Both are physical-engine events. RELEASE SAVEPOINT remains legal.

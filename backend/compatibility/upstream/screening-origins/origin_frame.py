@@ -192,6 +192,10 @@ class Frame:
                 is_split_order=bool(data.get('is_split_order')),is_express=bool(data.get('is_express')))
         self.cart=cart;self.req.context['cart']=cart
         if self.system is None or cart.persist_handler is not None:cart.persist_handler=self.capture_cart
+        if self.owner.assets is not None:
+            # Capture original native member state and physical collection locks
+            # under the already-owned customer, before any original Order row.
+            with origin_history.trusted_native():self.asset_state=self.owner.assets.before(self)
         return True
     def capture_cart(self,value):
         # Keep the last source persist, preserving the original final cart.
@@ -222,10 +226,13 @@ class Frame:
                 or result['isValid'] is not True or result['name']!='placed_order' or str(result['order'])!=self.order_id):fail()
         header=one(self.session,'SELECT user_id,payment_method,order_status,payment_status,'+HEADER+' AS hash,'+ALLOCATION+' AS allocationHash FROM orders WHERE id=:id FOR SHARE',{'id':self.order_id})
         if str(header['user_id'])!=self.value['customerId'] or header['payment_method']!=result['method'] or header['order_status']!=0 or header['payment_status']!=0:fail()
-        lines=rows(self.session,'SELECT id,prod_id,qty,sub_prod_id,gv_id,'+LINE+' AS hash FROM has_products WHERE order_id=:id ORDER BY id LIMIT 1001',{'id':self.order_id},1002)
+        lines=rows(self.session,'SELECT id,prod_id,qty,sub_prod_id,gift_voucher_id AS gv_id,'+LINE+' AS hash FROM has_products WHERE order_id=:id ORDER BY id LIMIT 1001',{'id':self.order_id},1002)
         if not 1<=len(lines)<=1000:fail('SCREENING_ORIGIN_LINE_LIMIT')
-        from origin_assets_guard import no_new_assets
-        no_new_assets(self,lines)
+        assets_hash=None
+        if self.owner.assets is None:
+            from origin_assets_guard import no_new_assets
+            no_new_assets(self,lines)
+        else:assets_hash=self.owner.assets.capture(self,header['hash'],self.owner.clock())
         ticket=[{'id':str(row['id']),'quantity':row['qty']} for row in lines if str(row['prod_id'])=='390238']
         markers=rows(self.session,'SELECT id,has_product_id,user_id FROM spiderman_screening_orders FORCE INDEX(idx_order_id) WHERE order_id=:id ORDER BY id LIMIT 3',{'id':self.order_id},4)
         if len(markers)!=self.value['markerRows'] or any(str(row['user_id'])!=self.value['customerId'] for row in markers):fail()
@@ -240,6 +247,7 @@ class Frame:
             'ticketLines':ticket,'markers':[{'id':str(row['id']),'lineId':str(row['has_product_id'])} for row in markers],
             'lineItemsEnabled':self.value['lineItemsEnabled'],'effectsHash':effects_hash,'sourceCommit':SOURCE,'createdAt':now}
         if self.system is not None:proof['systemAuthorityHash']=self.system.system_authority_hash
+        if assets_hash is not None:proof['assetsHash']=assets_hash
         seal=digest(self.owner.key,'creation',proof)
         self.session.execute(text('INSERT INTO pos_rewrite_screening_origin_creations(command_id,order_id,data,proof_hash) VALUES(:id,:order,:data,:proof)'),
                              {'id':self.value['id'],'order':self.order_id,'data':canonical(proof),'proof':seal})
@@ -288,6 +296,7 @@ class OriginRuntime:
         self.sessions,self.key,self.legacy_key,self.line_items,self.clock=sessions,key,legacy_key,line_items,clock
         self.history_provider=history_provider
         self.member_product_ids=set()
+        self.assets=None
     def order(self,req,resp,kind,call):
         frame=Frame(self,req,kind)
         failure=None
