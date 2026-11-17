@@ -4,14 +4,19 @@ import { drizzle } from 'drizzle-orm/mysql2';
 import type { Config } from '../config.js';
 import type { Reader } from '../domain/routing.js';
 import { unavailable } from '../domain/errors.js';
-import type {PoolConnection} from 'mysql2';
+import type { PoolConnection } from 'mysql2';
 
-export function databasePool(connection: string, config: Config,readOnly=false) {
+export function databasePool(
+  connection: string,
+  config: Pick<Config, 'MYSQL_ALLOW_LOCAL_PLAINTEXT' | 'MYSQL_TLS_CA_FILE' | 'MYSQL_POOL_SIZE'>,
+  readOnly = false,
+) {
   const url = new URL(connection);
-  if(url.protocol!=='mysql:'||!url.pathname.slice(1))throw new Error('Database configuration must be a MySQL URL with a schema.');
-  const local = ['localhost', '127.0.0.1', '::1','[::1]'].includes(url.hostname);
+  if (url.protocol !== 'mysql:' || !url.pathname.slice(1))
+    throw new Error('Database configuration must be a MySQL URL with a schema.');
+  const local = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(url.hostname);
   const plaintext = local && config.MYSQL_ALLOW_LOCAL_PLAINTEXT;
-  const pool=mysql.createPool({
+  const pool = mysql.createPool({
     host: url.hostname,
     port: Number(url.port || 3306),
     user: decodeURIComponent(url.username),
@@ -36,9 +41,14 @@ export function databasePool(connection: string, config: Config,readOnly=false) 
     queueLimit: 64,
     timezone: 'Z',
   });
-  pool.pool.on('connection',(connection:PoolConnection)=>{
-    if(readOnly)connection.query('SET SESSION TRANSACTION READ ONLY',error=>{if(error)connection.destroy();});
-    connection.query(`SET SESSION MAX_EXECUTION_TIME=${readOnly?10000:15000}`,error=>{if(error)connection.destroy();});
+  pool.pool.on('connection', (connection: PoolConnection) => {
+    if (readOnly)
+      connection.query('SET SESSION TRANSACTION READ ONLY', (error) => {
+        if (error) connection.destroy();
+      });
+    connection.query(`SET SESSION MAX_EXECUTION_TIME=${readOnly ? 10000 : 15000}`, (error) => {
+      if (error) connection.destroy();
+    });
   });
   return pool;
 }
@@ -49,7 +59,7 @@ export function createDatabases(config: Config) {
     primary: config.MYSQL_PRIMARY_READER_URL,
     data: config.MYSQL_DATA_READER_URL,
   })) {
-    if (value) pools.set(name, databasePool(value, config,name!=='writer'));
+    if (value) pools.set(name, databasePool(value, config, name !== 'writer'));
   }
   function get(name: Exclude<Reader, 'bigquery'> | 'writer') {
     const pool = pools.get(name);

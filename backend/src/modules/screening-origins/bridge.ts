@@ -6,7 +6,7 @@ import { registerOriginHistoryBridge } from './history-routes.js';
 
 export interface OriginHistoryBridgeEvent {
   module: 'screening-origins';
-  resource: 'customer-history';
+  resource: 'customer-history' | 'history-bridge-runtime';
   eventId: string;
   eventInstanceId: string;
   timestamp: string;
@@ -50,14 +50,30 @@ export async function createOriginHistoryBridge(options: {
     },
   });
   app.decorateRequest('auditUserId', null);
+  app.addHook('onRequest', async (request, reply) => {
+    reply
+      .header('Cache-Control', 'private, no-store')
+      .header('X-Content-Type-Options', 'nosniff')
+      .header('X-Request-ID', request.id);
+  });
+  app.setNotFoundHandler((request, reply) =>
+    reply.code(404).send({
+      code: 'SCREENING_ORIGIN_HISTORY_ROUTE_NOT_FOUND',
+      requestId: request.id,
+    }),
+  );
   app.setErrorHandler((error, request, reply) => {
+    const frameworkStatus =
+      error instanceof Error && 'statusCode' in error && typeof error.statusCode === 'number'
+        ? error.statusCode
+        : 0;
     const status =
       error instanceof AppError && error.status >= 400 && error.status <= 599
         ? error.status
         : error instanceof z.ZodError
           ? 400
-          : [400, 413, 415].includes(error.statusCode ?? 0)
-            ? error.statusCode!
+          : [400, 413, 415].includes(frameworkStatus)
+            ? frameworkStatus
             : 503;
     const code =
       error instanceof AppError && /^SCREENING_ORIGIN_[A-Z_]{1,80}$/.test(error.code)
@@ -73,12 +89,16 @@ export async function createOriginHistoryBridge(options: {
   });
   app.addHook('onResponse', async (request, reply) => {
     const action = request.routeOptions.config.trace?.action ?? 'handle';
+    const resource =
+      request.routeOptions.config.trace?.resource === 'history-bridge-runtime'
+        ? 'history-bridge-runtime'
+        : 'customer-history';
     const code = errors.get(request);
     try {
       options.observe?.({
         module: 'screening-origins',
-        resource: 'customer-history',
-        eventId: `screening-origins.customer-history.${action}.${reply.statusCode >= 400 ? 'failed' : 'completed'}`,
+        resource,
+        eventId: `screening-origins.${resource}.${action}.${reply.statusCode >= 400 ? 'failed' : 'completed'}`,
         eventInstanceId: randomUUID(),
         timestamp: new Date().toISOString(),
         requestId: request.id,

@@ -5,6 +5,8 @@ code first; perform parity testing and full verification afterward. During
 implementation, defer further test expansion, certification and repeated check
 runs. Preserve existing tests/evidence and all final release requirements. The
 same work order is recorded in AGENTS.md for future continuations and agents.
+The user explicitly requested this approach be retained in memory: complete
+all implementation first; only then begin parity and testing.
 
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on

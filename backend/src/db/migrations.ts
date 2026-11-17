@@ -95,6 +95,7 @@ export const migrationPaths = [
   'src/modules/legacy-order-imports/membership-profile/reference-migration.sql',
   'src/modules/legacy-order-imports/membership-profile/staged-reference-migration.sql',
   'compatibility/upstream/screening-origins/migration.sql',
+  'src/modules/screening-origins/history-generation-migration.sql',
 ] as const;
 export class MigrationError extends Error {
   constructor(readonly code: string) {

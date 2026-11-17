@@ -42,6 +42,7 @@ COPY src/modules/legacy-order-imports/membership-profile/*.sql ./src/modules/leg
 COPY compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql ./compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql
 COPY compatibility/upstream/ordinary/migration.sql ./compatibility/upstream/ordinary/migration.sql
 COPY compatibility/upstream/screening-origins/migration.sql ./compatibility/upstream/screening-origins/migration.sql
+COPY src/modules/screening-origins/*.sql ./src/modules/screening-origins/
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql
 COPY src/modules/legacy-fulfillment/migration.sql ./src/modules/legacy-fulfillment/migration.sql
@@ -62,6 +63,12 @@ CMD ["node","dist/modules/legacy-order-status/receiver-main.js"]
 
 FROM runtime-base AS coupon-history-worker
 CMD ["node","dist/modules/legacy-order-imports/benefit-profile/history-generation-worker-main.js"]
+
+FROM runtime-base AS origin-history-receiver
+ENV POS_SCREENING_ORIGIN_HISTORY_BRIDGE_HOST=0.0.0.0 POS_SCREENING_ORIGIN_HISTORY_BRIDGE_PORT=4424
+EXPOSE 4424
+HEALTHCHECK --interval=30s --timeout=8s --start-period=30s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:4424/health/live',{signal:AbortSignal.timeout(6000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+CMD ["node","dist/modules/screening-origins/bridge-main.js"]
 
 FROM runtime-base AS membership-history-worker
 CMD ["node","dist/modules/checkout/screening-writer/membership-generation-main.js"]

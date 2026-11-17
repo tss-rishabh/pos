@@ -9,6 +9,10 @@ current configuration take precedence over stale README descriptions.
 Complete all remaining feature and integration code first. Once implementation
 is complete, perform parity testing and full verification.
 
+Reaffirmed by the user as a persistent memory instruction: finish everything
+first, then do parity and testing. Do not switch to the validation phase while
+any required feature or integration code remains incomplete.
+
 - Prioritize complete backend, frontend, desktop, worker, migration and
   integration implementations across the full original scope.
 - While required implementation remains unfinished, defer test expansion,
