@@ -113,6 +113,16 @@ no EAV move or new grant. The staged-provenance/Go activation view remains the
 next explicit code gap. Other origin adapters remain assigned. Source artifacts
 were regenerated; no test, worker, provider or database write was executed.
 
+Staged membership reference/activation is integrated from `300687d` as `e39bd08`,
+with registered ledger, selector and regenerated Go/Python input hashes on
+`2e807d4`. It uses the original Apply once and authenticates the resulting
+transition; original upgrade arithmetic and Shopify pending behavior are retained.
+Cache completion ACK recovery precedes mutable customer/EAV/config checks.
+Membership succession code is now held for later validation. Remaining source
+origin code is split three ways: customer/staff/service frames and callers,
+non-POS Go payment/provider/cron effects, and qualified welcome/app/web history
+publication with current mutation-head fencing. No tests or builds were run.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
