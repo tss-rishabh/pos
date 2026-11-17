@@ -168,6 +168,15 @@ export function legacyImportFinancialJournal(
         profiles.assertReady(plan);
         const access = await approvals.authorizeStart(tx, input);
         if (!access.ready) throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
+        // A correction continues the source-qualified original behavior, not
+        // whichever flags happen to be selected when its successor is claimed.
+        const original = correction ? await load(tx, correction.original.boundary.scope) : null;
+        if (correction && !original)
+          throw importFinancialError('ORDER_IMPORT_CORRECTION_EVIDENCE_REQUIRED');
+        const benefitContracts = correction
+          ? original!.state.benefitContracts
+          : profiles.benefitContracts;
+        profiles.assertBindings({ ...(benefitContracts ? { benefitContracts } : {}) });
         const requestHash = financialImportRequestHash(options.secret, {
             scope,
             planHash,
@@ -175,6 +184,7 @@ export function legacyImportFinancialJournal(
             authority: access.authority,
             ...(correction ? { correction } : {}),
             ...(reservation ? { preparationContract: reservation.preparationContract } : {}),
+            ...(benefitContracts ? { benefitContracts } : {}),
           }),
           time = now(),
           state = importFinancialStateSchema.parse({
@@ -185,6 +195,7 @@ export function legacyImportFinancialJournal(
             authority: access.authority,
             ...(correction ? { correction } : {}),
             ...(reservation ? { preparationContract: reservation.preparationContract } : {}),
+            ...(benefitContracts ? { benefitContracts } : {}),
             status: 'running',
             stage: 'preparation',
             orderId: null,

@@ -35,7 +35,7 @@ export const csvBenefitCompletionSchema = z
   .refine((value) => Buffer.byteLength(JSON.stringify(value)) <= 750000);
 type CompletionContext = Pick<
   ImportFinancialState,
-  'scope' | 'authority' | 'planHash' | 'requestHash'
+  'scope' | 'authority' | 'planHash' | 'requestHash' | 'benefitContracts'
 > & { order: SourceOrderReceipt };
 
 /** Scope/ownership validation for a staged benefit snapshot. Full immutable
@@ -119,6 +119,9 @@ export function validateCsvFinancialBenefitSnapshot(
     result = validateCsvBenefitCompletion(base, context),
     offline = context.kind === 'offline';
   if (
+    (context.benefitContracts !== undefined &&
+      ((result.coupon && !context.benefitContracts.automaticCoupon) ||
+        (result.complementary && !context.benefitContracts.complementary))) ||
     (!result.coupon && !result.complementary) ||
     context.order.method !== (offline ? 14 : 15) ||
     (offline ? confirmationHash === null : confirmationHash !== null) ||

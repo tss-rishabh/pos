@@ -16,6 +16,15 @@ export const financialSourceContract = 'pos-legacy-order-import-source-v1';
 export const financialPublicationContract = 'pos-legacy-order-import-publication-v1';
 export const financialConfirmationContract = 'pos-legacy-order-import-confirmation-v1';
 export const financialOrderPreparationContract = 'pos-import-order-preparation-v1';
+/** Server-selected source behavior. Absence preserves original request/HMAC bytes. */
+export const financialBenefitContractsSchema = z
+  .object({
+    automaticCoupon: z.literal('pos-csv-automatic-coupon-v1').optional(),
+    complementary: z.literal('pos-csv-pos-complementary-v1').optional(),
+  })
+  .strict()
+  .refine((value) => value.automaticCoupon !== undefined || value.complementary !== undefined);
+export type FinancialBenefitContracts = z.infer<typeof financialBenefitContractsSchema>;
 export const importProofHash = z.string().regex(/^[a-f0-9]{64}$/);
 const amount = z.string().regex(/^\d{1,10}\.\d{2}$/),
   time = z.number().int().safe().positive();
@@ -284,6 +293,7 @@ export const importCompletedProofSchema = z
     // Absence is preserved for existing HMACs. Never inject a default null.
     membership: csvMembershipCompletionSnapshotSchema.optional(),
     benefits: csvFinancialBenefitSnapshotSchema.optional(),
+    benefitContracts: financialBenefitContractsSchema.optional(),
     correction: importCorrectionBindingSchema.optional(),
     finalizedAt: time,
   })
@@ -299,6 +309,7 @@ export const importFinancialStateSchema = z
     status: z.enum(['running', 'unknown', 'rejected', 'completed']),
     correction: importCorrectionBindingSchema.optional(),
     preparationContract: z.literal(financialOrderPreparationContract).optional(),
+    benefitContracts: financialBenefitContractsSchema.optional(),
     stage: financialImportStageSchema,
     orderId: identifier.nullable(),
     errorCode: z

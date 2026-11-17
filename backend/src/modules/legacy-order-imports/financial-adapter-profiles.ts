@@ -1,13 +1,13 @@
 import { z } from 'zod';
 import type { AdministrationTransaction } from '../administration/checkins.js';
-import type {
-  ImportFinancialState,
-  SourceOrderReceipt,
-  ImportCompletedProof,
-} from './financial-adapter-contracts.js';
-import type {
-  sourceRejectionReceiptSchema,
-  FinancialImportStage,
+import {
+  financialBenefitContractsSchema,
+  type FinancialBenefitContracts,
+  type ImportFinancialState,
+  type SourceOrderReceipt,
+  type ImportCompletedProof,
+  type sourceRejectionReceiptSchema,
+  type FinancialImportStage,
 } from './financial-adapter-contracts.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 import type { screeningImportProfile } from './screening-profile.js';
@@ -92,6 +92,9 @@ export interface FinancialImportProfileHooks {
 }
 export interface FinancialImportProfiles extends Required<FinancialImportProfileHooks> {
   readonly requiresCurrentReads: boolean;
+  readonly benefitContracts?: FinancialBenefitContracts;
+  /** Pure comparison against an already authenticated native state. */
+  assertBindings(state: Pick<ImportFinancialState, 'benefitContracts'>): void;
   needsReservation(plan: LegacyOrderImportPlan): boolean;
 }
 export interface FinancialAdapterProfileOptions {
@@ -115,6 +118,14 @@ export function financialAdapterProfiles(
 ): FinancialImportProfiles {
   const screening = options.screening,
     lineItemsEnabled = screening?.lineItemsEnabled,
+    benefits = options.benefits ? Object.freeze({ ...options.benefits }) : undefined,
+    selectedBenefits =
+      benefits?.automaticCoupon || benefits?.complementary
+        ? financialBenefitContractsSchema.parse({
+            ...(benefits.automaticCoupon ? { automaticCoupon: benefits.automaticCoupon } : {}),
+            ...(benefits.complementary ? { complementary: benefits.complementary } : {}),
+          })
+        : undefined,
     extensions = [
       csvFinancialBenefitProfile(
         options.membership ?? {
@@ -125,7 +136,7 @@ export function financialAdapterProfiles(
           productIds: [],
           freeProductId: '',
         },
-        options.benefits ?? { sourceProofKey: options.membership?.sourceProofKey ?? '' },
+        benefits ?? { sourceProofKey: options.membership?.sourceProofKey ?? '' },
       ),
       ...(options.extensions ?? []),
     ];
@@ -136,7 +147,17 @@ export function financialAdapterProfiles(
     screening.profile.assertReady();
     return screening.profile;
   }
+  function assertBindings(state: Pick<ImportFinancialState, 'benefitContracts'>) {
+    const saved =
+      state.benefitContracts === undefined
+        ? undefined
+        : financialBenefitContractsSchema.parse(state.benefitContracts);
+    if (JSON.stringify(saved) !== JSON.stringify(selectedBenefits))
+      throw importFinancialError('ORDER_IMPORT_BENEFIT_BINDINGS_CHANGED', 503);
+  }
   return {
+    ...(selectedBenefits ? { benefitContracts: Object.freeze(selectedBenefits) } : {}),
+    assertBindings,
     requiresCurrentReads:
       screening?.profile.qualified === true ||
       extensions.some((extension) => extension.requiresCurrentReads === true),
@@ -150,16 +171,19 @@ export function financialAdapterProfiles(
       for (const extension of extensions) extension.assertReady?.(plan);
     },
     async reserved(tx, context) {
+      assertBindings(context.state);
       const profile = requireScreening(context.plan);
       if (profile) await profile.reserve(tx, context.state.scope, lineItemsEnabled!);
       for (const extension of extensions) await extension.reserved?.(tx, context);
     },
     async lock(tx, context) {
+      assertBindings(context.state);
       const profile = requireScreening(context.plan);
       if (profile) await profile.read(tx, context.state.scope);
       for (const extension of extensions) await extension.lock?.(tx, context);
     },
     async dispatch(tx, context, stage) {
+      assertBindings(context.state);
       const profile = requireScreening(context.plan);
       if (profile) {
         const state = await profile.read(tx, context.state.scope);
@@ -173,6 +197,7 @@ export function financialAdapterProfiles(
       for (const extension of extensions) await extension.dispatch?.(tx, context, stage);
     },
     async sourceReceipt(tx, context, order) {
+      assertBindings(context.state);
       const profile = requireScreening(context.plan);
       if (profile) {
         const value = await profile.attachSourceReceipt(tx, context.state.scope);
@@ -211,12 +236,14 @@ export function financialAdapterProfiles(
       for (const extension of extensions) await extension.preparationClosed?.(tx, context, proof);
     },
     async preparationResumed(tx, context, proof) {
+      assertBindings(context.state);
       const profile = requireScreening(context.plan);
       if (profile)
         await profile.rearmUndispatched(tx, context.state.scope, proof, lineItemsEnabled!);
       for (const extension of extensions) await extension.preparationResumed?.(tx, context, proof);
     },
     async expectedQuantities(tx, context, order, phase) {
+      assertBindings(context.state);
       phase = z.enum(['staged', 'settled']).parse(phase);
       // Current entitlement checks belong only at staged/settled mutation gates;
       // immutable completed reads use their frozen financial proof instead.
@@ -248,6 +275,7 @@ export function financialAdapterProfiles(
       return result;
     },
     async completionSnapshot(tx, context, order) {
+      assertBindings(context.state);
       let result: CsvMembershipCompletionSnapshot | null = null;
       for (const extension of extensions) {
         const value = await extension.completionSnapshot?.(tx, context, order);
@@ -260,6 +288,7 @@ export function financialAdapterProfiles(
       return result;
     },
     async qualifiedBenefits(tx, context, order, phase) {
+      assertBindings(context.state);
       let result: CsvBenefitQualification | null = null;
       for (const extension of extensions) {
         const value = await extension.qualifiedBenefits?.(tx, context, order, phase);
@@ -271,6 +300,7 @@ export function financialAdapterProfiles(
       return result;
     },
     async benefitSnapshot(tx, context, order) {
+      assertBindings(context.state);
       let result: CsvFinancialBenefitSnapshot | null = null;
       for (const extension of extensions) {
         const value = await extension.benefitSnapshot?.(tx, context, order);

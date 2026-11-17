@@ -26,6 +26,8 @@ import { runtimeImportInput } from '../legacy-order-imports/runtime-fixture.js';
 import { readLegacyOrderImportOptions } from '../../src/modules/legacy-order-imports/options.js';
 import { correctionActor, correctionCommand } from '../import-corrections/fixture.js';
 import { importFinancialFixture, financialClock, sourceKey } from './fixture.js';
+import { financialAdapterProfiles } from '../../src/modules/legacy-order-imports/financial-adapter-profiles.js';
+import { legacyImportFinancialJournal } from '../../src/modules/legacy-order-imports/financial-adapter-journal.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 describe.skipIf(!template)('manager corrections with the real native financial core', () => {
@@ -80,62 +82,70 @@ describe.skipIf(!template)('manager corrections with the real native financial c
       transport = f.transport();
     let rejectedOperation: string | null = null,
       sourceCalls = 0;
-    const adapter = legacyOrderImportFinancialAdapter(f.config, f.db, options, {
-      ...transport,
-      async order(command) {
-        sourceCalls++;
-        if (command.state.correction) return transport.order(command);
-        rejectedOperation = command.state.scope.operationId;
-        // A trusted fixture source transaction records the signed rollback
-        // outcome. This test exercises the real Node core, not source Python.
-        const calculation = {
-            payable: '50.00',
-            profileQualified: true,
-            profileCode: null,
-            calculationHash: financialSourceHash(sourceKey, 'calculation', {
-              operationId: rejectedOperation,
-              requestHash: command.state.requestHash,
-              namespace: command.state.namespace,
-              planHash: command.state.planHash,
-              stageNonce: command.nonce,
-              rejectedAt: financialClock,
+    const adapter = legacyOrderImportFinancialAdapter(
+      f.config,
+      f.db,
+      options,
+      {
+        ...transport,
+        async order(command) {
+          sourceCalls++;
+          if (command.state.correction) return transport.order(command);
+          rejectedOperation = command.state.scope.operationId;
+          // A trusted fixture source transaction records the signed rollback
+          // outcome. This test exercises the real Node core, not source Python.
+          const calculation = {
               payable: '50.00',
               profileQualified: true,
               profileCode: null,
-            }),
-          },
-          proof = sourceRejectionReceiptSchema.parse({
-            contract: 'pos-legacy-order-import-source-v1',
-            operationId: rejectedOperation,
-            requestHash: command.state.requestHash,
-            namespace: command.state.namespace,
-            status: 'rejected',
-            code: 'ORDER_IMPORT_ORIGINAL_TENDER_MISMATCH',
-            noFinancialEffects: true,
-            review: {
-              contract: 'pos-import-rejection-calculation-v1',
-              planHash: command.state.planHash,
-              stageNonce: command.nonce,
-              rejectedAt: financialClock,
-              calculation,
+              calculationHash: financialSourceHash(sourceKey, 'calculation', {
+                operationId: rejectedOperation,
+                requestHash: command.state.requestHash,
+                namespace: command.state.namespace,
+                planHash: command.state.planHash,
+                stageNonce: command.nonce,
+                rejectedAt: financialClock,
+                payable: '50.00',
+                profileQualified: true,
+                profileCode: null,
+              }),
             },
-          });
-        await f.db
-          .get('writer')
-          .insert(financialImportSourceReceipts)
-          .values({
-            id: rejectedOperation + ':order',
-            operationId: rejectedOperation,
-            kind: 'order',
-            status: 'rejected',
-            requestHash: command.state.requestHash,
-            proof,
-            proofHash: financialSourceHash(sourceKey, 'rejection', proof),
-            createdAt: financialClock,
-          });
-        throw new Error('Trusted fixture source declined the original mismatched tender.');
+            proof = sourceRejectionReceiptSchema.parse({
+              contract: 'pos-legacy-order-import-source-v1',
+              operationId: rejectedOperation,
+              requestHash: command.state.requestHash,
+              namespace: command.state.namespace,
+              status: 'rejected',
+              code: 'ORDER_IMPORT_ORIGINAL_TENDER_MISMATCH',
+              noFinancialEffects: true,
+              review: {
+                contract: 'pos-import-rejection-calculation-v1',
+                planHash: command.state.planHash,
+                stageNonce: command.nonce,
+                rejectedAt: financialClock,
+                calculation,
+              },
+            });
+          await f.db
+            .get('writer')
+            .insert(financialImportSourceReceipts)
+            .values({
+              id: rejectedOperation + ':order',
+              operationId: rejectedOperation,
+              kind: 'order',
+              status: 'rejected',
+              requestHash: command.state.requestHash,
+              proof,
+              proofHash: financialSourceHash(sourceKey, 'rejection', proof),
+              createdAt: financialClock,
+            });
+          throw new Error('Trusted fixture source declined the original mismatched tender.');
+        },
       },
-    });
+      financialAdapterProfiles({
+        benefits: { automaticCoupon: 'pos-csv-automatic-coupon-v1', sourceProofKey: sourceKey },
+      }),
+    );
     const input = runtimeImportInput();
     await queue.stage('1', 'original-financial-fixture', input);
     await queue.runOne(adapter);
@@ -215,6 +225,26 @@ describe.skipIf(!template)('manager corrections with the real native financial c
       correction: { id: command.id, historicalTenderAmount: '50.00', sourcePayable: '50.00' },
     });
     expect(approved.approval.reason).toBe('historical-correction');
+    // A successor retains the original source behavior. Changed current flags
+    // cannot silently replace it, even after a valid new financial approval.
+    const changed = legacyImportFinancialJournal(
+      f.config,
+      f.db,
+      options,
+      financialAdapterProfiles({
+        benefits: { complementary: 'pos-csv-pos-complementary-v1', sourceProofKey: sourceKey },
+      }),
+    );
+    await expect(changed.reserve(context)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_BENEFIT_BINDINGS_CHANGED',
+    });
+    expect(
+      await f.db
+        .get('writer')
+        .select()
+        .from(financialImportOperations)
+        .where(eq(financialImportOperations.id, context.operationId)),
+    ).toEqual([]);
     await f.db.get('writer').transaction(async (tx) => {
       expect(await adapter.authorizeStart!(tx, context)).toEqual({ ready: true });
     });

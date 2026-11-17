@@ -283,6 +283,7 @@ export async function recoverImportCompletion(
     authority: ImportCompletedProof['authority'];
     kind: 'offline' | 'shopify';
     correction?: ImportCompletedProof['correction'];
+    benefitContracts?: ImportCompletedProof['benefitContracts'];
   }) => ({
     scope: value.scope,
     planHash: value.planHash,
@@ -290,6 +291,7 @@ export async function recoverImportCompletion(
     authority: value.authority,
     kind: value.kind,
     ...(value.correction ? { correction: value.correction } : {}),
+    ...(value.benefitContracts ? { benefitContracts: value.benefitContracts } : {}),
   });
   if (
     state.status === 'rejected' ||

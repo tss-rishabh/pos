@@ -25,6 +25,13 @@ import {
 } from '../../src/modules/legacy-order-imports/financial-adapter-schema.js';
 import { legacyImportFinancialJournal } from '../../src/modules/legacy-order-imports/financial-adapter-journal.js';
 import type { FinancialOrderPreparationPort } from '../../src/modules/legacy-order-imports/financial-adapter-preparation-contracts.js';
+import type { CsvBenefitProfileOptions } from '../../src/modules/legacy-order-imports/benefit-profile/adapter.js';
+import { csvCouponPrefetchSchema } from '../../src/modules/legacy-order-imports/benefit-profile/bridge.js';
+import { csvMembershipPrefetchSchema } from '../../src/modules/legacy-order-imports/membership-profile/bridge.js';
+import { financialPreparationLedger } from '../../src/modules/legacy-order-imports/financial-adapter-preparation-ledger.js';
+import { configuredLegacyOrderImports } from '../../src/modules/legacy-order-imports/runtime.js';
+import { couponArtifact, membershipArtifact } from './coupon-artifact-fixtures.js';
+import { z } from 'zod';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 type Prepared = Awaited<ReturnType<FinancialOrderPreparationPort['prepare']>>;
@@ -53,10 +60,13 @@ describe.skipIf(!template)('native financial preparation adapter and job resourc
     await f.reset();
     clock = financialClock;
   });
-  function create(prepare: FinancialOrderPreparationPort['prepare']) {
+  function create(
+    prepare: FinancialOrderPreparationPort['prepare'],
+    benefits?: CsvBenefitProfileOptions,
+  ) {
     const transport = f.transport(),
       options = { ...f.options, clock: () => clock },
-      profiles = financialAdapterProfiles();
+      profiles = financialAdapterProfiles(benefits ? { benefits } : {});
     const order = vi.spyOn(transport, 'order'),
       confirmation = vi.spyOn(transport, 'confirm'),
       publication = vi.spyOn(transport, 'publication');
@@ -112,7 +122,7 @@ describe.skipIf(!template)('native financial preparation adapter and job resourc
     (SELECT SUM(stock) FROM product_store) AS stock`);
     return rows;
   }
-  function api(adapter: ReturnType<typeof create>['adapter'], database = f.db) {
+  function api(adapter: ReturnType<typeof create>['adapter'], database = f.db, canStart = true) {
     const app = Fastify({ logger: false });
     app.decorateRequest('principal', null);
     app.decorateRequest('authSessionValid', null);
@@ -134,7 +144,7 @@ describe.skipIf(!template)('native financial preparation adapter and job resourc
     );
     const service = registerLegacyOrderImports(app, f.config, database, {
       adapter,
-      canStart: true,
+      canStart,
       runtime: readLegacyOrderImportOptions({
         LEGACY_ORDER_IMPORT_CONTRACT: 'pos-legacy-order-import-v1',
         LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: runtimeImportSecret,
@@ -144,6 +154,180 @@ describe.skipIf(!template)('native financial preparation adapter and job resourc
     });
     return { app, service };
   }
+  const selectedBenefits = (): CsvBenefitProfileOptions => ({
+    automaticCoupon: 'pos-csv-automatic-coupon-v1',
+    sourceProofKey: f.options.sourceProofKey!,
+  });
+  it('actual API and worker retain selected bindings and both exact encrypted preparation artifacts', async () => {
+    let supplied: Prepared | undefined;
+    const prepare = vi.fn<FinancialOrderPreparationPort['prepare']>(async (input) => {
+        supplied = {
+          couponHistory: await couponArtifact(input.state, clock, input.expiresAt),
+          membershipHistory: await membershipArtifact(input.state, clock),
+        };
+        return supplied;
+      }),
+      c = create(prepare, selectedBenefits()),
+      { app, service } = api(c.adapter),
+      csv = inputCsv(),
+      base = '/api/v1/admin/order-imports';
+    try {
+      expect((await app.inject({ method: 'POST', url: base, payload: csv })).statusCode).toBe(202);
+      expect(await service.runOne()).toMatchObject({ state: 'IMPORTED' });
+      expect((await app.inject({ method: 'GET', url: base + '/' + csv.id })).statusCode).toBe(200);
+      const [row] = await f.db.get('writer').select().from(financialImportOperations),
+        [proof] = await f.db.get('writer').select().from(financialImportProofs),
+        [attempt] = await f.db.get('writer').select().from(financialImportPreparations);
+      expect(row?.state.benefitContracts).toEqual({
+        automaticCoupon: 'pos-csv-automatic-coupon-v1',
+      });
+      expect(proof?.data.benefitContracts).toEqual(row?.state.benefitContracts);
+      expect(
+        z
+          .object({
+            couponHistory: csvCouponPrefetchSchema,
+            membershipHistory: csvMembershipPrefetchSchema,
+          })
+          .parse(c.order.mock.calls[0]![0]),
+      ).toEqual(supplied);
+      expect(attempt?.artifact).not.toContain('globalUsage');
+      const journal = legacyImportFinancialJournal(f.config, f.db, c.options, c.profiles, true),
+        ledger = financialPreparationLedger(c.options.secret, () => clock);
+      clock += 120000;
+      const restored = await journal.transaction(async (tx) => {
+        const context = await journal.load(tx, row!.state.scope);
+        return ledger.readArtifact(tx, context!.state);
+      });
+      expect(restored).toEqual(supplied);
+      expect(prepare).toHaveBeenCalledTimes(1);
+      expect(c.order).toHaveBeenCalledTimes(1);
+      expect(c.confirmation).toHaveBeenCalledTimes(1);
+      expect(c.publication).toHaveBeenCalledTimes(1);
+      // Bad current new-work flags cannot erase this original marked financial seal.
+      const runtime = configuredLegacyOrderImports(f.config, f.db, {
+        environment: {
+          LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: runtimeImportSecret,
+          POS_LEGACY_IMPORT_AUTOMATIC_COUPON_CONTRACT: 'wrong',
+        },
+        clock: () => clock,
+      });
+      expect(runtime.canStart).toBe(false);
+      expect(runtime.adapter).toBeDefined();
+      const original = await c.adapter.read(row!.state.scope);
+      expect(await runtime.adapter!.read(row!.state.scope)).toEqual(original);
+      expect(
+        await runtime.adapter!.start(
+          await repository().financialContext('1', csv.id, row!.id, false),
+        ),
+      ).toEqual(original);
+      const disabled = api(runtime.adapter!, f.db, false);
+      try {
+        expect(
+          (await disabled.app.inject({ method: 'GET', url: base + '/' + csv.id })).statusCode,
+        ).toBe(200);
+        expect(
+          (await disabled.app.inject({ method: 'POST', url: base, payload: inputCsv() }))
+            .statusCode,
+        ).toBe(503);
+        expect(await disabled.service.runOne()).toBeNull();
+      } finally {
+        await disabled.app.close();
+      }
+      const encrypted = attempt?.artifact;
+      if (!encrypted) throw new Error('Expected encrypted native artifact.');
+      await f.db
+        .get('writer')
+        .update(financialImportPreparations)
+        .set({ artifact: (encrypted[0] === 'A' ? 'B' : 'A') + encrypted.slice(1) })
+        .where(eq(financialImportPreparations.id, attempt.id));
+      await expect(
+        journal.transaction(async (tx) =>
+          ledger.readArtifact(tx, (await journal.load(tx, row!.state.scope))!.state),
+        ),
+      ).rejects.toMatchObject({ code: 'ORDER_IMPORT_PREPARATION_PROOF_INVALID' });
+      expect(await runtime.adapter!.read(row!.state.scope)).toEqual(original);
+      expect(c.order).toHaveBeenCalledTimes(1);
+    } finally {
+      await app.close();
+    }
+  });
+  it('will not enable a benefit profile on an already-reserved unmarked command', async () => {
+    const input = f.input(),
+      plain = legacyImportFinancialJournal(f.config, f.db, f.options),
+      saved = await plain.reserve(input),
+      prepare = vi.fn(async () => ({})),
+      c = create(prepare, selectedBenefits());
+    await expect(c.adapter.start(input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_BENEFIT_BINDINGS_CHANGED',
+    });
+    expect(prepare).not.toHaveBeenCalled();
+    expect(c.order).not.toHaveBeenCalled();
+    expect(
+      (await f.db.get('writer').select().from(financialImportOperations))[0]?.requestHash,
+    ).toBe(saved.state.requestHash);
+    expect(await f.db.get('writer').select().from(financialImportStages)).toEqual([]);
+  });
+  it.each(['add', 'remove'])(
+    'authenticates the original saved marker before config comparison (%s)',
+    async (mutation) => {
+      const input = f.input(),
+        profiles =
+          mutation === 'remove'
+            ? financialAdapterProfiles({ benefits: selectedBenefits() })
+            : financialAdapterProfiles(),
+        journal = legacyImportFinancialJournal(f.config, f.db, f.options, profiles),
+        saved = await journal.reserve(input),
+        state = { ...saved.state };
+      if (mutation === 'remove') delete state.benefitContracts;
+      else state.benefitContracts = { automaticCoupon: 'pos-csv-automatic-coupon-v1' };
+      await f.db
+        .get('writer')
+        .update(financialImportOperations)
+        .set({ state })
+        .where(eq(financialImportOperations.id, input.operationId));
+      await expect(journal.transaction((tx) => journal.load(tx, input))).rejects.toMatchObject({
+        code: 'ORDER_IMPORT_FINANCIAL_PAYLOAD_INVALID',
+      });
+    },
+  );
+  it('keeps an old unmarked completed receipt immutable when profiles are later selected', async () => {
+    const plain = create(async () => ({})),
+      input = f.input(),
+      receipt = await plain.adapter.start(input),
+      prepare = vi.fn(async () => ({})),
+      selected = create(prepare, selectedBenefits());
+    expect(receipt.status).toBe('completed');
+    expect(await selected.adapter.start(input)).toEqual(receipt);
+    expect(await selected.adapter.read(input)).toEqual(receipt);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(selected.order).not.toHaveBeenCalled();
+    expect(
+      (await f.db.get('writer').select().from(financialImportOperations))[0]?.state
+        .benefitContracts,
+    ).toBeUndefined();
+  });
+  it('does not rearm or adopt new flags for an exact no-dispatch resumption', async () => {
+    const prepare = vi.fn<FinancialOrderPreparationPort['prepare']>(async () => {
+        throw new Error('isolated preparation unavailable');
+      }),
+      c = create(prepare, selectedBenefits()),
+      input = f.input();
+    expect((await c.adapter.start(input)).status).toBe('rejected');
+    const changed = create(prepare),
+      journal = legacyImportFinancialJournal(
+        f.config,
+        f.db,
+        changed.options,
+        changed.profiles,
+        true,
+      );
+    await expect(
+      journal.transaction((tx) => changed.adapter.preparation!.resume(tx, input, randomUUID())),
+    ).rejects.toMatchObject({ code: 'ORDER_IMPORT_BENEFIT_BINDINGS_CHANGED' });
+    expect(await f.db.get('writer').select().from(financialImportPreparations)).toHaveLength(1);
+    expect(prepare).toHaveBeenCalledTimes(1);
+    expect(c.order).not.toHaveBeenCalled();
+  });
   it('prepares outside every SQL lock, then creates one order checkpoint and settles once', async () => {
     const prepare = vi.fn<FinancialOrderPreparationPort['prepare']>(async () => {
         await f.connection.beginTransaction();

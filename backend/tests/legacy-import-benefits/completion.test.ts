@@ -69,6 +69,24 @@ function fixture(kind: 'offline' | 'shopify' = 'offline') {
   return { f, snapshot, context: { ...f.state, kind, order: f.order } };
 }
 describe('immutable financial benefit completion after outer authentication', () => {
+  it('preserves legacy field absence but enforces new frozen feature selections', () => {
+    const value = fixture();
+    expect(() =>
+      validateCsvFinancialBenefitSnapshot(value.snapshot, {
+        ...value.context,
+        benefitContracts: { automaticCoupon: 'pos-csv-automatic-coupon-v1' },
+      }),
+    ).toThrow();
+    expect(
+      validateCsvFinancialBenefitSnapshot(value.snapshot, {
+        ...value.context,
+        benefitContracts: {
+          automaticCoupon: 'pos-csv-automatic-coupon-v1',
+          complementary: 'pos-csv-pos-complementary-v1',
+        },
+      }),
+    ).toEqual(value.snapshot);
+  });
   it('retains exact method14 consumption and method15 no-consumption evidence', () => {
     for (const kind of ['offline', 'shopify'] as const) {
       const value = fixture(kind);

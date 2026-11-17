@@ -367,6 +367,7 @@ export function legacyOrderImportFinancialAdapter(
       publication: published,
       ...(membership ? { membership } : {}),
       ...(benefits ? { benefits } : {}),
+      ...(state.benefitContracts ? { benefitContracts: state.benefitContracts } : {}),
       ...(state.correction ? { correction: state.correction } : {}),
       finalizedAt: now(),
     });

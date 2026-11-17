@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { CsvMembershipPrefetch } from './membership-profile/bridge.js';
+import type { CsvCouponPrefetch } from './benefit-profile/bridge.js';
 import {
   financialImportScopeSchema,
   financialOrderPreparationContract,
@@ -22,7 +23,7 @@ export interface FinancialOrderPreparationPort {
       readonly expiresAt: number;
     },
     options: { readonly signal: AbortSignal },
-  ): Promise<{ membershipHistory?: CsvMembershipPrefetch }>;
+  ): Promise<{ membershipHistory?: CsvMembershipPrefetch; couponHistory?: CsvCouponPrefetch }>;
 }
 export const financialQueueLeaseSchema = z
   .object({ jobId: z.uuid(), claimToken: z.uuid() })

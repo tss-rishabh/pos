@@ -12,6 +12,8 @@ import { importDigest } from './sealed-groups.js';
 import {
   financialImportPlanSchema,
   financialOrderPreparationContract,
+  financialBenefitContractsSchema,
+  type FinancialBenefitContracts,
 } from './financial-adapter-contracts.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 import {
@@ -53,7 +55,8 @@ export function financialSourceHash(
     | 'confirmation'
     | 'calculation'
     | 'correction'
-    | 'membership-history',
+    | 'membership-history'
+    | 'coupon-history',
   value: unknown,
 ) {
   return operationHash('legacy-order-imports.source.' + kind + '.v1', value, sourceKey);
@@ -99,6 +102,7 @@ export function financialImportRequestHash(
     authority: FinancialImportAuthority;
     correction?: ImportCorrectionBinding;
     preparationContract?: typeof financialOrderPreparationContract;
+    benefitContracts?: FinancialBenefitContracts;
   },
 ) {
   if (
@@ -115,6 +119,9 @@ export function financialImportRequestHash(
       ? { correction: importCorrectionBindingSchema.parse(input.correction) }
       : {}),
     ...(input.preparationContract ? { preparationContract: input.preparationContract } : {}),
+    ...(input.benefitContracts !== undefined
+      ? { benefitContracts: financialBenefitContractsSchema.parse(input.benefitContracts) }
+      : {}),
   });
 }
 export function sealFinancialPlan(

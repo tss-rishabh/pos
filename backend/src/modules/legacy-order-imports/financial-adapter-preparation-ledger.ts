@@ -26,6 +26,10 @@ import {
 import { legacyOrderImports, legacyOrderImportRows } from './schema.js';
 import { csvMembershipPrefetchSchema } from './membership-profile/bridge.js';
 import {
+  csvCouponPrefetchSchema,
+  csvCouponPrefetchMaximumBytes,
+} from './benefit-profile/bridge.js';
+import {
   financialPreparationAttemptSchema,
   financialPreparationExecutionSchema,
   financialQueueLeaseSchema,
@@ -38,12 +42,19 @@ import {
   type NativePreparationClosure,
 } from './financial-adapter-preparation-contracts.js';
 
-const maximumArtifactBytes = 1048576;
-const maximumEncryptedBytes = Math.ceil((maximumArtifactBytes + 28) / 3) * 4;
-const outputSchema = z
-  .object({ membershipHistory: csvMembershipPrefetchSchema.optional() })
+export const financialPreparationMaximumArtifactBytes = 1048576;
+export const financialPreparationMaximumEncryptedBytes =
+  Math.ceil((financialPreparationMaximumArtifactBytes + 28) / 3) * 4;
+export const financialPreparationOutputSchema = z
+  .object({
+    membershipHistory: csvMembershipPrefetchSchema.optional(),
+    couponHistory: csvCouponPrefetchSchema.optional(),
+  })
   .strict();
-export type FinancialPreparationOutput = z.infer<typeof outputSchema>;
+export type FinancialPreparationOutput = z.infer<typeof financialPreparationOutputSchema>;
+const shallowOutputSchema = z
+  .object({ membershipHistory: z.unknown().optional(), couponHistory: z.unknown().optional() })
+  .strict();
 const invalid = () => importFinancialError('ORDER_IMPORT_PREPARATION_PROOF_INVALID');
 const retryRequired = () => importFinancialError('ORDER_IMPORT_PREPARATION_RETRY_REQUIRED');
 function parsed<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -377,25 +388,39 @@ export function financialPreparationLedger(secret: string, clock: () => number =
       throw retryRequired();
     return value;
   }
-  function artifact(state: ImportFinancialState, value: unknown) {
+  function artifact(state: ImportFinancialState, value: unknown, expiresAt?: number) {
     let serialized: string;
     try {
       serialized = JSON.stringify(value);
+      if (typeof serialized !== 'string') throw invalid();
+      const shallow = parsed(shallowOutputSchema, value);
+      if (shallow.couponHistory !== undefined) {
+        const encoded = JSON.stringify(shallow.couponHistory);
+        if (typeof encoded !== 'string') throw invalid();
+        const couponBytes = Buffer.byteLength(encoded, 'utf8');
+        if (!state.benefitContracts?.automaticCoupon || couponBytes > csvCouponPrefetchMaximumBytes)
+          throw invalid();
+      }
     } catch {
       throw invalid();
     }
-    if (Buffer.byteLength(serialized, 'utf8') > maximumArtifactBytes) throw invalid();
-    const parsedOutput = parsed(outputSchema, value),
-      h = parsedOutput.membershipHistory;
-    if (
-      h &&
-      (h.capability.scope.operationId !== state.scope.operationId ||
-        h.capability.scope.requestHash !== state.requestHash ||
-        h.capability.scope.planHash !== state.planHash ||
-        h.capability.scope.customerId !== state.authority.customerId ||
-        h.capability.expiresAt <= clock())
-    )
+    if (Buffer.byteLength(serialized, 'utf8') > financialPreparationMaximumArtifactBytes)
       throw invalid();
+    const parsedOutput = parsed(financialPreparationOutputSchema, value);
+    for (const h of [parsedOutput.membershipHistory, parsedOutput.couponHistory]) {
+      if (
+        h &&
+        (h.capability.scope.operationId !== state.scope.operationId ||
+          h.capability.scope.requestHash !== state.requestHash ||
+          h.capability.scope.planHash !== state.planHash ||
+          h.capability.scope.customerId !== state.authority.customerId ||
+          JSON.stringify(h.capability.scope) !== JSON.stringify(h.document.scope) ||
+          h.capability.generationId !== h.document.generationId ||
+          h.capability.expiresAt <= clock() ||
+          (expiresAt !== undefined && h.capability.expiresAt > expiresAt))
+      )
+        throw invalid();
+    }
     return parsedOutput;
   }
   function encrypt(
@@ -452,7 +477,7 @@ export function financialPreparationLedger(secret: string, clock: () => number =
       const value = await owned(tx, state, execution);
       if (value.phase !== 'RUNNING') throw retryRequired();
       await assertPreparationNoDispatch(tx, state);
-      const output = artifact(state, supplied),
+      const output = artifact(state, supplied, value.expiresAt!),
         data = {
           ...value,
           phase: 'DISPATCHED' as const,
@@ -548,7 +573,7 @@ export function financialPreparationLedger(secret: string, clock: () => number =
         .select({
           value: sql<
             string | null
-          >`CASE WHEN OCTET_LENGTH(${financialImportPreparations.artifact})<=${maximumEncryptedBytes} THEN ${financialImportPreparations.artifact} ELSE NULL END`,
+          >`CASE WHEN OCTET_LENGTH(${financialImportPreparations.artifact})<=${financialPreparationMaximumEncryptedBytes} THEN ${financialImportPreparations.artifact} ELSE NULL END`,
         })
         .from(financialImportPreparations)
         .where(eq(financialImportPreparations.id, value.id))
@@ -574,7 +599,7 @@ export function financialPreparationLedger(secret: string, clock: () => number =
         );
         decipher.setAuthTag(bytes.subarray(12, 28));
         const output = parsed(
-          outputSchema,
+          financialPreparationOutputSchema,
           JSON.parse(
             Buffer.concat([decipher.update(bytes.subarray(28)), decipher.final()]).toString('utf8'),
           ) as unknown,

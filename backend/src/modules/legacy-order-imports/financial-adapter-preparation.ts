@@ -99,6 +99,7 @@ export function financialOrderPreparation(
     return { status: 'rejected', operationId: state.scope.operationId, code };
   }
   async function originalAuthority(tx: AdministrationTransaction, context: Context) {
+    profiles.assertBindings(context.state);
     await assertFinancialImportAuthority(tx, context.state.scope, context.state.authority);
     const checked = await journal.approvals.authorizeStart(tx, {
       ...context.state.scope,
@@ -263,6 +264,7 @@ export function financialOrderPreparation(
         }
         if (await recoverImportCompletion(tx, context, options.secret))
           return { context, execution: null, attempt: null };
+        profiles.assertBindings(context.state);
         const attempt = await ledger.consume(tx, context.state, owned);
         return { context, execution: attempt ? owned : null, attempt };
       });
