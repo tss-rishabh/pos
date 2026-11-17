@@ -1,40 +1,8 @@
 const { app, BrowserWindow, session, dialog, shell } = require('electron');
+const { readWorkspaceConfiguration } = require('./workspace-config.cjs');
 
 // One web application and persistent Chromium profile provide the same offline
 // shell/session on desktop. Production serves frontend + /api on one HTTPS origin.
-function configuredUrl() {
-  const value = process.env.POS_DESKTOP_URL;
-  if (!value) throw new Error('Set POS_DESKTOP_URL to your deployed POS HTTPS URL.');
-  const url = new URL(value);
-  const local = ['localhost', '127.0.0.1'].includes(url.hostname);
-  if (
-    url.protocol !== 'https:' &&
-    !(process.env.NODE_ENV === 'development' && url.protocol === 'http:' && local)
-  )
-    throw new Error('The desktop workspace must use HTTPS.');
-  if (url.username || url.password)
-    throw new Error('Do not embed credentials in the workspace URL.');
-  return url;
-}
-function exactOrigins(value) {
-  return value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => {
-      const origin = new URL(item);
-      if (
-        origin.protocol !== 'https:' ||
-        origin.username ||
-        origin.password ||
-        origin.pathname !== '/' ||
-        origin.search ||
-        origin.hash
-      )
-        throw new Error('Trusted destinations require exact HTTPS origins.');
-      return origin.origin;
-    });
-}
 if (process.env.NODE_ENV === 'development' && process.env.POS_DESKTOP_PROFILE_DIR)
   app.setPath('userData', require('node:path').resolve(process.env.POS_DESKTOP_PROFILE_DIR));
 app.enableSandbox();
@@ -44,23 +12,19 @@ else
   app
     .whenReady()
     .then(() => {
-      let url;
+      let url, workspace;
       try {
-        url = configuredUrl();
+        workspace = readWorkspaceConfiguration();
+        url = new URL(workspace.url);
       } catch (error) {
         dialog.showErrorBox('Workspace configuration', error.message);
         app.quit();
         return;
       }
-      const oauthOrigins = exactOrigins(
-        [process.env.POS_SSO_ORIGINS || '', process.env.POS_OAUTH_ORIGINS || ''].join(','),
-      );
+      const oauthOrigins = [...workspace.ssoOrigins, ...workspace.oauthOrigins];
       const allowed = new Set([url.origin, ...oauthOrigins]);
-      const applicationOrigins = new Set(exactOrigins(process.env.POS_APP_LINK_ORIGINS || ''));
-      const customerWebsiteOrigins = exactOrigins(process.env.POS_CUSTOMER_WEBSITE_ORIGIN || '');
-      if (customerWebsiteOrigins.length > 1)
-        throw new Error('Customer website sign-in requires one exact HTTPS origin.');
-      const customerWebsiteOrigin = customerWebsiteOrigins[0];
+      const applicationOrigins = new Set(workspace.applicationOrigins);
+      const customerWebsiteOrigin = workspace.customerWebsiteOrigin;
       const partition = 'persist:souled-pos';
       const profile = session.fromPartition(partition);
       profile.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
