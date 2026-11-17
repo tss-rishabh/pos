@@ -26,11 +26,11 @@ SOURCE = {'apiCommit':'2960acbea10c4eaf16b6d99e15ff6e03ef7724c5',
           'controllerHash':'821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad',
           'modelHash':'d9ee1cd52546e9d8dce0952e901ecba0d58fe1c1b68d95149781131e1553fca5'}
 CURRENT_PROFILE = ContextVar('pos_csv_screening_profile', default=None)
-COUNT_SQL = '''SELECT COUNT(*) AS cnt
-FROM spiderman_screening_orders s
-JOIN orders o ON o.id=s.order_id
-JOIN has_products hp ON hp.id=s.has_product_id
-WHERE s.user_id=:user_id AND hp.prod_id=:sku AND o.order_status NOT IN (0,17) FOR SHARE'''
+COUNT_SQL = '''SELECT STRAIGHT_JOIN COUNT(*) AS cnt
+FROM spiderman_screening_orders s FORCE INDEX (idx_user_id)
+JOIN orders o FORCE INDEX (PRIMARY) ON o.id=s.order_id
+JOIN has_products hp FORCE INDEX (PRIMARY) ON hp.id=s.has_product_id
+WHERE s.user_id=:user_id AND hp.prod_id=:sku AND o.order_status NOT IN (0,17)'''
 
 
 def screened_base_profile(base):
@@ -115,9 +115,9 @@ def write_state(session, key, value, now):
 
 def native_projection(session, value, order_id):
     order = one(session, 'SELECT user_id,order_status FROM orders WHERE id=:id FOR SHARE', {'id': order_id})
-    store = one(session, 'SELECT store_id,counter_id FROM order_stores WHERE order_id=:id FOR SHARE', {'id': order_id})
-    lines = rows(session, 'SELECT id,qty,sub_prod_id FROM has_products WHERE order_id=:id AND prod_id=:sku ORDER BY id FOR SHARE', {'id': order_id, 'sku': SKU}, 4)
-    markers = rows(session, 'SELECT id,order_id,has_product_id,user_id FROM spiderman_screening_orders WHERE order_id=:id ORDER BY id FOR SHARE', {'id': order_id}, 4)
+    store = one(session, 'SELECT store_id,counter_id FROM order_stores WHERE order_id=:id', {'id': order_id})
+    lines = rows(session, 'SELECT id,qty,sub_prod_id FROM has_products WHERE order_id=:id AND prod_id=:sku ORDER BY id', {'id': order_id, 'sku': SKU}, 4)
+    markers = rows(session, 'SELECT id,order_id,has_product_id,user_id FROM spiderman_screening_orders FORCE INDEX (idx_order_id) WHERE order_id=:id ORDER BY id', {'id': order_id}, 4)
     if (str(order['user_id']) != value['customerId'] or str(store['store_id']) != value['scope']['storeId'] or
         str(store['counter_id']) != value['scope']['counterId'] or len(lines) != value['markerRows'] or
         len(markers) != value['markerRows'] or sum(row['qty'] for row in lines) != value['quantity'] or
@@ -134,6 +134,13 @@ def native_projection(session, value, order_id):
 
 
 def admission(session, cap, plan, key, line_items):
+    # Only the Receiver-owned current RC prelude can issue this opaque witness.
+    # Missing/primed/reused scopes are not converted into a zero bought-count.
+    try:
+        from screening_transaction import current
+    except ImportError:
+        raise ImportReview('ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED') from None
+    current(session, cap)
     # Establish the global customer lock before acquiring reservation/Order rows.
     one(session, 'SELECT id FROM users WHERE id=:id FOR UPDATE', {'id': cap['authority']['customerId']})
     value = checked_state(one(session, 'SELECT * FROM pos_rewrite_import_screening_reservations WHERE operation_id=:id FOR UPDATE', {'id': cap['operationId']}), key)
@@ -146,7 +153,13 @@ def admission(session, cap, plan, key, line_items):
         raise ImportReview('ORDER_IMPORT_SCREENING_REPLAY_REQUIRED')
     # Same global user lock is required before Order locks in every cooperating
     # writer. The original receiver already holds fresh actor/store/customer scope.
-    all_rows = rows(session, 'SELECT * FROM pos_rewrite_import_screening_reservations WHERE customer_id=:id AND sku=:sku ORDER BY operation_id FOR UPDATE', {'id': value['customerId'], 'sku': SKU}, 1002)
+    # First consistent native read after the witnessed customer lock. It takes
+    # no marker range or joined Order locks, including on an empty customer.
+    try:
+        bought = int(one(session, COUNT_SQL, {'user_id': value['customerId'], 'sku': SKU})['cnt'])
+    except Exception:
+        raise ImportReview('ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE') from None
+    all_rows = rows(session, 'SELECT * FROM pos_rewrite_import_screening_reservations FORCE INDEX (ix_import_screening_customer) WHERE customer_id=:id AND sku=:sku ORDER BY operation_id', {'id': value['customerId'], 'sku': SKU}, 1002)
     if len(all_rows) > 1000:
         raise ImportReview('ORDER_IMPORT_SCREENING_RECONCILIATION_REQUIRED')
     pending = 0
@@ -158,10 +171,6 @@ def admission(session, cap, plan, key, line_items):
             pending += other['markerRows']
         elif other['phase'] == 'BOUND' and not native_projection(session, other, other['orderId'])[1]:
             pending += other['markerRows']
-    try:
-        bought = int(one(session, COUNT_SQL, {'user_id': value['customerId'], 'sku': SKU})['cnt'])
-    except Exception:
-        raise ImportReview('ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE') from None
     if bought + pending + quantity > MAXIMUM:
         raise ImportReview('ORDER_IMPORT_SCREENING_LIMIT')
     return value

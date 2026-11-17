@@ -1,11 +1,10 @@
-import { and, asc, eq, notInArray, sql } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { bigint, index, json, mysqlTable, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
   HasProduct,
-  MUser,
   Order,
   OrderStore,
   Product,
@@ -34,6 +33,11 @@ import { readSourceOrderReceipt, verifiedImportCompletion } from './financial-ad
 import { financialImportScopeSchema } from './financial-adapter-contracts.js';
 import type { ImportFinancialScope } from './financial-contracts.js';
 import { FinancialImportAdmissionDenied } from './financial-adapter-admission.js';
+import {
+  assertScreeningCustomer,
+  assertScreeningTransaction,
+  lockScreeningCustomer,
+} from './screening-transactions.js';
 import {
   screeningProfileContract,
   screeningSchemaContract,
@@ -136,7 +140,7 @@ export interface ScreeningProfileOptions {
   financialSecret: string;
   clock?: () => number;
 }
-/** Source-model mapping only; physical metadata qualification is a release input. */
+/** Physical IDs/indexes verified in evidence/mysql-screening-schema.json. */
 export const screeningPurchases = mysqlTable('spiderman_screening_orders', {
   id: bigint('id', { mode: 'bigint' }).primaryKey(),
   orderId: bigint('order_id', { mode: 'bigint' }).notNull(),
@@ -178,27 +182,31 @@ export function screeningProof(
     throw importFinancialError('ORDER_IMPORT_SCREENING_KEY_REQUIRED', 503);
   return operationHash('legacy-order-imports.source.screening-' + purpose + '.v1', value, key);
 }
-/** Exact source COUNT(*) join multiplicity, statuses and SKU filter. Current locking read. */
+/** Native statement exported for metadata-only EXPLAIN qualification. */
+export function screeningCountStatement(customerId: string) {
+  identifier.parse(customerId);
+  return sql`SELECT STRAIGHT_JOIN CAST(COUNT(*) AS CHAR) AS value
+      FROM spiderman_screening_orders s FORCE INDEX (idx_user_id)
+      INNER JOIN orders o FORCE INDEX (PRIMARY) ON o.id=s.order_id
+      INNER JOIN has_products hp FORCE INDEX (PRIMARY) ON hp.id=s.has_product_id
+      WHERE s.user_id=${BigInt(customerId)} AND hp.prod_id=${BigInt(screeningTicketSku)}
+        AND o.order_status NOT IN (0,17)`;
+}
+/** Exact source count with no joined/range locks. RC + customer lock are mandatory. */
 export async function readScreeningTicketCount(
   tx: AdministrationTransaction,
   customerId: string,
 ): Promise<bigint> {
   identifier.parse(customerId);
+  assertScreeningCustomer(tx, customerId);
   try {
-    const [row] = await tx
-      .select({ value: sql<string>`CAST(COUNT(*) AS CHAR)` })
-      .from(screeningPurchases)
-      .innerJoin(Order, eq(Order.id, screeningPurchases.orderId))
-      .innerJoin(HasProduct, eq(HasProduct.id, screeningPurchases.lineId))
-      .where(
-        and(
-          eq(screeningPurchases.customerId, BigInt(customerId)),
-          eq(HasProduct.product, BigInt(screeningTicketSku)),
-          notInArray(Order.order_statuses, [0n, 17n]),
-        ),
-      )
-      .for('share');
-    return BigInt(count.parse(row?.value));
+    const [rows] = await tx.execute(screeningCountStatement(customerId));
+    return BigInt(
+      z
+        .array(z.object({ value: count }))
+        .length(1)
+        .parse(rows)[0]!.value,
+    );
   } catch {
     throw importFinancialError('ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE', 503);
   }
@@ -283,22 +291,19 @@ export function screeningImportProfile(
     return value;
   }
   async function retained(tx: AdministrationTransaction, scope: ImportFinancialScope) {
-    // A locking journal read proves the original customer even if this RR
-    // transaction's earlier snapshot predates the first reservation commit.
+    assertScreeningTransaction(tx);
+    // Current locking authority supplies the original customer. No earlier
+    // consistent read or unlocked caller hint can select this lock target.
     const original = await journal.load(tx, scopeValue(scope));
     if (!original) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
-    await tx
-      .select({ id: MUser.id })
-      .from(MUser)
-      .where(eq(MUser.id, BigInt(original.state.authority.customerId)))
-      .limit(1)
-      .for('update');
+    await lockScreeningCustomer(tx, original.state.authority.customerId);
     const value = await row(tx, scope);
     if (value.customerId !== original.state.authority.customerId)
       throw importFinancialError('ORDER_IMPORT_SCREENING_SCOPE_CHANGED');
     return value;
   }
   async function structural(tx: AdministrationTransaction, value: ScreeningReservation) {
+    assertScreeningCustomer(tx, value.customerId);
     if (!value.orderId) throw importFinancialError('ORDER_IMPORT_SCREENING_ORDER_UNCONFIRMED');
     const orderId = BigInt(value.orderId),
       [order] = await tx
@@ -311,22 +316,19 @@ export function screeningImportProfile(
       .select({ storeId: OrderStore.store, counterId: OrderStore.counter })
       .from(OrderStore)
       .where(eq(OrderStore.order, orderId))
-      .limit(2)
-      .for('share');
+      .limit(2);
     const lines = await tx
       .select({ id: HasProduct.id, quantity: HasProduct.qty, subProductId: HasProduct.sub_prod_id })
       .from(HasProduct)
       .where(and(eq(HasProduct.order, orderId), eq(HasProduct.product, BigInt(screeningTicketSku))))
       .orderBy(asc(HasProduct.id))
-      .limit(3)
-      .for('share');
+      .limit(3);
     const markers = await tx
       .select()
-      .from(screeningPurchases)
+      .from(screeningPurchases, { forceIndex: 'idx_order_id' })
       .where(eq(screeningPurchases.orderId, orderId))
       .orderBy(asc(screeningPurchases.id))
-      .limit(3)
-      .for('share');
+      .limit(3);
     if (
       !order ||
       String(order.customerId) !== value.customerId ||
@@ -362,16 +364,12 @@ export function screeningImportProfile(
     };
   }
   async function admissionContext(tx: AdministrationTransaction, scope: ImportFinancialScope) {
+    assertScreeningTransaction(tx);
     await lockFinancialImportScope(tx, scopeValue(scope));
     const bound = await journal.load(tx, scopeValue(scope));
     if (!bound) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
     await assertFinancialImportAuthority(tx, scope, bound.state.authority);
-    await tx
-      .select({ id: MUser.id })
-      .from(MUser)
-      .where(eq(MUser.id, BigInt(bound.state.authority.customerId)))
-      .limit(1)
-      .for('update');
+    await lockScreeningCustomer(tx, bound.state.authority.customerId);
     return bound;
   }
   return {
@@ -455,7 +453,7 @@ export function screeningImportProfile(
         throw new FinancialImportAdmissionDenied('ORDER_IMPORT_SCREENING_CATALOG_REVIEW');
       const all = await tx
         .select()
-        .from(screeningReservations)
+        .from(screeningReservations, { forceIndex: 'ix_import_screening_customer' })
         .where(
           and(
             eq(screeningReservations.customerId, bound.state.authority.customerId),
@@ -463,8 +461,7 @@ export function screeningImportProfile(
           ),
         )
         .orderBy(asc(screeningReservations.operationId))
-        .limit(1001)
-        .for('update');
+        .limit(1001);
       if (all.length > 1000)
         throw importFinancialError('ORDER_IMPORT_SCREENING_RECONCILIATION_REQUIRED');
       let pending = 0;

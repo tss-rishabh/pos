@@ -49,6 +49,7 @@ export interface FinancialImportProfileHooks {
   ): Promise<ReadonlyMap<string, number> | null>;
 }
 export interface FinancialImportProfiles extends Required<FinancialImportProfileHooks> {
+  readonly currentScreeningReads: boolean;
   needsReservation(plan: LegacyOrderImportPlan): boolean;
 }
 export interface FinancialAdapterProfileOptions {
@@ -78,6 +79,7 @@ export function financialAdapterProfiles(
     return screening.profile;
   }
   return {
+    currentScreeningReads: screening?.profile.qualified === true,
     needsReservation(plan) {
       return (
         usesScreening(plan) || extensions.some((extension) => extension.reserved !== undefined)

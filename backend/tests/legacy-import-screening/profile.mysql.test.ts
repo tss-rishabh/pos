@@ -1,8 +1,10 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { eq, getTableName } from 'drizzle-orm';
+import { eq, getTableName, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { Order, ProductBarcode } from '../../src/db/legacy-schema.js';
 import {
@@ -14,6 +16,7 @@ import {
   screeningReservationDdl,
   screeningReservations,
   readScreeningTicketCount,
+  screeningCountStatement,
 } from '../../src/modules/legacy-order-imports/screening-profile.js';
 import {
   importFinancialFixture,
@@ -24,6 +27,10 @@ import {
 import { legacyImportFinancialJournal } from '../../src/modules/legacy-order-imports/financial-adapter-journal.js';
 import { legacyOrderImportFinancialAdapter } from '../../src/modules/legacy-order-imports/financial-adapter.js';
 import { financialAdapterProfiles } from '../../src/modules/legacy-order-imports/financial-adapter-profiles.js';
+import {
+  lockScreeningCustomer,
+  financialTransaction,
+} from '../../src/modules/legacy-order-imports/screening-transactions.js';
 import {
   FinancialImportAdmissionDenied,
   nativeAdmissionRejectionSchema,
@@ -85,13 +92,59 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     f = await importFinancialFixture(template!);
     sourceFixture = verifiedMysqlFixture(f.connection, [
       'evidence/mysql-order-import-address-schema.json',
+      'evidence/mysql-screening-schema.json',
     ]);
-    await sourceFixture.create(extras);
-    await f.fixture.create([getTableName(ProductBarcode)]);
-    // Source-model fixture only. No claim that a live table has this schema.
+    await sourceFixture.create([...extras, 'spiderman_screening_orders']);
     await f.connection.query(
-      'CREATE TABLE spiderman_screening_orders(id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,order_id BIGINT NOT NULL,has_product_id BIGINT NOT NULL,user_id BIGINT NOT NULL,created_at DATETIME NULL,updated_at DATETIME NULL) ENGINE=InnoDB',
+      'ALTER TABLE spiderman_screening_orders MODIFY updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
     );
+    await f.fixture.create([getTableName(ProductBarcode)]);
+    // The generic fixture deliberately omits secondary indexes. These exact
+    // verified keys are part of the source's bounded customer/store lookups.
+    const physical = z
+      .object({
+        indexes: z.record(
+          z.string(),
+          z.array(
+            z.object({
+              name: z.string(),
+              column: z.string(),
+              position: z.number(),
+              unique: z.boolean(),
+            }),
+          ),
+        ),
+      })
+      .parse(JSON.parse(readFileSync('evidence/mysql-extra-schema.json', 'utf8')) as unknown);
+    expect(physical.indexes.users?.filter((index) => index.name === 'email')).toEqual([
+      { name: 'email', column: 'email', position: 1, unique: false },
+    ]);
+    expect(
+      physical.indexes.product_store?.filter((index) => index.name === 'uq_product_store'),
+    ).toEqual([
+      { name: 'uq_product_store', column: 'product_id', position: 1, unique: true },
+      { name: 'uq_product_store', column: 'store_id', position: 2, unique: true },
+    ]);
+    await f.connection.query('CREATE INDEX email ON users(email)');
+    await f.connection.query(
+      'CREATE UNIQUE INDEX uq_product_store ON product_store(product_id,store_id)',
+    );
+    expect(physical.indexes.has_products?.filter((index) => index.name === 'order_id')).toEqual([
+      { name: 'order_id', column: 'order_id', position: 1, unique: false },
+    ]);
+    expect(physical.indexes.order_stores?.filter((index) => index.name === 'order')).toEqual([
+      { name: 'order', column: 'order_id', position: 1, unique: false },
+    ]);
+    await f.connection.query('CREATE INDEX order_id ON has_products(order_id)');
+    await f.connection.query('CREATE INDEX `order` ON order_stores(order_id)');
+    for (const [name, column] of [
+      ['idx_user_id', 'user_id'],
+      ['idx_order_id', 'order_id'],
+      ['idx_has_product_id', 'has_product_id'],
+    ] as const)
+      await f.connection.query(
+        'CREATE INDEX `' + name + '` ON spiderman_screening_orders(`' + column + '`)',
+      );
     await f.connection.query(screeningReservationDdl);
   }, 30000);
   afterAll(async () => {
@@ -161,6 +214,10 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
   }
   function profiles(lineItemsEnabled = false) {
     return financialAdapterProfiles({ screening: { profile: profile(), lineItemsEnabled } });
+  }
+  async function countTickets(tx: Parameters<typeof readScreeningTicketCount>[0], customer = '77') {
+    await lockScreeningCustomer(tx, customer);
+    return readScreeningTicketCount(tx, customer);
   }
   function journal(lineItemsEnabled = false) {
     return legacyImportFinancialJournal(f.config, f.db, f.options, profiles(lineItemsEnabled));
@@ -323,9 +380,9 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       'RENAME TABLE spiderman_screening_orders TO screening_temporarily_unavailable',
     );
     try {
-      await expect(
-        journal().transaction((tx) => readScreeningTicketCount(tx, '77')),
-      ).rejects.toMatchObject({ code: 'ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE' });
+      await expect(journal().transaction((tx) => countTickets(tx))).rejects.toMatchObject({
+        code: 'ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE',
+      });
     } finally {
       await f.connection.query(
         'RENAME TABLE screening_temporarily_unavailable TO spiderman_screening_orders',
@@ -361,7 +418,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
         .replace(':sku', '?'),
       [original] = await f.connection.query(originalSql, [77, 390238]);
     expect(original).toEqual([{ cnt: '7' }]);
-    expect(await journal().transaction((tx) => readScreeningTicketCount(tx, '77'))).toBe(7n);
+    expect(await journal().transaction((tx) => countTickets(tx))).toBe(7n);
   });
   it('serializes twenty same-command reservations without consuming a second ticket allocation', async () => {
     const { input } = await prepare();
@@ -485,7 +542,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       });
       expect(value.lines).toHaveLength(unitMode ? 2 : 1);
       expect(value.lines.reduce((sum, row) => sum + row.quantity, 0)).toBe(2);
-      expect(await j.transaction((tx) => readScreeningTicketCount(tx, '77'))).toBe(
+      expect(await j.transaction((tx) => countTickets(tx))).toBe(
         kind === 'offline' ? 0n : BigInt(unitMode ? 2 : 1),
       );
       expect(run(command, unitMode)).toEqual({ recorded: true });
@@ -569,7 +626,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       phase: 'REJECTED',
     });
   });
-  it('reads the current counter even after an older REPEATABLE READ snapshot', async () => {
+  it('rejects an already primed RR transaction and uses an owned current RC read instead', async () => {
     await f.fixture.insert('orders', { id: 100, user_id: 77, order_status: 4 });
     await f.fixture.insert('has_products', { id: 100, order_id: 100, prod_id: 390238, qty: 1 });
     await f.db.get('writer').transaction(async (tx) => {
@@ -577,7 +634,23 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       await f.connection.query(
         'INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(100,100,77)',
       );
+      await expect(lockScreeningCustomer(tx, '77')).rejects.toMatchObject({
+        code: 'ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED',
+      });
+      await expect(readScreeningTicketCount(tx, '77')).rejects.toMatchObject({
+        code: 'ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED',
+      });
+    });
+    expect(await journal().transaction((tx) => countTickets(tx))).toBe(1n);
+    await journal().transaction(async (tx) => {
+      await lockScreeningCustomer(tx, '77');
       expect(await readScreeningTicketCount(tx, '77')).toBe(1n);
+      // A raw legacy insert bypasses the candidate lock deliberately. RC must
+      // still see it on the next statement, rather than reuse an old read view.
+      await f.connection.query(
+        'INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(100,100,77)',
+      );
+      expect(await readScreeningTicketCount(tx, '77')).toBe(2n);
     });
   });
   it.each([false, true])(
@@ -632,9 +705,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       expect(await j.transaction((tx) => profile().complete(tx, input))).toEqual(value);
       expect((await adapter.start(input)).status).toBe('completed');
       expect(orderCalls).toBe(1);
-      expect(await j.transaction((tx) => readScreeningTicketCount(tx, '77'))).toBe(
-        BigInt(unitMode ? 2 : 1),
-      );
+      expect(await j.transaction((tx) => countTickets(tx))).toBe(BigInt(unitMode ? 2 : 1));
     },
     25000,
   );
@@ -664,6 +735,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
         code === 0 ? fulfill() : reject(new Error('Screening source fixture failed.')),
       );
     });
+    void finished.catch(() => undefined);
     const timeout = setTimeout(() => child.kill('SIGKILL'), 20000);
     child.stdin.end(driverInput(command, true, 'visibility-barrier'));
     try {
@@ -1166,4 +1238,336 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       await loading;
     }
   }, 15000);
+  it('does not lock a non-ticket Order while its wallet cancellation waits for this customer', async () => {
+    await f.fixture.insert('orders', { id: 100, user_id: 77, order_status: 1 });
+    await f.fixture.insert('has_products', { id: 100, order_id: 100, prod_id: 123, qty: 1 });
+    let ready!: () => void, release!: () => void;
+    const customerReady = new Promise<void>((resolve) => {
+        ready = resolve;
+      }),
+      countGate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    await f.connection.beginTransaction();
+    await f.connection.query('SELECT id FROM orders WHERE id=100 FOR UPDATE');
+    const counter = financialTransaction(f.db, true, async (tx) => {
+      await lockScreeningCustomer(tx, '77');
+      ready();
+      await countGate;
+      return readScreeningTicketCount(tx, '77');
+    });
+    let wallet: Promise<unknown> | undefined;
+    try {
+      await customerReady;
+      wallet = f.connection.query('SELECT id FROM users WHERE id=77 FOR UPDATE');
+      void wallet.catch(() => undefined);
+      let waiting = false;
+      for (let attempt = 0; attempt < 100 && !waiting; attempt++) {
+        const [rows] = await f.db
+          .get('writer')
+          .execute(
+            sql`SELECT COUNT(*) AS n FROM performance_schema.data_lock_waits w JOIN performance_schema.data_locks l ON l.ENGINE_LOCK_ID=w.REQUESTING_ENGINE_LOCK_ID WHERE l.OBJECT_SCHEMA=${new URL(f.config.MYSQL_WRITER_URL!).pathname.slice(1)} AND l.OBJECT_NAME='users'`,
+          );
+        waiting =
+          BigInt(z.array(z.object({ n: z.union([z.string(), z.number()]) })).parse(rows)[0]!.n) >
+          0n;
+        if (!waiting) await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(waiting).toBe(true);
+      release();
+      expect(await counter).toBe(0n);
+      await wallet;
+    } finally {
+      release();
+      await Promise.allSettled([counter, wallet ?? Promise.resolve()]);
+      await f.connection.rollback();
+    }
+  }, 15000);
+  it('two empty marker ranges for different customers can count then insert without gap locks or retries', async () => {
+    await f.fixture.insert('users', { id: 78, status: 1, is_block: 0, is_disabled: 0 });
+    for (const [id, customer] of [
+      [100, 77],
+      [101, 78],
+    ] as const) {
+      await f.fixture.insert('orders', { id, user_id: customer, order_status: 1 });
+      await f.fixture.insert('has_products', { id, order_id: id, prod_id: 390238, qty: 1 });
+    }
+    let ready = 0,
+      release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const values = await Promise.all(
+      (
+        [
+          [100, '77'],
+          [101, '78'],
+        ] as const
+      ).map(([order, customer]) =>
+        financialTransaction(f.db, true, async (tx) => {
+          const id = String(customer);
+          await lockScreeningCustomer(tx, id);
+          expect(await readScreeningTicketCount(tx, id)).toBe(0n);
+          if (++ready === 2) release();
+          await gate;
+          await tx.execute(
+            sql`INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(${order},${order},${customer})`,
+          );
+          return readScreeningTicketCount(tx, id);
+        }),
+      ),
+    );
+    expect(values).toEqual([1n, 1n]);
+  }, 15000);
+  it('selected screening transactions do not hide a deadlock-shaped failure behind retries', async () => {
+    let attempts = 0;
+    const lifecycle = financialAdapterProfiles({
+      screening: { profile: profile(), lineItemsEnabled: false },
+      extensions: [
+        {
+          reserved: async () => {
+            attempts++;
+            throw new Error('Isolated lock failure', { cause: { code: 'ER_LOCK_DEADLOCK' } });
+          },
+        },
+      ],
+    });
+    const adapter = legacyOrderImportFinancialAdapter(
+      f.config,
+      f.db,
+      f.options,
+      sourceTransport(),
+      lifecycle,
+    );
+    await expect(adapter.start(f.input(ticketPlan('shopify')))).rejects.toThrow(
+      'Isolated lock failure',
+    );
+    expect(attempts).toBe(1);
+    const [rows] = await f.connection.query(
+      'SELECT (SELECT COUNT(*) FROM pos_rewrite_import_financial_operations) AS operations,(SELECT COUNT(*) FROM pos_rewrite_import_screening_reservations) AS reservations',
+    );
+    expect(rows).toEqual([{ operations: '0', reservations: '0' }]);
+  });
+  it('two customers at different stores reach both literal source bodies before either receipt commits', async () => {
+    await f.fixture.insert('users', {
+      id: 78,
+      email: 'other-import@example.test',
+      firstname: 'Other',
+      lastname: 'Fixture',
+      status: 1,
+      is_block: 0,
+      is_disabled: 0,
+    });
+    await f.fixture.insert('stores', {
+      id: 2,
+      type: 'STORE',
+      is_active: 1,
+      city_id: 10,
+      store_name: 'Other fixture',
+      location_code: 'FIXTURE2',
+      address: 'Fixture address',
+      phone: '9000000000',
+      pincode: '400001',
+    });
+    await f.fixture.insert('store_counters', { id: 3, store_id: 2, is_active: 1 });
+    await f.fixture.insert('product_store', {
+      id: 3,
+      product_id: 390238,
+      store_id: 2,
+      stock: 100,
+      is_avail: 1,
+      is_del: 0,
+    });
+    await sourceFixture.insert('has_addresses', { id: 89, user_id: 78 });
+    const first = f.input(ticketPlan('shopify', 1)),
+      second = f.input(ticketPlan('shopify', 1));
+    second.storeId = '2';
+    second.counterId = '3';
+    second.plan.storeId = '2';
+    second.plan.email = 'other-import@example.test';
+    const { expectedFinancialPlanHash } =
+      await import('../../src/modules/legacy-order-imports/financial-adapter-crypto.js');
+    second.planHash = expectedFinancialPlanHash(runtimeImportSecret, second, second.plan);
+    const j = journal();
+    await j.reserve(first);
+    await j.reserve(second);
+    const commands = [await j.dispatch(first, 'order'), await j.dispatch(second, 'order')],
+      directory = mkdtempSync(join(tmpdir(), 'pos-screening-source-race-')),
+      gate = join(directory, 'release');
+    function launch(command: FinancialSourceCommand) {
+      const child = spawn(
+        python,
+        ['-B', resolve('tests/legacy-import-screening/native_source_driver.py')],
+        {
+          stdio: ['pipe', 'pipe', 'ignore'],
+          env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+        },
+      );
+      let output = '';
+      function failureCode() {
+        try {
+          const result: unknown = JSON.parse(output.trim().split('\n').at(-1)!);
+          const parsed = z
+            .object({
+              code: z.string().regex(/^(?:ORDER_IMPORT_[A-Z_]+|SCREENING_NATIVE_FIXTURE_FAILED)$/),
+            })
+            .safeParse(result);
+          return parsed.success ? parsed.data.code : 'SCREENING_NATIVE_FIXTURE_FAILED';
+        } catch {
+          return 'SCREENING_NATIVE_FIXTURE_FAILED';
+        }
+      }
+      const ready = new Promise<void>((fulfill, reject) => {
+        child.stdout.on('data', (value: Buffer) => {
+          output += value.toString('utf8');
+          if (output.includes('SCREENING_BODY_READY\n')) fulfill();
+          if (output.length > 4000) child.kill('SIGKILL');
+        });
+        child.once('error', () => reject(new Error('Source race could not start.')));
+        child.once('exit', () => {
+          if (!output.includes('SCREENING_BODY_READY\n'))
+            reject(new Error('Source did not reach its body barrier: ' + failureCode()));
+        });
+      });
+      const finished = new Promise<void>((fulfill, reject) => {
+        child.once('error', () => reject(new Error('Source race could not start.')));
+        child.once('exit', (code) =>
+          code === 0 ? fulfill() : reject(new Error('Source race did not finish.')),
+        );
+      });
+      void finished.catch(() => undefined);
+      const timeout = setTimeout(() => child.kill('SIGKILL'), 20000);
+      const payload = z
+        .record(z.string(), z.unknown())
+        .parse(JSON.parse(driverInput(command, false, 'screening-race')) as unknown);
+      child.stdin.end(JSON.stringify({ ...payload, gate }));
+      return {
+        child,
+        ready,
+        finished,
+        result: () => JSON.parse(output.trim().split('\n').at(-1)!) as unknown,
+        close: () => clearTimeout(timeout),
+      };
+    }
+    const children = commands.map(launch);
+    try {
+      try {
+        await Promise.all(children.map((child) => child.ready));
+      } catch {
+        const [rows] = await f.connection.query(
+          "SELECT JSON_UNQUOTE(JSON_EXTRACT(proof,'$.code')) AS code FROM pos_rewrite_import_financial_source_receipts WHERE kind='order' ORDER BY operation_id",
+        );
+        const failures = z
+          .array(
+            z.object({
+              code: z
+                .string()
+                .regex(/^ORDER_IMPORT_[A-Z0-9_]+$/)
+                .nullable(),
+            }),
+          )
+          .parse(rows);
+        throw new Error('Source barrier failed: ' + failures.map((row) => row.code).join(','));
+      }
+      const [before] = await f.connection.query(
+        'SELECT (SELECT COUNT(*) FROM orders) AS orders_count,(SELECT COUNT(*) FROM spiderman_screening_orders) AS markers,(SELECT COUNT(*) FROM pos_rewrite_import_financial_source_receipts) AS receipts',
+      );
+      expect(before).toEqual([{ orders_count: '0', markers: '0', receipts: '0' }]);
+      writeFileSync(gate, 'release');
+      await Promise.all(children.map((child) => child.finished));
+      for (const child of children) expect(child.result()).toEqual({ recorded: true });
+      const [receipts] = await f.connection.query(
+        "SELECT status,JSON_UNQUOTE(JSON_EXTRACT(proof,'$.code')) AS code FROM pos_rewrite_import_financial_source_receipts WHERE kind='order' ORDER BY operation_id",
+      );
+      expect(receipts).toEqual([
+        { status: 'completed', code: null },
+        { status: 'completed', code: null },
+      ]);
+      for (const input of [first, second])
+        expect(await j.transaction((tx) => profile().attachSourceReceipt(tx, input))).toMatchObject(
+          { phase: 'BOUND', markerRows: 1 },
+        );
+      const [after] = await f.connection.query(
+        'SELECT (SELECT COUNT(*) FROM orders) AS orders_count,(SELECT COUNT(*) FROM spiderman_screening_orders) AS markers,(SELECT COUNT(*) FROM pos_rewrite_import_financial_source_receipts) AS receipts',
+      );
+      expect(after).toEqual([{ orders_count: '2', markers: '2', receipts: '2' }]);
+    } finally {
+      writeFileSync(gate, 'release');
+      for (const child of children) {
+        child.close();
+        child.child.kill();
+      }
+      await Promise.allSettled(children.map((child) => child.finished));
+      rmSync(directory, { recursive: true, force: true });
+    }
+  }, 30000);
+  it('uses the verified customer index first and preserves SQL NULL exclusion without joined locks', async () => {
+    await f.fixture.insert('orders', { id: 100, user_id: 77, order_status: 1 });
+    await f.fixture.insert('has_products', { id: 100, order_id: 100, prod_id: 390238, qty: 2 });
+    await f.connection.query(
+      'INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(100,100,77),(100,100,78)',
+    );
+    const [rows] = await f.db
+      .get('writer')
+      .execute(sql`EXPLAIN FORMAT=JSON ${screeningCountStatement('77')}`);
+    const values = z.array(z.record(z.string(), z.unknown())).parse(rows),
+      raw = values[0]?.EXPLAIN;
+    const plan: unknown = JSON.parse(z.string().parse(raw));
+    const tables: Array<{ name: string; key: string }> = [];
+    function visit(value: unknown) {
+      if (Array.isArray(value)) {
+        for (const item of value) visit(item);
+        return;
+      }
+      if (typeof value !== 'object' || value === null) return;
+      const record = value as Record<string, unknown>;
+      if (typeof record.table_name === 'string' && typeof record.key === 'string')
+        tables.push({ name: record.table_name, key: record.key });
+      for (const item of Object.values(record)) visit(item);
+    }
+    visit(plan);
+    expect(tables).toEqual([
+      { name: 's', key: 'idx_user_id' },
+      { name: 'o', key: 'PRIMARY' },
+      { name: 'hp', key: 'PRIMARY' },
+    ]);
+    expect(await journal().transaction((tx) => countTickets(tx))).toBe(1n);
+    const [nulls] = await f.connection.query(
+      'SELECT COUNT(*) AS n FROM (SELECT NULL AS status UNION ALL SELECT 0 UNION ALL SELECT 17 UNION ALL SELECT 4) statuses WHERE status NOT IN (0,17)',
+    );
+    expect(nulls).toEqual([{ n: '1' }]);
+  });
+  it.each(['operator', 'epoch', 'customer'] as const)(
+    'rechecks %s authority after dispatch and preserves only a source no-effects rejection',
+    async (changed) => {
+      const { input, j } = await prepare(1, false, 'shopify'),
+        command = await j.dispatch(input, 'order');
+      if (changed === 'operator')
+        await f.connection.query('UPDATE pos_user SET is_active=0 WHERE id=1');
+      else if (changed === 'epoch')
+        await f.connection.query(
+          'INSERT INTO pos_rewrite_operator_auth_epochs(operator_id,epoch) VALUES(1,1)',
+        );
+      else await f.connection.query('UPDATE users SET is_block=1 WHERE id=77');
+      expect(run(command, false)).toEqual({ recorded: true });
+      const [receipts] = await f.connection.query(
+        "SELECT status,JSON_UNQUOTE(JSON_EXTRACT(proof,'$.code')) AS code,JSON_EXTRACT(proof,'$.noFinancialEffects') AS no_effects FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=? AND kind='order'",
+        [input.operationId],
+      );
+      expect(receipts).toEqual([
+        { status: 'rejected', code: 'ORDER_IMPORT_AUTHORITY_CHANGED', no_effects: true },
+      ]);
+      const [counts] = await f.connection.query(
+        'SELECT (SELECT COUNT(*) FROM orders) AS orders_count,(SELECT COUNT(*) FROM has_products) AS line_count,(SELECT COUNT(*) FROM spiderman_screening_orders) AS markers,(SELECT COUNT(*) FROM pos_rewrite_import_financial_order_bindings) AS bindings',
+      );
+      expect(counts).toEqual([{ orders_count: '0', line_count: '0', markers: '0', bindings: '0' }]);
+      // Archived/revoked authority cannot create work, but the original sealed
+      // negative receipt still permits immutable reconciliation/quota release.
+      expect(await j.transaction((tx) => profile().releaseRejected(tx, input))).toMatchObject({
+        phase: 'REJECTED',
+        orderId: null,
+      });
+    },
+    25000,
+  );
 });

@@ -12,7 +12,7 @@ The private source wrapper creates/binds Order, HP and screening markers in its 
 
 Native quota/catalog refusal uses a separate signed local rejection. Profile writes roll back to savepoint, while the outer operation and rejection proof commit atomically. The queue returns `FAILED`; GET/exact-command replay returns the original rejection with no order call or new nonce. Driver/unknown/proof failures are not business refusals. Lost outcomes recover through GET without fabricating a source receipt or retrying an unknown effect.
 
-The retained lookup now finds its original customer through the locking, cryptographically verified financial journal. A plain RR snapshot hint could miss a first reservation committed while a concurrent request waited for authority locks. The twenty-start native test exercises this correction. The common load boundary first calls exported `lockFinancialImportStore`, preserving Store → original operation → customer → Order/reservation ordering on dispatch/read/recovery. A native blocked-Store/NOWAIT test proves the operation is not locked first. Root must retain this lock before delegating to its correction-aware record loader; immutable receipt reads do not add a current-original-actor requirement.
+The retained lookup finds its original customer through the locking, cryptographically verified financial journal. A plain RR snapshot hint could miss a first reservation committed while a concurrent request waited for authority locks. The [owned current-count runner](screening-count-locks.md) now selects READ COMMITTED before BEGIN and propagates an opaque customer-lock witness into admission savepoints. Selected transactions never hide deadlocks/timeouts with an automatic retry; ordinary unselected imports retain their prior behavior. The common load boundary first calls exported `lockFinancialImportStore`, preserving shared actor/epoch → Store → original operation → customer → Order/reservation ordering on dispatch/read/recovery. A native blocked-Store/NOWAIT test proves the operation is not locked first. Root must retain this prefix before delegating to its correction-aware record loader; immutable receipt reads do not add a current-original-actor requirement.
 
 ## Trusted internal API
 
@@ -32,7 +32,11 @@ const profiles = financialAdapterProfiles({
   extensions: qualifiedOtherProfileHooks,
 });
 const adapter = legacyOrderImportFinancialAdapter(
-  config, db, financialOptions, undefined, profiles,
+  config,
+  db,
+  financialOptions,
+  undefined,
+  profiles,
 );
 ```
 
@@ -76,14 +80,14 @@ Original source no-effects rejection remains a separate protocol. The source-onl
 1. Pass the trusted profile port in the financial runtime; retain default refusal if any qualification is absent. No frontend/API bypass is required.
 2. Register reviewed reservation DDL/migration/readiness and Docker SQL packaging for `pos_rewrite_import_screening_reservations`; its exported DDL is never auto-applied. Native admission proof needs no new table/column.
 3. Add a forward `operation_id` index on `pos_rewrite_import_financial_close_impacts`. Its no-effects check must see every contradictory operation row; the current schema otherwise has only an ID primary key. Other evidence queries use existing operation/primary indexes.
-4. Complete the independently owned source wrapper/Go/all-writer participation before enabling contracts. Current Go Confirm's Order-first hook is not qualified global Store/customer/Order admission. Preserve signed capabilities, deferred effects, import holds and no-duplicate fences.
+4. Retain the independently owned Receiver current-transaction prelude and complete Go/all-writer qualification before enabling contracts. The wrapper now requires the executable witness and actual two-customer source completion is covered. An Order-first hook or fresh RR snapshot alone is insufficient. Preserve signed capabilities, deferred effects, import holds and no-duplicate fences.
 5. Merge Root's correction-aware record/hash helper without discarding optional state metadata or spreading it into scope. This slice leaves source/proof/writer/correction semantics to their owners.
 
 No production flag, live data/schema, protected source repository, provider or message sender is changed here.
 
 ## Validation
 
-The focused suite contains **38 checks: five pinned source/pure and 33 isolated MySQL**. It covers original source arithmetic/marker semantics, ordinary dispatch without optional tables, atomic reservation, two-store/twenty-start contention, early Store lock ordering, source/publication/worker lost replies, GET-only reconciliation, source release, local denial/savepoint rollback, denial persistence failure, driver errors with denial-like text, HMAC/nonce tampering, contradictory checkpoints, full-width IDs and canonical scope hashing.
+The focused suite contains **46 checks: five pinned source/pure and 41 isolated MySQL**. It covers original source arithmetic/marker semantics, ordinary dispatch without optional tables, atomic reservation, two-store/twenty-start contention, current transaction witness, stale RR rejection, wallet cancellation without joined Order locks, different-customer empty inserts, two literal source bodies completing concurrently, actual index EXPLAIN, early Store lock ordering, source/publication/worker lost replies, GET-only reconciliation, source release, post-dispatch actor/epoch/customer revocation, local denial/savepoint rollback, denial persistence failure, driver errors with denial-like text, HMAC/nonce tampering, contradictory checkpoints, full-width IDs and canonical scope hashing.
 
 From backend with Node 24:
 
@@ -96,4 +100,4 @@ CHECKOUT_MYSQL_TEST_URL=mysql://root@127.0.0.1/pos_rewrite_checkout_test \
   node node_modules/vitest/vitest.mjs run --config tests/legacy-import-screening/vitest.regression.config.ts
 ```
 
-The second config runs 27 existing financial adapter/native-source/approval and disabled-runtime regressions in its own cache with one worker. Native schemas are disposable localhost fixtures; the lock test reads only synthetic schema metadata, and queue acknowledgment is synthetic. Source/Go/provider acceptance remains independently qualified. No browser/shared build or port is used.
+The second config includes 27 existing financial adapter/native-source/approval and disabled-runtime regressions in its own cache with one worker. Its existing source fixture uses the sibling source path directly and must be supplied the pinned baseline, not a moved HEAD. The screening suite accepts `SCREENING_SOURCE_ROOT` pointing to an immutable archive of API-v2 `2960`; no source pins are relaxed. Native schemas are disposable localhost fixtures; the lock test reads only synthetic schema metadata, and queue acknowledgment is synthetic. Source/Go/provider acceptance remains independently qualified. No browser/shared build or port is used.

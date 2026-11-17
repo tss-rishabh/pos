@@ -8,6 +8,8 @@ import datetime
 import hashlib
 import json
 import sys
+import tempfile
+import time
 from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.engine import make_url
@@ -24,6 +26,7 @@ from receiver import Receiver
 from transaction import normalize_source_sentinels, guard_private_statement, guard_private_commit
 
 original_compile = original_driver.compile_class
+FIXTURE_ADDRESS = 88
 
 
 def compile_screening(root, path, name, namespace):
@@ -42,6 +45,7 @@ def compile_screening(root, path, name, namespace):
         models = {**namespace, 'datetime': datetime}
         exec(compile(ast.Module(body=[marker], type_ignores=[]), '<pinned-screening-model>', 'exec'), models)
         namespace['SpidermanScreeningOrderModel'] = models['SpidermanScreeningOrderModel']
+        namespace['build_address_model'] = lambda *_args, **_kwargs: (None, FIXTURE_ADDRESS)
     return original_compile(root, path, name, namespace)
 
 
@@ -50,10 +54,20 @@ original_driver.compile_class = compile_screening
 
 class QualifiedNativePipeline(NativePipeline):
     def order_pipeline(self, session, user, plan, capability):
+        global FIXTURE_ADDRESS
+        FIXTURE_ADDRESS = 88 if str(user['user_id']) == '77' else 89
         cart = Cart(plan)
         # This is the exact base-profile seam already present in SourceRuntime.
         assert_plain_profile(cart, K, self.settings, plan, cart.meta['calculations'])
-        return super().order_pipeline(session, user, plan, capability)
+        result = super().order_pipeline(session, user, plan, capability)
+        if self.mode == 'screening-race':
+            print('SCREENING_BODY_READY', flush=True)
+            deadline = time.monotonic() + 10
+            while not self.fixture_gate.is_file():
+                if time.monotonic() >= deadline:
+                    raise ImportReview('ORDER_IMPORT_SCREENING_FIXTURE_TIMEOUT')
+                time.sleep(0.01)
+        return result
 
 
 def run(value):
@@ -66,6 +80,12 @@ def run(value):
     event.listen(Session, 'before_commit', guard_private_commit)
     event.listen(engine, 'before_cursor_execute', guard_private_statement)
     source = QualifiedNativePipeline(value['sourceRoot'], value.get('mode'))
+    if value.get('mode') == 'screening-race':
+        gate = Path(value['gate']).resolve()
+        if (gate.name != 'release' or gate.parent.parent != Path(tempfile.gettempdir()).resolve()
+                or not gate.parent.name.startswith('pos-screening-source-race-')):
+            raise ImportReview('ORDER_IMPORT_SCREENING_FIXTURE_REQUIRED')
+        source.fixture_gate = gate
     source.settings.IS_LINE_ITEM_ENABLED = value['unitMode']
     pipeline = ScreeningSourceRuntime(source, value['authKey'], value['proofKey'], lambda: value['now'],
                                       {'profile': CONTRACT, 'schema': SCHEMA, 'writers': WRITERS})
