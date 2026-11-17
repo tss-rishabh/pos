@@ -389,3 +389,5 @@ c99b545e2329468ceb10ca8a60aaccf2057b0a04:backend/evidence/verification-6d8a4bc.j
 c99b545e2329468ceb10ca8a60aaccf2057b0a04:backend/evidence/verification-6d8a4bc.json:generic-api-key:2698
 # Frozen auxiliary source Git commit, verified against the immutable source clone.
 5ff46d3947df5f66b5958cbdbce10ed48592109a:backend/evidence/coupon-head-and-bindings-20d7380.json:generic-api-key:5
+# Original AuthHandler source SHA-256 verified against the frozen API baseline.
+0d06f02de9ef3497cc5c90811e4fa5f28a19653e:backend/compatibility/upstream/legacy-order-imports/source_runtime.py:generic-api-key:52
