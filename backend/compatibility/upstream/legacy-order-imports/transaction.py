@@ -2,6 +2,7 @@
 from contextvars import ContextVar
 from contextlib import contextmanager
 from sqlalchemy import text,null
+from sqlalchemy.engine import Connection
 import re
 from protocol import ImportReview
 
@@ -131,7 +132,13 @@ def guard_private_statement(_connection,_cursor,statement,_parameters,_context,_
         raise ImportReview('ORDER_IMPORT_UNQUALIFIED_SQL')
 
 
-def guard_private_commit(_session):
+def guard_private_commit(connection):
+    """Bind to Engine.commit: SAVEPOINT release is not an outer commit."""
     if CURRENT.get() is not None:
         VIOLATION.set(True)
+        # A rejected commit event can leave SQLAlchemy's root transaction
+        # inactive before rollback. Discard the physical transaction instead
+        # of returning its uncommitted changes or session variables to a pool.
+        if isinstance(connection,Connection) and not connection.closed and not connection.invalidated:
+            connection.invalidate()
         raise ImportReview('ORDER_IMPORT_SOURCE_COMMIT_ESCAPED')

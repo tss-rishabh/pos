@@ -14,7 +14,7 @@ sys.path[:0] = [str(HERE), str(HERE.parent)]
 from benefit_history_heads import NativeCouponHistoryHeads
 from protocol import ImportReview
 from screening_transaction import owned, mark_customer
-from transaction import private_session
+from transaction import private_session, guard_private_commit
 
 value = json.loads(sys.stdin.read())
 url = make_url(value['url'])
@@ -25,6 +25,7 @@ if (url.host not in ('localhost', '127.0.0.1') or not url.database.startswith(pr
 engine = create_engine(url.set(drivername='mysql+pymysql'), echo=False, hide_parameters=True,
                        pool_size=4, max_overflow=0)
 Session = sessionmaker(bind=engine, expire_on_commit=False)
+event.listen(engine, 'commit', guard_private_commit)
 port = NativeCouponHistoryHeads(value['key'])
 scope = value['scope']
 cap = {'nonce': str(uuid4()), 'operationId': scope['operationId'], 'requestHash': scope['requestHash'],
@@ -73,12 +74,16 @@ try:
     event.remove(engine, 'before_cursor_execute', observe)
     original = status()
 
-    if case == 'own-multiple':
+    if case in ('own-multiple', 'savepoint-release'):
         with Session() as session, owned(session, cap):
             enter(session)
             with port.scope(session, cap, scope, frozen), private_session(session) as source:
                 mutate(source)
-                mutate(source)
+                if case == 'savepoint-release':
+                    with source.begin_nested():
+                        mutate(source)
+                else:
+                    mutate(source)
                 port.validate_after_native(source, scope, frozen, {})
             assert session.execute(text('SELECT @pos_rewrite_coupon_history_owner')).scalar_one() is None
         assert status() == original + 2
@@ -144,7 +149,7 @@ try:
         refused(attempt)
         assert snapshot() == frozen and status() == original
 
-    elif case == 'after-validation':
+    elif case in ('after-validation', 'open-savepoint-after-validation'):
         def attempt():
             with Session() as session, owned(session, cap):
                 enter(session)
@@ -153,8 +158,46 @@ try:
                     port.validate_after_native(source, scope, frozen, {})
                 # The final commit guard must still reject this after the
                 # invocation context and connection owner were already cleared.
+                if case == 'open-savepoint-after-validation':
+                    session.begin_nested()
                 mutate(session)
         refused(attempt)
+        assert snapshot() == frozen and status() == original
+
+    elif case == 'plain-source-root-commit':
+        try:
+            with Session() as session, owned(session, cap):
+                enter(session)
+                with private_session(session) as source:
+                    mutate(source)
+                    session.commit()
+        except ImportReview:
+            pass
+        else:
+            raise AssertionError('Unselected source escaped its owned transaction')
+        assert snapshot() == frozen and status() == original
+
+    elif case in ('source-commit-open-savepoint', 'source-connection-commit', 'source-connection-close'):
+        def attempt():
+            with Session() as session, owned(session, cap):
+                enter(session)
+                with port.scope(session, cap, scope, frozen), private_session(session) as source:
+                    mutate(source)
+                    if case == 'source-commit-open-savepoint':
+                        source.begin_nested()
+                        # Deliberately exercise the raw underlying session;
+                        # the normal source alias commit only flushes.
+                        session.commit()
+                    elif case == 'source-connection-commit':
+                        session.connection().commit()
+                    else:
+                        session.connection().close()
+        try:
+            attempt()
+        except ImportReview:
+            pass
+        else:
+            raise AssertionError('Source escaped its owned root transaction')
         assert snapshot() == frozen and status() == original
 
     elif case == 'later-writer-waits':

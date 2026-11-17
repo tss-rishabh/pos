@@ -53,15 +53,24 @@ transaction already holds exclusive locks for its own head mutations. There
 are no head locks across Cart-to-Order calculation. This preserves the legacy
 Order-to-head lock order and allows unrelated transactions to share the global
 controls fence. An intervening order, log or coupon mutation rejects the whole
-source transaction. The final commit guard flushes pending ORM work and checks
-the held rows again, so a mutation after validation cannot escape the fence.
+source transaction. The physical root-commit guard runs after SQLAlchemy's
+automatic ORM flush and checks the held rows again, so a mutation after
+validation cannot escape the fence. Legitimate source SAVEPOINT releases remain
+allowed. A source root commit, including one with an open savepoint, still
+fails; checking only `Session.in_nested_transaction()` would leave an outer
+commit bypass.
 Owner cleanup occurs after the private source context ends and before pooled
 connection reuse. Stale owners and failed cleanup invalidate the connection.
 
-Eleven new native Python/MySQL cases cover repeated owned writes, concurrent
+Seventeen native Python/MySQL cases cover repeated owned writes, concurrent
 order/coupon/log changes, rollback, a waiting later writer, missing validation,
 mutation after validation, a changed witness, invalid owner and pooled-owner
-cleanup. All use exact 20-digit unsigned revisions. Source and warehouse
+cleanup, real savepoint release, root/connection commit bypass attempts and an
+unexpected connection close before cleanup. Pool check-in discards an unclean
+owner before another checkout can receive the connection.
+The shared source commit guard also discards a forbidden physical commit,
+including when no coupon-head scope is selected.
+All use exact 20-digit unsigned revisions. Source and warehouse
 attestations support the same unsigned bound and reject overflow even when
 the enclosing seal is authentic. Review SQL and the Python metadata manifest
 are checked against the shared TypeScript definition builder. These remain

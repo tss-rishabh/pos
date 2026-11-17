@@ -14,6 +14,7 @@ import re
 from uuid import UUID
 from sqlalchemy import event, text
 from sqlalchemy.orm import Session
+from sqlalchemy.pool import Pool
 from benefit_history import canonical, seal
 from benefit_source import BenefitReview
 from screening_transaction import current
@@ -103,34 +104,59 @@ class _Frame:
         self.nonce, self.scope, self.witness = cap['nonce'], scope, witness
         self.validated = None
         self.cleaned = False
+        self.commit_guard = lambda connection: _before_commit(self, connection)
 
 
-def _before_commit(session):
-    frame = session.info.get(_INFO)
-    if not isinstance(frame, _Frame): return
+def _before_commit(frame, connection):
+    session = frame.session
     # A caller cannot validate early and mutate another watched table later.
-    # The late locks remain held, and the final native rows must be identical.
-    if (not frame.cleaned or frame.validated is None
-            or frame.transaction is not session.get_transaction()):
-        _reject()
-    session.flush()
-    if _heads(session, frame.scope, lock=True) != frame.validated:
-        _reject()
+    # This is the physical root commit event, AFTER SQLAlchemy's automatic
+    # flush. Session.before_commit also fires when a legitimate source freebie
+    # SAVEPOINT is released; skipping it based on an open savepoint would let
+    # an outer Session.commit bypass the fence before cascading that savepoint.
+    try:
+        if (connection is not frame.connection or CURRENT.get() is not None
+                or not frame.cleaned or frame.validated is None
+                or frame.transaction is not session.get_transaction()
+                or session.new or session.dirty or session.deleted):
+            _reject()
+        if _heads(connection, frame.scope, lock=True) != frame.validated:
+            _reject()
+    except Exception:
+        # An exception from a commit event can deactivate SQLAlchemy's root
+        # transaction before its normal rollback. Drop the physical connection
+        # so no uncommitted native change can survive a later pool checkout.
+        _discard(frame)
+        raise
+
+
+def _discard(frame):
+    if not frame.connection.closed and not frame.connection.invalidated:
+        frame.connection.invalidate()
+
+
+def _pool_return(_dbapi_connection, record):
+    frame = record.info.pop(_INFO, None)
+    if isinstance(frame, _Frame) and not frame.cleaned:
+        # This callback runs before a returned connection becomes available.
+        # It also handles an unexpected close inside the owned source scope.
+        record.invalidate()
 
 
 def _after_transaction(session, transaction):
     frame = session.info.get(_INFO)
     if isinstance(frame, _Frame) and frame.transaction is transaction:
         session.info.pop(_INFO, None)
+        event.remove(frame.connection, 'commit', frame.commit_guard)
         if not frame.cleaned:
             # Never return a connection carrying an owner variable to the pool.
-            frame.connection.invalidate()
+            _discard(frame)
 
 
 # Registration performs no SQL or external I/O. Unselected sessions only take
 # the dictionary lookup; they never acquire a head or read any source table.
-event.listen(Session, 'before_commit', _before_commit)
 event.listen(Session, 'after_transaction_end', _after_transaction)
+event.listen(Pool, 'checkin', _pool_return)
 
 
 class NativeCouponHistoryHeads:
@@ -219,6 +245,8 @@ class NativeCouponHistoryHeads:
         if actual != witness: _reject()
         frame = _Frame(self, session, connection, cap, scope, json.loads(canonical(witness)))
         session.info[_INFO] = frame
+        connection.info[_INFO] = frame
+        event.listen(connection, 'commit', frame.commit_guard)
         token = _ACTIVE.set(frame)
         try:
             connection.execute(text('SET @pos_rewrite_coupon_history_owner=:owner'), {'owner': cap['nonce']})
@@ -231,7 +259,7 @@ class NativeCouponHistoryHeads:
                 connection.execute(text('SET @pos_rewrite_coupon_history_owner=NULL'))
                 frame.cleaned = True
             except Exception:
-                connection.invalidate()
+                _discard(frame)
                 _reject('ORDER_IMPORT_COUPON_HEADS_UNAVAILABLE')
 
     def validate_after_native(self, session, scope, witness, _native):

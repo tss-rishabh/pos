@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -84,6 +84,7 @@ describe.skipIf(!template)('late source coupon history head fence on owned nativ
   });
   it.each([
     'own-multiple',
+    'savepoint-release',
     'foreign-order',
     'foreign-coupon',
     'foreign-log',
@@ -91,6 +92,11 @@ describe.skipIf(!template)('late source coupon history head fence on owned nativ
     'stale-owner',
     'no-validation',
     'after-validation',
+    'open-savepoint-after-validation',
+    'source-commit-open-savepoint',
+    'source-connection-commit',
+    'source-connection-close',
+    'plain-source-root-commit',
     'later-writer-waits',
     'bad-witness',
     'bad-owner',
@@ -119,6 +125,10 @@ describe.skipIf(!template)('late source coupon history head fence on owned nativ
         },
       );
       // Fixture stderr remains private: SQLAlchemy errors may contain native data.
+      if (result.status !== 0) {
+        mkdirSync('evidence/private', { recursive: true });
+        writeFileSync(`evidence/private/coupon-head-${testCase}.log`, result.stderr);
+      }
       expect(result.status, `Head fence fixture ${testCase} failed`).toBe(0);
       const output = z
         .object({
