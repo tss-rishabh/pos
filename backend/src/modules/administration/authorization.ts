@@ -42,16 +42,21 @@ export async function assertCurrentStoreAccess(
   userId: string,
   storeId: string,
   allowedRoles: readonly Role[] = [1, 2, 3, 4, 5],
+  storeLock: 'share' | 'update' = 'update',
 ): Promise<void> {
   const identity = await currentOperator(transaction, userId, allowedRoles);
+  // Writer callers subsequently mutate this Store or its financial children.
+  // Take their final lock mode before assignment/check-in/Order locks: a shared
+  // lock followed by an upgrade can deadlock two otherwise independent actors.
+  // Pure readers may explicitly retain a shared lock and must not upgrade it.
+  const [store] = await transaction
+    .select({ category: Store.category })
+    .from(Store)
+    .where(eq(Store.id, BigInt(storeId)))
+    .limit(1)
+    .for(storeLock);
   if (identity.role === 1 && identity.userType === 1) return;
   if (identity.userType === 2) {
-    const [store] = await transaction
-      .select({ category: Store.category })
-      .from(Store)
-      .where(eq(Store.id, BigInt(storeId)))
-      .limit(1)
-      .for('share');
     if (store?.category !== 'FRANCHISE')
       throw new AppError(403, 'STORE_ACCESS_DENIED', 'You do not have access to this store.');
   }

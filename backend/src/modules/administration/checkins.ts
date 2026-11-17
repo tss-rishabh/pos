@@ -18,6 +18,17 @@ function sqlInstant(value: Temporal.Instant) {
     .toString({ smallestUnit: 'millisecond' })
     .replace('T', ' ');
 }
+function expiredCheckIn(row: Pick<typeof operatorCheckIns.$inferSelect, 'expiresAt'> | undefined) {
+  return (
+    !row ||
+    Temporal.Instant.compare(
+      Temporal.PlainDateTime.from(row.expiresAt.replace(' ', 'T'))
+        .toZonedDateTime('UTC')
+        .toInstant(),
+      Temporal.Now.instant(),
+    ) <= 0
+  );
+}
 export function checkInExpiry(now = Temporal.Now.instant(), zone = 'Asia/Kolkata') {
   const local = now.toZonedDateTimeISO(zone);
   const seconds =
@@ -47,20 +58,37 @@ export function checkInService(db: Databases, config: Pick<Config, 'BUSINESS_TIM
   async function currentStoreAccess(
     userId: string,
     storeId: string,
-    transaction?: AdministrationTransaction,
+    transaction: AdministrationTransaction,
+    storeLock: 'share' | 'update' = 'update',
   ) {
-    if (transaction) return assertCurrentStoreAccess(transaction, userId, storeId);
-    return db
-      .get('writer')
-      .transaction((current) => assertCurrentStoreAccess(current, userId, storeId));
+    return assertCurrentStoreAccess(transaction, userId, storeId, undefined, storeLock);
+  }
+  async function activeCounter(
+    storeId: string,
+    counterId: string,
+    transaction: AdministrationTransaction,
+  ) {
+    const [counter] = await transaction
+      .select({ id: StoreCounter.id })
+      .from(StoreCounter)
+      .where(
+        and(
+          eq(StoreCounter.id, BigInt(counterId)),
+          eq(StoreCounter.store, BigInt(storeId)),
+          eq(StoreCounter.is_active, true),
+        ),
+      )
+      .limit(1)
+      .for('share');
+    if (!counter)
+      throw new AppError(409, 'COUNTER_UNAVAILABLE', 'Select an active counter in this store.');
   }
   async function activeScope(
     storeId: string,
     counterId: string | null,
-    transaction?: AdministrationTransaction,
+    transaction: AdministrationTransaction,
   ) {
-    const database = transaction ?? db.get('writer');
-    const storeQuery = database
+    const [store] = await transaction
       .select({ id: Store.id })
       .from(Store)
       .where(
@@ -70,26 +98,11 @@ export function checkInService(db: Databases, config: Pick<Config, 'BUSINESS_TIM
           inArray(Store.type, ['STORE', 'CORE_WAREHOUSE']),
         ),
       )
-      .limit(1);
-    const [store] = transaction ? await storeQuery.for('share') : await storeQuery;
+      .limit(1)
+      .for('share');
     if (!store)
       throw new AppError(409, 'STORE_UNAVAILABLE', 'Select an active store or core warehouse.');
-    if (counterId) {
-      const counterQuery = database
-        .select({ id: StoreCounter.id })
-        .from(StoreCounter)
-        .where(
-          and(
-            eq(StoreCounter.id, BigInt(counterId)),
-            eq(StoreCounter.store, BigInt(storeId)),
-            eq(StoreCounter.is_active, true),
-          ),
-        )
-        .limit(1);
-      const [counter] = transaction ? await counterQuery.for('share') : await counterQuery;
-      if (!counter)
-        throw new AppError(409, 'COUNTER_UNAVAILABLE', 'Select an active counter in this store.');
-    }
+    if (counterId) await activeCounter(storeId, counterId, transaction);
   }
   return {
     async checkedInStore(userId: string): Promise<string | null> {
@@ -134,41 +147,51 @@ export function checkInService(db: Databases, config: Pick<Config, 'BUSINESS_TIM
       return rows.map((row) => row.operatorId);
     },
     async current(user: Principal) {
-      const [row] = await db
+      const [hint] = await db
         .get('writer')
         .select()
         .from(operatorCheckIns)
         .where(eq(operatorCheckIns.operatorId, user.id))
         .limit(1);
-      if (
-        !row ||
-        Temporal.Instant.compare(
-          Temporal.PlainDateTime.from(row.expiresAt.replace(' ', 'T'))
-            .toZonedDateTime('UTC')
-            .toInstant(),
-          Temporal.Now.instant(),
-        ) <= 0
-      )
-        return null;
-      requireStore(user, String(row.storeId));
+      if (!hint || expiredCheckIn(hint)) return null;
+      requireStore(user, String(hint.storeId));
       try {
-        await currentStoreAccess(user.id, String(row.storeId));
-        await activeScope(
-          String(row.storeId),
-          row.counterId === null ? null : String(row.counterId),
-        );
+        // This method owns its transaction, so the unlocked hint consumes no
+        // transaction/pool slot while waiting. It grants no authority and is
+        // compared with a current locked row after the authority prefix.
+        return await db.get('writer').transaction(async (tx) => {
+          await currentStoreAccess(user.id, String(hint.storeId), tx, 'share');
+          await activeScope(
+            String(hint.storeId),
+            hint.counterId === null ? null : String(hint.counterId),
+            tx,
+          );
+          const [row] = await tx
+            .select()
+            .from(operatorCheckIns)
+            .where(eq(operatorCheckIns.operatorId, user.id))
+            .limit(1)
+            .for('share');
+          if (
+            !row ||
+            row.storeId !== hint.storeId ||
+            row.counterId !== hint.counterId ||
+            expiredCheckIn(row)
+          )
+            return null;
+          return {
+            storeId: String(row.storeId),
+            counterId: row.counterId === null ? null : String(row.counterId),
+            expiresAt: Temporal.PlainDateTime.from(row.expiresAt.replace(' ', 'T'))
+              .toZonedDateTime('UTC')
+              .toInstant()
+              .toString(),
+          };
+        });
       } catch (error) {
         if (error instanceof AppError && [401, 403, 409].includes(error.status)) return null;
         throw error;
       }
-      return {
-        storeId: String(row.storeId),
-        counterId: row.counterId === null ? null : String(row.counterId),
-        expiresAt: Temporal.PlainDateTime.from(row.expiresAt.replace(' ', 'T'))
-          .toZonedDateTime('UTC')
-          .toInstant()
-          .toString(),
-      };
     },
     async set(
       user: Principal,
@@ -209,37 +232,48 @@ export function checkInService(db: Databases, config: Pick<Config, 'BUSINESS_TIM
       counterId?: string,
       transaction?: AdministrationTransaction,
     ) {
-      const database = transaction ?? db.get('writer');
-      const query = database
-        .select()
-        .from(operatorCheckIns)
-        .where(eq(operatorCheckIns.operatorId, userId))
-        .limit(1);
-      const [row] = transaction ? await query.for('update') : await query;
-      const expired =
-        !row ||
-        Temporal.Instant.compare(
-          Temporal.PlainDateTime.from(row.expiresAt.replace(' ', 'T'))
-            .toZonedDateTime('UTC')
-            .toInstant(),
-          Temporal.Now.instant(),
-        ) <= 0;
-      if (
-        expired ||
-        String(row!.storeId) !== storeId ||
-        (counterId && String(row!.counterId) !== counterId)
-      )
-        throw new AppError(
-          409,
-          'CHECK_IN_REQUIRED',
-          'Check in to this store and counter before continuing.',
-        );
-      await currentStoreAccess(userId, storeId, transaction);
-      await activeScope(
-        storeId,
-        counterId ?? (row!.counterId === null ? null : String(row!.counterId)),
-        transaction,
-      );
+      const assertCurrent = async (current: AdministrationTransaction) => {
+        let scopeError: AppError | undefined;
+        try {
+          await currentStoreAccess(userId, storeId, current);
+          await activeScope(storeId, counterId ?? null, current);
+        } catch (error: unknown) {
+          if (
+            error instanceof AppError &&
+            ['STORE_ACCESS_DENIED', 'STORE_UNAVAILABLE', 'COUNTER_UNAVAILABLE'].includes(error.code)
+          )
+            // These refusals are reached only after the Store header is
+            // locked. Preserve CHECK_IN_REQUIRED for a missing/expired/wrong
+            // check-in, then return the original current-scope refusal.
+            scopeError = error;
+          else throw error;
+        }
+        const [row] = await current
+          .select()
+          .from(operatorCheckIns)
+          .where(eq(operatorCheckIns.operatorId, userId))
+          .limit(1)
+          .for('update');
+        if (
+          !row ||
+          expiredCheckIn(row) ||
+          String(row.storeId) !== storeId ||
+          (counterId && String(row.counterId) !== counterId)
+        )
+          throw new AppError(
+            409,
+            'CHECK_IN_REQUIRED',
+            'Check in to this store and counter before continuing.',
+          );
+        if (scopeError) throw scopeError;
+        if (counterId === undefined && row.counterId !== null)
+          // The exclusive Store header already excludes a cooperating
+          // Store→counter→check-in writer. Read the optional counter from the
+          // current check-in, then validate it with a current locking read.
+          // No plain RR hint or extra pool connection is needed.
+          await activeCounter(storeId, String(row.counterId), current);
+      };
+      return transaction ? assertCurrent(transaction) : db.get('writer').transaction(assertCurrent);
     },
   };
 }
