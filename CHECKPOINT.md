@@ -85,6 +85,17 @@ SSO current-cookie lookup is on `8060c67`; frontend durable original-flow resume
 is still assigned. Other writer-origin frames/callers remain in implementation.
 No tests, private command, broker, cloud job or financial action were run.
 
+Desktop SSO recovery is integrated from `1394388` as `b22d96f`: known flows keep
+only original UUID/expiry, unknown creation keeps a boolean dispatch fence,
+current-cookie discovery is read-only, and explicit reset clears local state
+only after logout acknowledgement. Production new-cash readiness is integrated
+from `61188d1` as `2b7852d`; it checks the controlled shell and receipt assets
+before opening a new tender, without blocking retained receipt recovery.
+Remaining implementation is membership contact-reference proof, any queued-logout
+SSO fence found in the final code inspection, and other writer-origin protocols.
+The latter is now split between genuine Python/staff/customer callers and the
+separate non-POS Go customer/provider/cron adapters. No tests or builds were run.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
