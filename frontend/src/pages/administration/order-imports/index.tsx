@@ -27,6 +27,7 @@ import {
   type OrderImportIntent,
 } from './journal';
 import '../styles.css';
+import { ImportResumeActions } from './ImportResumeActions';
 
 export default function OrderImportsPage(props: { user: Principal; online: boolean }) {
   if (props.user.userType !== 1 || ![1, 2, 3].includes(props.user.role))
@@ -65,13 +66,14 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
     [nextAfter, setNextAfter] = useState<number | null>(null),
     [lookupId, setLookupId] = useState(initial.intent?.id ?? ''),
     [busy, setBusy] = useState(false),
+    [resumePending, setResumePending] = useState(false),
     [problem, setProblem] = useState(initial.error),
     [notice, setNotice] = useState('');
   const locked = useRef(false),
     alive = useRef(true),
     readRevision = useRef(0),
     fileInput = useRef<HTMLInputElement>(null);
-  const disabled = busy || !online || Boolean(initial.error);
+  const disabled = busy || resumePending || !online || Boolean(initial.error);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -448,6 +450,15 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
               replacement orders.
             </p>
           )}
+          <ImportResumeActions
+            key={`${user.id}:${job.id}`}
+            operatorId={user.id}
+            job={job}
+            online={online}
+            enabled={Boolean(capabilities?.ready) && !busy && !initial.error}
+            onPendingChanged={setResumePending}
+            onAccepted={() => act((signal) => refresh(job.id, signal))}
+          />
           {!importIsTerminal(job) && (
             <button
               type="button"

@@ -11,6 +11,7 @@ import {
   importJobSchema,
   importPreviewSchema,
   importResultSchema,
+  importResumptionSchema,
 } from './domain.js';
 import type { ImportFinancialAdapter } from './financial-contracts.js';
 import { legacyOrderImportHistory, readLegacyOrderImportHistoryOptions } from './history.js';
@@ -142,6 +143,23 @@ export function legacyOrderImportService(
     async cancel(user: Principal, jobId: string) {
       return importJobSchema.parse(
         await configuredRepository().cancel(permitted(user), z.uuid().parse(jobId)),
+      );
+    },
+    async resume(user: Principal, jobId: string, operationId: string, requestId: string) {
+      const actor = permitted(user);
+      if (!ready)
+        throw new AppError(
+          503,
+          'ORDER_IMPORT_CONTRACT_UNVERIFIED',
+          'Historical order processing is not enabled. The import has not been resumed.',
+        );
+      return importResumptionSchema.parse(
+        await configuredRepository().resume(actor, jobId, operationId, requestId),
+      );
+    },
+    async readResumption(user: Principal, jobId: string, operationId: string) {
+      return importResumptionSchema.parse(
+        await configuredRepository().readResumption(permitted(user), jobId, operationId),
       );
     },
     async runOne() {

@@ -57,6 +57,7 @@ export const migrationPaths = [
   'src/modules/customer-website-handoff/migration.sql',
   'src/modules/global-vouchers/migration.sql',
   'src/modules/legacy-order-imports/migration.sql',
+  'src/modules/legacy-order-imports/resumption-migration.sql',
   'src/modules/checkout-performance/migration.sql',
   'src/modules/checkout/order-messages/migration.sql',
   'src/modules/checkout/payment-reversals/migration.sql',

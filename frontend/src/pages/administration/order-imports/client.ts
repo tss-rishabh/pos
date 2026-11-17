@@ -107,5 +107,42 @@ export const readImportResults = (operatorId: string, jobId: string, after = 0) 
   );
 export const cancelOrderImport = (operatorId: string, jobId: string) =>
   post(base + '/' + z.uuid().parse(jobId) + '/cancellations', {}, orderImportJobSchema, operatorId);
+const resumptionSchema = z
+  .object({
+    operationId: z.uuid(),
+    jobId: z.uuid(),
+    acceptedAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,3})?$/),
+  })
+  .strict();
+function checkedResumption(
+  value: z.infer<typeof resumptionSchema>,
+  jobId: string,
+  operationId: string,
+) {
+  if (value.jobId !== jobId || value.operationId !== operationId)
+    throw new Error('The resume receipt belongs to a different import.');
+  return value;
+}
+export async function resumeOrderImport(operatorId: string, jobId: string, operationId: string) {
+  const result = await post(
+    base + '/' + z.uuid().parse(jobId) + '/resumptions',
+    { operationId: z.uuid().parse(operationId) },
+    resumptionSchema,
+    operatorId,
+  );
+  return checkedResumption(result, jobId, operationId);
+}
+export async function readOrderImportResumption(
+  operatorId: string,
+  jobId: string,
+  operationId: string,
+) {
+  const result = await request(
+    base + '/' + z.uuid().parse(jobId) + '/resumptions/' + z.uuid().parse(operationId),
+    { operatorId },
+    resumptionSchema,
+  );
+  return checkedResumption(result, jobId, operationId);
+}
 export const downloadImportTemplate = (operatorId: string, kind: 'offline' | 'shopify') =>
   requestWithResponse(base + '/templates/' + kind, { operatorId }, (response) => response.blob());

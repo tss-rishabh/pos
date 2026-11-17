@@ -68,3 +68,19 @@ export const legacyOrderImportRows = mysqlTable(
 );
 export type LegacyImportJob = typeof legacyOrderImports.$inferSelect;
 export type LegacyImportRow = typeof legacyOrderImportRows.$inferSelect;
+export const legacyOrderImportResumptions = mysqlTable(
+  'pos_rewrite_legacy_order_import_resumptions',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    jobId: varchar('job_id', { length: 36 }).notNull(),
+    actorId: varchar('actor_id', { length: 32 }).notNull(),
+    jobRequestHash: varchar('job_request_hash', { length: 64 }).notNull(),
+    requestId: varchar('request_id', { length: 128 }).notNull(),
+    claimToken: varchar('claim_token', { length: 36 }).notNull(),
+    proofHash: varchar('proof_hash', { length: 64 }).notNull(),
+    acceptedAt: datetime('accepted_at', { mode: 'string', fsp: 3 }).notNull(),
+  },
+  (table) => [
+    index('ix_legacy_order_import_resumption_job').on(table.jobId, table.acceptedAt, table.id),
+  ],
+);

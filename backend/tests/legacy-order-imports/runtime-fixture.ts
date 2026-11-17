@@ -61,10 +61,12 @@ export async function orderImportRuntimeFixture(template: string) {
     const fixture = verifiedMysqlFixture(connection),
       tables = [PosUser, Store, StoreCounter, UserStore].map(getTableName);
     await fixture.create(tables);
-    for (const statement of splitMigration(
-      readFileSync('src/modules/legacy-order-imports/migration.sql', 'utf8'),
-    ))
-      await connection.query(statement);
+    for (const path of [
+      'src/modules/legacy-order-imports/migration.sql',
+      'src/modules/legacy-order-imports/resumption-migration.sql',
+    ])
+      for (const statement of splitMigration(readFileSync(path, 'utf8')))
+        await connection.query(statement);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',
@@ -81,6 +83,7 @@ export async function orderImportRuntimeFixture(template: string) {
       fixture,
       async reset() {
         for (const table of [
+          'pos_rewrite_legacy_order_import_resumptions',
           'pos_rewrite_legacy_order_import_rows',
           'pos_rewrite_legacy_order_imports',
           ...tables,

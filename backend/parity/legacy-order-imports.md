@@ -31,7 +31,7 @@ After the durable start checkpoint, lease recovery and uncertain responses use
 only the original operation lookup. Cancelling affects only unsent orders;
 completed results older than 24 hours refuse MySQL history fallback.
 
-The focused backend suite now has69 checks across CSV/plans, pinned source methods,
+The focused backend suite covers CSV/plans, pinned source methods,
 native coordination, historical publication, and the actual job API/worker. Twenty
 contenders, lost responses, missing remote records, lease takeover, revoked access,
 tampered ciphertext, partial completion, pending-only cancellation, wrong operation/date
@@ -42,10 +42,10 @@ in these component tests: these results do not prove a real financial import.
 
 ## Authenticated runtime and recovery UI
 
-`registerLegacyOrderImports` exposes seven traced resources under
+`registerLegacyOrderImports` exposes nine traced resources under
 `/api/v1/admin/order-imports`: capabilities, exact source templates, previews,
-creation, original job/results reads, and unsent cancellation. No customer payload
-is returned in preview or public rows. Role1–3 internal authority and every active
+creation, original job/results reads, unsent cancellation, and resume creation/receipt
+reads. No customer payload is returned in preview or public rows. Role 1–3 internal authority and every active
 store/counter are rechecked natively. Store/counter/assignment checks use bounded
 batches independent of CSV row count. Historical completed results use the existing
 qualified BigQuery reader with no old-MySQL fallback.
@@ -66,6 +66,26 @@ A required or stale grant retains `PENDING` with `ORDER_IMPORT_APPROVAL_REQUIRED
 and a bounded retry lease. It does not burn the original nonce or dispatch from
 GET. The private `financialContext` helper opens only an owned unsent plan for
 the server approval service; HTTP resources never return that private payload.
+
+An `ORDER_IMPORT_ACCESS_CHANGED` block can be explicitly resumed after all original
+store/counter permissions are restored. The resume transaction retains the original
+job, encrypted rows and order operation IDs. It never changes imported, failed,
+cancelled or uncertain financial rows. A retained HMAC key binds the immutable
+resume receipt to its original job/request, actor, request ID and acceptance time.
+The nonce is global and a retry can only read its original acceptance, including
+after a later access block. A later block requires a new explicit resume action.
+The worker still runs the financial approval preflight before any first dispatch.
+
+Apply `resumption-migration.sql` after the staging migration; it is registered in
+the ordinary writer migration plan and contains only rewrite control records.
+The browser stores only the operator/job/resume UUIDs before sending. Reload and
+reconnect recover that original receipt by GET; a missing receipt permits only an
+explicit retry of the same UUID. Storage failure sends nothing. Native checks
+exercise partial jobs, 20 concurrent resumptions, lost acceptance responses,
+current authority, proof tampering, unknown rows and repeated access blocks. Three
+additional Chromium workflows cover resume recovery, exact retries/offline state,
+and storage failure. These remain coordinator evidence with a synthetic financial
+port, rather than proof of the separately implemented financial writer.
 
 ## Remaining financial orchestration
 

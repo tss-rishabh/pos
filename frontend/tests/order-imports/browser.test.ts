@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { z } from 'zod';
 import {
   importInputSchema,
   type OrderImportInput,
@@ -81,6 +82,13 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
         holdPreview: false,
         releasePreview: () => undefined as void,
         errors: [] as string[],
+        resumeRequests: [] as { operationId: string; jobId: string }[],
+        resumeReceipts: new Map<
+          string,
+          { operationId: string; jobId: string; acceptedAt: string }
+        >(),
+        dropResume: false,
+        commitResumeBeforeDrop: true,
       };
       page.on('pageerror', (error) => state.errors.push(error.message));
       await page.route('**/api/v1/admin/order-imports**', async (route) => {
@@ -90,6 +98,20 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
         expect(['44', '45']).toContain(request.headers()['x-operator-id']);
         if (request.method() === 'GET') {
           state.gets.push(path);
+          if (path.includes('/resumptions/')) {
+            const value = state.resumeReceipts.get(path.split('/').at(-1)!);
+            return value
+              ? route.fulfill({ json: value })
+              : route.fulfill({
+                  status: 404,
+                  json: {
+                    error: {
+                      code: 'ORDER_IMPORT_RESUMPTION_NOT_FOUND',
+                      message: 'The original resume request is unconfirmed.',
+                    },
+                  },
+                });
+          }
           if (path.endsWith('/capabilities'))
             return route.fulfill({
               json: {
@@ -114,6 +136,30 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
               },
             },
           });
+        }
+        if (path.endsWith('/resumptions') && state.job) {
+          const body = z
+              .object({ operationId: z.uuid() })
+              .strict()
+              .parse(request.postDataJSON() as unknown),
+            value = {
+              operationId: body.operationId,
+              jobId: state.job.id,
+              acceptedAt: '2026-11-17 12:02:00.000',
+            };
+          state.resumeRequests.push({ operationId: body.operationId, jobId: state.job.id });
+          if (!state.dropResume || state.commitResumeBeforeDrop) {
+            if (!state.resumeReceipts.has(body.operationId)) {
+              state.resumeReceipts.set(body.operationId, value);
+              state.job = {
+                ...state.job,
+                state: 'QUEUED',
+                errorCode: null,
+                updatedAt: value.acceptedAt,
+              };
+            }
+          }
+          return state.dropResume ? route.abort() : route.fulfill({ status: 202, json: value });
         }
         if (path.endsWith('/cancellations') && state.job) {
           state.cancellations++;
@@ -320,6 +366,114 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
           }),
         ).toBeVisible();
         expect(state.starts).toHaveLength(0);
+        expect(state.errors).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    });
+    it('recovers a committed resume by GET after reload without re-uploading the CSV or repeating the resume', async () => {
+      const context = await browser.newContext(),
+        page = await context.newPage();
+      try {
+        const state = await fixture(page);
+        await prepare(page);
+        await page.getByRole('button', { name: 'Queue reviewed orders', exact: true }).click();
+        await browserExpect(page.getByText('Status: QUEUED', { exact: true })).toBeVisible();
+        state.job = { ...state.job!, state: 'BLOCKED', errorCode: 'ORDER_IMPORT_ACCESS_CHANGED' };
+        state.dropResume = true;
+        await page.getByRole('button', { name: 'Refresh import', exact: true }).click();
+        await page.getByRole('button', { name: 'Resume unsent orders', exact: true }).click();
+        await browserExpect(
+          page.getByText('Saved resume reference:', { exact: false }),
+        ).toBeVisible();
+        expect(state.resumeRequests).toHaveLength(1);
+        const resumeKeys = await page.evaluate(() =>
+          Object.keys(localStorage).filter((key) => key.startsWith('pos-order-import-resumption:')),
+        );
+        expect(resumeKeys).toHaveLength(1);
+        const saved = await page.evaluate((key) => localStorage.getItem(key), resumeKeys[0]!);
+        expect(saved).toContain(state.resumeRequests[0]!.operationId);
+        expect(saved).not.toMatch(
+          /private-import|Private fixture|Private message|customer-export|csv/,
+        );
+        await page.reload();
+        await browserExpect(page.getByText('Status: QUEUED', { exact: true })).toBeVisible();
+        await browserExpect(
+          page.getByText('The original resume request was accepted.', { exact: false }),
+        ).toBeVisible();
+        expect(state.resumeRequests).toHaveLength(1);
+        expect(state.starts).toHaveLength(1);
+        expect(await page.evaluate((key) => localStorage.getItem(key), resumeKeys[0]!)).toBeNull();
+        expect(state.errors).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    });
+    it('retries only the original resume UUID after an absent receipt and disables sending while offline', async () => {
+      const context = await browser.newContext(),
+        page = await context.newPage();
+      try {
+        const state = await fixture(page);
+        await prepare(page);
+        await page.getByRole('button', { name: 'Queue reviewed orders', exact: true }).click();
+        await browserExpect(page.getByText('Status: QUEUED', { exact: true })).toBeVisible();
+        state.job = { ...state.job!, state: 'BLOCKED', errorCode: 'ORDER_IMPORT_ACCESS_CHANGED' };
+        state.dropResume = true;
+        state.commitResumeBeforeDrop = false;
+        await page.getByRole('button', { name: 'Refresh import', exact: true }).click();
+        await page.getByRole('button', { name: 'Resume unsent orders', exact: true }).click();
+        await browserExpect(
+          page.getByText('Saved resume reference:', { exact: false }),
+        ).toBeVisible();
+        const original = state.resumeRequests[0]!;
+        await page.reload();
+        const retry = page.getByRole('button', {
+          name: 'Retry the same resume request',
+          exact: true,
+        });
+        await browserExpect(retry).toBeVisible();
+        expect(state.resumeRequests).toHaveLength(1);
+        await page.getByRole('button', { name: 'Go offline', exact: true }).click();
+        await browserExpect(retry).toBeDisabled();
+        await page.getByRole('button', { name: 'Reconnect', exact: true }).click();
+        await browserExpect(retry).toBeEnabled();
+        state.dropResume = false;
+        await retry.click();
+        await browserExpect(page.getByText('Status: QUEUED', { exact: true })).toBeVisible();
+        expect(state.resumeRequests).toHaveLength(2);
+        expect(state.resumeRequests[1]).toEqual(original);
+        expect(state.starts).toHaveLength(1);
+        expect(state.errors).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    });
+    it('sends no resume request when its opaque reference cannot be persisted', async () => {
+      const context = await browser.newContext(),
+        page = await context.newPage();
+      try {
+        await page.addInitScript(() => {
+          const original = Storage.prototype.setItem;
+          Storage.prototype.setItem = function (key: string, value: string) {
+            if (key.startsWith('pos-order-import-resumption:'))
+              throw new DOMException('Fixture quota', 'QuotaExceededError');
+            original.call(this, key, value);
+          };
+        });
+        const state = await fixture(page);
+        await prepare(page);
+        await page.getByRole('button', { name: 'Queue reviewed orders', exact: true }).click();
+        await browserExpect(page.getByText('Status: QUEUED', { exact: true })).toBeVisible();
+        state.job = { ...state.job!, state: 'BLOCKED', errorCode: 'ORDER_IMPORT_ACCESS_CHANGED' };
+        await page.getByRole('button', { name: 'Refresh import', exact: true }).click();
+        await page.getByRole('button', { name: 'Resume unsent orders', exact: true }).click();
+        await browserExpect(
+          page.getByText('The resume reference could not be saved. No resume request was sent.', {
+            exact: true,
+          }),
+        ).toBeVisible();
+        expect(state.resumeRequests).toHaveLength(0);
+        expect(state.starts).toHaveLength(1);
         expect(state.errors).toEqual([]);
       } finally {
         await context.close();

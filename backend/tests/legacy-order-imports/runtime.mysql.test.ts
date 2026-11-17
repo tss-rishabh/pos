@@ -140,7 +140,7 @@ describe.skipIf(!template)(
         (await app.inject({ method: 'GET', url: base + '/capabilities' })).json(),
       ).toMatchObject({ ready: true, canPreview: true });
       const routes = resourceRoutes(app);
-      expect(routes).toHaveLength(7);
+      expect(routes).toHaveLength(9);
       expect(
         routes.every(
           (route) =>
@@ -319,6 +319,46 @@ describe.skipIf(!template)(
         404,
       );
       expect(await fixture.db.get('writer').select().from(legacyOrderImports)).toHaveLength(0);
+    });
+    it('guards resume inputs and recovers its committed receipt after post-commit session revocation', async () => {
+      const input = runtimeImportInput(),
+        operationId = randomUUID();
+      await app.inject({ method: 'POST', url: base, payload: input });
+      await fixture.db
+        .get('writer')
+        .update(StoreCounter)
+        .set({ is_active: false })
+        .where(eq(StoreCounter.id, 2n));
+      await service.runOne();
+      await fixture.db
+        .get('writer')
+        .update(StoreCounter)
+        .set({ is_active: true })
+        .where(eq(StoreCounter.id, 2n));
+      const url = base + '/' + input.id + '/resumptions';
+      expect(
+        (await app.inject({ method: 'POST', url, payload: { operationId, actorId: '2' } }))
+          .statusCode,
+      ).toBe(400);
+      sessionMode = 'missing';
+      expect((await app.inject({ method: 'POST', url, payload: { operationId } })).statusCode).toBe(
+        401,
+      );
+      sessionMode = 'revoke';
+      validationCalls = 0;
+      expect((await app.inject({ method: 'POST', url, payload: { operationId } })).statusCode).toBe(
+        401,
+      );
+      sessionMode = 'valid';
+      const recovered = await app.inject({ method: 'GET', url: url + '/' + operationId });
+      expect(recovered.statusCode).toBe(200);
+      expect(recovered.headers['cache-control']).toBe('private, no-store');
+      expect(recovered.json()).toMatchObject({ operationId, jobId: input.id });
+      expect(recovered.body).not.toMatch(/private-import|Private fixture|requestHash|claimToken/);
+      expect(
+        (await app.inject({ method: 'GET', url: base + '/' + input.id })).json(),
+      ).toMatchObject({ state: 'QUEUED' });
+      expect(starts).toBe(0);
     });
     it('waits for native approval before STARTING and keeps the original plan and nonce for first dispatch', async () => {
       const input = runtimeImportInput();

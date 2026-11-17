@@ -4,7 +4,12 @@ import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
-import { importJobId, importKindInput, importResultsInput } from './domain.js';
+import {
+  importJobId,
+  importKindInput,
+  importResultsInput,
+  importResumptionInput,
+} from './domain.js';
 import { legacyImportInputSchema } from './preparation.js';
 import { legacyOrderImportService, type LegacyOrderImportRegistrationOptions } from './service.js';
 export { legacyOrderImportService, type LegacyOrderImportRegistrationOptions } from './service.js';
@@ -96,5 +101,29 @@ export function registerLegacyOrderImports(
       .header('Cache-Control', 'private, no-store')
       .send(await respond(request, () => service.cancel(user, jobId)));
   });
+  app.post(base + '/:jobId/resumptions', trace('resume'), async (request, reply) => {
+    empty.parse(request.query);
+    const user = await session(request),
+      { jobId } = importJobId.parse(request.params),
+      { operationId } = importResumptionInput.parse(request.body);
+    return reply
+      .header('Cache-Control', 'private, no-store')
+      .code(202)
+      .send(await respond(request, () => service.resume(user, jobId, operationId, request.id)));
+  });
+  app.get(
+    base + '/:jobId/resumptions/:operationId',
+    trace('resume-read'),
+    async (request, reply) => {
+      empty.parse(request.query);
+      const user = await session(request),
+        { jobId, operationId } = importJobId
+          .extend({ operationId: z.uuid() })
+          .parse(request.params);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(await respond(request, () => service.readResumption(user, jobId, operationId)));
+    },
+  );
   return service;
 }

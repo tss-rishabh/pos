@@ -15,6 +15,7 @@ import {
 } from './financial-contracts.js';
 import { prepareLegacyOrderImport } from './preparation.js';
 import type { legacyOrderImportHistory, LegacyOrderImportHistoryAnchor } from './history.js';
+import { importResumptions } from './resumptions.js';
 import {
   importDigest,
   openImportGroup,
@@ -584,6 +585,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         return jobDto({ ...job, state: 'QUEUED', claimToken: null });
       });
     },
+    ...importResumptions(db, options.secret, now, owned),
     async detail(actor: string, id: string) {
       return readOwned(
         actor,

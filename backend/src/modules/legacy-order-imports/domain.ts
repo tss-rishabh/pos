@@ -85,3 +85,7 @@ export const importPreviewSchema = z
   .strict();
 export type ImportJobDto = z.infer<typeof importJobSchema>;
 export type ImportResultDto = z.infer<typeof importResultSchema>;
+export const importResumptionInput = z.object({ operationId: z.uuid() }).strict();
+export const importResumptionSchema = z
+  .object({ operationId: z.uuid(), jobId: z.uuid(), acceptedAt: timestamp })
+  .strict();
