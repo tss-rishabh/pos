@@ -15,7 +15,7 @@ from contextvars import ContextVar
 from contextlib import contextmanager
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from origin_contracts import UUID,canonical,digest,fail
-from legacy_staff import key,database,authenticated,actor,scope,one,rows
+from legacy_staff import key,database,authenticated,actor,scope,one,rows,assert_request_epoch
 from writer_protocol import portable_hash
 
 ACTIVE=ContextVar('screening_legacy_original_request',default=None)
@@ -67,8 +67,9 @@ def original_request(function):
         from django.http import HttpResponse,JsonResponse
         secret=key();alias,connection=database();now=int(time.time()*1000)
         origin,actor_id,session_hash,_mpos=authenticated(request,secret,now)
+        if request.META.get('HTTP_X_TSS_SCREENING_ACTOR')!=actor_id:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
         with transaction.atomic(using=alias),connection.cursor() as cursor:
-            actor(cursor,actor_id,secret)
+            native,_identity=actor(cursor,actor_id,secret);assert_request_epoch(request,native,origin)
             prior=work(cursor,command,secret)
             if prior is not None:
                 row,value=prior
@@ -197,6 +198,9 @@ def defer_helper(name,original):
 
 
 def install(namespace):
+    from django.contrib.auth.signals import user_logged_in
+    from legacy_staff import record_login
+    user_logged_in.connect(record_login,dispatch_uid='screening-origin.original-django-login',weak=False)
     for name in ('AjaxOrderView','AjaxFastCheckoutView'):
         namespace[name].post=original_request(namespace[name].post)
     helpers=namespace['Helpers']

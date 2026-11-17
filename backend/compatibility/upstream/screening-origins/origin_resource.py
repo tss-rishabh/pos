@@ -4,7 +4,8 @@ import json
 from sqlalchemy import text
 from origin_contracts import PROOF,UUID,canonical,digest,fingerprint,identifier,fail
 from origin_auth import source_origin,authority_hash
-from origin_ledger import insert,read,creation,projection
+from origin_ledger import insert,read,save as save_command,creation,projection
+from native import rows
 from origin_frame import request_hash,namespace,cart_native_hash,tickets
 import origin_history
 
@@ -75,7 +76,6 @@ class OriginCommands:
                     _native,principal,_grant=source_origin(req,session,self.owner.key,self.owner.clock(),value['origin'])
                     current=read(session,value['id'],value['customerId'],self.owner.key)
                     if current!=value or authority_hash(self.owner.key,principal)!=value['authorityHash'] or cart_native_hash(session,namespace(principal,req))!=value['cartHash']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
-                    previous=session.execute(text('SELECT data,proof_hash FROM pos_rewrite_screening_origin_histories WHERE command_id=:id FOR UPDATE'),{'id':value['id']}).mappings().first()
                     origin_history.save(session,value,document,self.owner.key,self.owner.clock())
             return response(resp,{'commandId':value['id'],'phase':value['phase'],'orderId':None,'prepared':True,'expiresAt':value['expiresAt']})
         finally:req.context.clear();req.context.update(original)
@@ -93,3 +93,31 @@ class OriginCommands:
                 proof=creation(session,value,self.owner.key);projection(session,value)
                 result['result']={'order':int(proof['orderId']),'method':proof['method'],'isValid':True,'name':'placed_order'}
             response(resp,result)
+    def close(self,req,resp,command_id):
+        if not UUID.fullmatch(command_id) or req.context.get('data') not in (None,{}):fail('SCREENING_ORIGIN_REQUEST_INVALID')
+        key=self.owner.key
+        with self.owner.sessions() as session,session.begin():
+            session.connection(execution_options={'isolation_level':'READ COMMITTED'})
+            _native,principal,_grant=source_origin(req,session,key,self.owner.clock(),req.get_header('X-TSS-Screening-Origin') or 'customer')
+            value=read(session,command_id,principal['customerId'],key)
+            if value is None or value['origin']!=principal['origin'] or any(value[name]!=principal[name] for name in ('actorId','storeId','counterId')):fail('SCREENING_ORIGIN_SCOPE_CHANGED')
+            if value['phase']=='REJECTED':return response(resp,{'commandId':command_id,'phase':'REJECTED','noFinancialEffects':True,'closureHash':value['closureHash']})
+            if value['phase']!='PREPARED' or value['orderId'] is not None:fail('SCREENING_ORIGIN_CANNOT_CLOSE')
+            # This lock is the dispatch fence, not an absence heuristic. Every
+            # selected source body must own this same customer/command before
+            # any Order write and atomically retains its immutable creation.
+            for table in ('pos_rewrite_screening_origin_creations','pos_rewrite_screening_origin_payments','pos_rewrite_screening_origin_effects'):
+                if rows(session,'SELECT command_id FROM '+table+' WHERE command_id=:id FOR SHARE',{'id':command_id},2):fail('SCREENING_ORIGIN_CANNOT_CLOSE')
+            now=self.owner.clock();proof={'contract':'pos-screening-origin-closure-v1','commandId':command_id,'origin':value['origin'],
+                'customerId':value['customerId'],'requestHash':value['requestHash'],'cartHash':value['cartHash'],'authorityHash':value['authorityHash'],
+                'code':'SCREENING_ORIGIN_OWNER_CLOSED_NO_ORDER','noFinancialEffects':True,'createdAt':now}
+            closure=digest(key,'closure',proof)
+            session.execute(text('INSERT INTO pos_rewrite_screening_origin_closures(command_id,data,proof_hash) VALUES(:id,:data,:proof)'),
+                {'id':command_id,'data':canonical(proof),'proof':closure})
+            save_command(session,{**value,'phase':'REJECTED','closureHash':closure},key,now)
+        response(resp,{'commandId':command_id,'phase':'REJECTED','noFinancialEffects':True,'closureHash':closure})
+
+
+class OriginClose:
+    def __init__(self,commands):self.commands=commands
+    def on_post(self,req,resp,command_id):return self.commands.close(req,resp,command_id)

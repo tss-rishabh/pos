@@ -7,6 +7,7 @@ import copy
 import hashlib
 import hmac
 import json
+import re
 from sqlalchemy import text
 from origin_contracts import digest,canonical,identifier,fail,UUID,HASH,point
 from native import one,rows,json_value
@@ -41,7 +42,11 @@ def source_customer(req,session,key,now):
 def staff_identity(session,actor_id,key):
     actor=one(session,'SELECT id,password,role,user_type,is_active FROM pos_user WHERE id=:id FOR SHARE',{'id':identifier(actor_id)})
     if actor['is_active']!=1 or int(actor['role']) not in (1,2,3,4,5) or int(actor['user_type']) not in (1,2):fail('SCREENING_ORIGIN_STAFF_REVOKED')
-    return actor,digest(key,'staff-identity',{name:actor[name] for name in ('id','password','role','user_type','is_active')})
+    epochs=rows(session,'SELECT CAST(epoch AS CHAR) AS epoch FROM pos_rewrite_operator_auth_epochs WHERE operator_id=:id FOR SHARE',{'id':str(actor['id'])},2)
+    epoch='0' if not epochs else epochs[0]['epoch']
+    if not isinstance(epoch,str) or not re.fullmatch(r'0|[1-9][0-9]{0,19}',epoch) or int(epoch)>18446744073709551615:fail('SCREENING_ORIGIN_STAFF_REVOKED')
+    actor['authEpoch']=epoch
+    return actor,digest(key,'staff-identity',{name:actor[name] for name in ('id','password','role','user_type','is_active','authEpoch')})
 
 def staff_scope(session,actor,store_id,counter_id):
     store_id,counter_id=identifier(store_id),identifier(counter_id)
@@ -82,7 +87,10 @@ def staff_grant(session,req,customer_id,key,now):
     if locked['revoked']!=0 or json_value(locked['data'])!=grant or locked['proof_hash']!=hint['proof_hash'] or identity!=grant['identityHash']:fail('SCREENING_ORIGIN_STAFF_REVOKED')
     return grant
 
-def authority_hash(key,value):return digest(key,'authority',value)
+def authority_hash(key,value):
+    # A renewed short-lived grant is not a new original actor/session. Its
+    # current native receipt is still independently checked on every attempt.
+    return digest(key,'authority',{name:item for name,item in value.items() if name!='grantId'})
 
 def source_origin(req,session,key,now,origin):
     # A staff token never substitutes for the customer's original source JWT.

@@ -9,6 +9,7 @@ import hashlib
 import hmac
 import json
 import os
+import time
 from contextvars import ContextVar
 from types import SimpleNamespace
 from sqlalchemy import text
@@ -96,6 +97,24 @@ class Cache:
             # Conditional and arithmetic Redis writes affect the source result.
             # They cannot be guessed or replayed as ordinary deferred writes.
             if name=='set' and (kwargs.get('nx') or kwargs.get('xx')):unsafe('SCREENING_ORIGIN_CACHE_UNQUALIFIED')
+            if name=='set' and self.name=='payment_redis_object' and len(args)==2 and isinstance(args[0],str) and args[0].startswith('txn_lock_'):
+                from origin_frame import CURRENT_ORIGIN
+                current=CURRENT_ORIGIN.get()
+                if (current is None or args[0]!='txn_lock_'+current.value['customerId'] or set(kwargs)!={'ex'}
+                        or type(kwargs['ex']) is not int or not 1<=kwargs['ex']<=86400 or args[1] not in (1,'1')):unsafe('SCREENING_ORIGIN_CACHE_UNQUALIFIED')
+                # This is the original synchronous lock acquisition, atomically
+                # tagged with its real source command. Later Go cache effects
+                # may compare this owner and cannot overwrite a newer cart.
+                lua="""local owner=redis.call('GET',KEYS[2]);
+if redis.call('EXISTS',KEYS[1])==1 and owner~=ARGV[1] then return 0 end;
+redis.call('SET',KEYS[1],ARGV[2],'EX',ARGV[3]);
+redis.call('SET',KEYS[2],ARGV[1],'EX',ARGV[3]);return 1"""
+                try:acquired=self.original.eval(lua,2,args[0],'txn_lock_owner_'+current.value['customerId'],current.value['id'],str(args[1]),kwargs['ex'])
+                except Exception:unsafe('SCREENING_ORIGIN_TRANSACTION_LOCK_UNCERTAIN')
+                if type(acquired) is not int or acquired!=1:unsafe('SCREENING_ORIGIN_TRANSACTION_LOCK_CHANGED')
+                append({'kind':'cache-acquisition','commandId':current.value['id'],'customerId':current.value['customerId'],
+                        'expiresAt':int(time.time()*1000)+kwargs['ex']*1000})
+                return True
             append({'kind':'cache','alias':self.name,'method':name,'args':list(args),'kwargs':kwargs})
             return True
         return capture
@@ -150,6 +169,7 @@ def dispatch(sessions,command_id,key,registry,clock):
             elif effect['kind']=='cache':receipt=registry.cache(effect,effect_id)
             elif effect['kind']=='cart':receipt=registry.cart(effect,effect_id)
             elif effect['kind']=='membership-cache':receipt=registry.membership_cache(effect,effect_id)
+            elif effect['kind']=='cache-acquisition':receipt={'id':effect_id,'accepted':True}
             else:fail('SCREENING_ORIGIN_EFFECT_UNQUALIFIED')
             if not isinstance(receipt,dict) or set(receipt)!={'id','accepted'} or receipt['accepted'] is not True or not isinstance(receipt['id'],str) or not 1<=len(receipt['id'])<=128:fail()
         except Exception:

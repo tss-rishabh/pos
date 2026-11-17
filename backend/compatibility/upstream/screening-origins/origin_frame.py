@@ -132,13 +132,19 @@ class Frame:
         self.transaction=self.session.begin()
         self.connection=self.session.connection(execution_options={'isolation_level':'READ COMMITTED'})
         if self.connection.get_isolation_level()!='READ COMMITTED':fail()
-        origin=self.req.get_header('X-TSS-Screening-Origin') or 'customer'
-        self.customer,self.principal,self.grant=source_origin(self.req,self.session,self.owner.key,self.owner.clock(),origin)
+        from origin_system import ACTIVE as SYSTEM
+        self.system=SYSTEM.get()
+        origin='external-system' if self.system is not None else (self.req.get_header('X-TSS-Screening-Origin') or 'customer')
+        if self.system is not None:
+            if self.kind!='customer':fail('SCREENING_ORIGIN_SERVICE_REQUIRED')
+            self.customer,self.principal,self.grant=self.system.authorize(self.session,self.req)
+        else:self.customer,self.principal,self.grant=source_origin(self.req,self.session,self.owner.key,self.owner.clock(),origin)
         self.command_id=self.req.get_header(HEADER_NAME)
         if not isinstance(self.command_id,str) or not UUID.fullmatch(self.command_id):fail('SCREENING_ORIGIN_COMMAND_REQUIRED')
         self.value=read(self.session,self.command_id,self.principal['customerId'],self.owner.key)
         if self.value is None:fail('SCREENING_ORIGIN_COMMAND_REQUIRED')
         if self.value['origin']!=origin:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
+        if self.system is not None:self.system.assert_running(self.session,self.value)
         if self.value['phase'] in ('BOUND','COUNTED'):
             self.previous=creation(self.session,self.value,self.owner.key)
             projection(self.session,self.value)
@@ -147,11 +153,14 @@ class Frame:
         if self.value['phase']!='PREPARED' or self.value['expiresAt']<=self.owner.clock():fail('SCREENING_ORIGIN_EXPIRED')
         if (self.value['authorityHash']!=authority_hash(self.owner.key,self.principal) or self.value['requestHash']!=request_hash(self.req)
                 or any(self.value[name]!=self.principal[name] for name in ('actorId','customerId','storeId','counterId'))):fail('SCREENING_ORIGIN_SCOPE_CHANGED')
-        self.namespace=namespace(self.principal,self.req)
-        if fingerprint(self.owner.key,'namespace',self.namespace)!=self.value['namespaceHash'] or cart_native_hash(self.session,self.namespace)!=self.value['cartHash']:fail('SCREENING_ORIGIN_CART_CHANGED')
+        self.namespace=self.system.namespace() if self.system is not None else namespace(self.principal,self.req)
+        actual_cart_hash=self.system.cart_hash() if self.system is not None else cart_native_hash(self.session,self.namespace)
+        if fingerprint(self.owner.key,'namespace',self.namespace)!=self.value['namespaceHash'] or actual_cart_hash!=self.value['cartHash']:fail('SCREENING_ORIGIN_CART_CHANGED')
         # The current materialized counter/trigger coverage is checked before
         # source mutation; this reader never scans historical orders/HP rows.
         snapshot=read_current(self.session,self.value['customerId'])
+        from origin_assets_guard import membership
+        self.member_before=membership(self.session,self.customer['email'])
         self.contexts.enter_context(writer_entry(self.session,self.value['customerId']))
         self.savepoint=self.session.begin_nested()
         self.token=CURRENT_ORIGIN.set(self);self.effect_token=EFFECTS.set(self.effects)
@@ -175,13 +184,14 @@ class Frame:
         # Every source persist is captured and can never COMMIT cart/order rows.
         from middleware.CartMiddleware import CartFactory,PosCartFactory
         factory=PosCartFactory if self.kind=='pos' else CartFactory
-        if self.kind=='pos':
+        if self.system is not None:cart=self.system.cart;cart.context=self.req.context
+        elif self.kind=='pos':
             cart=factory.instantiate(None,self.user,self.req.context,store_id=self.value['storeId'],is_pos=True)
         else:
             data=self.req.context['data'];cart=factory.instantiate(None,self.user,self.req.context,is_hyperlocal=bool(data.get('is_hyperlocal')),
                 is_split_order=bool(data.get('is_split_order')),is_express=bool(data.get('is_express')))
         self.cart=cart;self.req.context['cart']=cart
-        cart.persist_handler=self.capture_cart
+        if self.system is None or cart.persist_handler is not None:cart.persist_handler=self.capture_cart
         return True
     def capture_cart(self,value):
         # Keep the last source persist, preserving the original final cart.
@@ -196,6 +206,8 @@ class Frame:
                     or self.grant['expiresAt']<=self.owner.clock()):fail('SCREENING_ORIGIN_STAFF_REVOKED')
             data=req.context['data']
             if str(data.get('store_id'))!=self.value['storeId'] or str(data.get('counter_id'))!=self.value['counterId']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
+            operators=rows(self.session,'SELECT id FROM users WHERE pos_admin_id=:actor AND status=1 AND COALESCE(is_block,0)=0 AND COALESCE(is_disabled,0)=0 ORDER BY id LIMIT 2 FOR SHARE',{'actor':self.value['actorId']},3)
+            if len(operators)!=1 or str(operators[0]['id'])!=str(data.get('admin_user_id')):fail('SCREENING_ORIGIN_OPERATOR_CUSTOMER_CHANGED')
         from screening_counter import read_current
         with origin_history.trusted_native():
             self.value=reserve(self.session,self.value,self.owner.key,self.owner.legacy_key,read_current(self.session,self.value['customerId']),self.owner.clock())
@@ -210,8 +222,10 @@ class Frame:
                 or result['isValid'] is not True or result['name']!='placed_order' or str(result['order'])!=self.order_id):fail()
         header=one(self.session,'SELECT user_id,payment_method,order_status,payment_status,'+HEADER+' AS hash,'+ALLOCATION+' AS allocationHash FROM orders WHERE id=:id FOR SHARE',{'id':self.order_id})
         if str(header['user_id'])!=self.value['customerId'] or header['payment_method']!=result['method'] or header['order_status']!=0 or header['payment_status']!=0:fail()
-        lines=rows(self.session,'SELECT id,prod_id,qty,sub_prod_id,'+LINE+' AS hash FROM has_products WHERE order_id=:id ORDER BY id LIMIT 1001',{'id':self.order_id},1002)
+        lines=rows(self.session,'SELECT id,prod_id,qty,sub_prod_id,gv_id,'+LINE+' AS hash FROM has_products WHERE order_id=:id ORDER BY id LIMIT 1001',{'id':self.order_id},1002)
         if not 1<=len(lines)<=1000:fail('SCREENING_ORIGIN_LINE_LIMIT')
+        from origin_assets_guard import no_new_assets
+        no_new_assets(self,lines)
         ticket=[{'id':str(row['id']),'quantity':row['qty']} for row in lines if str(row['prod_id'])=='390238']
         markers=rows(self.session,'SELECT id,has_product_id,user_id FROM spiderman_screening_orders FORCE INDEX(idx_order_id) WHERE order_id=:id ORDER BY id LIMIT 3',{'id':self.order_id},4)
         if len(markers)!=self.value['markerRows'] or any(str(row['user_id'])!=self.value['customerId'] for row in markers):fail()
@@ -225,6 +239,7 @@ class Frame:
             'lines':[{'id':str(row['id']),'productId':str(row['prod_id']),'quantity':row['qty'],'inputHash':row['hash']} for row in lines],
             'ticketLines':ticket,'markers':[{'id':str(row['id']),'lineId':str(row['has_product_id'])} for row in markers],
             'lineItemsEnabled':self.value['lineItemsEnabled'],'effectsHash':effects_hash,'sourceCommit':SOURCE,'createdAt':now}
+        if self.system is not None:proof['systemAuthorityHash']=self.system.system_authority_hash
         seal=digest(self.owner.key,'creation',proof)
         self.session.execute(text('INSERT INTO pos_rewrite_screening_origin_creations(command_id,order_id,data,proof_hash) VALUES(:id,:order,:data,:proof)'),
                              {'id':self.value['id'],'order':self.order_id,'data':canonical(proof),'proof':seal})
@@ -272,6 +287,7 @@ class OriginRuntime:
         if key==legacy_key:fail('SCREENING_ORIGIN_KEY_REQUIRED')
         self.sessions,self.key,self.legacy_key,self.line_items,self.clock=sessions,key,legacy_key,line_items,clock
         self.history_provider=history_provider
+        self.member_product_ids=set()
     def order(self,req,resp,kind,call):
         frame=Frame(self,req,kind)
         failure=None

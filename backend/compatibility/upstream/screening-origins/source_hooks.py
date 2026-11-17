@@ -55,6 +55,8 @@ def legacy_changes(root):
         return screening_payment(self.request, auth_token, payload, url)''')
     value=before+'class AjaxOrderView('+prefix+method+remaining+'class AjaxOrderCancelView('+after
     value+='\nfrom pos_screening_origin_legacy import install as _install_screening_origins\n_install_screening_origins(globals())\n'
+    value=value.replace('"show_customer_insights": _customer_insights_enabled(store_id),',
+        '"show_customer_insights": _customer_insights_enabled(store_id),\n            "screening_origin_enabled": __import__("pos_screening_origin_legacy").selected(),')
     changes[path]=(original,value)
     path='users/views.py';original=(root/path).read_text();value=original
     before,body=value.split('class MPosLogin(View):',1);login,after=body.split('class AuthQRGen(',1)
@@ -86,6 +88,32 @@ def legacy_changes(root):
     changes[path]=(original,value)
     entry='''"""Selected-only original legacy authority/nonce hooks."""\nimport os\nimport sys\nfrom pathlib import Path\ndef selected():return os.environ.get('POS_SCREENING_ORIGIN_CONTRACT')=='pos-screening-origins-v1'\ndef modules():\n    root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()\n    for name in ('public-screening-writer','screening-origins'):sys.path.insert(0,str(root/name))\ndef install(namespace):\n    if selected():\n        modules()\n        from legacy_execution import install as apply\n        apply(namespace)\ndef authenticated_mpos(request,response,user):\n    if not selected():return response\n    modules()\n    from legacy_staff import after_mpos_authentication\n    return after_mpos_authentication(request,response,user)\ndef revoke(actor_id):\n    if selected():\n        modules()\n        from legacy_staff import revoke_actor\n        revoke_actor(actor_id)\ndef order_headers(*args,**kwargs):\n    if not selected():return {}\n    modules()\n    from legacy_client import headers\n    return headers(*args,**kwargs)\ndef original_response(*args,**kwargs):\n    modules()\n    from legacy_client import response\n    return response(*args,**kwargs)\ndef command_created(*args):\n    if selected():\n        modules()\n        from legacy_execution import command_created as created\n        return created(*args)\ndef payment(request,token,body,url):\n    if not selected():\n        import requests\n        return requests.post(url,json=body,headers={'Content-Type':'application/json','Authorization':token})\n    modules()\n    from legacy_client import payment as submit\n    return submit(request,token,body,url)\n'''
     changes['pos_screening_origin_legacy.py']=('',entry)
+    path='order/urls.py';original=(root/path).read_text()
+    value=original+'\nfrom pos_screening_origin_legacy import selected as _screening_origins_selected\nif _screening_origins_selected():\n    from pos_screening_origin_legacy import modules as _screening_origin_modules\n    _screening_origin_modules()\n    from legacy_resources import urls as _screening_origin_urls\n    urlpatterns += _screening_origin_urls()\n'
+    changes[path]=(original,value)
+    path='order/templates/order/create_order.html';original=(root/path).read_text()
+    mount='''{% if screening_origin_enabled %}
+<script type="module">
+import {installLegacyScreeningNonce} from "{% static 'pos-screening-origins/legacy-nonce.mjs' %}";
+let controller;
+const panel=document.createElement('aside');panel.hidden=true;panel.setAttribute('role','status');
+const text=document.createElement('span'),check=document.createElement('button'),done=document.createElement('button');
+check.type='button';check.textContent='Check screening command';done.type='button';done.textContent='Acknowledge completed command';
+panel.append(text,check,done);document.body.prepend(panel);
+function display(value){panel.hidden=false;text.textContent='Screening command '+String(value.commandId||'')+': '+String(value.state||'verification required')+' ';done.hidden=!['complete','cash-completed'].includes(value.state);}
+controller=installLegacyScreeningNonce({jquery:window.jQuery,
+ currentScope:()=>({actorId:'{{ request.user.id|escapejs }}',storeId:'{{ store_id|escapejs }}',counterId:'{{ counter_id|escapejs }}',tabId:'{{ tab_id|escapejs }}'}),
+ containsScreening:()=>!!document.getElementById('tr-product-390238'),
+ recoveryPath:(id)=>"{% url 'screening-command-recovery' '00000000-0000-0000-0000-000000000000' %}".replace('00000000-0000-0000-0000-000000000000',id),showRecovery:display});
+controller.registerPaths(["{% url 'ajax-order' %}","{% url 'ajax-fast-checkout' %}"]);
+check.addEventListener('click',()=>controller.recover().catch(()=>display({state:'verification required'})));
+done.addEventListener('click',()=>{controller.acknowledgeComplete();panel.hidden=true;});
+</script>
+{% endif %}
+'''
+    value=once(original,'{% endblock custom-script %}',mount+'{% endblock custom-script %}')
+    changes[path]=(original,value)
+    changes['static/pos-screening-origins/legacy-nonce.mjs']=('',(Path(__file__).parent/'legacy-nonce.mjs').read_text())
     return changes
 
 

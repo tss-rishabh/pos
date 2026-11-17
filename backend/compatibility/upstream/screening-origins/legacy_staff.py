@@ -13,6 +13,7 @@ from origin_contracts import CONTRACT,UUID,canonical,digest,identifier,fail
 from writer_protocol import portable_hash
 
 COOKIE='tss_screening_mpos'
+LOGIN_EPOCH='_screening_original_auth_epoch'
 
 
 def database():
@@ -24,7 +25,14 @@ def database():
 
 def key():
     if os.environ.get('POS_SCREENING_ORIGIN_CONTRACT')!=CONTRACT:fail('SCREENING_ORIGIN_UNAVAILABLE')
-    value=os.environ.get('POS_SCREENING_ORIGIN_PROOF_KEY','');digest(value,'ready',None);return value
+    value=os.environ.get('POS_SCREENING_ORIGIN_PROOF_KEY','');digest(value,'ready',None)
+    others=('POS_LEGACY_IMPORT_PROOF_KEY','POS_PUBLIC_SCREENING_NEGATIVE_KEY','POS_MEMBERSHIP_PROOF_KEY',
+            'TSS_POS_CUSTOMER_CONTEXT_KEY','POS_LEGACY_IMPORT_KEY','POS_PUBLIC_SCREENING_PUBLICATION_KEY',
+            'POS_SCREENING_ORIGIN_HISTORY_CAPTURE_KEY','POS_SCREENING_ORIGIN_HISTORY_PUBLICATION_KEY')
+    if any(value==os.environ.get(name) for name in others):fail('SCREENING_ORIGIN_KEY_REQUIRED')
+    from django.conf import settings
+    if value in (settings.SECRET_KEY,getattr(settings,'SECRET_KEY_512',None)):fail('SCREENING_ORIGIN_KEY_REQUIRED')
+    return value
 
 
 def rows(cursor,sql,params=()):
@@ -43,7 +51,26 @@ def one(cursor,sql,params=()):
 def actor(cursor,actor_id,secret):
     value=one(cursor,'SELECT id,password,role,user_type,is_active FROM pos_user WHERE id=%s FOR SHARE',(identifier(actor_id),))
     if value['is_active']!=1 or int(value['role']) not in (1,2,3,4,5) or int(value['user_type']) not in (1,2):fail('SCREENING_ORIGIN_STAFF_REVOKED')
-    return value,digest(secret,'staff-identity',{name:value[name] for name in ('id','password','role','user_type','is_active')})
+    epochs=rows(cursor,'SELECT CAST(epoch AS CHAR) AS epoch FROM pos_rewrite_operator_auth_epochs WHERE operator_id=%s FOR SHARE',(str(value['id']),))
+    epoch='0' if not epochs else epochs[0]['epoch']
+    if not isinstance(epoch,str) or not re.fullmatch(r'0|[1-9][0-9]{0,19}',epoch) or int(epoch)>18446744073709551615:fail('SCREENING_ORIGIN_STAFF_REVOKED')
+    value['authEpoch']=epoch
+    return value,digest(secret,'staff-identity',{name:value[name] for name in ('id','password','role','user_type','is_active','authEpoch')})
+
+
+def assert_request_epoch(request,native,origin):
+    if origin=='legacy-django' and request.session.get(LOGIN_EPOCH)!=native['authEpoch']:fail('SCREENING_ORIGIN_LOGIN_REFRESH_REQUIRED')
+
+
+def record_login(sender,request,user,**_kwargs):
+    # Called only by Django's real successful login signal. Rotate its genuine
+    # session so a fresh login cannot collide with an old revoked native grant.
+    from django.db import transaction
+    secret=key();alias,connection=database()
+    with transaction.atomic(using=alias),connection.cursor() as cursor:
+        native,_identity=actor(cursor,user.id,secret)
+        if not hmac.compare_digest(native['password'],user.password):fail('SCREENING_ORIGIN_AUTH_NAMESPACE_CHANGED')
+    request.session.cycle_key();request.session[LOGIN_EPOCH]=native['authEpoch']
 
 
 def scope(cursor,value,store_id,counter_id):
@@ -98,6 +125,9 @@ def after_mpos_authentication(request,response,user):
         cursor.execute('INSERT INTO pos_rewrite_screening_origin_sessions(id,origin,actor_id,session_hash,data,proof_hash,revoked) VALUES(%s,%s,%s,%s,%s,%s,0)',
                        (record['id'],'mpos',record['actorId'],record['sessionHash'],canonical(record),digest(secret,'mpos-session',record)))
     response.set_cookie(COOKIE,record['id'],max_age=3600,secure=True,httponly=True,samesite='Strict',path='/')
+    original=json.loads(response.content)
+    original['screeningActorId']=record['actorId']
+    response.content=json.dumps(original)
     response['Cache-Control']='no-store'
     return response
 
@@ -123,6 +153,8 @@ def issue(request,customer_token,payload,params=None,_creation=None):
     import jwt
     secret=key();now=int(time.time()*1000)
     origin,actor_id,session_hash,session_record=authenticated(request,secret,now)
+    captured=request.META.get('HTTP_X_TSS_SCREENING_ACTOR')
+    if captured is None or str(captured)!=actor_id:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
     try:
         two=customer_token.startswith('2f.')
         claims=jwt.decode(customer_token[3:] if two else customer_token,
@@ -137,6 +169,7 @@ def issue(request,customer_token,payload,params=None,_creation=None):
     if not checked or str(checked[0])!=store:fail('SCREENING_ORIGIN_STAFF_REVOKED')
     with transaction.atomic(using=alias),connection.cursor() as cursor:
         native,identity=actor(cursor,actor_id,secret);scope(cursor,native,store,counter)
+        assert_request_epoch(request,native,origin)
         if origin=='legacy-django' and not hmac.compare_digest(native['password'],request.user.password):fail('SCREENING_ORIGIN_AUTH_NAMESPACE_CHANGED')
         if origin=='legacy-django':
             session_id=str(NativeUUID(bytes=bytes.fromhex(session_hash[:32]),version=4))
@@ -187,6 +220,6 @@ def revoke_actor(actor_id):
     alias,connection=database()
     secret=key()
     with transaction.atomic(using=alias),connection.cursor() as cursor:
-        native,_identity=actor(cursor,actor_id,secret)
-        cursor.execute('UPDATE pos_rewrite_screening_origin_staff_grants SET revoked=1 WHERE actor_id=%s',(native['id'],))
-        cursor.execute('UPDATE pos_rewrite_screening_origin_sessions SET revoked=1 WHERE actor_id=%s',(native['id'],))
+        cursor.execute('SELECT id FROM pos_user WHERE id=%s FOR UPDATE',(identifier(actor_id),));cursor.fetchall()
+        cursor.execute('UPDATE pos_rewrite_screening_origin_staff_grants SET revoked=1 WHERE actor_id=%s',(actor_id,))
+        cursor.execute('UPDATE pos_rewrite_screening_origin_sessions SET revoked=1 WHERE actor_id=%s',(actor_id,))

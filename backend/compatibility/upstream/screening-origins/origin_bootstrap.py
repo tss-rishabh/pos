@@ -14,7 +14,7 @@ from types import SimpleNamespace
 from sqlalchemy import event
 from origin_contracts import CONTRACT,OriginReview,digest,fail,unsafe
 from origin_frame import (CURRENT_ORIGIN,OriginRuntime,Frame,after_original_auth,after_order_insert,install)
-from origin_resource import OriginCommands
+from origin_resource import OriginCommands,OriginClose
 from origin_effects import ACTIVE as EFFECTS,Tasks,Task,Cache
 from source_runtime import SilentLogger,SOURCE_REDIS_ALIASES
 from transaction import CURRENT,PrivateSessionProxy,guard_private_commit,guard_private_statement,normalize_source_sentinels
@@ -26,7 +26,11 @@ def options(environment):
     if selected!=CONTRACT:fail('SCREENING_ORIGIN_UNAVAILABLE')
     key=environment.get('POS_SCREENING_ORIGIN_PROOF_KEY','')
     digest(key,'ready',None)
-    others=[environment.get(name) for name in ('POS_LEGACY_IMPORT_PROOF_KEY','POS_PUBLIC_SCREENING_NEGATIVE_KEY','POS_MEMBERSHIP_PROOF_KEY') if environment.get(name)]
+    others=[environment.get(name) for name in (
+        'POS_LEGACY_IMPORT_PROOF_KEY','POS_PUBLIC_SCREENING_NEGATIVE_KEY','POS_MEMBERSHIP_PROOF_KEY',
+        'TSS_POS_CUSTOMER_CONTEXT_KEY','POS_LEGACY_IMPORT_KEY','POS_PUBLIC_SCREENING_PUBLICATION_KEY',
+        'POS_SCREENING_ORIGIN_HISTORY_CAPTURE_KEY','POS_SCREENING_ORIGIN_HISTORY_PUBLICATION_KEY',
+    ) if environment.get(name)]
     if key in others:fail('SCREENING_ORIGIN_KEY_REQUIRED')
     return {'contract':selected,'key':key}
 
@@ -58,7 +62,7 @@ def patch_public_routes():
     def cached(instance,name):
         frame=CURRENT_ORIGIN.get()
         if frame is None or EFFECTS.get() is None:return old_cache(instance,name)
-        return getattr(Cache(instance.original,getattr(instance,'origin_alias','redis_object')),name)
+        return getattr(Cache(instance.original,instance.__dict__.get('origin_alias')),name)
     source_frame.RoutedCache.__getattr__=cached
     old_tasks=source_frame.RoutedTasks.__getattr__
     source_frame.RoutedTasks.__getattr__=lambda instance,name:getattr(Tasks(),name) if EFFECTS.get() is not None else old_tasks(instance,name)
@@ -83,6 +87,7 @@ class OriginBootstrap:
         self.environment=os.environ if environment is None else environment
         self.options=options(self.environment)
         self.runtime=None
+        self.system=None
     def activate(self,public_bootstrap,namespace,history_provider=None):
         if self.options is None:return self
         if public_bootstrap.middleware is None:fail('SCREENING_ORIGIN_UNAVAILABLE')
@@ -91,6 +96,10 @@ class OriginBootstrap:
             history_provider=History(self.environment['POS_SCREENING_ORIGIN_HISTORY_BRIDGE_URL'],self.options['key'],lambda:int(time.time()*1000))
         self.runtime=OriginRuntime(public_bootstrap.sessions,self.options['key'],self.environment.get('POS_LEGACY_IMPORT_PROOF_KEY',''),
                                    bool(namespace['settings'].IS_LINE_ITEM_ENABLED),lambda:int(time.time()*1000),history_provider)
+        if self.options['key'] in (namespace['settings'].SECRET_KEY,getattr(namespace['settings'],'SECRET_KEY_512',None)):fail('SCREENING_ORIGIN_KEY_REQUIRED')
+        for name in ('EXCLUSIVE_PRODUCT','EXCLUSIVE_UPGRADE_PRODUCT'):
+            configured=getattr(namespace['settings'],name,{})
+            if isinstance(configured,dict):self.runtime.member_product_ids.update(str(value) for value in configured if str(value).isdigit())
         install(self.runtime);patch_public_routes()
         bind=public_bootstrap.sessions.kw['bind']
         # Both are physical-engine events. RELEASE SAVEPOINT remains legal.
@@ -150,12 +159,41 @@ class OriginBootstrap:
                 unsafe('SCREENING_ORIGIN_HTTP_UNQUALIFIED')
             return original_request(instance,*args,**kwargs)
         requests.sessions.Session.request=request
+        external=importlib.import_module('controllers.external.OrderPlacement')
+        original_system=external.OrderPlacement.on_post
+        original_placement=external.place_order
+        def is_ticket(data):
+            lines=data.get('order',{}).get('line_items',[]) if isinstance(data,dict) else []
+            return any(isinstance(line,dict) and str(line.get('sku_id'))=='390238' for line in lines)
+        def guarded_system(resource,req,resp,api_key=None):
+            if is_ticket(req.context.get('data') or {}):fail('SCREENING_ORIGIN_USE_HEADER_RESOURCE')
+            return original_system(resource,req,resp,api_key)
+        def guarded_old_job(req,resp,payload,details):
+            if is_ticket(payload):fail('SCREENING_ORIGIN_USE_HEADER_RESOURCE')
+            return original_placement(req,resp,payload,details)
+        external.OrderPlacement.on_post=guarded_system;external.place_order=guarded_old_job
+        system_contract=self.environment.get('POS_SCREENING_ORIGIN_SYSTEM_CONTRACT')
+        if system_contract:
+            if system_contract!='pos-screening-origin-system-v1':fail('SCREENING_ORIGIN_SERVICE_UNQUALIFIED')
+            from origin_system import SystemOrders,SOURCE_HASH,UTILS_HASH
+            import hashlib
+            external=importlib.import_module('controllers.external.OrderPlacement')
+            utility=public_bootstrap.root/'controllers/external/external_api_utils.py'
+            if hashlib.sha256(utility.read_bytes()).hexdigest()!=UTILS_HASH:fail('SCREENING_ORIGIN_SOURCE_UNVERIFIED')
+            self.system=SystemOrders(self.runtime,vars(external),public_bootstrap.root/'controllers/external/OrderPlacement.py',SOURCE_HASH,
+                                     namespace['settings'].PAYMENT_URL+'orders')
         return self
     def register(self,app,settings):
         if self.runtime is None:return
         resource=OriginCommands(self.runtime)
         path=settings.API_PREFIX+'/screening-commands'
         app.add_route(path,resource);app.add_route(path+'/{command_id}',resource)
+        app.add_route(path+'/{command_id}/close',OriginClose(resource))
+        if self.system is not None:
+            from origin_system import SystemClose
+            system_path=settings.API_PREFIX+'/external/screening-orders'
+            app.add_route(system_path,self.system);app.add_route(system_path+'/{command_id}',self.system)
+            app.add_route(system_path+'/{command_id}/close',SystemClose(self.system))
 
 
 def static_error(error):
