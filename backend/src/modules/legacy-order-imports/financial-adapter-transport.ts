@@ -17,6 +17,7 @@ import { financialSourceHash, importFinancialError } from './financial-adapter-c
 import { assertCheckoutProjectionReady } from '../checkout/projection.js';
 import { assertRefundAllocationReady } from '../checkout/refund-allocation.js';
 import type { CsvMembershipPrefetch } from './membership-profile/bridge.js';
+import type { CsvCouponPrefetch } from './benefit-profile/bridge.js';
 import { operationHash } from '../checkout/crypto.js';
 import { financialImportHash, equalImportHash } from './financial-adapter-crypto.js';
 import {
@@ -33,6 +34,7 @@ export interface FinancialSourceCommand {
   expiresAt: number;
   /** Server-prepared warehouse evidence; never a client input or an SQL reader. */
   membershipHistory?: CsvMembershipPrefetch;
+  couponHistory?: CsvCouponPrefetch;
 }
 export interface LegacyImportFinancialTransport {
   assertReady(): void;
@@ -141,7 +143,14 @@ export function legacyImportFinancialTransport(
       orderId,
       nonce: input.nonce,
       issuedAt: input.issuedAt,
-      expiresAt: input.expiresAt,
+      expiresAt:
+        phase === 'order'
+          ? Math.min(
+              input.expiresAt,
+              input.membershipHistory?.capability.expiresAt ?? input.expiresAt,
+              input.couponHistory?.capability.expiresAt ?? input.expiresAt,
+            )
+          : input.expiresAt,
       ...(phase === 'order' &&
       'preparationContract' in input.state &&
       input.state.preparationContract
@@ -162,6 +171,18 @@ export function legacyImportFinancialTransport(
               options.sourceAuthKey ?? '',
               'membership-history',
               input.membershipHistory,
+            ),
+          }
+        : {}),
+      ...(phase === 'order' && input.state.benefitContracts
+        ? { benefitContracts: input.state.benefitContracts }
+        : {}),
+      ...(phase === 'order' && input.couponHistory
+        ? {
+            couponHistoryHash: financialSourceHash(
+              options.sourceAuthKey ?? '',
+              'coupon-history',
+              input.couponHistory,
             ),
           }
         : {}),
@@ -188,6 +209,7 @@ export function legacyImportFinancialTransport(
           capability: capability(input, 'order', null),
           plan: input.plan,
           ...(input.membershipHistory ? { membershipHistory: input.membershipHistory } : {}),
+          ...(input.couponHistory ? { couponHistory: input.couponHistory } : {}),
         },
         headers(input),
       );
@@ -251,7 +273,11 @@ export function legacyImportPreparationTransport(
   return {
     async preview(
       input: SourceOrderPreparationInput,
-      supplied: { signal: AbortSignal; membershipHistory?: CsvMembershipPrefetch },
+      supplied: {
+        signal: AbortSignal;
+        membershipHistory?: CsvMembershipPrefetch;
+        couponHistory?: CsvCouponPrefetch;
+      },
     ): Promise<SourceOrderPreview> {
       supplied.signal.throwIfAborted();
       let base: URL;
@@ -313,7 +339,28 @@ export function legacyImportPreparationTransport(
               ),
             }
           : {}),
+        ...(input.state.benefitContracts ? { benefitContracts: input.state.benefitContracts } : {}),
+        ...(supplied.couponHistory
+          ? {
+              couponHistoryHash: proof(
+                'coupon-history',
+                supplied.couponHistory,
+                options.sourceAuthKey!,
+              ),
+            }
+          : {}),
       };
+      const requestBody = stringifyNumericJson({
+        capability: {
+          ...value,
+          signature: proof('preparation-capability', value, options.sourceAuthKey!),
+        },
+        plan: input.plan,
+        ...(supplied.membershipHistory ? { membershipHistory: supplied.membershipHistory } : {}),
+        ...(supplied.couponHistory ? { couponHistory: supplied.couponHistory } : {}),
+      });
+      if (Buffer.byteLength(requestBody) > 1400000)
+        throw importFinancialError('ORDER_IMPORT_PREPARATION_INVALID');
       const response = await fetcher(
         new URL(base.href + '/' + value.operationId + '/preparation'),
         {
@@ -330,16 +377,7 @@ export function legacyImportPreparationTransport(
             'X-POS-Operator-ID': input.state.scope.actorId,
             'X-Request-ID': input.state.requestId,
           },
-          body: stringifyNumericJson({
-            capability: {
-              ...value,
-              signature: proof('preparation-capability', value, options.sourceAuthKey!),
-            },
-            plan: input.plan,
-            ...(supplied.membershipHistory
-              ? { membershipHistory: supplied.membershipHistory }
-              : {}),
-          }),
+          body: requestBody,
         },
       ).catch(() => {
         supplied.signal.throwIfAborted();
@@ -376,7 +414,11 @@ export function legacyImportPreparationTransport(
         result.issuedAt < issuedAt ||
         result.issuedAt > now ||
         now >= expiresAt ||
-        result.membershipHistoryHash !== (value.membershipHistoryHash ?? null)
+        result.membershipHistoryHash !== (value.membershipHistoryHash ?? null) ||
+        result.benefitContracts?.automaticCoupon !== value.benefitContracts?.automaticCoupon ||
+        result.benefitContracts?.complementary !== value.benefitContracts?.complementary ||
+        result.couponHistoryHash !==
+          (value.benefitContracts?.automaticCoupon ? (value.couponHistoryHash ?? null) : undefined)
       )
         throw importFinancialError('ORDER_IMPORT_PREPARATION_INVALID');
       return result;

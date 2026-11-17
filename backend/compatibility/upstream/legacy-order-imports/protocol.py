@@ -47,10 +47,18 @@ def identifier(value):
     return value
 
 
+def verify_benefit_contracts(value):
+    allowed={'automaticCoupon':'pos-csv-automatic-coupon-v1','complementary':'pos-csv-pos-complementary-v1'}
+    if (not isinstance(value,dict) or not value or set(value)-set(allowed)
+            or any(value[name]!=allowed[name] for name in value)):
+        raise ImportReview('ORDER_IMPORT_BENEFIT_CONFIGURATION_REQUIRED')
+    return value
+
+
 def verify_capability(key, supplied, operation_id, phase, plan=None, now_ms=None):
     expected = {'contract','phase','operationId','requestHash','planHash','namespace','planDigest',
                 'scope','authority','orderId','nonce','issuedAt','expiresAt','signature'}
-    optional={'correctionHash','membershipHistoryHash','preparationContract'}
+    optional={'correctionHash','membershipHistoryHash','preparationContract','couponHistoryHash','benefitContracts'}
     if (not isinstance(supplied, dict) or not expected.issubset(supplied)
             or set(supplied)-expected-optional):
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
@@ -64,11 +72,14 @@ def verify_capability(key, supplied, operation_id, phase, plan=None, now_ms=None
         not supplied['issuedAt'] <= current < supplied['expiresAt'] <= supplied['issuedAt'] + 60000):
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     scope = supplied['scope']
-    for name in ('correctionHash','membershipHistoryHash'):
+    for name in ('correctionHash','membershipHistoryHash','couponHistoryHash'):
         if name in supplied and (phase!='order' or not isinstance(supplied[name],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied[name])):
             raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     if 'preparationContract' in supplied and (phase!='order' or supplied['preparationContract']!=PREPARATION_CONTRACT):
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
+    if 'benefitContracts' in supplied:
+        if phase!='order':raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
+        verify_benefit_contracts(supplied['benefitContracts'])
     if not isinstance(scope,dict) or set(scope) != {'actorId','operationId','storeId','counterId'} or scope['operationId'] != operation_id:
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     for name in ('actorId','storeId','counterId'):
@@ -98,7 +109,7 @@ def verify_preparation(key,supplied,operation_id,plan,now_ms):
               'planDigest','authorityHash','scope','authority','issuedAt','expiresAt',
               'attemptExpiresAt','signature'}
     if (not isinstance(supplied,dict) or not expected.issubset(supplied)
-            or set(supplied)-expected-{'membershipHistoryHash'}):
+            or set(supplied)-expected-{'membershipHistoryHash','couponHistoryHash','benefitContracts'}):
         raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
     value={name:item for name,item in supplied.items() if name!='signature'}
     if (supplied['contract']!=PREPARATION_CONTRACT or supplied['purpose']!='source-cart-preview'
@@ -117,9 +128,10 @@ def verify_preparation(key,supplied,operation_id,plan,now_ms):
     for name in ('requestHash','planHash','planDigest','authorityHash'):
         if not isinstance(supplied[name],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied[name]):
             raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
-    if ('membershipHistoryHash' in supplied and
-            (not isinstance(supplied['membershipHistoryHash'],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied['membershipHistoryHash']))):
-        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    for name in ('membershipHistoryHash','couponHistoryHash'):
+        if name in supplied and (not isinstance(supplied[name],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied[name])):
+            raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    if 'benefitContracts' in supplied:verify_benefit_contracts(supplied['benefitContracts'])
     if not isinstance(plan,dict) or not hmac.compare_digest(supplied['planDigest'],digest(key,'plan',plan)):
         raise ImportReview('ORDER_IMPORT_PLAN_CHANGED')
     if (not isinstance(supplied['authority'],dict) or set(supplied['authority'])!=

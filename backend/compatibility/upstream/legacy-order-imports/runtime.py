@@ -46,9 +46,12 @@ def _create_application():
     logging.disable(logging.CRITICAL)
     sys.stdout=open(os.devnull,'w')
     sys.stderr=open(os.devnull,'w')
-    pipeline=SourceRuntime(os.environ['POS_LEGACY_IMPORT_SOURCE_ROOT'],os.environ['POS_LEGACY_IMPORT_RUNTIME_ROOT'])
+    sys.path.insert(0,str(Path(__file__).resolve().parent/'benefit-profile'))
+    from benefit_history_heads import NativeCouponHistoryHeads
+    pipeline=SourceRuntime(os.environ['POS_LEGACY_IMPORT_SOURCE_ROOT'],os.environ['POS_LEGACY_IMPORT_RUNTIME_ROOT'],
+                           benefit_heads=NativeCouponHistoryHeads(proof))
     event.listen(Session,'before_flush',normalize_source_sentinels)
-    event.listen(Session,'before_commit',guard_private_commit)
+    event.listen(engine,'commit',guard_private_commit)
     event.listen(engine,'before_cursor_execute',guard_private_statement)
     factory=sessionmaker(bind=engine,autoflush=True,expire_on_commit=False)
     with engine.connect() as connection:

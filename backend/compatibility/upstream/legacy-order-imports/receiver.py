@@ -9,7 +9,9 @@ import json
 import os
 import re
 import time
-from datetime import datetime
+import sys
+from pathlib import Path
+from datetime import datetime,date
 from zoneinfo import ZoneInfo
 from sqlalchemy import text
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -22,6 +24,8 @@ from tracing import TRUSTED_ACTOR
 from screening_transaction import owned,mark_customer
 from membership_profile import additional_lines as member_additions, replaced_lines as member_replacements, receipt as membership_receipt
 from correction_profile import CalculatedImportReview,selected as selected_correction
+
+sys.path.insert(0,str(Path(__file__).resolve().parent/'benefit-profile'))
 
 
 def seal_effects(key,operation_id,intents):
@@ -99,6 +103,23 @@ def assert_source_customer(session,capability,plan):
         raise ImportReview('ORDER_IMPORT_CUSTOMER_UNAVAILABLE')
 
 
+def source_user(native,customer_id,exclusive):
+    """Exact pinned AuthHandler projection, without its stale Redis cache.
+
+    Its cache serializes DATE with default=str; preserve that JSON-safe source
+    representation on the fresh private path. Native credentials/metadata are
+    authority inputs only, never coupon/cart payload fields.
+    """
+    names=('firstname','lastname','email','telephone','tss_money','cashback','tss_points',
+           'is_cod_enable','fb_id','gender','birthdate')
+    projected={name:native.get(name) for name in names}
+    if isinstance(projected['birthdate'],date):projected['birthdate']=str(projected['birthdate'])
+    projected.update(user_id=int(customer_id),is_exclusive=bool(exclusive),batch='A')
+    try:json.dumps(projected,allow_nan=False)
+    except (TypeError,ValueError):raise ImportReview('ORDER_IMPORT_CUSTOMER_UNAVAILABLE') from None
+    return projected
+
+
 class Receiver:
     def __init__(self,session_factory,pipeline,auth_key,proof_key,clock=None,zone='Asia/Kolkata',correction_contract=None):
         self.session_factory=session_factory
@@ -108,18 +129,24 @@ class Receiver:
         self.clock=clock or (lambda:int(time.time()*1000))
         self.zone=zone
         self.correction_contract=correction_contract
+        benefits=getattr(pipeline,'benefits',None)
+        if benefits is not None:
+            benefits.clock=self.clock;benefits.zone=self.zone
 
     def preparation(self,operation_id,body):
         from order_preparation import prepare
         return prepare(self,operation_id,body)
 
     def order(self,operation_id,body):
-        if not isinstance(body,dict) or set(body) not in ({'capability','plan'},{'capability','plan','membershipHistory'}):
+        if (not isinstance(body,dict) or not {'capability','plan'}.issubset(body)
+                or set(body)-{'capability','plan','membershipHistory','couponHistory'}):
             raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
         plan=body['plan']
         cap=verify_capability(self.auth_key,body['capability'],operation_id,'order',plan,self.clock())
         if ('membershipHistory' in body)!=('membershipHistoryHash' in cap):
             raise ImportReview('ORDER_IMPORT_MEMBERSHIP_PREFETCH_INVALID')
+        if ('couponHistory' in body)!=('couponHistoryHash' in cap):
+            raise ImportReview('ORDER_IMPORT_COUPON_PREFETCH_INVALID')
         history_key=os.environ.get('POS_LEGACY_IMPORT_MEMBERSHIP_HISTORY_KEY','')
         if 'membershipHistory' in body:
             from membership_profile import selected
@@ -140,8 +167,14 @@ class Receiver:
                 raise ImportReview('ORDER_IMPORT_MEMBERSHIP_PREFETCH_INVALID') from None
         # All parsing/signature/time checks finish before session construction.
         # Scope remains local to this invocation when WSGI threads overlap.
+        from coupon_handoff import prepared_coupon_history
+        coupon_key=os.environ.get('POS_LEGACY_IMPORT_COUPON_HISTORY_KEY','')
+        guard_key=os.environ.get('POS_LEGACY_IMPORT_COUPON_GUARD_KEY','')
+        if 'couponHistory' in body and (body['couponHistory'] is None or coupon_key==history_key and history_key):
+            raise ImportReview('ORDER_IMPORT_COUPON_PREFETCH_INVALID')
         with prepared_history(body.get('membershipHistory'),cap,self.auth_key,history_key,
-                              member_ids,self.zone,self.clock):
+                              member_ids,self.zone,self.clock), prepared_coupon_history(body.get('couponHistory'),
+                              cap,self.auth_key,coupon_key,self.proof_key,guard_key,self.zone,self.clock):
             return self._order(operation_id,body,plan,cap)
 
     def _order(self,operation_id,body,plan,cap):
@@ -155,6 +188,8 @@ class Receiver:
                     state=lock_command(session,cap,'order')
                     if state.get('preparationContract')!=cap.get('preparationContract'):
                         raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+                    if state.get('benefitContracts')!=cap.get('benefitContracts'):
+                        raise ImportReview('ORDER_IMPORT_BENEFIT_CONFIGURATION_REQUIRED')
                     verify_capability(self.auth_key,body['capability'],operation_id,'order',plan,self.clock())
                     existing=prior(session,operation_id,'order')
                     if existing:
@@ -168,18 +203,27 @@ class Receiver:
                     # cached stock result can authorize the final writer.
                     for line in sorted(plan['lines'],key=lambda row:int(row['productId'])):
                         stock=one(session,'SELECT stock,is_avail,is_del FROM product_store WHERE store_id=:store AND product_id=:product FOR UPDATE',{'store':cap['scope']['storeId'],'product':line['productId']})
-                        if stock['stock']<line['quantity'] or stock['is_avail']!=1 or stock['is_del']!=0:
+                        benefits=getattr(self.pipeline,'benefits',None)
+                        quantity=benefits.stock_quantity(session,plan,line,cap) if benefits is not None else line['quantity']
+                        if stock['stock']<quantity or stock['is_avail']!=1 or stock['is_del']!=0:
                             raise ImportReview('ORDER_IMPORT_STOCK_SHORTAGE')
-                    user={**user,'user_id':int(cap['authority']['customerId']),'batch':'A'}
                     member=rows(session,"SELECT entity FROM user_eav WHERE entity=:email AND attribute='EXCLUSIVE_MEMBER' AND is_active=1 LIMIT 1 FOR SHARE",{'email':user['email']},2)
-                    user['is_exclusive']=bool(member)
+                    user=source_user(user,cap['authority']['customerId'],bool(member))
                     effects=[]
                     token=CAPTURE.set(effects)
                     try:
-                        with selected_correction(session,state,cap,plan,self.auth_key,self.proof_key,self.correction_contract), private_session(session) as source_session:
+                        from contextlib import nullcontext
+                        benefits=getattr(self.pipeline,'benefits',None)
+                        # Set the authenticated, invocation-local tracking owner
+                        # before CURRENT. Cleanup runs after private_session has
+                        # reset CURRENT; the late validator guards actual COMMIT.
+                        with (benefits.head_scope(session,cap) if benefits is not None else nullcontext()), selected_correction(session,state,cap,plan,self.auth_key,self.proof_key,self.correction_contract), private_session(session) as source_session:
                             order_id,cart=self.pipeline.order_pipeline(source_session,user,plan,cap)
                             session.flush()
-                            header,lines,line_hash,payable=native_order(session,int(order_id),plan,cap,member_additions(cart),member_replacements(cart))
+                            if benefits is not None:
+                                header,lines,line_hash,payable=benefits.native(session,int(order_id),plan,cap,cart,member_additions(cart),member_replacements(cart))
+                            else:
+                                header,lines,line_hash,payable=native_order(session,int(order_id),plan,cap,member_additions(cart),member_replacements(cart))
                             member_proof=membership_receipt(cart,cap,plan,order_id,header,lines,line_hash)
                             if member_proof:
                                 record(session,operation_id,'membership',cap['requestHash'],'completed',member_proof,self.proof_key,self.clock())
@@ -189,6 +233,12 @@ class Receiver:
                                     collector_record({'call':{'name':'pos_import_invalidate_membership',
                                         'args':[operation_id,digest(self.proof_key,'membership',member_proof)],
                                         'kwargs':{},'options':journal_options()}})
+                            if benefits is not None:
+                                benefits.capture(session,state,plan,cap,cart,{
+                                    'orderId':order_id,'method':14 if plan['kind']=='offline' else 15,
+                                    'headerHash':header['native_hash'],'lineHash':line_hash,
+                                    'lineItemsEnabled':bool(self.pipeline.settings.IS_LINE_ITEM_ENABLED),
+                                    'lines':lines,'payable':payable})
                     finally:
                         CAPTURE.reset(token)
                     effects.extend(self.pipeline.publication_intents(order_id))

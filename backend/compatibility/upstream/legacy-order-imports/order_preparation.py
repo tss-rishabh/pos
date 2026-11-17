@@ -3,7 +3,7 @@
 This purpose runs before an order nonce exists. Only a current Node-owned
 RUNNING preparation lease authorizes it; source cannot create/renew that lease.
 """
-from contextlib import contextmanager
+from contextlib import contextmanager,nullcontext
 from copy import deepcopy
 from datetime import datetime
 import os
@@ -19,6 +19,12 @@ from effects import CAPTURE
 from tracing import TRUSTED_ACTOR
 from membership_handoff import CURRENT_HISTORY,PreparedMembershipHistory,prepared_history
 from membership_history import request
+import sys
+from pathlib import Path
+
+sys.path.insert(0,str(Path(__file__).resolve().parent/'benefit-profile'))
+from benefit_controls import NeedCouponHistory
+from coupon_handoff import prepared_coupon_history
 
 
 class NeedHistory(BaseException):
@@ -68,6 +74,7 @@ def lock_preparation(session,cap,now):
             or operation['request_hash']!=cap['requestHash'] or operation['plan_hash']!=cap['planHash']
             or operation['namespace']!=cap['namespace'] or state.get('scope')!=cap['scope']
             or state.get('authority')!=cap['authority'] or state.get('preparationContract')!=PREPARATION_CONTRACT
+            or state.get('benefitContracts')!=cap.get('benefitContracts')
             or state.get('status')!='running' or state.get('orderId') is not None):
         raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
     # Unfiltered latest sequence: a stale RUNNING row cannot outlive replacement.
@@ -109,7 +116,8 @@ def read_only_source(session):
         if not re.match(r'^SELECT\b',compact,re.I):
             VIOLATION.set(True)
             raise ImportReview('ORDER_IMPORT_PREPARATION_WRITE_BLOCKED')
-        if re.search(r'\b(?:FROM|JOIN)\s+(?:`?[a-z_]+`?\.)?`?(?:orders|has_products)`?\b',compact,re.I):
+        metadata_only=re.fullmatch(r'SELECT id FROM (?:orders|order_coupon_log) LIMIT 0',compact,re.I)
+        if not metadata_only and re.search(r'\b(?:FROM|JOIN)\s+(?:`?[a-z_]+`?\.)?`?(?:orders|has_products|order_coupon_log)`?\b',compact,re.I):
             VIOLATION.set(True)
             raise ImportReview('ORDER_IMPORT_PREPARATION_HISTORY_UNQUALIFIED')
     def flush(current,*_args):
@@ -131,11 +139,13 @@ def read_only_source(session):
 
 def prepare(receiver,operation_id,body):
     if (os.environ.get('POS_LEGACY_IMPORT_PREPARATION_CONTRACT')!=PREPARATION_CONTRACT
-            or not isinstance(body,dict) or set(body) not in
-            ({'capability','plan'},{'capability','plan','membershipHistory'})):
+            or not isinstance(body,dict) or not {'capability','plan'}.issubset(body)
+            or set(body)-{'capability','plan','membershipHistory','couponHistory'}):
         raise ImportReview('ORDER_IMPORT_PREPARATION_UNAVAILABLE')
     plan=body['plan'];cap=verify_preparation(receiver.auth_key,body['capability'],operation_id,plan,receiver.clock())
     if ('membershipHistory' in body)!=('membershipHistoryHash' in cap):
+        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    if ('couponHistory' in body)!=('couponHistoryHash' in cap):
         raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
     TRUSTED_ACTOR.set(cap['scope']['actorId'])
     history=body.get('membershipHistory')
@@ -153,7 +163,12 @@ def prepare(receiver,operation_id,body):
                 raise ValueError()
         except Exception:raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID') from None
     # Validate/copy any document before SQL, then enter one invocation-local scope.
-    with prepared_history(history,cap,receiver.auth_key,history_key,ids,receiver.zone,receiver.clock):
+    coupon_key=os.environ.get('POS_LEGACY_IMPORT_COUPON_HISTORY_KEY','')
+    guard_key=os.environ.get('POS_LEGACY_IMPORT_COUPON_GUARD_KEY','')
+    if 'couponHistory' in body and (body['couponHistory'] is None or coupon_key==history_key and history_key):
+        raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
+    with prepared_history(history,cap,receiver.auth_key,history_key,ids,receiver.zone,receiver.clock), prepared_coupon_history(
+            body.get('couponHistory'),cap,receiver.auth_key,coupon_key,receiver.proof_key,guard_key,receiver.zone,receiver.clock):
         probe_token=None
         if history is None:
             probe_token=CURRENT_HISTORY.set(HistoryProbe(receiver.clock,receiver.zone,cap,
@@ -165,21 +180,27 @@ def prepare(receiver,operation_id,body):
                         state=lock_preparation(session,cap,receiver.clock())
                         user=fresh_authority(session,cap)
                         mark_customer(session,cap,str(user['id']))
-                        from receiver import assert_period,assert_source_customer
+                        from receiver import assert_period,assert_source_customer,source_user
                         assert_period(session,cap,plan,receiver.clock(),receiver.zone,
                                       'historical-correction' if state.get('correction') is not None else None)
                         assert_source_customer(session,cap,plan)
-                        user={**user,'user_id':int(cap['authority']['customerId']),'batch':'A'}
                         member=rows(session,"SELECT entity FROM user_eav WHERE entity=:email AND attribute='EXCLUSIVE_MEMBER' AND is_active=1 LIMIT 1 FOR SHARE",{'email':user['email']},2)
-                        user['is_exclusive']=bool(member)
+                        user=source_user(user,cap['authority']['customerId'],bool(member))
                         from source_runtime import UNSAFE_HTTP
                         effects=[];token=CAPTURE.set(effects);http_token=UNSAFE_HTTP.set(False)
-                        outcome='ready';scope=None
+                        outcome='ready';scope=None;coupon_scope=None;coupon_witness=None
                         try:
-                            with read_only_source(session),private_session(session) as source:
+                            # A specialized current financial-counter adapter
+                            # may establish its opaque replay witness here. It
+                            # must not weaken the following SELECT-only/history
+                            # guards or create a financial order checkpoint.
+                            prepare_scope=getattr(receiver.pipeline,'preparation_scope',None)
+                            with (prepare_scope(session,user,plan,cap) if prepare_scope is not None else nullcontext()), read_only_source(session),private_session(session) as source:
                                 try:receiver.pipeline.preparation_pipeline(source,user,plan,cap)
                                 except NeedHistory as required:
                                     outcome='need-history';scope=required.scope
+                                except NeedCouponHistory as required:
+                                    outcome='need-coupon-history';coupon_scope=required.scope;coupon_witness=required.witness
                                 if UNSAFE_HTTP.get():
                                     raise ImportReview('ORDER_IMPORT_HTTP_EFFECT_UNQUALIFIED')
                         finally:
@@ -191,11 +212,25 @@ def prepare(receiver,operation_id,body):
                             outcome=outcome,historyScope=scope,sourceTimeZone=receiver.zone,
                             membershipHistoryHash=cap.get('membershipHistoryHash'),
                             issuedAt=receiver.clock(),expiresAt=cap['expiresAt'])
+                        if 'benefitContracts' in cap:
+                            result['benefitContracts']=deepcopy(cap['benefitContracts'])
+                            if cap['benefitContracts'].get('automaticCoupon'):
+                                result['couponHistoryHash']=cap.get('couponHistoryHash')
+                        if coupon_scope is not None:
+                            result.update(couponHistoryScope=coupon_scope,couponHistoryWitness=coupon_witness)
                         # Throw through owned/session.begin even for ready: COMMIT
                         # is never reached, and no source receipt/effect is stored.
                         raise _Rollback(result)
             except _Rollback as completed:
                 result=completed.result
+                if result['outcome']=='need-coupon-history':
+                    # Actual legacy Redis observation happens only AFTER the
+                    # owned source transaction has rolled back and closed.
+                    benefits=getattr(receiver.pipeline,'benefits',None)
+                    if benefits is None:raise ImportReview('ORDER_IMPORT_BIRTHDAY_GUARD_UNQUALIFIED')
+                    result['birthdayObservation']=benefits.guard_observation(result['couponHistoryScope'])
+                    verify_preparation(receiver.auth_key,body['capability'],operation_id,plan,receiver.clock())
+                    result['issuedAt']=receiver.clock()
                 return {**result,'signature':digest(receiver.proof_key,'preparation-result',result)}
         finally:
             if probe_token is not None:CURRENT_HISTORY.reset(probe_token)

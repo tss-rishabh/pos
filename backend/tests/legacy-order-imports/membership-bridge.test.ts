@@ -274,6 +274,7 @@ describe('actual private order transport and prepared source membership history'
   it('binds the complete warehouse handoff and executes literal criteria at the retained wall second', async () => {
     const f = await prepared(),
       body = await orderWire(f.handoff);
+    expect(body.capability.expiresAt).toBe(f.handoff.capability.expiresAt);
     expect(body.capability.membershipHistoryHash).toBe(
       financialSourceHash(authKey, 'membership-history', f.handoff),
     );
@@ -323,7 +324,12 @@ describe('actual private order transport and prepared source membership history'
     resignWire(body);
     expect(sourceHandoff(body, extra)).toMatchObject({
       ok: false,
-      code: 'ORDER_IMPORT_MEMBERSHIP_PREFETCH_INVALID',
+      // The order capability is now clipped to its copied history lease, so
+      // this boundary is refused before even entering the handoff reader.
+      code:
+        kind === 'expired-history'
+          ? 'ORDER_IMPORT_CAPABILITY_INVALID'
+          : 'ORDER_IMPORT_MEMBERSHIP_PREFETCH_INVALID',
       nativeSessionOpens: 0,
       historicalSqlCalls: 0,
       scopeRestored: true,

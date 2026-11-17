@@ -160,6 +160,15 @@ def admit_benefit_cart(cart, types, settings, plan, coupon=None):
     if has_member and context is None:
         raise BenefitReview('ORDER_IMPORT_MEMBERSHIP_PROFILE_REQUIRED')
     membership_additional = context['profile'].admit(cart,types,plan) if context is not None else ()
+    replacement=context.get('replacement') if context is not None else None
+    if replacement is not None:
+        # Root's literal remove_exclusive_membership hook owns this evidence.
+        # Do not infer a replacement from missing cart rows or selected flags.
+        original=replacement.get('originalLine')
+        if (not isinstance(original,dict) or original not in plan['lines']
+                or original['productId'] in selections
+                or expected.get(original['productId'])!=original['quantity']):raise BenefitReview()
+        del expected[original['productId']]
     for row in membership_additional:
         if row['productId'] in expected or row['productId'] in selections or row['quantity'] != 1 or row['unitPrice'] != '0.00':
             raise BenefitReview()

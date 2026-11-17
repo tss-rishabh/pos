@@ -28,12 +28,12 @@ from transaction import normalize_source_sentinels,guard_private_statement,guard
 import native_source_driver as native
 
 
-def run(value):
+def run(value,customize=None):
     url=make_url(value['url'])
     if (url.host not in ('localhost','127.0.0.1') or not url.database.startswith('pos_rewrite_import_runtime_') or
             len(url.database)!=len('pos_rewrite_import_runtime_')+12 or url.query):raise RuntimeError('Isolated localhost fixture required')
     engine=create_engine(url.set(drivername='mysql+pymysql'),echo=False,hide_parameters=True)
-    event.listen(Session,'before_flush',normalize_source_sentinels);event.listen(Session,'before_commit',guard_private_commit)
+    event.listen(Session,'before_flush',normalize_source_sentinels);event.listen(engine,'commit',guard_private_commit)
     event.listen(engine,'before_cursor_execute',guard_private_statement)
     source=Path(value['sourceRoot']);plan=value['body']['plan'];trace=[]
     literal=pipeline(source,plan,trace)
@@ -44,6 +44,7 @@ def run(value):
     literal.tasks=native_writer.tasks;literal.settings=native_writer.settings;literal.controller_hash=native_writer.controller_hash
     literal.product=actual_catalog(source,literal,trace,sku=int(plan['lines'][0]['productId']))
     fixture_add_io(source,literal)
+    if customize is not None:customize(value,source,literal,native_writer,engine)
     literal.membership.admit=lambda *_a:[]
     literal.membership.capture=lambda *_a:None
     helpers=compile_helper(source,SimpleNamespace(CART_PROCESS_ORDER_TRACK=True),queues,SilentLogger())
@@ -70,7 +71,8 @@ def run(value):
             if value.get('lateFailure'):raise ImportReview('ORDER_IMPORT_FIXTURE_LATE_FAILURE')
     literal.order=Order()
     literal.publication_intents=native_writer.publication_intents
-    service=Receiver(sessionmaker(bind=engine,expire_on_commit=False),literal,value['authKey'],value['proofKey'],clock=lambda:value['now'])
+    service=Receiver(sessionmaker(bind=engine,expire_on_commit=False),literal,value['authKey'],value['proofKey'],clock=lambda:value['now'],
+        correction_contract=value.get('correctionContract'))
     try:
         if value.get('phase')=='preparation':
             os.environ['POS_LEGACY_IMPORT_PREPARATION_CONTRACT']='pos-import-order-preparation-v1'

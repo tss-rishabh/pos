@@ -105,7 +105,7 @@ class Startup(unittest.TestCase):
         # database definitions and SourceRuntime constructor still execute.
         fake_names=('controllers.OrderController','controllers.CheckoutController','controllers.CartController',
                     'controllers.CatalogController','middleware.CartMiddleware','controllers.KinesisProducer',
-                    'models.Order','tasks','controllers.cart.Cart')
+                    'models.Order','tasks','controllers.cart.Cart','controllers.cart.cartutils','constants.Constants')
         for name in fake_names:
             module=ModuleType(name);module.__file__=str(ROOT/(name.replace('.','/')+'.py'));modules[name]=module
         modules['controllers.CatalogController'].PosProductDetail=lambda:object()
@@ -115,6 +115,9 @@ class Startup(unittest.TestCase):
         modules['middleware.CartMiddleware'].PricelistManager=object()
         modules['controllers.cart.Cart'].ItemTypes=object()
         modules['controllers.cart.Cart'].datetime=__import__('datetime').datetime
+        modules['controllers.cart.cartutils'].ValidationException=ValueError
+        modules['constants.Constants'].BIRTHDAY_MESSAGE='fixture'
+        modules['constants.Constants'].EMPLOYEE_COUPON_DOMAIN_MAP={}
         # This constructor-boundary unit keeps external factories inert; actual
         # Celery import/configuration is exercised by the network-none probe.
         import ssl
@@ -136,7 +139,7 @@ class Startup(unittest.TestCase):
             if name not in modules:raise AssertionError('Unqualified source import: '+name)
             return modules[name]
         def source_class(*_args,**_kwargs):return type('ControlledFixture',(),{})
-        with patch.dict(sys.modules,modules),patch.dict(os.environ,{'POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT':''}),patch('source_runtime.install_silent_logger'),patch('private_celery.bind',return_value=(SimpleNamespace(abandon_cart_app=app),broker_options)),patch('private_cache.configure'),patch('cart_tracking.install',return_value=(cart_helper,cart_task)),patch('source_runtime.compile_class',side_effect=source_class),patch('sqlalchemy.create_engine',side_effect=AssertionError('Original SQL engine constructed')),patch('source_runtime.importlib.import_module',side_effect=import_module):
+        with patch.dict(sys.modules,modules),patch.dict(os.environ,{'POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT':''}),patch('source_runtime.install_silent_logger'),patch('private_celery.bind',return_value=(SimpleNamespace(abandon_cart_app=app),broker_options)),patch('private_cache.configure'),patch('cart_tracking.install',return_value=(cart_helper,cart_task)),patch('benefit_runtime.SourceBenefits',return_value=None),patch('source_runtime.compile_class',side_effect=source_class),patch('sqlalchemy.create_engine',side_effect=AssertionError('Original SQL engine constructed')),patch('source_runtime.importlib.import_module',side_effect=import_module):
             runtime=SourceRuntime(ROOT,ROOT)
             self.assertIsNotNone(runtime.order)
             self.assertIsNotNone(runtime.producer)

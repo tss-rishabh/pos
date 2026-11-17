@@ -153,3 +153,21 @@ def strict_pos_grants(root, namespace):
     ns = dict(namespace, BenefitReview=BenefitReview)
     exec(compile(ast.fix_missing_locations(ast.Module(body=[node], type_ignores=[])), '<qualified-POS-grants>', 'exec'), ns)
     return ns['persist_pos_freebie_grants']
+
+
+def qualified_has_products(original):
+    """Correct only the selected free aggregate branch's missing GST key.
+
+    PosFreebieWrapper does not supply gst. The original helper explicitly sets
+    free invoice_gst=0; its per-unit branch already uses .get('gst',0), while
+    aggregate accesses ['gst'] and crashes. Never overwrite a supplied rate or
+    normalize an ordinary product; all source arithmetic remains delegated.
+    """
+    def build(order,product,is_exclusive,is_free=False,is_pos=False,calc=None,
+              is_shopify_order=False,gift_voucher_id=0,ref_no=0,platform_id=1,is_express=0):
+        if is_free is True and 'gst' not in product:
+            product={**product,'gst':0}
+        return original(order,product,is_exclusive,is_free=is_free,is_pos=is_pos,calc=calc,
+            is_shopify_order=is_shopify_order,gift_voucher_id=gift_voucher_id,ref_no=ref_no,
+            platform_id=platform_id,is_express=is_express)
+    return build

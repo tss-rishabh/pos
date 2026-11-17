@@ -19,9 +19,12 @@ from protocol import ImportReview, source_custom_data
 from transaction import PrivateSessionProxy
 from transaction import CURRENT
 from contextvars import ContextVar
+from contextlib import nullcontext
 from profiles import assert_plain_profile
 from membership_profile import MembershipProfile, selected as membership_selected, compile_writers, compile_order, compile_free_membership
 from cart_preparation import automatic_membership,catalog_build,guard_history,read_only_preview
+
+sys.path.insert(0,str(Path(__file__).resolve().parent/'benefit-profile'))
 
 UNSAFE_HTTP=ContextVar('pos_import_unsafe_http',default=False)
 SOURCE_REDIS_ALIASES=('redis_object','redis_pos_object','redis_catalogue_object','cms_redis_object',
@@ -45,6 +48,8 @@ PINS={
  'controllers/CatalogController.py':'5dcf3d5db2d1bea2001b0e1d8349b02725b11482e831a7355b6eaaf343de400e',
  'controllers/KinesisProducer.py':'18a7c4dd7ce2858b95869655122c78d2559337d490aef20809c803bd2caf6b1d',
  'main.py':'9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7',
+ 'constants/Constants.py':'5733ae1f3586168061203bd98e5c72eec2e9ec04da6bcc91e3294d05624964e8',
+ 'middleware/AuthHandler.py':'ba10581b1e3a0a20be5871777910ebbcebcec9483bdf06bfa7042b151635c241',
 }
 
 
@@ -184,7 +189,7 @@ def compile_class(root,path,name,namespace):
 
 
 class SourceRuntime:
-    def __init__(self,source_root,runtime_root):
+    def __init__(self,source_root,runtime_root,benefit_heads=None):
         self.source_root=Path(source_root)
         if self.source_root.resolve()!=Path(runtime_root).resolve():
             raise ImportReview('ORDER_IMPORT_SOURCE_REVISION_UNVERIFIED')
@@ -239,8 +244,22 @@ class SourceRuntime:
                 module.push_cart_event=lambda *_a,**_k: None
             for attr in ('push_process_order_event','push_after_payment_event'):
                 if hasattr(module,attr):setattr(module,attr,getattr(cart_helper,attr))
+        sys.path.insert(0,str(Path(__file__).resolve().parent/'benefit-profile'))
+        from benefit_runtime import SourceBenefits
+        constants=importlib.import_module('constants.Constants')
+        self.benefits=SourceBenefits(source_root,self.settings,
+            sys.modules['database.database'].redis_object,self.item_types,
+            importlib.import_module('controllers.cart.cartutils').ValidationException,heads=benefit_heads,
+            point_factory=importlib.import_module('controllers.cart.Cart').datetime.now,
+            has_product_model=models.HasProductModel,coupon_settings={
+                'BIRTHDAY_MESSAGE':constants.BIRTHDAY_MESSAGE,
+                'EMPLOYEE_COUPON_DOMAIN_MAP':constants.EMPLOYEE_COUPON_DOMAIN_MAP,
+                'REDIS_COUPON_EXPIRY_IN_SEC':self.settings.REDIS_COUPON_EXPIRY_IN_SEC,
+                'EXCLUSIVE_PRODUCT':self.settings.EXCLUSIVE_PRODUCT})
+        if self.benefits is not None:self.benefits.install()
         order_globals=dict(vars(modules['controllers.OrderController']))
         order_globals.update(logger=SilentLogger(),tasks=Tasks())
+        if self.benefits is not None:self.benefits.order_namespace(order_globals)
         # Select the approved per-HP refund function from the deployed composed
         # controller; its exact two-statement patch is checked by prepare.py.
         sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'offline-cash-pricing'))
@@ -287,19 +306,26 @@ class SourceRuntime:
         return self.source_clock.now()
 
     def order_pipeline(self,session,user,plan,capability):
-        if self.membership:
-            with self.membership.scope(session,user,plan,capability) as state:
-                order_id,cart=self._order_pipeline(session,user,plan,capability)
-                self.membership.capture(session,order_id,cart,state)
-                return order_id,cart
-        return self._order_pipeline(session,user,plan,capability)
+        benefits=getattr(self,'benefits',None)
+        with benefits.scope(session,user,plan,capability) if benefits is not None else nullcontext():
+            if self.membership:
+                with self.membership.scope(session,user,plan,capability) as state:
+                    order_id,cart=self._order_pipeline(session,user,plan,capability)
+                    self.membership.capture(session,order_id,cart,state)
+                    return order_id,cart
+            return self._order_pipeline(session,user,plan,capability)
 
     def _order_pipeline(self,session,user,plan,capability):
         req,resp,cart,base=self._cart_pipeline(session,user,plan,capability)
         calc=cart.get_item(self.item_types.META,{'name':'calculations'})
         # The selected profile must prove original membership staging and any
         # explicit source-added rows. Shopify remains method15/pending.
-        assert_plain_profile(cart,self.item_types,self.settings,plan,calc)
+        benefits=getattr(self,'benefits',None)
+        if benefits is None:
+            assert_plain_profile(cart,self.item_types,self.settings,plan,calc)
+        else:
+            from benefit_runtime import ACTIVE
+            ACTIVE.get().admit(cart,self.item_types,self.settings,calc,plain_profile=assert_plain_profile)
         req.context['data']={**base,'payment_method':'coc' if plan['kind']=='offline' else 'shopify',
             'id':14 if plan['kind']=='offline' else 15,'custom_created_at':plan['createdAt']}
         self.order.on_post(req,resp)
@@ -314,17 +340,21 @@ class SourceRuntime:
         # Literal catalog/cart/validation/calculator only. The receiver owns
         # rollback even when old code calls nested Session.commit().
         with read_only_preview():
-            if self.membership:
-                with self.membership.scope(session,user,plan,capability):
+            benefits=getattr(self,'benefits',None)
+            with benefits.scope(session,user,plan,capability,preview=True) if benefits is not None else nullcontext():
+                if self.membership:
+                    with self.membership.scope(session,user,plan,capability):
+                        self._cart_pipeline(session,user,plan,capability)
+                else:
                     self._cart_pipeline(session,user,plan,capability)
-            else:
-                self._cart_pipeline(session,user,plan,capability)
         if UNSAFE_HTTP.get():
             raise ImportReview('ORDER_IMPORT_HTTP_EFFECT_UNQUALIFIED')
 
     def _cart_pipeline(self,session,user,plan,capability):
         with guard_history(session) as current:
-            return self._cart_body(current,user,plan,capability)
+            from benefit_fence import guard_coupon_history
+            with guard_coupon_history(current) as bounded:
+                return self._cart_body(bounded,user,plan,capability)
 
     def _cart_body(self,session,user,plan,capability):
         UNSAFE_HTTP.set(False)

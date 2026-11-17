@@ -45,7 +45,7 @@ class Queries:
     def commit(self):self.flush()
 
 
-def actual_catalog(root,result,trace,mode='normal',sku=100):
+def actual_catalog(root,result,trace,mode='normal',sku=100,prod_type=1):
     for path,expected in {
         'controllers/priceList/PricelistManager.py':'86ad9c5335e73d157f2fb49ded98991103d443b254b2777562812f6b6281b127',
         'controllers/ClimesController.py':'5f836deeba7f6e7a21de66bbe968fb5c12b34a6694984eacefedf64477ffd784',
@@ -57,7 +57,7 @@ def actual_catalog(root,result,trace,mode='normal',sku=100):
                'get_product_slug':lambda _s,barcode:{'product_slug':'fixture-product','selected_variant_id':0,'parent_prod_id':0},
                'apply_pricelist':lambda *_a:None,'is_price_inclusive_gst':lambda *_a:True,
                'Cart':lambda:result.cart_reader,'insert_pos_data_into_redis':lambda *_a:None}
-    document={'id':sku,'product_slug':'fixture-product','prod_type':1,'variant':[],'is_del':0,
+    document={'id':sku,'product_slug':'fixture-product','prod_type':prod_type,'variant':[],'is_del':0,
               'store_stock':[{'Store_id':1,'Stock':99,'is_avail':1,'is_del':0}],
               'images':'[]','price':25,'spl_price':0,'exclusive_price':0,'prod_qty':99,'product':'Fixture product',
               'category':'Fixture category','cat':[],'firstname':'Fixture artist','gst':0}

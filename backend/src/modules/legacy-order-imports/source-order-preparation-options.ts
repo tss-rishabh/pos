@@ -15,6 +15,8 @@ export function readSourceOrderPreparationOptions(env: NodeJS.ProcessEnv = proce
       ),
       CSV_MEMBERSHIP_HISTORY_KEY: optional(key),
       CSV_MEMBERSHIP_PUBLICATION_KEY: optional(key),
+      CSV_COUPON_HISTORY_KEY: optional(key),
+      CSV_COUPON_GUARD_KEY: optional(key),
       POS_MEMBERSHIP_PROOF_KEY: optional(key),
       POS_MEMBERSHIP_PRODUCT_IDS: z.string().max(32000).default('[]'),
     })
@@ -35,6 +37,8 @@ export function readSourceOrderPreparationOptions(env: NodeJS.ProcessEnv = proce
     contract: parsed.data.UPSTREAM_POS_LEGACY_IMPORT_PREPARATION_CONTRACT,
     historyKey: parsed.data.CSV_MEMBERSHIP_HISTORY_KEY,
     publicationKey: parsed.data.CSV_MEMBERSHIP_PUBLICATION_KEY,
+    couponHistoryKey: parsed.data.CSV_COUPON_HISTORY_KEY,
+    couponGuardKey: parsed.data.CSV_COUPON_GUARD_KEY,
     membershipProofKey: parsed.data.POS_MEMBERSHIP_PROOF_KEY,
     memberProductIds: ids,
     warehouse: readCsvMembershipBigQueryOptions(env),
