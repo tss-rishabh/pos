@@ -10,6 +10,14 @@ export function wholeOrderStatusWorker(
       transport.configured();
       const row = await repository.claim();
       if (!row) return null;
+      if (row.state === 'BLOCKED')
+        return {
+          eventId: 'whole-order-status.dispatch',
+          eventInstanceId: row.id,
+          requestId: row.requestId ?? row.id,
+          userId: row.operatorId,
+          state: 'BLOCKED',
+        };
       let dispatched = false;
       try {
         await repository.authorizeDispatch(row);

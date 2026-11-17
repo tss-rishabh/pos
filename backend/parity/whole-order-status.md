@@ -88,6 +88,11 @@ facts do not authorize an external status write.
 
 ## Root integration
 
+The original return-failure producer is now connected through the additive durable
+obligation integration in [rejected-return-repairs.md](rejected-return-repairs.md).
+That document supersedes the earlier optional producer-hook guidance below and
+defines the mandatory handover barrier and manager recovery.
+
 Public registrar: `registerWholeOrderStatus(app, config, db, options?, dependencies?)`
 from `src/modules/legacy-order-status/index.ts`. It returns the service; tests/demo
 may inject a synthetic service through `dependencies.service`. Do not supply real

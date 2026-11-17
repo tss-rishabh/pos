@@ -107,7 +107,10 @@ describe.skipIf(!template)('durable whole-order status commands on isolated nati
         return queuedReceipt(row);
       },
     };
-    service = wholeOrderStatusService(native.config, native.db, options, { transport });
+    service = wholeOrderStatusService(native.config, native.db, options, {
+      transport,
+      assertHandoverAvailable: async () => {},
+    });
     scopeHash = (await service.status(actor, '1', snapshot.orderId)).scopeHash;
   });
   afterAll(async () => {
@@ -296,6 +299,7 @@ describe.skipIf(!template)('durable whole-order status commands on isolated nati
       createdAt: operation.createdAt,
       updatedAt: operation.updatedAt,
     });
+    operationId = returnId;
     await service.repair(actor, '1', snapshot.orderId, {
       operationId,
       returnOperationId: returnId,
@@ -329,7 +333,7 @@ describe.skipIf(!template)('durable whole-order status commands on isolated nati
       .where(eq(returnOperations.id, returnId));
     await expect(
       service.repair(actor, '1', snapshot.orderId, {
-        operationId: randomUUID(),
+        operationId: returnId,
         returnOperationId: returnId,
       }),
     ).rejects.toMatchObject({ code: 'WHOLE_ORDER_RETURN_REPAIR_NOT_PROVEN' });

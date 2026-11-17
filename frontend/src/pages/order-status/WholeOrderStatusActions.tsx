@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Principal } from '../../api/types';
 import { ApiError, captureOperatorScope } from '../../api/client';
+import { ReturnRepairObligations } from './ReturnRepairObligations';
+import { statusMarkerKey, inspectStatusMarkers, readStatusMarkers } from './markers';
 import {
   readOrderStatus,
   readStatusCommand,
   saveOrderStatus,
-  statusIntentSchema,
   type StatusIntent,
   type StatusCommand,
   type WholeOrderStatus,
@@ -16,12 +17,7 @@ const message = (error: unknown) =>
     ? error.message
     : 'Could not verify the status request. Refresh its receipt before continuing.';
 /** A marker contains only an immutable operation ID, stage and line-scope digest. */
-function markerKey(user: Principal, storeId: string, orderId: string) {
-  return (
-    'pos-whole-order-status:' +
-    JSON.stringify([user.id, user.role, user.userType, [...user.storeIds].sort(), storeId, orderId])
-  );
-}
+const markerKey = statusMarkerKey;
 export function WholeOrderStatusActions({
   user,
   storeId,
@@ -54,8 +50,10 @@ function WholeOrderStatusContent({
   orderId: string;
   online: boolean;
 }) {
+  const [initial] = useState(() => inspectStatusMarkers(user, storeId, orderId));
   const key = useMemo(() => markerKey(user, storeId, orderId), [user, storeId, orderId]),
-    [expanded, setExpanded] = useState(false),
+    [expanded, setExpanded] = useState(initial.expanded),
+    [storageBlocked, setStorageBlocked] = useState(initial.blocked),
     [status, setStatus] = useState<WholeOrderStatus | null>(null),
     [intent, setIntent] = useState<StatusIntent | null>(null),
     [command, setCommand] = useState<StatusCommand | null>(null),
@@ -73,11 +71,11 @@ function WholeOrderStatusContent({
       signal.throwIfAborted();
       setStatus(value);
       let frozen: StatusIntent | null = null;
-      const raw = sessionStorage.getItem(key);
-      if (raw) {
-        const parsed = statusIntentSchema.safeParse(JSON.parse(raw) as unknown);
-        if (!parsed.success) throw new Error('Invalid local status marker.');
-        frozen = parsed.data;
+      try {
+        frozen = readStatusMarkers(user, storeId, orderId).intent;
+      } catch {
+        setStorageBlocked(true);
+        throw new Error('Invalid saved status metadata.');
       }
       setIntent(frozen);
       const current = frozen
@@ -119,6 +117,14 @@ function WholeOrderStatusContent({
     setError(null);
     setNotRecorded(false);
     try {
+      try {
+        const saved = readStatusMarkers(user, storeId, orderId);
+        if (saved.intent && JSON.stringify(saved.intent) !== JSON.stringify(frozen))
+          throw new Error('An immutable request is already pending.');
+      } catch {
+        setStorageBlocked(true);
+        throw new Error('Saved status metadata needs reconciliation.');
+      }
       sessionStorage.setItem(key, JSON.stringify(frozen));
       signal.throwIfAborted();
       setIntent(frozen);
@@ -132,6 +138,7 @@ function WholeOrderStatusContent({
     }
   }
   const active = Boolean(
+      storageBlocked ||
       intent ||
       (command && activeStates.includes(command.state)) ||
       status?.commands.some((row) => activeStates.includes(row.state)),
@@ -155,6 +162,11 @@ function WholeOrderStatusContent({
           </p>
           {!online && <p role="status">Connect to refresh or request a status.</p>}
           {error && <p role="alert">{error}</p>}
+          {storageBlocked && (
+            <p role="alert">
+              Saved status metadata needs reconciliation. New status actions are blocked.
+            </p>
+          )}
           <button
             type="button"
             className="button secondary"
@@ -223,6 +235,14 @@ function WholeOrderStatusContent({
             >
               Retry saving the same request
             </button>
+          )}
+          {user.role <= 4 && (
+            <ReturnRepairObligations
+              user={user}
+              storeId={storeId}
+              orderId={orderId}
+              online={online}
+            />
           )}
         </div>
       )}

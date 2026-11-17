@@ -62,7 +62,12 @@ import {
 import { returnOperations, returnOutbox, returnVerifications } from './schema.js';
 import { exchangeOrderLog } from './exchange-ledger.js';
 import { exchangeStockConfirmations, exchangeStockContract } from './stock-proof.js';
+import {
+  recordRejectedReturnRepair,
+  lockRejectedReturnScope,
+} from '../../legacy-order-status/repair-obligations.js';
 export interface ReturnRepositoryOptions {
+  rejectedInboundRepairDispatcherEnabled?: boolean;
   hashSecret: string;
   returnPeriodDays: number | undefined;
   inventoryProcedureVerified?: boolean;
@@ -1636,7 +1641,52 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       errorCode: string,
     ) {
       return db.get('writer').transaction(async (tx) => {
-        const { operation } = await owned(tx, user, storeId, id);
+        const definite =
+          stage === 'inbound' && !uncertain && errorCode === 'RETURN_INBOUND_REJECTED';
+        let operation: ReturnOperation;
+        if (definite) {
+          const [initial] = await tx
+            .select({ state: returnOperations.state })
+            .from(returnOperations)
+            .where(eq(returnOperations.id, id))
+            .limit(1);
+          if (!initial)
+            throw new AppError(
+              404,
+              'RETURN_OPERATION_NOT_FOUND',
+              'Return operation was not found.',
+            );
+          const initialOperation = returnOperationSchema.parse(initial.state);
+          if (initialOperation.operatorId !== user.id || initialOperation.storeId !== storeId)
+            throw new AppError(
+              403,
+              'RETURN_OPERATION_OWNER_CHANGED',
+              'The retained return owner changed.',
+            );
+          await lockRejectedReturnScope(tx, user.id, storeId, initialOperation.orderId);
+          const [row] = await tx
+            .select()
+            .from(returnOperations)
+            .where(eq(returnOperations.id, id))
+            .limit(1)
+            .for('update');
+          operation = returnOperationSchema.parse(row?.state);
+          if (
+            operation.id !== id ||
+            operation.operatorId !== user.id ||
+            operation.storeId !== storeId
+          )
+            throw new AppError(
+              403,
+              'RETURN_OPERATION_OWNER_CHANGED',
+              'The retained return owner changed.',
+            );
+          if (
+            !['inbound-dispatching', 'rejected'].includes(operation.phase) ||
+            (operation.phase === 'rejected' && operation.errorCode !== 'RETURN_INBOUND_REJECTED')
+          )
+            return operation;
+        } else operation = (await owned(tx, user, storeId, id)).operation;
         if (
           [
             'completed',
@@ -1656,12 +1706,21 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               updated_at: timestamp(),
             })
             .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)));
-        return save(tx, {
+        const saved = await save(tx, {
           ...operation,
           phase: uncertain ? 'uncertain' : 'rejected',
           uncertainStage: uncertain ? stage : null,
           errorCode,
         });
+        if (definite)
+          await recordRejectedReturnRepair(
+            tx,
+            user,
+            saved,
+            options.rejectedInboundRepairDispatcherEnabled === true && !config.DEMO_MODE,
+            currentRequestTrace()?.requestId,
+          );
+        return saved;
       });
     },
   };

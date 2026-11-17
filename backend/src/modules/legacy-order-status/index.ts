@@ -86,19 +86,68 @@ export async function registerWholeOrderStatus(
       return reply.code(202).send(result);
     },
   );
-  if (options.WHOLE_ORDER_STATUS_WORKER_ENABLED)
+  app.get(
+    '/api/v1/stores/:storeId/orders/:orderId/status-repair-obligations',
+    trace('return-repair-obligation', 'list'),
+    async (request) => {
+      const { storeId, orderId } = scope.parse(request.params);
+      empty.parse(request.query);
+      return checked(request, () => service.repairs.list(authenticated(request), storeId, orderId));
+    },
+  );
+  app.get(
+    '/api/v1/stores/:storeId/orders/:orderId/status-repair-obligations/:returnId',
+    trace('return-repair-obligation', 'read'),
+    async (request) => {
+      const { storeId, orderId, returnId } = scope
+        .extend({ returnId: z.uuid() })
+        .parse(request.params);
+      empty.parse(request.query);
+      return checked(request, () =>
+        service.repairs.read(authenticated(request), storeId, orderId, returnId),
+      );
+    },
+  );
+  app.post(
+    '/api/v1/stores/:storeId/orders/:orderId/status-repair-obligations/:returnId/recoveries',
+    trace('return-repair-obligation', 'recover'),
+    async (request, reply) => {
+      const { storeId, orderId, returnId } = scope
+          .extend({ returnId: z.uuid() })
+          .parse(request.params),
+        body = z
+          .object({ operationId: z.uuid(), expectedVersion: z.number().int().positive() })
+          .strict()
+          .parse(request.body);
+      empty.parse(request.query);
+      return reply
+        .code(202)
+        .send(
+          await checked(request, () =>
+            service.repairs.recover(authenticated(request), storeId, orderId, returnId, body),
+          ),
+        );
+    },
+  );
+  if (options.WHOLE_ORDER_STATUS_WORKER_ENABLED && !config.DEMO_MODE)
     registerStatusWorkerLoop(
       app,
       'whole-order-status-dispatch',
       async () => {
         await service.repository.expireClaims(options.WHOLE_ORDER_STATUS_CLAIM_TIMEOUT_MS);
+        const repair = await service.repairs.runOnce();
+        if (repair)
+          app.log.info(
+            { module: 'whole-order-status', resource: 'return-repair-obligation', ...repair },
+            'Rejected-return repair obligation result.',
+          );
         const event = await service.worker.runOnce();
         if (event)
           app.log.info(
             { module: 'whole-order-status', resource: 'whole-order-status-dispatch', ...event },
             'Whole-order status dispatch result.',
           );
-        return event !== null;
+        return event !== null || repair !== null;
       },
       service.configured,
     );

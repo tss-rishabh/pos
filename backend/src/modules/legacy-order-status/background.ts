@@ -11,6 +11,7 @@ export function registerStatusWorkerLoop(
     closing = false;
   const tick = () => {
     if (running || closing) return;
+    const runId = crypto.randomUUID();
     running = (async () => {
       try {
         for (let count = 0; count < 10 && !closing; count++) if (!(await run())) break;
@@ -19,10 +20,10 @@ export function registerStatusWorkerLoop(
           {
             module: 'whole-order-status',
             resource,
-            eventId: 'whole-order-status.worker-failure',
-            eventInstanceId: crypto.randomUUID(),
-            requestId: 'background',
-            userId: 'system',
+            eventId: `whole-order-status.${resource}.worker-failure`,
+            eventInstanceId: runId,
+            requestId: runId,
+            userId: null,
             errorCode: 'STATUS_WORKER_FAILED',
           },
           'Status worker needs attention.',

@@ -6,16 +6,38 @@ import { wholeOrderStatusRepository, publicStatusCommand } from './repository.js
 import { readWholeOrderStatusOptions, type WholeOrderStatusOptions } from './options.js';
 import { wholeOrderStatusTransport, type WholeOrderStatusTransport } from './transport.js';
 import { wholeOrderStatusWorker } from './worker.js';
+import { requireHandoverBarrier, type AssertHandoverAvailable } from './handover.js';
+import { rejectedReturnRepairs } from './repair-obligations.js';
 export function wholeOrderStatusService(
   config: Config,
   db: Databases,
   options: WholeOrderStatusOptions = readWholeOrderStatusOptions(),
-  dependencies: { transport?: WholeOrderStatusTransport; clock?: () => number } = {},
+  dependencies: {
+    transport?: WholeOrderStatusTransport;
+    clock?: () => number;
+    assertHandoverAvailable?: AssertHandoverAvailable;
+  } = {},
 ) {
-  const repository = wholeOrderStatusRepository(config, db, dependencies.clock),
+  const repository = wholeOrderStatusRepository(
+      config,
+      db,
+      dependencies.clock,
+      dependencies.assertHandoverAvailable,
+    ),
     transport = dependencies.transport ?? wholeOrderStatusTransport(config, options);
+  const configured = () => {
+    requireHandoverBarrier(dependencies.assertHandoverAvailable);
+    transport.configured();
+  };
+  const repairs = rejectedReturnRepairs(config, db, repository, {
+    enabled: options.WHOLE_ORDER_STATUS_WORKER_ENABLED && !config.DEMO_MODE,
+    configured,
+    clock: dependencies.clock,
+    readReceipt: (row) => transport.read(row),
+  });
   return {
-    configured: transport.configured,
+    configured,
+    repairs,
     repository,
     worker: wholeOrderStatusWorker(repository, transport),
     async submit(
@@ -25,7 +47,7 @@ export function wholeOrderStatusService(
       input: unknown,
       requestId?: string,
     ) {
-      transport.configured();
+      configured();
       return repository.submit(user, storeId, orderId, input, requestId);
     },
     async repair(
@@ -41,7 +63,7 @@ export function wholeOrderStatusService(
       const value = await repository.status(user, storeId, orderId);
       let adapterReady = true;
       try {
-        transport.configured();
+        configured();
       } catch {
         adapterReady = false;
       }

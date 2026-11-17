@@ -23,7 +23,7 @@ export async function registerQualifiedWholeOrderStatusReceiver(
     },
   });
   await registerWholeOrderStatusReceiver(app, options, receiver);
-  if (receiverOptions.WHOLE_ORDER_STATUS_RECEIVER_WORKER_ENABLED)
+  if (receiverOptions.WHOLE_ORDER_STATUS_RECEIVER_WORKER_ENABLED && !config.DEMO_MODE)
     registerStatusWorkerLoop(
       app,
       'store-status-worker',

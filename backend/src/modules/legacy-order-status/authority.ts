@@ -22,6 +22,7 @@ import {
   statusReconciliation,
   type StatusSnapshot,
 } from './domain.js';
+import { requireHandoverBarrier, type AssertHandoverAvailable } from './handover.js';
 import { wholeOrderStatusLogs } from './schema.js';
 const unavailable = () =>
   new AppError(
@@ -70,7 +71,11 @@ export function legacyWholeRequestCovers(
     })
   );
 }
-export function wholeOrderStatusAuthority(config: Config, db: Databases) {
+export function wholeOrderStatusAuthority(
+  config: Config,
+  db: Databases,
+  barrier?: AssertHandoverAvailable,
+) {
   const checkIns = checkInService(db, config);
   return async function capture(
     tx: AdministrationTransaction,
@@ -92,6 +97,13 @@ export function wholeOrderStatusAuthority(config: Config, db: Databases) {
         'WHOLE_ORDER_STATUS_SCOPE_CHANGED',
         'Your current order permissions changed.',
       );
+    const [store] = await tx
+      .select({ id: Store.id, active: Store.is_active, code: Store.location_code })
+      .from(Store)
+      .where(eq(Store.id, BigInt(storeId)))
+      .limit(1)
+      .for(mutate ? 'update' : 'share');
+    if (!store?.code) throw statusReconciliation();
     const [order] = await tx
       .select({
         id: Order.id,
@@ -109,6 +121,7 @@ export function wholeOrderStatusAuthority(config: Config, db: Databases) {
       .limit(1)
       .for(mutate ? 'update' : 'share');
     if (!order) throw unavailable();
+    if (mutate) await requireHandoverBarrier(barrier)(tx, [orderId]);
     const rows = await tx
       .select()
       .from(OrderStore)
@@ -125,13 +138,6 @@ export function wholeOrderStatusAuthority(config: Config, db: Databases) {
       order.split === 1
     )
       throw statusReconciliation();
-    const [store] = await tx
-      .select({ id: Store.id, active: Store.is_active, code: Store.location_code })
-      .from(Store)
-      .where(eq(Store.id, BigInt(storeId)))
-      .limit(1)
-      .for('share');
-    if (!store?.code) throw statusReconciliation();
     const first = rows[0]!;
     if (first.counter <= 0n) throw statusReconciliation();
     if (mutate) await checkIns.assertCheckIn(user.id, storeId, String(first.counter), tx);

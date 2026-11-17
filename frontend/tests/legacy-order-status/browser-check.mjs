@@ -58,6 +58,8 @@ try {
     const request = route.request(),
       url = new URL(request.url());
     reads.push({ path: url.pathname, actor: request.headers()['x-operator-id'] });
+    if (url.pathname.endsWith('/status-repair-obligations'))
+      return route.fulfill({ json: { storeId: '1', orderId, obligations: [] } });
     if (url.pathname.endsWith('/fulfillment-status')) return route.fulfill({ json: status() });
     if (request.method() === 'POST') {
       const body = request.postDataJSON();
@@ -101,7 +103,8 @@ try {
     return route.fulfill({ json: saved });
   });
   const open = async () => {
-    await page.getByRole('button', { name: 'Whole-order status', exact: true }).click();
+    const toggle = page.getByRole('button', { name: 'Whole-order status', exact: true });
+    if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
     await expect(
       page.getByRole('button', { name: 'Refresh status receipt', exact: true }),
     ).toBeVisible();

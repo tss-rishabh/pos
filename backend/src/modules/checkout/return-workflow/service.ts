@@ -17,7 +17,7 @@ export async function acceptInbound(
   user: Principal,
   operation: ReturnOperation,
   repository: ReturnRepository,
-  customers: CheckoutRepository,
+  customers: Pick<CheckoutRepository, 'customer'>,
   gateway: ReturnGateway,
   signing: CheckoutEnvironment,
   timeZone: string,

@@ -28,6 +28,7 @@ import {
   type StatusPlatform,
   type StatusReceipt,
 } from './domain.js';
+import type { AssertHandoverAvailable } from './handover.js';
 type Command = typeof wholeOrderStatusCommands.$inferSelect;
 export function publicStatusCommand(row: Command) {
   return {
@@ -62,8 +63,9 @@ export function wholeOrderStatusRepository(
   config: Config,
   db: Databases,
   clock: () => number = Date.now,
+  barrier?: AssertHandoverAvailable,
 ) {
-  const capture = wholeOrderStatusAuthority(config, db),
+  const capture = wholeOrderStatusAuthority(config, db, barrier),
     stamp = () =>
       Temporal.Instant.fromEpochMilliseconds(clock())
         .toZonedDateTimeISO('UTC')
@@ -253,6 +255,12 @@ export function wholeOrderStatusRepository(
   ) {
     z.uuid().parse(operationId);
     z.uuid().parse(returnOperationId);
+    if (operationId !== returnOperationId)
+      throw new AppError(
+        409,
+        'RETURN_REPAIR_IDENTITY_CHANGED',
+        'A rejected return retains its original UUID as the repair command identity.',
+      );
     const [row] = await tx
       .select()
       .from(returnOperations)
@@ -285,6 +293,51 @@ export function wholeOrderStatusRepository(
       returnOperationId,
       requestId,
     );
+  }
+  async function authorizeIn(tx: AdministrationTransaction, row: Command) {
+    if (
+      immutableScopeHash(row.snapshot) !== row.scopeHash ||
+      statusDigest(sourceStatusBody(row.snapshot, row.platform)) !== row.requestHash ||
+      row.orderId !== row.snapshot.orderId ||
+      row.storeId !== row.snapshot.storeId
+    )
+      throw statusReconciliation();
+    const actorRows = await tx
+        .select({ role: PosUser.role, user_type: PosUser.user_type })
+        .from(PosUser)
+        .where(and(eq(PosUser.id, BigInt(row.operatorId)), eq(PosUser.is_active, true)))
+        .limit(1),
+      actor = z
+        .array(
+          z.object({
+            role: z.number().int().min(1).max(5),
+            user_type: z.union([z.literal(1), z.literal(2)]),
+          }),
+        )
+        .safeParse(actorRows);
+    if (!actor.success || !actor.data[0])
+      throw new AppError(
+        403,
+        'WHOLE_ORDER_STATUS_AUTHORITY_CHANGED',
+        'The original operator is no longer authorized.',
+      );
+    const value = actor.data[0],
+      user: Principal = {
+        id: row.operatorId,
+        role: value.role as Principal['role'],
+        userType: value.user_type,
+        storeIds: [row.storeId],
+        name: '',
+        email: '',
+      },
+      authority = await capture(tx, user, row.storeId, row.orderId, true);
+    if (authority.authVersion !== row.authVersion || authority.scopeHash !== row.scopeHash)
+      throw new AppError(
+        409,
+        'WHOLE_ORDER_STATUS_AUTHORITY_CHANGED',
+        'The accepted status scope changed before dispatch.',
+      );
+    return authority;
   }
   return {
     enqueueRejectedReturn,
@@ -372,15 +425,40 @@ export function wholeOrderStatusRepository(
     async claim() {
       return retryTransaction(() =>
         db.get('writer').transaction(async (tx) => {
-          const [row] = await tx
+          const [candidate] = await tx
             .select()
             .from(wholeOrderStatusCommands)
             .where(eq(wholeOrderStatusCommands.state, 'PENDING'))
             .orderBy(wholeOrderStatusCommands.createdAt, wholeOrderStatusCommands.id)
+            .limit(1);
+          if (!candidate) return null;
+          let blocked = false;
+          try {
+            await authorizeIn(tx, candidate);
+          } catch (error: unknown) {
+            if (!(error instanceof AppError)) throw error;
+            blocked = true;
+          }
+          const [row] = await tx
+            .select()
+            .from(wholeOrderStatusCommands)
+            .where(
+              and(
+                eq(wholeOrderStatusCommands.id, candidate.id),
+                eq(wholeOrderStatusCommands.state, 'PENDING'),
+              ),
+            )
             .limit(1)
-            .for('update', { skipLocked: true });
+            .for('update');
           if (!row) return null;
           if (row.attempts !== 0) throw statusReconciliation();
+          if (blocked) {
+            await tx
+              .update(wholeOrderStatusCommands)
+              .set({ state: 'BLOCKED', errorCode: 'STATUS_NOT_SENT', updatedAt: stamp() })
+              .where(eq(wholeOrderStatusCommands.id, row.id));
+            return { ...row, state: 'BLOCKED' as const };
+          }
           await tx
             .update(wholeOrderStatusCommands)
             .set({ state: 'SENDING', attempts: 1, claimedAt: stamp(), updatedAt: stamp() })
@@ -390,51 +468,7 @@ export function wholeOrderStatusRepository(
       );
     },
     async authorizeDispatch(row: Command) {
-      if (
-        immutableScopeHash(row.snapshot) !== row.scopeHash ||
-        statusDigest(sourceStatusBody(row.snapshot, row.platform)) !== row.requestHash ||
-        row.orderId !== row.snapshot.orderId ||
-        row.storeId !== row.snapshot.storeId
-      )
-        throw statusReconciliation();
-      return db.get('writer').transaction(async (tx) => {
-        const actorRows = await tx
-            .select({ role: PosUser.role, user_type: PosUser.user_type })
-            .from(PosUser)
-            .where(and(eq(PosUser.id, BigInt(row.operatorId)), eq(PosUser.is_active, true)))
-            .limit(1),
-          actor = z
-            .array(
-              z.object({
-                role: z.number().int().min(1).max(5),
-                user_type: z.union([z.literal(1), z.literal(2)]),
-              }),
-            )
-            .safeParse(actorRows);
-        if (!actor.success || !actor.data[0])
-          throw new AppError(
-            403,
-            'WHOLE_ORDER_STATUS_AUTHORITY_CHANGED',
-            'The original operator is no longer authorized.',
-          );
-        const value = actor.data[0],
-          user: Principal = {
-            id: row.operatorId,
-            role: value.role as Principal['role'],
-            userType: value.user_type,
-            storeIds: [row.storeId],
-            name: '',
-            email: '',
-          },
-          authority = await capture(tx, user, row.storeId, row.orderId, true);
-        if (authority.authVersion !== row.authVersion || authority.scopeHash !== row.scopeHash)
-          throw new AppError(
-            409,
-            'WHOLE_ORDER_STATUS_AUTHORITY_CHANGED',
-            'The accepted status scope changed before dispatch.',
-          );
-        return authority;
-      });
+      return db.get('writer').transaction((tx) => authorizeIn(tx, row));
     },
     async complete(row: Command, receipt: StatusReceipt) {
       receiptSchema.parse(receipt);

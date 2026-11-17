@@ -81,6 +81,7 @@ export interface CheckoutRegistrationOptions {
   paymentGateway?: PaymentGateway;
   returnGateway?: ReturnGateway;
   returnEnvironment?: ReturnEnvironment;
+  rejectedInboundRepairDispatcherEnabled?: boolean;
   inventoryProcedureVerified?: boolean;
   stockProcedure?: StockProcedure;
   discounts?: DiscountApprovals;
@@ -713,6 +714,7 @@ export function registerCheckout(
     stockProcedure: overrides.stockProcedure,
   });
   registerReturns(app, config, db, {
+    rejectedInboundRepairDispatcherEnabled: overrides.rejectedInboundRepairDispatcherEnabled,
     customerOtp,
     customers: repository,
     signing: environment,
