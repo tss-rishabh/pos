@@ -63,7 +63,7 @@ export function screeningCounterSourceCapture(
         const [raw] =
           await tx.execute(sql`SELECT /*+ MAX_EXECUTION_TIME(5000) */ CAST(s.id AS CHAR) AS markerId,
           CAST(s.order_id AS CHAR) AS orderId,CAST(s.has_product_id AS CHAR) AS lineId,
-          IF(hp.prod_id=${BigInt(counterSku)} AND o.order_status NOT IN(0,17),1,0) AS included
+          CAST(IF(hp.prod_id=${BigInt(counterSku)} AND o.order_status NOT IN(0,17),1,0) AS CHAR) AS included
           FROM spiderman_screening_orders s FORCE INDEX(idx_user_id)
           LEFT JOIN orders o ON o.id=s.order_id LEFT JOIN has_products hp ON hp.id=s.has_product_id
           WHERE s.user_id=${BigInt(customerId)} ORDER BY s.id LIMIT 10001`);
@@ -73,14 +73,14 @@ export function screeningCounterSourceCapture(
               markerId: z.string(),
               orderId: z.string(),
               lineId: z.string(),
-              included: z.union([z.literal(0), z.literal(1)]),
+              included: z.enum(['0', '1']),
             }),
           )
           .max(10000)
           .safeParse(raw);
         if (!records.success) throw counterError('SOURCE_TOO_LARGE');
         const rows = counterRows(
-          records.data.map((row) => ({ ...row, included: row.included === 1 })),
+          records.data.map((row) => ({ ...row, included: row.included === '1' })),
         );
         const body: Omit<CounterCapture, 'signature'> = {
           contract: counterSourceContract,
@@ -208,7 +208,22 @@ export async function initializeScreeningCounter(
       throw counterError('BASELINE_INVALID');
   };
   await financialTransaction(db, true, async (tx) => {
-    await lockScreeningCustomer(tx, publication.scope.customerId);
+    if (metadata) {
+      // The independent projection principal has source SELECT only. Shared
+      // customer locking fences cooperating writers' exclusive customer lock;
+      // head/baseline X locks and expected-generation CAS serialize publishers.
+      // This does not mint the ordinary financial customer's X-lock witness.
+      const [raw] = await tx.execute(
+        sql`SELECT CAST(id AS CHAR) AS id FROM users WHERE id=${BigInt(publication.scope.customerId)} FOR SHARE`,
+      );
+      if (
+        !z
+          .array(z.object({ id: z.literal(publication.scope.customerId) }))
+          .length(1)
+          .safeParse(raw).success
+      )
+        throw counterError('SOURCE_IDENTITY');
+    } else await lockScreeningCustomer(tx, publication.scope.customerId);
     const writers = metadata
       ? await qualifyCounterPublisherDefinitions(tx, metadata.headMetadata, metadata.configuration)
       : await qualifyCounterWriterDefinitions(tx);
