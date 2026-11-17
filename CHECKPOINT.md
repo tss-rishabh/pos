@@ -29,6 +29,7 @@ component test counts do not certify every original workflow.
 | Historical order reads  | Public date selections reach PRIMARY/DATA/BigQuery readers, with scoped cursors and post-read session revocation checks. Full source filters/sorting/queues/formatter are integrated: 43 pinned-Django vectors, 12 browser workflows and existing qualified detail/copy readers. Warehouse generations and workload acceptance remain required. |
 | Order copying           | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Native OTP/contact/session fences, serialized unsent cancellation and dedicated validated terminal clear are integrated. Fifty-three affected backend and 21 scoped frontend checks pass, including five actual Counter/Review Chromium flows and lost-clear recovery without another POST. |
 | Cash payment corrections | Native cash reversals and subsequent cash receipts now compose with current collections, ledger, DSR and sealed historical deltas. The actual Orders page includes a deferred manager action; reports expose cash returned and net cash. Ninety-five focused finance checks and 15 affected browser workflows pass; durable pending-return manager reconciliation remains in progress and production contracts stay unselected. |
+| Ecommerce inventory sync | Source threshold selection, writer-current system projection/checkpoints, authenticated complete catalog bridge and the actual settings recovery UI are wired into the existing queue/worker. Twenty-four merged backend checks (including 16 bridge subcases) and eight frontend checks pass, with strict checks. Actual stock/writer/catalog coordination and provider deployment acceptance remain required. |
 
 ## Fixed remaining code checklist
 
@@ -46,8 +47,8 @@ component test counts do not certify every original workflow.
   integrated; actual publisher/source-barrier acceptance remains external.
 - Qualify the source order-search historical publication/contact-key generation
   and representative queue workload; the complete UI/API/source-filter code is integrated.
-- Finish ecommerce inventory synchronization and whole-order Vinculum status
-  in the source map. Parent/store CSV and source-default account creation are
+- Finish whole-order Vinculum status in the source map. Ecommerce stock/catalog
+  synchronization, parent/store CSV and source-default account creation are
   integrated with their operational acceptance still required. The BD upload templates are explicitly retained as an
   inactive prototype: their classes/routes and sidebar are commented in source.
 - Reconcile every source route, template, websocket, administration surface and

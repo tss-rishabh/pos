@@ -58,6 +58,11 @@ jobs:
           ADMINISTRATION_BROWSER_TESTS: 'true'
           PRODUCT_FEEDBACK_BROWSER_TESTS: 'true'
           OFFLINE_WORKSHEET_BROWSER_TESTS: 'true'
+      - name: Ecommerce settings and stock recovery
+        run: npx vitest run tests/administration/ecommerce-sync --maxWorkers=1
+        working-directory: frontend
+        env:
+          ADMINISTRATION_BROWSER_TESTS: 'true'
       - name: Scoped invoice browser checks
         run: node tools/run-browser-fixture.mjs invoice-documents
         working-directory: frontend

@@ -16,7 +16,6 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **ecommerce-inventory-sync (partial)**: Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.
 - **legacy-paid-reversal (partial)**: Finish durable prepare/attestation and the manager queue for unknown physical cash-return intents across authorized operators/devices, including final-finance guards. The existing device journal and order action retain original references but are not a complete centralized reconciliation workflow.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
@@ -27,11 +26,11 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 4 | 0 | 183 |
-| jobs | 0 | 4 | 1 | 27 |
-| templates | 32 | 5 | 2 | 67 |
+| routes | 68 | 2 | 0 | 185 |
+| jobs | 0 | 3 | 1 | 28 |
+| templates | 32 | 4 | 2 | 68 |
 | websockets | 0 | 0 | 0 | 1 |
-| administration | 0 | 1 | 0 | 1 |
+| administration | 0 | 0 | 0 | 2 |
 
 “External acceptance” means code exists and the named real dependency remains unaccepted. It does not turn a missing callback/financial adapter into a deployed feature. Warehouse absence, source collation/generation proofs, shared writer patches, physical printers, real OAuth/SMS/mail and SDD/legal rendering are carried at their specific family boundaries in the JSON; they are not hundreds of invented code tasks.
 
@@ -88,8 +87,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:94` | `settings/general/` | support | implementation_present |
 | `core/urls.py:95` | `ajax-threshold-update/` | support | implementation_present |
 | `core/urls.py:96` | `ajax-order-buffer-update/` | support | implementation_present |
-| `core/urls.py:99` | `settings/ecom/` | support, ecommerce-inventory-sync | partial |
-| `core/urls.py:100` | `ajax-ecom-setting-update/` | support, ecommerce-inventory-sync | partial |
+| `core/urls.py:99` | `settings/ecom/` | ecommerce-inventory-sync, support | external_acceptance |
+| `core/urls.py:100` | `ajax-ecom-setting-update/` | ecommerce-inventory-sync, support | external_acceptance |
 | `core/urls.py:103` | `gift-card-management/` | gift-card-batches | external_acceptance |
 | `core/urls.py:104` | `ajax-gift-card-list/` | gift-card-batches | external_acceptance |
 | `core/urls.py:105` | `ajax-generate-gift-card/` | gift-card-batches | external_acceptance |
@@ -312,7 +311,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/tasks.py:147` | `accept_order` | local-deliveries | external_acceptance |
 | `core/tasks.py:159` | `reject_order` | local-deliveries | external_acceptance |
 | `core/tasks.py:171` | `new_order_create_communication` | local-deliveries | external_acceptance |
-| `core/tasks.py:182` | `sync_ecom_inventory` | ecommerce-inventory-sync | partial |
+| `core/tasks.py:182` | `sync_ecom_inventory` | ecommerce-inventory-sync | external_acceptance |
 | `core/tasks.py:209` | `generate_and_upload_gift_card` | gift-card-batches | external_acceptance |
 | `core/tasks.py:226` | `push_vinc_order_for_all` | legacy-vinculum-status | partial |
 | `core/tasks.py:232` | `send_pg_disc_otp` | discount-approval | external_acceptance |
@@ -353,7 +352,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/documentation/documentation_lists.html` | `core/templates/documentation/documentation_lists.html` | documentation | external_acceptance |
 | `core/templates/documentation/index.html` | `core/templates/documentation/index.html` | documentation | external_acceptance |
 | `core/templates/documentation/show.html` | `core/templates/documentation/show.html` | documentation | external_acceptance |
-| `core/templates/ecom_delivery/index.html` | `core/templates/ecom_delivery/index.html` | support, ecommerce-inventory-sync | partial |
+| `core/templates/ecom_delivery/index.html` | `core/templates/ecom_delivery/index.html` | support, ecommerce-inventory-sync | external_acceptance |
 | `core/templates/edc_edit/edc_detail_and_edit.html` | `core/templates/edc_edit/edc_detail_and_edit.html` | terminals | implementation_present |
 | `core/templates/gift_card/index.html` | `core/templates/gift_card/index.html` | gift-card-batches | external_acceptance |
 | `core/templates/mpos_download/index.html` | `core/templates/mpos_download/index.html` | staff-installer-handoff | external_acceptance |
@@ -457,7 +456,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 
 | Source | Surface | Families | Implementation disposition |
 | --- | --- | --- | --- |
-| `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | partial |
+| `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | external_acceptance |
 | `users/admin.py:20` | `User, UserAdmin` | operators, operator-administrative-profile, operator-mfa, model-administration-access, inherited-administration-history, inherited-model-add-forms | external_acceptance |
 
 ## Reproducibility and limits

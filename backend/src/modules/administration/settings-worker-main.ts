@@ -8,6 +8,10 @@ import { readSettingsWorkerOptions } from './settings-options.js';
 import { settingsOutbox } from './settings-outbox.js';
 import type { SettingsEffectDelivery } from './settings-domain.js';
 import { settingsWorker, type SettingsWorkerLogger } from './settings-worker.js';
+import {
+  ecommerceInventorySynchronization,
+  readEcommerceSynchronizationOptions,
+} from './ecommerce-sync/index.js';
 
 class SettingsLogController extends LogController {
   constructor() {
@@ -68,7 +72,14 @@ try {
         'Configure the settings writer and delivery adapters.',
       );
     db = createDatabases(config);
-    delivery = createSettingsDelivery(config, db, options);
+    const ecommerceSync = ecommerceInventorySynchronization(
+      config,
+      db,
+      readEcommerceSynchronizationOptions(),
+    );
+    delivery = createSettingsDelivery(config, db, options, {
+      synchronizeEcommerce: ecommerceSync.ready ? ecommerceSync.synchronizeEcommerce : undefined,
+    });
     if (args.length) {
       await settingsOutbox(db, delivery).retry(args[1]!);
       log(

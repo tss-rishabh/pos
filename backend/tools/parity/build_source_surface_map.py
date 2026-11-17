@@ -128,6 +128,12 @@ def define_families():
     # existing release/certification ledger or copying stale gate descriptions.
     for row in administration['features']:
         key = row['id']
+        if key == 'ecommerce-inventory-sync':
+            # The cross-service family below includes the concrete receiver and
+            # worker in addition to the administration route membership.
+            for route in row['source_route_declarations']:
+                route_groups[route['id']].append(key)
+            continue
         state, gaps, external = 'implementation_present', [], []
         if key in ['store-images', 'documentation']:
             external = ['Accept configured private S3/CORS and physical supported files; synthetic storage tests are not live storage acceptance.']
@@ -191,11 +197,10 @@ def define_families():
            ['parity/global-vouchers.md'], scope='User-approved exact-paise non-expiring issuance and verified-checkout conversion with atomic receipts, PIN budgets and quote invalidation.',
            external=['Apply reviewed ordinary-voucher exact-value/null-date/GV_ADD consumer corrections and shared writer contract; do not fabricate old gift-card funding evidence.'])
     bind('global-vouchers', ['AjaxGiftVoucherModuleView', 'AjaxGiftVoucherCheck', 'AjaxGiftVoucherConvert'])
-    family('ecommerce-inventory-sync', ['src/modules/administration/settings.ts', 'src/modules/administration/settings-adapters.ts'],
-           ['src/pages/administration/settings.tsx'], ['tests/administration/settings.test.ts'], ['parity/administration-settings.md'],
-           state='partial', scope='Scoped settings, ordered durable effects/cache/notices exist; inventory synchronization only has an injected interface.',
-           gaps=['Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.'],
-           external=['Accept actual shared stock semantics and approved downstream sync adapter without live source CALL assumptions.'])
+    family('ecommerce-inventory-sync', ['src/modules/administration/settings.ts', 'src/modules/administration/settings-adapters.ts', 'src/modules/administration/ecommerce-sync', 'compatibility/upstream/ecommerce-full-sync', 'src/modules/administration/settings-worker-main.ts'],
+           ['src/pages/administration/settings.tsx', 'src/pages/administration/ecommerce-sync'], ['tests/administration/ecommerce-sync', 'tests/administration/settings.test.ts', 'frontend/tests/administration/ecommerce-sync'], ['parity/administration-settings.md', 'parity/ecommerce-inventory-sync.md'],
+           scope='Exact source stock>threshold association selection, bounded staged current-quantity system projections/audits and authenticated full catalog completion are wired through the existing settings queue/worker. The pinned source builder retains Mongo/Redis/Akamai transformations with guarded writer-current stock reads. Actual settings UI retains original UUIDs, cancellation fences, GET-only recovery and per-row/unknown/full-sync progress; started-only acknowledgments do not certify completion.',
+           external=['Accept the selected stock/system projection candidate and actual shared writer identity; deploy the qualified private source bridge and catalog-writer cutover/coordination, then accept configured Mongo/Redis/Akamai/Slack outcomes and representative workload. No live source CALL, provider delivery or full workflow certification is inferred from component tests.'])
     bind('ecommerce-inventory-sync', ['PosEcomSetting', 'AjaxEcomSettingUpdate'])
     family('offline-scratch-invoice', ['src/modules/catalog.ts'], ['src/pages/offline-worksheet'],
            ['frontend/tests/offline-worksheet'], ['parity/offline-invoice-worksheet.md'],

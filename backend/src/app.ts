@@ -30,6 +30,11 @@ import { readAdministrationWorkerOptions } from './modules/administration/worker
 import { createSettingsDelivery } from './modules/administration/settings-adapters.js';
 import { readSettingsWorkerOptions } from './modules/administration/settings-options.js';
 import {
+  ecommerceInventorySynchronization,
+  readEcommerceSynchronizationOptions,
+  registerEcommerceInventorySynchronization,
+} from './modules/administration/ecommerce-sync/index.js';
+import {
   createDocumentationMediaStore,
   createScopedMediaStore,
   readDocumentationMediaOptions,
@@ -303,8 +308,15 @@ export async function buildApp(
     ? undefined
     : createStoreImageStore(config, readPrivateS3Options());
   const settingsOptions = config.DEMO_MODE ? undefined : readSettingsWorkerOptions();
+  const ecommerceSync = ecommerceInventorySynchronization(
+    config,
+    db,
+    readEcommerceSynchronizationOptions(),
+  );
   const settingsDelivery = settingsOptions
-    ? createSettingsDelivery(config, db, settingsOptions)
+    ? createSettingsDelivery(config, db, settingsOptions, {
+        synchronizeEcommerce: ecommerceSync.ready ? ecommerceSync.synchronizeEcommerce : undefined,
+      })
     : undefined;
   app.addHook('onClose', async () => {
     profileStore?.close();
@@ -321,8 +333,10 @@ export async function buildApp(
     storeImageStore,
     operatorImageStore: profileStore,
     settingsDelivery,
+    ecommerceSyncVerified: ecommerceSync.ready,
     ecommerceCooldownSeconds: settingsOptions?.ECOM_DELIVERY_CHANGES_TIME,
   });
+  registerEcommerceInventorySynchronization(app, ecommerceSync);
   const customerOtpOptions = readCustomerOtpOptions(),
     customerOtp = customerOtpService(
       config,

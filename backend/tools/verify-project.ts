@@ -66,6 +66,7 @@ if (flags.has('--mysql')) {
     ORDER_SEARCH_MYSQL_TEST_URL: 'pos_rewrite_order_search_test',
     PARENT_STORE_IMPORTS_MYSQL_TEST_URL: 'pos_rewrite_parent_store_test',
     MODEL_ACCOUNTS_MYSQL_TEST_URL: 'pos_rewrite_model_accounts_test',
+    ECOMMERCE_SYNC_MYSQL_TEST_URL: 'pos_rewrite_integration',
     GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
     ADMINISTRATION_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_administration_history_test',
   })) {
@@ -817,6 +818,26 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tools/payment-correction-finance/tsconfig.json',
+    ],
+  },
+  {
+    id: 'ecommerce-sync-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/administration/ecommerce-sync/tsconfig.tests.json',
+    ],
+  },
+  {
+    id: 'ecommerce-sync-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/administration/ecommerce-sync/tsconfig.tests.json',
     ],
   },
   {

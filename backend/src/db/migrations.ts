@@ -20,6 +20,7 @@ export const migrationPaths = [
   'src/modules/gift-card-batches/migration.sql',
   'src/modules/administration/media-migration.sql',
   'src/modules/administration/settings-migration.sql',
+  'src/modules/administration/ecommerce-sync/migration.sql',
   'src/modules/administration/import-migration.sql',
   'src/modules/administration/parent-store-imports/migration.sql',
   'src/modules/administration/mfa-migration.sql',
