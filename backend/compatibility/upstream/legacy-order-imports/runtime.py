@@ -42,6 +42,9 @@ def _create_application():
         key,os.environ.get('TSS_POS_CUSTOMER_CONTEXT_KEY',''),
         os.environ.get('POS_PUBLIC_SCREENING_PUBLICATION_KEY',''),
         os.environ.get('POS_PUBLIC_SCREENING_NEGATIVE_KEY',''),
+        os.environ.get('POS_LEGACY_IMPORT_FINANCIAL_PROOF_KEY',''),
+        os.environ.get('POS_LEGACY_IMPORT_MEMBERSHIP_HISTORY_KEY',''),
+        os.environ.get('POS_MEMBERSHIP_PROOF_KEY',''),
         os.environ.get('POS_LEGACY_IMPORT_COUPON_HISTORY_KEY',''),
         os.environ.get('POS_LEGACY_IMPORT_COUPON_GUARD_KEY','')))
     url=make_url(os.environ['POS_LEGACY_IMPORT_MYSQL_WRITER_URL'])
