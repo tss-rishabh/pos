@@ -18,6 +18,7 @@ const synchronizationInput = z
       'exchange-return',
       'inventory-import',
       'offline-cash-import',
+      'legacy-order-import',
       'legacy-rto',
       'legacy-delivery',
       'order-cancel',
