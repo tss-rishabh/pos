@@ -10,7 +10,7 @@ import sys
 HERE=Path(__file__).resolve().parent
 SOURCE=Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT',str(HERE.parents[4]/'backend-tss-api_v2')))
 sys.path.insert(0,str(HERE))
-from native import HEADER
+from native import HEADER,LINE
 from source_runtime import PINS,checked_source
 
 
@@ -30,11 +30,13 @@ def outputs():
     after=once(after,'\titems, err := tx.QueryContext(ctx,',
         '\tif err = validateImportConfirmation(ctx, tx, importPrelude, orderID, userID, storeID, counterID); err != nil { return Confirmation{}, err }\n\tlegacyImport, err := lockLegacyImport(ctx, tx, orderID, userID, storeID, counterID)\n\tif err != nil { return Confirmation{}, err }\n\tif err = checkScreeningConfirmation(ctx, tx, importPrelude, legacyImport, orderID); err != nil { return Confirmation{}, err }\n\titems, err := tx.QueryContext(ctx,')
     after=once(after,'\tif err = applySafely(tx, apply); err != nil {',
-        '\tif err = beforeImportMutation(ctx, tx, importPrelude, legacyImport); err != nil { return Confirmation{}, err }\n\tif err = applySafely(tx, apply); err != nil {')
+        '\tif err = beforeImportMutation(ctx, tx, importPrelude, legacyImport); err != nil { return Confirmation{}, err }\n\tlegacyCoupon, err := lockLegacyImportCoupon(ctx, tx, legacyImport, orderID)\n\tif err != nil { return Confirmation{}, err }\n\tif err = applySafely(tx, apply); err != nil {')
+    replay='\t\tif err = tx.Commit(); err != nil {\n\t\t\treturn Confirmation{}, err\n\t\t}\n\t\treturn confirmation(false,'
+    after=once(after,replay,'\t\tif err = verifyLegacyImportCouponReplay(ctx,tx,legacyImport,orderID); err != nil { return Confirmation{}, err }\n'+replay)
     # The sole new-proof COMMIT follows the source proof insertion. Existing
     # proof replay never creates a second import confirmation receipt.
     marker='\tif err = tx.Commit(); err != nil {\n\t\treturn Confirmation{}, err\n\t}\n\treturn confirmation(true,'
-    replacement='\tif err = checkScreeningConfirmation(ctx, tx, importPrelude, legacyImport, orderID); err != nil { return Confirmation{}, err }\n\tif err = recordLegacyImportConfirmation(ctx, tx, legacyImport, orderID); err != nil { return Confirmation{}, err }\n'+marker
+    replacement='\tif err = checkScreeningConfirmation(ctx, tx, importPrelude, legacyImport, orderID); err != nil { return Confirmation{}, err }\n\tif err = recordLegacyImportConfirmation(ctx, tx, legacyImport, orderID, legacyCoupon); err != nil { return Confirmation{}, err }\n'+marker
     after=once(after,marker,replacement)
     changes['internal/poscheckout/confirmation.go']=(before,after)
     before=(base/'privacy.go').read_text()
@@ -50,10 +52,11 @@ def outputs():
     after=once(after,"\t\tif _, err = tx.ExecContext(ctx, `UPDATE pos_rewrite_checkout_projection_effects SET status='processing'",
         "\t\tif err = verifyLegacyImportEffect(ctx,tx,effect); err != nil { tx.Rollback(); return err }\n\t\tif _, err = tx.ExecContext(ctx, `UPDATE pos_rewrite_checkout_projection_effects SET status='processing'")
     changes['internal/poscheckout/effects.go']=(before,after)
-    helper=(HERE/'legacy_import.go').read_text()+'\nconst LegacyImportHeaderSQL = '+json.dumps(HEADER)+'\n'
+    helper=(HERE/'legacy_import.go').read_text()+'\nconst LegacyImportHeaderSQL = '+json.dumps(HEADER)+'\nconst LegacyImportLineSQL = '+json.dumps(LINE)+'\n'
     changes['internal/poscheckout/legacy_import.go']=('',helper)
     changes['internal/poscheckout/screening.go']=('',(HERE/'screening.go').read_text())
     changes['internal/poscheckout/public_screening.go']=('',(HERE/'public_screening.go').read_text())
+    changes['internal/poscheckout/coupon_consumption.go']=('',(HERE/'coupon_consumption.go').read_text())
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+path if old else '/dev/null',tofile='b/'+path)) for path,(old,new) in changes.items())
     public_main=(SOURCE/'main.py').read_text()
     guarded_main=once(public_main,'middleware = [DatabaseManager(',
@@ -87,6 +90,9 @@ def outputs():
             'writers':'pos-screening-all-writers-v1','activated':False,
             'count':'marker-first nonlocking under owned read-committed customer witness',
             'physicalMetadataCommit':'34b2c65','goSha256':hashlib.sha256((HERE/'screening.go').read_bytes()).hexdigest()},
+        'couponConsumption':{'contract':'pos-csv-coupon-consumption-v1','activated':False,
+            'goSha256':hashlib.sha256((HERE/'coupon_consumption.go').read_bytes()).hexdigest(),
+            'deduction':'existing source Apply only; capture native before/after and log in same transaction'},
         'membership':{'contract':'pos-legacy-import-membership-v1','activated':False,
             'stagedContract':'pos-cancellation-membership-staged-v2',
             'activatedContract':'pos-cancellation-membership-provenance-v2',

@@ -298,7 +298,7 @@ func freshLegacyImportActor(ctx context.Context, tx *sql.Tx, c *importCapability
 	return nil
 }
 
-func recordLegacyImportConfirmation(ctx context.Context, tx *sql.Tx, c *importCapability, orderID int64) error {
+func recordLegacyImportConfirmation(ctx context.Context, tx *sql.Tx, c *importCapability, orderID int64, coupon *importCouponCapture) error {
 	if c == nil {
 		return nil
 	}
@@ -325,7 +325,10 @@ func recordLegacyImportConfirmation(ctx context.Context, tx *sql.Tx, c *importCa
 		return err
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO pos_rewrite_import_financial_source_receipts(id,operation_id,kind,request_hash,status,proof,proof_hash,created_at_ms) VALUES(?,?,'confirmation',?,'completed',?,?,?)`, c.OperationID+":confirmation", c.OperationID, c.RequestHash, encoded, seal, time.Now().UnixMilli())
-	return err
+	if err != nil {
+		return err
+	}
+	return recordLegacyImportCoupon(ctx, tx, c, coupon, seal)
 }
 
 func verifyCompletedLegacyImport(ctx context.Context, tx *sql.Tx, op, request string, order, user, store, counter int64) error {

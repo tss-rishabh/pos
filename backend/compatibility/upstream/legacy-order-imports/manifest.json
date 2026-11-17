@@ -9,14 +9,15 @@
     "internal/poscheckout/effects.go": "030d126e70372eb7a0d7213a6991125bdc948993689cd1c14bc5f141455863be"
   },
   "candidate": {
-    "internal/poscheckout/confirmation.go": "bcaf35e4798dd6e934516959746e4bec9df6dc1b194c56f3ad6b3bb76aa1b7bd",
+    "internal/poscheckout/confirmation.go": "10e2ad18c230da3e49cafc1474793a92c49d265c8a7943eb378dbf17c5932080",
     "internal/poscheckout/privacy.go": "322dd6eae7955f2c7f4bcd35b8737dddd3f28116022097334e814e4d132a0c38",
     "internal/poscheckout/effects.go": "62b26ebc1a75b0cfc98b8691176a952c682cc0b14fae9af973f616a53c41233a",
-    "internal/poscheckout/legacy_import.go": "da788ccebf4620c8574a5d35471fbf971750fbb0aafea82f35911bf9f839a5c7",
+    "internal/poscheckout/legacy_import.go": "58dfc80377398fd0ef217a8f16f3c0b0a13aa280eb6ddf30ea4c777f4a916d66",
     "internal/poscheckout/screening.go": "cf505326d881e37118c8baacf4b4889874c98c16c153056a02b8bfff0dbb7d19",
-    "internal/poscheckout/public_screening.go": "80d3bbce01a9adb4e36bd4b06c3ef9c97f3bb0604e912dd929c845b069d1032e"
+    "internal/poscheckout/public_screening.go": "80d3bbce01a9adb4e36bd4b06c3ef9c97f3bb0604e912dd929c845b069d1032e",
+    "internal/poscheckout/coupon_consumption.go": "400cc5ee1e19920a89adaba41ad8c34d5071738813db5d1e4614e4c7cf3c2368"
   },
-  "patchSha256": "a0bcd3716b0c21dbdf1b36653390cf20730b7eb9cabc79c442c40848ae8d4799",
+  "patchSha256": "d71649caea429419cc65d00906d1b4f4f0ffa5a3809d6562506dadb9e4592eb8",
   "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
   "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
   "sourceFiles": {
@@ -71,6 +72,12 @@
     "count": "marker-first nonlocking under owned read-committed customer witness",
     "physicalMetadataCommit": "34b2c65",
     "goSha256": "cf505326d881e37118c8baacf4b4889874c98c16c153056a02b8bfff0dbb7d19"
+  },
+  "couponConsumption": {
+    "contract": "pos-csv-coupon-consumption-v1",
+    "activated": false,
+    "goSha256": "400cc5ee1e19920a89adaba41ad8c34d5071738813db5d1e4614e4c7cf3c2368",
+    "deduction": "existing source Apply only; capture native before/after and log in same transaction"
   },
   "membership": {
     "contract": "pos-legacy-import-membership-v1",

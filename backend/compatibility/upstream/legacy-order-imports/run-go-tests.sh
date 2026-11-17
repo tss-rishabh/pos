@@ -11,6 +11,7 @@ cp -R "$import_root/../go/." "$import_work/"
 git -C "$import_work" apply "$import_root/payments-import-overlay.patch"
 cp "$import_root/import_native_test.go" "$import_work/internal/poscheckout/sourcefixture/import_receiver_test.go"
 cp "$import_root/import_codec_test.go" "$import_work/internal/poscheckout/import_codec_test.go"
+cp "$import_root/coupon_codec_test.go" "$import_work/internal/poscheckout/coupon_codec_test.go"
 cp "$import_root/screening_native_test.go" "$import_work/internal/poscheckout/sourcefixture/screening_native_test.go"
 docker network create "$import_name" >/dev/null
 docker run -d --name "$import_name" --network "$import_name" --network-alias mysql \
