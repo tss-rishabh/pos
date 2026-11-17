@@ -1,0 +1,28 @@
+# Build from backend/. The reviewed legacy POS dependency image is distinct
+# from the Falcon API dependency image; never infer one from the other.
+ARG LEGACY_POS_DEPENDENCY_IMAGE
+FROM ${LEGACY_POS_DEPENDENCY_IMAGE} AS legacy-origin-effects-worker
+ARG LEGACY_POS_DEPENDENCY_IMAGE
+RUN python3 -c 'import os,re; raise SystemExit(0 if re.fullmatch(r"[^\s]+@sha256:[a-f0-9]{64}", os.environ["LEGACY_POS_DEPENDENCY_IMAGE"]) else "Pinned legacy POS dependency image required")'
+WORKDIR /opt/pos-source-adapters
+COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/*.py ./legacy-order-imports/
+COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/*.json ./legacy-order-imports/
+COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/benefit-profile/*.py ./legacy-order-imports/benefit-profile/
+COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/benefit-profile/*.json ./legacy-order-imports/benefit-profile/
+COPY --chown=65532:65532 compatibility/upstream/public-screening-writer/*.py ./public-screening-writer/
+COPY --chown=65532:65532 compatibility/upstream/public-screening-writer/*.json ./public-screening-writer/
+COPY --chown=65532:65532 compatibility/upstream/screening-origins/*.py ./screening-origins/
+COPY --chown=65532:65532 compatibility/upstream/screening-origins/*.json ./screening-origins/
+COPY --chown=65532:65532 compatibility/upstream/screening-origins/*.sql ./screening-origins/
+COPY --chown=65532:65532 compatibility/upstream/screening-origins/*.mjs ./screening-origins/
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/pos-legacy-source:/opt/pos-source-adapters/legacy-order-imports:/opt/pos-source-adapters/legacy-order-imports/benefit-profile:/opt/pos-source-adapters/public-screening-writer:/opt/pos-source-adapters/screening-origins \
+    POS_NODE_SCREENING_MODULE_ROOT=/opt/pos-source-adapters \
+    POS_SCREENING_ORIGIN_LEGACY_SOURCE_ROOT=/opt/pos-legacy-source \
+    DJANGO_SETTINGS_MODULE=POSAdmin.settings \
+    POS_SCREENING_ORIGIN_LEGACY_EFFECTS_WORKER_ENABLED=false
+USER 65532:65532
+HEALTHCHECK NONE
+STOPSIGNAL SIGTERM
+ENTRYPOINT []
+CMD ["python3","/opt/pos-source-adapters/screening-origins/legacy_worker.py"]

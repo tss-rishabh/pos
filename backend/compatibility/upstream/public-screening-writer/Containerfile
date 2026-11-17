@@ -12,6 +12,7 @@ COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/benefit-pro
 COPY --chown=65532:65532 compatibility/upstream/public-screening-writer/*.py ./public-screening-writer/
 COPY --chown=65532:65532 compatibility/upstream/public-screening-writer/*.json ./public-screening-writer/
 COPY --chown=65532:65532 compatibility/upstream/screening-origins/*.py ./screening-origins/
+COPY --chown=65532:65532 compatibility/upstream/screening-origins/*.json ./screening-origins/
 COPY --chown=65532:65532 compatibility/upstream/screening-origins/*.sql ./screening-origins/
 COPY --chown=65532:65532 compatibility/upstream/screening-origins/*.mjs ./screening-origins/
 COPY --chown=65532:65532 compatibility/upstream/offline-cash-pricing/*.py ./offline-cash-pricing/
