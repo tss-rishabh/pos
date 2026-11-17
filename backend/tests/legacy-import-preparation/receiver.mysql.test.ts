@@ -73,7 +73,10 @@ describe.skipIf(!template)(
       const original = await legacyImportFinancialJournal(f.config, f.db, f.options).reserve(
         f.input(plan),
       );
-      const state = { ...original.state, preparationContract: sourceOrderPreparationContract },
+      const state: SourceOrderPreparationInput['state'] = {
+          ...original.state,
+          preparationContract: sourceOrderPreparationContract,
+        },
         input: SourceOrderPreparationInput = {
           state,
           plan,

@@ -17,6 +17,71 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe('qualified import runtime selection', () => {
+  it('installs selected preparation without opening SQL or requiring unused history configuration', async () => {
+    const db = createDatabases(configuration),
+      get = vi.spyOn(db, 'get');
+    try {
+      const registration = configuredLegacyOrderImports(configuration, db, {
+        environment: {
+          LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: 'isolated-retained-runtime-financial-key-'.repeat(
+            2,
+          ),
+          UPSTREAM_POS_LEGACY_IMPORT_PREPARATION_CONTRACT: 'pos-import-order-preparation-v1',
+        },
+      });
+      expect(registration.adapter?.preparation).toBeDefined();
+      expect(registration.canStart).toBe(false);
+      expect(get).not.toHaveBeenCalled();
+    } finally {
+      await db.close();
+    }
+  });
+  it.each([
+    { UPSTREAM_POS_LEGACY_IMPORT_PREPARATION_CONTRACT: 'wrong-contract' },
+    {
+      UPSTREAM_POS_LEGACY_IMPORT_PREPARATION_CONTRACT: 'pos-import-order-preparation-v1',
+      CSV_MEMBERSHIP_MAX_LAG_SECONDS: 'invalid',
+    },
+  ])(
+    'retains immutable recovery with invalid selected producer configuration',
+    async (selected) => {
+      const db = createDatabases(configuration),
+        get = vi.spyOn(db, 'get');
+      try {
+        const registration = configuredLegacyOrderImports(configuration, db, {
+          environment: {
+            LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1:
+              'isolated-retained-runtime-financial-key-'.repeat(2),
+            ...selected,
+          },
+        });
+        expect(registration.adapter).toBeDefined();
+        expect(registration.adapter?.preparation).toBeUndefined();
+        expect(registration.canStart).toBe(false);
+        expect(get).not.toHaveBeenCalled();
+      } finally {
+        await db.close();
+      }
+    },
+  );
+  it('leaves absent preparation uninstalled and ignores its unused history options', async () => {
+    const db = createDatabases(configuration),
+      get = vi.spyOn(db, 'get');
+    try {
+      const registration = configuredLegacyOrderImports(configuration, db, {
+        environment: {
+          LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: 'isolated-retained-runtime-financial-key-'.repeat(
+            2,
+          ),
+          CSV_MEMBERSHIP_MAX_LAG_SECONDS: 'invalid',
+        },
+      });
+      expect(registration.adapter?.preparation).toBeUndefined();
+      expect(get).not.toHaveBeenCalled();
+    } finally {
+      await db.close();
+    }
+  });
   it('ignores ambient financial and worker flags in demo without touching a database', async () => {
     const config = { ...configuration, DEMO_MODE: true },
       db = createDatabases(config),

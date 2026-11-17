@@ -14,6 +14,8 @@ import type { LegacyOrderImportRegistrationOptions } from './service.js';
 import { legacyOrderImportCorrections } from './correction-repository.js';
 import { financialImportCorrectionBoundary } from './financial-adapter-correction-boundary.js';
 import { configuredFinancialImportProfiles } from './membership-profile/options.js';
+import { configuredSourceOrderPreparation } from './source-order-preparation-runtime.js';
+import type { sourceOrderPreparation } from './source-order-preparation.js';
 
 /** Configuration inspection is pure: disabled/demo startup performs no I/O. */
 export function configuredLegacyOrderImports(
@@ -23,6 +25,9 @@ export function configuredLegacyOrderImports(
     environment?: NodeJS.ProcessEnv;
     stockProcedure?: StockProcedure;
     observe?: LegacyImportFinancialOptions['observe'];
+    clock?: () => number;
+    fetcher?: typeof fetch;
+    preparation?: Parameters<typeof sourceOrderPreparation>[3];
   } = {},
 ): LegacyOrderImportRegistrationOptions {
   const environment = config.DEMO_MODE ? {} : (options.environment ?? process.env),
@@ -33,8 +38,16 @@ export function configuredLegacyOrderImports(
       ...legacyImportFinancialOptions(environment),
       stockProcedure: options.stockProcedure,
       observe: options.observe,
+      clock: options.clock,
+      fetcher: options.fetcher,
     },
     transport = legacyImportFinancialTransport(config, financial),
+    preparation = configuredSourceOrderPreparation(
+      config,
+      financial,
+      environment,
+      options.preparation,
+    ),
     approvals = legacyOrderImportFinancialApprovals(config, db, financial),
     corrections = legacyOrderImportCorrections(db, config, {
       secret: key,
@@ -52,7 +65,7 @@ export function configuredLegacyOrderImports(
       corrections,
       correctionForOperation: corrections.correctionForOperation,
     };
-  let canStart = true;
+  let canStart = preparation.ready;
   try {
     transport.assertReady();
   } catch (error: unknown) {
@@ -69,7 +82,10 @@ export function configuredLegacyOrderImports(
       db,
       financial,
       transport,
-      configuredFinancialImportProfiles(financial, environment),
+      configuredFinancialImportProfiles(financial, environment, {
+        ...(preparation.guard ? { extensions: [preparation.guard] } : {}),
+      }),
+      preparation.port,
     ),
   };
 }

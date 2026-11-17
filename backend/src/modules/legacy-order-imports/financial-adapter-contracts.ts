@@ -239,6 +239,7 @@ export const importPublicationReceiptSchema = z
               'facebook',
               'sms',
               'membership-cache',
+              'cart-tracking',
             ]),
           })
           .strict(),

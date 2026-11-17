@@ -31,7 +31,7 @@ export const preparationNow = Date.parse('2026-11-17T06:30:03.000Z'),
   };
 export function preparationInput(): SourceOrderPreparationInput {
   const f = memberEvidence('offline', true),
-    state = {
+    state: SourceOrderPreparationInput['state'] = {
       ...f.state,
       status: 'running' as const,
       stage: 'preparation' as const,

@@ -133,7 +133,11 @@ export function ImportResumeActions({
       if (mounted.current && !signal.aborted) setBusy(false);
     }
   }
-  const available = job.state === 'BLOCKED' && job.errorCode === 'ORDER_IMPORT_ACCESS_CHANGED';
+  const preparation =
+    job.errorCode === 'ORDER_IMPORT_PREPARATION_RETRY_REQUIRED' ||
+    job.errorCode === 'ORDER_IMPORT_PREPARATION_RELEASE_REQUIRED';
+  const available =
+    job.state === 'BLOCKED' && (job.errorCode === 'ORDER_IMPORT_ACCESS_CHANGED' || preparation);
   if (!available && !intent && !problem && acceptedView === null) return null;
   return (
     <section aria-label="Resume historical import">
@@ -170,7 +174,11 @@ export function ImportResumeActions({
       ) : (
         available && (
           <>
-            <p>After access is restored, resume the unsent orders in this original import.</p>
+            <p>
+              {preparation
+                ? 'Preparation stopped before an order was sent. After its configuration or reservation is repaired, explicitly resume this original import.'
+                : 'After access is restored, resume the unsent orders in this original import.'}
+            </p>
             <button
               type="button"
               disabled={

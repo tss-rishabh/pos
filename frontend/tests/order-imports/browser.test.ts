@@ -448,6 +448,40 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
         await context.close();
       }
     });
+    it.each([
+      'ORDER_IMPORT_PREPARATION_RETRY_REQUIRED',
+      'ORDER_IMPORT_PREPARATION_RELEASE_REQUIRED',
+    ])('recovers a lost preparation resume by exact-command GET for %s', async (code) => {
+      const context = await browser.newContext(),
+        page = await context.newPage();
+      try {
+        const state = await fixture(page);
+        await prepare(page);
+        await page.getByRole('button', { name: 'Queue reviewed orders', exact: true }).click();
+        await browserExpect(page.getByText('Status: QUEUED', { exact: true })).toBeVisible();
+        state.job = { ...state.job!, state: 'BLOCKED', errorCode: code };
+        state.dropResume = true;
+        await page.getByRole('button', { name: 'Refresh import', exact: true }).click();
+        await browserExpect(
+          page.getByText('Preparation stopped before an order was sent.', { exact: false }),
+        ).toBeVisible();
+        await page.getByRole('button', { name: 'Resume unsent orders', exact: true }).click();
+        await browserExpect(
+          page.getByText('Saved resume reference:', { exact: false }),
+        ).toBeVisible();
+        const original = state.resumeRequests[0];
+        expect(original).toBeDefined();
+        await page.reload();
+        await browserExpect(
+          page.getByText('The original resume request was accepted.', { exact: false }),
+        ).toBeVisible();
+        expect(state.resumeRequests).toEqual([original]);
+        expect(state.starts).toHaveLength(1);
+        expect(state.errors).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    });
     it('sends no resume request when its opaque reference cannot be persisted', async () => {
       const context = await browser.newContext(),
         page = await context.newPage();
