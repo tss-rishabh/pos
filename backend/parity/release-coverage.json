@@ -1,7 +1,31 @@
 {
   "version": 1,
   "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
-  "surfaces": [],
+  "surfaces": [
+    {
+      "kind": "route",
+      "id": "core/urls.py:66",
+      "status": "verified",
+      "implementation": [
+        "backend/src/modules/motivational-quotes/index.ts",
+        "backend/src/modules/motivational-quotes/pool.ts",
+        "backend/src/app.ts",
+        "backend/src/auth/routes.ts",
+        "backend/src/observability/events.ts",
+        "frontend/src/components/motivational-quote.tsx",
+        "frontend/src/pages/counter.tsx",
+        "frontend/src/api/client.ts"
+      ],
+      "tests": [
+        "backend/tests/motivational-quotes.test.ts",
+        "frontend/e2e/motivational-quotes.spec.ts"
+      ],
+      "evidence": [
+        "backend/evidence/quotes-route-01da4ea.json"
+      ],
+      "notes": "Standalone authenticated quote retrieval: all 83 frozen source values, exact source handler/URL/auth binding, candidate HTTP guards and actual production-built counter\u2192backend refresh. Transport naming/envelope and strict validation follow the requested redesign/hardening. This does not certify whole counter/dashboard templates or other workflows."
+    }
+  ],
   "requirements": [
     {
       "id": "full-behavior-parity",
@@ -38,15 +62,15 @@
       "id": "inventory-writer-procedure",
       "status": "pending",
       "implementation": [
-        "src/db/stock-projection/service.ts",
-        "src/db/stock-projection/options.ts"
+        "backend/src/db/stock-projection/service.ts",
+        "backend/src/db/stock-projection/options.ts"
       ],
       "tests": [
-        "tests/stock-projection.mysql.integration.test.ts"
+        "backend/tests/stock-projection.mysql.integration.test.ts"
       ],
       "evidence": [
-        "parity/stock-projection.md",
-        "evidence/mysql-extra-schema.json"
+        "backend/parity/stock-projection.md",
+        "backend/evidence/mysql-extra-schema.json"
       ],
       "notes": "Source-pinned transaction-scoped ORM candidate implemented and locally tested under an explicit opt-in contract. The old backup is incompatible with inspected physical schema; complete deployed-writer/stock-writer parity remains uncertified."
     },
@@ -106,7 +130,7 @@
         "frontend/e2e/retail.spec.ts"
       ],
       "evidence": [],
-      "notes": "User explicitly requires Windows and macOS. Windows x64 and macOS arm64/x64 packaging targets are configured. The current host is macOS; Windows runtime/installer/printer evidence and signed artifacts for both operating systems remain required. Cross-packaging does not certify Windows runtime."
+      "notes": "Complete unsigned Windows and macOS CI jobs pass on 115207b (run 44124619312), including native restart/offline, browser workflows, packaged integrity and sandbox checks. Mac arm64/x64 and Windows x64 packaging targets are configured. Signing, installer distribution, physical printers/devices and production deployment acceptance remain required; this requirement is not promoted by CI alone."
     }
   ]
 }

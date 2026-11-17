@@ -1,8 +1,8 @@
 # Native browser fixture readiness
 
-Run `44118917035` at `a9bf480` passes both complete target-OS jobs, including
+Run `44124619312` at `115207b` passes both complete target-OS jobs, including
 unsigned packaging, packaged integrity, restart, sandbox and offline profile.
-`evidence/desktop-ci-a9bf480.json` retains its successful snapshot. The earlier
+`evidence/desktop-ci-115207b.json` retains its successful snapshot. The earlier
 complete success at `1e129d6` remains in `evidence/desktop-ci-1e129d6.json`.
 The earlier failures and their bounded corrections remain described below.
 

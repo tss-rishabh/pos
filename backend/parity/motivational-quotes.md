@@ -10,7 +10,9 @@ while hidden or offline.
 
 The source differential test executes the original Python handler against every
 source choice. HTTP checks cover unauthenticated access, malformed query fields
-and the resource event contract. A production-build browser scenario covers
-initial display, responsive typing during refresh, HTML escaping and offline
-retention. These are component-level checks; they do not certify unrelated
-dashboard or cashier behavior.
+and the resource event contract. Two production-build browser scenarios cover real authenticated backend
+display/refresh, responsive typing during a delayed refresh, HTML escaping and
+offline retention. The release gate accepts only the standalone
+`core/urls.py:66` route certificate using
+`evidence/quotes-route-01da4ea.json`; unrelated dashboard/cashier templates and
+other workflows remain uncertified.

@@ -20,7 +20,7 @@ component test counts do not certify every original workflow.
 | Benefits                 | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                                                                                                                                                                                                                                                      |
 | Administration           | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                                                                                                                                                                                                                                                             |
 | Reports and fulfillment  | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                                                                                                                                                                                                                                                                |
-| Web and desktop | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both target-OS CI jobs pass completely on `a9bf480`, including unsigned packaging, packaged integrity, native restart, sandbox and offline profile. Signing and physical printers remain release gates. |
+| Web and desktop | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both target-OS CI jobs pass completely on `115207b`, including unsigned packaging, packaged integrity, native restart, sandbox and offline profile. Signing and physical printers remain release gates. |
 | Cashier conveniences     | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass.                                                                                                                                                                                                                                      |
 | Dashboard and website    | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                                                                                                                                                                                                                                                       |
 | Barcode and country      | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.                                                                                                                                                                                                                                               |
@@ -33,6 +33,18 @@ component test counts do not certify every original workflow.
 | Whole-order fulfillment  | Dedicated PACK/SHIP/DELIVER commands, full immutable order-line scope, source-pinned STORE worker, public resources and deferred Orders recovery UI are integrated. Atomic rejected-return obligations, bounded dispatch, manager recovery and shared public/private financial handover guards are integrated. The standalone private receiver has its own command, bind settings and container target. Production ingress/vendor/writer acceptance remains required. |
 
 ## Remaining code and integration
+
+Native startup now passes 36 isolated tsx/emitted-JS import checks, including the
+warehouse reader and source attester. The merged warehouse/savepoint/quote/ESM
+group passes 117 cases across ten files with strict checks; the physical commit
+fix permits source savepoints while fencing early commits and unclean pooled
+connections. Seventeen native cases and nine protocol units cover that boundary.
+The bounded warehouse adapter is operation-scoped qualification code. A generic
+preexisting generation and publisher are still required for NEW requests; no
+per-request native historical capture is installed as a workaround. Current
+metadata confirms missing raw coupon logs and screening markers in the supplied
+dataset. Publisher/operational projection code and its deployment remain needed.
+
 
 The latest merged financial/runtime composition passes 57 public checkout cases
 with the actual Go binary and peer WSGI publication resource, plus 41 original-Go
@@ -97,13 +109,13 @@ the pinned calculator/PosOrder → original Go confirmation → Node settlement
 native workflow. Financial production flags remain unselected; complete private
 startup, cooperating writers and provider acceptance remain required.
 
-The connected manager-correction slice passes all77 scoped financial-core,
+The connected manager-correction slice passes all 77 scoped financial-core,
 native coordinator/API and runtime checks, strict TypeScript and lint. All21
 actual-page correction/approval Chromium workflows pass in the merged tree.
 The native workflow now includes the new correction compiler/browser checks.
 These focused results do not replace the pending consolidated parity run or
 the complete private runtime and production source qualification. The newer
-source-correction slice passes84 scoped checks, with its separate original-Go
+source-correction slice passes 84 scoped checks, with its separate original-Go
 bridge case passing as well; see `backend/parity/import-correction-source.md`.
 
 The integrated private fulfillment runtime passes 50 focused checks, including
@@ -112,10 +124,10 @@ private receiver container target build; its default command passes a
 network-disabled container smoke check. These do not certify real ingress or
 provider acceptance.
 
-Native CI on `a9bf480` passes both Windows and macOS completely, including
+Native CI on `115207b` passes both Windows and macOS completely, including
 unsigned target-OS packaging, packaged integrity, native restart, sandbox and
-offline profile (run `44118917035`). Exact job/step results are retained in
-`backend/evidence/desktop-ci-a9bf480.json`; the earlier complete `1e129d6` result
+offline profile (run `44124619312`). Exact job/step results are retained in
+`backend/evidence/desktop-ci-115207b.json`; the earlier complete `1e129d6` result
 is preserved separately. Earlier failed snapshots remain
 available, including the sign-in restoration race, fixture commit ordering,
 uncontrolled browser connectivity and cold fixture setup. Their fixes retain
@@ -129,7 +141,12 @@ registered API method/path resources, excluding HEAD and OPTIONS, with commit
 and input provenance in `backend/evidence/routes.json`. This is the isolated
 review configuration's registration count. It does not certify 444 completed
 workflows. `backend/parity/rewrite-status.md` separates the implementation map
-from the still-empty source-surface certification ledger and release requirements.
+from source-surface certification and release requirements. The first standalone
+quote-route certificate is accepted: 1 verified and 395 pending source surfaces,
+with all 12 release requirements still unresolved. Its evidence checks current
+code/lockfile/inventory hashes, all 83 original outputs and two production-browser
+workflows, including the real authenticated backend. No complete counter or
+dashboard template is promoted by this bounded route result.
 
 Membership completion snapshots and actual application/worker recovery are now
 integrated. On `6ec6824`, 125 membership, runtime, repository and resumptions

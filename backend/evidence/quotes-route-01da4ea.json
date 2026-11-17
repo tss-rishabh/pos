@@ -1,0 +1,80 @@
+{
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "recordedAt": "2026-11-17T17:03:46.020290Z",
+  "rewriteCommit": "01da4ea0154d6084ad0b1d77b262cb66a2a570aa",
+  "command": "cd backend && CHECKOUT_MYSQL_TEST_URL=mysql://root@127.0.0.1/pos_rewrite_checkout_test npx --offline node@24.22.3 node_modules/vitest/vitest.mjs run tests/legacy-import-coupon-history tests/legacy-import-benefits/bridge.test.ts tests/legacy-import-esm tests/motivational-quotes.test.ts --maxWorkers=1 && cd ../frontend && npx --offline node@24.22.3 --run build && npx --offline node@24.22.3 node_modules/@playwright/test/cli.js test e2e/motivational-quotes.spec.ts --workers=1 --reporter=json",
+  "exitCode": 0,
+  "fullProjectVerification": false,
+  "productionReady": false,
+  "scope": {
+    "kind": "route",
+    "id": "core/urls.py:66",
+    "sourceRoute": "ajax-get-quotes/",
+    "replacementRoute": "GET /api/v1/motivational-quotes/random"
+  },
+  "sourceInputs": [
+    {
+      "path": "core/quotes.py",
+      "sha256": "5a0367c1557da49fcf1bea16b689718a674fe18bfa735507b8df1e22858c9216"
+    },
+    {
+      "path": "core/urls.py",
+      "sha256": "d39946333ef88c2f9210844172d6191f2cf9c4adff4cb7c83be9d920d586a124"
+    },
+    {
+      "path": "core/views.py",
+      "sha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349"
+    }
+  ],
+  "checks": [
+    {
+      "scope": "Actual pinned original quote handler executed for every source choice; full handler, pool and URL bytes verified; LoginRequiredMixin and exact source URL binding retained.",
+      "vectors": 83,
+      "passed": true
+    },
+    {
+      "scope": "Candidate route requires authentication, returns a source-pool value, rejects malformed query fields and has a static resource event contract.",
+      "passed": true
+    },
+    {
+      "scope": "Production-built React counter reads and refreshes the real authenticated backend response; controlled delayed refresh remains interactive, escapes HTML and retains text offline.",
+      "browserCases": 2,
+      "passed": true
+    },
+    {
+      "scope": "Combined backend run containing both quote checks and independent financial/history/native regressions.",
+      "testFiles": 10,
+      "passed": 117
+    },
+    {
+      "scope": "Frontend strict production build and changed backend/frontend TypeScript lint.",
+      "passed": true
+    }
+  ],
+  "intentionalApiAdaptations": [
+    "The legacy status/data transport is exposed as a typed text resource for the redesigned client.",
+    "The JSON API returns401 for unauthenticated calls; the application owns sign-in. Source LoginRequiredMixin protection is retained.",
+    "Strict empty query validation is the requested input hardening."
+  ],
+  "limitations": [
+    "Certifies only this standalone quote route and its direct counter consumer; dashboard/counter templates and unrelated workflows are not promoted.",
+    "Does not certify SSO tenant integration, desktop signing/hardware, representative performance, financial flows or a production release."
+  ],
+  "checksums": {
+    "backend/package-lock.json": "f9720784789d7ca8b2780a671fe592776303701569f8d9f0f0e270e94a5a9e69",
+    "backend/parity/legacy-inventory.json": "2893078e431fd66bf74661368e776b60fbce7a2125e8f00a6aeae9eac305c85a",
+    "backend/src/app.ts": "ed8a941c5d3064d2de90efc4a99c75a27f53eb4c0cd0e2affb6808719c56828a",
+    "backend/src/auth/routes.ts": "83d52b333f314e5ae47e257116cf5dd94f38d553b6494e8b69c6ec93c23d1a09",
+    "backend/src/modules/motivational-quotes/index.ts": "81777fdeaee4da255376ab5c91fd03ccbe78d0e13a78532db4415714e9552b33",
+    "backend/src/modules/motivational-quotes/pool.ts": "f11cf91915267ec9c8db94bd894099a018536d1b5ab6b2f0c77f22ff76a1bd8b",
+    "backend/src/observability/events.ts": "425f115c69689905268715f00dd9919cc13ef13db4f6455c91a812ff27aee38e",
+    "backend/tests/motivational-quotes.test.ts": "50bb7ba3065fffbf362434b3f08d3178bf4520dcf10c830ab08b4ec4047e584b",
+    "frontend/e2e/motivational-quotes.spec.ts": "4451358d1f5915a1368ee58940fb9a6ea2f3510a34fb56e6e72dbd99643f7bf3",
+    "frontend/package-lock.json": "58672f2fc8fb9740e70b8cc935ffd42efd2ebcc866da42f0d43fec6f96b44ef9",
+    "frontend/playwright.config.ts": "9b3141bdc58ce88c5f41f3976c6edfd2ec82d6c19c928af6b291cbbdc0c81596",
+    "frontend/src/api/client.ts": "73067b1023fcd501a0ecd4075bb0419f45211710f06e2d9757fb81efe66c96cd",
+    "frontend/src/components/motivational-quote.tsx": "c5ae3992a5beb1ff2b3e1ba3a4060159220811961158d8f2613d1ed3c7e02d50",
+    "frontend/src/pages/counter.tsx": "d79e65a9ae3517b86121f6724d088a210a63e51443a1388513747462b963b846",
+    "frontend/vite.config.ts": "dd6591cb7d5c12224d373317fedbcac9b059b6db68a5977484bdf97e297d69ad"
+  }
+}

@@ -1,0 +1,231 @@
+{
+  "module": "legacy-order-imports",
+  "resource": "esm-startup",
+  "eventId": "legacy-order-imports.esm-startup.verified",
+  "eventInstanceId": "6acf826a-49fc-4e53-8c10-39dc96f96dba",
+  "requestId": "6e024730-d160-4712-b6fa-87e2d1b23c4a",
+  "userId": null,
+  "checks": 36,
+  "passed": 36,
+  "results": [
+    {
+      "entry": "financial-adapter-crypto.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "financial-adapter-contracts.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/contracts.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/crypto.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/completion.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history-publication.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history-source.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history-bigquery.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history-warehouse-source.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/bridge.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/domain.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/completion.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/history.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/publication.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/publication-native.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/publication-warehouse.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/bridge.ts",
+      "mode": "tsx",
+      "passed": true
+    },
+    {
+      "entry": "financial-adapter-crypto.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "financial-adapter-contracts.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/contracts.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/crypto.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/completion.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history-publication.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history-source.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history-bigquery.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/history-warehouse-source.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "benefit-profile/bridge.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/domain.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/completion.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/history.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/publication.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/publication-native.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/publication-warehouse.ts",
+      "mode": "emitted",
+      "passed": true
+    },
+    {
+      "entry": "membership-profile/bridge.ts",
+      "mode": "emitted",
+      "passed": true
+    }
+  ],
+  "recordedAt": "2026-11-17T17:34:49.527454Z",
+  "testedCommit": "01da4ea0154d6084ad0b1d77b262cb66a2a570aa",
+  "command": "npx --offline node@24.22.3 --import tsx tools/legacy-import-esm/check.ts",
+  "exitCode": 0,
+  "productionReady": false,
+  "files": [
+    {
+      "path": "backend/tools/legacy-import-esm/check.ts",
+      "sha256": "d190c24214680c3c1aaeb7ae235d3f263815e14b87ec80266bc85cbb37aef6fe"
+    },
+    {
+      "path": "backend/tools/legacy-import-esm/probe.mjs",
+      "sha256": "54a6ec5354f986a100ebd0dd6a2268698520bc4f41782361adbadeebfa215175"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-primitives.ts",
+      "sha256": "342b0cae29027ad3581db61c359f63cfe8890d589ecc7a555222f3789dabd5a4"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-crypto.ts",
+      "sha256": "618f6fef2ef5b3834453739c5e2288c11cb9c7065689f15a712dc7ac74a633ac"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/benefit-profile/contracts.ts",
+      "sha256": "e11ec40d00b60c0cebcb30263f1111810ba7a556ea4c4a06b88170b7a427ad2c"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/benefit-profile/crypto.ts",
+      "sha256": "7194f27df9cf17063a7e1fa4424b970a29715b672611d1070e66789e93751946"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/membership-profile/domain.ts",
+      "sha256": "b9c22634239b1ce00bb58347fdcf6b6e1bc7c57e9d28baaa559773e32bf81ea0"
+    },
+    {
+      "path": "backend/package-lock.json",
+      "sha256": "f9720784789d7ca8b2780a671fe592776303701569f8d9f0f0e270e94a5a9e69"
+    }
+  ]
+}
