@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts
 COPY tsconfig.json ./
 COPY src ./src
+COPY compatibility/upstream/whole-order-status ./compatibility/upstream/whole-order-status
 RUN npm run build
 
 FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
@@ -39,6 +40,9 @@ COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.s
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql
 COPY src/modules/legacy-fulfillment/migration.sql ./src/modules/legacy-fulfillment/migration.sql
 COPY src/modules/legacy-fulfillment/lifecycle/migration.sql ./src/modules/legacy-fulfillment/lifecycle/migration.sql
+COPY src/modules/legacy-order-status/*.sql ./src/modules/legacy-order-status/
+COPY compatibility/upstream/whole-order-status/pinned-source.js ./compatibility/upstream/whole-order-status/pinned-source.js
+COPY compatibility/upstream/whole-order-status/source-manifest.json ./compatibility/upstream/whole-order-status/source-manifest.json
 COPY src/modules/finance/migration.sql ./src/modules/finance/migration.sql
 COPY src/modules/operational-reports/*.sql ./src/modules/operational-reports/
 COPY src/modules/catalog-details/*.sql ./src/modules/catalog-details/

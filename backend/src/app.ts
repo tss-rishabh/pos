@@ -64,6 +64,10 @@ import {
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
 import { registerLegacyOrderImports } from './modules/legacy-order-imports/index.js';
+import {
+  readWholeOrderStatusOptions,
+  registerWholeOrderStatus,
+} from './modules/legacy-order-status/index.js';
 import { checkoutEnvironment } from './modules/checkout/gateway.js';
 import {
   paymentCorrectionEvidence,
@@ -374,6 +378,12 @@ export async function buildApp(
   await registerFulfillment(app, config, db);
   registerShippingLabels(app, db);
   registerLegacyFulfillment(app, config, db);
+  await registerWholeOrderStatus(
+    app,
+    config,
+    db,
+    readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env),
+  );
   registerCustomerWorkspace(app, config, db);
   registerCustomerHistory(app, config, db);
   registerProductFeedback(app, config, db);

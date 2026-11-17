@@ -66,6 +66,7 @@ export const migrationPaths = [
   'src/modules/fulfillment/trace-migration.sql',
   'src/modules/legacy-fulfillment/migration.sql',
   'src/modules/legacy-fulfillment/lifecycle/migration.sql',
+  'src/modules/legacy-order-status/migration.sql',
   'src/modules/finance/migration.sql',
   'src/modules/operational-reports/migration.sql',
   'src/modules/operational-reports/scheduled-migration.sql',

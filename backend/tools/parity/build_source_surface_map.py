@@ -325,9 +325,12 @@ def define_families():
            scope='Express order/store label, source address/AWB/parcel fields, line quantity and safe barcode/print.',
            external=['Accept actual printer/legal/shipper layout and representative data.'])
     bind('shipping-labels', ['ShowOnlineOrderShippingView'])
-    family('legacy-vinculum-status', ['src/modules/fulfillment/integrations.ts'], ['src/pages/fulfillment'], ['tests/fulfillment'],
-           state='partial', scope='Durable PACK/SHIP effects exist in scoped fulfillment commands.',
-           gaps=['AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.'])
+    family('legacy-vinculum-status', ['src/modules/legacy-order-status', 'compatibility/upstream/whole-order-status'],
+           ['src/pages/order-status', 'src/pages/operations.tsx'], ['tests/legacy-order-status', 'frontend/tests/legacy-order-status'],
+           ['parity/whole-order-status.md'], state='partial',
+           scope='Current-authority whole-order PACK/SHIP/DELIVER commands, immutable full HP scope, source-pinned private STORE chain and deferred Orders recovery UI are integrated separately from Express.',
+           gaps=['Finish durable obligations for definitely rejected inbound returns, the bounded repair dispatcher and shared financial handover fences.'],
+           external=['Qualify the independently deployed source receiver, vendor and Netcore outcomes, shared-writer coordination and representative queue workload.'])
     bind('legacy-vinculum-status', ['AjaxUpdateStatusVincView'])
     family('notifications', ['src/modules/fulfillment/index.ts', 'src/modules/fulfillment/notification-bus.ts', 'src/modules/fulfillment/notifications.ts'],
            ['src/pages/fulfillment/notifications.tsx'], ['tests/fulfillment'], ['parity/fulfillment.md'],

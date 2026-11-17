@@ -27,6 +27,10 @@ for (const name of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'COMS
   if (process.env[name]) childEnvironment[name] = process.env[name];
 if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE)
   childEnvironment.PLAYWRIGHT_CHROMIUM_EXECUTABLE = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
+childEnvironment.WHOLE_ORDER_STATUS_ORACLE_PYTHON = resolve(
+  backend,
+  'tools/order-search/run-oracle.sh',
+);
 if (flags.has('--mysql')) {
   let url: URL;
   try {
@@ -67,6 +71,7 @@ if (flags.has('--mysql')) {
     PARENT_STORE_IMPORTS_MYSQL_TEST_URL: 'pos_rewrite_parent_store_test',
     MODEL_ACCOUNTS_MYSQL_TEST_URL: 'pos_rewrite_model_accounts_test',
     ECOMMERCE_SYNC_MYSQL_TEST_URL: 'pos_rewrite_integration',
+    WHOLE_ORDER_STATUS_MYSQL_TEST_URL: 'pos_rewrite_whole_status_test',
     GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
     ADMINISTRATION_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_administration_history_test',
   })) {
@@ -462,6 +467,26 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tools/legacy-order-imports/tsconfig.tests.json',
+    ],
+  },
+  {
+    id: 'whole-order-status-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-order-status/backend.tsconfig.json',
+    ],
+  },
+  {
+    id: 'whole-order-status-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/legacy-order-status/tsconfig.json',
     ],
   },
   {
@@ -944,6 +969,11 @@ if (flags.has('--browser')) {
     environment: { PAYMENT_REVERSAL_BROWSER_TESTS: 'true' },
   });
   checks.push(
+    {
+      id: 'whole-order-status-browser-tests',
+      directory: 'frontend',
+      args: ['tests/legacy-order-status/browser-check.mjs'],
+    },
     {
       id: 'legacy-order-import-browser-tests',
       directory: 'frontend',

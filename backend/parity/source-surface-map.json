@@ -102,6 +102,10 @@
     "backend/compatibility/upstream/pending-cancellation/test_membership_producers.py": "e0c410a4c26cd48a7fe87831249a48dafcc05f5b49f5cf54ae14e5dbf57eca99",
     "backend/compatibility/upstream/pending-cancellation/voucher-history-index.sql": "79168271086532c2d9ec7ca868eda5b271e06a8df5d241b59dae9f86816b7637",
     "backend/compatibility/upstream/pending-cancellation/wallet_candidate.py": "68b83e817ddfc7f8ed593f154a092ace3bcfeeb86dfb5a2002561a922f51a326",
+    "backend/compatibility/upstream/whole-order-status/README.md": "bb683ebddce871408e46bad2a966bd62b5bc62a08ec6331e14fa7096d1353ee9",
+    "backend/compatibility/upstream/whole-order-status/pinned-source.d.ts": "3dc383ede9c13e2deb974168991f6563a1bd071c2fefa8b7ed895daa0869b527",
+    "backend/compatibility/upstream/whole-order-status/pos-source.json": "ca18ae2300683dc4e04e73dd08e0fa6711aff35efedbaf81c6d544174c2268a4",
+    "backend/compatibility/upstream/whole-order-status/source-manifest.json": "4dc912e793f424e56ab286e0daaef1a66996ad754d6e65f0636d5f314140ef43",
     "backend/parity/administration-barcodes-country.md": "a0824e85b8b8cc98742e268d4c8a389d3245eb4a052b243be1fa9f9971d0c12a",
     "backend/parity/administration-feature-map.json": "8777d8b63679ec26e452956a1ede56edc69ce86eb63548fbcc0d1a45d5752cb1",
     "backend/parity/administration-model-accounts.md": "c58cf3e4938137ee1a90f220506e965226f1366ffe3836163feb8e9277e61848",
@@ -146,7 +150,8 @@
     "backend/parity/report-exports.md": "fc6e51d06dc0656132102a3ad32f67781700deaab87915fd89a0ef9e2d98b47f",
     "backend/parity/scheduled-reports.md": "309be1084c4e01a3fbafd868e1bb830cf136ec26c0fe22c4b77a804d42191504",
     "backend/parity/wallet-adjustments.md": "ab1929b2ac1af5bad8d3a2992b76bb659c5cad867fb7a414d968a8c6d2004bb0",
-    "backend/src/app.ts": "d1e34ef90d83240f548dcccd8cef8b9c98baa955242589bbc2af747bdc097235",
+    "backend/parity/whole-order-status.md": "f1983306e34da7897deb3d66724683a7bb5df02a3aa785881da61862f91050f6",
+    "backend/src/app.ts": "ca55de176f2996aaa4c814f23ca0284b1d9f2dab515e26edda6eba8184af0859",
     "backend/src/auth/delivery.ts": "b813640dcda4f8fe910d29cd8d471d03fe2d452ab931c3f45c19cdb342a43d63",
     "backend/src/auth/device-handoff-routes.ts": "ad454f2c02ed3af385118b68fada5eb654f1888fb741e2cd29c3afb601fa0001",
     "backend/src/auth/device-handoff-store.ts": "7b0c168f550954a66a257bb514eeed9f805d6733e76807f138aedac9d3a2f76d",
@@ -612,6 +617,26 @@
     "backend/src/modules/legacy-order-imports/sealed-groups.ts": "6ca20486dd793df0413bbf31aaccffcf70743313a6444659343213d28cfe19d9",
     "backend/src/modules/legacy-order-imports/service.ts": "3fac2ed1d36f56351cacee95257e72f74b7270ba89fe89b4c46436395ce3e66a",
     "backend/src/modules/legacy-order-imports/worker.ts": "9ccc1f968281895a32d10414ec2c1a4d29e3545c6b49cfa3d88aac1b12d4f4a3",
+    "backend/src/modules/legacy-order-status/authority.ts": "6a9b7634d6cf668cfb68ffba80ff46f134d3cb000510375c84fca3261823bc5a",
+    "backend/src/modules/legacy-order-status/background.ts": "fa881b0c582b034f499c7acadd616f6c1cf84bd931d292b0476759f68de01ad8",
+    "backend/src/modules/legacy-order-status/domain.ts": "53876f8c80bfa9f555f81b251e9fd01a873f4ec163206c4da063cb073a076815",
+    "backend/src/modules/legacy-order-status/index.ts": "12ad9fbffffc56305751c73d80c14da3db305552a9efee1050a120a242b9864e",
+    "backend/src/modules/legacy-order-status/migration.sql": "a61f8d6677fe4cf1469f9b80d0f24c8f1497fb7cbe486bf50df0926ae9720efb",
+    "backend/src/modules/legacy-order-status/options.ts": "b0d63f7445ee77d851c5ccb448d31d47c5082e1e614dfb1985d813dc5973e91b",
+    "backend/src/modules/legacy-order-status/receiver-auth.ts": "19c9338d16e9f9f3f1ade5d8cb30e79972d98b5ed0929fbd9b24e60b5fa000f2",
+    "backend/src/modules/legacy-order-status/receiver-http.ts": "60b5d12de05a47aefb379195bf8d262a1962ccfe7344823470937e9fc4da3c3b",
+    "backend/src/modules/legacy-order-status/receiver-netcore.ts": "6c2510818f3972e24d864fa6b6fec83792d263bc7aa7148eb87c4c120254179e",
+    "backend/src/modules/legacy-order-status/receiver-notifications.ts": "ebdd6ecd7dd3b77cb74f7da208af0ca48093ccfdfb5c70f5c209060c29e6cfa2",
+    "backend/src/modules/legacy-order-status/receiver-options.ts": "3788732f2b06fde830462aa8eaaa52d45fc79b0d590cf76129c8302204b83eef",
+    "backend/src/modules/legacy-order-status/receiver-plugin.ts": "946278614ab4fc8f43c0fdd575806b65a009d52dc23e21eabbd3c75b76523634",
+    "backend/src/modules/legacy-order-status/receiver-routes.ts": "e05129de59cd94fbff620018672e706cb668d9c9454616be9e9abdcd93e8ba60",
+    "backend/src/modules/legacy-order-status/receiver-schema.ts": "357d4df90e287a64b715eac50ea6bbf25a63cf228e558e7b2f034decad4cc630",
+    "backend/src/modules/legacy-order-status/receiver.ts": "79de08359812d442666d63e1fec3445207c5a6b12142161eafeb6a617d344789",
+    "backend/src/modules/legacy-order-status/repository.ts": "2862e6b53f7a9ae9b0a4726e2e16ea922138f96e04c7cf531a4db6ccc6ecaffa",
+    "backend/src/modules/legacy-order-status/schema.ts": "e4b00c5a0c71d43793e364ee542ec9e7ada8cd43ca8d0c7cd6409dad9decb95c",
+    "backend/src/modules/legacy-order-status/service.ts": "2086dd845d0cc41ecbd49ce38215b43082759f3cfe5dc2ab2e985f94b381932f",
+    "backend/src/modules/legacy-order-status/transport.ts": "3a698625da739f47eb1d3a724ac11223225ba4d97fdb1e9985bec5e7646010f1",
+    "backend/src/modules/legacy-order-status/worker.ts": "78dc127fe2fab6c515e745ac629328deb25060d0d57b0cb64e3b4751931d01ec",
     "backend/src/modules/motivational-quotes/index.ts": "81777fdeaee4da255376ab5c91fd03ccbe78d0e13a78532db4415714e9552b33",
     "backend/src/modules/motivational-quotes/pool.ts": "f11cf91915267ec9c8db94bd894099a018536d1b5ab6b2f0c77f22ff76a1bd8b",
     "backend/src/modules/operational-reports/acceptance.ts": "7607a2a9b81815d485ea645fc211688e1adc391c6d007ef84765c65a95fd8212",
@@ -850,6 +875,15 @@
     "backend/tests/legacy-order-imports/repository.mysql.test.ts": "0ff91f85556a2f9b3fef015aa6dd990e6359ab258c23ca4e35df8b3d4634c689",
     "backend/tests/legacy-order-imports/runtime-fixture.ts": "4a2cf4c243e877f25e98918e0fdf96c02727083dfdee803d9882a755e70d44e5",
     "backend/tests/legacy-order-imports/runtime.mysql.test.ts": "1bcbbe4ac8828deca2cb9bbacb25fa5d8fd6c78a718d0d373034589a251d3984",
+    "backend/tests/legacy-order-status/commands.mysql.test.ts": "a160e1ee2edd5e155967b0b14ac03ce415aea1cbafc071c2fb5a6bb7d653671f",
+    "backend/tests/legacy-order-status/fixtures.ts": "d48022d1f6f702ae553836979a672c95b1b9fbffab35be43cf957bedc2615b3c",
+    "backend/tests/legacy-order-status/mysql-fixture.ts": "fc3e9adff6569ecd1ee32645cc981139108601507b38a0bdacf4db793b250908",
+    "backend/tests/legacy-order-status/receiver-routes.test.ts": "c1037eb219f67691fadc429daec9fe6382ed6ba91b6485028d36a5d18fb74b44",
+    "backend/tests/legacy-order-status/receiver.mysql.test.ts": "2571abbdab61a7db13aa9dfc1df20b07e7b92c100c9d86b3108f8b3be1a0ec35",
+    "backend/tests/legacy-order-status/routes.test.ts": "b33e92ff7688210a5f8f5f0fee0495704003710736a3527cc11e4ed419f84fae",
+    "backend/tests/legacy-order-status/source-helper.ts": "6f4f87b3627485fbe5edd608b7227282dc7e13d88e63e626bd6709b5708b2e6e",
+    "backend/tests/legacy-order-status/source.test.ts": "135d9c2b7d5eb093ad87fe17f15d7c4547dadc180b105bbcc3d75aedf74fe22d",
+    "backend/tests/legacy-order-status/transport.test.ts": "997f063c7679863094dceb8005011259578efce55ca45c013a9bf82c463553b6",
     "backend/tests/logging.test.ts": "6f762bc7a1cabc37a7b6c6011d8a2f1169bd0421127bc406a380e4aafb1460de",
     "backend/tests/motivational-quotes.test.ts": "c06b57e64e6fd81c10e87c12e399d45bf3837b9df40e717c6f081a2d3e6a50b2",
     "backend/tests/mysql.integration.test.ts": "c5935de791e5123bc19239dc13c9e2366eaea225164ead1d74da8435fec90dc6",
@@ -1108,7 +1142,7 @@
     "frontend/src/pages/operational-reports/report-view.tsx": "7f8919a070858fd529c7984c3a994a9e944443b15849375bb75ee3e8151b1060",
     "frontend/src/pages/operational-reports/returned-orders.tsx": "fa8e17c577e3462dd083559f6c79982c85bb591b301a9ec4a94df3fa90d1fa23",
     "frontend/src/pages/operational-reports/style.css": "28334af838dad80297f85b3bc042734f772e2902801ffd0bf3d77e778d101210",
-    "frontend/src/pages/operations.tsx": "9fcf5f9b02c0aa43360be50ca80946e0b699f3d86f252febaaaec280aeca6267",
+    "frontend/src/pages/operations.tsx": "7d48b3f605f1d828df061ce07bd60172419c1ed69a24d092da15b7843b44061e",
     "frontend/src/pages/order-copy/client.ts": "0a979a8870cf6d7748c44a3ae21d08a0a8136de5eaf5de10035d701cdf74fe5f",
     "frontend/src/pages/order-copy/index.tsx": "bc0ebf6be1f3e9b3b62d09dd949f6c017357264a744dfd06f8662ac2bb1ebdff",
     "frontend/src/pages/order-copy/marker.ts": "3ae37435c7da14a69bcbce1ec158e14ca168b6733b5c22527d2835c81bcbc2d9",
@@ -1116,6 +1150,9 @@
     "frontend/src/pages/order-history/client.ts": "0bc307eb08a8b4099e8020599eedcd1c9146b35c8f35c71ab59be78126e3edcd",
     "frontend/src/pages/order-history/order-search.css": "9a36776bb40d132c7833bef9c38f320899ecea2c78d652284c50958395d1f1cf",
     "frontend/src/pages/order-history/search-client.ts": "c096ae8c2eecec0512c5a701f3320bee54fc896c7e9a02b14222d164ce83283c",
+    "frontend/src/pages/order-status/WholeOrderStatusActions.tsx": "401a536eb106c773a5b86360565ac665c3fa1f4732dd658446f66aac1205b810",
+    "frontend/src/pages/order-status/client.ts": "c886637f6aac6708e9a53509eb1bcb4f96f72cd7453097e339c9cbda881aed0c",
+    "frontend/src/pages/order-status/index.ts": "493fe5fd40a06426a333e56ab87808a17e8712828770f474ec3bf26d5c2866d8",
     "frontend/src/pages/payment-reversals/client.ts": "9f743c3ebb40403bfae623c7b09377db9f0eb2f6aec7b698f8179be251bce6d4",
     "frontend/src/pages/payment-reversals/index.tsx": "6b5789334098f0d4f972339e5f0210bdf10ea4b1aa41d49b26b4050caf23ae3a",
     "frontend/src/pages/product-feedback/client.ts": "e4265117a2bf3e4a7883c2f96028c437e5a6c998bcf7b6194a7934944c32e61c",
@@ -1206,6 +1243,9 @@
     "frontend/tests/legacy-fulfillment/lifecycle-browser-entry.tsx": "42e627c2fac8cec4b6df5889610f46130b958d5fc9ba3be5082e52913a416bd2",
     "frontend/tests/legacy-fulfillment/lifecycle.test.ts": "013cab2ca5f781d77bbd7d04aa3b4734fae7b4e1bcd4cb15c946d61f88c0d933",
     "frontend/tests/legacy-fulfillment/tsconfig.json": "0bc683c75a5f8292e1a4e004fdcc110592dcfd10bf935035a497161941703803",
+    "frontend/tests/legacy-order-status/fixture.html": "b4ab24a33ded91f4f9faf3f6b1649852fab478880f81be559a793085cb95cfec",
+    "frontend/tests/legacy-order-status/fixture.tsx": "9b07169ab0889f3315c2822d24a27ced962e6ce91a58c1a5b7199a59b5bc4396",
+    "frontend/tests/legacy-order-status/tsconfig.json": "6f057cb6af4f9a958590635028d2672e52b201f7387ba42009002f892fd6e5d2",
     "frontend/tests/offline-cash-order-import.test.ts": "8296dd46a567ed12d3875b49c4f903f7b62b54dd5934605cd415b84a1cd07022",
     "frontend/tests/offline-cash.test.ts": "8140997c412abce2619f60ad196e876721ca8a46da46f3958ec7652fa2b99821",
     "frontend/tests/offline-shell.test.ts": "f8f555fc6ab1acff91e929f2ba5bad0677375a4ac50527d3c1c9f640c748004e",
@@ -4865,37 +4905,39 @@
       "id": "legacy-vinculum-status",
       "implementation_status": "partial",
       "backend": [
-        "backend/src/modules/fulfillment/integrations.ts"
+        "backend/src/modules/legacy-order-status",
+        "backend/compatibility/upstream/whole-order-status"
       ],
       "frontend": [
-        "frontend/src/pages/fulfillment"
+        "frontend/src/pages/order-status",
+        "frontend/src/pages/operations.tsx"
       ],
       "tests": [
-        "backend/tests/fulfillment"
+        "backend/tests/legacy-order-status",
+        "frontend/tests/legacy-order-status"
       ],
-      "parity_documents": [],
-      "implemented_scope": "Durable PACK/SHIP effects exist in scoped fulfillment commands.",
+      "parity_documents": [
+        "backend/parity/whole-order-status.md"
+      ],
+      "implemented_scope": "Current-authority whole-order PACK/SHIP/DELIVER commands, immutable full HP scope, source-pinned private STORE chain and deferred Orders recovery UI are integrated separately from Express.",
       "remaining_code": [
-        "AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP."
+        "Finish durable obligations for definitely rejected inbound returns, the bounded repair dispatcher and shared financial handover fences."
       ],
-      "external_acceptance": [],
+      "external_acceptance": [
+        "Qualify the independently deployed source receiver, vendor and Netcore outcomes, shared-writer coordination and representative queue workload."
+      ],
       "code_task_required": true,
       "notes": [],
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
       "test_files": [
-        "backend/tests/fulfillment/domain.test.ts",
-        "backend/tests/fulfillment/integrations.test.ts",
-        "backend/tests/fulfillment/monitoring.test.ts",
-        "backend/tests/fulfillment/mysql.integration.test.ts",
-        "backend/tests/fulfillment/notification-bus.test.ts",
-        "backend/tests/fulfillment/security.test.ts",
-        "backend/tests/fulfillment/shipping-label-address.test.ts",
-        "backend/tests/fulfillment/shipping-label-barcode.test.ts",
-        "backend/tests/fulfillment/shipping-label-document.test.ts",
-        "backend/tests/fulfillment/shipping-label-http.test.ts",
-        "backend/tests/fulfillment/shipping-label-mysql.integration.test.ts"
+        "backend/tests/legacy-order-status/commands.mysql.test.ts",
+        "backend/tests/legacy-order-status/receiver-routes.test.ts",
+        "backend/tests/legacy-order-status/receiver.mysql.test.ts",
+        "backend/tests/legacy-order-status/routes.test.ts",
+        "backend/tests/legacy-order-status/source.test.ts",
+        "backend/tests/legacy-order-status/transport.test.ts"
       ]
     },
     {
@@ -5528,7 +5570,7 @@
       "family": "legacy-vinculum-status",
       "state": "partial",
       "tasks": [
-        "AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP."
+        "Finish durable obligations for definitely rejected inbound returns, the bounded repair dispatcher and shared financial handover fences."
       ]
     },
     {

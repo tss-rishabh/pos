@@ -79,6 +79,9 @@ jobs:
       - name: Historical order reader browser checks
         run: node tests/order-history/browser-check.mjs
         working-directory: frontend
+      - name: Whole-order fulfillment recovery browser checks
+        run: node tests/legacy-order-status/browser-check.mjs
+        working-directory: frontend
       - name: Source order-list filters, formatter and queues
         run: node tests/order-search/browser-check.mjs
         working-directory: frontend

@@ -20,6 +20,7 @@ import { OrderPaymentActions } from './checkout/OrderPaymentActions';
 import { OrderCancellationActions } from './checkout/cancellations/OrderCancellationActions';
 import { SourceOrderList } from './order-history/SourceOrderList';
 import { PaymentReversalPanel } from './payment-reversals';
+import { WholeOrderStatusActions } from './order-status';
 
 export function InventoryPage({ user, storeId }: { user: Principal; storeId: string }) {
   const [search, setSearch] = useState('');
@@ -336,6 +337,12 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                     void detail.refetch();
                     void orders.refetch();
                   }}
+                />
+                <WholeOrderStatusActions
+                  user={user}
+                  storeId={storeId}
+                  orderId={selected}
+                  online={online}
                 />
                 {[1, 2, 3].includes(user.role) && (
                   <PaymentReversalPanel
