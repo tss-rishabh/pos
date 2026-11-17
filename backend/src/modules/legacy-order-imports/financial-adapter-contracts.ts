@@ -236,6 +236,7 @@ export const importPublicationReceiptSchema = z
               'cashback',
               'facebook',
               'sms',
+              'membership-cache',
             ]),
           })
           .strict(),

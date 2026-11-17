@@ -30,6 +30,7 @@ import {
 import { prepareLegacyOrderImport } from './preparation.js';
 import { legacyOrderImportRepository } from './repository.js';
 import type { LegacyImportRepositoryOptions } from './repository.js';
+import type { legacyOrderImportCorrections } from './correction-repository.js';
 
 export interface LegacyOrderImportRegistrationOptions {
   runtime?: LegacyOrderImportOptions;
@@ -37,6 +38,7 @@ export interface LegacyOrderImportRegistrationOptions {
   approvals?: Pick<ReturnType<typeof legacyOrderImportFinancialApprovals>, 'request' | 'read'>;
   history?: Pick<ReturnType<typeof legacyOrderImportHistory>, 'detail' | 'results'>;
   correctionForOperation?: LegacyImportRepositoryOptions['correctionForOperation'];
+  corrections?: ReturnType<typeof legacyOrderImportCorrections>;
 }
 export function legacyOrderImportService(
   config: Config,
@@ -97,6 +99,15 @@ export function legacyOrderImportService(
       businessDate: value.plan.createdAt.slice(0, 10),
       currency: value.plan.kind === 'shopify' ? value.plan.currency : 'INR',
       lineValue: value.plan.originalTenderAmount,
+      ...(value.correction
+        ? {
+            correction: {
+              id: value.correction.id,
+              historicalTenderAmount: value.correction.historicalTenderAmount,
+              sourcePayable: value.correction.original.boundary.calculation?.payable,
+            },
+          }
+        : {}),
       lines: value.plan.lines.map((line) => ({
         productId: line.productId,
         quantity: line.quantity,
@@ -252,6 +263,7 @@ export function legacyOrderImportService(
         scope: financialScope(context),
         plan: context.plan,
         planHash: context.planHash,
+        ...(context.correction ? { correction: context.correction } : {}),
         commandId: z.uuid().parse(input.commandId),
         reason: input.reason,
       });

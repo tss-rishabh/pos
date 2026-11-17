@@ -11,6 +11,7 @@ import {
   importResumptionInput,
 } from './domain.js';
 import { legacyImportInputSchema } from './preparation.js';
+import { registerLegacyOrderImportCorrections } from './correction-routes.js';
 import { legacyOrderImportService, type LegacyOrderImportRegistrationOptions } from './service.js';
 export { legacyOrderImportService, type LegacyOrderImportRegistrationOptions } from './service.js';
 export { readLegacyOrderImportOptions } from './options.js';
@@ -21,6 +22,12 @@ export function registerLegacyOrderImports(
   db: Databases,
   options: LegacyOrderImportRegistrationOptions = {},
 ) {
+  registerLegacyOrderImportCorrections(app, config, db, {
+    runtime: {
+      LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: options.runtime?.LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1,
+    },
+    service: options.corrections,
+  });
   const service = legacyOrderImportService(config, db, options),
     base = '/api/v1/admin/order-imports',
     empty = z.object({}).strict(),

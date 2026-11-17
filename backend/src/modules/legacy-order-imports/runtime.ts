@@ -11,6 +11,8 @@ import {
 import { legacyImportFinancialTransport } from './financial-adapter-transport.js';
 import { readLegacyOrderImportOptions } from './options.js';
 import type { LegacyOrderImportRegistrationOptions } from './service.js';
+import { legacyOrderImportCorrections } from './correction-repository.js';
+import { financialImportCorrectionBoundary } from './financial-adapter-correction-boundary.js';
 
 /** Configuration inspection is pure: disabled/demo startup performs no I/O. */
 export function configuredLegacyOrderImports(
@@ -32,16 +34,31 @@ export function configuredLegacyOrderImports(
       observe: options.observe,
     },
     transport = legacyImportFinancialTransport(config, financial),
-    approvals = legacyOrderImportFinancialApprovals(config, db, { secret: key });
+    approvals = legacyOrderImportFinancialApprovals(config, db, financial),
+    corrections = legacyOrderImportCorrections(db, config, {
+      secret: key,
+      contract: financial.correctionContract,
+      boundary: financial.sourceProofKey
+        ? financialImportCorrectionBoundary({
+            secret: key,
+            sourceProofKey: financial.sourceProofKey,
+          })
+        : undefined,
+    }),
+    recovery = {
+      runtime,
+      approvals,
+      corrections,
+      correctionForOperation: corrections.correctionForOperation,
+    };
   try {
     transport.assertReady();
   } catch (error: unknown) {
-    if (error instanceof AppError && error.status === 503) return { runtime, approvals };
+    if (error instanceof AppError && error.status === 503) return recovery;
     throw error;
   }
   return {
-    runtime,
-    approvals,
+    ...recovery,
     adapter: legacyOrderImportFinancialAdapter(config, db, financial, transport),
   };
 }

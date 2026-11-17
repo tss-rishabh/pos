@@ -20,7 +20,7 @@ component test counts do not certify every original workflow.
 | Benefits                 | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                                                                                                                                                                                                                                        |
 | Administration           | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                                                                                                                                                                                                                                               |
 | Reports and fulfillment  | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                                                                                                                                                                                                                                                  |
-| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both native CI jobs passed unsigned packaging, integrity, sandbox, restart and offline smoke at commit `523c904` (run `44010026925`); later changes need another native run. Signing and physical printing remain release gates.                                                                                                                                 |
+| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both native CI jobs passed unsigned packaging, integrity, sandbox, restart and offline smoke at commit `cd589c5` (run `44032882645`); later CSV integrations need another native run. Signing and physical printing remain release gates.                                                                                                                                 |
 | Cashier conveniences     | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass.                                                                                                                                                                                                                        |
 | Dashboard and website    | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                                                                                                                                                                                                                                         |
 | Barcode and country      | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.                                                                                                                                                                                                                                 |
@@ -50,8 +50,10 @@ follow-up scope is `backend/evidence/integration-followup-56f2543.json`.
 Subsequent code requires another consolidated run. Native source/candidate tests
 now also cover 41 CSV tender scenarios and 13 review cases, plus four Python
 checks over 20 frozen source vectors. The user selected pausing tender/header
-mismatches for manager correction before import. That correction workflow is
-being implemented; the tender review helpers cannot execute financial actions.
+mismatches for manager correction before import. The correction API/UI and native
+financial binding/approval/settlement composition are implemented. The private
+source calculation-rejection producer and source execution of a correction still
+require integration; financial production flags remain unselected.
 
 The integrated private fulfillment runtime passes 50 focused checks, including
 six native shared-guard cases, strict compilation and lint. The backend and
@@ -59,15 +61,14 @@ private receiver container target build; its default command passes a
 network-disabled container smoke check. These do not certify real ingress or
 provider acceptance.
 
-Native CI on `40eda56` passed the entire macOS job. Windows stopped when the
-independent ZIP/XML workbook unit exceeded its unchanged five-second limit.
-The unit suite now uses two fixture workers on native CI; all 241 unit tests
-pass locally with that bound. The earlier Windows recovery-browser group is
-also limited to one worker; all 105 cases pass locally without changing their
-assertions or timeouts. `backend/evidence/desktop-ci-40eda56.json` and the earlier
-`desktop-ci-7956713.json` retain the failed native outcomes. A fresh native run
-is required. Earlier `523c904` remains the last both-platform packaging/smoke
-success.
+Native CI on `cd589c5` passed both Windows and macOS, including unsigned
+packaging, packaged integrity, restart, sandbox and offline smoke checks
+(run `44032882645`). `backend/evidence/desktop-ci-cd589c5.json` records the exact
+commit and job/step outcomes. Earlier failed runs remain retained as evidence.
+Native CI bounds fixture concurrency to two unit workers and one recovery-browser
+worker; assertions and timeouts were unchanged. Later CSV/profile integrations
+still require their own consolidated and native runs. Signing and physical
+printer acceptance remain outstanding.
 
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
   encrypted staging, native authorization/preflight, job API, recovery UI,
@@ -80,9 +81,15 @@ success.
   public handover composition and the executable pinned private Python receiver
   and Go confirmation overlay are integrated. Full source-runtime, durable broker
   and cooperating-writer qualification remain unaccepted.
-  Imported membership/benefit/complementary-line, screening and dual tender/header
-  rounding profiles remain
-  explicit code gaps until their source-supported behavior is implemented. See
+  Source-qualified membership staging and screening admission candidates are
+  merged, with native rollback, replay and contention checks. Manager correction
+  APIs, recovery fences and UI are also merged; the original signed rejection,
+  native correction, approval and settlement composition is being qualified.
+  Membership historical publication, all-writer screening coordination and
+  remaining benefit/complementary profiles still require implementation and
+  consolidated qualification. Tender/header mismatches stay paused before
+  import; the user selected explicit manager correction rather than recording a
+  financial variance. See
   `backend/parity/legacy-order-imports.md`.
 - Membership provenance producers are integrated as source-pinned compatibility
   candidates. Actual Python staging → Go activation → Node cancellation passes

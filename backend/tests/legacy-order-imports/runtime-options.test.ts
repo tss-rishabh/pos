@@ -32,6 +32,7 @@ describe('qualified import runtime selection', () => {
       });
       expect(runtime.adapter).toBeUndefined();
       expect(runtime.approvals).toBeUndefined();
+      expect(runtime.corrections).toBeUndefined();
       expect(runtime.runtime?.LEGACY_ORDER_IMPORT_WORKER_ENABLED).toBe(false);
       expect(get).not.toHaveBeenCalled();
     } finally {
@@ -55,6 +56,10 @@ describe('qualified import runtime selection', () => {
         service = legacyOrderImportService(configuration, db, registration),
         worker = legacyOrderImportWorker(service, () => undefined);
       expect(registration.approvals).toBeDefined();
+      expect(registration.corrections?.enabled).toBe(false);
+      expect(registration.correctionForOperation).toBe(
+        registration.corrections?.correctionForOperation,
+      );
       expect(registration.adapter).toBeUndefined();
       expect(service.ready).toBe(false);
       expect(await service.runOne()).toBeNull();
@@ -62,6 +67,27 @@ describe('qualified import runtime selection', () => {
       await worker.runOnce();
       await worker.stop();
       expect(vi.getTimerCount()).toBe(0);
+      expect(get).not.toHaveBeenCalled();
+    } finally {
+      await db.close();
+    }
+  });
+  it('installs the same native correction resolver for server and worker without starting financial stages', async () => {
+    const db = createDatabases(configuration),
+      get = vi.spyOn(db, 'get');
+    try {
+      const registration = configuredLegacyOrderImports(configuration, db, {
+        environment: {
+          LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: 'isolated-import-retained-purpose-key-'.repeat(2),
+          LEGACY_ORDER_IMPORT_CORRECTION_CONTRACT: 'pos-import-manager-correction-v1',
+          TSS_POS_LEGACY_IMPORT_PROOF_KEY: 'isolated-import-source-purpose-key-'.repeat(2),
+        },
+      });
+      expect(registration.corrections?.enabled).toBe(true);
+      expect(registration.correctionForOperation).toBe(
+        registration.corrections?.correctionForOperation,
+      );
+      expect(registration.adapter).toBeUndefined();
       expect(get).not.toHaveBeenCalled();
     } finally {
       await db.close();

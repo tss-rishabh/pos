@@ -1,4 +1,4 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { Store } from '../../db/legacy-schema.js';
@@ -21,17 +21,20 @@ import {
   financialImportHash,
   expectedFinancialPlanHash,
   sealFinancialPlan,
-  openFinancialPlan,
+  financialImportRequestHash,
   equalImportHash,
   importFinancialError,
 } from './financial-adapter-crypto.js';
-import { legacyOrderImportFinancialApprovals } from './financial-adapter-approval.js';
+import {
+  legacyOrderImportFinancialApprovals,
+  type FinancialApprovalOptions,
+} from './financial-adapter-approval.js';
+import { readFinancialImportRecord } from './financial-adapter-record.js';
 import {
   assertFinancialImportAuthority,
   lockFinancialImportScope,
 } from './financial-adapter-authority.js';
-import type { ImportFinancialScope } from './financial-contracts.js';
-import type { LegacyOrderImportPlan } from './plans.js';
+import type { ImportFinancialScope, ImportFinancialStart } from './financial-contracts.js';
 import {
   financialAdapterProfiles,
   type FinancialImportProfiles,
@@ -59,7 +62,7 @@ export async function lockFinancialImportStore(
 export function legacyImportFinancialJournal(
   config: Config,
   db: Databases,
-  options: { secret: string; clock?: () => number },
+  options: FinancialApprovalOptions,
   profiles: FinancialImportProfiles = financialAdapterProfiles(),
 ) {
   const now = options.clock ?? Date.now,
@@ -72,44 +75,7 @@ export function legacyImportFinancialJournal(
       counterId: scope.counterId,
     });
     await lockFinancialImportStore(tx, boundScope);
-    const [row] = await tx
-      .select()
-      .from(financialImportOperations)
-      .where(
-        and(
-          eq(financialImportOperations.id, scope.operationId),
-          sql`OCTET_LENGTH(${financialImportOperations.state})<=16000`,
-          sql`OCTET_LENGTH(${financialImportOperations.payload})<=342000`,
-        ),
-      )
-      .limit(1)
-      .for('update');
-    if (!row) return null;
-    const state = importFinancialStateSchema.parse(row.state);
-    if (
-      row.actorId !== scope.actorId ||
-      row.storeId !== scope.storeId ||
-      row.counterId !== scope.counterId ||
-      JSON.stringify(state.scope) !== JSON.stringify(boundScope) ||
-      state.planHash !== row.planHash ||
-      state.requestHash !== row.requestHash ||
-      state.namespace !== row.namespace
-    )
-      throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
-    const plan = openFinancialPlan(options.secret, boundScope, row.planHash, row.payload);
-    if (
-      !equalImportHash(
-        state.requestHash,
-        financialImportHash(options.secret, 'request', {
-          scope: boundScope,
-          planHash: state.planHash,
-          plan,
-          authority: state.authority,
-        }),
-      )
-    )
-      throw importFinancialError('ORDER_IMPORT_FINANCIAL_PAYLOAD_INVALID');
-    return { state, plan };
+    return readFinancialImportRecord(tx, boundScope, options.secret);
   }
   async function save(tx: AdministrationTransaction, state: ImportFinancialState) {
     importFinancialStateSchema.parse(state);
@@ -125,10 +91,20 @@ export function legacyImportFinancialJournal(
     transaction<T>(work: (tx: AdministrationTransaction) => Promise<T>) {
       return retryTransaction(() => db.get('writer').transaction(work));
     },
-    async reserve(input: ImportFinancialScope & { plan: LegacyOrderImportPlan; planHash: string }) {
-      const { plan: raw, planHash, ...scope } = input;
-      financialImportScopeSchema.parse(scope);
-      if (!equalImportHash(expectedFinancialPlanHash(options.secret, scope, raw), planHash))
+    async reserve(input: ImportFinancialStart) {
+      const { plan: raw, planHash, correction } = input;
+      const scope = financialImportScopeSchema.parse({
+        actorId: input.actorId,
+        operationId: input.operationId,
+        storeId: input.storeId,
+        counterId: input.counterId,
+      });
+      if (
+        !equalImportHash(
+          expectedFinancialPlanHash(options.secret, scope, raw, correction),
+          planHash,
+        )
+      )
         throw importFinancialError('ORDER_IMPORT_PLAN_CHANGED');
       const plan = financialImportPlanSchema.parse(raw);
       return retryTransaction(() =>
@@ -149,11 +125,12 @@ export function legacyImportFinancialJournal(
           profiles.assertReady(plan);
           const access = await approvals.authorizeStart(tx, input);
           if (!access.ready) throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
-          const requestHash = financialImportHash(options.secret, 'request', {
+          const requestHash = financialImportRequestHash(options.secret, {
               scope,
               planHash,
               plan,
               authority: access.authority,
+              ...(correction ? { correction } : {}),
             }),
             time = now(),
             state = importFinancialStateSchema.parse({
@@ -162,6 +139,7 @@ export function legacyImportFinancialJournal(
               requestHash,
               namespace: `pos-import-v1:${scope.operationId}`,
               authority: access.authority,
+              ...(correction ? { correction } : {}),
               status: 'running',
               stage: 'preparation',
               orderId: null,
@@ -247,6 +225,7 @@ export function legacyImportFinancialJournal(
               ...scope,
               plan: loaded.plan,
               planHash: loaded.state.planHash,
+              ...(loaded.state.correction ? { correction: loaded.state.correction } : {}),
             });
             if (
               !authorization.ready ||

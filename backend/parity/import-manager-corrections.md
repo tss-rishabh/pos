@@ -110,6 +110,12 @@ is retained independently of a later successor-status fetch failure.
 - Existing import-service/repository option `correctionForOperation` must receive
   the factory's resolver. Root financial-core hooks bind and reverify it before
   approval/start/source execution; no browser-supplied binding is accepted.
+  `configuredLegacyOrderImports` now installs the same service/resolver for the
+  server and standalone worker. The normal import registrar mounts correction
+  resources, and both forward migrations are registered in order. Recovery
+  remains available with the retained key when financial transport is disabled.
+  Approval review exposes the independently attested tender and qualified source
+  payable; correction approvals always require `historical-correction`.
 - `readImportCorrectionOptions` reads the existing retained
   `LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1` and optional
   `LEGACY_ORDER_IMPORT_CORRECTION_CONTRACT=pos-import-manager-correction-v1`.
@@ -139,6 +145,17 @@ qualified zero, missing proof/profile/refused price change, missing resolver,
 tampering, late POST, in-flight creator versus fence, race outcomes and
 post-commit401 recovery. The26 affected existing coordinator/runtime/resumption
 native regressions and3 actual pinned calculator oracles pass.
+
+The real Node financial-core composition also has a native MySQL workflow in
+`tests/legacy-import-financial/correction-integration.mysql.test.ts`. It stages
+a mismatched original, consumes a signed no-effect rejection, creates the
+immutable successor, refuses execution without approval even on an open day,
+settles the attested amount, replays without another financial source call and
+retains its correction descriptor after contact changes and write disablement.
+The source receipt and order transport in that test are trusted fixtures; it
+does not certify the private Python correction/calculation producer or actual
+Go/provider deployment. Those source integration steps remain code and release
+work, not evidence inferred from this Node test.
 
 From `frontend`:
 

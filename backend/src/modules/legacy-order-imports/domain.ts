@@ -98,6 +98,14 @@ export const importApprovalReviewSchema = z
     businessDate: z.iso.date(),
     currency: z.string().regex(/^[A-Z]{3}$/),
     lineValue: z.string().regex(/^\d+\.\d{2}$/),
+    correction: z
+      .object({
+        id: z.uuid(),
+        historicalTenderAmount: z.string().regex(/^\d+\.\d{2}$/),
+        sourcePayable: z.string().regex(/^\d+\.\d{2}$/),
+      })
+      .strict()
+      .optional(),
     lines: z
       .array(
         z

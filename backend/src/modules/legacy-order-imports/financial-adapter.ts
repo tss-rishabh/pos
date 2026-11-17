@@ -112,7 +112,8 @@ export function legacyOrderImportFinancialAdapter(
     if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
     await profiles.lock(tx, loaded);
     await profiles.sourceReceipt(tx, loaded, receipt);
-    await assertNativeImportOrder(tx, state, loaded.plan, receipt);
+    const expected = await profiles.expectedQuantities(tx, loaded, receipt, 'staged');
+    await assertNativeImportOrder(tx, state, loaded.plan, receipt, expected);
     return receipt;
   }
   async function publication(
@@ -259,7 +260,8 @@ export function legacyOrderImportFinancialAdapter(
       throw importFinancialError('ORDER_IMPORT_SETTLEMENT_UNCONFIRMED');
     const published = await publication(tx, state, order);
     if (!published) return null;
-    const native = await assertNativeImportOrder(tx, state, loaded.plan, order);
+    const expected = await profiles.expectedQuantities(tx, loaded, order, 'settled'),
+      native = await assertNativeImportOrder(tx, state, loaded.plan, order, expected);
     if (
       (loaded.plan.kind === 'offline' &&
         (native.header.paymentStatus !== 4n ||
@@ -307,6 +309,7 @@ export function legacyOrderImportFinancialAdapter(
       order,
       settlement,
       publication: published,
+      ...(state.correction ? { correction: state.correction } : {}),
       finalizedAt: now(),
     });
     await tx.insert(financialImportProofs).values({
@@ -464,12 +467,14 @@ export function legacyOrderImportFinancialAdapter(
           const loaded = await journal.load(tx, scope);
           if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
           await profiles.lock(tx, loaded);
+          const expected = await profiles.expectedQuantities(tx, loaded, order, 'settled');
           const settlement = await settleNativeImport(
             tx,
             loaded.state,
             loaded.plan,
             order,
             options,
+            expected,
           );
           await journal.confirm(tx, loaded.state, 'settlement', settlement);
         });
