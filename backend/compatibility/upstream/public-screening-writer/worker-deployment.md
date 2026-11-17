@@ -15,6 +15,9 @@ qualified API source read-only at `/opt/pos-original-source`. Its source/runtime
 paths intentionally match; the runtime verifies the pinned source before import.
 Supply the reviewed MySQL/broker CA files and deployment secrets separately.
 The image runs as UID/GID 65532; mounts must be readable by that identity.
+The inherited API entrypoint and health check are cleared. Supervise this
+process as a queue consumer, with SIGTERM and enough termination time for its
+bounded task and database cleanup; an API health URL does not measure it.
 
 The worker is disabled by default. Enable only with
 `POS_PUBLIC_SCREENING_MEMBERSHIP_WORKER_ENABLED=true` and
