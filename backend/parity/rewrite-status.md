@@ -1,0 +1,50 @@
+# POS rewrite milestone
+
+Snapshot: rewrite commit `45e30d4`, reviewed on 17 November 2026. Source baseline: `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. This is an implemented review build with every inventoried source surface mapped. Production release remains gated by the concrete code, acceptance and workflow evidence below. Later commits need their own affected checks.
+
+The last complete combined baseline is `1e129d6`: [its immutable verification record](../evidence/verification-1e129d6.json) records 121 standard checks passing, exit code 0 and zero changed inputs. Its separate release gate exits 1 and `productionReady` is false. Feature checks after that baseline provide bounded evidence for their named modules; they do not certify the newer whole project. [The checkpoint](../../CHECKPOINT.md) links those focused results and the Windows/macOS native evidence. Test counts are not feature or parity counts.
+
+The [release ledger](release-coverage.json) has no source-surface certificates. The [evaluator](../src/domain/release.ts) therefore reports **0 verified and 396 pending source surfaces**. These include routes, jobs, templates and administration registrations; they are not 396 distinct end-to-end customer journeys. The 12 release requirements have **0 verified, 10 pending and 2 blocked** entries; SSO and warehouse completeness are the two explicit blocked entries.
+
+The separate [saved implementation map](source-surface-map.md) records:
+
+| Source kind                  | Surfaces | Release-certified | Implementation present | External acceptance | Partial | Missing |
+| ---------------------------- | -------: | ----------------: | ---------------------: | ------------------: | ------: | ------: |
+| Leaf routes                  |      255 |                 0 |                     68 |                 187 |       0 |       0 |
+| Background jobs              |       32 |                 0 |                      0 |                  29 |       2 |       1 |
+| Templates                    |      106 |                 0 |                     32 |                  69 |       3 |       2 |
+| Websocket                    |        1 |                 0 |                      0 |                   1 |       0 |       0 |
+| Administration registrations |        2 |                 0 |                      0 |                   2 |       0 |       0 |
+| Total                        |      396 |                 0 |                    100 |                 288 |       5 |       3 |
+
+The route inventory has 263 declarations, including eight include mounts excluded from the 255 leaves. Aliases and multiple templates can map to the same replacement resource. These classifications describe mapped implementation/acceptance scope, not a completion percentage. The generated map's one remaining code-task group is a coarse family label; some older CSV profile descriptions lag the newer implementation.
+
+Replacement API registrations are tracked separately by [the route collector](../tools/routes.ts) and [event catalog](../src/observability/events.ts). That collector counts registered `/api/v1` method/path resources, excluding HEAD and OPTIONS. The saved route artifact omits already-registered order-search resources and needs refreshing with commit provenance. This report asserts no current replacement-endpoint total.
+
+The five partial labels all include the same legacy CSV import family:
+
+| Exact source surface                                   | Current evidence and disposition                                                                                                                               |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/tasks.py:51` — `parse_csv_offline_order_punchin` | Retained dormant job. The real parser, encrypted queue, approval/correction, financial adapter and worker exist; remaining source composition is listed below. |
+| `core/tasks.py:62` — `parse_csv_shopify_order_punchin` | Retained dormant job with its distinct source tender/stock behavior; the real Shopify financial branch exists.                                                 |
+| `core/templates/order_punch/index.html`                | Covered by the actual historical-order import/recovery page; the full original workflow remains uncertified.                                                   |
+| `core/templates/shopify_order_punch/index.html`        | Covered by the same page's Shopify mode; this is not a missing blank UI.                                                                                       |
+| `core/templates/upload_logs/index.html`                | Shared across inventory, parent/store and order-import families. Its partial label does not mean all of those log replacements are absent.                     |
+
+See the [CSV job scope](legacy-order-imports.md), [actual API/service](../src/modules/legacy-order-imports/service.ts), [financial adapter](../src/modules/legacy-order-imports/financial-adapter.ts), [Shopify/cash writer](../src/modules/legacy-order-imports/financial-adapter-writer.ts) and [React import page](../../frontend/src/pages/administration/order-imports/index.tsx). Membership/provenance, screening admission, tender diagnostics/manager correction, coupon consumption and complementary ownership now have executable source/native candidates. Their older map description must not be read as proof that those modules are absent. The [new immutable contract/history-artifact core](csv-benefit-command-bindings.md) is present at this snapshot; the complete source transport/preparation path still needs its separate integration.
+
+The three missing labels are explicit source dispositions:
+
+- `stores/tasks.py:11` — `create_random_user_accounts_new`: the source prints generated credentials and its actual account insert is commented out. A replacement must preserve the diagnostic inventory without introducing credential logging or an invented bulk-account feature. [The source map records this distinction](source-surface-map.md).
+- `report/templates/bd_report/daily_report_matric_report_datatable.html` and `report/templates/bd_report/daily_report_matric_upload.html`: both belong to an inactive prototype. Their classes, routes and render handlers are commented, and the sidebar link is inside a Django comment block. The [pinned reachability audit](business-metrics-prototype.md) retains both templates as unverified inventory; it establishes no active uploader to replace.
+
+Known concrete code still to finish at this snapshot:
+
+- Complete the coupon-history path: bounded warehouse candidate/provider and signed generation workflow, source benefit preparation/capability transport, and final current-head validation accounting for the source transaction's own mutations. Native capture/sealing helpers and the Node immutable marker/encrypted artifact ledger are already implemented. [Publication boundary](csv-coupon-history-publication.md), [core boundary](csv-benefit-command-bindings.md).
+- Compose public screening tickets with new/upgrade/automatic-free membership or gift issuance; add benefit-aware abandonment and an authenticated negative outcome for an already-dispatched source command that created no order. These variants currently refuse or retain uncertainty safely. Ordinary paid/zero completion, API/UI recovery and the publication worker exist. [Public API scope](public-screening-api.md), [writer scope](public-screening-writer.md).
+- Implement the remaining website/customer/system and other writer-origin protocols with their own original authority/nonce semantics. An internal operator capability cannot stand in for those participants. [Remaining participants](public-screening-writer.md).
+- Provide explicit proof-bound successor/reference transfer when original actor/contact authority changes before a new discretionary settlement/publication. Existing completed receipts remain immutable; this gap must not be bypassed by a fabricated principal or a new order. [Consumed-fact recovery boundary](csv-consumed-benefit-recovery.md).
+
+These code items are separate from acceptance of real OAuth tenant/callback configuration, warehouse coverage and complete publication/CDC, cooperating writer/stock cutover, payment/notification/broker/private-ingress providers, signing and physical printer/device behavior on both desktop operating systems. Representative performance/security review and migration/backup/rollback rehearsal also remain release requirements. The [external checklist](../../CHECKPOINT.md) and [release requirements](release-coverage.json) retain those gates; a working adapter or supplied read-only warehouse access does not complete them.
+
+Workflow certification requires an executed, reviewable source-equivalent workflow and current evidence. [The gate](../tools/parity-gate.ts) checks the source baseline, existing implementation/test paths and checksum evidence covering referenced code, both lockfiles and the inventory. No certificate or ledger status is promoted by this milestone record.
