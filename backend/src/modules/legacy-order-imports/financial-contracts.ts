@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { identifier } from '../../domain/validation.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
+import type { ImportCorrectionBinding } from './correction-contracts.js';
 
 export const importFinancialResultSchema = z.discriminatedUnion('status', [
   z
@@ -40,6 +41,7 @@ export interface ImportFinancialScope {
 export type ImportFinancialStart = ImportFinancialScope & {
   plan: LegacyOrderImportPlan;
   planHash: string;
+  correction?: ImportCorrectionBinding;
 };
 export const importStartAuthorizationSchema = z.discriminatedUnion('ready', [
   z.object({ ready: z.literal(true) }).strict(),

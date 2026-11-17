@@ -1,6 +1,5 @@
 import { AppError } from '../../domain/errors.js';
-import { financialImportHash } from './financial-adapter-crypto.js';
-import { importDigest } from './sealed-groups.js';
+import { financialImportHash, expectedFinancialPlanHash } from './financial-adapter-crypto.js';
 import { offlineOrderImportPlan, type LegacyOrderImportPlan } from './plans.js';
 import type { LegacyImportGroup } from './csv.js';
 import type { ImportFinancialScope } from './financial-contracts.js';
@@ -25,18 +24,7 @@ export function correctedImportPlanHash(
   binding: ImportCorrectionBinding,
 ) {
   importCorrectionBindingSchema.parse(binding);
-  return importDigest(
-    secret,
-    'group',
-    JSON.stringify([
-      'pos-import-corrected-plan-v1',
-      scope.actorId,
-      scope.storeId,
-      scope.counterId,
-      plan,
-      binding,
-    ]),
-  );
+  return expectedFinancialPlanHash(secret, scope, plan, binding);
 }
 export function correctedOrderedRowsHash(secret: string, rows: LegacyImportGroup['lines']) {
   return financialImportHash(secret, 'correction-ordered-rows', rows);

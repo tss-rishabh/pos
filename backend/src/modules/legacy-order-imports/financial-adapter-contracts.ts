@@ -4,6 +4,10 @@ import { identifier } from '../../domain/validation.js';
 import { customerContactBindingSchema } from '../checkout/customer-contact-authority.js';
 import { isLegacyLatinText } from '../checkout/settlement-note.js';
 import type { LegacyOrderImportPlan } from './plans.js';
+import {
+  importCorrectionBindingSchema,
+  importCorrectionCalculationSchema,
+} from './correction-contracts.js';
 
 export const financialImportContract = 'pos-legacy-order-import-financial-v1';
 export const financialSourceContract = 'pos-legacy-order-import-source-v1';
@@ -198,6 +202,16 @@ export const sourceRejectionReceiptSchema = z
     status: z.literal('rejected'),
     code: z.string().regex(/^ORDER_IMPORT_[A-Z0-9_]{1,45}$/),
     noFinancialEffects: z.literal(true),
+    review: z
+      .object({
+        contract: z.literal('pos-import-rejection-calculation-v1'),
+        planHash: importProofHash,
+        stageNonce: z.uuid(),
+        rejectedAt: time,
+        calculation: importCorrectionCalculationSchema,
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export const importPublicationReceiptSchema = z
@@ -262,6 +276,7 @@ export const importCompletedProofSchema = z
     order: sourceOrderReceiptSchema,
     settlement: importSettlementReceiptSchema,
     publication: importPublicationReceiptSchema,
+    correction: importCorrectionBindingSchema.optional(),
     finalizedAt: time,
   })
   .strict();
@@ -274,6 +289,7 @@ export const importFinancialStateSchema = z
     namespace: z.string().regex(/^pos-import-v1:[a-f0-9-]{36}$/),
     authority: financialImportAuthoritySchema,
     status: z.enum(['running', 'unknown', 'rejected', 'completed']),
+    correction: importCorrectionBindingSchema.optional(),
     stage: financialImportStageSchema,
     orderId: identifier.nullable(),
     errorCode: z

@@ -11,6 +11,11 @@ import type { ImportFinancialScope } from './financial-contracts.js';
 import { importDigest } from './sealed-groups.js';
 import { financialImportPlanSchema } from './financial-adapter-contracts.js';
 import type { LegacyOrderImportPlan } from './plans.js';
+import {
+  importCorrectionBindingSchema,
+  type ImportCorrectionBinding,
+} from './correction-contracts.js';
+import type { FinancialImportAuthority } from './financial-adapter-contracts.js';
 export const importFinancialError = (code: string, status = 409) =>
   new AppError(
     status,
@@ -36,7 +41,8 @@ export function financialImportHash(secret: string, kind: string, value: unknown
 }
 export function financialSourceHash(
   sourceKey: string,
-  kind: 'order' | 'rejection' | 'publication' | 'capability' | 'plan' | 'confirmation',
+  kind:
+    'order' | 'rejection' | 'publication' | 'capability' | 'plan' | 'confirmation' | 'calculation',
   value: unknown,
 ) {
   return operationHash('legacy-order-imports.source.' + kind + '.v1', value, sourceKey);
@@ -52,12 +58,46 @@ export function expectedFinancialPlanHash(
   secret: string,
   scope: ImportFinancialScope,
   plan: LegacyOrderImportPlan,
+  correction?: ImportCorrectionBinding,
 ) {
+  if (correction) importCorrectionBindingSchema.parse(correction);
   return importDigest(
     secret,
     'group',
-    JSON.stringify(['pos-import-plan-v1', scope.actorId, scope.storeId, scope.counterId, plan]),
+    JSON.stringify(
+      correction
+        ? [
+            'pos-import-corrected-plan-v1',
+            scope.actorId,
+            scope.storeId,
+            scope.counterId,
+            plan,
+            correction,
+          ]
+        : ['pos-import-plan-v1', scope.actorId, scope.storeId, scope.counterId, plan],
+    ),
   );
+}
+/** Preserve the ordinary request bytes; bind correction evidence only on its selected path. */
+export function financialImportRequestHash(
+  secret: string,
+  input: {
+    scope: ImportFinancialScope;
+    planHash: string;
+    plan: LegacyOrderImportPlan;
+    authority: FinancialImportAuthority;
+    correction?: ImportCorrectionBinding;
+  },
+) {
+  return financialImportHash(secret, 'request', {
+    scope: input.scope,
+    planHash: input.planHash,
+    plan: input.plan,
+    authority: input.authority,
+    ...(input.correction
+      ? { correction: importCorrectionBindingSchema.parse(input.correction) }
+      : {}),
+  });
 }
 export function sealFinancialPlan(
   secret: string,
