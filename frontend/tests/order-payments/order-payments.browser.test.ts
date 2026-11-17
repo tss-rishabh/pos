@@ -1,3 +1,14 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  cashReturnFixture,
+  cashPending,
+  currentCashPayment,
+  handleCashReturn,
+  cashOrderId,
+  type CashReturnFixture,
+} from './cash-return-fixture';
 import { installInvoicePrintProbe } from '../../e2e/checkout/invoice-print-probe';
 import { sanitizeInvoiceHtml } from '../../../backend/src/modules/checkout/invoices.js';
 import {
@@ -22,11 +33,12 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
   'existing-order payment recovery in actual OrdersPage',
   { timeout: 20000 },
   () => {
-    let server: ViteDevServer, browser: Browser, origin: string;
+    let server: ViteDevServer, browser: Browser, origin: string, cache: string;
     beforeAll(async () => {
+      cache = await mkdtemp(join(tmpdir(), 'pos-actual-order-payments-'));
       server = await createServer({
         configFile: false,
-        cacheDir: 'node_modules/.vite-order-payment-tests',
+        cacheDir: cache,
         plugins: [react()],
         appType: 'custom',
         server: { host: '127.0.0.1', port: 0 },
@@ -51,11 +63,23 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
     afterAll(async () => {
       await browser?.close();
       await server?.close();
+      if (cache) await rm(cache, { recursive: true, force: true });
     });
-    async function fixture(page: Page, legacy = false, cancellable = false) {
+    async function fixture(
+      page: Page,
+      legacy = false,
+      cancellable = false,
+      options: { cash?: CashReturnFixture; actor?: '44' | '55' } = {},
+    ) {
       page.setDefaultTimeout(6500);
       await installInvoicePrintProbe(page);
+      const cash = options.cash;
       const state = {
+        actor: options.actor ?? '44',
+        scopeStore: '1',
+        detailReads: 0,
+        detailErrors: 0,
+        detailDeniedAfterCorrection: false,
         attempt: null as z.infer<typeof paymentSchema> | null,
         starts: [] as unknown[],
         adopts: [] as unknown[],
@@ -71,15 +95,17 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         loseCancel: null as 'absent' | 'committed' | null,
         unexpected: [] as string[],
       };
-      const orderId = '9007199254740993',
+      const orderId = cashOrderId,
         base = `/api/v1/stores/1/orders/${orderId}`;
       await page.route('**/api/v1/**', async (route) => {
         const path = new URL(route.request().url()).pathname,
-          method = route.request().method();
+          method = route.request().method(),
+          actor = state.actor;
+        if (cash && (await handleCashReturn(route, cash, actor))) return;
         if (path.includes('/operators/')) {
           if (
             method !== 'GET' ||
-            path !== `/api/v1/operators/44/stores/1/orders/${orderId}/invoices/store/preview`
+            path !== `/api/v1/operators/${actor}/stores/1/orders/${orderId}/invoices/store/preview`
           )
             throw new Error('Unexpected invoice actor route');
           state.invoiceReads++;
@@ -98,24 +124,24 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             },
             body: invoicePreviewHtml(
               sanitizeInvoiceHtml('<h1>Existing order tax invoice</h1>'),
-              { operatorId: '44', storeId: '1', orderId, kind: 'store' },
+              { operatorId: actor, storeId: '1', orderId, kind: 'store' },
               'ISOLATED-INVOICE',
             ),
           });
         }
-        expect(route.request().headers()['x-operator-id']).toBe('44');
-        if (method === 'GET' && path === '/api/v1/stores/1/order-search-options')
+        expect(route.request().headers()['x-operator-id']).toBe(actor);
+        if (method === 'GET' && path === `/api/v1/stores/${state.scopeStore}/order-search-options`)
           return route.fulfill({
             json: {
-              stores: [{ id: '1', name: 'Fixture store', locationCode: 'FIXTURE' }],
+              stores: [{ id: state.scopeStore, name: 'Fixture store', locationCode: 'FIXTURE' }],
               methods: [],
               paymentStatuses: [],
               orderStatuses: [],
               orderTypes: ['ST'],
-              checkedInStoreId: '1',
+              checkedInStoreId: state.scopeStore,
             },
           });
-        if (method === 'POST' && path === '/api/v1/stores/1/orders/searches') {
+        if (method === 'POST' && path === `/api/v1/stores/${state.scopeStore}/orders/searches`) {
           const input = z
             .object({
               draw: z.number().int(),
@@ -149,17 +175,83 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           return route.fulfill({ json: { storeId: '1', orderId, actions: [] } });
         if (method === 'GET' && path === '/api/v1/stores/1/orders')
           return route.fulfill({ json: { data: [], nextCursor: null } });
-        if (method === 'GET' && path === base)
+        if (method === 'GET' && path === base) {
+          state.detailReads++;
+          if (cash?.receipt && state.detailDeniedAfterCorrection) {
+            state.detailErrors++;
+            return route.fulfill({
+              status: 503,
+              json: {
+                error: {
+                  code: 'ORDER_DETAIL_UNAVAILABLE',
+                  message: 'Fixture order detail temporarily unavailable.',
+                },
+              },
+            });
+          }
           return route.fulfill({
             json: {
               reference: 'EXISTING-ORDER',
               amount: 99.95,
-              isPaid: state.paid,
-              status: state.paid ? 'Delivered' : 'Order Placed',
+              isPaid: cash ? !cash.receipt : state.paid,
+              status: (cash ? !cash.receipt : state.paid) ? 'Delivered' : 'Order Placed',
               createdAt: '2026-11-17T12:00:00',
-              lines: [],
+              lines: cash
+                ? [
+                    {
+                      id: '9007199254740995',
+                      productId: '10',
+                      name: 'Original counter goods',
+                      quantity: '2',
+                      amount: 99.95,
+                      gst: 5,
+                      status: cash.receipt ? 'PLACED' : 'DELIVERED',
+                    },
+                  ]
+                : [],
             },
           });
+        }
+        if (
+          cash &&
+          method === 'GET' &&
+          [
+            base + '/payment-context',
+            base + '/payment-attempts',
+            base + '/payment-attempts/' + cash.originalPayment.id,
+          ].includes(path) &&
+          cashPending(cash)
+        )
+          return route.fulfill({
+            status: 409,
+            json: {
+              error: {
+                code: 'CASH_RETURN_RECONCILIATION_REQUIRED',
+                message: 'Original returned cash requires manager reconciliation.',
+              },
+            },
+          });
+        if (cash && method === 'GET' && path === base + '/payment-context')
+          return route.fulfill({
+            json: {
+              orderId,
+              storeId: '1',
+              counterId: '3',
+              payable: '99.95',
+              canRecordPayment: !!cash.receipt,
+              activeAttemptId: cash.originalPayment.id,
+              legacyPayment: null,
+              blocker: cash.receipt ? null : 'ORDER_NOT_PAYABLE',
+            },
+          });
+        if (cash && method === 'GET' && path === base + '/payment-attempts')
+          return route.fulfill({ json: { data: [currentCashPayment(cash)] } });
+        if (
+          cash &&
+          method === 'GET' &&
+          path === base + '/payment-attempts/' + cash.originalPayment.id
+        )
+          return route.fulfill({ json: currentCashPayment(cash) });
         if (method === 'GET' && path === base + '/payment-context')
           return route.fulfill({
             json: {
@@ -359,11 +451,367 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       ]);
       expect(rows[1]).toEqual([]);
     }
+    const cashPanel = (page: Page) =>
+      page.getByRole('region', { name: 'Durable cash return', exact: true });
+    async function openManager(
+      page: Page,
+      cash: CashReturnFixture,
+      operatorId: '44' | '55' = '44',
+    ) {
+      const state = await fixture(page, false, false, { cash, actor: operatorId });
+      await page.goto(origin + '/__order-payment-test__?manager&operator=' + operatorId);
+      await browserExpect(
+        page.getByRole('heading', { name: 'EXISTING-ORDER', exact: true }),
+      ).toBeVisible();
+      await browserExpect(
+        page.getByText('Correct recorded cash payment', { exact: true }),
+      ).toBeVisible();
+      return state;
+    }
+    async function expandCash(page: Page) {
+      await page.getByText('Correct recorded cash payment', { exact: true }).click();
+      await browserExpect(
+        cashPanel(page).getByRole('button', { name: 'Prepare return of 99.95' }),
+      ).toBeVisible();
+    }
+    async function prepareCash(page: Page) {
+      const panel = cashPanel(page);
+      await panel.getByRole('checkbox', { name: /Goods have not been handed over/ }).check();
+      await panel.getByRole('button', { name: 'Prepare return of 99.95' }).click();
+      await browserExpect(
+        panel.getByRole('button', { name: 'Authorize one cash handback' }),
+      ).toBeVisible();
+    }
+    async function armCash(page: Page) {
+      await cashPanel(page).getByRole('button', { name: 'Authorize one cash handback' }).click();
+      await browserExpect(
+        cashPanel(page).getByText(/One cash handback is authorized:/),
+      ).toBeVisible();
+    }
+    async function attestCash(page: Page) {
+      await cashPanel(page)
+        .getByRole('checkbox', { name: /I confirm this original cash was already returned/ })
+        .check();
+      await cashPanel(page).getByRole('button', { name: 'Attest original cash return' }).click();
+      await browserExpect(
+        cashPanel(page).getByRole('button', { name: 'Reconcile returned cash' }),
+      ).toBeVisible();
+    }
+    async function prepareReturnedCash(page: Page) {
+      await expandCash(page);
+      await prepareCash(page);
+      await armCash(page);
+      await attestCash(page);
+    }
+    it('prepares before any handback and atomically refreshes the actual order after the same reserved correction', async () => {
+      const page = await browser.newPage(),
+        cash = cashReturnFixture();
+      try {
+        const state = await openManager(page, cash),
+          original = JSON.stringify(cash.originalPayment);
+        expect(cash.reads).toEqual([]);
+        expect(cash.writes).toEqual([]);
+        await expandCash(page);
+        await prepareCash(page);
+        expect(cash.writes.map((row) => row.kind)).toEqual(['prepare']);
+        expect(cash.view?.phase).toBe('PREPARED');
+        await browserExpect(
+          cashPanel(page).getByText(/One cash handback is authorized:/),
+        ).toHaveCount(0);
+        const saved = await page.evaluate(() =>
+          localStorage.getItem('pos:cash-return:v1:44:1:9007199254740993'),
+        );
+        expect(JSON.parse(saved!) as unknown).toMatchObject({
+          intentId: cash.view!.id,
+          correctionId: cash.view!.correctionId,
+          instructionConsumed: false,
+        });
+        await armCash(page);
+        expect(cash.view?.phase).toBe('RETURN_PENDING');
+        await attestCash(page);
+        const reserved = cash.view!.correctionId;
+        await cashPanel(page).getByRole('button', { name: 'Reconcile returned cash' }).click();
+        await browserExpect(cashPanel(page).getByText(/Cash correction recorded ·/)).toBeVisible();
+        await browserExpect(page.getByText('2 item(s) · PLACED')).toBeVisible();
+        expect(cash.writes.map((row) => row.kind)).toEqual(['prepare', 'arm', 'attest', 'resolve']);
+        expect(cash.writes.at(-1)!.operationId).toBe(reserved);
+        expect(cash.receipt).toMatchObject({
+          id: reserved,
+          returnedCash: '99.95',
+          operatorId: '44',
+          cashReturn: { returnedBy: '44', attestedBy: '44' },
+        });
+        expect(JSON.stringify(cash.originalPayment)).toBe(original);
+        expect(state.starts).toEqual([]);
+        expect(state.adopts).toEqual([]);
+        expect(state.cancels).toEqual([]);
+        expect(state.invoiceReads).toBe(0);
+        expect(state.unexpected).toEqual([]);
+        await assertCartRetained(page);
+      } finally {
+        await page.close();
+      }
+    });
+    it('keeps the confirmed financial UUID visible when actual order-detail refresh fails', async () => {
+      const page = await browser.newPage(),
+        cash = cashReturnFixture();
+      try {
+        const state = await openManager(page, cash);
+        await prepareReturnedCash(page);
+        state.detailDeniedAfterCorrection = true;
+        const reserved = cash.view!.correctionId;
+        await cashPanel(page).getByRole('button', { name: 'Reconcile returned cash' }).click();
+        await browserExpect.poll(() => state.detailErrors).toBeGreaterThan(0);
+        await browserExpect(
+          page.getByText('Fixture order detail temporarily unavailable.'),
+        ).toBeVisible();
+        await browserExpect(page.getByText(reserved, { exact: false })).toBeVisible();
+        expect(cash.writes).toHaveLength(4);
+        expect(cash.receipt?.id).toBe(reserved);
+        expect(state.starts).toEqual([]);
+        expect(state.invoiceReads).toBe(0);
+        expect(state.unexpected).toEqual([]);
+        await assertCartRetained(page);
+      } finally {
+        await page.close();
+      }
+    });
+    it('reopens a saved actual-order correction GET-only after its committed response was lost', async () => {
+      const page = await browser.newPage(),
+        cash = cashReturnFixture();
+      try {
+        const state = await openManager(page, cash);
+        await prepareReturnedCash(page);
+        cash.drop = { kind: 'resolve', outcome: 'committed' };
+        await cashPanel(page).getByRole('button', { name: 'Reconcile returned cash' }).click();
+        await browserExpect(
+          cashPanel(page).getByRole('button', { name: 'Check original return action' }),
+        ).toBeVisible();
+        const reserved = cash.view!.correctionId;
+        expect(cash.writes).toHaveLength(4);
+        await page.reload();
+        await browserExpect(cashPanel(page).getByText(/Cash correction recorded ·/)).toBeVisible();
+        expect(cash.writes).toHaveLength(4);
+        expect(cash.reads.some((row) => row.path.endsWith('/payment-reversals/' + reserved))).toBe(
+          true,
+        );
+        await browserExpect(page.getByText(/One cash handback is authorized:/)).toHaveCount(0);
+        expect(cash.receipt?.id).toBe(reserved);
+        expect(state.starts).toEqual([]);
+        expect(state.invoiceReads).toBe(0);
+        expect(state.unexpected).toEqual([]);
+        await assertCartRetained(page);
+      } finally {
+        await page.close();
+      }
+    });
+    it('a lost actual-order arm acknowledgment recovers by original operation GET and never repeats a cash instruction', async () => {
+      const page = await browser.newPage(),
+        cash = cashReturnFixture();
+      try {
+        const state = await openManager(page, cash);
+        await expandCash(page);
+        await prepareCash(page);
+        cash.drop = { kind: 'arm', outcome: 'committed' };
+        await cashPanel(page).getByRole('button', { name: 'Authorize one cash handback' }).click();
+        await browserExpect(
+          cashPanel(page).getByRole('button', { name: 'Check original return action' }),
+        ).toBeVisible();
+        const armId = cash.writes.at(-1)!.operationId;
+        await page.reload();
+        await browserExpect(
+          cashPanel(page).getByText(/Cash may already have been handed back/),
+        ).toBeVisible();
+        expect(cash.writes.map((row) => row.kind)).toEqual(['prepare', 'arm']);
+        expect(cash.reads.some((row) => row.path.endsWith('/operations/' + armId))).toBe(true);
+        await browserExpect(page.getByText(/One cash handback is authorized:/)).toHaveCount(0);
+        await browserExpect(
+          page.getByRole('button', { name: 'Cancel unperformed preparation' }),
+        ).toHaveCount(0);
+        expect(cash.receipt).toBeNull();
+        expect(state.starts).toEqual([]);
+        expect(state.invoiceReads).toBe(0);
+        expect(state.unexpected).toEqual([]);
+        await assertCartRetained(page);
+      } finally {
+        await page.close();
+      }
+    });
+    it('an absent correction keeps its original attested return and UUID until explicit reconciliation', async () => {
+      const page = await browser.newPage(),
+        cash = cashReturnFixture();
+      try {
+        const state = await openManager(page, cash);
+        await prepareReturnedCash(page);
+        cash.drop = { kind: 'resolve', outcome: 'absent' };
+        await cashPanel(page).getByRole('button', { name: 'Reconcile returned cash' }).click();
+        await browserExpect(
+          cashPanel(page).getByRole('button', { name: 'Check original return action' }),
+        ).toBeVisible();
+        const original = cash.writes.at(-1)!;
+        await page.reload();
+        await browserExpect(
+          cashPanel(page).getByRole('button', { name: 'Reconcile returned cash' }),
+        ).toBeVisible();
+        expect(cash.writes).toHaveLength(4);
+        expect(cash.view?.phase).toBe('ATTESTED');
+        expect(cash.receipt).toBeNull();
+        await browserExpect(page.getByText(/One cash handback is authorized:/)).toHaveCount(0);
+        await cashPanel(page).getByRole('button', { name: 'Reconcile returned cash' }).click();
+        await browserExpect(cashPanel(page).getByText(/Cash correction recorded ·/)).toBeVisible();
+        expect(cash.writes.at(-1)!.input).toEqual(original.input);
+        expect(cash.writes.at(-1)!.operationId).toBe(original.operationId);
+        expect(cash.writes.filter((row) => row.kind === 'arm')).toHaveLength(1);
+        expect(state.starts).toEqual([]);
+        expect(state.invoiceReads).toBe(0);
+        expect(state.unexpected).toEqual([]);
+        await assertCartRetained(page);
+      } finally {
+        await page.close();
+      }
+    });
+    it('actual-page storage failure prevents preparation, physical permission and all money dispatch', async () => {
+      const page = await browser.newPage(),
+        cash = cashReturnFixture();
+      try {
+        const state = await openManager(page, cash);
+        await expandCash(page);
+        await page.evaluate(() => {
+          Storage.prototype.setItem = () => {
+            throw new DOMException('Fixture recovery storage unavailable', 'QuotaExceededError');
+          };
+        });
+        await cashPanel(page)
+          .getByRole('checkbox', { name: /Goods have not been handed over/ })
+          .check();
+        await cashPanel(page).getByRole('button', { name: 'Prepare return of 99.95' }).click();
+        await browserExpect(cashPanel(page).getByRole('alert')).toContainText(
+          'Fixture recovery storage unavailable',
+        );
+        expect(cash.writes).toEqual([]);
+        expect(cash.view).toBeNull();
+        expect(state.starts).toEqual([]);
+        expect(state.unexpected).toEqual([]);
+        await assertCartRetained(page);
+      } finally {
+        await page.close();
+      }
+    });
+    it.each(['manager', 'store'] as const)(
+      'a late recorded return cannot publish into a different actual OrdersPage %s scope',
+      async (kind) => {
+        const page = await browser.newPage(),
+          cash = cashReturnFixture();
+        try {
+          const state = await openManager(page, cash);
+          await prepareReturnedCash(page);
+          cash.holdResolution = true;
+          await cashPanel(page).getByRole('button', { name: 'Reconcile returned cash' }).click();
+          await browserExpect.poll(() => cash.writes.length).toBe(4);
+          if (kind === 'manager') {
+            state.actor = '55';
+            // External session/workspace changes can arrive while the order modal is open.
+            await page
+              .getByRole('button', { name: 'Switch fixture manager' })
+              .dispatchEvent('click');
+            await browserExpect(page.getByLabel('Fixture operator')).toHaveText('55');
+          } else {
+            state.scopeStore = '2';
+            await page.getByRole('button', { name: 'Switch fixture store' }).dispatchEvent('click');
+          }
+          await browserExpect(page.getByRole('dialog')).toHaveCount(0);
+          cash.releaseResolution();
+          await browserExpect.poll(() => cash.receipt?.id).toBe(cash.view!.correctionId);
+          await browserExpect(page.getByText(/Cash correction recorded ·/)).toHaveCount(0);
+          await browserExpect(
+            page.getByText(cash.view!.correctionId, { exact: false }),
+          ).toHaveCount(0);
+          expect(cash.writes.every((row) => row.actorId === '44')).toBe(true);
+          expect(state.starts).toEqual([]);
+          expect(state.invoiceReads).toBe(0);
+          expect(state.unexpected).toEqual([]);
+          await assertCartRetained(page);
+        } finally {
+          cash.releaseResolution();
+          await page.close();
+        }
+      },
+    );
+    it('another manager on a fresh device reconciles the shared pending queue with the original financial UUID', async () => {
+      const first = await browser.newPage(),
+        cash = cashReturnFixture();
+      let second: Page | undefined;
+      try {
+        const originalState = await openManager(first, cash);
+        await prepareReturnedCash(first);
+        const original = JSON.stringify(cash.originalPayment),
+          reserved = cash.view!.correctionId,
+          originalCashDate = cash.view!.attestation!.evidence.businessDate;
+        cash.drop = { kind: 'resolve', outcome: 'absent' };
+        await cashPanel(first).getByRole('button', { name: 'Reconcile returned cash' }).click();
+        await browserExpect(
+          cashPanel(first).getByRole('button', { name: 'Check original return action' }),
+        ).toBeVisible();
+        expect(cash.writes).toHaveLength(4);
+        await first.close();
+        second = await browser.newPage();
+        const currentState = await openManager(second, cash, '55');
+        expect(
+          await second.evaluate(() =>
+            Object.keys(localStorage).filter((key) => key.startsWith('pos:cash-return:')),
+          ),
+        ).toEqual([]);
+        await second.getByRole('button', { name: 'Close order', exact: true }).click();
+        await second.getByRole('button', { name: 'Review store cash returns' }).click();
+        await browserExpect(second.getByRole('listitem')).toContainText('ATTESTED');
+        await second.getByRole('button', { name: 'Review return ' + cash.view!.id }).click();
+        await browserExpect(
+          cashPanel(second).getByText(/Cash already returned by operator 44/),
+        ).toBeVisible();
+        await browserExpect(second.getByText(/One cash handback is authorized:/)).toHaveCount(0);
+        await cashPanel(second).getByRole('button', { name: 'Reconcile returned cash' }).click();
+        await browserExpect(
+          second.getByText(
+            'Original cash correction ' +
+              reserved +
+              ' is recorded. No additional cash handback is authorized.',
+          ),
+        ).toBeVisible();
+        expect(cash.receipt).toMatchObject({
+          id: reserved,
+          operatorId: '55',
+          businessDate: originalCashDate,
+          cashReturn: { returnedBy: '44', attestedBy: '44' },
+        });
+        expect(cash.writes.at(-1)).toMatchObject({
+          kind: 'resolve',
+          operationId: reserved,
+          actorId: '55',
+          input: { operationId: reserved },
+        });
+        expect(cash.writes.filter((row) => row.kind === 'arm')).toHaveLength(1);
+        expect(JSON.stringify(cash.originalPayment)).toBe(original);
+        expect(originalState.starts).toEqual([]);
+        expect(currentState.starts).toEqual([]);
+        expect(currentState.invoiceReads).toBe(0);
+        expect(currentState.unexpected).toEqual([]);
+        await assertCartRetained(second);
+      } finally {
+        if (!first.isClosed()) await first.close();
+        await second?.close();
+      }
+    });
     it('records existing-order cash and refreshes its detail without clearing or completing a local sale', async () => {
       const page = await browser.newPage();
       try {
         const state = await fixture(page);
         await page.goto(origin + '/__order-payment-test__');
+        await browserExpect(
+          page.getByText('Correct recorded cash payment', { exact: true }),
+        ).toHaveCount(0);
+        await browserExpect(
+          page.getByRole('button', { name: 'Review store cash returns' }),
+        ).toHaveCount(0);
         await page.getByRole('button', { name: 'Record received payment' }).click();
         await browserExpect(
           page.getByText('Payment confirmed · ORIGINAL-CASH.', { exact: false }),
