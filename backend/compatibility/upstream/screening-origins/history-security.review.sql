@@ -22,6 +22,9 @@ RETURN JSON_OBJECT(
  'roles',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(TO_USER,'@',TO_HOST),'role',CONCAT(FROM_USER,'@',FROM_HOST))) FROM (
   SELECT TO_USER,TO_HOST,FROM_USER,FROM_HOST FROM mysql.role_edges ORDER BY TO_USER,TO_HOST,FROM_USER,FROM_HOST LIMIT 1001
  ) role_rows),JSON_ARRAY()),
+ 'proxies',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'target',CONCAT(Proxied_user,'@',Proxied_host))) FROM (
+  SELECT User,Host,Proxied_user,Proxied_host FROM mysql.proxies_priv ORDER BY User,Host,Proxied_user,Proxied_host LIMIT 1001
+ ) proxy_rows),JSON_ARRAY()),
  'privileges',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('grantee',grantee,'scope',scope,'schema',schemaName,'table',tableName,'privilege',privilegeName,'grantable',grantable)) FROM (
   SELECT GRANTEE AS grantee,'global' AS scope,'' AS schemaName,'' AS tableName,PRIVILEGE_TYPE AS privilegeName,IS_GRANTABLE AS grantable FROM INFORMATION_SCHEMA.USER_PRIVILEGES
   UNION ALL SELECT GRANTEE,'schema',TABLE_SCHEMA,'',PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.SCHEMA_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE()

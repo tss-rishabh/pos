@@ -86,11 +86,40 @@ registers/packages it. Source helpers include origin_history_privileges.py,
 history_capture.py plus the three review-only SQL files. OriginCommands/CSK
 consumer changes remain with their owners; no ordinary frame/issuer is rewritten.
 
-Publisher execution remains active CODE work in this intermediate handoff:
-explicit readonly writer-origin snapshot/export, independently queried immutable
-BQ rows, native/count/ordered-set comparison, separately credentialed writer,
-original once-only materialization/publication job checkpoints and executable
-worker. No helper or unqualified CDC watermark is labeled deployed completeness.
-After that implementation, native source, independent BQ, empty/orphan/NULL/future
-row, cross-writer race, grant/metadata, timeout/budget/privacy, late-job recovery
-and deployment/performance acceptance remain deferred to the final validation phase.
+The executable publisher is now implemented in
+`history-generation-worker-main.ts` (`runOriginHistoryPublisher`). It rejects demo
+mode, accepts no CLI payload/identity arguments, and reads separately bounded
+credential files. Native readonly writer-origin capture uses a private bounded
+stdin/stdout subprocess with all required owned import directories, TLS and exact
+server/schema/head matching. A changed authenticated native head supersedes only
+a never-dispatched demand without reading historical rows. The child never
+receives the source admission key and cannot issue an order capability.
+
+The encrypted journal captures before dispatch, materializes actual native rows
+and the signed manifest in one immutable original BQ job, independently SELECTs
+those rows/counts/ordered-set commitment, seals their equality, then atomically
+publishes SELECT-derived counts plus the signed publication in its second original
+job. Provider metadata must match project/location/job/query/typed parameters.
+Unknown/late responses retain original IDs and are GET-only, including when new
+work selection/source configuration is missing. No source/order/payment/provider
+is redispatched. Readonly source capture alone can repeat after its lease expires.
+
+Writer credentials must differ from the supplied readonly reports SA and reader
+credentials. Writer targets are explicit owned `pos_origin_history_` tables;
+reader view aliases are configured independently. Warehouse DDL is review-only.
+Constructors do no network/DDL. Actual source, SDK and publication calls occur only
+from the explicit worker. Journal and source transactions never span remote calls.
+Worker shutdown aborts work and has a 40-second close deadline. Events contain
+module/resource/eventInstanceId/requestId/userId:null/timestamp and counts only.
+No source IDs, URLs, credentials, SQL, rows or exception stacks enter logs.
+
+Known implementation follow-ups in this intermediate checkpoint: move readonly
+warehouse budget preflight ahead of the permanent write-start checkpoint, and
+finish the global privilege-escalation/DDL-participant refusal audit (not just
+direct head DML/current caller). These are CODE, not deployment acceptance; the
+new-work selector remains unqualified until completed. Tests/checks/builds remain
+deferred. Final acceptance must cover native/independent BQ empty/orphan/NULL/future
+rows, proxies/roles/definers, cross-writer races, timeout/budget/privacy, original-job
+recovery, immutable default-byte behavior and deployment performance. Exact hot-head
+matching can legitimately starve a constantly changing customer; no head relaxation
+or native request-time fallback hides that pending measured acceptance.

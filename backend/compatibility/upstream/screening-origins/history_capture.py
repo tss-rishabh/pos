@@ -6,6 +6,7 @@ qualified writer origin; replica identity is never rewritten to fit a witness.
 """
 import hashlib
 import json
+import re
 import sys
 import time
 from pathlib import Path
@@ -13,6 +14,7 @@ from urllib.parse import urlsplit
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
 sys.path.insert(0,str(HERE.parent/'legacy-order-imports'))
+sys.path.insert(0,str(HERE.parent/'public-screening-writer'))
 from origin_contracts import canonical,digest,identifier,fail
 from origin_history import head
 from native import one,rows
@@ -31,7 +33,16 @@ PROJECTION_HASH=hashlib.sha256(json.dumps(PROJECTION,separators=(',',':')).encod
 def capture(session,customer_id,key,clock=lambda:int(time.time()*1000),expected=None,started=None):
     customer=identifier(customer_id);started=clock() if started is None else started
     witness=head(session,customer)
-    if expected is not None and witness!=expected:fail('SCREENING_ORIGIN_HISTORY_CHANGED')
+    # Snapshot READ ONLY is a second guard, not a substitute for separately
+    # qualified readonly credentials. Never borrow an application's writer.
+    for row in rows(session,'SHOW GRANTS FOR CURRENT_USER()',limit=65):
+        grant=str(next(iter(row.values())))
+        match=re.fullmatch(r'GRANT (.+) ON (.+) TO .+',grant)
+        if not match or set(part.strip().upper() for part in match.group(1).split(','))-{'USAGE','SELECT','SHOW VIEW','SHOW_ROUTINE','SHOW ROUTINE','PROCESS','EXECUTE'}:
+            fail('SCREENING_ORIGIN_HISTORY_SOURCE_NOT_READONLY')
+    if expected is not None and witness!=expected:
+        changed={'customerId':customer,'expected':expected,'current':witness,'observedAt':clock()}
+        return {'changed':changed,'signature':digest(key,'history-head-change',changed)}
     one(session,'SELECT id FROM users WHERE id=:id',{'id':customer})
     values=rows(session,'SELECT /*+ MAX_EXECUTION_TIME(5000) */ CAST(id AS CHAR) AS id,CAST(order_status AS CHAR) AS status,CAST(flag_id AS CHAR) AS flag FROM orders WHERE user_id=:customer ORDER BY id LIMIT 50001',{'customer':customer},50002)
     if len(values)>50000:fail('SCREENING_ORIGIN_HISTORY_COHORT_TOO_LARGE')

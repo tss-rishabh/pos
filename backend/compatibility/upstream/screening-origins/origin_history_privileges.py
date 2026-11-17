@@ -50,11 +50,12 @@ def qualify(session,expected,trigger_owner):
     result=one(session,'SELECT pos_rewrite_origin_history_metadata() AS document')
     if len(str(result['document']))>500000:fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
     data=json_value(result['document'])
-    if set(data)!={'triggers','accounts','roles','privileges','ownedRoutines'} or any(not isinstance(data[name],list) or len(data[name])>1000 for name in data):
+    if set(data)!={'triggers','accounts','roles','proxies','privileges','ownedRoutines'} or any(not isinstance(data[name],list) or len(data[name])>1000 for name in data):
         fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
     accounts={item['name']:item['locked'] for item in data['accounts']}
     if accounts.get(trigger_owner)!='Y' or accounts.get(audit)!='Y':fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
     if any(item['name'] in (trigger_owner,audit,caller['account']) for item in data['roles']):fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
+    if any(item['target'] in (trigger_owner,audit) or item['name']==caller['account'] for item in data['proxies']):fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
     if any(item['owner']==trigger_owner for item in data['ownedRoutines']):fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
     relevant=[item for item in data['triggers'] if item['owner']==trigger_owner or item['name'].startswith('pos_rewrite_origin_history_')]
     if len(relevant)!=4:fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
