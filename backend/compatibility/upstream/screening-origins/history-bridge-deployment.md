@@ -20,6 +20,11 @@ SELECT queries with dry-run byte qualification, a query deadline, no pagination
 and cancellation. It does not publish warehouse data or capture MySQL history.
 No credential file is included in the image.
 
+`POS_SCREENING_ORIGIN_HISTORY_BRIDGE_CONCURRENCY` bounds simultaneous history
+reads (default 8, allowed 1–32). Excess authenticated work receives HTTP 429 with
+a fixed error code. There is no unbounded in-process request queue. Each slot is
+released when its read settles, including error and cancellation outcomes.
+
 Configure the independently qualified publication and count views using
 `BQ_SCREENING_ORIGIN_HISTORY_PUBLICATIONS_VIEW` and
 `BQ_SCREENING_ORIGIN_HISTORY_COUNTS_VIEW`. Set independent source proof and

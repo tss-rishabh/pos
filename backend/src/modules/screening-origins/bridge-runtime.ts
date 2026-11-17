@@ -30,6 +30,7 @@ export function readOriginHistoryBridgeConfiguration(env: NodeJS.ProcessEnv) {
           .refine((value) => value === 'localhost' || isIP(value) !== 0)
           .default('127.0.0.1'),
         port: z.coerce.number().int().min(1).max(65535).default(4424),
+        concurrency: z.coerce.number().int().min(1).max(32).default(8),
         sourceKey: key,
         readerKeyFile: path,
         demands: z.literal('pos-screening-origin-history-demands-v1').optional(),
@@ -44,6 +45,7 @@ export function readOriginHistoryBridgeConfiguration(env: NodeJS.ProcessEnv) {
         demo: optional(env.DEMO_MODE),
         host: optional(env.POS_SCREENING_ORIGIN_HISTORY_BRIDGE_HOST),
         port: optional(env.POS_SCREENING_ORIGIN_HISTORY_BRIDGE_PORT),
+        concurrency: optional(env.POS_SCREENING_ORIGIN_HISTORY_BRIDGE_CONCURRENCY),
         sourceKey: env.POS_SCREENING_ORIGIN_PROOF_KEY,
         readerKeyFile: env.POS_SCREENING_ORIGIN_HISTORY_READER_KEY_FILE,
         demands: optional(env.POS_SCREENING_ORIGIN_HISTORY_DEMAND_CONTRACT),
@@ -187,7 +189,12 @@ export async function buildOriginHistoryBridgeRuntime(
       },
     );
     if (!history) throw originError('SCREENING_ORIGIN_HISTORY_CONFIGURATION');
-    app = await createOriginHistoryBridge({ sourceKey: selected.sourceKey, history, observe });
+    app = await createOriginHistoryBridge({
+      sourceKey: selected.sourceKey,
+      history,
+      observe,
+      maxConcurrentRequests: selected.concurrency,
+    });
     app.get(
       '/health/live',
       {

@@ -26,6 +26,7 @@ export async function createOriginHistoryBridge(options: {
   history: Parameters<typeof registerOriginHistoryBridge>[2];
   clock?: () => number;
   observe?: (event: OriginHistoryBridgeEvent) => void;
+  maxConcurrentRequests?: number;
 }) {
   if (!/^[!-~]{32,4096}$/.test(options.sourceKey))
     throw new AppError(
@@ -33,13 +34,26 @@ export async function createOriginHistoryBridge(options: {
       'SCREENING_ORIGIN_HISTORY_CONFIGURATION',
       'History service unavailable.',
     );
+  const concurrency = z
+    .number()
+    .int()
+    .min(1)
+    .max(32)
+    .safeParse(options.maxConcurrentRequests ?? 8);
+  if (!concurrency.success)
+    throw new AppError(
+      503,
+      'SCREENING_ORIGIN_HISTORY_CONFIGURATION',
+      'History service unavailable.',
+    );
+  let activeRequests = 0;
   const errors = new WeakMap<FastifyRequest, string>();
   const app = Fastify({
     logger: false,
     disableRequestLogging: true,
     bodyLimit: 32000,
     requestTimeout: 30000,
-    connectionTimeout: 10000,
+    connectionTimeout: 30000,
     keepAliveTimeout: 5000,
     maxRequestsPerSocket: 100,
     genReqId(request) {
@@ -114,6 +128,26 @@ export async function createOriginHistoryBridge(options: {
       /* An unavailable log sink cannot change the authenticated response. */
     }
   });
-  await registerOriginHistoryBridge(app, options.sourceKey, options.history, options.clock);
+  await registerOriginHistoryBridge(
+    app,
+    options.sourceKey,
+    {
+      async read(...args: Parameters<typeof options.history.read>) {
+        if (activeRequests >= concurrency.data)
+          throw new AppError(
+            429,
+            'SCREENING_ORIGIN_HISTORY_BUSY',
+            'History service is busy. Retry the original command.',
+          );
+        activeRequests += 1;
+        try {
+          return await options.history.read(...args);
+        } finally {
+          activeRequests -= 1;
+        }
+      },
+    },
+    options.clock,
+  );
   return app;
 }
