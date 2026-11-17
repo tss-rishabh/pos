@@ -141,6 +141,7 @@ function inputChecksums() {
     'mysql-readonly.json',
     'mysql-admin-shipping-schema.json',
     'mysql-order-import-address-schema.json',
+    'mysql-screening-schema.json',
     'mysql-auth-history-schema.json',
     'mysql-administration-inbound-schema.json',
     'mysql-legacy-fulfillment-schema.json',

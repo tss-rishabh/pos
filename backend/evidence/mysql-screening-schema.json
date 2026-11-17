@@ -1,0 +1,556 @@
+{
+  "recordedAt": "2026-11-17T07:41:09.928Z",
+  "readOnly": true,
+  "schema": "tss",
+  "tables": {
+    "spiderman_screening_orders": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "created_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP",
+        "collation": null
+      },
+      {
+        "name": "updated_at",
+        "type": "timestamp",
+        "nullable": false,
+        "key": "",
+        "extra": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
+        "default": "CURRENT_TIMESTAMP",
+        "collation": null
+      }
+    ]
+  },
+  "supportingColumns": {
+    "orders": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "order_status",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      }
+    ],
+    "has_products": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      }
+    ]
+  },
+  "indexes": [
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "amount_refunded_mode",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "amount_refunded_mode",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "cashback_refunded",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "cashback_refunded",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "cashback_refunded_datetime",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "cashback_refunded_date_time",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "created_at",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "created_at",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "gender_type",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "gender_type",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "gift_voucher_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "gift_voucher_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "idx_orders_products",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "idx_orders_products",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 2,
+      "COLUMN_NAME": "prod_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "is_exclusive_order",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_exclusive_order",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "is_notified_for_return",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_notified_for_return",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "is_order_delivered",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_order_delivered",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "is_order_ofd",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_order_out_for_delivery",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "is_order_shipped",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_order_shipped",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "is_return_cancel",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_return_cancel",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "order_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "order_platform_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_platform_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "prod_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "prod_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "qty",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "qty",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "return_awb",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "return_awb",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "return_courier_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "return_courier_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "return_mode",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "return_mode",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "return_request_datetime",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "return_request_date_time",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "return_status",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "return_status",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "salesperson_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "salesperson_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "status",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "status",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "sub_prod_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "sub_prod_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "unique_awb",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "awb",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_products",
+      "INDEX_NAME": "updated_at",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "updated_at",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "cart_rec_notify1",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "cart_rec_notify1",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "coupon_used",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "coupon_used",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "created_at",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "created_at",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "flag_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "flag_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "hl_parent_order_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "hl_parent_order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "idx_orders_has_address_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "has_address_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "idx_orders_user_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "user_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "is_global_order_idx",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_global_order",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "is_split_order",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_split_order",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "is_transfer",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_transfer",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "location_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "location_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "location_type",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "location_type",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "next_location_ids",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "next_location_ids",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "order_phone_number",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "phone_no",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "order_ref_no",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_ref_no",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "order_status",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_status",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "original_order_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "original_order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "parent_order_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "parent_order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "reward_points_cron",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "reward_points_cron",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "shiplabel_tracking_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "shiplabel_tracking_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "user_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "user_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "orders",
+      "INDEX_NAME": "voucher_used",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "voucher_used",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "spiderman_screening_orders",
+      "INDEX_NAME": "idx_has_product_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "has_product_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "spiderman_screening_orders",
+      "INDEX_NAME": "idx_order_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "spiderman_screening_orders",
+      "INDEX_NAME": "idx_user_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "user_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "spiderman_screening_orders",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    }
+  ],
+  "errors": []
+}
