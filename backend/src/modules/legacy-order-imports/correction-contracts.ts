@@ -98,6 +98,23 @@ export interface ImportCorrectionBoundaryPort {
       correction?: ImportCorrectionBinding;
     },
   ): Promise<ImportCorrectionRejectedBoundary>;
+  /** Future price-correction profile: read an already retained/sealed preflight.
+   * This seam must not perform HTTP or mint an order/stage while locks are held.
+   * The initial active profile preserves prices and does not invoke this seam. */
+  inspectCorrectedPlan?(
+    transaction: AdministrationTransaction,
+    input: {
+      scope: z.infer<typeof scope>;
+      originalBoundary: ImportCorrectionRejectedBoundary;
+      plan: LegacyOrderImportPlan;
+      planHash: string;
+    },
+  ): Promise<{
+    contract: 'pos-import-correction-preflight-v1';
+    planHash: string;
+    originalRejectionHash: string;
+    calculation: z.infer<typeof importCorrectionCalculationSchema>;
+  } | null>;
 }
 
 export const importCorrectionInputSchema = z
@@ -153,6 +170,24 @@ const correctionReceipt = z
   .strict();
 export const importCorrectionReceiptSchema = correctionReceipt;
 export type ImportCorrectionReceipt = z.infer<typeof correctionReceipt>;
+export const importCorrectionFenceSchema = z
+  .object({
+    contract: z.literal('pos-import-correction-command-v1'),
+    status: z.literal('not-created'),
+    id: z.uuid(),
+    originalJobId: z.uuid(),
+    originalOperationId: z.uuid(),
+    managerId: identifier,
+    recordedAt: time,
+    noSuccessorQueued: z.literal(true),
+    latePostsFenced: z.literal(true),
+  })
+  .strict();
+export const importCorrectionCommandOutcomeSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('accepted'), receipt: correctionReceipt }).strict(),
+  importCorrectionFenceSchema,
+]);
+export type ImportCorrectionCommandOutcome = z.infer<typeof importCorrectionCommandOutcomeSchema>;
 export const importCorrectionReviewSchema = z
   .object({
     jobId: z.uuid(),

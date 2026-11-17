@@ -224,7 +224,7 @@ function ApprovalReview({
           jobId: scope.jobId,
           operationId: scope.operationId,
           commandId: crypto.randomUUID(),
-          reason,
+          reason: response.review.correction ? 'historical-correction' : reason,
         },
         signal,
       );
@@ -289,10 +289,28 @@ function ApprovalReview({
           <dl>
             <dt>Original business date</dt>
             <dd>{response.review.businessDate}</dd>
-            <dt>Original payment value</dt>
+            <dt>
+              {response.review.correction ? 'Line-price declaration' : 'Original payment value'}
+            </dt>
             <dd>
               {response.review.currency} {response.review.lineValue}
             </dd>
+            {response.review.correction && (
+              <>
+                <dt>Correction reference</dt>
+                <dd>
+                  <code>{response.review.correction.id}</code>
+                </dd>
+                <dt>Independently attested historical tender</dt>
+                <dd>
+                  {response.review.currency} {response.review.correction.historicalTenderAmount}
+                </dd>
+                <dt>Qualified source bill</dt>
+                <dd>
+                  {response.review.currency} {response.review.correction.sourcePayable}
+                </dd>
+              </>
+            )}
             <dt>Store / counter</dt>
             <dd>
               {response.review.storeId} / {response.review.counterId}
@@ -360,8 +378,13 @@ function ApprovalReview({
                 Approval reason
                 <select
                   aria-label="Approval reason"
-                  value={intent?.reason ?? reason}
-                  disabled={disabled || Boolean(intent) || !enabled}
+                  value={
+                    intent?.reason ??
+                    (response.review.correction ? 'historical-correction' : reason)
+                  }
+                  disabled={
+                    disabled || Boolean(intent) || !enabled || Boolean(response.review.correction)
+                  }
                   onChange={(event) => {
                     const parsed = importApprovalReasonSchema.safeParse(event.target.value);
                     if (parsed.success) setReason(parsed.data);
@@ -382,7 +405,9 @@ function ApprovalReview({
                   disabled={disabled || !enabled}
                   onChange={(event) => setReviewed(event.target.checked)}
                 />
-                I reviewed the original date, payment value and all products.
+                {response.review.correction
+                  ? 'I reviewed the original date, independently attested tender, source bill and all products.'
+                  : 'I reviewed the original date, payment value and all products.'}
               </label>
               <button
                 type="button"

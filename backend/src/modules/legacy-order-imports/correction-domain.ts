@@ -39,7 +39,7 @@ export function applyImportCorrection(group: LegacyImportGroup, value: ImportCor
   const corrected: LegacyImportGroup = {
       ...group,
       sequence: 1,
-      details: { ...group.details },
+      details: { ...group.details, manager_correction_id: input.id },
       address: group.address ? { ...group.address } : null,
       lines: group.lines.map((line) => ({ ...line, price: changes.get(line.row)! })),
     },

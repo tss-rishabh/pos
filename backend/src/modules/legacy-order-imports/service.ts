@@ -29,12 +29,14 @@ import {
 } from './options.js';
 import { prepareLegacyOrderImport } from './preparation.js';
 import { legacyOrderImportRepository } from './repository.js';
+import type { LegacyImportRepositoryOptions } from './repository.js';
 
 export interface LegacyOrderImportRegistrationOptions {
   runtime?: LegacyOrderImportOptions;
   adapter?: ImportFinancialAdapter;
   approvals?: Pick<ReturnType<typeof legacyOrderImportFinancialApprovals>, 'request' | 'read'>;
   history?: Pick<ReturnType<typeof legacyOrderImportHistory>, 'detail' | 'results'>;
+  correctionForOperation?: LegacyImportRepositoryOptions['correctionForOperation'];
 }
 export function legacyOrderImportService(
   config: Config,
@@ -48,7 +50,13 @@ export function legacyOrderImportService(
       Boolean(key && options.adapter),
     history =
       options.history ?? legacyOrderImportHistory(config, readLegacyOrderImportHistoryOptions()),
-    repository = key ? legacyOrderImportRepository(db, { secret: key, history }) : null;
+    repository = key
+      ? legacyOrderImportRepository(db, {
+          secret: key,
+          history,
+          correctionForOperation: options.correctionForOperation,
+        })
+      : null;
   function permitted(user: Principal) {
     if (![1, 2, 3].includes(user.role) || user.userType !== 1)
       throw new AppError(

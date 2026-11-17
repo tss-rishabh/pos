@@ -30,6 +30,11 @@ import '../styles.css';
 import { ImportResumeActions } from './ImportResumeActions';
 import { ImportApprovalAction } from './ImportApprovalAction';
 import { SavedImportApprovals } from './SavedImportApprovals';
+import { SavedImportCorrections } from './SavedImportCorrections';
+import { ImportCorrectionAction } from './ImportCorrectionAction';
+import { CorrectionReceiptView } from './ImportCorrectionPanel';
+import type { CorrectionReceipt, CorrectionFence } from './correction-client';
+import ImportCorrectionPanel from './ImportCorrectionPanel';
 import {
   listImportApprovalIntents,
   orderImportActorScope,
@@ -47,6 +52,10 @@ export default function OrderImportsPage(props: { user: Principal; online: boole
   return <OrderImports key={orderImportActorScope(props.user)} {...props} />;
 }
 function OrderImports({ user, online }: { user: Principal; online: boolean }) {
+  const [correctionPending, setCorrectionPending] = useState(false),
+    [correctionReceipt, setCorrectionReceipt] = useState<CorrectionReceipt | null>(null),
+    [correctionFence, setCorrectionFence] = useState<CorrectionFence | null>(null),
+    [showFencedReview, setShowFencedReview] = useState(false);
   const [initial] = useState(() => {
     try {
       return { intent: readImportIntent(user.id), error: '' };
@@ -103,7 +112,12 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
     alive = useRef(true),
     readRevision = useRef(0),
     fileInput = useRef<HTMLInputElement>(null);
-  const disabled = busy || resumePending || !online || Boolean(initial.error || approvalProblem);
+  const disabled =
+    busy ||
+    resumePending ||
+    correctionPending ||
+    !online ||
+    Boolean(initial.error || approvalProblem);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -297,6 +311,51 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
       )}
       {notice && <p role="status">{notice}</p>}
       {approvalProblem && <p role="alert">{approvalProblem}</p>}
+      <SavedImportCorrections
+        user={user}
+        online={online}
+        onPendingChanged={setCorrectionPending}
+        onRecorded={setCorrectionReceipt}
+        onFenced={setCorrectionFence}
+      />
+      {correctionReceipt && (
+        <CorrectionReceiptView
+          receipt={correctionReceipt}
+          onOpen={() => void act((signal) => refresh(correctionReceipt.successorJobId, signal))}
+        />
+      )}
+      {correctionFence &&
+        !(
+          correctionReceipt?.originalJobId === correctionFence.originalJobId &&
+          correctionReceipt.originalOperationId === correctionFence.originalOperationId
+        ) && (
+          <section aria-label="Recovered correction fence">
+            <p>
+              Correction <code>{correctionFence.id}</code> did not queue a successor; late
+              submissions of that reference are fenced.
+            </p>
+            <button type="button" disabled={!online} onClick={() => setShowFencedReview(true)}>
+              Review original row after fenced correction
+            </button>
+            {showFencedReview && (
+              <ImportCorrectionPanel
+                user={user}
+                scope={{
+                  jobId: correctionFence.originalJobId,
+                  operationId: correctionFence.originalOperationId,
+                }}
+                online={online}
+                enabled={!busy && !resumePending && !initial.error && !approvalProblem}
+                canCreate={!correctionPending}
+                onRecorded={setCorrectionReceipt}
+                onFenced={setCorrectionFence}
+                knownReceipt={correctionReceipt}
+                knownFence={correctionFence}
+                showReceipt={false}
+              />
+            )}
+          </section>
+        )}
       <SavedImportApprovals
         user={user}
         intents={approvalIntents}
@@ -576,6 +635,7 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
                   <th>Business date</th>
                   <th>Review code</th>
                   <th>Financial approval</th>
+                  <th>Manager correction</th>
                 </tr>
               </thead>
               <tbody>
@@ -598,6 +658,7 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
                           Boolean(capabilities?.ready) &&
                           !busy &&
                           !resumePending &&
+                          !correctionPending &&
                           !initial.error &&
                           !approvalProblem &&
                           !importIsTerminal(job)
@@ -607,6 +668,20 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
                             value.jobId === job.id && value.operationId === row.operationId,
                         )}
                         onPendingChanged={approvalsChanged}
+                      />
+                    </td>
+                    <td>
+                      <ImportCorrectionAction
+                        user={user}
+                        job={job}
+                        row={row}
+                        online={online}
+                        enabled={!busy && !resumePending && !initial.error && !approvalProblem}
+                        canCreate={!correctionPending}
+                        onRecorded={setCorrectionReceipt}
+                        onFenced={setCorrectionFence}
+                        knownReceipt={correctionReceipt}
+                        knownFence={correctionFence}
                       />
                     </td>
                   </tr>

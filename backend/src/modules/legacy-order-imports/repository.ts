@@ -29,6 +29,8 @@ import {
   type LegacyImportJob,
   type LegacyImportRow,
 } from './schema.js';
+import type { ImportCorrectionBinding } from './correction-contracts.js';
+import { correctedImportPlanHash } from './correction-domain.js';
 
 const terminalRows = ['IMPORTED', 'FAILED', 'CANCELLED'] as const;
 const pendingRows = ['PENDING', 'STARTING', 'RECONCILING'] as const;
@@ -70,12 +72,18 @@ export interface LegacyImportRepositoryOptions {
   /** Production uses the native writer authorizer; fixtures can supply isolated authority. */
   authorize?: ImportAuthorizer;
   history?: Pick<ReturnType<typeof legacyOrderImportHistory>, 'detail' | 'results'>;
+  /** Server-owned immutable correction evidence; never taken from a CSV/browser. */
+  correctionForOperation?: (
+    tx: AdministrationTransaction,
+    scope: ImportFinancialStart,
+  ) => Promise<ImportCorrectionBinding | null>;
 }
 interface Claim {
   job: LegacyImportJob;
   row: LegacyImportRow;
   token: string;
   start: boolean;
+  input?: ImportFinancialStart;
 }
 
 export function legacyOrderImportRepository(db: Databases, options: LegacyImportRepositoryOptions) {
@@ -84,10 +92,14 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
   // Validate the purpose key during construction, before a job can be staged.
   importDigest(options.secret, 'request', 'configuration');
 
-  function financialInput(job: LegacyImportJob, row: LegacyImportRow): ImportFinancialStart {
+  async function financialInput(
+    tx: AdministrationTransaction,
+    job: LegacyImportJob,
+    row: LegacyImportRow,
+  ): Promise<ImportFinancialStart> {
     const scope = binding(job, row),
-      { plan } = openImportGroup(options.secret, scope, row.payload);
-    return {
+      { group, plan } = openImportGroup(options.secret, scope, row.payload);
+    const input: ImportFinancialStart = {
       actorId: scope.actorId,
       operationId: scope.operationId,
       storeId: scope.storeId,
@@ -99,6 +111,28 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         JSON.stringify(['pos-import-plan-v1', scope.actorId, scope.storeId, scope.counterId, plan]),
       ),
     };
+    const correction = await options.correctionForOperation?.(tx, input);
+    if (
+      group.details.manager_correction_id &&
+      (!correction || correction.id !== group.details.manager_correction_id)
+    )
+      throw new AppError(
+        503,
+        'ORDER_IMPORT_CORRECTION_RESOLVER_REQUIRED',
+        'The original correction binding must be verified before dispatch.',
+      );
+    if (correction && correction.id !== group.details.manager_correction_id)
+      throw new AppError(
+        409,
+        'ORDER_IMPORT_CORRECTION_EVIDENCE_INVALID',
+        'The correction does not match its sealed successor input.',
+      );
+    return correction
+      ? Object.assign(input, {
+          correction,
+          planHash: correctedImportPlanHash(options.secret, input, plan, correction),
+        })
+      : input;
   }
 
   async function owned(tx: AdministrationTransaction, actorId: string, id: string) {
@@ -321,7 +355,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
       let startInput: ImportFinancialStart | undefined;
       if (row.state === 'PENDING') {
         try {
-          startInput = financialInput(job, row);
+          startInput = await financialInput(tx, job, row);
         } catch {
           await tx
             .update(jobs)
@@ -373,7 +407,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
           updatedAt: timestamp,
         })
         .where(eq(jobs.id, job.id));
-      return { job, row, token, start };
+      return { job, row, token, start, input: startInput };
     });
   }
   async function retainResult(claimed: Claim, value: ImportFinancialResult | null) {
@@ -689,7 +723,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
             'ORDER_IMPORT_APPROVAL_NOT_PENDING',
             'Only an unsent order can receive historical import approval.',
           );
-        return financialInput(job, row);
+        return financialInput(tx, job, row);
       });
     },
     async runOne(adapter: ImportFinancialAdapter) {
@@ -712,7 +746,15 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
             resource: 'historical-order-import',
           },
           () => {
-            if (claimed.start) return adapter.start(financialInput(claimed.job, claimed.row));
+            if (claimed.start) {
+              if (!claimed.input)
+                throw new AppError(
+                  409,
+                  'ORDER_IMPORT_PAYLOAD_INVALID',
+                  'The original import input needs review.',
+                );
+              return adapter.start(claimed.input);
+            }
             return adapter.read(financialScope);
           },
         );

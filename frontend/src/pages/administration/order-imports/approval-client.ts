@@ -21,6 +21,10 @@ export const importApprovalReviewSchema = z
     businessDate: z.iso.date(),
     currency: z.string().regex(/^[A-Z]{3}$/),
     lineValue: money,
+    correction: z
+      .object({ id: z.uuid(), historicalTenderAmount: money, sourcePayable: money })
+      .strict()
+      .optional(),
     lines: z
       .array(
         z
@@ -115,6 +119,8 @@ export function checkedImportApproval(
       (reason !== undefined && approval.reason !== reason))
   )
     throw new Error('The approval receipt does not confirm this original order and request.');
+  if (review.correction && approval && approval.reason !== 'historical-correction')
+    throw new Error('This successor requires its purpose-bound historical correction approval.');
   return value;
 }
 const resource = (scope: ImportApprovalScope) =>

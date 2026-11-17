@@ -35,6 +35,9 @@ export function verifiedImportCorrectionRecord(row: ImportCorrectionRow, secret:
     original.boundary.scope.storeId !== target.storeId ||
     original.boundary.scope.counterId !== target.counterId ||
     original.boundary.planHash !== original.planHash ||
+    original.boundary.calculation?.profileQualified !== true ||
+    original.boundary.calculation.payable !== body.historicalTenderAmount ||
+    receipt.originalLineValue !== receipt.correctedLineValue ||
     (body.previousCorrectionId === null &&
       (body.depth !== 1 ||
         body.root.jobId !== original.jobId ||
