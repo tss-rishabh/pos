@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, LockKeyhole, Monitor } from 'lucide-react';
 import { z } from 'zod';
@@ -29,7 +29,9 @@ export function Login() {
     retry: false,
   });
   const [desktopActive, setDesktopActive] = useState(false);
+  const mayRestoreChallenge = useRef(true);
   function showChallenge(value: Challenge) {
+    mayRestoreChallenge.current = false;
     setChallenge(value);
     setFactor(value.method);
     setStore(value.stores.length === 1 ? value.stores[0]!.id : '');
@@ -40,7 +42,7 @@ export function Login() {
     let active = true;
     void request('/api/v1/auth/challenges/current', {}, loginChallengeSchema)
       .then((value) => {
-        if (active) showChallenge(value);
+        if (active && mayRestoreChallenge.current) showChallenge(value);
       })
       .catch(() => {});
     return () => {
@@ -51,6 +53,9 @@ export function Login() {
     await client.invalidateQueries({ queryKey: ['operator'] });
   }
   async function clearPendingLogout() {
+    // Explicit password/demo/SSO sign-in supersedes an in-flight mount restore.
+    // Its late response must not replace the new challenge or erase entered OTP.
+    mayRestoreChallenge.current = false;
     if (localStorage.getItem('pos-pending-logout')) {
       await request('/api/v1/auth/sessions/current', { method: 'DELETE' });
       localStorage.removeItem('pos-pending-logout');
