@@ -11,7 +11,6 @@ import {
   Product,
   ProductBarcode,
   ProductStore,
-  Store,
 } from '../../db/legacy-schema.js';
 import { identifier } from '../../domain/validation.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
@@ -34,12 +33,21 @@ import {
 import { readSourceOrderReceipt, verifiedImportCompletion } from './financial-adapter-proof.js';
 import { financialImportScopeSchema } from './financial-adapter-contracts.js';
 import type { ImportFinancialScope } from './financial-contracts.js';
-
-export const screeningProfileContract = 'pos-csv-screening-2960-v1';
-export const screeningSchemaContract = 'pos-screening-schema-v1';
-export const screeningWriterContract = 'pos-screening-all-writers-v1';
-export const screeningTicketSku = '390238';
-export const screeningMaximum = 2;
+import { FinancialImportAdmissionDenied } from './financial-adapter-admission.js';
+import {
+  screeningProfileContract,
+  screeningSchemaContract,
+  screeningWriterContract,
+  screeningTicketSku,
+  screeningMaximum,
+} from './screening-contracts.js';
+export {
+  screeningProfileContract,
+  screeningSchemaContract,
+  screeningWriterContract,
+  screeningTicketSku,
+  screeningMaximum,
+} from './screening-contracts.js';
 export const screeningSource = {
   apiCommit: '2960acbea10c4eaf16b6d99e15ff6e03ef7724c5',
   helperHash: 'a3ec2d593ddfb990b6462fe4f71a8c70f5aa7b95a6704ffb4a0566b14e515e46',
@@ -207,7 +215,7 @@ export function enforceScreeningTicketLimit(bought: bigint, quantity: number, pe
   )
     throw importFinancialError('ORDER_IMPORT_SCREENING_QUANTITY_INVALID', 422);
   if (bought + BigInt(pending) + BigInt(quantity) > BigInt(screeningMaximum))
-    throw importFinancialError('ORDER_IMPORT_SCREENING_LIMIT', 409);
+    throw new FinancialImportAdmissionDenied('ORDER_IMPORT_SCREENING_LIMIT');
 }
 export function screeningImportProfile(
   config: Config,
@@ -275,29 +283,18 @@ export function screeningImportProfile(
     return value;
   }
   async function retained(tx: AdministrationTransaction, scope: ImportFinancialScope) {
-    const [hint] = await tx
-      .select()
-      .from(screeningReservations)
-      .where(eq(screeningReservations.operationId, scope.operationId))
-      .limit(1);
-    if (!hint) throw importFinancialError('ORDER_IMPORT_SCREENING_RESERVATION_REQUIRED');
-    const original = parsed(hint);
-    if (JSON.stringify(original.scope) !== JSON.stringify(scopeValue(scope)))
-      throw importFinancialError('ORDER_IMPORT_SCREENING_SCOPE_CHANGED', 403);
-    await tx
-      .select({ id: Store.id })
-      .from(Store)
-      .where(eq(Store.id, BigInt(scope.storeId)))
-      .limit(1)
-      .for('update');
+    // A locking journal read proves the original customer even if this RR
+    // transaction's earlier snapshot predates the first reservation commit.
+    const original = await journal.load(tx, scopeValue(scope));
+    if (!original) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
     await tx
       .select({ id: MUser.id })
       .from(MUser)
-      .where(eq(MUser.id, BigInt(original.customerId)))
+      .where(eq(MUser.id, BigInt(original.state.authority.customerId)))
       .limit(1)
       .for('update');
     const value = await row(tx, scope);
-    if (value.customerId !== original.customerId)
+    if (value.customerId !== original.state.authority.customerId)
       throw importFinancialError('ORDER_IMPORT_SCREENING_SCOPE_CHANGED');
     return value;
   }
@@ -378,6 +375,7 @@ export function screeningImportProfile(
     return bound;
   }
   return {
+    assertReady: ready,
     qualified:
       options.contract === screeningProfileContract &&
       options.schemaContract === screeningSchemaContract &&
@@ -454,7 +452,7 @@ export function screeningImportProfile(
         barcodes.length !== 1 ||
         !barcodes[0]!.value
       )
-        throw importFinancialError('ORDER_IMPORT_SCREENING_CATALOG_REVIEW');
+        throw new FinancialImportAdmissionDenied('ORDER_IMPORT_SCREENING_CATALOG_REVIEW');
       const all = await tx
         .select()
         .from(screeningReservations)

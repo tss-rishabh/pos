@@ -1,6 +1,7 @@
 import { and, eq, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
+import { Store } from '../../db/legacy-schema.js';
 import { retryTransaction } from '../../db/retry.js';
 import { currentRequestTrace } from '../../observability/context.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
@@ -31,10 +32,35 @@ import {
 } from './financial-adapter-authority.js';
 import type { ImportFinancialScope } from './financial-contracts.js';
 import type { LegacyOrderImportPlan } from './plans.js';
+import {
+  financialAdapterProfiles,
+  type FinancialImportProfiles,
+} from './financial-adapter-profiles.js';
+import {
+  FinancialImportAdmissionDenied,
+  recordNativeAdmissionRejection,
+  verifiedNativeAdmissionRejection,
+} from './financial-adapter-admission.js';
+
+/** Retained receipt reads lock scope without requiring the original actor to
+ * remain active; current caller authorization stays at its existing boundary. */
+export async function lockFinancialImportStore(
+  tx: AdministrationTransaction,
+  scope: ImportFinancialScope,
+) {
+  const storeId = financialImportScopeSchema.shape.storeId.parse(scope.storeId);
+  await tx
+    .select({ id: Store.id })
+    .from(Store)
+    .where(eq(Store.id, BigInt(storeId)))
+    .limit(1)
+    .for('update');
+}
 export function legacyImportFinancialJournal(
   config: Config,
   db: Databases,
   options: { secret: string; clock?: () => number },
+  profiles: FinancialImportProfiles = financialAdapterProfiles(),
 ) {
   const now = options.clock ?? Date.now,
     approvals = legacyOrderImportFinancialApprovals(config, db, options);
@@ -45,6 +71,7 @@ export function legacyImportFinancialJournal(
       storeId: scope.storeId,
       counterId: scope.counterId,
     });
+    await lockFinancialImportStore(tx, boundScope);
     const [row] = await tx
       .select()
       .from(financialImportOperations)
@@ -111,8 +138,15 @@ export function legacyImportFinancialJournal(
           if (existing) {
             if (existing.state.planHash !== planHash)
               throw importFinancialError('ORDER_IMPORT_PLAN_CHANGED');
-            return { ...existing, created: false };
+            const admission = await verifiedNativeAdmissionRejection(
+              tx,
+              existing.state,
+              options.secret,
+            );
+            if (!admission) await profiles.lock(tx, existing);
+            return { ...existing, created: false, admission };
           }
+          profiles.assertReady(plan);
           const access = await approvals.authorizeStart(tx, input);
           if (!access.ready) throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
           const requestHash = financialImportHash(options.secret, 'request', {
@@ -167,11 +201,41 @@ export function legacyImportFinancialJournal(
             createdAt: time,
             updatedAt: time,
           });
-          return { state, plan, created: true };
+          // The original operation and all qualified reservations commit once.
+          // A caller must not pre-reserve and then ask start() to dispatch again.
+          if (profiles.needsReservation(plan)) {
+            try {
+              await tx.transaction((savepoint) => profiles.reserved(savepoint, { state, plan }));
+            } catch (error: unknown) {
+              if (!(error instanceof FinancialImportAdmissionDenied)) throw error;
+              const admission = await recordNativeAdmissionRejection(
+                tx,
+                state,
+                error.code,
+                options.secret,
+                now(),
+              );
+              const rejected = {
+                ...state,
+                status: 'rejected' as const,
+                errorCode: admission.code,
+                updatedAt: now(),
+              };
+              await save(tx, rejected);
+              return { state: rejected, plan, created: true, admission };
+            }
+          }
+          return { state, plan, created: true, admission: null };
         }),
       );
     },
     async dispatch(scope: ImportFinancialScope, kind: FinancialImportStage) {
+      scope = financialImportScopeSchema.parse({
+        actorId: scope.actorId,
+        operationId: scope.operationId,
+        storeId: scope.storeId,
+        counterId: scope.counterId,
+      });
       return retryTransaction(() =>
         db.get('writer').transaction(async (tx) => {
           const loaded = await load(tx, scope);
@@ -193,6 +257,7 @@ export function legacyImportFinancialJournal(
             )
               throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
           }
+          await profiles.dispatch(tx, loaded, kind);
           const id = `${scope.operationId}:${kind}`,
             [prior] = await tx
               .select()
