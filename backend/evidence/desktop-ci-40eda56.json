@@ -1,0 +1,289 @@
+{
+  "databaseId": 44027036105,
+  "headSha": "40eda56b5723c5b440879a34b37e840a14e0a7f0",
+  "status": "completed",
+  "conclusion": "failure",
+  "url": "https://github.com/thesouledstore-tss/pos/actions/runs/44027036105",
+  "jobs": [
+    {
+      "name": "Desktop on macos-latest",
+      "status": "completed",
+      "conclusion": "success",
+      "startedAt": "2026-11-17T05:51:48Z",
+      "completedAt": "2026-11-17T05:59:16Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npx playwright install chromium",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run typecheck",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native Electron and offline browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Browser sign-in, customer and order recovery",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Ecommerce settings and stock recovery",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Scoped invoice browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Historical order browsing and checkout copy recovery",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Historical CSV job recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Historical order reader browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Whole-order fulfillment recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Rejected-return repair recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Source order-list filters, formatter and queues",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Recorded cash correction recovery browser checks",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package unsigned review artifact on its target OS",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify packaged integrity, native restart, sandbox and offline profile",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain review artifacts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Desktop on windows-latest",
+      "status": "completed",
+      "conclusion": "failure",
+      "startedAt": "2026-11-17T05:51:48Z",
+      "completedAt": "2026-11-17T05:55:40Z",
+      "steps": [
+        {
+          "name": "Set up job",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npx playwright install chromium",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run typecheck",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test",
+          "status": "completed",
+          "conclusion": "failure"
+        },
+        {
+          "name": "Native Electron and offline browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Browser sign-in, customer and order recovery",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Ecommerce settings and stock recovery",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Scoped invoice browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Historical order browsing and checkout copy recovery",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Historical CSV job recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Historical order reader browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Whole-order fulfillment recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Rejected-return repair recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Source order-list filters, formatter and queues",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Recorded cash correction recovery browser checks",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Package unsigned review artifact on its target OS",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Verify packaged integrity, native restart, sandbox and offline profile",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Retain review artifacts",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "status": "completed",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "status": "completed",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "productionReady": false,
+  "scope": "Native CI40eda56: macOS entire job passed; Windows independent ZIP/XML workbook unit exceeded unchanged5s timeout. Unit worker concurrency is now bounded to2; full241 unit suite passes locally. Native confirmation required."
+}

@@ -44,7 +44,7 @@ jobs:
         working-directory: backend
       - run: npm run build
         working-directory: frontend
-      - run: npm test
+      - run: npm test -- --maxWorkers=2
         working-directory: frontend
       - name: Native Electron and offline browser checks
         run: npm run test:e2e
