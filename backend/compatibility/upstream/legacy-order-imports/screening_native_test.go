@@ -38,6 +38,10 @@ func screeningFixture(t *testing.T, private bool) (*sql.DB, context.Context, map
 		`CREATE TABLE spiderman_screening_orders(id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,order_id BIGINT NOT NULL,has_product_id BIGINT NOT NULL,user_id BIGINT NOT NULL,created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,INDEX idx_user_id(user_id),INDEX idx_order_id(order_id),INDEX idx_has_product_id(has_product_id)) ENGINE=InnoDB`,
 		`DROP TABLE IF EXISTS pos_rewrite_import_screening_reservations`,
 		`CREATE TABLE pos_rewrite_import_screening_reservations(operation_id VARCHAR(36) PRIMARY KEY,customer_id VARCHAR(32) NOT NULL,sku VARCHAR(32) NOT NULL,order_id VARCHAR(32) NULL,data JSON NOT NULL,proof_hash VARCHAR(64) NOT NULL,INDEX ix_import_screening_customer(customer_id,sku),UNIQUE KEY uq_import_screening_order(order_id)) ENGINE=InnoDB`,
+		`DROP TABLE IF EXISTS pos_rewrite_public_screening_orders`,
+		`CREATE TABLE pos_rewrite_public_screening_orders(operation_id VARCHAR(36) PRIMARY KEY,checkout_id VARCHAR(36) NOT NULL,actor_id VARCHAR(32) NOT NULL,customer_id VARCHAR(32) NOT NULL,store_id VARCHAR(32) NOT NULL,counter_id VARCHAR(32) NOT NULL,order_id VARCHAR(32) NOT NULL UNIQUE,request_hash VARCHAR(64) NOT NULL,data JSON NOT NULL,proof_hash VARCHAR(64) NOT NULL) ENGINE=InnoDB`,
+		`DROP TABLE IF EXISTS pos_rewrite_public_screening_abandonments`,
+		`CREATE TABLE pos_rewrite_public_screening_abandonments(operation_id VARCHAR(36) PRIMARY KEY,command_id VARCHAR(36) NOT NULL,order_id VARCHAR(32) NOT NULL UNIQUE,actor_id VARCHAR(32) NOT NULL,data JSON NOT NULL,proof_hash VARCHAR(64) NOT NULL) ENGINE=InnoDB`,
 		`INSERT INTO stores VALUES(2,1,'STORE')`,
 		`INSERT INTO store_counters VALUES(4,2,1)`,
 		`INSERT INTO users(id,email,tss_money,tss_points,cashback,status,is_block) VALUES(78,'second@example.test',100,100,10,1,NULL)`,
@@ -63,8 +67,63 @@ func screeningFixture(t *testing.T, private bool) (*sql.DB, context.Context, map
 		execute(t, db, `DELETE FROM pos_rewrite_import_financial_order_bindings`)
 		execute(t, db, `DELETE FROM pos_rewrite_import_financial_operations`)
 		execute(t, db, `DELETE FROM pos_rewrite_import_financial_stages`)
+		writePublicCreationFixture(t, db, 5001, false)
 	}
 	return db, ctx, cap
+}
+func writePublicCreationFixture(t *testing.T, db *sql.DB, order int, unitMode bool) {
+	t.Helper()
+	operation := fmt.Sprintf("00000000-0000-4000-9000-%012d", order)
+	var customer, store, counter string
+	if err := db.QueryRow(`SELECT CAST(o.user_id AS CHAR),CAST(s.store_id AS CHAR),CAST(s.counter_id AS CHAR) FROM orders o JOIN order_stores s ON s.order_id=o.id WHERE o.id=?`, order).Scan(&customer, &store, &counter); err != nil {
+		t.Fatal(err)
+	}
+	var quantity int
+	if err := db.QueryRow(`SELECT SUM(qty) FROM has_products WHERE order_id=? AND prod_id=390238`, order).Scan(&quantity); err != nil {
+		t.Fatal(err)
+	}
+	state := screeningStateFixture(operation, fmt.Sprint(order), customer, store, counter, "BOUND", quantity, unitMode)
+	lines := []interface{}{}
+	markers := []interface{}{}
+	result, err := db.Query(`SELECT CAST(id AS CHAR),qty FROM has_products WHERE order_id=? AND prod_id=390238 ORDER BY id`, order)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for result.Next() {
+		var id string
+		var qty int
+		result.Scan(&id, &qty)
+		lines = append(lines, map[string]interface{}{"id": id, "quantity": qty})
+	}
+	result.Close()
+	result, err = db.Query(`SELECT CAST(id AS CHAR),CAST(has_product_id AS CHAR) FROM spiderman_screening_orders WHERE order_id=? ORDER BY id`, order)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for result.Next() {
+		var id, line string
+		result.Scan(&id, &line)
+		markers = append(markers, map[string]interface{}{"id": id, "lineId": line})
+	}
+	result.Close()
+	checkout := "00000000-0000-4000-8000-000000005001"
+	proof := map[string]interface{}{"contract": "pos-node-screening-creation-v1", "operationId": operation, "checkoutId": checkout, "checkoutVersion": 2,
+		"actorId": "44", "customerId": customer, "storeId": store, "counterId": counter, "requestHash": state["requestHash"], "cartHash": state["catalogHash"],
+		"actorVersion": strings.Repeat("a", 64), "actorEpoch": "0", "contact": map[string]interface{}{"revision": "0", "digest": strings.Repeat("b", 64)},
+		"source": state["source"], "sourceControllerHash": "d8b922d8ddaa5ed4743b51b113bbae344e3853a4f49054f18bb9b1cd8597da18",
+		"orderId": fmt.Sprint(order), "method": 14, "lineItemsEnabled": unitMode, "lines": lines, "markers": markers, "effectsHash": strings.Repeat("c", 64), "createdAt": time.Now().UnixMilli()}
+	state["kind"] = "pos"
+	state["lines"] = lines
+	state["markers"] = markers
+	state["planHash"] = screeningMAC("public-screening-plan", map[string]interface{}{"checkoutId": checkout, "checkoutVersion": 2, "cartHash": proof["cartHash"]})
+	state["authorityHash"] = screeningMAC("public-screening-authority", map[string]interface{}{"actorId": proof["actorId"], "actorVersion": proof["actorVersion"], "actorEpoch": proof["actorEpoch"], "customerId": customer, "contact": proof["contact"], "storeId": store, "counterId": counter})
+	seal := screeningMAC("public-screening-creation", proof)
+	state["sourceReceiptHash"] = seal
+	raw, _ := json.Marshal(proof)
+	execute(t, db, `DELETE FROM pos_rewrite_import_screening_reservations WHERE operation_id=?`, operation)
+	execute(t, db, `DELETE FROM pos_rewrite_public_screening_orders WHERE operation_id=?`, operation)
+	execute(t, db, `INSERT INTO pos_rewrite_public_screening_orders VALUES(?,?,?,?,?,?,?,?,?,?)`, operation, checkout, "44", customer, store, counter, fmt.Sprint(order), state["requestHash"], raw, seal)
+	writeScreeningState(t, db, state)
 }
 func screeningStateFixture(operation, order, customer, store, counter, phase string, quantity int, lineMode bool) map[string]interface{} {
 	var orderID interface{}
@@ -168,6 +227,63 @@ func TestScreeningActualSourceConfirmationAndBoundReservation(t *testing.T) {
 	}
 }
 
+func TestScreeningPublicAbandonmentFencesDelayedConfirmation(t *testing.T) {
+	db, ctx, _ := screeningFixture(t, false)
+	blocker, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer blocker.Rollback()
+	for _, query := range []string{`SELECT id FROM stores WHERE id=1 FOR UPDATE`, `SELECT id FROM users WHERE id=77 FOR UPDATE`, `SELECT id FROM orders WHERE id=5001 FOR UPDATE`} {
+		if _, err = blocker.Exec(query); err != nil {
+			t.Fatal(err)
+		}
+	}
+	called := false
+	result := make(chan error, 1)
+	go func() {
+		_, e := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+		result <- e
+	}()
+	waitNativeQuery(t, db, "stores", result)
+	operation := "00000000-0000-4000-9000-000000005001"
+	if _, err = blocker.Exec(`INSERT INTO pos_rewrite_public_screening_abandonments VALUES(?,?,'5001','44','{}',?)`, operation, "00000000-0000-4000-8000-000000005099", strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if err = blocker.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err = <-result:
+	case <-time.After(4 * time.Second):
+		t.Fatal("delayed confirmation did not finish")
+	}
+	if !errors.Is(err, poscheckout.ErrReview) || called || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 20 || number(t, db, `SELECT COUNT(*) FROM pos_rewrite_checkout_projections`) != 0 {
+		t.Fatal("abandoned original nonce reached stock/wallet source")
+	}
+}
+
+func TestScreeningPublicMissingAndChangedCreationProofRefuse(t *testing.T) {
+	for _, change := range []string{"missing", "hash", "scope"} {
+		t.Run(change, func(t *testing.T) {
+			db, ctx, _ := screeningFixture(t, false)
+			switch change {
+			case "missing":
+				execute(t, db, `DELETE FROM pos_rewrite_public_screening_orders`)
+			case "hash":
+				execute(t, db, `UPDATE pos_rewrite_public_screening_orders SET proof_hash=?`, strings.Repeat("f", 64))
+			case "scope":
+				execute(t, db, `UPDATE pos_rewrite_public_screening_orders SET customer_id='78'`)
+			}
+			called := false
+			_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+			if !errors.Is(err, poscheckout.ErrReview) || called || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 20 {
+				t.Fatal("unproved public origin reached source")
+			}
+		})
+	}
+}
+
 func TestScreeningCountPreservesLiteralSourcePredicates(t *testing.T) {
 	db, _, _ := screeningFixture(t, false)
 	for i, status := range []interface{}{1, 4, 6, 0, 17, nil, 1, 1} {
@@ -197,6 +313,7 @@ func TestScreeningTwoUnitRowsAndLiteralQuantityMode(t *testing.T) {
 			} else {
 				execute(t, db, `UPDATE has_products SET qty=2 WHERE order_id=5001`)
 			}
+			writePublicCreationFixture(t, db, 5001, unitMode)
 			_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
 			if err != nil || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 18 {
 				t.Fatalf("literal HP mode source failed: %v", err)
@@ -213,6 +330,7 @@ func TestScreeningTwoUnitRowsAndLiteralQuantityMode(t *testing.T) {
 				execute(t, db, `UPDATE order_stores SET store_id=2,counter_id=4 WHERE order_id=5002`)
 				execute(t, db, `UPDATE has_products SET prod_id=390238,sub_prod_id=0,qty=1 WHERE order_id=5002`)
 				execute(t, db, `INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(5002,6002,77)`)
+				writePublicCreationFixture(t, db, 5002, false)
 				_, err = poscheckout.Confirm(ctx, db, 5002, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5002, false) })
 				if err != nil || number(t, db, strings.Replace(poscheckout.ScreeningCountSQL, "?", "77", 1)) != 2 {
 					t.Fatalf("literal later one-row purchase changed: %v", err)
@@ -304,6 +422,7 @@ func TestScreeningQuantityModeUsesOneMarkerAndPendingCredits(t *testing.T) {
 		t.Run(fmt.Sprint(pending), func(t *testing.T) {
 			db, ctx, _ := screeningFixture(t, false)
 			execute(t, db, `UPDATE has_products SET qty=2 WHERE order_id=5001`)
+			writePublicCreationFixture(t, db, 5001, false)
 			for i := 0; i < pending; i++ {
 				operation := fmt.Sprintf("00000000-0000-4000-8000-%012d", i+1)
 				writeScreeningState(t, db, screeningStateFixture(operation, "", "77", "2", "4", "RESERVED", 1, false))
@@ -457,6 +576,7 @@ func TestScreeningTwoCustomersReachOriginalSourceBeforeEmptyProofInsertion(t *te
 	execute(t, db, `UPDATE order_stores SET store_id=2,counter_id=4 WHERE order_id=5002`)
 	execute(t, db, `UPDATE has_products SET prod_id=390238,qty=1,sub_prod_id=0 WHERE order_id=5002`)
 	execute(t, db, `INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(5002,6002,78)`)
+	writePublicCreationFixture(t, db, 5002, false)
 	arrived := make(chan struct{}, 2)
 	proceed := make(chan struct{})
 	results := make(chan error, 2)

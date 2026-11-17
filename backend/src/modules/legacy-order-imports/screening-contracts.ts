@@ -4,3 +4,5 @@ export const screeningSchemaContract = 'pos-screening-schema-v1';
 export const screeningWriterContract = 'pos-screening-all-writers-v1';
 export const screeningTicketSku = '390238';
 export const screeningMaximum = 2;
+/** Shared counter origins. CSV commands still admit only their literal plan kind. */
+export const screeningReservationOrigins = ['offline', 'shopify', 'pos'] as const;

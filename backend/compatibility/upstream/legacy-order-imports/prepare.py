@@ -53,6 +53,7 @@ def outputs():
     helper=(HERE/'legacy_import.go').read_text()+'\nconst LegacyImportHeaderSQL = '+json.dumps(HEADER)+'\n'
     changes['internal/poscheckout/legacy_import.go']=('',helper)
     changes['internal/poscheckout/screening.go']=('',(HERE/'screening.go').read_text())
+    changes['internal/poscheckout/public_screening.go']=('',(HERE/'public_screening.go').read_text())
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+path if old else '/dev/null',tofile='b/'+path)) for path,(old,new) in changes.items())
     public_main=(SOURCE/'main.py').read_text()
     guarded_main=once(public_main,'middleware = [DatabaseManager(',

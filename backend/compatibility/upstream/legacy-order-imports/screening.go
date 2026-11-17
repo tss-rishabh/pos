@@ -28,6 +28,7 @@ const ScreeningCountSQL = `SELECT STRAIGHT_JOIN COUNT(*) FROM spiderman_screenin
 type importConfirmationPrelude struct {
 	user, store, counter      int64
 	operation, binding, actor string
+	publicOperation           string
 	ticket, customerLocked    bool
 	projection                *screeningProjection
 }
@@ -59,6 +60,14 @@ func importConfirmationHint(ctx context.Context, db *sql.DB, orderID int64) (*im
 			return nil, ErrReview
 		}
 		p.operation, p.binding, p.actor = operation.String, status.String, actor.String
+	}
+	if p.ticket && p.operation == "" && screeningSelected() {
+		if err = db.QueryRowContext(ctx, `SELECT operation_id,actor_id FROM pos_rewrite_public_screening_orders WHERE order_id=?`, strconv.FormatInt(orderID, 10)).Scan(&p.publicOperation, &p.actor); err != nil {
+			return nil, ErrReview
+		}
+		if !importUUID.MatchString(p.publicOperation) || !consentIdentifier(p.actor) {
+			return nil, ErrReview
+		}
 	}
 	return p, nil
 }
@@ -257,7 +266,7 @@ func checkedScreeningState(raw []byte, seal, operation, customer, sku string, or
 		value.Source["helperHash"] != "a3ec2d593ddfb990b6462fe4f71a8c70f5aa7b95a6704ffb4a0566b14e515e46" ||
 		value.Source["controllerHash"] != "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad" ||
 		value.Source["modelHash"] != "d9ee1cd52546e9d8dce0952e901ecba0d58fe1c1b68d95149781131e1553fca5" ||
-		(value.Kind != "offline" && value.Kind != "shopify") || !consentDigest.MatchString(value.PlanHash) || !consentDigest.MatchString(value.RequestHash) ||
+		(value.Kind != "offline" && value.Kind != "shopify" && value.Kind != "pos") || !consentDigest.MatchString(value.PlanHash) || !consentDigest.MatchString(value.RequestHash) ||
 		!consentDigest.MatchString(value.AuthorityHash) || !consentDigest.MatchString(value.CatalogHash) || value.Quantity < 1 || value.Quantity > 2 ||
 		value.PendingBefore < 0 || value.PendingBefore > 2000 || value.Version < 1 || value.Version > 9007199254740991 || value.CreatedAt < 1 || value.UpdatedAt < value.CreatedAt || value.UpdatedAt > 9007199254740991 {
 		return bad()
@@ -509,6 +518,15 @@ func checkScreeningConfirmation(ctx context.Context, tx *sql.Tx, p *importConfir
 			pending += uint64(value.MarkerRows)
 		}
 		if *value.OrderID == strconv.FormatInt(orderID, 10) {
+			if value.Kind == "pos" {
+				if c != nil || p.operation != "" || value.Scope.OperationID != p.publicOperation || value.Scope.ActorID != p.actor ||
+					value.Scope.StoreID != strconv.FormatInt(p.store, 10) || value.Scope.CounterID != strconv.FormatInt(p.counter, 10) ||
+					verifyPublicScreeningCreation(ctx, tx, value, key) != nil {
+					return ErrReview
+				}
+				found = true
+				continue
+			}
 			if p.binding == "completed" && c == nil {
 				if value.Phase != "COUNTED" || value.Kind != "offline" || value.Scope.OperationID != p.operation || value.Scope.ActorID != p.actor || value.Scope.StoreID != strconv.FormatInt(p.store, 10) || value.Scope.CounterID != strconv.FormatInt(p.counter, 10) {
 					return ErrReview
@@ -563,11 +581,13 @@ func checkScreeningConfirmation(ctx context.Context, tx *sql.Tx, p *importConfir
 			found = true
 		}
 	}
-	if p.operation != "" && !found {
+	if (p.operation != "" || p.publicOperation != "") && !found {
 		return ErrReview
 	}
-	if p.operation == "" && !own.included {
-		pending += uint64(len(own.markers))
+	if p.operation == "" && p.publicOperation == "" {
+		// Pre-proof ordinary ticket orders require explicit reconciliation.
+		// Native status/marker equality alone cannot establish causal admission.
+		return ErrReview
 	}
 	if bought > 2 || pending > 2 || bought+pending > 2 {
 		return ErrReview

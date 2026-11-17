@@ -1,0 +1,70 @@
+--- a/main.py
++++ b/main.py
+@@ -3,6 +3,9 @@
+ from falcon_cors import CORS
+ 
+ import settings
++from pos_node_screening import install
++_node_screening = install(__file__)
++
+ from controllers import (ArtistsSync, AuthController, CancelDuplicateCouponOrder, CancelDuplicateVoucher, CartController,
+                          CatalogController, CatalogSync, CategorySync,
+                          CheckoutController, DgraphController, ProductSyncController,
+@@ -96,9 +99,10 @@
+                                 'http://dev.thesouledstore.ml', 'https://tss.now.sh', 'https://zeus-ssr.now.sh', 'https://zeus-ssr-git-menu.jibinthomas.now.sh', 'https://35.154.143.199', 'http://35.154.143.199','https://feedback.thesouledstore.com',
+                                 ], allow_all_headers=True,
+             allow_all_methods=True)
+-(db_session, db_session_r) = make_sessions()
+-
+-middleware = [DatabaseManager(db_session, db_session_r, mongoDb), BlacklistHandler(), AuthHandler(), JSONTranslator(), CartMiddleware(), WishlistMiddleware(),MultipartMiddleware(), ActiveCartMiddleware()]
++(db_session, db_session_r) = _node_screening.routes(*make_sessions())
++_node_screening.activate(vars(OrderController))
++
++middleware = [_node_screening, DatabaseManager(db_session, db_session_r, mongoDb), BlacklistHandler(), AuthHandler(), JSONTranslator(), CartMiddleware(), WishlistMiddleware(),MultipartMiddleware(), ActiveCartMiddleware()]
+ 
+ app = falcon.App(middleware=middleware)
+ # app.add_error_handler(Exception, logging_error_handler)  # Disabled: unified JSON logger handles all exceptions
+@@ -553,7 +557,7 @@
+ app.add_route(settings.API_PREFIX + '/omnichannel-sendotp', AuthController.OmniChannelSendOtp())
+ app.add_route(settings.API_PREFIX + '/store-discount-pg', DiscountController.StoreDiscountPG())
+ app.add_route(settings.API_PREFIX + '/omnichannel-verifyotp', AuthController.OmniChannelVerifyOtp())
+-app.add_route(settings.POS_API_PREFIX + '/order', OrderController.PosOrder())
++app.add_route(settings.POS_API_PREFIX + '/order', _node_screening.order_resource(OrderController.PosOrder()))
+ app.add_route(settings.POS_API_PREFIX + '/exchange', ExchangeOrderController.PosExchangeOrder())
+ app.add_route(settings.POS_API_PREFIX + '/return-payamt-tss-money', OrderController.ReturnPayAmountToTssMoneyPOS())
+ app.add_route(settings.API_PREFIX + '/pos-shop', InvoiceController.PosInvoiceShop())
+--- a/controllers/OrderController.py
++++ b/controllers/OrderController.py
+@@ -3586,8 +3586,8 @@
+             amount_to_be_refunded = float(final_amounts[order_product['id']])
+ 
+             query = '''
+-                UPDATE has_products SET amount_to_be_refunded = {}, fraction_value = 0 WHERE order_id = {} and prod_id = {}
+-            '''.format(amount_to_be_refunded, orderId, order_product['prod_id'])
++                UPDATE has_products SET amount_to_be_refunded = {}, fraction_value = 0 WHERE order_id = {} and prod_id = {} AND id = {}
++            '''.format(amount_to_be_refunded, orderId, order_product['prod_id'], order_product['id'])
+ 
+             session.execute(query)
+ 
+@@ -10928,6 +10928,8 @@
+             enforce_screening_ticket_limit(already_bought, screening_qty_in_order)
+ 
+         ValidateCheckout().on_post(req, resp)
++        from pos_node_screening import after_validate
++        after_validate(req)
+ 
+         # Fetch after ValidateCheckout has run apply_wrappers() — PosFreebieWrapper populates COMPLEMENTARY_PRODUCTS
+         complementary_products = cart.get(ItemTypes.COMPLEMENTARY_PRODUCTS)
+--- /dev/null
++++ b/pos_node_screening.py
+@@ -0,0 +1,10 @@
++"""Installed only with the reviewed source bundle and explicit contracts."""
++import os
++import sys
++from pathlib import Path
++_module_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()
++sys.path.insert(0,str(_module_root/'legacy-order-imports'))
++sys.path.insert(0,str(_module_root/'offline-cash-pricing'))
++sys.path.insert(0,str(_module_root/'public-screening-writer'))
++from bootstrap import Bootstrap,after_validate
++def install(main_file):return Bootstrap(Path(main_file).resolve().parent)

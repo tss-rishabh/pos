@@ -67,7 +67,7 @@ def checked_state(row, key):
                     'quantity','lineItemsEnabled','markerRows','sourceCountBefore','pendingBefore','phase','orderId','lines','markers',
                     'sourceReceiptHash','completionHash','rejectionHash','version','createdAt','updatedAt'}
         if (not isinstance(value, dict) or set(value) != expected or value['contract'] != CONTRACT or value['source'] != SOURCE or
-            value['sku'] != SKU or value['kind'] not in ('offline','shopify') or not identifier(value['customerId']) or
+            value['sku'] != SKU or value['kind'] not in ('offline','shopify','pos') or not identifier(value['customerId']) or
             set(value['scope']) != {'actorId','operationId','storeId','counterId'} or
             not all(identifier(value['scope'][field]) for field in ('actorId','storeId','counterId')) or
             not re.fullmatch(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', value['scope']['operationId']) or

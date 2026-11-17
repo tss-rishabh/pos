@@ -13,9 +13,10 @@
     "internal/poscheckout/privacy.go": "322dd6eae7955f2c7f4bcd35b8737dddd3f28116022097334e814e4d132a0c38",
     "internal/poscheckout/effects.go": "62b26ebc1a75b0cfc98b8691176a952c682cc0b14fae9af973f616a53c41233a",
     "internal/poscheckout/legacy_import.go": "da788ccebf4620c8574a5d35471fbf971750fbb0aafea82f35911bf9f839a5c7",
-    "internal/poscheckout/screening.go": "9247c6fb5d60f36354585f244964007307cec92b9f87e4c8105a8050782534e3"
+    "internal/poscheckout/screening.go": "cf505326d881e37118c8baacf4b4889874c98c16c153056a02b8bfff0dbb7d19",
+    "internal/poscheckout/public_screening.go": "80d3bbce01a9adb4e36bd4b06c3ef9c97f3bb0604e912dd929c845b069d1032e"
   },
-  "patchSha256": "558f1c772d28bed2a7de58f155bf2ed78af95f406a4a6a72a2e7eca02871978d",
+  "patchSha256": "a0bcd3716b0c21dbdf1b36653390cf20730b7eb9cabc79c442c40848ae8d4799",
   "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
   "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
   "sourceFiles": {
@@ -69,7 +70,7 @@
     "activated": false,
     "count": "marker-first nonlocking under owned read-committed customer witness",
     "physicalMetadataCommit": "34b2c65",
-    "goSha256": "9247c6fb5d60f36354585f244964007307cec92b9f87e4c8105a8050782534e3"
+    "goSha256": "cf505326d881e37118c8baacf4b4889874c98c16c153056a02b8bfff0dbb7d19"
   },
   "membership": {
     "contract": "pos-legacy-import-membership-v1",

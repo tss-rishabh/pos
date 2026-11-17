@@ -654,7 +654,7 @@
 +const LegacyImportHeaderSQL = "LOWER(SHA2(CAST(JSON_OBJECT('financial_header_hash',LOWER(SHA2(CAST(JSON_OBJECT('order_id',orders.id,'user_id',orders.user_id,'payment_method',orders.payment_method,'pay_amt',orders.pay_amt,'cashback_used',orders.cashback_used,'tss_money_used',orders.tss_money_used,'tss_points_used',orders.tss_points_used,'voucher_used',orders.voucher_used,'voucher_amt_used',orders.voucher_amt_used,'coupon_used',orders.coupon_used,'coupon_amt_used',orders.coupon_amt_used) AS CHAR CHARACTER SET utf8mb4),256)),'created_at',DATE_FORMAT(orders.created_at,'%Y-%m-%d %H:%i:%s'),'currency',orders.currency,'currency_conv_rate',orders.currency_conv_rate,'shipping_amt',orders.shipping_amt,'order_amt',orders.order_amt,'fraction_value',orders.fraction_value,'first_name',orders.first_name,'last_name',orders.last_name,'address1',orders.address1,'address2',orders.address2,'address3',orders.address3,'phone_no',orders.phone_no,'country_id',orders.country_id,'zone_id',orders.zone_id,'postal_code',orders.postal_code,'city',orders.city) AS CHAR CHARACTER SET utf8mb4),256))"
 --- /dev/null
 +++ b/internal/poscheckout/screening.go
-@@ -0,0 +1,577 @@
+@@ -0,0 +1,597 @@
 +// Private import and screening confirmation lock boundary. Not installed in a
 +// source repository. Selection requires the reviewed all-writer capability.
 +package poscheckout
@@ -685,6 +685,7 @@
 +type importConfirmationPrelude struct {
 +	user, store, counter      int64
 +	operation, binding, actor string
++	publicOperation           string
 +	ticket, customerLocked    bool
 +	projection                *screeningProjection
 +}
@@ -716,6 +717,14 @@
 +			return nil, ErrReview
 +		}
 +		p.operation, p.binding, p.actor = operation.String, status.String, actor.String
++	}
++	if p.ticket && p.operation == "" && screeningSelected() {
++		if err = db.QueryRowContext(ctx, `SELECT operation_id,actor_id FROM pos_rewrite_public_screening_orders WHERE order_id=?`, strconv.FormatInt(orderID, 10)).Scan(&p.publicOperation, &p.actor); err != nil {
++			return nil, ErrReview
++		}
++		if !importUUID.MatchString(p.publicOperation) || !consentIdentifier(p.actor) {
++			return nil, ErrReview
++		}
 +	}
 +	return p, nil
 +}
@@ -914,7 +923,7 @@
 +		value.Source["helperHash"] != "a3ec2d593ddfb990b6462fe4f71a8c70f5aa7b95a6704ffb4a0566b14e515e46" ||
 +		value.Source["controllerHash"] != "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad" ||
 +		value.Source["modelHash"] != "d9ee1cd52546e9d8dce0952e901ecba0d58fe1c1b68d95149781131e1553fca5" ||
-+		(value.Kind != "offline" && value.Kind != "shopify") || !consentDigest.MatchString(value.PlanHash) || !consentDigest.MatchString(value.RequestHash) ||
++		(value.Kind != "offline" && value.Kind != "shopify" && value.Kind != "pos") || !consentDigest.MatchString(value.PlanHash) || !consentDigest.MatchString(value.RequestHash) ||
 +		!consentDigest.MatchString(value.AuthorityHash) || !consentDigest.MatchString(value.CatalogHash) || value.Quantity < 1 || value.Quantity > 2 ||
 +		value.PendingBefore < 0 || value.PendingBefore > 2000 || value.Version < 1 || value.Version > 9007199254740991 || value.CreatedAt < 1 || value.UpdatedAt < value.CreatedAt || value.UpdatedAt > 9007199254740991 {
 +		return bad()
@@ -1166,6 +1175,15 @@
 +			pending += uint64(value.MarkerRows)
 +		}
 +		if *value.OrderID == strconv.FormatInt(orderID, 10) {
++			if value.Kind == "pos" {
++				if c != nil || p.operation != "" || value.Scope.OperationID != p.publicOperation || value.Scope.ActorID != p.actor ||
++					value.Scope.StoreID != strconv.FormatInt(p.store, 10) || value.Scope.CounterID != strconv.FormatInt(p.counter, 10) ||
++					verifyPublicScreeningCreation(ctx, tx, value, key) != nil {
++					return ErrReview
++				}
++				found = true
++				continue
++			}
 +			if p.binding == "completed" && c == nil {
 +				if value.Phase != "COUNTED" || value.Kind != "offline" || value.Scope.OperationID != p.operation || value.Scope.ActorID != p.actor || value.Scope.StoreID != strconv.FormatInt(p.store, 10) || value.Scope.CounterID != strconv.FormatInt(p.counter, 10) {
 +					return ErrReview
@@ -1220,15 +1238,141 @@
 +			found = true
 +		}
 +	}
-+	if p.operation != "" && !found {
++	if (p.operation != "" || p.publicOperation != "") && !found {
 +		return ErrReview
 +	}
-+	if p.operation == "" && !own.included {
-+		pending += uint64(len(own.markers))
++	if p.operation == "" && p.publicOperation == "" {
++		// Pre-proof ordinary ticket orders require explicit reconciliation.
++		// Native status/marker equality alone cannot establish causal admission.
++		return ErrReview
 +	}
 +	if bought > 2 || pending > 2 || bought+pending > 2 {
 +		return ErrReview
 +	}
 +	p.projection = own
 +	return nil
++}
+--- /dev/null
++++ b/internal/poscheckout/public_screening.go
+@@ -0,0 +1,121 @@
++// Ordinary Node POS origin proof. This is not a CSV financial operation.
++package poscheckout
++
++import (
++	"bytes"
++	"context"
++	"crypto/hmac"
++	"database/sql"
++	"encoding/json"
++	"io"
++	"strconv"
++)
++
++type publicScreeningCreation struct {
++	Contract             string            `json:"contract"`
++	OperationID          string            `json:"operationId"`
++	CheckoutID           string            `json:"checkoutId"`
++	CheckoutVersion      int64             `json:"checkoutVersion"`
++	ActorID              string            `json:"actorId"`
++	CustomerID           string            `json:"customerId"`
++	StoreID              string            `json:"storeId"`
++	CounterID            string            `json:"counterId"`
++	RequestHash          string            `json:"requestHash"`
++	CartHash             string            `json:"cartHash"`
++	ActorVersion         string            `json:"actorVersion"`
++	ActorEpoch           string            `json:"actorEpoch"`
++	Contact              ContactBinding    `json:"contact"`
++	Source               map[string]string `json:"source"`
++	SourceControllerHash string            `json:"sourceControllerHash"`
++	OrderID              string            `json:"orderId"`
++	Method               int64             `json:"method"`
++	LineItemsEnabled     bool              `json:"lineItemsEnabled"`
++	Lines                []screeningLine   `json:"lines"`
++	Markers              []screeningMarker `json:"markers"`
++	EffectsHash          string            `json:"effectsHash"`
++	CreatedAt            int64             `json:"createdAt"`
++}
++
++func verifyPublicScreeningCreation(ctx context.Context, tx *sql.Tx, state screeningState, key string) error {
++	if state.Kind != "pos" || state.SourceReceiptHash == nil || state.OrderID == nil || (state.Phase != "BOUND" && state.Phase != "COUNTED") {
++		return ErrReview
++	}
++	var raw []byte
++	var actor, customer, store, counter, order, request, seal, checkout string
++	if err := tx.QueryRowContext(ctx, `SELECT checkout_id,actor_id,customer_id,store_id,counter_id,order_id,request_hash,CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_public_screening_orders WHERE operation_id=? FOR SHARE`, state.Scope.OperationID).Scan(&checkout, &actor, &customer, &store, &counter, &order, &request, &raw, &seal); err != nil {
++		return err
++	}
++	var value publicScreeningCreation
++	decoder := json.NewDecoder(bytes.NewReader(raw))
++	decoder.DisallowUnknownFields()
++	if decoder.Decode(&value) != nil {
++		return ErrReview
++	}
++	var trailing interface{}
++	if decoder.Decode(&trailing) != io.EOF {
++		return ErrReview
++	}
++	var original map[string]interface{}
++	decoder = json.NewDecoder(bytes.NewReader(raw))
++	decoder.UseNumber()
++	if decoder.Decode(&original) != nil || len(original) != 22 {
++		return ErrReview
++	}
++	expected, err := importMAC(key, "legacy-order-imports.source.public-screening-creation.v1", original)
++	if err != nil || !hmac.Equal([]byte(expected), []byte(seal)) || seal != *state.SourceReceiptHash ||
++		value.Contract != "pos-node-screening-creation-v1" || value.OperationID != state.Scope.OperationID ||
++		!importUUID.MatchString(value.CheckoutID) || value.CheckoutID != checkout || value.CheckoutVersion < 0 || value.CheckoutVersion > 9007199254740991 ||
++		actor != state.Scope.ActorID || actor != value.ActorID || customer != state.CustomerID || customer != value.CustomerID ||
++		store != state.Scope.StoreID || store != value.StoreID || counter != state.Scope.CounterID || counter != value.CounterID ||
++		order != *state.OrderID || order != value.OrderID || request != state.RequestHash || request != value.RequestHash ||
++		value.CartHash != state.CatalogHash || !consentDigest.MatchString(value.ActorVersion) || !consentDigest.MatchString(value.EffectsHash) ||
++		!validPublicRevision(value.Contact.Revision) || !validPublicRevision(value.ActorEpoch) || !validContact(value.Contact) ||
++		value.SourceControllerHash != "d8b922d8ddaa5ed4743b51b113bbae344e3853a4f49054f18bb9b1cd8597da18" ||
++		(value.Method != 3 && value.Method != 14) || value.CreatedAt < 1 || value.CreatedAt > 9007199254740991 ||
++		value.LineItemsEnabled != state.LineItemsEnabled || len(value.Source) != len(state.Source) || len(value.Lines) != len(state.Lines) || len(value.Markers) != len(state.Markers) {
++		return ErrReview
++	}
++	for name, field := range state.Source {
++		if value.Source[name] != field {
++			return ErrReview
++		}
++	}
++	for i, line := range state.Lines {
++		if value.Lines[i] != line {
++			return ErrReview
++		}
++	}
++	for i, marker := range state.Markers {
++		if value.Markers[i] != marker {
++			return ErrReview
++		}
++	}
++	plan, err := importMAC(key, "legacy-order-imports.source.public-screening-plan.v1", map[string]interface{}{"checkoutId": value.CheckoutID, "checkoutVersion": value.CheckoutVersion, "cartHash": value.CartHash})
++	if err != nil || plan != state.PlanHash {
++		return ErrReview
++	}
++	authority, err := importMAC(key, "legacy-order-imports.source.public-screening-authority.v1", map[string]interface{}{
++		"actorId": value.ActorID, "actorVersion": value.ActorVersion, "actorEpoch": value.ActorEpoch, "customerId": value.CustomerID,
++		"contact": map[string]interface{}{"revision": value.Contact.Revision, "digest": value.Contact.Digest}, "storeId": value.StoreID, "counterId": value.CounterID})
++	if err != nil || authority != state.AuthorityHash {
++		return ErrReview
++	}
++	// A release is a separately sealed native tombstone; it never rewrites the
++	// original order/markers or claims a provider was refunded.
++	var abandoned int
++	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM pos_rewrite_public_screening_abandonments WHERE operation_id=?`, state.Scope.OperationID).Scan(&abandoned); err != nil {
++		return err
++	}
++	if abandoned != 0 {
++		return ErrReview
++	}
++	return nil
++}
++
++func validPublicRevision(value string) bool {
++	if !consentRevision.MatchString(value) {
++		return false
++	}
++	_, err := strconv.ParseUint(value, 10, 64)
++	return err == nil
 +}

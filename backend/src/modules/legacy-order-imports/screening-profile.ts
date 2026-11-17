@@ -50,6 +50,7 @@ import {
   screeningWriterContract,
   screeningTicketSku,
   screeningMaximum,
+  screeningReservationOrigins,
 } from './screening-contracts.js';
 export {
   screeningProfileContract,
@@ -81,7 +82,7 @@ export const screeningReservationSchema = z
       .strict(),
     customerId: identifier,
     sku: z.literal(screeningTicketSku),
-    kind: z.enum(['offline', 'shopify']),
+    kind: z.enum(screeningReservationOrigins),
     planHash: hash,
     requestHash: hash,
     authorityHash: hash,
