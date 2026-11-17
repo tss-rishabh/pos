@@ -117,6 +117,7 @@
     "backend/parity/checkout-customer-verification.md": "f638f0929caf008f2a9ab329f3a82cd71809cc8cd17a6c06c88d3d9cac1fc0f6",
     "backend/parity/checkout-performance.md": "31a1d228231ba90578e01a0cc63bb5b966f57fb98b60440ed1e862872c6b1b16",
     "backend/parity/checkout.md": "51c3ab185fe09f6be71e5a75ac1bfb7df5007116efc2eca549d8d315fe26bb07",
+    "backend/parity/csv-tender-decision.md": "b57e95b0e2905cfe8e5905777751c1801a31067bd589d62acbd3d71240e07697",
     "backend/parity/customer-contacts.md": "e0f27b373a8d7d36df88ad2520b5c291e85d5a5c4bd198712bb594b78ce21e37",
     "backend/parity/customer-history.md": "1e1140126540850ef5014e927c21c1f8a961459f24601b0d3719bff4ac648d06",
     "backend/parity/customer-website-handoff.md": "54feb05497e10e192a93f34d20e45e613f595cb7fcd95ec532bb42819674e12d",
@@ -645,6 +646,8 @@
     "backend/src/modules/legacy-order-imports/schema.ts": "e35b35a69ba7343dbaaeedf231f5d334c3bfee60c7cf789fcbb801671d561138",
     "backend/src/modules/legacy-order-imports/sealed-groups.ts": "6ca20486dd793df0413bbf31aaccffcf70743313a6444659343213d28cfe19d9",
     "backend/src/modules/legacy-order-imports/service.ts": "639bbab82469280e01517210f7d1ab7331dc2c6444e419b55dcbb261beaadc61",
+    "backend/src/modules/legacy-order-imports/tender-profile/domain.ts": "ce4e0c610747cd5cb75ea688293e07dd33362b78eccb623932582e99e04f5398",
+    "backend/src/modules/legacy-order-imports/tender-profile/native.ts": "5372cbb5a32fde963ecc744df45c2c4e1fa179cfa4577c3e1111c2b2b2ff7954",
     "backend/src/modules/legacy-order-imports/worker-main.ts": "fe55748d33019c912eba22e0fcec5d9cf7e2227f2000237601f9f123f0303297",
     "backend/src/modules/legacy-order-imports/worker.ts": "9ccc1f968281895a32d10414ec2c1a4d29e3545c6b49cfa3d88aac1b12d4f4a3",
     "backend/src/modules/legacy-order-status/authority.ts": "e049aa943927375be8a5c78559186be13870c0c911415ffa7d19379cb2922924",
@@ -908,10 +911,12 @@
     "backend/tests/legacy-import-financial/approval-recovery.mysql.test.ts": "57796a71245aafbdea8bcba07cc700a2679539e53c3d971d21ebc21ef71c9c12",
     "backend/tests/legacy-import-financial/fixture.ts": "5ce487ebf660fb742f43f343abdb3f1558089faf310a6095a9a311850dd12e35",
     "backend/tests/legacy-import-financial/source.mysql.test.ts": "a733f96337dab54dbcdbb5c77dd172c3b8088c23a6b28ff2edf34c13b8ead56c",
+    "backend/tests/legacy-import-tender/domain.test.ts": "584f3706d21a1dd15499cb3e63a1ae8bd248027d07adbda8c742a5983ee48d79",
+    "backend/tests/legacy-import-tender/source.mysql.test.ts": "d5c63613421dc017a73f281f4f86ac01a9321a9874ce7d0fa0b20722568334e6",
     "backend/tests/legacy-order-imports/csv.test.ts": "ada7fca92e076167730f667d1e48ea260c00a0a1000aeeab533dd2928b957d25",
     "backend/tests/legacy-order-imports/history-fixtures.ts": "cbf76dae2599776d02291f32f605a8d22e2272107253db7434486e0a6f42388b",
     "backend/tests/legacy-order-imports/history.test.ts": "ebe3a9ed8873f169918fe2da8f65e81bd73a3b3061d99622a57e6ade6ccc7aad",
-    "backend/tests/legacy-order-imports/plans.test.ts": "e2f908d2609b7c27f9d8ee9ff033a6dee35326e9f7537a82e62fed59ff208388",
+    "backend/tests/legacy-order-imports/plans.test.ts": "cfd56e5d1d18999a98515dfa6884dd96af04d6737a011a990e9653b09e5c0277",
     "backend/tests/legacy-order-imports/repository.mysql.test.ts": "0ff91f85556a2f9b3fef015aa6dd990e6359ab258c23ca4e35df8b3d4634c689",
     "backend/tests/legacy-order-imports/resumptions.mysql.test.ts": "ef786df953e2229049f838a7e81b15cb96cb4a95624c22052193263e0a722b94",
     "backend/tests/legacy-order-imports/runtime-fixture.ts": "fdcd30d7a6e0146d0393ef38e995076d70d96f76b17b8e6a0db1b24e71f8e636",
@@ -5424,13 +5429,15 @@
       "tests": [
         "backend/tests/legacy-order-imports",
         "backend/tests/legacy-import-financial",
+        "backend/tests/legacy-import-tender",
         "backend/tests/import-order-holds",
         "frontend/tests/order-imports"
       ],
       "parity_documents": [
         "backend/parity/legacy-order-imports.md",
         "backend/parity/legacy-import-financial.md",
-        "backend/parity/import-order-hold-guards.md"
+        "backend/parity/import-order-hold-guards.md",
+        "backend/parity/csv-tender-decision.md"
       ],
       "implemented_scope": "Source parsers/planners, encrypted immutable staging, native store/counter authority, authenticated job API, private actor-bound recovery UI, bounded worker loop and qualified >24h BigQuery history are integrated. Before STARTING a native approval preflight can retain unsent rows without burning the nonce; unknown outcomes remain GET-only and frontend retries require exact original input/UUID. Access-blocked partial jobs have explicit original-nonce resume that preserves completed rows.",
       "remaining_code": [
@@ -5449,6 +5456,8 @@
         "backend/tests/legacy-import-financial/adapter.mysql.test.ts",
         "backend/tests/legacy-import-financial/approval-recovery.mysql.test.ts",
         "backend/tests/legacy-import-financial/source.mysql.test.ts",
+        "backend/tests/legacy-import-tender/domain.test.ts",
+        "backend/tests/legacy-import-tender/source.mysql.test.ts",
         "backend/tests/legacy-order-imports/csv.test.ts",
         "backend/tests/legacy-order-imports/history.test.ts",
         "backend/tests/legacy-order-imports/plans.test.ts",

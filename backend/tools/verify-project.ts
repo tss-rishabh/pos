@@ -497,6 +497,16 @@ const checks: Check[] = [
     args: ['compatibility/upstream/legacy-order-imports/run-source-tests.sh'],
   },
   {
+    id: 'legacy-import-tender-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-tender/tsconfig.json',
+    ],
+  },
+  {
     id: 'whole-order-status-browser-fixture-typecheck',
     directory: 'frontend',
     args: [

@@ -41,6 +41,17 @@ Orders page passed 16 Chromium cases. These are bounded feature results. A fresh
 consolidated run is still required for the latest composition, and no production
 provider or complete original workflow is certified by these counts.
 
+The combined local run on `56f2543` passed all 1,616 backend tests, 241 frontend
+unit tests and every executed recovery-browser suite. Two readonly assignments
+in a CSV test fixture failed its compiler check, so the verifier correctly skipped
+the main browser suite and retained a failed overall result. The corrected
+fixture compiler check and all 50 main Playwright cases then passed; the exact
+follow-up scope is `backend/evidence/integration-followup-56f2543.json`.
+Subsequent code requires another consolidated run. Native source/candidate tests
+now also cover 41 CSV tender scenarios and 13 review cases, plus four Python
+checks over 20 frozen source vectors. The mismatch policy is awaiting the user;
+the new tender review helpers cannot execute financial actions.
+
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
   encrypted staging, native authorization/preflight, job API, recovery UI,
   worker loop, explicit blocked-job resume and published-history repository are

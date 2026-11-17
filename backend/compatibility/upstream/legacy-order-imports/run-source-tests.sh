@@ -8,3 +8,5 @@ if [ ! -x "$import_source_python" ]; then
 fi
 "$import_source_python" -B "$import_source_root/prepare.py"
 "$import_source_python" -B "$import_source_root/test_protocol.py" -v
+"$import_source_python" -B "$import_source_root/tender-profile/prepare.py"
+"$import_source_python" -B "$import_source_root/tender-profile/test_tender.py" -v
