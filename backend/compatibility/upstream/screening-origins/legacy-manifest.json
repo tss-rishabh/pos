@@ -18,9 +18,12 @@
   "patchSha256": "fb03587bbc2a79c36f0e21d8bbb29471a8fd119fa0cca94d750a6caafa1e70be",
   "files": {
     "customer-command.mjs": "81c9c496211dee509f86219c82832e410c6c11f068b24f0dffb04116e1d15e82",
-    "history-heads.review.sql": "677f9247a34889243a6db4d1c18ebf45c1556d7f539670c7b5e2d54a7b450d75",
+    "history-grants.review.sql": "792279f7ac761f3d441ac4965cc7f2a82cf124689dee1c7a1a3090493e03411f",
+    "history-heads.review.sql": "db19d1bb551e45b450b1d3e9b737987d9f73d42c8e26ddcaa9cf3275333cfa98",
     "history-publication.review.sql": "a3d3c27d3ccba9634ec5aaa384b4e8d2f5cbbacd4a16150dc6b5e23edb96b833",
-    "history_capture.py": "02e75dc429236c5882dd9a70e9feb77cc412087e4936fcab8d2fdd160911d42e",
+    "history-security.review.sql": "0bca4aef177a1bc3f98eef27c9eb76033b578f6f74a5e389b9bc75d525f091fe",
+    "history-versions-migration.sql": "d8494d5152aa4d4ba47de10d88fedb2257426fc9f0813a8d2706d00ccd8501d6",
+    "history_capture.py": "7b2c424afd369b3a43b5389be367bf6ff1fe4de211d80c9b84c8407b15580fc3",
     "legacy_client.py": "c2d457e5a39ea300c0f3ba07aab03ec7c3ef5ca103e70913725b77d55370fff7",
     "legacy_execution.py": "ca19d7eeec727f5e34f9638d794774fc855592367d30a7874addf6211eb1fdfe",
     "legacy_staff.py": "a99d4d4cba303358b2659a68b5e3aaec4e8802c79ec0cca686e12642d39147ce",
@@ -30,10 +33,11 @@
     "origin_contracts.py": "b9039b0edd0e3cca7126e6d430b206785da4833476c5ad1e76e4d131e9ad7e8f",
     "origin_effects.py": "0e847f020bf1497a6e5efaaf2a27a95b219d5e70488369c19b2f1239750247a9",
     "origin_frame.py": "44f633c3281a600962bfe7535c223c8e26a44c2f114cf389c98605f56ae14525",
-    "origin_history.py": "a6f910d0b17b9e70b3280cacd54b09c759b07188141fb8fdf7f0fb7dd9a0b0a5",
+    "origin_history.py": "c83a5bd94a95ea33bd7c475ba1311a36822a35e200b4b4513fee18f0008d1025",
     "origin_history_http.py": "caa4e05a1cf7da887ce70e0a1d258c52a0e56bedffa1db43b7ab54904d4dc7bd",
+    "origin_history_privileges.py": "292c1d4717cbbdc35abab8c301e50db8c651ee014be34b84690c068a3647a93b",
     "origin_ledger.py": "460256790a9f7ccfb48c2c2747bc373e9f94901a458d61661b76eb2319e9fec4",
-    "origin_resource.py": "69e6dd6bc6946db61f9c6c5e08a88ca5a00012381c3a6f0076c5f2c0b9fdfc1b",
+    "origin_resource.py": "85e637cf419a98f075149f6831230b6602d10201ad9690332466f78fcb3e14a1",
     "prepare.py": "a0f534a8ce705876b50b20e56ba7d2fde7ae3f5e1ed44f8a79b973bc4bb786e2",
     "source_hooks.py": "6253184d04cee9fd4b357babb4e25ee6f2cc97cc7d3533c021c5844460cf9fbd"
   }

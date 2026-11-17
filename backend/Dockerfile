@@ -42,6 +42,7 @@ COPY src/modules/legacy-order-imports/membership-profile/*.sql ./src/modules/leg
 COPY compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql ./compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql
 COPY compatibility/upstream/ordinary/migration.sql ./compatibility/upstream/ordinary/migration.sql
 COPY compatibility/upstream/screening-origins/migration.sql ./compatibility/upstream/screening-origins/migration.sql
+COPY compatibility/upstream/screening-origins/history-versions-migration.sql ./compatibility/upstream/screening-origins/history-versions-migration.sql
 COPY src/modules/screening-origins/*.sql ./src/modules/screening-origins/
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql

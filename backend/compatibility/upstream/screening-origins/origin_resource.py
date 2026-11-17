@@ -76,7 +76,7 @@ class OriginCommands:
                     current=read(session,value['id'],value['customerId'],self.owner.key)
                     if current!=value or authority_hash(self.owner.key,principal)!=value['authorityHash'] or cart_native_hash(session,namespace(principal,req))!=value['cartHash']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
                     previous=session.execute(text('SELECT data,proof_hash FROM pos_rewrite_screening_origin_histories WHERE command_id=:id FOR UPDATE'),{'id':value['id']}).mappings().first()
-                    if previous is None:origin_history.save(session,value,document,self.owner.key,self.owner.clock())
+                    origin_history.save(session,value,document,self.owner.key,self.owner.clock())
             return response(resp,{'commandId':value['id'],'phase':value['phase'],'orderId':None,'prepared':True,'expiresAt':value['expiresAt']})
         finally:req.context.clear();req.context.update(original)
     def on_get(self,req,resp,command_id):
