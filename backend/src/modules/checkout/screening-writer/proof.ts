@@ -56,7 +56,18 @@ export const screeningReconciliationRequired = () =>
   );
 export function publicScreeningHash(
   key: string,
-  purpose: 'creation' | 'plan' | 'authority' | 'abandonment' | 'completion',
+  purpose:
+    | 'creation'
+    | 'plan'
+    | 'authority'
+    | 'abandonment'
+    | 'completion'
+    | 'intent'
+    | 'payment-intent'
+    | 'payment-paid'
+    | 'publication'
+    | 'publication-dispatch'
+    | 'submission-dispatch',
   value: unknown,
 ) {
   if (!/^[!-~]{32,4096}$/.test(key)) throw screeningReconciliationRequired();

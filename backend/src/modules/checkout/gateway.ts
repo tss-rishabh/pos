@@ -34,12 +34,20 @@ import {
   refundSourcePatchHash,
   type RefundAllocationConfiguration,
 } from './refund-allocation.js';
+import {
+  nodeScreeningWriterContract,
+  nodeScreeningWriterHeader,
+  verifyNodeScreeningWriter,
+  screeningPortableHash,
+  type NodeScreeningWriterConfiguration,
+} from './screening-writer/capability.js';
 
 export interface CheckoutEnvironment
   extends
     CheckoutProjectionConfiguration,
     RefundAllocationConfiguration,
-    CustomerContextConfiguration {
+    CustomerContextConfiguration,
+    NodeScreeningWriterConfiguration {
   membershipContextContract?: typeof membershipContextContract;
   customerConsentContract?: CustomerConsentConfiguration['customerConsentContract'];
   hs256?: string;
@@ -82,6 +90,9 @@ export function checkoutEnvironment(env: NodeJS.ProcessEnv = process.env): Check
       UPSTREAM_POS_REFUND_ALLOCATION_PATCH_HASH: z.literal(refundSourcePatchHash).optional(),
       DEFAULT_GC_EX_DAYS: z.coerce.number().int().min(1).max(36500).default(90),
       UPSTREAM_POS_CUSTOMER_CONSENT_CONTRACT: z.literal(customerConsentContract).optional(),
+      UPSTREAM_POS_NODE_SCREENING_WRITER_CONTRACT: z
+        .literal(nodeScreeningWriterContract)
+        .optional(),
     })
     .parse(Object.fromEntries(Object.entries(env).filter(([, v]) => v !== '')));
   return {
@@ -104,6 +115,7 @@ export function checkoutEnvironment(env: NodeJS.ProcessEnv = process.env): Check
     refundSourcePatchHash: value.UPSTREAM_POS_REFUND_ALLOCATION_PATCH_HASH,
     giftCardExpiryDays: value.DEFAULT_GC_EX_DAYS,
     customerConsentContract: value.UPSTREAM_POS_CUSTOMER_CONSENT_CONTRACT,
+    screeningWriterContract: value.UPSTREAM_POS_NODE_SCREENING_WRITER_CONTRACT,
   };
 }
 export class CheckoutGatewayError extends AppError {
@@ -118,7 +130,12 @@ export class CheckoutGatewayError extends AppError {
 }
 export interface CheckoutGateway {
   assertApiReady?(): void;
-  api(path: string, payload: Payload, token?: string): Promise<unknown>;
+  api(
+    path: string,
+    payload: Payload,
+    token?: string,
+    internal?: { screeningWriter?: string },
+  ): Promise<unknown>;
   confirm(payload: Payload, token: string, consent?: CustomerConsent | null): Promise<unknown>;
   exchangeReasons(categoryId: string): Promise<unknown>;
 }
@@ -135,6 +152,7 @@ export function checkoutGateway(
     projection = false,
     customerId?: string,
     consent?: CustomerConsent | null,
+    screeningWriter?: string,
   ): Promise<unknown> {
     if (!url)
       throw new AppError(
@@ -181,6 +199,7 @@ export function checkoutGateway(
               }
             : {}),
           ...(projection ? { 'X-POS-Projection-Key': environment.checkoutProjectionKey! } : {}),
+          ...(screeningWriter ? { [nodeScreeningWriterHeader]: screeningWriter } : {}),
           ...(signedConsent && consent
             ? {
                 'X-POS-Customer-Consent': signedConsent,
@@ -202,6 +221,16 @@ export function checkoutGateway(
         true,
       );
     }
+    if (
+      response.ok &&
+      screeningWriter &&
+      response.headers.get('X-POS-Screening-Writer-Contract') !== nodeScreeningWriterContract
+    )
+      throw new CheckoutGatewayError(
+        'SCREENING_CREATION_PROOF_REQUIRED',
+        'The original screening creation needs reconciliation.',
+        true,
+      );
     if (
       response.ok &&
       customerId &&
@@ -278,7 +307,21 @@ export function checkoutGateway(
           'Checkout integrations require HTTPS.',
         );
     },
-    api: (segment, payload, token) => {
+    api: (segment, payload, token, internal) => {
+      const screeningWriter = internal?.screeningWriter;
+      if (screeningWriter) {
+        const capability = verifyNodeScreeningWriter(environment, screeningWriter);
+        if (
+          segment !== 'pos/order' ||
+          screeningPortableHash(payload) !== capability.requestHash ||
+          checkoutTokenSubject(token, environment) !== capability.customerId
+        )
+          throw new AppError(
+            409,
+            'SCREENING_WRITER_SCOPE_CHANGED',
+            'The screening request changed before dispatch.',
+          );
+      }
       if (segment === 'omnichannel-sendotp' || segment === 'omnichannel-verifyotp')
         throw new AppError(
           503,
@@ -308,6 +351,8 @@ export function checkoutGateway(
         'POST',
         false,
         customerId,
+        undefined,
+        screeningWriter,
       );
     },
     confirm: (payload, token, consent) => {

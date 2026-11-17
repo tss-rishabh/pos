@@ -79,7 +79,7 @@ export function publicScreeningAbandonment(options: {
   db: Databases;
   proofKey: string;
   checkins: Pick<ReturnType<typeof checkInService>, 'assertCheckIn'>;
-  authSessionValid: (user: Principal) => Promise<boolean>;
+  authSessionValid: (user: Principal, transaction?: AdministrationTransaction) => Promise<boolean>;
   clock?: () => number;
 }) {
   const clock = options.clock ?? Date.now;
@@ -187,10 +187,6 @@ export function publicScreeningAbandonment(options: {
           .where(eq(operatorAuthEpochs.userId, user.id))
           .limit(1)
           .for('share');
-        // A prior validity check may predate a wait for the actor. Revocation
-        // uses the same actor/epoch prefix; revalidate before any new mutation.
-        if (!(await options.authSessionValid(user)))
-          throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
         const [store] = await tx
           .select({ id: Store.id })
           .from(Store)
@@ -200,6 +196,8 @@ export function publicScreeningAbandonment(options: {
         if (!store) throw screeningReconciliationRequired();
         await assertCurrentStoreAccess(tx, user.id, command.storeId, [1, 2, 3]);
         await options.checkins.assertCheckIn(user.id, command.storeId, command.counterId, tx);
+        if (!(await options.authSessionValid(user, tx)))
+          throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
         const creation = await readPublicScreeningCreation(
           tx,
           command.sourceOperationId,

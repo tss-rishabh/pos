@@ -44,6 +44,7 @@ import { displayedMembershipBenefits } from '../cashier-shortcuts/membership';
 import { CustomerWebsiteHandoffAction } from '../customer-website-handoff';
 import { OrderCopyPanel } from '../order-copy';
 import { checkoutOperationReference } from './operation-reference';
+import { ScreeningRecovery } from '../screening-writer';
 
 export interface CheckoutReviewProps {
   user: Principal;
@@ -120,6 +121,7 @@ export function CheckoutReview({
   const [contactPending, setContactPending] = useState(false);
   const [conversionPending, setConversionPending] = useState(false);
   const [copyPending, setCopyPending] = useState(false);
+  const [screeningPending, setScreeningPending] = useState(false);
   const copyActive = useRef(false);
   const onCopyPending = useCallback((value: boolean) => {
     copyActive.current = value;
@@ -458,6 +460,7 @@ export function CheckoutReview({
       !contactPending &&
       !conversionPending &&
       !copyPending &&
+      !screeningPending &&
       !copyOwned &&
       !fastCashBusy &&
       !fastCashPending &&
@@ -469,6 +472,7 @@ export function CheckoutReview({
       contactPending ||
       conversionPending ||
       copyPending ||
+      screeningPending ||
       copyOwned ||
       !online ||
       Boolean(recoveryError),
@@ -631,6 +635,35 @@ export function CheckoutReview({
             {busy ? 'Confirming…' : 'Confirm prices online'}
           </button>
         )}
+        {checkout?.screeningAdmission && (
+          <ScreeningRecovery
+            scope={{
+              operatorId: draft.ownerId,
+              storeId: draft.storeId,
+              checkoutId: checkout.id,
+              operationId: checkout.screeningAdmission.operationId,
+            }}
+            online={online}
+            disabled={
+              busy ||
+              fastCashBusy ||
+              profilePending ||
+              contactPending ||
+              conversionPending ||
+              copyPending ||
+              copyOwned ||
+              Boolean(recoveryError)
+            }
+            onPending={setScreeningPending}
+            onSaved={async () => {
+              const scope = current.current;
+              if (!scope || scope.id !== checkout.id) return;
+              const latest = await readCheckout(draft.storeId, scope.id, draft.ownerId);
+              await adopt(latest);
+              store(latest, latest.busyOperationId);
+            }}
+          />
+        )}
         {pendingId && (
           <div>
             <p>The last action is awaiting confirmation. Reference {pendingId}.</p>
@@ -779,6 +812,7 @@ export function CheckoutReview({
                   contactPending ||
                   conversionPending ||
                   copyPending ||
+                  screeningPending ||
                   copyOwned ||
                   !online ||
                   Boolean(recoveryError)
@@ -815,6 +849,7 @@ export function CheckoutReview({
                   profilePending ||
                   conversionPending ||
                   copyPending ||
+                  screeningPending ||
                   copyOwned ||
                   !online ||
                   Boolean(recoveryError)
@@ -850,6 +885,7 @@ export function CheckoutReview({
                   profilePending ||
                   contactPending ||
                   conversionPending ||
+                  screeningPending ||
                   !online ||
                   Boolean(recoveryError) ||
                   Boolean(pendingId) ||
@@ -913,8 +949,8 @@ export function CheckoutReview({
             {checkout.orderCopy?.status === 'cancelled-unsent' && (
               <div>
                 <p role="status">
-                  The unsent copy is cancelled. Your saved draft and cash records are retained
-                  until this checkout is explicitly cleared.
+                  The unsent copy is cancelled. Your saved draft and cash records are retained until
+                  this checkout is explicitly cleared.
                 </p>
                 <button
                   className="button secondary full"
@@ -972,6 +1008,7 @@ export function CheckoutReview({
                   profilePending ||
                   contactPending ||
                   copyPending ||
+                  screeningPending ||
                   copyOwned ||
                   !online ||
                   Boolean(recoveryError)

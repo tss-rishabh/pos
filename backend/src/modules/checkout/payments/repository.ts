@@ -62,6 +62,9 @@ import { pendingOrderCancellations } from '../cancellations/schema.js';
 import type { PaymentCorrectionPort } from '../payment-reversals/evidence.js';
 import { assertCurrentStoreAccess } from '../../administration/authorization.js';
 import { retryTransaction } from '../../../db/retry.js';
+import type { PublicScreeningCoordinator } from '../screening-writer/coordinator.js';
+import { readPaymentProviderFact, retainPaymentProviderFact } from './provider-evidence.js';
+import type { PaymentDispatchFrame } from './dispatch-evidence.js';
 
 export function validatePaymentSplit(input: PaymentInput, payable: string) {
   const online = minorUnits(input.onlineAmount),
@@ -112,6 +115,7 @@ export function validatePaymentSplit(input: PaymentInput, payable: string) {
 }
 export type PaymentTransaction = AdministrationTransaction;
 export interface PaymentRepositoryOptions {
+  screening?: PublicScreeningCoordinator['payments'];
   corrections?: PaymentCorrectionPort;
   clock?: () => Temporal.Instant;
   hashSecret: string;
@@ -253,7 +257,9 @@ export function paymentRepository(
 ) {
   // Only database work is retried here; all provider calls remain in the service outside these transactions.
   const transact = <T>(work: (tx: PaymentTransaction) => Promise<T>) =>
-    retryTransaction(() => db.get('writer').transaction(work));
+    options.screening?.requiresCurrentReads
+      ? options.screening.transaction(work)
+      : retryTransaction(() => db.get('writer').transaction(work));
   async function rejectCancelledOrder(tx: PaymentTransaction, orderId: string) {
     const [cancelled] = await tx
       .select({ id: pendingOrderCancellations.id })
@@ -313,6 +319,7 @@ export function paymentRepository(
       .from(Store)
       .where(eq(Store.id, BigInt(storeId)))
       .for('update');
+    await options.screening?.lockOrder(tx, user, storeId, orderId, purpose);
     const [record] = await tx
       .select({
         mappingId: OrderStore.id,
@@ -367,6 +374,7 @@ export function paymentRepository(
   ) {
     await rejectCancelledOrder(tx, orderId);
     await rejectOfflineCashSettlement(tx, orderId);
+    await options.screening?.available(tx, orderId);
     assertUnpaid(mapping);
     assertCheckoutProjectionReady(options.projection);
     assertRefundAllocationReady(options.projection);
@@ -396,6 +404,7 @@ export function paymentRepository(
       storeId: attempt.storeId,
       counterId: String(mapping.counter),
     });
+    await options.screening?.readPaid(tx, attempt);
   }
   async function terminal(
     tx: PaymentTransaction,
@@ -501,7 +510,7 @@ export function paymentRepository(
   async function terminalAudit(
     tx: PaymentTransaction,
     attempt: PaymentAttempt,
-    machine: Terminal | null,
+    machine: NonNullable<PaymentDispatchFrame['device']> | null,
     platform: string,
     code: string,
   ) {
@@ -1030,6 +1039,7 @@ export function paymentRepository(
           createdAt: timestamp,
           updatedAt: timestamp,
         });
+        await options.screening?.intent(tx, attempt, input, options.hashSecret);
         return { attempt, machine, replay: false };
       });
     },
@@ -1136,7 +1146,20 @@ export function paymentRepository(
             'PAYMENT_OPERATION_INFLIGHT',
             'The payment provider action is still being confirmed.',
           );
-        const machine = await terminal(tx, attempt);
+        const retained = attempt.providerEvidenceId
+          ? await readPaymentProviderFact(tx, attempt, options.hashSecret)
+          : null;
+        const definitive =
+          retained && ['paid', 'failed', 'cancelled'].includes(retained.value.decision.status)
+            ? retained
+            : null;
+        const machine = definitive ? null : await terminal(tx, attempt);
+        if (cancel && definitive)
+          throw new AppError(
+            409,
+            'PAYMENT_REPLY_RECONCILIATION_REQUIRED',
+            'Reconcile the retained provider response before cancelling.',
+          );
         if (cancel && machine?.provider === 'paytm')
           throw new AppError(
             503,
@@ -1156,6 +1179,9 @@ export function paymentRepository(
             ...(cancel ? { status: 'cancelling' as const } : {}),
           }),
           machine,
+          ...(definitive
+            ? { retainedDecision: definitive.value.decision, retainedFactId: definitive.id }
+            : {}),
         };
       });
     },
@@ -1167,11 +1193,28 @@ export function paymentRepository(
       decision: ProviderDecision,
       machine: Terminal | null,
       busyOperationId: string | null,
+      dispatchFrame?: PaymentDispatchFrame,
+      retainedFactId?: string,
     ) {
       return transact(async (tx) => {
         const { attempt, mapping } = await owned(tx, user, storeId, orderId, id, 'evidence');
+        const retained = retainedFactId
+          ? await readPaymentProviderFact(tx, attempt, options.hashSecret)
+          : null;
+        if (
+          retainedFactId &&
+          (!retained ||
+            retained.id !== retainedFactId ||
+            JSON.stringify(retained.value.decision) !== JSON.stringify(decision))
+        )
+          throw new AppError(
+            409,
+            'PAYMENT_REPLY_PROVENANCE_REQUIRED',
+            'The saved provider decision changed.',
+          );
         try {
           await assertImportOrderMutationAvailable(tx, orderId);
+          await options.screening?.available(tx, orderId);
         } catch (error: unknown) {
           // Preserve the factual response independently of financial completion.
           // Even a missing control table is a block, never proof of no hold.
@@ -1188,7 +1231,10 @@ export function paymentRepository(
             busyOperationId: null,
             providerReference: decision.reference || attempt.providerReference,
             heldProviderDecision: attempt.heldProviderDecision ?? { ...decision },
-            errorCode: 'ORDER_IMPORT_HELD_AFTER_DISPATCH',
+            errorCode:
+              error instanceof AppError && error.code.startsWith('SCREENING_')
+                ? 'SCREENING_PAYMENT_HELD_AFTER_DISPATCH'
+                : 'ORDER_IMPORT_HELD_AFTER_DISPATCH',
           });
         }
         if (attempt.legacySource) await history(tx, orderId);
@@ -1206,16 +1252,18 @@ export function paymentRepository(
           busyOperationId: null,
           providerReference: decision.reference || attempt.providerReference,
           errorCode: decision.status === 'uncertain' ? decision.code : null,
+          ...(retained ? { heldProviderDecision: undefined } : {}),
         };
         const completedAt =
           decision.status === 'paid' ? await complete(tx, user, next, mapping) : undefined;
         if (decision.status === 'pending' && attempt.status === 'dispatching')
           await terminalAudit(tx, next, machine, 'txn_created', decision.code);
         if (['paid', 'cancelled', 'failed'].includes(decision.status)) {
+          const auditMachine = machine ?? retained?.value.frame.device ?? null;
           await terminalAudit(
             tx,
             next,
-            machine,
+            auditMachine,
             decision.status === 'paid'
               ? 'txn_completed'
               : decision.status === 'cancelled'
@@ -1224,8 +1272,8 @@ export function paymentRepository(
             decision.code,
           );
           const table =
-            machine?.provider === 'paytm' ? PosPaytmTransaction : PosTerminalTransaction;
-          if (machine)
+            auditMachine?.provider === 'paytm' ? PosPaytmTransaction : PosTerminalTransaction;
+          if (auditMachine)
             await tx
               .update(table)
               .set({ is_active: false })
@@ -1236,7 +1284,13 @@ export function paymentRepository(
                 ),
               );
         }
-        return save(tx, next, completedAt);
+        const saved = await save(tx, next, completedAt);
+        if (saved.status === 'paid') await options.screening?.paid(tx, saved, options.hashSecret);
+        return saved;
+      }).catch(async (error: unknown) => {
+        if (!dispatchFrame) throw error;
+        await retainPaymentProviderFact(db, dispatchFrame, decision, options.hashSecret);
+        throw error;
       });
     },
   };

@@ -260,6 +260,10 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
     await verifiedMysqlFixture(connection, [
       'evidence/mysql-pending-cancellation-benefits-schema.json',
     ]).create(['order_tss_money', 'order_tss_point', 'tss_money_history', 'tss_point_history']);
+    for (const statement of splitMigration(
+      readFileSync('src/modules/checkout/payments/provider-evidence-migration.sql', 'utf8'),
+    ))
+      await connection.query(statement);
     // Generic financial writers require the imported-order hold control tables.
     for (const statement of splitMigration(
       readFileSync('src/modules/legacy-order-imports/financial-proof-migration.sql', 'utf8'),
@@ -2222,7 +2226,8 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       'paid',
     );
     expect(charges).toBe(1);
-    expect(inquiries).toBe(1);
+    // The original paid reply is authenticated locally; it is not queried or charged again.
+    expect(inquiries).toBe(0);
     await connection.query('UPDATE gift_card_collection SET is_block=1 WHERE id=951');
     await connection.query('UPDATE gift_vouchers SET status=0 WHERE id=8851');
     // Later batch block/redemption preserves the original paid receipt.

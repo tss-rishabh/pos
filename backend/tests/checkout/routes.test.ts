@@ -66,11 +66,11 @@ describe('validated checkout HTTP boundaries', () => {
   });
   it('records explicit resource trace metadata for every checkout and payment route', () => {
     const routes = resourceRoutes(app);
-    expect(routes).toHaveLength(93);
+    expect(routes).toHaveLength(97);
     expect(
       routes.every((route) => route.module === 'checkout' && route.authentication === 'session'),
     ).toBe(true);
-    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(93);
+    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(97);
     expect(
       routes.filter((route) => ['order-copy', 'order-copy-review'].includes(route.resource)),
     ).toHaveLength(7);

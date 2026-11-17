@@ -59,6 +59,10 @@ import type { PendingCancellationOptions } from './cancellations/options.js';
 import { registerOrderCopy, type OrderCopyOptions } from './order-copy/routes.js';
 import type { PaymentCorrectionPort } from './payment-reversals/evidence.js';
 import { copyCancellationClearVerifier } from './order-copy/cancellation-evidence.js';
+import { publicScreeningCoordinator } from './screening-writer/coordinator.js';
+import { publicScreeningOptions, type PublicScreeningOptions } from './screening-writer/options.js';
+import { publicScreeningRequest } from './screening-writer/request-scope.js';
+import { registerPublicScreening } from './screening-writer/routes.js';
 
 const storeScope = z.object({ storeId: identifier });
 const sessionScope = storeScope.extend({ checkoutId: z.uuid() });
@@ -68,6 +72,7 @@ const trace = (resource: string, action: string) => ({
   config: { trace: { module: 'checkout', resource, action } },
 });
 export interface CheckoutRegistrationOptions {
+  publicScreening?: PublicScreeningOptions;
   paymentCorrections?: PaymentCorrectionPort;
   orderCopy?: OrderCopyOptions;
   repository?: CheckoutRepository;
@@ -108,7 +113,15 @@ export function registerCheckout(
     overrides.assertCheckIn ||
     ((...args: Parameters<CheckoutServiceOptions['assertCheckIn']>) =>
       checkIns.assertCheckIn(...args));
+  const screening = publicScreeningCoordinator(
+    config,
+    db,
+    environment,
+    overrides.publicScreening ?? publicScreeningOptions(),
+  );
+  registerPublicScreening(app, screening);
   const service = checkoutService(repository, gateway, environment, {
+    screening: screening.service,
     verifyCopyCancellationClear: copyCancellationClearVerifier(config, db),
     orderCopyHashSecret: config.SESSION_SECRET,
     migrationV2: config.TSS_API_MIGRATION_V2,
@@ -124,8 +137,10 @@ export function registerCheckout(
         phoneOtpDelivery(),
         config.BUSINESS_TIMEZONE,
       ),
-    finalizeOrder: overrides.finalizeOrder || orderFinalizer(db, config),
-    prepaidSettlement: overrides.prepaidSettlement || prepaidSettlementReader(db),
+    finalizeOrder:
+      overrides.finalizeOrder || orderFinalizer(db, config, 'ordinary', screening.finalization),
+    prepaidSettlement:
+      overrides.prepaidSettlement || prepaidSettlementReader(db, screening.finalization),
     verifyProjection:
       overrides.verifyProjection ||
       ((state, orderId) =>
@@ -182,7 +197,7 @@ export function registerCheckout(
   app.get(session, trace('checkout-session', 'read'), async (request) => {
     const user = authenticated(request),
       p = sessionScope.parse(request.params);
-    return service.read(user, p.storeId, p.checkoutId);
+    return publicScreeningRequest(request, user, () => service.read(user, p.storeId, p.checkoutId));
   });
   app.post(
     session + '/confirmation-reconciliations',
@@ -191,7 +206,9 @@ export function registerCheckout(
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
         body = mutationSchema.strict().parse(request.body);
-      return response(await service.reconcileConfirmation(user, p.storeId, p.checkoutId, body));
+      return publicScreeningRequest(request, user, async () =>
+        response(await service.reconcileConfirmation(user, p.storeId, p.checkoutId, body)),
+      );
     },
   );
   app.put(
@@ -627,7 +644,9 @@ export function registerCheckout(
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
         body = mutationSchema.strict().parse(request.body);
-      const result = await service.submit(user, p.storeId, p.checkoutId, body);
+      const result = await publicScreeningRequest(request, user, () =>
+        service.submit(user, p.storeId, p.checkoutId, body),
+      );
       return reply.code(result.status === 'succeeded' ? 201 : 202).send(response(result));
     },
   );
@@ -637,7 +656,9 @@ export function registerCheckout(
     async (request) => {
       const user = authenticated(request),
         p = sessionScope.extend({ operationId: z.uuid() }).parse(request.params);
-      return service.operation(user, p.storeId, p.checkoutId, p.operationId);
+      return publicScreeningRequest(request, user, () =>
+        service.operation(user, p.storeId, p.checkoutId, p.operationId),
+      );
     },
   );
   app.post(
@@ -647,7 +668,9 @@ export function registerCheckout(
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
         body = mutationSchema.strict().parse(request.body),
-        result = await service.finalize(user, p.storeId, p.checkoutId, body);
+        result = await publicScreeningRequest(request, user, () =>
+          service.finalize(user, p.storeId, p.checkoutId, body),
+        );
       return reply.code(result.status === 'succeeded' ? 200 : 202).send(response(result));
     },
   );
@@ -699,6 +722,7 @@ export function registerCheckout(
     },
   );
   registerPayments(app, config, db, {
+    screening: screening.payments,
     corrections: overrides.paymentCorrections,
     hashSecret: environment.hs256 || environment.hs512 || '',
     projection: environment,

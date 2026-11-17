@@ -39,6 +39,13 @@ export const registrationSchema = z.object({
 export type Registration = z.infer<typeof registrationSchema>;
 export const checkoutSchema = z
   .object({
+    screeningAdmission: z
+      .object({
+        operationId: z.uuid(),
+        status: z.enum(['pending', 'created', 'completed', 'abandoned', 'closed-unsent']),
+      })
+      .strict()
+      .optional(),
     id: z.uuid(),
     operatorId: z
       .string()

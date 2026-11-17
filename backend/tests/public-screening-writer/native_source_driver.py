@@ -4,6 +4,8 @@ Only fixture catalog/validation I/O is synthetic. Authority, RC locks, original
 constructors/HP/markers/refund writes, reservation and receipt are real MySQL.
 """
 import importlib.util
+import ast
+import hashlib
 import json
 import sys
 import time
@@ -53,6 +55,27 @@ def run(value):
     event.listen(engine,'before_cursor_execute',guard_private_statement)
     sessions=sessionmaker(bind=engine,expire_on_commit=False)
     source=NativePipeline(value['sourceRoot'],None)
+    # Real Cart.re_init hydrates this metadata through make_payment_details.
+    # The lightweight Cart fixture used to accept an already-hydrated id only;
+    # execute the pinned initializer for the actual unchanged Node wire too.
+    initializer=Path(value['sourceRoot'])/'controllers/cart/initializers/MetaInitializers.py'
+    raw_initializer=initializer.read_bytes()
+    if hashlib.sha256(raw_initializer).hexdigest()!='e631cbac8c1f2f50e9692fdc128c15d0d1eefac64a21556201068a81e75d4e9f':
+        raise RuntimeError('Pinned payment initializer changed')
+    node=next(item for item in ast.parse(raw_initializer).body if isinstance(item,ast.FunctionDef) and item.name=='make_payment_details')
+    functions={};exec(compile(ast.Module(body=[node],type_ignores=[]),'<pinned-payment-initializer>','exec'),functions)
+    class PaymentLookup:
+        def execute(self,query,params):
+            if query!='select id from payment_method WHERE value = :payment_method':raise RuntimeError('Unexpected fixture payment lookup')
+            # Synthetic read-only reference I/O, matching source POC14/zero3.
+            result={'id':{'coc':14,'prepaid':3}[params['payment_method']]}
+            return SimpleNamespace(fetchone=lambda:result)
+    def re_init(cart):
+        details=cart.meta.get('payment_details')
+        if details and details.get('payment_method') in ('coc','prepaid'):
+            functions['make_payment_details'](PaymentLookup(),details)
+        return cart
+    Cart.re_init=re_init
     route=source.tasks.app.amqp.router.route
     def checked_route(*args,**kwargs):
         if CURRENT.get() is not None:raise RuntimeError('Fixture router ran under source SQL scope')

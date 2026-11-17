@@ -59,7 +59,7 @@ the separate original native creation record. Its caller must enforce current
 read access and check the session again after awaits. It is not payment
 evidence. Lost responses retain the original UUID and use GET reconciliation;
 neither an HTTP 200, matching quantity nor a mutable paid flag establishes
-completion. There is no root service/gateway/API wiring in this commit.
+completion. The original protocol handoff did not include service/gateway/API wiring. The actual Node integration is now implemented as described in [public-screening-api.md](public-screening-api.md); new-work selection remains disabled until acceptance.
 
 The source frame verifies the capability before SQL hints, owns RC, rechecks
 current actor/store/franchise assignment/counter/check-in/checkout/contact, and
@@ -114,8 +114,7 @@ manager reconciliation conflict.
 Planned nonzero wallet/GV/coupon headers still refuse abandonment. The source
 wallet getters at `OrderHelper.py:857–873` are read-only, but complete combined
 staging/no-debit provenance has not been certified by this candidate. That
-benefit-aware abandonment is CODE work. Missing creation evidence also remains
-unknown: there is no never-dispatched tombstone/negative source receipt here.
+benefit-aware abandonment is CODE work. Missing creation evidence after a durable dispatch also remains unknown. The Node integration can close only an expired native PREPARED admission with no dispatch checkpoint/reservation; that is not a negative source receipt or a release of dispatched quota.
 Do not clear, create a new nonce, infer no-effects from 404, or release by TTL.
 
 ## Ordinary completion and source publication
@@ -125,8 +124,7 @@ root final-writer seam. It must independently verify the actual immutable paid
 receipt and complete ordinary projection, then atomically write its source-key
 HMAC and mark the shared POS reservation COUNTED. The descriptor binds original
 creation hash, operation/order/customer/store/counter, payment receipt ID,
-projection hash, line hash and completion time. There is deliberately no
-permissive final-writer implementation or mutable-paid fallback here.
+projection hash, line hash and completion time. The Node integration supplies the actual guarded final writer; it has no mutable-paid fallback. Its independent native payment/zero-pay evidence is documented in [public-screening-api.md](public-screening-api.md).
 
 `publicScreeningLineHash` hashes native immutable projection rows sorted by HP:
 `id:productId:quantity:inputHash`, newline-separated SHA256. It serializes no
@@ -134,8 +132,7 @@ FLOAT/money. Source `public_effects.publish` requires the exact final seal,
 matching native projection header/lines and encrypted effect hash. It checkpoints
 processing before broker I/O, releases SQL locks before publishing, requires
 durable queues/TLS/publisher confirms, and reports queue acceptance only. An
-unknown or processing outcome never resends. The actual Node paid-writer and
-worker/route registration are root integration CODE, still absent/unselected.
+unknown or processing outcome never resends. The Node paid-writer, API recovery and publication worker are implemented in the follow-up integration. Production protocol selection remains unselected pending combined runtime acceptance.
 
 ## Source artifact and schema prerequisites
 
@@ -176,19 +173,18 @@ runtime has been deployed/accepted.
 
 ## Remaining participants and CODE
 
-* Source `Order.on_post` website/customer orders have different auth/nonce/store
+- Source `Order.on_post` website/customer orders have different auth/nonce/store
   semantics and still need their own concrete customer-origin frame.
-* Legacy Django/MPos callers of `PosOrder`, customer/system/job writers and
+- Legacy Django/MPos callers of `PosOrder`, customer/system/job writers and
   non-POS Go payment/status transitions are not authorized by this internal
   operator capability. Enumerate/qualify them before selecting all-writer flags.
-* New/upgrade/automatic-free membership staging and gift-card issuance combined
+- New/upgrade/automatic-free membership staging and gift-card issuance combined
   with a ticket explicitly refuse before Order writes. Compose the existing
   real membership producer/cache journal or gift funding proof first; these are
   CODE gaps, not missing environment variables. Existing unchanged membership
   remains eligible subject to the separate fresh-reader contract.
-* Benefit-aware abandonment, never-created source cancellation, real ordinary
-  paid completion/root UI recovery/worker wiring remain CODE as described above.
-* Pre-proof historical ticket funding/admission needs explicit reconciliation;
+- Benefit-aware abandonment and a negative receipt for an already-dispatched never-created source command remain CODE. Actual ordinary paid/zero completion, API/UI recovery and a POST-once/GET-only publication worker are implemented in the Node follow-up.
+- Pre-proof historical ticket funding/admission needs explicit reconciliation;
   no backfilled receipt or causal success is fabricated from current rows.
 
 ## Scoped checks

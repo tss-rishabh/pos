@@ -68,6 +68,10 @@ export const paymentAttemptSchema = z.object({
   externalReference: z.string().nullable(),
   transactionId: z.string(),
   providerReference: z.string().nullable(),
+  providerEvidenceId: z
+    .string()
+    .regex(/^[a-f0-9]{64}$/)
+    .optional(),
   /** Private factual response retained when an import hold prevents settlement. */
   heldProviderDecision: z
     .object({

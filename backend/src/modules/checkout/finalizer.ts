@@ -19,6 +19,9 @@ import { paymentOutbox } from './payments/schema.js';
 import { currentRequestTrace } from '../../observability/context.js';
 import { assertCheckoutProjection } from './projection.js';
 import { assertCompletedGiftCardIssuance } from './gift-card-issuance.js';
+import type { PublicScreeningCoordinator } from './screening-writer/coordinator.js';
+import type { AdministrationTransaction } from '../administration/checkins.js';
+import { screeningReconciliationRequired } from './screening-writer/proof.js';
 
 /** Same fiscal-year and invoice representation as Helpers.get_financial_year. */
 export function financialYear(date: string): string {
@@ -50,6 +53,7 @@ export function orderFinalizer(
   db: Databases,
   config: Config,
   orderKind: 'ordinary' | 'exchange' = 'ordinary',
+  screening?: PublicScreeningCoordinator['finalization'],
 ) {
   return async (
     state: Pick<
@@ -61,10 +65,10 @@ export function orderFinalizer(
       | 'lineSalespersons'
       | 'salespersonId'
     > &
-      Partial<Pick<CheckoutState, 'orderNotifications' | 'operatorId'>>,
+      Partial<Pick<CheckoutState, 'orderNotifications' | 'operatorId' | 'screeningAdmission'>>,
     orderId: string,
-  ) =>
-    db.get('writer').transaction(async (tx) => {
+  ) => {
+    const work = async (tx: AdministrationTransaction) => {
       const [store] = await tx
         .select({ code: Store.location_code })
         .from(Store)
@@ -264,6 +268,7 @@ export function orderFinalizer(
           })
           .onDuplicateKeyUpdate({ set: { id } });
       }
+      if (state.screeningAdmission && screening) await screening.finish(tx, orderId);
       return {
         invoice,
         transactionId: transactionIdentifier(
@@ -274,17 +279,24 @@ export function orderFinalizer(
           Boolean(active),
         ),
       };
-    });
+    };
+    return state.screeningAdmission && screening
+      ? screening.transaction(state, orderId, work)
+      : db.get('writer').transaction(work);
+  };
 }
 
 /** A zero-total order has no cash/terminal attempt. Verify committed allocation proof on every read. */
-export function prepaidSettlementReader(db: Databases) {
+export function prepaidSettlementReader(
+  db: Databases,
+  screening?: PublicScreeningCoordinator['finalization'],
+) {
   return async (state: CheckoutState): Promise<PrepaidSettlement | null> => {
     if (state.phase !== 'submitted' || !state.orderId || !state.orderSubmissionOperationId)
       return null;
     const orderId = state.orderId,
       receiptId = state.orderSubmissionOperationId;
-    return db.get('writer').transaction(async (tx) => {
+    const work = async (tx: AdministrationTransaction): Promise<PrepaidSettlement | null> => {
       const [row] = await tx
         .select({
           payment: Order.payment_statuses,
@@ -322,6 +334,8 @@ export function prepaidSettlementReader(db: Databases) {
         counterId: state.counterId,
         customerId: state.customerId || state.operatorCustomerId,
       });
+      if (state.screeningAdmission && (!screening || !(await screening.read(tx, orderId))))
+        throw screeningReconciliationRequired();
       return {
         status: 'paid',
         source: 'prepaid',
@@ -334,6 +348,9 @@ export function prepaidSettlementReader(db: Databases) {
         cashAmount: '0.00',
         onlineAmount: '0.00',
       };
-    });
+    };
+    return state.screeningAdmission && screening
+      ? screening.transaction(state, orderId, work)
+      : db.get('writer').transaction(work);
   };
 }

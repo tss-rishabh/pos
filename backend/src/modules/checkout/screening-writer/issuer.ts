@@ -7,13 +7,18 @@ import type { Principal } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
 import { identifier } from '../../../domain/validation.js';
 import type { checkInService } from '../../administration/checkins.js';
+import type { AdministrationTransaction } from '../../administration/checkins.js';
 import { assertCurrentStoreAccess } from '../../administration/authorization.js';
 import { contactActorVersion } from '../../customer-contacts/authority.js';
 import { checkoutSessions, checkoutOperations } from '../schema.js';
-import { checkoutStateSchema } from '../contracts.js';
+import { checkoutStateSchema, type CheckoutState } from '../contracts.js';
 import { readCustomerContactBinding } from '../customer-contact-authority.js';
 import type { Payload } from '../payloads.js';
-import { signNodeScreeningWriter, type NodeScreeningWriterConfiguration } from './capability.js';
+import {
+  signNodeScreeningWriter,
+  type NodeScreeningWriterConfiguration,
+  type NodeScreeningWriterCapability,
+} from './capability.js';
 
 const inputSchema = z
   .object({ storeId: identifier, checkoutId: z.uuid(), operationId: z.uuid() })
@@ -31,6 +36,11 @@ export function nodeScreeningWriterIssuer(options: {
   checkins: Pick<ReturnType<typeof checkInService>, 'assertCheckIn'>;
   authSessionValid: (user: Principal) => Promise<boolean>;
   clock?: () => number;
+  recordAdmission?: (
+    tx: AdministrationTransaction,
+    state: CheckoutState,
+    capability: NodeScreeningWriterCapability,
+  ) => Promise<void>;
 }) {
   const clock = options.clock ?? Date.now;
   return {
@@ -105,7 +115,7 @@ export function nodeScreeningWriterIssuer(options: {
             tx,
             state.customerId ?? state.operatorCustomerId,
           );
-          return signNodeScreeningWriter(options.environment, {
+          const signed = signNodeScreeningWriter(options.environment, {
             state,
             operationId: scope.operationId,
             actorVersion: await contactActorVersion(tx, user.id),
@@ -114,6 +124,8 @@ export function nodeScreeningWriterIssuer(options: {
             payload,
             now: clock(),
           });
+          await options.recordAdmission?.(tx, state, signed.value);
+          return signed;
         },
         { isolationLevel: 'read committed' },
       );
