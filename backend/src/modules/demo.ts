@@ -4,6 +4,7 @@ import type { DraftService } from './drafts.js';
 import type { Draft, ProductDto } from '../domain/contracts.js';
 import { requireStore, type Principal } from '../domain/access.js';
 import { AppError } from '../domain/errors.js';
+import { identifier } from '../domain/validation.js';
 
 export const demoUser: Principal = {
   userType: 1,
@@ -78,6 +79,9 @@ export function demoServices() {
   const orders: OrdersService = {
     async list(user, storeId, before, limit = 30) {
       requireStore(user, storeId);
+      // Synthetic pagination emits numeric IDs. Live readers independently
+      // validate their signed, actor/date-bound cursor protocol.
+      if (before !== undefined) identifier.parse(before);
       const rows = Array.from({ length: 8 }, (_, i) => ({
         id: String(6008 - i),
         reference: `DEMO-${6008 - i}`,

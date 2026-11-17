@@ -363,9 +363,11 @@ def define_families():
     family('source-diagnostic-task', state='missing', required=False,
            scope='create_random_user_accounts_new prints random credentials; actual User.objects.create_user is commented out.',
            notes=['No source account is created. A replacement must not print credentials or invent a new bulk-account feature; retain this diagnostic-only disposition explicitly in the job inventory.'])
-    family('business-metrics-upload', ['src/modules/daily-report-warehouse.ts'], ['src/pages/reports.tsx'], state='partial',
-           scope='DSR reads auxiliary footfall/targets, but source BD metric upload/preview templates have no corresponding current data-entry UI.',
-           gaps=['Trace/preserve the latent BD metric CSV upload/preview template controls separately from read-only DSR auxiliary inputs; no registered source route currently establishes their executable upload authority.'])
+    family('business-metrics-upload', ['src/modules/daily-report-warehouse.ts'], ['src/pages/reports.tsx'],
+           ['tests/business-metrics-reachability.test.ts', 'tools/parity/check_business_metrics_reachability.py'], ['parity/business-metrics-prototype.md'],
+           state='missing', required=False,
+           scope='Inactive source prototype: both view classes, routes and template render calls are commented; the only sidebar link is inside a Django comment block. Both prototype templates remain individually inventoried with their hashes.',
+           notes=['Pinned syntax/reachability audit proves no executable source upload or preview route. This is not a replacement UI or template certification. Preserve the explicit inactive-source disposition; current DSR auxiliary inputs have a separate implemented reader contract.'])
     family('inherited-model-add-forms', ['src/modules/administration/contracts.ts','src/modules/administration/operator-create.ts'],
            ['src/pages/administration/stores.tsx','src/pages/administration/people.tsx'], ['tests/administration'],
            ['parity/administration-source-gaps.md'], state='partial',

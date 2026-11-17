@@ -20,8 +20,8 @@
     "by_status": {
       "external_acceptance": 267,
       "implementation_present": 100,
-      "partial": 26,
-      "missing": 3
+      "partial": 24,
+      "missing": 5
     },
     "by_kind": {
       "routes": {
@@ -38,7 +38,8 @@
       "templates": {
         "implementation_present": 32,
         "external_acceptance": 63,
-        "partial": 11
+        "partial": 9,
+        "missing": 2
       },
       "websockets": {
         "external_acceptance": 1
@@ -48,7 +49,7 @@
       }
     },
     "families": 75,
-    "code_task_groups": 8,
+    "code_task_groups": 7,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -1316,6 +1317,7 @@
     "backend/parity/administration-settings.md": "dcc60ce8b79eeef09887da482873a3ffd6de2dfb2885ea1178b4629b9927a79e",
     "backend/parity/administration-source-gaps.md": "72ff1c2949060c2412a2a31aa07f91879f2cf439f444daa38405fbd51470b598",
     "backend/parity/administration.md": "bed0fc1992cdc0dd52905a360304d03059bab4eb75c0229899883c9c058ed643",
+    "backend/parity/business-metrics-prototype.md": "660c2e93228a914be1d6479be3c1b58e344b95f4a50375f046116861b3ea06ff",
     "backend/parity/cashier-shortcuts.md": "e800ada726bd66634303a5a67d6641449899cfdadf3814b7ffd789156f966360",
     "backend/parity/catalog-details.md": "029db5d4a19e4709e5e1231b13803a6904207833742dbbe58ad80e5645400e22",
     "backend/parity/checkout-customer-verification.md": "f638f0929caf008f2a9ab329f3a82cd71809cc8cd17a6c06c88d3d9cac1fc0f6",
@@ -1876,6 +1878,7 @@
     "backend/tests/administration/worker.test.ts": "ccc3550ce3786cfa574a8a6001922ded4b900bf99028c2a071bc2c7d592f3864",
     "backend/tests/api.test.ts": "30ffefc790d54441fbd4927eaa21c3a0c965531eccb6efb35ebc67ef45f600cb",
     "backend/tests/auth.mysql.integration.test.ts": "285b7d76b8023df0e154da99846923e68f0cbd92e915fe56378fcc02d8c186f7",
+    "backend/tests/business-metrics-reachability.test.ts": "45f9ee310b4e24b5bd0550f49a1da609f4ace32d4df64aa650c70d400f2202e3",
     "backend/tests/catalog-details/domain.test.ts": "f335177d6638e9eac2e95a2b796f2aca1674f97004e6cb5dd2355535b21f1a22",
     "backend/tests/catalog-details/maintenance-domain.test.ts": "db0bbeb6aa2877650ac9201aaf0d9ed4bd73cb025dfd0e5c3cc75ff5b01a61fb",
     "backend/tests/catalog-details/maintenance-worker.test.ts": "6e8308ebc69b3b3f8e2ee6c7fe9d6b057cdcadc6ceb5138b917feea43e7e30f1",
@@ -2038,6 +2041,7 @@
     "backend/tests/profile-image-validation.test.ts": "166eb873bde4b7ba2f4909ed68ec131b1e208fc89ddf14e6f2419e3b43882636",
     "backend/tools/administration/parent-store-imports/source-oracle.py": "9e120a1e2e326cfeaf47c33def3dd3d873c6815101c62d462a0bb24858fc6acc",
     "backend/tools/customer-website-handoff/check-receiver.mjs": "a9edc47ef04f06bbf62988ba15a993c56b8443617cb10bcf9ebe3232aad05e87",
+    "backend/tools/parity/check_business_metrics_reachability.py": "17aef4f9622964313a7a92c1c83f1a0df3124c5bc652839f3ae641670a21c0df",
     "frontend/e2e/checkout/cashier-shortcuts.spec.ts": "8dd7deb674330d1c795594030d1114e9dd7a35e57f608aa5d63e47f5b7b909d5",
     "frontend/e2e/checkout/checkout-performance.spec.ts": "7b97900410df31a4b0951f7add8eb4da140752027410bc576803bc7d589fd515",
     "frontend/e2e/checkout/clearance.spec.ts": "e6aab53a65c18590750215df7f3879ef1a34c77ab4cbb0e8975ae1c35a0b4f84",
@@ -6231,26 +6235,34 @@
     },
     {
       "id": "business-metrics-upload",
-      "implementation_status": "partial",
+      "implementation_status": "missing",
       "backend": [
         "backend/src/modules/daily-report-warehouse.ts"
       ],
       "frontend": [
         "frontend/src/pages/reports.tsx"
       ],
-      "tests": [],
-      "parity_documents": [],
-      "implemented_scope": "DSR reads auxiliary footfall/targets, but source BD metric upload/preview templates have no corresponding current data-entry UI.",
-      "remaining_code": [
-        "Trace/preserve the latent BD metric CSV upload/preview template controls separately from read-only DSR auxiliary inputs; no registered source route currently establishes their executable upload authority."
+      "tests": [
+        "backend/tests/business-metrics-reachability.test.ts",
+        "backend/tools/parity/check_business_metrics_reachability.py"
       ],
+      "parity_documents": [
+        "backend/parity/business-metrics-prototype.md"
+      ],
+      "implemented_scope": "Inactive source prototype: both view classes, routes and template render calls are commented; the only sidebar link is inside a Django comment block. Both prototype templates remain individually inventoried with their hashes.",
+      "remaining_code": [],
       "external_acceptance": [],
-      "code_task_required": true,
-      "notes": [],
+      "code_task_required": false,
+      "notes": [
+        "Pinned syntax/reachability audit proves no executable source upload or preview route. This is not a replacement UI or template certification. Preserve the explicit inactive-source disposition; current DSR auxiliary inputs have a separate implemented reader contract."
+      ],
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
-      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
-      "test_files": []
+      "reference_binding": "Adjacent code inspected; these paths do not implement the missing source behavior.",
+      "test_files": [
+        "backend/tests/business-metrics-reachability.test.ts",
+        "backend/tools/parity/check_business_metrics_reachability.py"
+      ]
     },
     {
       "id": "inherited-model-add-forms",
@@ -6409,13 +6421,6 @@
       "state": "partial",
       "tasks": [
         "Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports."
-      ]
-    },
-    {
-      "family": "business-metrics-upload",
-      "state": "partial",
-      "tasks": [
-        "Trace/preserve the latent BD metric CSV upload/preview template controls separately from read-only DSR auxiliary inputs; no registered source route currently establishes their executable upload authority."
       ]
     },
     {
@@ -16255,7 +16260,7 @@
       "families": [
         "business-metrics-upload"
       ],
-      "status": "partial",
+      "status": "missing",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -16273,7 +16278,7 @@
       "families": [
         "business-metrics-upload"
       ],
-      "status": "partial",
+      "status": "missing",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",

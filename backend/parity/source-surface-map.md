@@ -22,7 +22,6 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 - **order-to-cart-copy (missing)**: Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
-- **business-metrics-upload (partial)**: Trace/preserve the latent BD metric CSV upload/preview template controls separately from read-only DSR auxiliary inputs; no registered source route currently establishes their executable upload authority.
 - **inherited-model-add-forms (partial)**: Inherited Store ModelAdmin still has manual url_key editing not exposed by the generated storePublicUrl path. Account for the default username/password-only UserAdmin add form and its extra-field defaults/nullable combinations separately from stricter POS operator creation; do not silently claim those inherited add contracts are implemented.
 
 These are code gaps, distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.
@@ -33,7 +32,7 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 | --- | ---: | ---: | ---: | ---: |
 | routes | 68 | 9 | 2 | 176 |
 | jobs | 0 | 4 | 1 | 27 |
-| templates | 32 | 11 | 0 | 63 |
+| templates | 32 | 9 | 2 | 63 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 2 | 0 | 0 |
 
@@ -407,8 +406,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
 | `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | partial |
 | `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | external_acceptance |
-| `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | partial |
-| `report/templates/bd_report/daily_report_matric_upload.html` | `report/templates/bd_report/daily_report_matric_upload.html` | business-metrics-upload | partial |
+| `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |
+| `report/templates/bd_report/daily_report_matric_upload.html` | `report/templates/bd_report/daily_report_matric_upload.html` | business-metrics-upload | missing |
 | `report/templates/daily_store_report/index.html` | `report/templates/daily_store_report/index.html` | daily-store-report | external_acceptance |
 | `report/templates/day_close/cash_balance.html` | `report/templates/day_close/cash_balance.html` | finance-day-close | external_acceptance |
 | `report/templates/day_close/index.html` | `report/templates/day_close/index.html` | finance-day-close | external_acceptance |
