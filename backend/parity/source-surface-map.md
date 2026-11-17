@@ -22,7 +22,6 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 - **order-to-cart-copy (missing)**: Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
-- **inherited-model-add-forms (partial)**: Inherited Store ModelAdmin still has manual url_key editing not exposed by the generated storePublicUrl path. Account for the default username/password-only UserAdmin add form and its extra-field defaults/nullable combinations separately from stricter POS operator creation; do not silently claim those inherited add contracts are implemented.
 
 These are code gaps, distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.
 
@@ -34,7 +33,7 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 | jobs | 0 | 4 | 1 | 27 |
 | templates | 32 | 9 | 2 | 63 |
 | websockets | 0 | 0 | 0 | 1 |
-| administration | 0 | 2 | 0 | 0 |
+| administration | 0 | 1 | 0 | 1 |
 
 “External acceptance” means code exists and the named real dependency remains unaccepted. It does not turn a missing callback/financial adapter into a deployed feature. Warehouse absence, source collation/generation proofs, shared writer patches, physical printers, real OAuth/SMS/mail and SDD/legal rendering are carried at their specific family boundaries in the JSON; they are not hundreds of invented code tasks.
 
@@ -461,7 +460,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | Source | Surface | Families | Implementation disposition |
 | --- | --- | --- | --- |
 | `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | partial |
-| `users/admin.py:20` | `User, UserAdmin` | operators, operator-administrative-profile, operator-mfa, model-administration-access, inherited-administration-history, inherited-model-add-forms | partial |
+| `users/admin.py:20` | `User, UserAdmin` | operators, operator-administrative-profile, operator-mfa, model-administration-access, inherited-administration-history, inherited-model-add-forms | external_acceptance |
 
 ## Reproducibility and limits
 

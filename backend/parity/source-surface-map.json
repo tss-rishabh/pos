@@ -18,9 +18,9 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 267,
+      "external_acceptance": 268,
       "implementation_present": 100,
-      "partial": 24,
+      "partial": 23,
       "missing": 5
     },
     "by_kind": {
@@ -45,11 +45,12 @@
         "external_acceptance": 1
       },
       "administration": {
-        "partial": 2
+        "partial": 1,
+        "external_acceptance": 1
       }
     },
     "families": 75,
-    "code_task_groups": 7,
+    "code_task_groups": 6,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -1314,8 +1315,8 @@
     "backend/compatibility/upstream/pending-cancellation/wallet_candidate.py": "68b83e817ddfc7f8ed593f154a092ace3bcfeeb86dfb5a2002561a922f51a326",
     "backend/parity/administration-barcodes-country.md": "a0824e85b8b8cc98742e268d4c8a389d3245eb4a052b243be1fa9f9971d0c12a",
     "backend/parity/administration-feature-map.json": "9b583b4b51e99a8fe45fea8c90ef857b4bbde7ee124accaf3779bb6ffc26e107",
+    "backend/parity/administration-model-accounts.md": "c58cf3e4938137ee1a90f220506e965226f1366ffe3836163feb8e9277e61848",
     "backend/parity/administration-settings.md": "dcc60ce8b79eeef09887da482873a3ffd6de2dfb2885ea1178b4629b9927a79e",
-    "backend/parity/administration-source-gaps.md": "72ff1c2949060c2412a2a31aa07f91879f2cf439f444daa38405fbd51470b598",
     "backend/parity/administration.md": "bed0fc1992cdc0dd52905a360304d03059bab4eb75c0229899883c9c058ed643",
     "backend/parity/business-metrics-prototype.md": "660c2e93228a914be1d6479be3c1b58e344b95f4a50375f046116861b3ea06ff",
     "backend/parity/cashier-shortcuts.md": "e800ada726bd66634303a5a67d6641449899cfdadf3814b7ffd789156f966360",
@@ -1404,6 +1405,9 @@
     "backend/src/modules/administration/media-worker.ts": "9addd334e6e63473d48765068c6e22eea7845b4b303d77fe94cd844e1f44e9ad",
     "backend/src/modules/administration/mfa-schema.ts": "c94151038c0de815f40d00712ed6b2e138552279418e0b4ed6e552aad76aaef1",
     "backend/src/modules/administration/mfa.ts": "2ace3e5b1d12929c618697a6584a45f82fe12359bbd4ac4853bde729bbf896af",
+    "backend/src/modules/administration/model-accounts/domain.ts": "b6087cbac6d18a4e05b0a323deb8d4720b80997dc468bc8d40e095c4d9fc7298",
+    "backend/src/modules/administration/model-accounts/index.ts": "b82bd791ba8a221f3064b6addc6bdd73400252cbe1775cbe168b5e3fe9790328",
+    "backend/src/modules/administration/model-accounts/service.ts": "df877afe4badecd2283f6e8d93de3bb575ebd014e45aa1a9d23b4f7fb1bf10f8",
     "backend/src/modules/administration/operator-admin-domain.ts": "4342cb205482ce42cf09c8dc8dbbe5897dcf74b590a055b6464ebbbac13182ed",
     "backend/src/modules/administration/operator-admin-routes.ts": "77d1bb450ae5c35cf5b64052a55e91dabeedfc58c4cfa19d1ffd1e4ca3d4354f",
     "backend/src/modules/administration/operator-admin.ts": "e577f62ffec5f599ac8339e2925d298ceebb3c562f5874a4f6f039e2e6d2133c",
@@ -1867,6 +1871,7 @@
     "backend/tests/administration/import-domain.test.ts": "d75c3486b9b93d690ec99326509a057891e4609420b7bb89e50fa14ba3ad4013",
     "backend/tests/administration/import-history.test.ts": "5f4db3bef5efcd9784721efe370e2e796cda41ea972c59d7dfdcaeba81effc61",
     "backend/tests/administration/media.test.ts": "4755af33f1aaf8ef77c37821ff8946a0fd0ce30e5ee0257f0b4ac933cfe9fb4c",
+    "backend/tests/administration/model-accounts/service.mysql.test.ts": "0d18e2a7c2626dbb0e84c42905b8d46f22e08b8095c7807fb4c866db687ced88",
     "backend/tests/administration/mysql.integration.test.ts": "b12dbf1111fc88cc15ac56e88e427b455c3312abf62e86b0d9090100ef056b43",
     "backend/tests/administration/operator-admin-domain.test.ts": "ddb6c4f0307b028b5bb08b825568e6eacc8544405332b3f8fc3aff5dce07b3e4",
     "backend/tests/administration/parent-store-imports/domain.test.ts": "17242f1420648311f9872848bfaf2c149e8675026c60bbba7c24fc37842c0e2b",
@@ -2039,6 +2044,7 @@
     "backend/tests/product-feedback.mysql.integration.test.ts": "def8b526bc46d0700787a5db14bbd8596c11754bb10074e5c9054a23c6baa385",
     "backend/tests/product-feedback.test.ts": "ee3059ec37baa5123a5bf6e7838f11cd8fd24f1767c52634066684b33e0b114c",
     "backend/tests/profile-image-validation.test.ts": "166eb873bde4b7ba2f4909ed68ec131b1e208fc89ddf14e6f2419e3b43882636",
+    "backend/tools/administration/model-accounts/source-oracle.py": "d5ac4f7e7b6e371fd4e17cff3a83f0b172a5ad6e0644bf7f073876b13e79b6c9",
     "backend/tools/administration/parent-store-imports/source-oracle.py": "9e120a1e2e326cfeaf47c33def3dd3d873c6815101c62d462a0bb24858fc6acc",
     "backend/tools/customer-website-handoff/check-receiver.mjs": "a9edc47ef04f06bbf62988ba15a993c56b8443617cb10bcf9ebe3232aad05e87",
     "backend/tools/parity/check_business_metrics_reachability.py": "17aef4f9622964313a7a92c1c83f1a0df3124c5bc652839f3ae641670a21c0df",
@@ -2112,6 +2118,9 @@
     "frontend/src/pages/administration/imports.tsx": "1822860455218d956415f68a2aefac54dadafc8a6e7e6bf50fc10ef2531e08c2",
     "frontend/src/pages/administration/locations.ts": "d06fc9d8e70fd02b6d7811d91267f8249c1541c04480c17f276ae6855a04d5e4",
     "frontend/src/pages/administration/mfa.tsx": "cf216ee98fe22132c2eb7a6a2ea1458180e25ff22d121c15cd54c2fbe5c5ada7",
+    "frontend/src/pages/administration/model-accounts/api.ts": "64289427b971a414a9896cff06ce499427a5e7a36a4542203254a9a575f6d9e2",
+    "frontend/src/pages/administration/model-accounts/index.tsx": "2dd561bab52ccbdd667f6affe7650463adb1b574293b020f45fa7d406de7aea6",
+    "frontend/src/pages/administration/model-accounts/pending.ts": "919e7a84d915dd82ebf492053d30a0e8198fe3251fba2363675ac2d5cdc885f5",
     "frontend/src/pages/administration/operator-administration.tsx": "022e76e780929603e56da622c93caf5c49ea50bc3ce89e9656f5e058f98cc820",
     "frontend/src/pages/administration/parent-store-imports.tsx": "63adab5b6ec64daf8364341761db9975f36714882d11568f3519499935ace39a",
     "frontend/src/pages/administration/people.tsx": "289e4bac9de7755c892090698d3d5eddb1adab239bb100bfad1bd55ed4f2e991",
@@ -2262,6 +2271,10 @@
     "frontend/tests/administration/gift-card-batches.test.ts": "dab8b809cb65daaf5f0a961aa6714d1f8c5d0d29cb793c6b9c91e1d33cd7ba6d",
     "frontend/tests/administration/group-bulk.browser.test.ts": "3f5d5bda9a6b0d18112fc4390273666b6d967ad685947ffcc81d3f7a35a5cca4",
     "frontend/tests/administration/history.browser.test.ts": "6741391a6e7ee75dbd8817ac275a2769080e4b1a1c3044500d726d9e1fa23fe0",
+    "frontend/tests/administration/model-accounts/browser.test.ts": "86c4bfbe7673788862df54890b1dc3e685698953067cc94223d7c346ba538208",
+    "frontend/tests/administration/model-accounts/harness.tsx": "06173a55dcf3b4bef58fe6060319d1a6287b4e56d36acc46e6d5275ef6dad788",
+    "frontend/tests/administration/model-accounts/pending.test.ts": "f6d1f8f4c9fe085ba8ab34d78ed457eabc4f81040cde11b3e9ba12b0da4f9cef",
+    "frontend/tests/administration/model-accounts/tsconfig.tests.json": "e74414b5cecad30963fdb2626d2acb8f6b95e6cff9f8172daca5e5ed115498a7",
     "frontend/tests/administration/parent-store-imports/browser.test.ts": "549e83a34ce7d1a23bc7aad6f6ddde8b62bf1c9a188102eb0fc570c77cf21776",
     "frontend/tests/administration/parent-store-imports/harness.tsx": "4f8418952d52d52929aa30464381ac51b51d82d9f504dab4c28096aa04b65cb4",
     "frontend/tests/administration/parent-store-imports/tsconfig.tests.json": "e74414b5cecad30963fdb2626d2acb8f6b95e6cff9f8172daca5e5ed115498a7",
@@ -2423,6 +2436,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2439,6 +2453,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2483,6 +2499,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2499,6 +2516,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2549,6 +2568,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2565,6 +2585,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2614,6 +2636,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2630,6 +2653,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2675,6 +2700,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2691,6 +2717,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2739,6 +2767,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2755,6 +2784,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2806,6 +2837,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2822,6 +2854,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2870,6 +2904,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2886,6 +2921,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2935,6 +2972,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -2951,6 +2989,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -2995,6 +3035,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3011,6 +3052,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3055,6 +3098,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3071,6 +3115,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3115,6 +3161,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3131,6 +3178,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3175,6 +3224,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3191,6 +3241,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3236,6 +3288,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3252,6 +3305,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3296,6 +3351,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3312,6 +3368,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3358,6 +3416,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3374,6 +3433,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3424,6 +3485,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3440,6 +3502,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3483,6 +3547,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3499,6 +3564,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3546,6 +3613,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3562,6 +3630,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3613,6 +3683,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3629,6 +3700,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3674,6 +3747,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3690,6 +3764,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3738,6 +3814,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3754,6 +3831,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3798,6 +3877,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3814,6 +3894,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -3863,6 +3945,7 @@
         "backend/tests/administration/import-domain.test.ts",
         "backend/tests/administration/import-history.test.ts",
         "backend/tests/administration/media.test.ts",
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
         "backend/tests/administration/mysql.integration.test.ts",
         "backend/tests/administration/operator-admin-domain.test.ts",
         "backend/tests/administration/parent-store-imports/domain.test.ts",
@@ -3879,6 +3962,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -4201,6 +4286,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts",
         "frontend/tests/cashier-shortcuts/shortcuts.test.ts",
@@ -4420,6 +4507,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts",
         "frontend/tests/cashier-shortcuts/shortcuts.test.ts",
@@ -4545,6 +4634,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts"
       ]
@@ -4753,6 +4844,8 @@
         "frontend/tests/administration/gift-card-batches.test.ts",
         "frontend/tests/administration/group-bulk.browser.test.ts",
         "frontend/tests/administration/history.browser.test.ts",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts",
         "frontend/tests/administration/parent-store-imports/browser.test.ts",
         "frontend/tests/administration/workflows.test.ts",
         "frontend/tests/cashier-shortcuts/shortcuts.test.ts",
@@ -6266,53 +6359,39 @@
     },
     {
       "id": "inherited-model-add-forms",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [
-        "backend/src/modules/administration/contracts.ts",
-        "backend/src/modules/administration/operator-create.ts"
+        "backend/src/modules/administration/model-accounts",
+        "backend/src/modules/administration/policies.ts"
       ],
       "frontend": [
-        "frontend/src/pages/administration/stores.tsx",
-        "frontend/src/pages/administration/people.tsx"
+        "frontend/src/pages/administration/model-accounts"
       ],
       "tests": [
-        "backend/tests/administration"
+        "backend/tests/administration/model-accounts",
+        "backend/tools/administration/model-accounts/source-oracle.py",
+        "frontend/tests/administration/model-accounts"
       ],
       "parity_documents": [
-        "backend/parity/administration-source-gaps.md"
+        "backend/parity/administration-model-accounts.md"
       ],
-      "implemented_scope": "Strict POS store/operator forms expose most editable model fields with deliberate identity and private-media safety.",
-      "remaining_code": [
-        "Inherited Store ModelAdmin still has manual url_key editing not exposed by the generated storePublicUrl path. Account for the default username/password-only UserAdmin add form and its extra-field defaults/nullable combinations separately from stricter POS operator creation; do not silently claim those inherited add contracts are implemented."
+      "implemented_scope": "Actual inherited username/password-only UserAdmin creation with exact form-cleaned persisted defaults (including blank email), current reconciled superuser authority, atomic audit/UUID recovery and no fabricated commerce mirror. Pinned actual Store ModelForm/save proves submitted url_key is overwritten by existing generated URL policy; physically invalid nullable Store forms are source failures, not a new supported creation mode.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept operational model grant/actor reconciliation and source business timezone. No full Django administration workflow certification."
       ],
-      "external_acceptance": [],
       "code_task_required": true,
-      "notes": [],
+      "notes": [
+        "Existing managed-profile blank-email-to-NULL behavior is a separate edit-contract boundary; these exact add-form comparisons do not re-certify it."
+      ],
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
       "test_files": [
-        "backend/tests/administration/access-domain.test.ts",
-        "backend/tests/administration/application-links.mysql.integration.test.ts",
-        "backend/tests/administration/application-links.test.ts",
-        "backend/tests/administration/barcodes/domain.test.ts",
-        "backend/tests/administration/barcodes/mysql.test.ts",
-        "backend/tests/administration/gift-card-batch-adapters.test.ts",
-        "backend/tests/administration/gift-card-batches.mysql.test.ts",
-        "backend/tests/administration/gift-card-batches.test.ts",
-        "backend/tests/administration/gift-card-view.test.ts",
-        "backend/tests/administration/import-domain.test.ts",
-        "backend/tests/administration/import-history.test.ts",
-        "backend/tests/administration/media.test.ts",
-        "backend/tests/administration/mysql.integration.test.ts",
-        "backend/tests/administration/operator-admin-domain.test.ts",
-        "backend/tests/administration/parent-store-imports/domain.test.ts",
-        "backend/tests/administration/parent-store-imports/history.test.ts",
-        "backend/tests/administration/parent-store-imports/service.mysql.test.ts",
-        "backend/tests/administration/policies.test.ts",
-        "backend/tests/administration/settings.test.ts",
-        "backend/tests/administration/slack-location.test.ts",
-        "backend/tests/administration/worker.test.ts"
+        "backend/tests/administration/model-accounts/service.mysql.test.ts",
+        "backend/tools/administration/model-accounts/source-oracle.py",
+        "frontend/tests/administration/model-accounts/browser.test.ts",
+        "frontend/tests/administration/model-accounts/pending.test.ts"
       ]
     },
     {
@@ -6421,13 +6500,6 @@
       "state": "partial",
       "tasks": [
         "Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports."
-      ]
-    },
-    {
-      "family": "inherited-model-add-forms",
-      "state": "partial",
-      "tasks": [
-        "Inherited Store ModelAdmin still has manual url_key editing not exposed by the generated storePublicUrl path. Account for the default username/password-only UserAdmin add form and its extra-field defaults/nullable combinations separately from stricter POS operator creation; do not silently claim those inherited add contracts are implemented."
       ]
     }
   ],
@@ -17091,7 +17163,7 @@
       ],
       "lifecycle_clarification": "User clarified Store/PosUser use reversible archive/deleted flags, not physical deletion. IDs/history/offline collected cash recognition must survive; generic hard delete is not a required active business flow.",
       "compatibility_limits": [
-        "Inherited default add-form nullable/default combinations and Store manual url_key editing are not established by the stricter custom POS create forms. This is an explicit inherited-form boundary, not proof of whole Django admin parity."
+        "Inherited username/password-only add is implemented separately with actual form defaults/blank-email uniqueness evidence. Actual Store.save always overwrites submitted url_key with the generated URL. Source nullable Store/physical NOT NULL conflicts remain diagnosed failures, and operational grants/actor lineage/full workflows are not certified."
       ]
     },
     {
@@ -17114,7 +17186,7 @@
         "inherited-administration-history",
         "inherited-model-add-forms"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_framework_capabilities": [
@@ -17124,7 +17196,7 @@
       ],
       "lifecycle_clarification": "User clarified Store/PosUser use reversible archive/deleted flags, not physical deletion. IDs/history/offline collected cash recognition must survive; generic hard delete is not a required active business flow.",
       "compatibility_limits": [
-        "Inherited default add-form nullable/default combinations and Store manual url_key editing are not established by the stricter custom POS create forms. This is an explicit inherited-form boundary, not proof of whole Django admin parity."
+        "Inherited username/password-only add is implemented separately with actual form defaults/blank-email uniqueness evidence. Actual Store.save always overwrites submitted url_key with the generated URL. Source nullable Store/physical NOT NULL conflicts remain diagnosed failures, and operational grants/actor lineage/full workflows are not certified."
       ]
     }
   ]

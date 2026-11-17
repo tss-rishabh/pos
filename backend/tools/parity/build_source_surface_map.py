@@ -368,11 +368,13 @@ def define_families():
            state='missing', required=False,
            scope='Inactive source prototype: both view classes, routes and template render calls are commented; the only sidebar link is inside a Django comment block. Both prototype templates remain individually inventoried with their hashes.',
            notes=['Pinned syntax/reachability audit proves no executable source upload or preview route. This is not a replacement UI or template certification. Preserve the explicit inactive-source disposition; current DSR auxiliary inputs have a separate implemented reader contract.'])
-    family('inherited-model-add-forms', ['src/modules/administration/contracts.ts','src/modules/administration/operator-create.ts'],
-           ['src/pages/administration/stores.tsx','src/pages/administration/people.tsx'], ['tests/administration'],
-           ['parity/administration-source-gaps.md'], state='partial',
-           scope='Strict POS store/operator forms expose most editable model fields with deliberate identity and private-media safety.',
-           gaps=['Inherited Store ModelAdmin still has manual url_key editing not exposed by the generated storePublicUrl path. Account for the default username/password-only UserAdmin add form and its extra-field defaults/nullable combinations separately from stricter POS operator creation; do not silently claim those inherited add contracts are implemented.'])
+    family('inherited-model-add-forms', ['src/modules/administration/model-accounts','src/modules/administration/policies.ts'],
+           ['src/pages/administration/model-accounts'], ['tests/administration/model-accounts','tools/administration/model-accounts/source-oracle.py','frontend/tests/administration/model-accounts'],
+           ['parity/administration-model-accounts.md'],
+           scope='Actual inherited username/password-only UserAdmin creation with exact form-cleaned persisted defaults (including blank email), current reconciled superuser authority, atomic audit/UUID recovery and no fabricated commerce mirror. Pinned actual Store ModelForm/save proves submitted url_key is overwritten by existing generated URL policy; physically invalid nullable Store forms are source failures, not a new supported creation mode.',
+           external=['Accept operational model grant/actor reconciliation and source business timezone. No full Django administration workflow certification.'],
+           notes=['Existing managed-profile blank-email-to-NULL behavior is a separate edit-contract boundary; these exact add-form comparisons do not re-certify it.'])
+
 
 
 JOB_FAMILIES = {
@@ -540,7 +542,7 @@ def build():
         row = mapped(admin, keys)
         row['source_framework_capabilities'] = ['add/change/list/search/history', 'source model permissions', 'default selected-object action collector']
         row['lifecycle_clarification'] = 'User clarified Store/PosUser use reversible archive/deleted flags, not physical deletion. IDs/history/offline collected cash recognition must survive; generic hard delete is not a required active business flow.'
-        row['compatibility_limits'] = ['Inherited default add-form nullable/default combinations and Store manual url_key editing are not established by the stricter custom POS create forms. This is an explicit inherited-form boundary, not proof of whole Django admin parity.']
+        row['compatibility_limits'] = ['Inherited username/password-only add is implemented separately with actual form defaults/blank-email uniqueness evidence. Actual Store.save always overwrites submitted url_key with the generated URL. Source nullable Store/physical NOT NULL conflicts remain diagnosed failures, and operational grants/actor lineage/full workflows are not certified.']
         output['administration'].append(row)
     actual = {key: len(value) for key, value in output.items()}
     if actual != EXPECTED: raise ValueError(f'Coverage mismatch: {actual} != {EXPECTED}')
