@@ -5,11 +5,12 @@ This server-installed adapter composes the existing source-qualified membership 
 ## Composition and ordered authority
 
 ```ts
-const member = csvMembershipImportProfile(trustedMembershipOptions);
-const profiles = financialAdapterProfiles({ extensions: [member] });
+const profiles = financialAdapterProfiles({ membership: trustedMembershipOptions });
 ```
 
 `trustedMembershipOptions` has the existing `CsvMembershipOptions` shape: `contract`, `sourceProofKey`, `membershipProofKey`, `freshReaderContract`, `productIds`, `freeProductId`. The constructor copies/validates the product registry and performs no database work. A planned configured member SKU requires the selected membership contract, fresh-reader contract, independent proof keys and a valid configured free SKU. An unselected profile permits ordinary imports; it cannot infer a member SKU from request data or a guessed constant.
+
+The financial composition always installs this guard. Use its dedicated `membership` options field for qualification; adding a second qualified member extension does not bypass the default unselected guard. [Core integration and commit-ack recovery](csv-membership-core.md) implements the snapshot/runner/replay hooks below. Runtime registration and source acceptance remain separately owned.
 
 The caller must already hold current actor/Store/original-operation authority. `lock(tx,context)` inspects current immutable source-descriptor metadata without loading oversized JSON, then takes the exact native customer row before any native Order/provenance read. A private transaction/scope witness prevents a different transaction or altered scope from reusing that early lock. `dispatch` installs the same gate. No helper holds SQL locks across HTTP.
 

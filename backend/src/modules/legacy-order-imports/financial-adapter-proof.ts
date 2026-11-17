@@ -1,13 +1,14 @@
 import { createHash } from 'node:crypto';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { AdministrationTransaction } from '../administration/checkins.js';
-import { Order, OrderStore, HasProduct } from '../../db/legacy-schema.js';
+import { Order, OrderStore, HasProduct, MUser } from '../../db/legacy-schema.js';
 import { checkoutHeaderHashSql } from '../checkout/projection.js';
 import {
   importCompletedProofSchema,
   sourceOrderReceiptSchema,
   type SourceOrderReceipt,
   type ImportCompletedProof,
+  type ImportFinancialState,
 } from './financial-adapter-contracts.js';
 import {
   financialImportOrderBindings,
@@ -21,6 +22,10 @@ import {
   importFinancialError,
 } from './financial-adapter-crypto.js';
 import { assertCompletedImportCorrection } from './financial-adapter-corrections.js';
+import {
+  validateCsvMembershipCompletionSnapshot,
+  assertCsvMembershipPublication,
+} from './membership-profile/completion.js';
 /** Native financial/address/date digests never serialize a MySQL FLOAT through JavaScript. */
 export const importOrderHeaderHashExpression = `LOWER(SHA2(CAST(JSON_OBJECT('financial_header_hash',${checkoutHeaderHashSql},'created_at',DATE_FORMAT(orders.created_at,'%Y-%m-%d %H:%i:%s'),'currency',orders.currency,'currency_conv_rate',orders.currency_conv_rate,'shipping_amt',orders.shipping_amt,'order_amt',orders.order_amt,'fraction_value',orders.fraction_value,'first_name',orders.first_name,'last_name',orders.last_name,'address1',orders.address1,'address2',orders.address2,'address3',orders.address3,'phone_no',orders.phone_no,'country_id',orders.country_id,'zone_id',orders.zone_id,'postal_code',orders.postal_code,'city',orders.city) AS CHAR CHARACTER SET utf8mb4),256))`;
 export const importOrderLineHashExpression =
@@ -129,24 +134,47 @@ export async function readSourceOrderReceipt(
     throw importFinancialError('ORDER_IMPORT_SOURCE_PROOF_INVALID');
   return proof;
 }
-export async function verifiedImportCompletion(
+/** Authenticate frozen evidence without current profile/contact/entitlement work
+ * or any Order lock. Callers can establish customer-before-Order authority next. */
+export async function readAuthenticatedImportCompletion(
   tx: AdministrationTransaction,
   operationId: string,
   secret: string,
 ): Promise<ImportCompletedProof | null> {
-  const [row] = await tx
-    .select()
+  const rows = await tx
+    .select({
+      id: financialImportProofs.id,
+      orderId: financialImportProofs.orderId,
+      requestHash: financialImportProofs.requestHash,
+      proofHash: financialImportProofs.proofHash,
+      finalizedAt: financialImportProofs.finalizedAt,
+      bytes: sql<string>`CAST(OCTET_LENGTH(${financialImportProofs.data}) AS CHAR)`,
+      data: sql<unknown>`CASE WHEN OCTET_LENGTH(${financialImportProofs.data})<=1000000 THEN ${financialImportProofs.data} ELSE NULL END`,
+    })
     .from(financialImportProofs)
-    .where(
-      and(
-        eq(financialImportProofs.operationId, operationId),
-        sql`OCTET_LENGTH(${financialImportProofs.data})<=1000000`,
-      ),
-    )
-    .limit(1)
+    .where(eq(financialImportProofs.operationId, operationId))
+    .limit(2)
     .for('share');
-  if (!row) return null;
-  const proof = importCompletedProofSchema.parse(row.data);
+  if (!rows.length) return null;
+  const row = rows[0]!;
+  if (
+    rows.length !== 1 ||
+    !/^\d{1,10}$/.test(row.bytes) ||
+    BigInt(row.bytes) < 1n ||
+    BigInt(row.bytes) > 1000000n
+  )
+    throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
+  let raw: unknown = row.data;
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw) as unknown;
+    } catch {
+      throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
+    }
+  }
+  const parsed = importCompletedProofSchema.safeParse(raw);
+  if (!parsed.success) throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
+  const proof = parsed.data;
   if (
     proof.scope.operationId !== operationId ||
     proof.receiptId !== row.id ||
@@ -157,18 +185,43 @@ export async function verifiedImportCompletion(
   )
     throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
   assertCompletedImportCorrection(proof);
+  if (proof.membership !== undefined) {
+    validateCsvMembershipCompletionSnapshot(proof.membership, proof);
+  } else {
+    // Old ordinary HMACs retain field absence. A retained member descriptor
+    // cannot be promoted to qualified completion by that compatibility rule.
+    const [member] = await tx
+      .select({ id: financialImportSourceReceipts.id })
+      .from(financialImportSourceReceipts)
+      .where(
+        and(
+          eq(financialImportSourceReceipts.operationId, operationId),
+          eq(financialImportSourceReceipts.kind, 'membership'),
+        ),
+      )
+      .limit(1)
+      .for('share');
+    if (member) throw importFinancialError('ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID');
+  }
+  assertCsvMembershipPublication(proof.membership ?? null, proof.publication);
+  return proof;
+}
+export async function assertImportCompletionOwnership(
+  tx: AdministrationTransaction,
+  proof: ImportCompletedProof,
+) {
   // Later legitimate payment/status/refund/contact/stock changes cannot erase
   // the original sealed import. Immutable order/line ownership remains required.
   const [order] = await tx
     .select({ id: Order.id, customerId: Order.user })
     .from(Order)
-    .where(eq(Order.id, BigInt(row.orderId)))
+    .where(eq(Order.id, BigInt(proof.order.orderId)))
     .limit(1)
     .for('share');
   const mappings = await tx
     .select({ storeId: OrderStore.store, counterId: OrderStore.counter })
     .from(OrderStore)
-    .where(eq(OrderStore.order, BigInt(row.orderId)))
+    .where(eq(OrderStore.order, BigInt(proof.order.orderId)))
     .limit(2)
     .for('share');
   const lines = await tx
@@ -179,7 +232,7 @@ export async function verifiedImportCompletion(
       subProductId: HasProduct.sub_prod_id,
     })
     .from(HasProduct)
-    .where(eq(HasProduct.order, BigInt(row.orderId)))
+    .where(eq(HasProduct.order, BigInt(proof.order.orderId)))
     .orderBy(asc(HasProduct.id))
     .limit(1001)
     .for('share');
@@ -203,6 +256,66 @@ export async function verifiedImportCompletion(
   )
     throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
   return proof;
+}
+/** Immutable recovery is permitted by a verified financial seal, never a
+ * completed/unknown flag. Caller already holds Store + original operation. */
+export async function recoverImportCompletion(
+  tx: AdministrationTransaction,
+  context: { state: ImportFinancialState; plan: { kind: 'offline' | 'shopify' } },
+  secret: string,
+) {
+  const proof = await readAuthenticatedImportCompletion(
+    tx,
+    context.state.scope.operationId,
+    secret,
+  );
+  if (!proof) return null;
+  const { state } = context;
+  const binding = (value: {
+    scope: ImportCompletedProof['scope'];
+    planHash: string;
+    requestHash: string;
+    authority: ImportCompletedProof['authority'];
+    kind: 'offline' | 'shopify';
+    correction?: ImportCompletedProof['correction'];
+  }) => ({
+    scope: value.scope,
+    planHash: value.planHash,
+    requestHash: value.requestHash,
+    authority: value.authority,
+    kind: value.kind,
+    ...(value.correction ? { correction: value.correction } : {}),
+  });
+  if (
+    state.status === 'rejected' ||
+    !equalImportHash(
+      financialImportHash(secret, 'completion-context', binding(proof)),
+      financialImportHash(
+        secret,
+        'completion-context',
+        binding({ ...state, kind: context.plan.kind }),
+      ),
+    )
+  )
+    throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
+  const [customer] = await tx
+    .select({ id: MUser.id })
+    .from(MUser)
+    .where(eq(MUser.id, BigInt(proof.authority.customerId)))
+    .limit(1)
+    .for('update');
+  if (!customer) throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
+  return assertImportCompletionOwnership(tx, proof);
+}
+/** Generic already-locked financial mutations retain their established lock
+ * order. Mutable membership state/keys are not part of this immutable guard. */
+export async function verifiedImportCompletion(
+  tx: AdministrationTransaction,
+  operationId: string,
+  secret: string,
+): Promise<ImportCompletedProof | null> {
+  const proof = await readAuthenticatedImportCompletion(tx, operationId, secret);
+  return proof ? assertImportCompletionOwnership(tx, proof) : null;
 }
 /** Generic writers never receive an allowed-operation bypass. Only immutable
  * native completion releases the hold; the private owner uses its own journal. */

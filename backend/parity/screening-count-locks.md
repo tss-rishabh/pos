@@ -4,7 +4,7 @@ Screening remains unselected. This change replaces joined/range locking counts w
 
 ## Node transaction contract
 
-`financialAdapterProfiles.currentScreeningReads` selects the internal `financialTransaction` runner. The runner configures READ COMMITTED before BEGIN, installs an opaque live transaction witness, propagates it into owned savepoints and clears it on exit. Selected work has **no deadlock/timeout retry**. Ordinary unselected financial work retains its existing transaction/retry behavior.
+`financialAdapterProfiles.requiresCurrentReads` aggregates trusted profile requirements and selects the internal `financialTransaction` runner. The mandatory membership-descriptor guard now requires this current runner even when member admission is unselected. The runner configures READ COMMITTED before BEGIN, installs an opaque live transaction witness, propagates it into owned savepoints and clears it on exit. Selected work has **no deadlock/timeout retry**. The lower-level unselected runner retains its prior behavior for callers that do not install these financial profiles.
 
 `lockScreeningCustomer` performs the native users-row FOR UPDATE and records that exact customer in the live witness. Counter and structural helpers require both the witness and the lock; no caller-supplied boolean can mark an existing transaction safe. A raw or already primed RR transaction fails with `ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED`. It is never silently changed after BEGIN, and its old snapshot is never used as a bought-count.
 

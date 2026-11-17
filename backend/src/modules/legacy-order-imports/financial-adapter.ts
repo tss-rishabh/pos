@@ -35,7 +35,11 @@ import {
   importFinancialError,
 } from './financial-adapter-crypto.js';
 import { legacyImportFinancialJournal } from './financial-adapter-journal.js';
-import { readSourceOrderReceipt, verifiedImportCompletion } from './financial-adapter-proof.js';
+import {
+  readSourceOrderReceipt,
+  verifiedImportCompletion,
+  recoverImportCompletion,
+} from './financial-adapter-proof.js';
 import { assertNativeImportOrder, settleNativeImport } from './financial-adapter-writer.js';
 import type { LegacyImportFinancialOptions } from './financial-adapter-options.js';
 import {
@@ -48,6 +52,7 @@ import {
   type FinancialImportProfileContext,
 } from './financial-adapter-profiles.js';
 import { verifiedNativeAdmissionRejection } from './financial-adapter-admission.js';
+import { assertCsvMembershipPublication } from './membership-profile/completion.js';
 
 /** Every remote stage is checkpointed once. GET never starts an unstarted stage. */
 export function legacyOrderImportFinancialAdapter(
@@ -206,16 +211,29 @@ export function legacyOrderImportFinancialAdapter(
     loaded: FinancialImportProfileContext,
   ): Promise<ImportFinancialResult | null> {
     const { state } = loaded;
-    // Acquire profile customer/reservation authority before any native Order
-    // read/lock, including structural checks in an immutable receipt replay.
-    await profiles.lock(tx, loaded);
-    const existing = await verifiedImportCompletion(tx, state.scope.operationId, options.secret);
+    // A valid completed seal is discovered before current profile gates, even
+    // if a lost commit acknowledgment left the journal marked unknown.
+    const existing = await recoverImportCompletion(tx, loaded, options.secret);
     if (existing) {
-      await profiles.completed(tx, loaded, existing);
+      if (
+        state.status !== 'completed' ||
+        state.stage !== 'publication' ||
+        state.orderId !== existing.order.orderId
+      )
+        await journal.save(tx, {
+          ...state,
+          status: 'completed',
+          stage: 'publication',
+          orderId: existing.order.orderId,
+          errorCode: null,
+          updatedAt: now(),
+        });
       return completed(existing);
     }
     if (state.status === 'completed') throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
     if (state.status === 'rejected') return null;
+    // New completion still requires every current profile gate before Order.
+    await profiles.lock(tx, loaded);
     const order = await readSourceOrderReceipt(
       tx,
       state.scope.operationId,
@@ -297,6 +315,8 @@ export function legacyOrderImportFinancialAdapter(
       binding.status !== 'held'
     )
       throw importFinancialError('ORDER_IMPORT_ORDER_HELD');
+    const membership = await profiles.completionSnapshot(tx, loaded, order);
+    assertCsvMembershipPublication(membership, published);
     const proof = importCompletedProofSchema.parse({
       contract: financialImportContract,
       receiptId: crypto.randomUUID(),
@@ -309,6 +329,7 @@ export function legacyOrderImportFinancialAdapter(
       order,
       settlement,
       publication: published,
+      ...(membership ? { membership } : {}),
       ...(state.correction ? { correction: state.correction } : {}),
       finalizedAt: now(),
     });
@@ -420,9 +441,11 @@ export function legacyOrderImportFinancialAdapter(
       return result.ready ? { ready: true } : result;
     },
     async start(input) {
-      transport.assertReady();
-      await journal.transaction((tx) => assertCashOrderSchema(tx, options.orderSchemaContract));
-      const reserved = await journal.reserve(input),
+      const reserved = await journal.reserve(input, async (tx) => {
+          // assertReady is configuration-only; no transport runs under SQL.
+          transport.assertReady();
+          await assertCashOrderSchema(tx, options.orderSchemaContract);
+        }),
         scope = reserved.state.scope;
       if (reserved.admission)
         return observe(

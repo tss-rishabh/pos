@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import type { ImportCompletedProof } from '../financial-adapter-contracts.js';
+import type {
+  ImportCompletedProof,
+  ImportPublicationReceipt,
+} from '../financial-adapter-contracts.js';
 import { csvMembershipError, csvMembershipReceiptSchema } from './domain.js';
 
 export const csvMembershipSnapshotMaximumBytes = 262144;
@@ -20,6 +23,16 @@ export type CsvMembershipCompletionScope = Pick<
   ImportCompletedProof,
   'scope' | 'planHash' | 'requestHash' | 'authority' | 'kind' | 'order'
 >;
+/** The private source emits one durable intent for any positive invalidation
+ * count. Broker acceptance is distinct from the Redis task's later outcome. */
+export function assertCsvMembershipPublication(
+  snapshot: CsvMembershipCompletionSnapshot | null,
+  publication: ImportPublicationReceipt,
+) {
+  const jobs = publication.jobs.filter((job) => job.kind === 'membership-cache');
+  if (jobs.length !== (snapshot && snapshot.receipt.cacheInvalidations > 0 ? 1 : 0))
+    throw csvMembershipError();
+}
 
 /** Structural read validation AFTER authenticating the enclosing financial seal.
  * It is deliberately independent of present product settings, source/member keys,

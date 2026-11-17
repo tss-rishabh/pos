@@ -45,6 +45,7 @@ import {
   verifiedNativeAdmissionRejection,
 } from './financial-adapter-admission.js';
 import { financialTransaction, financialSavepoint } from './screening-transactions.js';
+import { recoverImportCompletion } from './financial-adapter-proof.js';
 
 /** Retained receipt reads lock scope without requiring the original actor to
  * remain active; current caller authorization stays at its existing boundary. */
@@ -82,7 +83,7 @@ export function legacyImportFinancialJournal(
   const now = options.clock ?? Date.now,
     approvals = legacyOrderImportFinancialApprovals(config, db, options);
   const transaction = <T>(work: (tx: AdministrationTransaction) => Promise<T>) =>
-    financialTransaction(db, profiles.currentScreeningReads, work);
+    financialTransaction(db, profiles.requiresCurrentReads, work);
   async function load(tx: AdministrationTransaction, scope: ImportFinancialScope) {
     const boundScope = financialImportScopeSchema.parse({
       actorId: scope.actorId,
@@ -107,7 +108,10 @@ export function legacyImportFinancialJournal(
     transaction<T>(work: (tx: AdministrationTransaction) => Promise<T>) {
       return transaction(work);
     },
-    async reserve(input: ImportFinancialStart) {
+    async reserve(
+      input: ImportFinancialStart,
+      beforeCreate?: (tx: AdministrationTransaction) => Promise<void>,
+    ) {
       const { plan: raw, planHash, correction } = input;
       const scope = financialImportScopeSchema.parse({
         actorId: input.actorId,
@@ -134,9 +138,13 @@ export function legacyImportFinancialJournal(
             existing.state,
             options.secret,
           );
-          if (!admission) await profiles.lock(tx, existing);
+          if (!admission && !(await recoverImportCompletion(tx, existing, options.secret)))
+            await profiles.lock(tx, existing);
           return { ...existing, created: false, admission };
         }
+        // Pure transport readiness + bounded native schema checks happen only
+        // for new work; exact completed replays need no current source flags.
+        await beforeCreate?.(tx);
         profiles.assertReady(plan);
         const access = await approvals.authorizeStart(tx, input);
         if (!access.ready) throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
@@ -315,6 +323,20 @@ export function legacyImportFinancialJournal(
       return transaction(async (tx) => {
         const value = await load(tx, scope);
         if (!value) return;
+        const completed = await recoverImportCompletion(tx, value, options.secret);
+        if (completed) {
+          await save(tx, {
+            ...value.state,
+            status: 'completed',
+            stage: 'publication',
+            orderId: completed.order.orderId,
+            errorCode: null,
+            updatedAt: now(),
+          });
+          return;
+        }
+        if (value.state.status === 'completed')
+          throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
         await save(tx, { ...value.state, status: 'unknown', updatedAt: now() });
       });
     },

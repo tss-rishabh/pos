@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { and, eq, sql } from 'drizzle-orm';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { splitMigration } from '../../src/db/migrations.js';
 import { operationHash } from '../../src/modules/checkout/crypto.js';
@@ -10,7 +10,11 @@ import {
   cancellationMembershipProvenance,
   cancellationMembershipVersions,
 } from '../../src/modules/checkout/cancellations/benefit-schema.js';
-import { financialImportSourceReceipts } from '../../src/modules/legacy-order-imports/financial-adapter-schema.js';
+import {
+  financialImportSourceReceipts,
+  financialImportOrderBindings,
+  financialImportProofs,
+} from '../../src/modules/legacy-order-imports/financial-adapter-schema.js';
 import { legacyImportFinancialJournal } from '../../src/modules/legacy-order-imports/financial-adapter-journal.js';
 import { nativeImportOrder } from '../../src/modules/legacy-order-imports/financial-adapter-proof.js';
 import { sourceOrderReceiptSchema } from '../../src/modules/legacy-order-imports/financial-adapter-contracts.js';
@@ -23,8 +27,19 @@ import {
   membershipProvenanceHash,
   type CsvMembershipProvenance,
 } from '../../src/modules/legacy-order-imports/membership-profile/domain.js';
-import { importFinancialFixture } from '../legacy-import-financial/fixture.js';
+import { importFinancialFixture, sourceKey } from '../legacy-import-financial/fixture.js';
 import { adapterOptions, memberEvidence } from './adapter-fixtures.js';
+import type { FinancialSourceCommand } from '../../src/modules/legacy-order-imports/financial-adapter-transport.js';
+import type { CsvMembershipOptions } from '../../src/modules/legacy-order-imports/membership-profile/native.js';
+import {
+  financialSourceHash,
+  financialImportHash,
+} from '../../src/modules/legacy-order-imports/financial-adapter-crypto.js';
+import { legacyOrderImportFinancialAdapter } from '../../src/modules/legacy-order-imports/financial-adapter.js';
+import { financialAdapterProfiles } from '../../src/modules/legacy-order-imports/financial-adapter-profiles.js';
+import { verifiedImportCompletion } from '../../src/modules/legacy-order-imports/financial-adapter-proof.js';
+import type { AdministrationTransaction } from '../../src/modules/administration/checkins.js';
+import { configuredFinancialImportProfiles } from '../../src/modules/legacy-order-imports/membership-profile/options.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 describe.skipIf(!template)('server-installed membership adapter on isolated native writer', () => {
@@ -65,10 +80,15 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       FROM user_eav WHERE entity='private-import@example.test' ORDER BY attribute`);
     return z.array(csvMemberStateSchema).parse(rows);
   }
-  async function prepare(kind: 'offline' | 'shopify' = 'offline', free = false) {
+  async function prepare(
+    kind: 'offline' | 'shopify' = 'offline',
+    free = false,
+    command?: FinancialSourceCommand,
+    profileOptions: CsvMembershipOptions = adapterOptions,
+  ) {
     const evidence = memberEvidence(kind, free),
       j = legacyImportFinancialJournal(f.config, f.db, f.options),
-      reserved = await j.reserve(f.input(evidence.plan));
+      reserved = command ?? (await j.reserve(f.input(evidence.plan)));
     evidence.state = { ...reserved.state, orderId: '5001', stage: 'confirmation' };
     evidence.plan = reserved.plan;
     await f.fixture.insert('orders', {
@@ -100,7 +120,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       store_id: '1',
       counter_id: '2',
     });
-    for (const line of evidence.order.lines)
+    for (const line of evidence.order.lines) {
       await f.fixture.insert('has_products', {
         id: line.id,
         order_id: '5001',
@@ -114,6 +134,14 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
         created_at: evidence.plan.createdAt,
         updated_at: evidence.plan.createdAt,
       });
+      await f.fixture.insert('amount_to_be_refunded_log', {
+        order_id: '5001',
+        prod_id: line.productId,
+        has_product_id: line.id,
+        amount_to_be_refunded:
+          free && line.productId === '12' ? 0 : Number(evidence.plan.originalTenderAmount),
+      });
+    }
     const native = await f.db.get('writer').transaction((tx) => nativeImportOrder(tx, '5001'));
     evidence.order = sourceOrderReceiptSchema.parse({
       ...evidence.order,
@@ -139,7 +167,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
         .execute(sql`SELECT ${sql.raw(checkoutHeaderHashSql)} AS hash FROM orders WHERE id=5001`),
       headerHash = z.array(z.object({ hash: z.string() })).parse(header)[0]!.hash,
       member = evidence.order.lines.find((line) =>
-        adapterOptions.productIds.includes(line.productId),
+        profileOptions.productIds.includes(line.productId),
       )!;
     const receipt = evidence.snapshot.receipt;
     Object.assign(receipt, {
@@ -150,7 +178,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       authorityHash: operationHash(
         'legacy-order-imports.source.membership-authority.v1',
         evidence.state.authority,
-        adapterOptions.sourceProofKey,
+        profileOptions.sourceProofKey,
       ),
       headerHash: evidence.order.headerHash,
       lineHash: evidence.order.lineHash,
@@ -164,11 +192,11 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
     });
     receipt.provenance.proofHash = membershipProvenanceHash(
       receipt.provenance,
-      adapterOptions.membershipProofKey,
+      profileOptions.membershipProofKey,
     );
     evidence.snapshot.sourceReceiptHash = csvMembershipReceiptHash(
       receipt,
-      adapterOptions.sourceProofKey,
+      profileOptions.sourceProofKey,
     );
     await f.db
       .get('writer')
@@ -216,6 +244,127 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
         proofHash: provenance.proofHash,
       })
       .where(eq(cancellationMembershipProvenance.orderId, 5001n));
+  }
+  async function core(kind: 'offline' | 'shopify' = 'shopify', free = false, qualified = true) {
+    for (const [index, product] of ['10', '11', '12'].entries()) {
+      await f.fixture.insert('products', {
+        id: product,
+        prod_type: 1,
+        parent_prod_id: 0,
+        price: 100,
+      });
+      await f.fixture.insert('product_stocks', {
+        prod_id: product,
+        parent_prod_id: 0,
+        stock: 100,
+        stocked: 0,
+      });
+      await f.fixture.insert('product_store', {
+        id: 101 + index,
+        product_id: product,
+        store_id: 1,
+        stock: 100,
+        is_avail: 1,
+        is_del: 0,
+      });
+    }
+    const membership = { ...adapterOptions, sourceProofKey: sourceKey },
+      profile = financialAdapterProfiles(qualified ? { membership } : {}),
+      options = { ...f.options },
+      input = f.input(memberEvidence(kind, free).plan),
+      transport = f.transport();
+    let evidence: Awaited<ReturnType<typeof prepare>> | null = null,
+      cacheJobs = 1,
+      ready = true;
+    transport.assertReady = vi.fn(() => {
+      if (!ready) throw new Error('isolated disabled source');
+    });
+    transport.order = vi.fn(async (command) => {
+      evidence = await prepare(kind, free, command, membership);
+      await f.db
+        .get('writer')
+        .insert(financialImportSourceReceipts)
+        .values({
+          id: command.state.scope.operationId + ':order',
+          operationId: command.state.scope.operationId,
+          kind: 'order',
+          requestHash: command.state.requestHash,
+          status: 'completed',
+          proof: evidence.order,
+          proofHash: financialSourceHash(sourceKey, 'order', evidence.order),
+          createdAt: command.issuedAt,
+        });
+      await f.db
+        .get('writer')
+        .insert(financialImportOrderBindings)
+        .values({
+          orderId: evidence.order.orderId,
+          operationId: command.state.scope.operationId,
+          requestHash: command.state.requestHash,
+          proofHash: financialSourceHash(sourceKey, 'order', evidence.order),
+          status: 'held',
+        });
+    });
+    const originalConfirm = transport.confirm;
+    transport.confirm = vi.fn(async (...args: Parameters<typeof originalConfirm>) => {
+      await originalConfirm(...args);
+      if (!evidence) throw new Error('isolated member source missing');
+      await activate(evidence);
+      await f.connection.query(
+        'UPDATE product_store SET stock=99 WHERE product_id=? AND store_id=1',
+        [free ? '11' : '10'],
+      );
+    });
+    transport.publication = vi.fn(async (command, order) => {
+      const proof = {
+        contract: 'pos-legacy-order-import-publication-v1',
+        operationId: command.state.scope.operationId,
+        orderId: order.orderId,
+        requestHash: command.state.requestHash,
+        sourceHash: order.effectsHash,
+        acceptedAt: command.issuedAt,
+        delivery: 'durable-queue-accepted',
+        jobs: [
+          { id: 'source-job-1', kind: 'kinesis-chain' },
+          { id: 'source-job-2', kind: 'engagement' },
+          ...Array.from({ length: cacheJobs }, (_, index) => ({
+            id: 'source-member-job-' + index,
+            kind: 'membership-cache',
+          })),
+        ],
+      };
+      await f.db
+        .get('writer')
+        .insert(financialImportSourceReceipts)
+        .values({
+          id: command.state.scope.operationId + ':publication',
+          operationId: command.state.scope.operationId,
+          kind: 'publication',
+          requestHash: command.state.requestHash,
+          status: 'completed',
+          proof,
+          proofHash: financialSourceHash(sourceKey, 'publication', proof),
+          createdAt: command.issuedAt,
+        });
+    });
+    return {
+      options,
+      input,
+      transport,
+      profile,
+      adapter: legacyOrderImportFinancialAdapter(f.config, f.db, options, transport, profile),
+      evidence: () => {
+        if (!evidence) throw new Error('isolated member source missing');
+        return evidence;
+      },
+      cacheJobs: (value: number) => {
+        cacheJobs = value;
+      },
+      disable: () => {
+        ready = false;
+        options.sourceProofKey = '';
+      },
+    };
   }
   function execute(
     evidence: Awaited<ReturnType<typeof prepare>>,
@@ -507,5 +656,264 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       expect(await profile.expectedQuantities!(tx, e, e.order, 'staged')).toBeNull();
       expect(await profile.completionSnapshot(tx, e, e.order)).toBeNull();
     });
+  });
+  it.each([
+    ['offline', false],
+    ['shopify', false],
+    ['shopify', true],
+  ] as const)(
+    'seals full native membership in actual %s financial completion (free=%s)',
+    async (kind, free) => {
+      const c = await core(kind, free),
+        plan = structuredClone(c.input.plan);
+      const result = await c.adapter.start(c.input);
+      expect(result.status).toBe('completed');
+      expect(c.input.plan).toEqual(plan);
+      const proof = await f.db
+        .get('writer')
+        .transaction((tx) => verifiedImportCompletion(tx, c.input.operationId, c.options.secret));
+      expect(proof?.membership).toEqual(c.evidence().snapshot);
+      expect(proof?.publication.jobs.filter((job) => job.kind === 'membership-cache')).toHaveLength(
+        1,
+      );
+      expect(await c.adapter.start(c.input)).toEqual(result);
+      expect(c.transport.order).toHaveBeenCalledTimes(1);
+      expect(c.transport.publication).toHaveBeenCalledTimes(1);
+      expect(c.transport.confirm).toHaveBeenCalledTimes(kind === 'offline' ? 1 : 0);
+      if (free) {
+        const [stock] = await f.connection.query(
+          'SELECT CAST(product_id AS CHAR) AS product,stock FROM product_store WHERE product_id IN (11,12) ORDER BY product_id',
+        );
+        expect(stock).toEqual([
+          { product: '11', stock: 99 },
+          { product: '12', stock: 100 },
+        ]);
+      }
+    },
+    15000,
+  );
+  it('default composition refuses a planned member descriptor even when its HP quantity matches the original plan', async () => {
+    const c = await core('shopify', false, false);
+    await expect(c.adapter.start(c.input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID',
+    });
+    expect(c.transport.order).toHaveBeenCalledTimes(1);
+    expect(c.transport.confirm).not.toHaveBeenCalled();
+    expect(c.transport.publication).not.toHaveBeenCalled();
+    expect(await f.db.get('writer').select().from(financialImportProofs)).toEqual([]);
+    await expect(c.adapter.start(c.input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID',
+    });
+    expect(c.transport.order).toHaveBeenCalledTimes(1);
+  });
+  it('retains completed proof after an actual final commit succeeds but its acknowledgment is lost', async () => {
+    const c = await core('shopify', true),
+      writer = f.db.get('writer'),
+      native = writer.transaction.bind(writer);
+    let lost = false;
+    const intercept = async <T>(
+      work: (tx: AdministrationTransaction) => Promise<T>,
+      options?: Parameters<typeof writer.transaction>[1],
+    ): Promise<T> => {
+      const result = await native(work, options);
+      const [rows] = await f.connection.query(
+        'SELECT COUNT(*) AS n FROM pos_rewrite_import_financial_proofs',
+      );
+      const count = BigInt(
+        z.array(z.object({ n: z.union([z.string(), z.number()]) })).parse(rows)[0]!.n,
+      );
+      if (!lost && count > 0n) {
+        lost = true;
+        // Native commit is already visible. No new signature/current entitlement
+        // can be required to recover that original completed financial receipt.
+        c.disable();
+        await f.connection.query(
+          "UPDATE users SET email='changed@example.test',is_block=1 WHERE id=77",
+        );
+        await f.connection.query("UPDATE user_eav SET value='changed',is_active=0");
+        await f.connection.query(
+          "UPDATE pos_rewrite_import_financial_source_receipts SET proof='{}',proof_hash=REPEAT('0',64) WHERE kind='membership'",
+        );
+        throw new Error('isolated lost final commit acknowledgment');
+      }
+      return result;
+    };
+    const spy = vi.spyOn(writer, 'transaction').mockImplementation(intercept);
+    // Databases.get creates a new Drizzle facade. Pin only this adapter's
+    // writer facade so the post-native-COMMIT failure reaches the real journal.
+    const tracked = {
+        ...f.db,
+        get: (name: Parameters<typeof f.db.get>[0]) =>
+          name === 'writer' ? writer : f.db.get(name),
+      },
+      adapter = legacyOrderImportFinancialAdapter(
+        f.config,
+        tracked,
+        c.options,
+        c.transport,
+        c.profile,
+      );
+    try {
+      const result = await adapter.start(c.input);
+      expect(lost).toBe(true);
+      expect(result.status).toBe('completed');
+      expect(await adapter.start(c.input)).toEqual(result);
+      const reader = legacyOrderImportFinancialAdapter(
+        f.config,
+        tracked,
+        { ...c.options, sourceProofKey: '' },
+        c.transport,
+        configuredFinancialImportProfiles(
+          { sourceProofKey: '' },
+          {
+            POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT: adapterOptions.contract,
+            POS_MEMBERSHIP_FRESH_READER_CONTRACT: adapterOptions.freshReaderContract,
+            POS_MEMBERSHIP_NATIVE_REVISION_CONTRACT: 'pos-membership-native-revision-v1',
+            POS_MEMBERSHIP_PROOF_KEY: adapterOptions.membershipProofKey,
+            POS_MEMBERSHIP_PRODUCT_IDS: JSON.stringify(adapterOptions.productIds),
+            EXCLUSIVE_QUARTERLY_ID_FREE: adapterOptions.freeProductId,
+          },
+        ),
+      );
+      // Simulate a journal written by the previous unconditional uncertain path.
+      await f.connection.query(
+        "UPDATE pos_rewrite_import_financial_operations SET state=JSON_SET(state,'$.status','unknown')",
+      );
+      expect(await reader.read(c.input)).toEqual(result);
+      const [status] = await f.connection.query(
+        "SELECT JSON_UNQUOTE(JSON_EXTRACT(state,'$.status')) AS status FROM pos_rewrite_import_financial_operations",
+      );
+      expect(status).toEqual([{ status: 'completed' }]);
+      expect(c.transport.order).toHaveBeenCalledTimes(1);
+      expect(c.transport.publication).toHaveBeenCalledTimes(1);
+      expect(c.transport.confirm).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  }, 15000);
+  it.each([0, 2])(
+    'does not seal membership when source cache queue acknowledgment count is %s',
+    async (count) => {
+      const c = await core('shopify');
+      c.cacheJobs(count);
+      await expect(c.adapter.start(c.input)).rejects.toMatchObject({
+        code: 'ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID',
+      });
+      expect(await f.db.get('writer').select().from(financialImportProofs)).toEqual([]);
+      expect(c.transport.order).toHaveBeenCalledTimes(1);
+      expect(c.transport.publication).toHaveBeenCalledTimes(1);
+    },
+  );
+  it('keeps unfinished imports behind current gates even if the journal flag is altered', async () => {
+    const c = await core(),
+      j = legacyImportFinancialJournal(f.config, f.db, c.options, c.profile);
+    await j.reserve(c.input);
+    await c.transport.order(await j.dispatch(c.input, 'order'));
+    const reader = legacyOrderImportFinancialAdapter(
+      f.config,
+      f.db,
+      { ...c.options, sourceProofKey: '' },
+      c.transport,
+    );
+    await f.connection.query(
+      "UPDATE pos_rewrite_import_financial_operations SET state=JSON_SET(state,'$.status','unknown')",
+    );
+    await expect(reader.read(c.input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID',
+    });
+    await f.connection.query(
+      "UPDATE pos_rewrite_import_financial_operations SET state=JSON_SET(state,'$.status','completed')",
+    );
+    await expect(reader.read(c.input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_RECEIPT_INVALID',
+    });
+    expect(c.transport.order).toHaveBeenCalledTimes(1);
+    expect(c.transport.confirm).not.toHaveBeenCalled();
+    expect(c.transport.publication).not.toHaveBeenCalled();
+    expect(await f.db.get('writer').select().from(financialImportProofs)).toEqual([]);
+  });
+  it('authenticates frozen membership before structural validation and rejects unqualified legacy omission', async () => {
+    const c = await core();
+    expect((await c.adapter.start(c.input)).status).toBe('completed');
+    const [stored] = await f.db.get('writer').select().from(financialImportProofs);
+    if (!stored?.data.membership) throw new Error('isolated membership snapshot missing');
+    const changed = structuredClone(stored.data);
+    changed.membership!.receipt.customerId = '88';
+    await f.db.get('writer').update(financialImportProofs).set({ data: changed });
+    await expect(c.adapter.read(c.input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_RECEIPT_INVALID',
+    });
+    await f.db
+      .get('writer')
+      .update(financialImportProofs)
+      .set({ proofHash: financialImportHash(c.options.secret, 'completed', changed) });
+    await expect(c.adapter.read(c.input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID',
+    });
+    const { membership: _member, ...legacy } = stored.data;
+    await f.db
+      .get('writer')
+      .update(financialImportProofs)
+      .set({ data: legacy, proofHash: financialImportHash(c.options.secret, 'completed', legacy) });
+    await expect(c.adapter.read(c.input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID',
+    });
+    expect(c.transport.order).toHaveBeenCalledTimes(1);
+  });
+  it('does not filter away an oversized stored completion as though no financial proof exists', async () => {
+    const c = await core();
+    expect((await c.adapter.start(c.input)).status).toBe('completed');
+    await f.connection.query('UPDATE pos_rewrite_import_financial_proofs SET data=?', [
+      JSON.stringify({ invalid: 'x'.repeat(1000001) }),
+    ]);
+    await expect(c.adapter.read(c.input)).rejects.toMatchObject({
+      code: 'ORDER_IMPORT_RECEIPT_INVALID',
+    });
+    expect(c.transport.order).toHaveBeenCalledTimes(1);
+    expect(c.transport.publication).toHaveBeenCalledTimes(1);
+  });
+  it('takes the customer before Order during immutable unknown-state recovery with contracts disabled', async () => {
+    const c = await core(),
+      result = await c.adapter.start(c.input);
+    expect(result.status).toBe('completed');
+    c.disable();
+    await f.connection.query(
+      "UPDATE pos_rewrite_import_financial_operations SET state=JSON_SET(state,'$.status','unknown')",
+    );
+    const reader = legacyOrderImportFinancialAdapter(f.config, f.db, c.options, c.transport);
+    await f.connection.beginTransaction();
+    await f.connection.query('SELECT id FROM users WHERE id=77 FOR UPDATE');
+    const work = reader.read(c.input);
+    void work.catch(() => undefined);
+    try {
+      let waiting = false;
+      for (let attempt = 0; attempt < 100 && !waiting; attempt++) {
+        const [rows] = await f.connection.query(
+          "SELECT COUNT(*) AS n FROM performance_schema.data_lock_waits w JOIN performance_schema.data_locks l ON l.ENGINE_LOCK_ID=w.REQUESTING_ENGINE_LOCK_ID WHERE l.OBJECT_SCHEMA=? AND l.OBJECT_NAME='users'",
+          [new URL(f.config.MYSQL_WRITER_URL!).pathname.slice(1)],
+        );
+        waiting =
+          BigInt(z.array(z.object({ n: z.union([z.string(), z.number()]) })).parse(rows)[0]!.n) >
+          0n;
+        if (!waiting) await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(waiting).toBe(true);
+      await expect(
+        f.connection.query('SELECT id FROM orders WHERE id=5001 FOR UPDATE NOWAIT'),
+      ).resolves.toBeDefined();
+    } finally {
+      await f.connection.rollback();
+      expect(await work).toEqual(result);
+    }
+  }, 10000);
+  it('refuses new unconfigured dispatch before inserting an operation', async () => {
+    const c = await core();
+    c.disable();
+    await expect(c.adapter.start(c.input)).rejects.toThrow('isolated disabled source');
+    const [rows] = await f.connection.query(
+      'SELECT (SELECT COUNT(*) FROM pos_rewrite_import_financial_operations) AS operations,(SELECT COUNT(*) FROM orders) AS orders_count',
+    );
+    expect(rows).toEqual([{ operations: '0', orders_count: '0' }]);
+    expect(c.transport.order).not.toHaveBeenCalled();
   });
 });

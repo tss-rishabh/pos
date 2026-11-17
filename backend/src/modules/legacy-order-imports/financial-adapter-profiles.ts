@@ -14,6 +14,12 @@ import type { screeningImportProfile } from './screening-profile.js';
 import { screeningTicketSku } from './screening-contracts.js';
 import { importFinancialError } from './financial-adapter-crypto.js';
 import { identifier } from '../../domain/validation.js';
+import { csvMembershipImportProfile } from './membership-profile/adapter.js';
+import type { CsvMembershipOptions } from './membership-profile/native.js';
+import {
+  csvMembershipCompletionSnapshotSchema,
+  type CsvMembershipCompletionSnapshot,
+} from './membership-profile/completion.js';
 
 export interface FinancialImportProfileContext {
   readonly state: ImportFinancialState;
@@ -26,6 +32,7 @@ export type FinancialProfilePhase = 'staged' | 'settled';
 
 /** Server-installed profile hooks. No request body can install these callbacks. */
 export interface FinancialImportProfileHooks {
+  readonly requiresCurrentReads?: boolean;
   assertReady?(plan: LegacyOrderImportPlan): void;
   reserved?(transaction: Transaction, context: Context): Promise<void>;
   lock?(transaction: Transaction, context: Context): Promise<void>;
@@ -47,12 +54,19 @@ export interface FinancialImportProfileHooks {
     order: SourceOrderReceipt,
     phase: FinancialProfilePhase,
   ): Promise<ReadonlyMap<string, number> | null>;
+  completionSnapshot?(
+    transaction: Transaction,
+    context: Context,
+    order: SourceOrderReceipt,
+  ): Promise<CsvMembershipCompletionSnapshot | null>;
 }
 export interface FinancialImportProfiles extends Required<FinancialImportProfileHooks> {
-  readonly currentScreeningReads: boolean;
+  readonly requiresCurrentReads: boolean;
   needsReservation(plan: LegacyOrderImportPlan): boolean;
 }
 export interface FinancialAdapterProfileOptions {
+  /** Trusted options only; a default unselected descriptor guard is mandatory. */
+  readonly membership?: CsvMembershipOptions;
   readonly screening?: {
     readonly profile: ReturnType<typeof screeningImportProfile>;
     /** Trusted source deployment setting; never accepted from an import request. */
@@ -70,7 +84,19 @@ export function financialAdapterProfiles(
 ): FinancialImportProfiles {
   const screening = options.screening,
     lineItemsEnabled = screening?.lineItemsEnabled,
-    extensions = [...(options.extensions ?? [])];
+    extensions = [
+      csvMembershipImportProfile(
+        options.membership ?? {
+          contract: '',
+          sourceProofKey: '',
+          membershipProofKey: '',
+          freshReaderContract: '',
+          productIds: [],
+          freeProductId: '',
+        },
+      ),
+      ...(options.extensions ?? []),
+    ];
   function requireScreening(plan: LegacyOrderImportPlan) {
     if (!usesScreening(plan)) return null;
     if (!screening?.profile.qualified || typeof lineItemsEnabled !== 'boolean')
@@ -79,7 +105,9 @@ export function financialAdapterProfiles(
     return screening.profile;
   }
   return {
-    currentScreeningReads: screening?.profile.qualified === true,
+    requiresCurrentReads:
+      screening?.profile.qualified === true ||
+      extensions.some((extension) => extension.requiresCurrentReads === true),
     needsReservation(plan) {
       return (
         usesScreening(plan) || extensions.some((extension) => extension.reserved !== undefined)
@@ -170,6 +198,18 @@ export function financialAdapterProfiles(
         )
           throw importFinancialError('ORDER_IMPORT_PROFILE_QUANTITIES_CONFLICT');
         result = candidate;
+      }
+      return result;
+    },
+    async completionSnapshot(tx, context, order) {
+      let result: CsvMembershipCompletionSnapshot | null = null;
+      for (const extension of extensions) {
+        const value = await extension.completionSnapshot?.(tx, context, order);
+        if (value == null) continue;
+        const parsed = csvMembershipCompletionSnapshotSchema.safeParse(value);
+        if (!parsed.success || (result && JSON.stringify(result) !== JSON.stringify(parsed.data)))
+          throw importFinancialError('ORDER_IMPORT_MEMBERSHIP_PROOF_INVALID');
+        result = parsed.data;
       }
       return result;
     },
