@@ -50,7 +50,7 @@ func rewrite(b *ast.BlockStmt,method string){if b==nil{return};var out []ast.Stm
 			// Remove only the mirror declaration/write, never an enclosing
 			// conditional containing the real money restoration as well.
 			if _,ok:=n.(*ast.AssignStmt);ok&&strings.HasPrefix(text,"rh := RewardPointHistory"){continue}
-			if e,ok:=n.(*ast.ExprStmt);ok{if call,ok:=e.X.(*ast.CallExpr);ok&&render(call.Fun)=="Db.Create"&&len(call.Args)==1&&render(call.Args[0])=="&rh"{continue}}
+			if e,ok:=n.(*ast.ExprStmt);ok{if call,ok:=e.X.(*ast.CallExpr);ok&&len(call.Args)==1{if method,ok:=call.Fun.(*ast.SelectorExpr);ok&&method.Sel.Name=="Create"{if db,ok:=method.X.(*ast.Ident);ok&&db.Name=="Db"{if address,ok:=call.Args[0].(*ast.UnaryExpr);ok&&address.Op==token.AND{if target,ok:=address.X.(*ast.Ident);ok&&target.Name=="rh"{continue}}}}}}
 		}
 		switch v:=n.(type){
 		case *ast.GoStmt:
@@ -68,7 +68,7 @@ func rewrite(b *ast.BlockStmt,method string){if b==nil{return};var out []ast.Stm
 			if condition=="errs != nil"{continue}
 			if strings.Contains(condition,`"TRANS_LOCK_FEATURE"`){out=append(out,stmt(`if os.Getenv("TRANS_LOCK_FEATURE")=="1"{if err:=effects.Add("wallet-unlock","","",10,0,false);err!=nil{return err}}`));continue}
 			rewrite(v.Body,method);if branch,ok:=v.Else.(*ast.BlockStmt);ok{rewrite(branch,method)};if branch,ok:=v.Else.(*ast.IfStmt);ok{w:=&ast.BlockStmt{List:[]ast.Stmt{branch}};rewrite(w,method);if len(w.List)==1{v.Else=w.List[0]}else{v.Else=&ast.BlockStmt{List:w.List}}}
-			if len(v.Body.List)==0{if condition=="err != nil"&&method!="CreateOrder"&&method!="CreateOrderGokwik"{v.Body.List=stmts(`return err`)}else if v.Else==nil{continue}}
+			if len(v.Body.List)==0{if condition=="err != nil"{if method=="CreateOrder"||method=="CreateOrderGokwik"{v.Body.List=stmts(`return nil,err`)}else{v.Body.List=stmts(`return err`)}}else if v.Else==nil{continue}}
 		case *ast.RangeStmt:rewrite(v.Body,method)
 		case *ast.ForStmt:rewrite(v.Body,method)
 		case *ast.ExprStmt:
@@ -80,13 +80,13 @@ func rewrite(b *ast.BlockStmt,method string){if b==nil{return};var out []ast.Stm
 			if name=="prod.ReduceStock"{out=append(out,stmt(`if err:=reduceOtherOriginOnline(Db,&prod,cartItem.Quantity,o,effects);err!=nil{return err}`));continue}
 			if name=="productStore.ReduceStoreStock"{out=append(out,stmt(`if err:=reduceOtherOriginStore(Db,&productStore,cartItem.Quantity,o,effects);err!=nil{return err}`));continue}
 			if database(call){
-				if strings.HasSuffix(name,".Create"){call.Fun=ast.NewIdent("createOtherOriginRecord");call.Args=append([]ast.Expr{ast.NewIdent("Db")},call.Args...)}
+				if selector,ok:=call.Fun.(*ast.SelectorExpr);ok&&selector.Sel.Name=="Create"{call.Fun=ast.NewIdent("createOtherOriginRecord");call.Args=append([]ast.Expr{ast.NewIdent("Db")},call.Args...)}
 				// Fund only actually paid gifts. A placed COD/COC order is not cash.
 				if strings.Contains(text,`"UPDATE gift_vouchers SET status = 1 WHERE order_id = ?"`){call.Args=[]ast.Expr{expr(`"UPDATE gift_vouchers SET status=CASE WHEN ?=4 THEN 1 ELSE 0 END WHERE order_id=?"`),ast.NewIdent("payment_status"),expr("o.ID")}}
 				if method=="RevertTssMoney"&&strings.Contains(text,`"UPDATE users SET cashback = ?, tss_money = ? WHERE id = ? LIMIT 1"`){call.Args=[]ast.Expr{expr(`"UPDATE users SET tss_money=? WHERE id=? LIMIT 1"`),ast.NewIdent("finalTSSMoneyToUpdate"),expr("o.User")}}
 				if method=="CreateOrder"&&strings.Contains(text,"&cust"){out=append(out,stmt(`if result:=`+render(call)+`;result.Error!=nil&&!gorm.IsRecordNotFoundError(result.Error){return nil,result.Error}`));continue}
 				if method=="CreateOrder"||method=="CreateOrderGokwik"{out=append(out,stmt(`if result:=`+render(call)+`;result.Error!=nil{return nil,result.Error}`));continue}
-				if strings.Contains(name,".First")&&strings.Contains(text,"&orderStore"){out=append(out,stmt(`if result:=`+render(call)+`;result.Error!=nil&&!gorm.IsRecordNotFoundError(result.Error){return result.Error}`))}else{out=append(out,stmt(`if result:=`+render(call)+`;result.Error!=nil{return result.Error}`))};continue
+				if selector,ok:=call.Fun.(*ast.SelectorExpr);ok&&selector.Sel.Name=="First"&&strings.Contains(text,"&orderStore"){out=append(out,stmt(`if result:=`+render(call)+`;result.Error!=nil&&!gorm.IsRecordNotFoundError(result.Error){return result.Error}`))}else{out=append(out,stmt(`if result:=`+render(call)+`;result.Error!=nil{return result.Error}`))};continue
 			}
 		case *ast.ReturnStmt:
 			if len(v.Results)==1{if render(v.Results[0])=="true"{v.Results=[]ast.Expr{ast.NewIdent("nil")}}else if render(v.Results[0])=="false"{v.Results=[]ast.Expr{expr("poscheckout.ErrReview")}}};if len(v.Results)==0{v.Results=[]ast.Expr{ast.NewIdent("nil")}}
@@ -110,6 +110,6 @@ func main(){input:=flag.String("input","","pinned model.go");expected:=flag.Stri
 	};if builders!=2{panic("pinned provider builders missing")}
 	// A source gift-card status is provenance, never inferred exhaustion.
 	for _,d:=range declarations{ast.Inspect(d,func(n ast.Node)bool{call,ok:=n.(*ast.CallExpr);if !ok{return true};if strings.Contains(render(call),`Db.Model(&gf).Limit(1).Update("status", 1)`){call.Args[1]=expr("gf.Status")};return true})}
-	used:=map[string]bool{};for _,d:=range declarations{ast.Inspect(d,func(n ast.Node)bool{if s,ok:=n.(*ast.SelectorExpr);ok{if x,ok:=s.X.(*ast.Ident);ok{used[x.Name]=true}};if _,ok:=n.(*ast.GoStmt);ok{panic("uncaptured goroutine")};return true})};paths:=map[string]string{"fmt":"fmt","math":"math","os":"os","strings":"strings","time":"time","json":"encoding/json","gorm":"github.com/jinzhu/gorm","poscheckout":"backend-tss-domestic_payments_api/internal/poscheckout"};var names []string;for n:=range paths{if used[n]{names=append(names,n)}};sort.Strings(names);var imports []ast.Spec;for _,n:=range names{imports=append(imports,&ast.ImportSpec{Path:&ast.BasicLit{Kind:token.STRING,Value:strconv.Quote(paths[n])}})}
+	used:=map[string]bool{};for _,d:=range declarations{ast.Inspect(d,func(n ast.Node)bool{if s,ok:=n.(*ast.SelectorExpr);ok{if x,ok:=s.X.(*ast.Ident);ok{used[x.Name]=true}};if _,ok:=n.(*ast.GoStmt);ok{panic("uncaptured goroutine")};return true})};paths:=map[string]string{"fmt":"fmt","math":"math","os":"os","strings":"strings","strconv":"strconv","time":"time","json":"encoding/json","gorm":"github.com/jinzhu/gorm","poscheckout":"backend-tss-domestic_payments_api/internal/poscheckout"};var names []string;for n:=range paths{if used[n]{names=append(names,n)}};sort.Strings(names);var imports []ast.Spec;for _,n:=range names{imports=append(imports,&ast.ImportSpec{Path:&ast.BasicLit{Kind:token.STRING,Value:strconv.Quote(paths[n])}})}
 	declarations=append([]ast.Decl{&ast.GenDecl{Tok:token.IMPORT,Specs:imports}},declarations...);var out bytes.Buffer;if format.Node(&out,token.NewFileSet(),&ast.File{Name:ast.NewIdent("juspay"),Decls:declarations})!=nil{panic("owned output formatting failed")};fmt.Println("// Generated from pinned payments 434f3e438d1cb48c64e5723222c6efda506db571. Online branches retained.");os.Stdout.Write(out.Bytes())
 }

@@ -2,7 +2,6 @@ package poscheckout
 
 import (
 	"context"
-	"crypto/hmac"
 	"database/sql"
 	"encoding/json"
 	"fmt"

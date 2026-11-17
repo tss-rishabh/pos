@@ -23,6 +23,33 @@ def once(value: str, before: str, after: str) -> str:
     return value.replace(before, after, 1)
 
 
+def format_source_logs(target: Path) -> None:
+    """Exact pinned format corrections only; no source control-flow changes."""
+    path = target / 'juspay/Customer.go'
+    value = path.read_text()
+    for old, new in [
+        ('utils.Errorf(err, "error parsing amount", err)', 'utils.Errorf(err, "error parsing amount")'),
+        ('utils.Errorf(err, "Error in parseUserID in WalletRefresh:", err)', 'utils.Errorf(err, "Error in parseUserID in WalletRefresh:")'),
+        ('utils.Errorf(err, "Error parseUserID in method UpdateCustomer:", err)', 'utils.Errorf(err, "Error parseUserID in method UpdateCustomer:")'),
+        ('utils.Errorf(err, "Error parseUserID in method CreateCustomer:", err)', 'utils.Errorf(err, "Error parseUserID in method CreateCustomer:")'),
+        ('utils.Errorf(nil, "User does not exist in our db, errs", errs)', 'utils.Errorf(nil, "User does not exist in our db, errs: %v", errs)'),
+    ]:
+        value = once(value, old, new)
+    old = 'utils.Errorf(err, "%v")'
+    if value.count(old) != 4:
+        raise RuntimeError('Pinned customer error format boundary changed')
+    value = value.replace(old, 'utils.Errorf(err, "source customer operation failed")')
+    path.write_text(value)
+    path = target / 'juspay/model.go'
+    value = path.read_text()
+    for old in [
+        'utils.Errorf(nil, fmt.Sprint("user_eav expiry date error: ", err))',
+        'utils.Errorf(nil, fmt.Sprint("exclusive upgrade: EXCLUSIVE_EXPIRY not found for email=", user.Email, " res.Error=", res.Error))',
+    ]:
+        value = once(value, old, 'utils.Errorf(nil, "%s", '+old[len('utils.Errorf(nil, '):-1]+')')
+    path.write_text(value)
+
+
 def _owned_tree(target: Path, reference: Path) -> None:
     if (target == reference or reference in target.parents or target in reference.parents
             or not (target / 'go.mod').is_file()):
@@ -122,6 +149,8 @@ def compose_payments(target: Path | str, reference: Path | str,
             raise RuntimeError('Owned origin privacy composition did not finish')
         path.write_bytes(private)
 
+    format_source_logs(target)
+
     # Existing public/CSV confirmation remains intact. The extra credit is
     # computed under its already-held global customer lock, using only the
     # materialized counter and individually verified current origin commands.
@@ -143,7 +172,7 @@ def compose_payments(target: Path | str, reference: Path | str,
         'sourceCommit': PAYMENTS_COMMIT, 'referenceFiles': {'juspay/model.go': model_hash, 'juspay/Order.go': order_hash},
         'copied': copied,
         'composed': {str(file.relative_to(target)): hashlib.sha256(file.read_bytes()).hexdigest()
-                     for file in [target / 'juspay/Order.go', target / 'juspay/model.go', target / 'juspay/payment.go',
+                     for file in [target / 'juspay/Order.go', target / 'juspay/model.go', target / 'juspay/payment.go', target / 'juspay/Customer.go',
                                   target / 'internal/poscheckout/screening.go', target / 'main.go']},
         'reviewMigrations': ['screening-origins/migration.sql', 'screening-origins/assets-migration.sql',
                              'screening-origins/origin-coupon-migration.sql',

@@ -27,7 +27,11 @@ const OriginPaymentsSourceCommit = "434f3e438d1cb48c64e5723222c6efda506db571"
 var originUUID = regexp.MustCompile(`^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$`)
 var originHash = regexp.MustCompile(`^[a-f0-9]{64}$`)
 var originID = regexp.MustCompile(`^[1-9][0-9]{0,18}$`)
-var originKey = regexp.MustCompile(`^[!-~]{32,4096}$`)
+// RE2 rejects repeat counts above 1000; bound proof keys explicitly.
+type originKeyPattern struct{}
+var originKey originKeyPattern
+var originKeyASCII = regexp.MustCompile(`^[!-~]+$`)
+func (originKeyPattern) MatchString(value string) bool { return len(value)>=32&&len(value)<=4096&&originKeyASCII.MatchString(value) }
 
 type OriginLine struct {
 	ID string `json:"id"`
