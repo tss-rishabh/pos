@@ -9,7 +9,8 @@ from protocol import ImportReview, canonical
 KINDS = {'make_assign_warehouse_request':'warehouse','create_cashback_for_pos':'cashback',
          'sendFacebookEvents':'facebook','netcore_events_task':'engagement',
          'mirror_order_to_post_order':'shadow','sync_kinesis_orders':'kinesis-chain',
-         'insert_into_kinesis':'kinesis-chain','send_order_placed_sms':'sms'}
+         'insert_into_kinesis':'kinesis-chain','send_order_placed_sms':'sms',
+         'pos_import_invalidate_membership':'membership-cache'}
 
 
 class EffectCall:

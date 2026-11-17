@@ -76,7 +76,7 @@ def fresh_authority(session,capability):
     return customer
 
 
-def native_order(session,order_id,plan,capability):
+def native_order(session,order_id,plan,capability,additional=None):
     header=one(session,'SELECT orders.*,DATE_FORMAT(created_at,\'%Y-%m-%d %H:%i:%s\') AS recorded_at,'+HEADER+' AS native_hash FROM orders WHERE id=:id FOR UPDATE',{'id':order_id})
     mapping=one(session,'SELECT store_id,counter_id FROM order_stores WHERE order_id=:id FOR UPDATE',{'id':order_id})
     values=rows(session,'SELECT id,prod_id,sub_prod_id,qty,price,'+LINE+' AS native_hash FROM has_products WHERE order_id=:id ORDER BY id FOR UPDATE',{'id':order_id})
@@ -87,7 +87,10 @@ def native_order(session,order_id,plan,capability):
         header['order_status']!=(0 if plan['kind']=='offline' else 1) or
         any(header[name] not in (None,0) for name in ('cashback_used','tss_money_used','tss_points_used','voucher_used','voucher_amt_used','coupon_used','parent_order_id','original_order_id'))):
         raise ImportReview('ORDER_IMPORT_NATIVE_SOURCE_MISMATCH')
-    expected={row['productId']:row for row in plan['lines']}
+    additional=additional or []
+    if any(row['productId'] in {line['productId'] for line in plan['lines']} or row['quantity']!=1 or row['unitPrice']!='0.00' for row in additional) or len(additional)>1:
+        raise ImportReview('ORDER_IMPORT_MEMBERSHIP_LINE_REVIEW')
+    expected={row['productId']:row for row in [*plan['lines'],*additional]}
     counts={}
     result=[]
     for line in values:

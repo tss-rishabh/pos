@@ -18,6 +18,7 @@ from native import lock_command,fresh_authority,native_order,rows,one,json_value
 from transaction import private_session
 from effects import CAPTURE,publish_once,prepared_calls
 from tracing import TRUSTED_ACTOR
+from membership_profile import additional_lines as member_additions, receipt as membership_receipt
 
 
 def seal_effects(key,operation_id,intents):
@@ -133,7 +134,16 @@ class Receiver:
                         with private_session(session) as source_session:
                             order_id,cart=self.pipeline.order_pipeline(source_session,user,plan,cap)
                             session.flush()
-                            header,lines,line_hash,payable=native_order(session,int(order_id),plan,cap)
+                            header,lines,line_hash,payable=native_order(session,int(order_id),plan,cap,member_additions(cart))
+                            member_proof=membership_receipt(cart,cap,plan,order_id,header,lines,line_hash)
+                            if member_proof:
+                                record(session,operation_id,'membership',cap['requestHash'],'completed',member_proof,self.proof_key,self.clock())
+                                if member_proof['cacheInvalidations']:
+                                    from effects import collector_record
+                                    from membership_cache import journal_options
+                                    collector_record({'call':{'name':'pos_import_invalidate_membership',
+                                        'args':[operation_id,digest(self.proof_key,'membership',member_proof)],
+                                        'kwargs':{},'options':journal_options()}})
                     finally:
                         CAPTURE.reset(token)
                     effects.extend(self.pipeline.publication_intents(order_id))

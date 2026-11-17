@@ -4,13 +4,16 @@ from protocol import ImportReview
 
 
 def assert_plain_profile(cart,types,settings,plan,calculations):
+    from membership_profile import CONTEXT
+    member_context=CONTEXT.get()
+    additional=[] if member_context is None else member_context['profile'].admit(cart,types,plan)
     products=cart.get(types.PRODUCTS)
     member_ids={str(value) for value in settings.EXCLUSIVE_PRODUCT}|{str(value) for value in settings.EXCLUSIVE_UPGRADE_PRODUCT}
-    if any(str(row['prod_id']) in member_ids for row in products):
+    if member_context is None and any(str(row['prod_id']) in member_ids for row in products):
         raise ImportReview('ORDER_IMPORT_MEMBERSHIP_PROFILE_REQUIRED')
     if any(str(row['prod_id'])=='390238' for row in products):
         raise ImportReview('ORDER_IMPORT_SCREENING_PROFILE_REQUIRED')
-    expected={str(row['productId']):row['quantity'] for row in plan['lines']}
+    expected={str(row['productId']):row['quantity'] for row in [*plan['lines'],*additional]}
     actual={}
     for row in products:
         key=str(row['prod_id'])

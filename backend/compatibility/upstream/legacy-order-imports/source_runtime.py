@@ -19,6 +19,7 @@ from transaction import PrivateSessionProxy
 from transaction import CURRENT
 from contextvars import ContextVar
 from profiles import assert_plain_profile
+from membership_profile import MembershipProfile, selected as membership_selected, compile_writers, compile_order, compile_free_membership
 
 UNSAFE_HTTP=ContextVar('pos_import_unsafe_http',default=False)
 
@@ -76,7 +77,7 @@ def compile_class(root,path,name,namespace):
 
 
 class SourceRuntime:
-    def __init__(self,source_root,runtime_root):
+    def __init__(self,source_root,runtime_root,membership_history=None):
         self.source_root=Path(source_root)
         if self.source_root.resolve()!=Path(runtime_root).resolve():
             raise ImportReview('ORDER_IMPORT_SOURCE_REVISION_UNVERIFIED')
@@ -132,11 +133,25 @@ class SourceRuntime:
         refund_path,refund_ast=refund_tree(source_root,'pos-refund-per-hp-v1')
         allocation=next(node for node in refund_ast.body if isinstance(node,ast.FunctionDef) and node.name=='amount_to_be_refunded_calculation')
         exec(compile(ast.Module(body=[allocation],type_ignores=[]),str(refund_path),'exec'),order_globals)
-        self.order=compile_class(source_root,'controllers/OrderController.py','PosOrder',order_globals)()
+        self.membership=MembershipProfile(source_root,self.settings,membership_history) if membership_selected() else None
+        if self.membership:
+            dal=importlib.import_module('controllers.user.userDal')
+            writers=compile_writers(source_root,dict(vars(dal)),self.membership.adapter)
+            for name in ('set_exclusive_user','set_exclusive_upgrade_user'):
+                order_globals[name]=writers[name]
+            self.order=compile_order(source_root,order_globals,self.membership.adapter)
+        else:
+            self.order=compile_class(source_root,'controllers/OrderController.py','PosOrder',order_globals)()
         self.process=compile_class(source_root,'controllers/OrderController.py','ProcessingOrder',dict(order_globals))()
         self.validate=compile_class(source_root,'controllers/CheckoutController.py','ValidateCheckout',dict(vars(modules['controllers.CheckoutController'])))()
         self.product=modules['controllers.CatalogController'].PosProductDetail()
-        self.cart_reader=modules['controllers.CartController'].Cart()
+        if self.membership:
+            cart_namespace=dict(vars(modules['controllers.CartController']))
+            cart_module=importlib.import_module('controllers.cart.Cart')
+            cart_namespace['AddFreeMembership']=compile_free_membership(source_root,dict(vars(cart_module)))
+            self.cart_reader=compile_class(source_root,'controllers/CartController.py','Cart',cart_namespace)()
+        else:
+            self.cart_reader=modules['controllers.CartController'].Cart()
         self.cart_factory=modules['middleware.CartMiddleware'].PosCartFactory
         self.pricelist_manager=modules['middleware.CartMiddleware'].PricelistManager
         namespace=dict(vars(modules['controllers.KinesisProducer']))
@@ -145,6 +160,14 @@ class SourceRuntime:
         self.controller_hash=CORRECTED_CONTROLLER_SHA256
 
     def order_pipeline(self,session,user,plan,capability):
+        if self.membership:
+            with self.membership.scope(session,user,plan,capability) as state:
+                order_id,cart=self._order_pipeline(session,user,plan,capability)
+                self.membership.capture(session,order_id,cart,state)
+                return order_id,cart
+        return self._order_pipeline(session,user,plan,capability)
+
+    def _order_pipeline(self,session,user,plan,capability):
         UNSAFE_HTTP.set(False)
         req=SimpleNamespace(params={},path='/internal/pos/legacy-order-imports',method='POST',
             context={'session':session,'session_r':session,'user':user,'active_cart':None,
@@ -178,9 +201,8 @@ class SourceRuntime:
         self.validate.on_post(req,resp)
         self.process.on_post(req,resp)
         calc=cart.get_item(self.item_types.META,{'name':'calculations'})
-        # Membership producer activation is ordinary-method-specific. Shopify
-        # membership requires a separate qualified source profile, not guessed
-        # before-state provenance or a method15→14 substitution.
+        # The selected profile must prove original membership staging and any
+        # explicit source-added rows. Shopify remains method15/pending.
         assert_plain_profile(cart,self.item_types,self.settings,plan,calc)
         req.context['data']={**base,'payment_method':'coc' if plan['kind']=='offline' else 'shopify',
             'id':14 if plan['kind']=='offline' else 15,'custom_created_at':plan['createdAt']}

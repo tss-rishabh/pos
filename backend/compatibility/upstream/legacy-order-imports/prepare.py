@@ -64,7 +64,16 @@ def outputs():
         'apiGuardPatchSha256':hashlib.sha256(public_patch.encode()).hexdigest(),
         'apiGuardBaseSha256':hashlib.sha256(public_main.encode()).hexdigest(),
         'sourceFiles':{path:hashlib.sha256((SOURCE/path).read_bytes()).hexdigest() for path in source_paths},
-        'modelContract':'pos-import-source-model-v1'}
+        'modelContract':'pos-import-source-model-v1',
+        'membership':{'contract':'pos-legacy-import-membership-v1','activated':False,
+            'stagedContract':'pos-cancellation-membership-staged-v2',
+            'activatedContract':'pos-cancellation-membership-provenance-v2',
+            'historyContract':'pos-csv-membership-history-v1',
+            'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
+                'membership_profile.py','membership_history.py','membership_cache.py','membership_consumer.py',
+                'source_runtime.py','profiles.py','native.py','receiver.py','effects.py','runtime.py')},
+            'sourceFiles':__import__('membership_profile').PINS,
+            'ordinaryProducerSha256':hashlib.sha256((HERE.parent/'pending-cancellation/membership_provenance.py').read_bytes()).hexdigest()}}
     return {HERE/'payments-import-overlay.patch':patch,HERE/'api-import-guard.patch':public_patch,HERE/'manifest.json':json.dumps(manifest,indent=2)+'\n'}
 
 

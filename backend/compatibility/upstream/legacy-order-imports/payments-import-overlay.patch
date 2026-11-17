@@ -74,7 +74,7 @@
  			return err
 --- /dev/null
 +++ b/internal/poscheckout/legacy_import.go
-@@ -0,0 +1,392 @@
+@@ -0,0 +1,554 @@
 +// Overlay for the reviewed ordinary poscheckout package, not the protected repo.
 +package poscheckout
 +
@@ -321,6 +321,9 @@
 +	if c.ExpiresAt <= time.Now().UnixMilli() {
 +		return nil, ErrReview
 +	}
++	if err = verifyLegacyImportMembership(ctx, tx, c, orderID); err != nil {
++		return nil, err
++	}
 +	return c, nil
 +}
 +
@@ -464,6 +467,165 @@
 +		return ErrReview
 +	}
 +	return verifyCompletedLegacyImport(ctx, tx, op, request, effect.OrderID, effect.UserID, store, counter)
++}
++
++const LegacyImportMembershipContract = "pos-legacy-import-membership-v1"
++
++type importMembershipRecord struct {
++	OrderID      string            `json:"orderId"`
++	CustomerID   string            `json:"customerId"`
++	Revision     string            `json:"revision"`
++	HeaderHash   string            `json:"headerHash"`
++	Before       []MembershipState `json:"before"`
++	Confirmed    []MembershipState `json:"confirmed"`
++	Contract     string            `json:"contract"`
++	OperationID  string            `json:"operationId"`
++	CreatedAt    string            `json:"createdAt"`
++	EntityDigest string            `json:"entityDigest"`
++	ProofHash    string            `json:"proofHash"`
++}
++type importMembershipLine struct {
++	ID        string `json:"id"`
++	ProductID string `json:"productId"`
++	Quantity  int64  `json:"quantity"`
++	InputHash string `json:"inputHash"`
++}
++type importMembershipHistory struct {
++	GenerationID string `json:"generationId"`
++	FetchedAt    int64  `json:"fetchedAt"`
++	AsOf         string `json:"asOf"`
++	Cutoff       string `json:"cutoff"`
++	ProofHash    string `json:"proofHash"`
++}
++type importMembershipReceipt struct {
++	ActorID            string                   `json:"actorId"`
++	AuthorityHash      string                   `json:"authorityHash"`
++	Contract           string                   `json:"contract"`
++	OperationID        string                   `json:"operationId"`
++	RequestHash        string                   `json:"requestHash"`
++	PlanHash           string                   `json:"planHash"`
++	Namespace          string                   `json:"namespace"`
++	OrderID            string                   `json:"orderId"`
++	CustomerID         string                   `json:"customerId"`
++	StoreID            string                   `json:"storeId"`
++	CounterID          string                   `json:"counterId"`
++	Method             int64                    `json:"method"`
++	SourceCommit       string                   `json:"sourceCommit"`
++	Kind               string                   `json:"kind"`
++	Eligibility        string                   `json:"eligibility"`
++	HeaderHash         string                   `json:"headerHash"`
++	LineHash           string                   `json:"lineHash"`
++	MemberLines        []importMembershipLine   `json:"memberLines"`
++	AdditionalLines    []importMembershipLine   `json:"additionalLines"`
++	Provenance         importMembershipRecord   `json:"provenance"`
++	CacheInvalidations int                      `json:"cacheInvalidations"`
++	HistoryEvidence    *importMembershipHistory `json:"historyEvidence"`
++}
++
++// Source stage provenance is mandatory before any import membership activation.
++// Normal orders retain their existing ordinary proof rules. Shopify never
++// reaches this method14 confirmation path and cannot acquire a paid receipt.
++func verifyLegacyImportMembership(ctx context.Context, tx *sql.Tx, c *importCapability, orderID int64) error {
++	current, err := readMembershipProof(ctx, tx, orderID)
++	var raw []byte
++	var status, requestHash, seal string
++	readErr := tx.QueryRowContext(ctx, `SELECT status,request_hash,proof,proof_hash FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=? AND kind='membership' AND OCTET_LENGTH(proof)<=262144 FOR SHARE`, c.OperationID).Scan(&status, &requestHash, &raw, &seal)
++	if err == sql.ErrNoRows && readErr == sql.ErrNoRows {
++		return nil
++	}
++	if err != nil {
++		return err
++	}
++	if readErr != nil {
++		return readErr
++	}
++	key := os.Getenv("POS_LEGACY_IMPORT_PROOF_KEY")
++	if os.Getenv("POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT") != LegacyImportMembershipContract || os.Getenv("POS_MEMBERSHIP_FRESH_READER_CONTRACT") != "pos-membership-fresh-reader-v1" || !ProjectionKeyValid(key, key) || status != "completed" || requestHash != c.RequestHash {
++		return ErrReview
++	}
++	var body map[string]interface{}
++	decoder := json.NewDecoder(bytes.NewReader(raw))
++	decoder.UseNumber()
++	if decoder.Decode(&body) != nil {
++		return ErrReview
++	}
++	var extra interface{}
++	if decoder.Decode(&extra) != io.EOF {
++		return ErrReview
++	}
++	expected, err := importMAC(key, "legacy-order-imports.source.membership.v1", body)
++	if err != nil || !hmac.Equal([]byte(expected), []byte(seal)) {
++		return ErrReview
++	}
++	var proof importMembershipReceipt
++	decoder = json.NewDecoder(bytes.NewReader(raw))
++	decoder.DisallowUnknownFields()
++	if decoder.Decode(&proof) != nil {
++		return ErrReview
++	}
++	if proof.Contract != LegacyImportMembershipContract || proof.OperationID != c.OperationID || proof.RequestHash != c.RequestHash || proof.PlanHash != c.PlanHash || proof.Namespace != c.Namespace || proof.OrderID != c.OrderID || proof.CustomerID != c.Authority.CustomerID || proof.StoreID != c.Scope.StoreID || proof.CounterID != c.Scope.CounterID || proof.Method != 14 || proof.SourceCommit != "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5" || (proof.Kind != "new" && proof.Kind != "upgrade" && proof.Kind != "auto-free") || !consentDigest.MatchString(proof.HeaderHash) || !consentDigest.MatchString(proof.LineHash) || proof.CacheInvalidations < 0 || proof.CacheInvalidations > 2 {
++		return ErrReview
++	}
++	authorityHash, authErr := importMAC(key, "legacy-order-imports.source.membership-authority.v1", c.raw["authority"])
++	if authErr != nil || proof.ActorID != c.Scope.ActorID || proof.AuthorityHash != authorityHash {
++		return ErrReview
++	}
++	staged := proof.Provenance
++	config, err := configuredMembership()
++	if err != nil {
++		return err
++	}
++	stagedRevision, parseErr := strconv.ParseUint(staged.Revision, 10, 64)
++	if parseErr != nil || stagedRevision == 0 {
++		return ErrReview
++	}
++	captured := membershipProof{OrderID: orderID, CustomerID: current.CustomerID, Revision: stagedRevision, HeaderHash: staged.HeaderHash, Before: staged.Before, Confirmed: staged.Confirmed, Contract: staged.Contract, OperationID: staged.OperationID, CreatedAt: staged.CreatedAt, EntityDigest: staged.EntityDigest, ProofHash: staged.ProofHash}
++	if current.OrderID != orderID || strconv.FormatInt(current.CustomerID, 10) != c.Authority.CustomerID || staged.OrderID != c.OrderID || staged.CustomerID != c.Authority.CustomerID || staged.HeaderHash != current.HeaderHash || staged.Contract != MembershipStagedContract || staged.OperationID != current.OperationID || staged.CreatedAt != current.CreatedAt || staged.EntityDigest != current.EntityDigest || !sameMemberStates(staged.Before, current.Before) || !validMemberMAC(captured, config.key) || !validMemberMAC(current, config.key) {
++		return ErrReview
++	}
++	if current.Contract == MembershipStagedContract {
++		if current.Revision != stagedRevision || current.ProofHash != staged.ProofHash || !sameMemberStates(staged.Confirmed, current.Confirmed) {
++			return ErrReview
++		}
++	} else if current.Contract != MembershipContract || current.Revision <= stagedRevision {
++		return ErrReview
++	}
++	if len(proof.MemberLines) != 1 || proof.MemberLines[0].Quantity != 1 || len(proof.AdditionalLines) > 1 {
++		return ErrReview
++	}
++	member := proof.MemberLines[0]
++	product, err := strconv.ParseInt(member.ProductID, 10, 64)
++	if err != nil || !config.products[product] || !consentIdentifier(member.ID) || !consentDigest.MatchString(member.InputHash) {
++		return ErrReview
++	}
++	var nativeProduct, quantity int64
++	var price float64
++	if err = tx.QueryRowContext(ctx, `SELECT prod_id,qty,price FROM has_products WHERE id=? AND order_id=? FOR UPDATE`, member.ID, orderID).Scan(&nativeProduct, &quantity, &price); err != nil {
++		return err
++	}
++	if nativeProduct != product || quantity != 1 {
++		return ErrReview
++	}
++	if proof.Kind == "auto-free" {
++		if (proof.Eligibility != "source-cart-over-2000" && proof.Eligibility != "source-qualified-history") || len(proof.AdditionalLines) != 1 || proof.AdditionalLines[0] != member || price != 0 {
++			return ErrReview
++		}
++	} else if len(proof.AdditionalLines) != 0 {
++		return ErrReview
++	}
++	if proof.Eligibility == "source-qualified-history" {
++		history := proof.HistoryEvidence
++		if history == nil || !consentDigest.MatchString(history.GenerationID) || !consentDigest.MatchString(history.ProofHash) || history.FetchedAt <= 0 {
++			return ErrReview
++		}
++		point, parseErr := time.Parse("2006-01-02 15:04:05", history.AsOf)
++		if parseErr != nil || point.AddDate(0, 0, -45).Format("2006-01-02 15:04:05") != history.Cutoff {
++			return ErrReview
++		}
++	} else if proof.HistoryEvidence != nil {
++		return ErrReview
++	}
++	return nil
 +}
 +
 +const LegacyImportHeaderSQL = "LOWER(SHA2(CAST(JSON_OBJECT('financial_header_hash',LOWER(SHA2(CAST(JSON_OBJECT('order_id',orders.id,'user_id',orders.user_id,'payment_method',orders.payment_method,'pay_amt',orders.pay_amt,'cashback_used',orders.cashback_used,'tss_money_used',orders.tss_money_used,'tss_points_used',orders.tss_points_used,'voucher_used',orders.voucher_used,'voucher_amt_used',orders.voucher_amt_used,'coupon_used',orders.coupon_used,'coupon_amt_used',orders.coupon_amt_used) AS CHAR CHARACTER SET utf8mb4),256)),'created_at',DATE_FORMAT(orders.created_at,'%Y-%m-%d %H:%i:%s'),'currency',orders.currency,'currency_conv_rate',orders.currency_conv_rate,'shipping_amt',orders.shipping_amt,'order_amt',orders.order_amt,'fraction_value',orders.fraction_value,'first_name',orders.first_name,'last_name',orders.last_name,'address1',orders.address1,'address2',orders.address2,'address3',orders.address3,'phone_no',orders.phone_no,'country_id',orders.country_id,'zone_id',orders.zone_id,'postal_code',orders.postal_code,'city',orders.city) AS CHAR CHARACTER SET utf8mb4),256))"

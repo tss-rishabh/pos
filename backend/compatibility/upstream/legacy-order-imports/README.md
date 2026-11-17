@@ -52,6 +52,10 @@ The actual source Celery app must have AMQPS, `broker_transport_options.confirm_
 
 Apply the reviewed Go overlay via `payments-import-overlay.patch` after the existing ordinary checkout compatibility patch. Go additionally needs `POS_LEGACY_IMPORT_CONFIRMATION_CONTRACT=pos-legacy-order-import-confirmation-v1`, the two private keys above, and `POS_LEGACY_IMPORT_FINANCIAL_PROOF_KEY`: derive it from the retained Node master using `financialImportKey(master,'proof').toString('hex')`, never reuse the master. Apply `api-import-guard.patch` to cooperating public API-v2 writers with that derived proof key. The middleware guards both order IDs and HP-derived order IDs and has no public bypass. It also reserves legacy customer-JWT `custom_created_at` and custom price/tax/shipping/currency/address override fields for the private receiver; deploying it requires cutting the old CSV/custom-override caller over to the new reviewed path. Ordinary empty override placeholders remain accepted. Deploy all nine rewrite-only tables first; missing tables/keys fail closed. Do not deploy or alter live DDL from this artifact automatically.
 
+## Optional membership producer profile
+
+The independently gated executable membership composition is documented in `../../../parity/csv-membership-profile.md`. It reuses the actual original setters/PosOrder block, existing ordinary Go activation and cancellation provenance, records exact source-added free HPs and journals source cache invalidation after COMMIT. Shopify remains method15/pending. The Node verifier/expected-quantity seam and production BigQuery eligibility provider still require root integration; flags remain unselected. This does not remove the tender/coupon/screening gates or imply arbitrary extra-product support.
+
 ## Scoped evidence
 
 From `backend`, using the pinned Node24 and existing locked Python runtime:

@@ -12,9 +12,9 @@
     "internal/poscheckout/confirmation.go": "92281e810267446d6761a2d66a0740332c28bdabb03703a26bff837fb80cf24b",
     "internal/poscheckout/privacy.go": "322dd6eae7955f2c7f4bcd35b8737dddd3f28116022097334e814e4d132a0c38",
     "internal/poscheckout/effects.go": "62b26ebc1a75b0cfc98b8691176a952c682cc0b14fae9af973f616a53c41233a",
-    "internal/poscheckout/legacy_import.go": "22ae264d5d91dbdb4a51a70b8b2a6c013dbce2ae497bdb9ecd419ad7a51b5383"
+    "internal/poscheckout/legacy_import.go": "3f011c54ae31f4228c3b936ba6cbde5c87e517a22f747b3fff7db332f6ff9226"
   },
-  "patchSha256": "03cbf695ff4280d2bb754e0934ff180db1e3eb747661699db1ec4e25c43a5ad4",
+  "patchSha256": "621f658ef5c310414835864c27f2846c5e599a07fc69c78425f4af0f13115720",
   "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
   "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
   "sourceFiles": {
@@ -25,5 +25,30 @@
     "controllers/KinesisProducer.py": "18a7c4dd7ce2858b95869655122c78d2559337d490aef20809c803bd2caf6b1d",
     "main.py": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7"
   },
-  "modelContract": "pos-import-source-model-v1"
+  "modelContract": "pos-import-source-model-v1",
+  "membership": {
+    "contract": "pos-legacy-import-membership-v1",
+    "activated": false,
+    "stagedContract": "pos-cancellation-membership-staged-v2",
+    "activatedContract": "pos-cancellation-membership-provenance-v2",
+    "historyContract": "pos-csv-membership-history-v1",
+    "files": {
+      "membership_profile.py": "16b6f9cba8b46068c8abeefcbcae1e85a1f23d3b4c18c072ceb826c971dc6b1a",
+      "membership_history.py": "4801fb8352c59fa46c6af10c4be28342584904fd9597b6b977c217f45ac44bb2",
+      "membership_cache.py": "071d19eb10a059e149422bddd28ae8d07caed42d1e81c645babe1ccb5ae3afd8",
+      "membership_consumer.py": "f5aa3b57a44c5679a2cfdb1aaf15e7783d59d74024f87f58ed355965ebf42567",
+      "source_runtime.py": "1ca27d5d434c7698152ecacace02ac13c7f8ecfbbdd482ccbe0c0045bc2abce4",
+      "profiles.py": "abc099cf56bf90f81c9929683964d30ea1c04a1b15f5c49b798c5f438516096d",
+      "native.py": "3ce658e02673f1f648baa232627e5a7c728c8dbf89e5e9e70ab8f3470709f2d9",
+      "receiver.py": "a25ead49577952213c45ed42734f7b3b6fe4e9eccee74d08d4e334cfefcb8cf3",
+      "effects.py": "451343268c03ed356bf69d1c1dbf8314590315e08c07dc342c36c9e535242ade",
+      "runtime.py": "4e12a4fb2ae8e96af841c4477f74e9c87e55a68f7173cfe11f9c491111b2ceca"
+    },
+    "sourceFiles": {
+      "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad",
+      "controllers/user/userDal.py": "ad0135cb60aa2c8ffd8d5aa5bc6d8b343efb97227fd3394a1ff31989054141a8",
+      "controllers/cart/Cart.py": "1f9eff0f1a4ea66f3cac8903d3c1cb9a5b39e2a3babd6dd6c8dcf192de7defd3"
+    },
+    "ordinaryProducerSha256": "5517bfaefb324ca86ea9cf571c69359691f9c344674b1c893eb3c7670d57ee63"
+  }
 }

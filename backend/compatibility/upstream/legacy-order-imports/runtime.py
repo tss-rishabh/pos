@@ -51,6 +51,9 @@ def _create_application():
         values=connection.execute(text("SELECT COLUMN_NAME,IS_NULLABLE,DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='orders' AND COLUMN_NAME IN ('ship_date','ret_ex_request_date')")).mappings().all()
         if len(values)!=2 or any(row['IS_NULLABLE']!='YES' or row['DATA_TYPE']!='datetime' for row in values):
             raise ImportReview('ORDER_IMPORT_ORDER_SCHEMA_UNVERIFIED')
+    if pipeline.membership:
+        from membership_cache import register_task
+        register_task(pipeline.tasks,factory,proof)
     receiver=Receiver(factory,pipeline,key,proof,zone=os.environ.get('BUSINESS_TIMEZONE','Asia/Kolkata'))
     from http_app import private_application
     return private_application(receiver,key,emit_stream)
