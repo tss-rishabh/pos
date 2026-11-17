@@ -93,6 +93,12 @@ notarization are release requirements; local unsigned packaging is development
 evidence only. `desktop-windows-macos` remains pending in the production gate
 until both targets have current reviewable evidence.
 
+The [Windows/macOS run at `523c904`](https://github.com/thesouledstore-tss/pos/actions/runs/44010026925)
+passed both native jobs, including unsigned packaging and packaged runtime checks.
+Its exact source, job IDs, timestamps and step outcomes are retained in
+[`desktop-ci-523c904.json`](backend/evidence/desktop-ci-523c904.json). Later financial,
+CSV and repair changes require another run before a final-source acceptance claim.
+
 Use OS versions supported by the pinned Electron release. Electron-builder
 supports separate Windows/macOS packaging and notes that macOS code signing
 requires macOS: [platform build guidance](https://www.electron.build/v26/docs/features/multi-platform-build/),

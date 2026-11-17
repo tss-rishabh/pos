@@ -20,7 +20,7 @@ component test counts do not certify every original workflow.
 | Benefits                 | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                                                                                                                                                                                                                                        |
 | Administration           | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                                                                                                                                                                                                                                               |
 | Reports and fulfillment  | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                                                                                                                                                                                                                                                  |
-| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both native CI jobs passed unsigned packaging, integrity, sandbox, restart and offline smoke at commit `88b7a4e`; later changes need another native run. Signing and physical printing remain release gates.                                                                                                                                                     |
+| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both native CI jobs passed unsigned packaging, integrity, sandbox, restart and offline smoke at commit `523c904` (run `44010026925`); later changes need another native run. Signing and physical printing remain release gates.                                                                                                                                 |
 | Cashier conveniences     | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass.                                                                                                                                                                                                                        |
 | Dashboard and website    | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                                                                                                                                                                                                                                         |
 | Barcode and country      | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.                                                                                                                                                                                                                                 |
@@ -30,7 +30,7 @@ component test counts do not certify every original workflow.
 | Order copying            | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Native OTP/contact/session fences, serialized unsent cancellation and dedicated validated terminal clear are integrated. Fifty-three affected backend and 21 scoped frontend checks pass, including five actual Counter/Review Chromium flows and lost-clear recovery without another POST. |
 | Cash payment corrections | Native cash reversals and subsequent cash receipts now compose with current collections, ledger, DSR and sealed historical deltas. The actual Orders page includes a deferred manager action; reports expose cash returned and net cash. Ninety-five focused finance checks and 15 affected browser workflows pass; durable pending-return manager reconciliation remains in progress and production contracts stay unselected.                         |
 | Ecommerce inventory sync | Source threshold selection, writer-current system projection/checkpoints, authenticated complete catalog bridge and the actual settings recovery UI are wired into the existing queue/worker. Twenty-four merged backend checks (including 16 bridge subcases) and eight frontend checks pass, with strict checks. Actual stock/writer/catalog coordination and provider deployment acceptance remain required.                                         |
-| Whole-order fulfillment  | Dedicated PACK/SHIP/DELIVER commands, full immutable order-line scope, source-pinned STORE worker, public resources and deferred Orders recovery UI are integrated. Migration, container artifacts and desktop verification are registered. Rejected-return obligations and shared financial handover fences are still being completed; the production dispatcher remains disabled.                                                                     |
+| Whole-order fulfillment  | Dedicated PACK/SHIP/DELIVER commands, full immutable order-line scope, source-pinned STORE worker, public resources and deferred Orders recovery UI are integrated. Migration, container artifacts and desktop verification are registered. Atomic rejected-return obligations, bounded dispatch and manager recovery are integrated. Shared financial handover composition remains pending; the production dispatcher stays disabled.                  |
 
 ## Fixed remaining code checklist
 
@@ -40,9 +40,12 @@ focused evidence does not certify the subsequent shared handover integration.
 
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
   encrypted staging, native authorization/preflight, job API, recovery UI,
-  worker loop and published-history repository are integrated. Sixty-nine backend
-  and eight frontend checks pass. Financial/approval adapters, cooperative writer
-  fences, explicit blocked-job resume and the standalone processor remain unfinished. See
+  worker loop, explicit blocked-job resume and published-history repository are
+  integrated. Seventy-four backend and eleven frontend checks pass, including
+  original-nonce resume recovery without reimporting completed orders.
+  The real financial adapter, purpose-bound approval API and standalone processor
+  are now wired, with production contracts unselected. Approval UI, cooperative
+  writer fences and actual private receiver/Go qualification remain unfinished. See
   `backend/parity/legacy-order-imports.md`.
 - Membership provenance producers are integrated as source-pinned compatibility
   candidates. Actual Python staging → Go activation → Node cancellation passes
@@ -54,9 +57,10 @@ focused evidence does not certify the subsequent shared handover integration.
   integrated; actual publisher/source-barrier acceptance remains external.
 - Qualify the source order-search historical publication/contact-key generation
   and representative queue workload; the complete UI/API/source-filter code is integrated.
-- Finish whole-order rejected-return repair obligations and the shared financial
-  handover fences. The dedicated whole-order API/UI and source-pinned STORE chain
-  are integrated. Ecommerce stock/catalog
+- Finish composition of the whole-order shared financial handover fences in both
+  public and private entries. The dedicated API/UI, source-pinned STORE chain,
+  atomic rejected-return obligations, bounded dispatcher and scoped manager
+  recovery are integrated. Ecommerce stock/catalog
   synchronization, parent/store CSV and source-default account creation are
   integrated with their operational acceptance still required. The BD upload templates are explicitly retained as an
   inactive prototype: their classes/routes and sidebar are commented in source.

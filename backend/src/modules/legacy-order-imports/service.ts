@@ -13,7 +13,9 @@ import {
   importResultSchema,
   importResumptionSchema,
 } from './domain.js';
-import type { ImportFinancialAdapter } from './financial-contracts.js';
+import type { ImportFinancialAdapter, ImportFinancialScope } from './financial-contracts.js';
+import type { legacyOrderImportFinancialApprovals } from './financial-adapter-approval.js';
+import { financialImportApprovalSchema } from './financial-adapter-contracts.js';
 import { legacyOrderImportHistory, readLegacyOrderImportHistoryOptions } from './history.js';
 import {
   legacyOrderImportContract,
@@ -26,6 +28,7 @@ import { legacyOrderImportRepository } from './repository.js';
 export interface LegacyOrderImportRegistrationOptions {
   runtime?: LegacyOrderImportOptions;
   adapter?: ImportFinancialAdapter;
+  approvals?: Pick<ReturnType<typeof legacyOrderImportFinancialApprovals>, 'request' | 'read'>;
   history?: Pick<ReturnType<typeof legacyOrderImportHistory>, 'detail' | 'results'>;
 }
 export function legacyOrderImportService(
@@ -63,6 +66,14 @@ export function legacyOrderImportService(
         'Order import recovery is not configured.',
       );
     return repository;
+  }
+  function financialScope(value: ImportFinancialScope): ImportFinancialScope {
+    return {
+      actorId: value.actorId,
+      operationId: value.operationId,
+      storeId: value.storeId,
+      counterId: value.counterId,
+    };
   }
   return {
     ready,
@@ -161,6 +172,63 @@ export function legacyOrderImportService(
       return importResumptionSchema.parse(
         await configuredRepository().readResumption(permitted(user), jobId, operationId),
       );
+    },
+    async approval(user: Principal, jobId: string, operationId: string, commandId?: string) {
+      const context = await configuredRepository().financialContext(
+        permitted(user),
+        z.uuid().parse(jobId),
+        z.uuid().parse(operationId),
+        false,
+      );
+      if (!options.approvals)
+        throw new AppError(
+          503,
+          'ORDER_IMPORT_APPROVAL_UNAVAILABLE',
+          'Import approval recovery is not configured.',
+        );
+      const approval = await options.approvals.read(
+        financialScope(context),
+        context.planHash,
+        commandId,
+      );
+      return {
+        commandId: commandId ?? null,
+        approval: approval ? financialImportApprovalSchema.parse(approval) : null,
+      };
+    },
+    async requestApproval(
+      user: Principal,
+      jobId: string,
+      operationId: string,
+      input: {
+        commandId: string;
+        reason: 'late-recording' | 'historical-correction' | 'source-reconciliation';
+      },
+    ) {
+      const actor = permitted(user);
+      if (!ready || !options.approvals)
+        throw new AppError(
+          503,
+          'ORDER_IMPORT_APPROVAL_UNAVAILABLE',
+          'Historical import approval is not enabled.',
+        );
+      const context = await configuredRepository().financialContext(
+        actor,
+        z.uuid().parse(jobId),
+        z.uuid().parse(operationId),
+      );
+      const approval = await options.approvals.request({
+        approverId: actor,
+        scope: financialScope(context),
+        plan: context.plan,
+        planHash: context.planHash,
+        commandId: z.uuid().parse(input.commandId),
+        reason: input.reason,
+      });
+      return {
+        commandId: input.commandId,
+        approval: financialImportApprovalSchema.parse(approval),
+      };
     },
     async runOne() {
       if (!ready || !options.adapter) return null;

@@ -669,7 +669,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
       });
     },
     /** Private approval input; never return this plan through an HTTP resource. */
-    async financialContext(actor: string, id: string, operationId: string) {
+    async financialContext(actor: string, id: string, operationId: string, requirePending = true) {
       const actorId = identifier.parse(actor);
       z.uuid().parse(id);
       z.uuid().parse(operationId);
@@ -682,7 +682,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
           .where(and(eq(rows.jobId, id), eq(rows.operationId, operationId)))
           .limit(1)
           .for('share');
-        if (!row || row.state !== 'PENDING')
+        if (!row || (requirePending && row.state !== 'PENDING'))
           throw new AppError(
             409,
             'ORDER_IMPORT_APPROVAL_NOT_PENDING',

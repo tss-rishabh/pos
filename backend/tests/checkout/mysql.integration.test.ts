@@ -279,6 +279,15 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
         .split(';')
         .filter((s) => s.trim()))
         await connection.query(statement);
+    for (const migration of [
+      'src/modules/legacy-order-status/migration.sql',
+      'src/modules/legacy-order-status/repair-migration.sql',
+    ])
+      for (const statement of readFileSync(migration, 'utf8')
+        .replace(/^--.*$/gm, '')
+        .split(';')
+        .filter((value) => value.trim()))
+        await connection.query(statement);
     await connection.query(`ALTER TABLE gift_vouchers
       ADD from_id BIGINT NOT NULL DEFAULT 777,
       ADD collection_no BIGINT NOT NULL DEFAULT 0,

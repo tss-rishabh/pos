@@ -325,11 +325,11 @@ def define_families():
            scope='Express order/store label, source address/AWB/parcel fields, line quantity and safe barcode/print.',
            external=['Accept actual printer/legal/shipper layout and representative data.'])
     bind('shipping-labels', ['ShowOnlineOrderShippingView'])
-    family('legacy-vinculum-status', ['src/modules/legacy-order-status', 'compatibility/upstream/whole-order-status'],
+    family('legacy-vinculum-status', ['src/modules/legacy-order-status', 'compatibility/upstream/whole-order-status', 'src/modules/checkout/return-workflow/repository.ts', 'src/modules/checkout/return-workflow/service.ts', 'src/modules/checkout/routes.ts'],
            ['src/pages/order-status', 'src/pages/operations.tsx'], ['tests/legacy-order-status', 'frontend/tests/legacy-order-status'],
-           ['parity/whole-order-status.md'], state='partial',
+           ['parity/whole-order-status.md', 'parity/rejected-return-repairs.md'], state='partial',
            scope='Current-authority whole-order PACK/SHIP/DELIVER commands, immutable full HP scope, source-pinned private STORE chain and deferred Orders recovery UI are integrated separately from Express.',
-           gaps=['Finish durable obligations for definitely rejected inbound returns, the bounded repair dispatcher and shared financial handover fences.'],
+           gaps=['Compose the shared cash-return and imported-order handover fences in the public and separately deployed private receiver entries. Durable rejected-return obligations, the bounded dispatcher and scoped manager recovery are integrated.'],
            external=['Qualify the independently deployed source receiver, vendor and Netcore outcomes, shared-writer coordination and representative queue workload.'])
     bind('legacy-vinculum-status', ['AjaxUpdateStatusVincView'])
     family('notifications', ['src/modules/fulfillment/index.ts', 'src/modules/fulfillment/notification-bus.ts', 'src/modules/fulfillment/notifications.ts'],
@@ -368,8 +368,8 @@ def define_families():
            external=['Accept actual reader lag/ambiguity reconciliation and private report storage; no live upload or production timing proof is implied.'])
     family('legacy-order-imports', ['src/modules/legacy-order-imports'], ['src/pages/administration/order-imports'],
            ['tests/legacy-order-imports', 'frontend/tests/order-imports'], ['parity/legacy-order-imports.md'], state='partial',
-           scope='Source parsers/planners, encrypted immutable staging, native store/counter authority, authenticated job API, private actor-bound recovery UI, bounded worker loop and qualified >24h BigQuery history are integrated. Before STARTING a native approval preflight can retain unsent rows without burning the nonce; unknown outcomes remain GET-only and frontend retries require exact original input/UUID.',
-           gaps=['Complete and wire the real offline/Shopify financial adapter, purpose-bound approval resources, standalone worker entry and cooperative mutation fences. Source grouping/job API/browser tests still use a synthetic financial port and do not certify financial imports. Access-blocked partial jobs also need explicit safe resume without reimporting completed rows.'],
+           scope='Source parsers/planners, encrypted immutable staging, native store/counter authority, authenticated job API, private actor-bound recovery UI, bounded worker loop and qualified >24h BigQuery history are integrated. Before STARTING a native approval preflight can retain unsent rows without burning the nonce; unknown outcomes remain GET-only and frontend retries require exact original input/UUID. Access-blocked partial jobs have explicit original-nonce resume that preserves completed rows.',
+           gaps=['Complete the approval UI, common mutation/handover fences and concrete private source/Go runtime qualification. The real financial adapter, approval API and standalone worker are wired with production flags unselected; source grouping/job API/browser tests still use a synthetic financial port and do not certify financial imports.'],
            external=['Accept closed-period/custom-date privilege, original source financial/Kinesis cooperation and historical publication.'])
     family('parent-store-assignment-csv', ['src/modules/administration/parent-store-imports','src/modules/administration/import-profile.ts','src/modules/administration/imports.ts','src/modules/administration/worker.ts'],
            ['src/pages/administration/parent-store-imports.tsx','src/pages/administration/imports.tsx'], ['tests/administration/parent-store-imports','tools/administration/parent-store-imports/source-oracle.py','frontend/tests/administration/parent-store-imports'], ['parity/parent-store-imports.md'],

@@ -82,6 +82,9 @@ jobs:
       - name: Whole-order fulfillment recovery browser checks
         run: node tests/legacy-order-status/browser-check.mjs
         working-directory: frontend
+      - name: Rejected-return repair recovery browser checks
+        run: node tests/legacy-order-status/repair-browser-check.mjs
+        working-directory: frontend
       - name: Source order-list filters, formatter and queues
         run: node tests/order-search/browser-check.mjs
         working-directory: frontend

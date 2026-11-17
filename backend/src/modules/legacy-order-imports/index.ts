@@ -125,5 +125,41 @@ export function registerLegacyOrderImports(
         .send(await respond(request, () => service.readResumption(user, jobId, operationId)));
     },
   );
+  const approvalScope = importJobId.extend({ operationId: z.uuid() }),
+    approvalBase = base + '/:jobId/orders/:operationId/approvals';
+  app.get(approvalBase, trace('approval-read'), async (request, reply) => {
+    empty.parse(request.query);
+    const user = await session(request),
+      { jobId, operationId } = approvalScope.parse(request.params);
+    return reply
+      .header('Cache-Control', 'private, no-store')
+      .send(await respond(request, () => service.approval(user, jobId, operationId)));
+  });
+  app.get(approvalBase + '/:commandId', trace('approval-recovery'), async (request, reply) => {
+    empty.parse(request.query);
+    const user = await session(request),
+      { jobId, operationId, commandId } = approvalScope
+        .extend({ commandId: z.uuid() })
+        .parse(request.params);
+    return reply
+      .header('Cache-Control', 'private, no-store')
+      .send(await respond(request, () => service.approval(user, jobId, operationId, commandId)));
+  });
+  app.post(approvalBase, trace('approval-create'), async (request, reply) => {
+    empty.parse(request.query);
+    const user = await session(request),
+      { jobId, operationId } = approvalScope.parse(request.params),
+      body = z
+        .object({
+          commandId: z.uuid(),
+          reason: z.enum(['late-recording', 'historical-correction', 'source-reconciliation']),
+        })
+        .strict()
+        .parse(request.body);
+    return reply
+      .header('Cache-Control', 'private, no-store')
+      .code(201)
+      .send(await respond(request, () => service.requestApproval(user, jobId, operationId, body)));
+  });
   return service;
 }

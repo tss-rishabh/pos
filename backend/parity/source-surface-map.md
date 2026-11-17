@@ -17,8 +17,8 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 ## Concrete remaining code, by feature group
 
 - **legacy-paid-reversal (partial)**: Finish durable prepare/attestation and the manager queue for unknown physical cash-return intents across authorized operators/devices, including final-finance guards. The existing device journal and order action retain original references but are not a complete centralized reconciliation workflow.
-- **legacy-vinculum-status (partial)**: Finish durable obligations for definitely rejected inbound returns, the bounded repair dispatcher and shared financial handover fences.
-- **legacy-order-imports (partial)**: Complete and wire the real offline/Shopify financial adapter, purpose-bound approval resources, standalone worker entry and cooperative mutation fences. Source grouping/job API/browser tests still use a synthetic financial port and do not certify financial imports. Access-blocked partial jobs also need explicit safe resume without reimporting completed rows.
+- **legacy-vinculum-status (partial)**: Compose the shared cash-return and imported-order handover fences in the public and separately deployed private receiver entries. Durable rejected-return obligations, the bounded dispatcher and scoped manager recovery are integrated.
+- **legacy-order-imports (partial)**: Complete the approval UI, common mutation/handover fences and concrete private source/Go runtime qualification. The real financial adapter, approval API and standalone worker are wired with production flags unselected; source grouping/job API/browser tests still use a synthetic financial port and do not certify financial imports.
 
 These are code gaps, distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.
 

@@ -20,6 +20,7 @@
     "worker:security": "node --env-file-if-exists=.env dist/auth/security-worker-main.js",
     "worker:documentation-media": "node --env-file-if-exists=.env dist/modules/administration/media-worker-main.js",
     "worker:settings": "node --env-file-if-exists=.env dist/modules/administration/settings-worker-main.js",
+    "worker:order-imports": "node --env-file-if-exists=.env dist/modules/legacy-order-imports/worker-main.js",
     "worker:profile-media": "node --env-file-if-exists=.env dist/auth/profile-media-worker-main.js",
     "worker:store-images": "node --env-file-if-exists=.env dist/modules/administration/store-image-worker-main.js",
     "verify:project": "node --import tsx tools/verify-project.ts",

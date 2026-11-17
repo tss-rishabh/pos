@@ -64,6 +64,7 @@ import {
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
 import { registerLegacyOrderImports } from './modules/legacy-order-imports/index.js';
+import { configuredLegacyOrderImports } from './modules/legacy-order-imports/runtime.js';
 import {
   readWholeOrderStatusOptions,
   registerWholeOrderStatus,
@@ -351,7 +352,15 @@ export async function buildApp(
     );
   registerBarcodeAssignments(app, config, db);
   registerOperatorModelAccounts(app, config, db);
-  registerLegacyOrderImports(app, config, db);
+  registerLegacyOrderImports(
+    app,
+    config,
+    db,
+    configuredLegacyOrderImports(config, db, {
+      stockProcedure: stockProjection ?? undefined,
+      observe: (event) => app.log.info(event, 'Historical financial import stage recorded.'),
+    }),
+  );
   registerSecondaryCountrySearch(app, db);
   registerParentStoreImports(app, config, db, {
     stockProcedure: stockProjection,
@@ -359,11 +368,14 @@ export async function buildApp(
     syncProducts: productSync || undefined,
     historyOptions: readParentStoreImportOptions(),
   });
+  const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
   await registerCheckout(app, config, db, {
     environment: checkoutRuntime,
     paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
     customerOtp,
     orderCopy: { history: historicalOrderCopyFacts(orderHistory) },
+    rejectedInboundRepairDispatcherEnabled:
+      !config.DEMO_MODE && wholeOrderOptions.WHOLE_ORDER_STATUS_WORKER_ENABLED,
     ...(stockProjection
       ? { inventoryProcedureVerified: true, stockProcedure: stockProjection }
       : {}),
@@ -378,12 +390,7 @@ export async function buildApp(
   await registerFulfillment(app, config, db);
   registerShippingLabels(app, db);
   registerLegacyFulfillment(app, config, db);
-  await registerWholeOrderStatus(
-    app,
-    config,
-    db,
-    readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env),
-  );
+  await registerWholeOrderStatus(app, config, db, wholeOrderOptions);
   registerCustomerWorkspace(app, config, db);
   registerCustomerHistory(app, config, db);
   registerProductFeedback(app, config, db);

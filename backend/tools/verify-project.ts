@@ -481,6 +481,16 @@ const checks: Check[] = [
     ],
   },
   {
+    id: 'legacy-import-financial-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-financial/tsconfig.json',
+    ],
+  },
+  {
     id: 'whole-order-status-browser-fixture-typecheck',
     directory: 'frontend',
     args: [
@@ -974,6 +984,11 @@ if (flags.has('--browser')) {
       id: 'whole-order-status-browser-tests',
       directory: 'frontend',
       args: ['tests/legacy-order-status/browser-check.mjs'],
+    },
+    {
+      id: 'rejected-return-repair-browser-tests',
+      directory: 'frontend',
+      args: ['tests/legacy-order-status/repair-browser-check.mjs'],
     },
     {
       id: 'legacy-order-import-browser-tests',

@@ -1,6 +1,6 @@
 # CSV financial receiver — integration core
 
-This module is a disabled, private financial adapter for the durable CSV coordinator. It is not registered by this commit. The private source receiver and Go overlay must be qualified and deployed together before its contract flags are selected. No upstream repository, live row, provider or infrastructure was changed.
+This module supplies the private financial adapter for the durable CSV coordinator. The application and standalone worker register it only after configuration readiness passes; production contracts remain unselected. The private source receiver and Go overlay must be qualified and deployed together before activation. No upstream repository, live row, provider or infrastructure was changed.
 
 ## Wiring
 
@@ -10,6 +10,7 @@ This module is a disabled, private financial adapter for the durable CSV coordin
 
 - `request({approverId,scope:{actorId,operationId,storeId,counterId},plan,planHash,commandId,reason})` → `FinancialImportApprovalView`.
 - `read(scope,planHash)` → the original view or null. A changed/expired grant returns `status:'stale'`.
+- `read(scope,planHash,commandId)` → the exact original command's view or null, even when a newer grant exists. GET recovery never creates a grant or extends its expiry.
 
 The server supplies the authenticated approver, original private financial context and exact plan hash. Reasons are `late-recording`, `historical-correction`, and `source-reconciliation`. Current internal roles 1–3, including the job owner, may approve their allowed active store/counter. A grant lasts one hour and binds the exact operation, actor authentication version/epoch, current customer contact, plan/prices, date and latest close version. Same-command replay retains the original expiry. Today’s open period requires the same private price/scope capability but no backdate grant. Historical dates and any closed/stale date require the explicit grant.
 
@@ -55,3 +56,19 @@ node node_modules/typescript/bin/tsc -p tools/legacy-import-financial/tsconfig.j
 ```
 
 Use the pinned Node24 runtime. The fixture creates and drops a fresh localhost-only schema and uses synthetic records only.
+
+The server exposes latest/exact-command approval reads and explicit approval creation
+under `/api/v1/admin/order-imports/:jobId/orders/:operationId/approvals`. It derives
+actor, store, counter, original plan and plan hash from the owned encrypted job;
+the browser supplies only an immutable command UUID and a closed reason code.
+Strict validation and current sessions surround the operation. An exact grant
+remains readable after the coordinator starts the order. Approval UI and shared
+mutation fences are still being integrated.
+
+Run `npm run worker:order-imports` for the separately selected processor. Disabled
+and demo startup perform no database or financial I/O. Enabled startup requires
+the qualified financial/source/stock/schema configuration, uses the ordinary
+transaction-scoped stock projection, and logs only closed resource/request/actor
+metadata. Shutdown stops new claims and awaits the current operation before closing
+pools. The actual private receiver, source effects and shared-writer cooperation
+remain required acceptance evidence.

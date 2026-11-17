@@ -12,6 +12,12 @@ import { legacyOrderImportService } from '../../src/modules/legacy-order-imports
 import { legacyOrderImportRepository } from '../../src/modules/legacy-order-imports/repository.js';
 import { readLegacyOrderImportOptions } from '../../src/modules/legacy-order-imports/options.js';
 import {
+  financialImportApprovalSchema,
+  financialImportScopeSchema,
+  type FinancialImportApprovalView,
+} from '../../src/modules/legacy-order-imports/financial-adapter-contracts.js';
+import { expectedFinancialPlanHash } from '../../src/modules/legacy-order-imports/financial-adapter-crypto.js';
+import {
   legacyOrderImportWorker,
   type OrderImportWorkerEvent,
 } from '../../src/modules/legacy-order-imports/worker.js';
@@ -50,7 +56,8 @@ describe.skipIf(!template)(
         name: 'Fixture admin',
         email: 'operator@example.test',
       },
-      outcomes = new Map<string, ImportFinancialResult>();
+      outcomes = new Map<string, ImportFinancialResult>(),
+      approvalReceipts = new Map<string, FinancialImportApprovalView>();
     const result = (scope: ImportFinancialScope): ImportFinancialResult => ({
       status: 'completed',
       operationId: scope.operationId,
@@ -98,6 +105,39 @@ describe.skipIf(!template)(
       );
       service = registerLegacyOrderImports(app, fixture.config, fixture.db, {
         adapter,
+        approvals: {
+          async request(input) {
+            financialImportScopeSchema.parse(input.scope);
+            expect(input.planHash).toBe(
+              expectedFinancialPlanHash(runtimeImportSecret, input.scope, input.plan),
+            );
+            const prior = approvalReceipts.get(input.commandId);
+            if (prior) return prior;
+            const view = financialImportApprovalSchema.parse({
+              id: randomUUID(),
+              ...input.scope,
+              planHash: input.planHash,
+              businessDate: input.plan.createdAt.slice(0, 10),
+              approverId: input.approverId,
+              reason: input.reason,
+              issuedAt: Date.now(),
+              expiresAt: Date.now() + 3600000,
+              close: null,
+              status: 'approved',
+            });
+            approvalReceipts.set(input.commandId, view);
+            return view;
+          },
+          async read(scope, planHash, commandId) {
+            financialImportScopeSchema.parse(scope);
+            const view = commandId
+              ? approvalReceipts.get(commandId)
+              : [...approvalReceipts.values()].at(-1);
+            return view?.operationId === scope.operationId && view.planHash === planHash
+              ? view
+              : null;
+          },
+        },
         runtime: readLegacyOrderImportOptions({
           LEGACY_ORDER_IMPORT_CONTRACT: 'pos-legacy-order-import-v1',
           LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: runtimeImportSecret,
@@ -115,6 +155,7 @@ describe.skipIf(!template)(
       reads = 0;
       dropStart = false;
       outcomes.clear();
+      approvalReceipts.clear();
     });
     afterAll(async () => {
       await app?.close();
@@ -140,7 +181,7 @@ describe.skipIf(!template)(
         (await app.inject({ method: 'GET', url: base + '/capabilities' })).json(),
       ).toMatchObject({ ready: true, canPreview: true });
       const routes = resourceRoutes(app);
-      expect(routes).toHaveLength(9);
+      expect(routes).toHaveLength(12);
       expect(
         routes.every(
           (route) =>
@@ -358,6 +399,50 @@ describe.skipIf(!template)(
       expect(
         (await app.inject({ method: 'GET', url: base + '/' + input.id })).json(),
       ).toMatchObject({ state: 'QUEUED' });
+      expect(starts).toBe(0);
+    });
+    it('derives approval scope and plan privately and recovers the exact command after a lost session response', async () => {
+      const input = runtimeImportInput(),
+        commandId = randomUUID();
+      await app.inject({ method: 'POST', url: base, payload: input });
+      const [row] = await fixture.db.get('writer').select().from(legacyOrderImportRows),
+        url = base + '/' + input.id + '/orders/' + row!.operationId + '/approvals';
+      const body = { commandId, reason: 'historical-correction' };
+      expect(
+        (await app.inject({ method: 'POST', url, payload: { ...body, actorId: '2' } })).statusCode,
+      ).toBe(400);
+      sessionMode = 'revoke';
+      validationCalls = 0;
+      expect((await app.inject({ method: 'POST', url, payload: body })).statusCode).toBe(401);
+      sessionMode = 'valid';
+      expect(approvalReceipts.size).toBe(1);
+      const response = await app.inject({ method: 'GET', url: url + '/' + commandId });
+      expect(response.statusCode).toBe(200);
+      expect(response.headers['cache-control']).toBe('private, no-store');
+      expect(response.json()).toMatchObject({
+        commandId,
+        approval: {
+          actorId: '1',
+          approverId: '1',
+          operationId: row!.operationId,
+          reason: 'historical-correction',
+        },
+      });
+      expect(response.body).not.toMatch(
+        /private-import|Private fixture|message|payload|sourceRows/,
+      );
+      expect(
+        (await app.inject({ method: 'GET', url: url + '/' + randomUUID() })).json(),
+      ).toMatchObject({ approval: null });
+      await fixture.db.get('writer').update(legacyOrderImportRows).set({ state: 'STARTING' });
+      expect((await app.inject({ method: 'GET', url: url + '/' + commandId })).statusCode).toBe(
+        200,
+      );
+      expect(
+        (await app.inject({ method: 'POST', url, payload: { ...body, commandId: randomUUID() } }))
+          .statusCode,
+      ).toBe(409);
+      expect(approvalReceipts.size).toBe(1);
       expect(starts).toBe(0);
     });
     it('waits for native approval before STARTING and keeps the original plan and nonce for first dispatch', async () => {

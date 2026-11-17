@@ -93,11 +93,13 @@ The offline source resolves the customer by email, otherwise falls back to the o
 
 The Shopify source requires an existing customer and converts the offset date to Asia/Kolkata. It supplies price, tax, shipping, currency, discount and address to the external `shopify` order path, then separately reduces stock and publishes Kinesis. It does not invoke the ordinary POS confirmation/cash settlement branch. The literal tax parser selects the first individual digit in `Tax 1 Name` (`18` becomes `1`); complete downstream monetary effects must be proved before selecting a correction. The source reads but does not enforce financial status, and does not deduplicate repeated Shopify references.
 
-The remaining runtime adapter must bind private source-price/date privileges,
+The financial adapter now binds private source-price/date privileges,
 closed-period approval, current customer/contact state, coherent stock/projection,
 and historical settlement or Shopify publication. Its contract is defined in
 `financial-contracts.ts`; no synthetic adapter is registered in the application.
-The job API, UI, worker loop and published-history repository composition are
-implemented. Financial execution/approval adapters, production entry/registration
-and actual downstream/shared-writer/warehouse acceptance remain unfinished.
+The job API/UI, explicit original-nonce resume, approval API, standalone worker
+and published-history composition are implemented. See `legacy-import-financial.md`
+for the native core's evidence and configuration gates. Approval UI, common
+mutation fences, concrete source/Go qualification and actual downstream/shared-writer/
+warehouse acceptance remain unfinished.
 No live source or data has been changed.
