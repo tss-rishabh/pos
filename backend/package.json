@@ -25,6 +25,7 @@
     "worker:membership-history": "node --env-file-if-exists=.env dist/modules/checkout/screening-writer/membership-generation-main.js",
     "receiver:whole-order-status": "node --env-file-if-exists=.env dist/modules/legacy-order-status/receiver-main.js",
     "receiver:origin-history": "node --env-file-if-exists=.env dist/modules/screening-origins/bridge-main.js",
+    "worker:origin-history": "node --env-file-if-exists=.env dist/modules/screening-origins/history-generation-worker-main.js",
     "worker:profile-media": "node --env-file-if-exists=.env dist/auth/profile-media-worker-main.js",
     "worker:store-images": "node --env-file-if-exists=.env dist/modules/administration/store-image-worker-main.js",
     "verify:project": "node --import tsx tools/verify-project.ts",
