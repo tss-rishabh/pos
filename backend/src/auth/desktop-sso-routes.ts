@@ -177,6 +177,10 @@ export function registerDesktopSso(
         ...authCookieOptions(config),
         path: desktopClientCookiePath,
       });
+      reply.clearCookie(desktopClientCookieName, {
+        ...authCookieOptions(config),
+        path: desktopLegacyClientCookiePath,
+      });
       return reply.header('Cache-Control', 'private, no-store').send(result);
     },
   );
