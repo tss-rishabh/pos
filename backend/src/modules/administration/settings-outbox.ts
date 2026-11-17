@@ -12,7 +12,7 @@ export interface SettingsDispatchResult {
   actorId: string | null;
   requestId: string | null;
   storeId: string | null;
-  status: 'delivered' | 'failed' | 'blocked';
+  status: 'delivered' | 'failed' | 'blocked' | 'pending';
   errorCode?: string;
 }
 /** Per-resource ordering prevents a retry from overwriting a later cache value. */
@@ -68,7 +68,9 @@ export function settingsOutbox(db: Databases, delivery: SettingsEffectDelivery) 
               'SETTINGS_EFFECT_UNAVAILABLE',
               'Settings delivery is unavailable.',
             );
-          await delivery.deliver(row.id, effect, signal);
+          const outcome = await delivery.deliver(row.id, effect, signal);
+          // A durable asynchronous job is still processing, not another failed send.
+          if (outcome === 'pending') return { ...result, status: 'pending' };
           await transaction
             .update(settingsEffects)
             .set({ attempts: row.attempts + 1, deliveredAt: utcMediaTimestamp() })

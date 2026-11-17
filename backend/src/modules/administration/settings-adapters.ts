@@ -130,7 +130,11 @@ export function createSettingsDelivery(
   injected: {
     cache?: SettingsCache;
     fetcher?: typeof fetch;
-    synchronizeEcommerce?: (id: string, storeId: string, signal?: AbortSignal) => Promise<void>;
+    synchronizeEcommerce?: (
+      id: string,
+      storeId: string,
+      signal?: AbortSignal,
+    ) => Promise<void | 'pending'>;
   } = {},
 ): SettingsEffectDelivery {
   const fetcher = injected.fetcher || fetch;
@@ -177,8 +181,7 @@ export function createSettingsDelivery(
             'ECOMMERCE_SYNC_UNAVAILABLE',
             'Verified store inventory synchronization is unavailable.',
           );
-        await injected.synchronizeEcommerce(id, effect.storeId, signal);
-        return;
+        return injected.synchronizeEcommerce(id, effect.storeId, signal);
       }
       if (!webhook)
         throw new AppError(

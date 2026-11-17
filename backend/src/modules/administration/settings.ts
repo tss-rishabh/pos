@@ -119,14 +119,16 @@ export function settingsService(config: Config, db: Databases, options: Settings
       requestId: currentRequestTrace()?.requestId || null,
       occurredAt: utcMediaTimestamp(),
     } as SettingsEffect;
+    const id = randomUUID();
     await transaction.insert(settingsEffects).values({
-      id: randomUUID(),
+      id,
       partitionKey,
       kind: effect.kind,
       payload: effect,
       attempts: 0,
       createdAt: effect.occurredAt,
     });
+    return id;
   }
   async function currentSlot(transaction: AdministrationTransaction, storeId: string, id: string) {
     const [slot] = await transaction
@@ -389,6 +391,10 @@ export function settingsService(config: Config, db: Databases, options: Settings
     },
     async ecommerceSettings(user: Principal, storeId: string) {
       requireRole(user, [1]);
+      requireStore(user, storeId);
+      await db
+        .get('writer')
+        .transaction((tx) => assertCurrentStoreAccess(tx, user.id, storeId, [1]));
       const [store] = await db
         .get('primary')
         .select({
@@ -443,7 +449,7 @@ export function settingsService(config: Config, db: Databases, options: Settings
         input.operationId,
         { storeId, input },
         async (transaction) => {
-          await assertCurrentOperatorRole(transaction, user.id, [1]);
+          await assertCurrentStoreAccess(transaction, user.id, storeId, [1]);
         },
         async (transaction) => {
           const [store] = await transaction
@@ -477,7 +483,14 @@ export function settingsService(config: Config, db: Databases, options: Settings
           const thresholdChanged = store.ecom_threshold !== input.threshold;
           const availabilityChanged = store.ecom_delivery !== (input.active ? 1 : 0);
           if (!thresholdChanged && !availabilityChanged)
-            return { status: 'success', message: 'No changes detected', effectsQueued: false };
+            return {
+              status: 'success',
+              message: 'No changes detected',
+              effectsQueued: false,
+              storeId,
+              operationId: input.operationId,
+              actorId: user.id,
+            };
           await transaction
             .update(Store)
             .set({ ecom_threshold: input.threshold, ecom_delivery: input.active ? 1 : 0 })
@@ -500,7 +513,7 @@ export function settingsService(config: Config, db: Databases, options: Settings
               storeId,
               active: input.active,
             });
-          await enqueue(transaction, user, `store:${storeId}`, {
+          const ecommerceSyncId = await enqueue(transaction, user, `store:${storeId}`, {
             kind: 'ecommerce.inventory.sync',
             storeId,
           });
@@ -508,6 +521,10 @@ export function settingsService(config: Config, db: Databases, options: Settings
             status: 'success',
             message: 'Ecom Setting Updated! Please wait, It will take time to reflect',
             effectsQueued: true,
+            storeId,
+            ecommerceSyncId,
+            operationId: input.operationId,
+            actorId: user.id,
           };
         },
       );

@@ -107,11 +107,11 @@ export function settingsWorker(
           const result = await outbox.dispatchNext(abort?.signal, seen);
           if (!result) break;
           seen.push(result.id);
-          failed ||= result.status !== 'delivered';
+          failed ||= result.status === 'failed' || result.status === 'blocked';
           if (result.status === 'blocked') rememberBlocked(result.id);
           else alerted.delete(result.id);
           log(
-            result.status === 'delivered' ? 'info' : 'warn',
+            result.status === 'delivered' || result.status === 'pending' ? 'info' : 'warn',
             {
               ...event(
                 'settings-delivery',
@@ -123,9 +123,11 @@ export function settingsWorker(
               storeId: result.storeId,
               ...(result.errorCode ? { errorCode: result.errorCode } : {}),
             },
-            result.status === 'delivered'
-              ? 'Settings delivery acknowledged'
-              : 'Settings delivery requires retry or recovery',
+            result.status === 'pending'
+              ? 'Settings delivery is still processing'
+              : result.status === 'delivered'
+                ? 'Settings delivery acknowledged'
+                : 'Settings delivery requires retry or recovery',
           );
         }
         await alertBlocked(runId);

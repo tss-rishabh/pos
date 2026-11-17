@@ -69,6 +69,13 @@ export interface SettingsMutationResult {
   status: 'success';
   message: string;
   effectsQueued: boolean;
+  storeId?: string;
+  ecommerceSyncId?: string;
+  requestId?: string | null;
+  operationId?: string;
+  actorId?: string;
+  originalOperationId?: string;
+  cancelled?: boolean;
 }
 interface EffectContext {
   actorId: string;
@@ -165,7 +172,7 @@ export type SettingsEffectPayload = SettingsEffect extends infer Effect
   : never;
 export interface SettingsEffectDelivery {
   supports(kind: SettingsEffectKind): boolean;
-  deliver(id: string, effect: SettingsEffect, signal?: AbortSignal): Promise<void>;
+  deliver(id: string, effect: SettingsEffect, signal?: AbortSignal): Promise<void | 'pending'>;
   close?(): Promise<void>;
 }
 export interface SettingsOptions {

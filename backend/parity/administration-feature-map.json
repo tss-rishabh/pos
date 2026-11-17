@@ -694,7 +694,16 @@
     "tools/administration-history/mysql-oracle.py",
     "../frontend/tests/administration/history.browser.test.ts",
     "../frontend/tests/administration/group-bulk.browser.test.ts",
-    "tests/administration-history/collector.test.ts"
+    "tests/administration-history/collector.test.ts",
+    "tests/administration/ecommerce-sync/service.mysql.test.ts",
+    "tests/administration/ecommerce-sync/http.test.ts",
+    "tests/administration/ecommerce-sync/bridge.mysql.test.ts",
+    "tools/administration/ecommerce-sync/source-oracle.py",
+    "tools/administration/ecommerce-sync/bridge-oracle.py",
+    "../frontend/tests/administration/ecommerce-sync/browser.test.ts",
+    "../frontend/tests/administration/ecommerce-sync/journal.test.ts",
+    "parity/ecommerce-inventory-sync.md",
+    "compatibility/upstream/ecommerce-full-sync/source-manifest.json"
   ],
   "source_definitions": [
     {
@@ -1202,6 +1211,7 @@
       "implementation": [
         "src/modules/administration/store-images.ts",
         "src/modules/administration/store-image-routes.ts",
+        "src/modules/administration/ecommerce-sync/index.ts",
         "src/modules/administration/image-lifecycle/service.ts",
         "src/modules/administration/image-lifecycle/cleanup.ts",
         "src/modules/administration/image-lifecycle/validation.ts",
@@ -1717,6 +1727,33 @@
       "scope": "First GS1 by PK, parent prices/exclusive price/ERP/image, sellable archived-stock branches, stock toggle and substring search. DTO differs from DataTables and omits held/storage stock presentation."
     },
     {
+      "id": "ecommerce-inventory-sync",
+      "status": "partial-component-evidence",
+      "full_legacy_route_parity_certified": false,
+      "source_route_declarations": [
+        {
+          "id": "core/urls.py:99",
+          "route": "settings/ecom/",
+          "view": "sync_to_async(core_views.PosEcomSetting.as_view(), thread_sensitive=False)"
+        },
+        {
+          "id": "core/urls.py:100",
+          "route": "ajax-ecom-setting-update/",
+          "view": "core_views.AjaxEcomSettingUpdate.as_view()"
+        }
+      ],
+      "implementation": [
+        "src/modules/administration/ecommerce-sync/index.ts",
+        "src/modules/administration/ecommerce-sync/service.ts",
+        "src/modules/administration/ecommerce-sync/http.ts",
+        "src/modules/administration/ecommerce-sync/schema.ts",
+        "src/modules/administration/settings.ts",
+        "src/modules/administration/settings-outbox.ts",
+        "src/modules/administration/settings-worker.ts"
+      ],
+      "scope": "Concrete source stock>threshold selection without availability/deletion/type filtering; bounded durable per-association checkpoints, current-quantity atomic system projection, explicit unsupported/removed-row diagnostics, pending outcome accounting and full pinned ecommerce-catalog bridge. Private HMAC queued/completed receipts, source Mongo/Redis/Akamai acknowledgement checks, global bridge worker supervision/uncertainty fencing and original-operation recovery/cancellation/resume UI. Actual source/native I/O and worker roundtrips plus controlled Chromium evidence; configured stock candidate/source writer/cache-writer cutover/provider acceptance remains required. No deployed legacy workflow certification."
+    },
+    {
       "id": "support",
       "status": "partial-component-evidence",
       "full_legacy_route_parity_certified": false,
@@ -1775,7 +1812,7 @@
         "src/modules/administration/settings-adapters.ts",
         "src/modules/administration/settings-worker.ts"
       ],
-      "scope": "Scoped delivery timing create/edit/move and single/all availability, global threshold/duration-buffer edits, optimistic state/replay checks, source-compatible common-cache keys/notices, durable ordered effects, cooldown and e-commerce settings. E-commerce writes require an injected verified store-inventory sync; current source procedure body remains unavailable. No complete live-provider or legacy HTTP workflow certification."
+      "scope": "Scoped delivery timing create/edit/move and single/all availability, global threshold/duration-buffer edits, optimistic state/replay checks, source-compatible common-cache keys/notices, durable ordered effects, cooldown and e-commerce settings. E-commerce writes now have a concrete threshold-selected system projection/full-catalog bridge and original-operation recovery; configured stock/source-provider acceptance remains required. No complete live-provider or legacy HTTP workflow certification."
     },
     {
       "id": "terminals",

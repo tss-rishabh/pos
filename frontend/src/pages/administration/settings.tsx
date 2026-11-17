@@ -1,18 +1,17 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
 import { Empty, ErrorState, Loading } from '../../components/common';
+import { EcommerceDeliveryAdministration } from './ecommerce-sync';
 import { commonStoreSchema, mutateAdministration } from './api';
 import { AdministrationEditor, type AdministrationField } from './editor';
 import {
   bufferDuration,
   deliverySlotSchema,
-  ecommerceSettingSchema,
   generalSettingSchema,
   type DeliverySlot,
-  type EcommerceSetting,
   type GeneralSetting,
 } from './settings-api';
 
@@ -39,8 +38,7 @@ const slotFields: AdministrationField[] = [
 type Editor =
   | { kind: 'new-slot' }
   | { kind: 'slot'; value: DeliverySlot }
-  | { kind: 'setting'; value: GeneralSetting }
-  | { kind: 'ecommerce'; value: EcommerceSetting };
+  | { kind: 'setting'; value: GeneralSetting };
 const settingName = (setting: GeneralSetting) =>
   setting.name === 'HYPERLOCAL_STOCK_THRESHOLD'
     ? 'Delivery stock threshold'
@@ -56,8 +54,7 @@ export function StoreSettingsAdministration({
   const [editing, setEditing] = useState<Editor | null>(null),
     [error, setError] = useState<unknown>(null),
     [message, setMessage] = useState(''),
-    [busy, setBusy] = useState(false),
-    [clock, setClock] = useState(() => Date.now());
+    [busy, setBusy] = useState(false);
   const operation = useRef<{ key: string; id: string } | null>(null);
   function operationId(payload: unknown) {
     const key = JSON.stringify(payload);
@@ -93,27 +90,6 @@ export function StoreSettingsAdministration({
         z.object({ data: z.array(commonStoreSchema) }),
       ),
   });
-  const ecommerce = useQuery({
-    queryKey: [user.id, 'administration', storeId, 'ecommerce-settings'],
-    enabled: user.role === 1 && !!storeId,
-    queryFn: ({ signal }) =>
-      request(
-        `/api/v1/admin/stores/${storeId}/ecommerce-settings`,
-        { operatorId: user.id, signal },
-        ecommerceSettingSchema,
-      ),
-  });
-  const lockedUntil = ecommerce.data?.lockedUntil;
-  useEffect(() => {
-    const expiry = lockedUntil ? Date.parse(lockedUntil) : 0;
-    if (expiry <= clock) return;
-    const timeout = setTimeout(
-      () => setClock(Date.now()),
-      Math.min(expiry - Date.now() + 100, 3_600_000),
-    );
-    return () => clearTimeout(timeout);
-  }, [lockedUntil, clock]);
-  const coolingDown = !!lockedUntil && Date.parse(lockedUntil) > clock;
   const slotRows = slots.data?.data || [];
   const anyAvailable = slotRows.some((slot) => slot.available === 1);
   const refresh = () => client.invalidateQueries({ queryKey: [user.id] });
@@ -189,25 +165,6 @@ export function StoreSettingsAdministration({
         editing.value.name === 'HYPERLOCAL_STOCK_THRESHOLD'
           ? editing.value.value
           : bufferDuration(editing.value.value),
-    };
-  } else if (editing?.kind === 'ecommerce') {
-    title = 'Edit e-commerce delivery';
-    fields = [
-      { name: 'threshold', label: 'Delivery stock threshold', kind: 'number', required: true },
-      {
-        name: 'active',
-        label: 'Delivery availability',
-        kind: 'select',
-        required: true,
-        options: [
-          { value: 'true', label: 'Open' },
-          { value: 'false', label: 'Closed' },
-        ],
-      },
-    ];
-    initialValues = {
-      threshold: String(editing.value.threshold),
-      active: String(editing.value.active),
     };
   }
   return (
@@ -341,51 +298,7 @@ export function StoreSettingsAdministration({
           </div>
         )}
       </section>
-      {user.role === 1 && (
-        <>
-          <div className="administration-heading administration-section-gap">
-            <h2>E-commerce delivery</h2>
-          </div>
-          <section className="surface">
-            {!storeId ? (
-              <Empty title="Choose a store to manage e-commerce delivery" />
-            ) : ecommerce.isPending ? (
-              <Loading />
-            ) : ecommerce.isError ? (
-              <ErrorState error={ecommerce.error} />
-            ) : (
-              <>
-                <div className="administration-heading">
-                  <div>
-                    <strong>{ecommerce.data.name}</strong>
-                    <p>
-                      {ecommerce.data.active ? 'Open' : 'Closed'} · Stock threshold{' '}
-                      {ecommerce.data.threshold}
-                    </p>
-                  </div>
-                  <button
-                    className="button secondary"
-                    disabled={!ecommerce.data.editable || coolingDown || busy}
-                    onClick={() => setEditing({ kind: 'ecommerce', value: ecommerce.data })}
-                  >
-                    Edit e-commerce delivery
-                  </button>
-                </div>
-                {!ecommerce.data.editable && (
-                  <p className="administration-notice">
-                    E-commerce updates require inventory synchronization to be enabled.
-                  </p>
-                )}
-                {coolingDown && (
-                  <p className="administration-notice">
-                    Another update is available after {new Date(lockedUntil!).toLocaleTimeString()}.
-                  </p>
-                )}
-              </>
-            )}
-          </section>
-        </>
-      )}
+      {user.role === 1 && <EcommerceDeliveryAdministration user={user} storeId={storeId} />}
       {editing && (
         <AdministrationEditor
           key={JSON.stringify(editing)}
@@ -413,19 +326,12 @@ export function StoreSettingsAdministration({
                 start: values.start,
                 end: values.end,
               };
-            } else if (editing.kind === 'setting') {
+            } else {
               const threshold = editing.value.name === 'HYPERLOCAL_STOCK_THRESHOLD';
               path = `/api/v1/admin/general-settings/${threshold ? 'delivery-stock-threshold' : 'order-creation-buffer'}`;
               body = {
                 expectedVersion: editing.value.version,
                 value: threshold ? Number(values.value) : values.value,
-              };
-            } else {
-              path = `/api/v1/admin/stores/${storeId}/ecommerce-settings`;
-              body = {
-                expectedVersion: editing.value.version,
-                threshold: Number(values.threshold),
-                active: values.active === 'true',
               };
             }
             await mutateAdministration(
