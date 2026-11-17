@@ -46,6 +46,10 @@ def outputs():
         '\tif err = validateImportConfirmation(ctx, tx, importPrelude, orderID, userID, storeID, counterID); err != nil { return Confirmation{}, err }\n\tlegacyImport, err := lockLegacyImport(ctx, tx, orderID, userID, storeID, counterID)\n\tif err != nil { return Confirmation{}, err }\n\tif err = checkScreeningConfirmation(ctx, tx, importPrelude, legacyImport, orderID); err != nil { return Confirmation{}, err }\n\titems, err := tx.QueryContext(ctx,')
     after=once(after,'\tif err = applySafely(tx, apply); err != nil {',
         '\tif err = beforeImportMutation(ctx, tx, importPrelude, legacyImport); err != nil { return Confirmation{}, err }\n\tlegacyCoupon, err := lockLegacyImportCoupon(ctx, tx, legacyImport, orderID)\n\tif err != nil { return Confirmation{}, err }\n\tif err = applySafely(tx, apply); err != nil {')
+    after=once(after,'membership, err := lockMembership(ctx, tx, orderID, userID, originalHeader, lines, false)',
+        'membership, err := lockLegacyImportMembershipActivation(ctx, tx, legacyImport, orderID, userID, originalHeader, lines, false)')
+    after=once(after,'finishMembership(ctx, tx, membership)',
+        'finishLegacyImportMembershipActivation(ctx, tx, legacyImport, membership)')
     replay='\t\tif err = tx.Commit(); err != nil {\n\t\t\treturn Confirmation{}, err\n\t\t}\n\t\treturn confirmation(false,'
     after=once(after,replay,'\t\tif err = verifyLegacyImportCouponReplay(ctx,tx,legacyImport,orderID); err != nil { return Confirmation{}, err }\n\t\tif err = releaseScreeningCounter(ctx,tx,importPrelude); err != nil { return Confirmation{}, err }\n'+replay)
     # The sole new-proof COMMIT follows the source proof insertion. Existing
@@ -75,6 +79,7 @@ def outputs():
     changes['internal/poscheckout/public_screening.go']=('',(HERE/'public_screening.go').read_text())
     changes['internal/poscheckout/public_screening_benefits.go']=('',(HERE/'public_screening_benefits.go').read_text())
     changes['internal/poscheckout/legacy_import_succession.go']=('',(HERE/'legacy_import_succession.go').read_text())
+    changes['internal/poscheckout/legacy_import_membership_reference.go']=('',(HERE/'legacy_import_membership_reference.go').read_text())
     changes['internal/poscheckout/coupon_consumption.go']=('',(HERE/'coupon_consumption.go').read_text())
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+path if old else '/dev/null',tofile='b/'+path)) for path,(old,new) in changes.items())
     public_changes=api_guard_changes()
@@ -146,9 +151,13 @@ def outputs():
             'activatedContract':'pos-cancellation-membership-provenance-v2',
             'historyContract':'pos-csv-membership-history-v1',
             'contactReferenceContract':'pos-csv-membership-contact-reference-v1',
+            'stagedReferenceContract':'pos-csv-membership-staged-reference-v1',
+            'referenceActivationContract':'pos-csv-membership-reference-activation-v1',
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
                 'membership_profile.py','membership_history.py','membership_handoff.py','membership_cache.py','membership_consumer.py',
                 'membership_reference.py',
+                'membership_staged_reference.py',
+                'legacy_import_membership_reference.go',
                 'source_runtime.py','cart_preparation.py','order_preparation.py','profiles.py','native.py','receiver.py','effects.py','runtime.py','protocol.py','http_app.py')},
             'sourceFiles':__import__('membership_profile').PINS,
             'ordinaryProducerSha256':hashlib.sha256((HERE.parent/'pending-cancellation/membership_provenance.py').read_bytes()).hexdigest(),
