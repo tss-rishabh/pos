@@ -25,3 +25,20 @@ These outcomes apply separately to TSS Money and TSS Points. Cashback remains un
 The selected Node/Python source-origin paths delegate this failure restoration to Go; they do not independently compare this Go layout. Independent Node cancellation restoration uses calendar dates and its own allocation policy. Python source history/preview has no replacement of this payment-failure predicate. Those independent paths should remain unchanged, with no broad expiry restoration introduced. A search for the swapped Go/Python layout found no literal counterpart in owned Node/Python sources; it is inherited by the Go producer from the pinned source.
 
 Acceptance needed: change the two original and two generated failure-restoration predicates together to calendar DateOnly. The default Go vet gate presently identifies this existing source defect. Its warning will remain reported until the decision is resolved; no dynamic-string workaround will conceal it.
+
+
+## Native fixture evidence (2026-11-18)
+
+The ten matrix cases above now ran against the actual generated money/points
+reversal functions and a disposable MySQL8.4 schema. Only the disposable copy's
+clock was bound to 2026-11-18. Original-source behavior passed10 subcases in a
+diagnostic `-vet=off` run; this does not pass the blocked default source gate.
+The inactive candidate patch was applied to a scratch producer, regenerated,
+and passed10 native subcases plus2 real TLS gateway recovery tests with the
+default vet gate and race detector. The observed wallet amounts, ledger
+platforms/deltas and unchanged cashback7 matched the table above for both
+assets. No source/production schema or provider was contacted.
+
+Review fixture: `expiry_candidate_test.go`; scratch candidate output:
+`/tmp/pos-origin-expiry-candidate-native-20261118.log`. The original expiry
+predicate remains active in the owned producer until the requested decision.
