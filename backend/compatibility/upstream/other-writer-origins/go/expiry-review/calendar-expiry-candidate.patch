@@ -1,0 +1,27 @@
+--- a/backend/compatibility/upstream/other-writer-origins/go/transform_source.go
++++ b/backend/compatibility/upstream/other-writer-origins/go/transform_source.go
+@@ -100,7 +100,7 @@
+ 	wanted:=map[string]string{"OrderAndStockConfirmed":"applyOtherOriginSource","ExchangeOrderAndStockConfirmed":"applyOtherOriginExchange","RevertTssMoney":"revertOtherOriginMoney","RevertTssPoints":"revertOtherOriginPoints","RevertGiftVoucher":"revertOtherOriginVoucher","RevertCouponAmtUsed":"revertOtherOriginCoupon","RevertTssPointsSaveTheSoul":"revertOtherOriginDonation"};var declarations []ast.Decl
+ 	for _,d:=range file.Decls{fn,ok:=d.(*ast.FuncDecl);if !ok||wanted[fn.Name.Name]==""{continue};name:=fn.Name.Name;fn.Name.Name=wanted[name];if name=="OrderAndStockConfirmed"{
+ 		ast.Inspect(fn.Body,func(n ast.Node)bool{branch,ok:=n.(*ast.IfStmt);if !ok||render(branch.Cond)!="o.CashbackUsed > 0"{return true};ast.Inspect(branch.Body,func(n ast.Node)bool{if literal,ok:=n.(*ast.BasicLit);ok&&literal.Kind==token.STRING{value,_:=strconv.Unquote(literal.Value);if value=="SELECT tss_money FROM users WHERE id = ?"{literal.Value=strconv.Quote("SELECT cashback FROM users WHERE id = ?")}};if field,ok:=n.(*ast.SelectorExpr);ok&&render(field)=="user.TssMoney"{field.Sel.Name="Cashback"};return true});return true})
+-		fn.Type.Params.List=append(fn.Type.Params.List[:1],&ast.Field{Names:[]*ast.Ident{ast.NewIdent("effects")},Type:expr("*poscheckout.OriginEffectCollector")},&ast.Field{Names:[]*ast.Ident{ast.NewIdent("stockMode")},Type:ast.NewIdent("string")},fn.Type.Params.List[1])};if name=="ExchangeOrderAndStockConfirmed"{fn.Type.Params.List=append(fn.Type.Params.List,&ast.Field{Names:[]*ast.Ident{ast.NewIdent("effects")},Type:expr("*poscheckout.OriginEffectCollector")},&ast.Field{Names:[]*ast.Ident{ast.NewIdent("stockMode")},Type:ast.NewIdent("string")})};fn.Type.Results=&ast.FieldList{List:[]*ast.Field{{Type:ast.NewIdent("error")}}};rewrite(fn.Body,name);if name!="OrderAndStockConfirmed"&&name!="ExchangeOrderAndStockConfirmed"{fn.Body.List=append(fn.Body.List,stmt("return nil"))};declarations=append(declarations,fn)}
++		fn.Type.Params.List=append(fn.Type.Params.List[:1],&ast.Field{Names:[]*ast.Ident{ast.NewIdent("effects")},Type:expr("*poscheckout.OriginEffectCollector")},&ast.Field{Names:[]*ast.Ident{ast.NewIdent("stockMode")},Type:ast.NewIdent("string")},fn.Type.Params.List[1])};if name=="ExchangeOrderAndStockConfirmed"{fn.Type.Params.List=append(fn.Type.Params.List,&ast.Field{Names:[]*ast.Ident{ast.NewIdent("effects")},Type:expr("*poscheckout.OriginEffectCollector")},&ast.Field{Names:[]*ast.Ident{ast.NewIdent("stockMode")},Type:ast.NewIdent("string")})};fn.Type.Results=&ast.FieldList{List:[]*ast.Field{{Type:ast.NewIdent("error")}}};if name=="RevertTssMoney"||name=="RevertTssPoints"{count:=0;ast.Inspect(fn.Body,func(n ast.Node)bool{literal,ok:=n.(*ast.BasicLit);if ok&&literal.Kind==token.STRING&&literal.Value==strconv.Quote("2006-02-01"){literal.Value=strconv.Quote("2006-01-02");count++};return true});if count!=2{panic("pinned wallet expiry boundary changed")}};rewrite(fn.Body,name);if name!="OrderAndStockConfirmed"&&name!="ExchangeOrderAndStockConfirmed"{fn.Body.List=append(fn.Body.List,stmt("return nil"))};declarations=append(declarations,fn)}
+ 	if len(declarations)!=len(wanted){panic("pinned source function missing")}
+ 	orderRaw,e:=os.ReadFile(*orderInput);if e!=nil{panic("pinned order source missing")};orderSum:=sha256.Sum256(orderRaw);if *orderExpected==""||hex.EncodeToString(orderSum[:])!=*orderExpected{panic("pinned order source hash mismatch")};orders,e:=parser.ParseFile(fs,*orderInput,orderRaw,0);if e!=nil{panic("pinned order source invalid")}
+ 	builders:=0;for _,d:=range orders.Decls{fn,ok:=d.(*ast.FuncDecl);if !ok||fn.Name.Name!="CreateOrder"&&fn.Name.Name!="CreateOrderGokwik"{continue};name:=fn.Name.Name
+--- a/backend/compatibility/upstream/other-writer-origins/go/compose.py
++++ b/backend/compatibility/upstream/other-writer-origins/go/compose.py
+@@ -150,6 +150,13 @@
+         path.write_bytes(private)
+ 
+     format_source_logs(target)
++    # Calendar DateOnly correction approved separately; original source expiry
++    # date and IsExpired predicates remain inclusive and otherwise unchanged.
++    expiry_path = target / 'juspay/model.go'
++    expiry_source = expiry_path.read_text()
++    if expiry_source.count('.Format("2006-02-01")') != 4:
++        raise RuntimeError('Pinned wallet expiry date boundary changed')
++    expiry_path.write_text(expiry_source.replace('.Format("2006-02-01")', '.Format("2006-01-02")'))
+ 
+     # Existing public/CSV confirmation remains intact. The extra credit is
+     # computed under its already-held global customer lock, using only the
