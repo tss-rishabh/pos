@@ -106,10 +106,11 @@ def compile_placement(path,expected_hash,namespace,context):
 
 
 class Context:
-    def __init__(self,owner,command_id,reference_hash,payload,api_details,request,response):
+    def __init__(self,owner,command_id,reference_hash,payload,api_details,request,response,attempt_id):
         self.owner,self.command_id,self.reference_hash=owner,command_id,reference_hash
         self.payload,self.api_details,self.req,self.resp=payload,api_details,request,response
         self.cart=None;self.value=None;self.service=None
+        self.attempt_id=attempt_id
     def authorize(self,session,req):
         if ACTIVE.get() is not self or req is not self.req:fail('SCREENING_ORIGIN_SERVICE_REQUIRED')
         self.service=current_service(session,self.owner.runtime.key,self.api_details)
@@ -123,8 +124,12 @@ class Context:
                 'status':native['status'],'isBlock':native['is_block'],'isDisabled':native['is_disabled'],'isTwoFa':native['is_two_fa']})}
         return native,principal,None
     def namespace(self):return 'external:csk:'+self.reference_hash
-    def cart_hash(self):return portable_hash(self.cart.simple_obj(apply_wrappers_flag=False))
+    def cart_hash(self):
+        from system_preparation import copied
+        return portable_hash(copied(self.cart.simple_obj(apply_wrappers_flag=False)))
     def assert_running(self,session,command):
+        from system_preparation import assert_attempt
+        assert_attempt(session,self)
         row=one(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id FOR UPDATE',{'id':self.command_id})
         value=json_value(row['data'])
         if (value.get('commandId')!=self.command_id or value.get('state')!='SOURCE_RUNNING' or value.get('referenceHash')!=self.reference_hash
@@ -149,10 +154,8 @@ class Context:
             _native,principal,_grant=self.authorize(session,req)
             prior=read(session,self.command_id,principal['customerId'],key)
             if prior is not None:fail('SCREENING_ORIGIN_RECONCILIATION_REQUIRED')
-            job=one(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id FOR UPDATE',{'id':self.command_id})
-            job_data=json_value(job['data'])
-            if (job_data.get('state')!='SOURCE_RUNNING' or job_data.get('requestHash')!=portable_hash(self.payload)
-                    or not hmac.compare_digest(digest(key,'system-job',job_data),job['proof_hash'])):fail('SCREENING_ORIGIN_SOURCE_DISPATCH_CLOSED')
+            from system_preparation import assert_attempt,copied
+            assert_attempt(session,self)
             quantity=tickets(self.cart)
             if quantity not in (1,2):fail('SCREENING_ORIGIN_LIMIT')
             now=self.owner.runtime.clock();value={'contract':PROOF,'id':self.command_id,'origin':'external-system','customerId':principal['customerId'],
@@ -168,13 +171,36 @@ class Context:
             self.system_authority_hash=digest(key,'system-authority',descriptor)
             session.execute(text('INSERT INTO pos_rewrite_screening_origin_system_authorities(command_id,data,proof_hash) VALUES(:id,:data,:proof)'),
                 {'id':self.command_id,'data':canonical(descriptor),'proof':self.system_authority_hash})
+            snapshot=copied({'user':req.context['user'],'requestData':req.context['data'],'cart':self.cart.get_snapshot(),
+                             'accessRoute':req.access_route,'originalPayload':self.payload})
+            payload=[snapshot];payload_hash=hashlib.sha256(canonical(payload).encode()).hexdigest()
+            saved={'contract':'pos-screening-system-preparation-v1','commandId':self.command_id,'customerId':value['customerId'],
+                   'authorityHash':value['authorityHash'],'requestHash':value['requestHash'],'cartHash':value['cartHash'],
+                   'referenceHash':value['referenceHash'],'payloadHash':payload_hash,'createdAt':now}
+            encrypted=seal_effects(key,'system-preparation:'+self.command_id,payload)
+            if len(encrypted)>1400000:fail('SCREENING_ORIGIN_PREPARATION_INVALID')
+            session.execute(text('INSERT INTO pos_rewrite_screening_origin_system_preparations(command_id,customer_id,data,proof_hash,payload,payload_hash) VALUES(:id,:customer,:data,:proof,:payload,:hash)'),
+                {'id':self.command_id,'customer':value['customerId'],'data':canonical(saved),'proof':digest(key,'system-preparation',saved),'payload':encrypted,'hash':payload_hash})
+        return self.execute_prepared()
+    def execute_prepared(self):
+        from origin_frame import request_hash
+        from system_preparation import assert_attempt
+        key=self.owner.runtime.key
+        with self.owner.runtime.sessions() as session,session.begin():
+            session.connection(execution_options={'isolation_level':'READ COMMITTED'})
+            _native,current,_grant=self.authorize(session,self.req)
+            value=read(session,self.command_id,current['customerId'],key)
+            assert_attempt(session,self)
+            if (value is None or value['phase']!='PREPARED' or value['authorityHash']!=authority_hash(key,current)
+                    or value['requestHash']!=request_hash(self.req) or value['cartHash']!=self.cart_hash()):fail('SCREENING_ORIGIN_SCOPE_CHANGED')
             witness=origin_history.head(session,value['customerId'])
         if self.owner.runtime.history_provider is None:fail('SCREENING_ORIGIN_HISTORY_REQUIRED')
         document=self.owner.runtime.history_provider.read(value,witness)
         with self.owner.runtime.sessions() as session,session.begin():
             session.connection(execution_options={'isolation_level':'READ COMMITTED'})
-            _native,current,_grant=self.authorize(session,req)
+            _native,current,_grant=self.authorize(session,self.req)
             saved=read(session,self.command_id,value['customerId'],key)
+            assert_attempt(session,self)
             if saved!=value or authority_hash(key,current)!=value['authorityHash']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
             origin_history.save(session,value,document,key,self.owner.runtime.clock())
         self.value=value
@@ -182,7 +208,7 @@ class Context:
         self.req.origin_headers['X-TSS-Screening-Origin']='external-system'
         # Invoke the real already-auth-decorated source resource under its
         # distinct system context. The ordinary body/tax/stock helper is intact.
-        return self.owner.order.on_post(req,resp)
+        return self.owner.order.on_post(self.req,self.resp)
     def submit_payment(self,result,_original_user):
         if self.value is None or str(result.get('order'))=='' or result.get('isValid') is not True:fail()
         return self.owner.payment(self.command_id,result,self.api_details)
@@ -225,6 +251,14 @@ class SystemOrders:
         payload=req.context['data']
         from controllers.external.external_api_utils import validate_payload
         validate_payload(payload,details)
+        def secrets(value):
+            if isinstance(value,dict):
+                for name,item in value.items():
+                    if str(name).lower() in ('token','jwt','authorization','api_key','apikey','password','secret','access_token','refresh_token'):fail('SCREENING_ORIGIN_REQUEST_INVALID')
+                    secrets(item)
+            elif isinstance(value,list):
+                for item in value:secrets(item)
+        secrets(payload)
         if not any(str(line.get('sku_id'))=='390238' for line in payload['order']['line_items']):fail('SCREENING_ORIGIN_NOT_SCREENING')
         command,reference_hash=reference(self.runtime.key,payload);request_hash=portable_hash(payload)
         from origin_effects import seal_effects
@@ -237,7 +271,8 @@ class SystemOrders:
         descriptor={'contract':'pos-screening-system-job-v1','commandId':command,'serviceId':'csk','referenceHash':reference_hash,
             'requestHash':request_hash,'state':'PREPARED','orderId':None,'updatedAt':self.clock()}
         with self.runtime.sessions() as session,session.begin():
-            current_service(session,self.runtime.key,details)
+            service=current_service(session,self.runtime.key,details)
+            descriptor['serviceHash']=digest(self.runtime.key,'system-service',service)
             prior=rows(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id FOR UPDATE',{'id':command},2)
             if prior:
                 old=json_value(prior[0]['data'])
@@ -247,23 +282,20 @@ class SystemOrders:
                 session.execute(text('INSERT INTO pos_rewrite_screening_origin_system_jobs(command_id,data,proof_hash,payload,payload_hash) VALUES(:id,:data,:proof,:payload,:hash)'),
                     {'id':command,'data':canonical(descriptor),'proof':digest(self.runtime.key,'system-job',descriptor),
                      'payload':seal_effects(self.runtime.key,'system-job:'+command,saved_payload),'hash':hashlib.sha256(canonical(saved_payload).encode()).hexdigest()})
-        resp.text=canonical({'commandId':command,'phase':descriptor['state'],'orderId':descriptor['orderId']});resp.status='202 Accepted';resp.set_header('Cache-Control','no-store')
+        resp.text=canonical(self.read(command,details));resp.status='202 Accepted';resp.set_header('Cache-Control','no-store')
     def run(self,command_id,original_request=None):
         from controllers.external.external_api_utils import validate_api_key
         details=validate_api_key(self.namespace['settings'].CSK_API_DETAILS['key'])
-        with self.runtime.sessions() as session,session.begin():
-            current_service(session,self.runtime.key,details)
-            job=one(session,'SELECT data,proof_hash,payload,payload_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id FOR UPDATE',{'id':command_id})
-            state=json_value(job['data'])
-            if not hmac.compare_digest(digest(self.runtime.key,'system-job',state),job['proof_hash']):fail()
-            start=state['state']=='PREPARED'
-            if start:
-                saved_payload=open_effects(self.runtime.key,'system-job:'+command_id,job['payload'],job['payload_hash'])[0]
-                payload=saved_payload['payload']
-                state={**state,'state':'SOURCE_RUNNING','updatedAt':self.clock()}
-                session.execute(text('UPDATE pos_rewrite_screening_origin_system_jobs SET data=:data,proof_hash=:proof WHERE command_id=:id'),
-                    {'id':command_id,'data':canonical(state),'proof':digest(self.runtime.key,'system-job',state)})
-        if not start:return self.recover(command_id,details)
+        from system_preparation import claim,pause
+        claimed=claim(self,command_id,details)
+        if claimed is None:
+            with self.runtime.sessions() as session:
+                row=one(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id',{'id':command_id})
+                old=json_value(row['data'])
+                if digest(self.runtime.key,'system-job',old)!=row['proof_hash']:fail()
+            if old.get('state')=='SOURCE_RUNNING' and old.get('attemptExpiresAt',0)<=self.clock():pause(self,command_id,details,old.get('attemptId'),True)
+            return self.recover(command_id,details)
+        state,saved_payload,frozen=claimed;payload=saved_payload['payload']
         # Own source request/session; no native job lock crosses original calls.
         from middleware.CartMiddleware import CartFactory
         from controllers.priceList.PricelistManager import PricelistManager
@@ -272,23 +304,31 @@ class SystemOrders:
         if original_request is None:original_request=SimpleNamespace(access_route=saved_payload['accessRoute'])
         request=Request(original_request,context);context['cart']=CartFactory.empty_cart();context['cart'].context=context
         context['pricelist_manager']=PricelistManager(context)
-        invocation=Context(self,command_id,state['referenceHash'],payload,details,request,response)
+        context['pricelist_manager'].set_strict_pricelist([self.namespace['settings'].CSK_PRICELIST])
+        invocation=Context(self,command_id,state['referenceHash'],payload,details,request,response,state['attemptId'])
         method=compile_placement(self.source_file,self.source_hash,self.namespace,invocation)
         token=ACTIVE.set(invocation)
         try:
-            method(request,response,copy.deepcopy(payload),details)
+            if frozen is None:method(request,response,copy.deepcopy(payload),details)
+            else:
+                _metadata,snapshot=frozen
+                context['user']=copy.deepcopy(snapshot['user']);context['data']=copy.deepcopy(snapshot['requestData'])
+                context['cart'].restore(copy.deepcopy(snapshot['cart']));invocation.cart=context['cart']
+                invocation.execute_prepared()
+                invocation.submit_payment(json.loads(response.body),context['user'])
             # Retain the original metadata insertion with the job status. Its
             # native transaction begins only AFTER Go transport returned.
             prefix.commit();self.finalize_metadata(command_id,details)
             return self.read(command_id,details)
         except Exception:
             prefix.rollback()
+            pause(self,command_id,details,state['attemptId'])
             return self.read(command_id,details)
         finally:ACTIVE.reset(token);prefix.close()
     def worker_candidates(self,limit=25):
         if type(limit) is not int or not 1<=limit<=100:fail('SCREENING_ORIGIN_REQUEST_INVALID')
         with self.runtime.sessions() as session:
-            result=rows(session,"SELECT j.command_id FROM pos_rewrite_screening_origin_system_jobs j LEFT JOIN pos_rewrite_screening_origin_creations c ON c.command_id=j.command_id WHERE JSON_UNQUOTE(JSON_EXTRACT(j.data,'$.state'))='PREPARED' OR (c.command_id IS NOT NULL AND JSON_UNQUOTE(JSON_EXTRACT(j.data,'$.state')) IN ('SOURCE_RUNNING','PAYMENT_SENDING')) ORDER BY j.command_id LIMIT :limit",{'limit':limit},limit+1)
+            result=rows(session,"SELECT j.command_id FROM pos_rewrite_screening_origin_system_jobs j LEFT JOIN pos_rewrite_screening_origin_creations c ON c.command_id=j.command_id LEFT JOIN pos_rewrite_screening_origin_commands o ON o.id=j.command_id WHERE j.state IN ('PREPARED','SOURCE_READY') OR (j.state='SOURCE_RUNNING' AND (o.phase IS NULL OR o.phase<>'REJECTED') AND (c.command_id IS NOT NULL OR CAST(JSON_UNQUOTE(JSON_EXTRACT(j.data,'$.attemptExpiresAt')) AS UNSIGNED)<=:now)) OR (c.command_id IS NOT NULL AND j.state='PAYMENT_SENDING') ORDER BY j.updated_at_ms,j.command_id LIMIT :limit",{'now':self.clock(),'limit':limit},limit+1)
         return [row['command_id'] for row in result]
     def read(self,command_id,details):
         with self.runtime.sessions() as session,session.begin():
@@ -361,7 +401,7 @@ class SystemOrders:
             if not hmac.compare_digest(digest(key,'system-job',state),row['proof_hash']):fail()
             if value is None and rows(session,'SELECT id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':command_id},2):fail('SCREENING_ORIGIN_CLOSE_SCOPE_CHANGED')
             if state['state']=='REJECTED':return {'commandId':command_id,'phase':'REJECTED','orderId':None}
-            if state['state'] not in ('PREPARED','SOURCE_RUNNING') or value is not None and value['phase']!='PREPARED':fail('SCREENING_ORIGIN_CANNOT_CLOSE')
+            if state['state'] not in ('PREPARED','SOURCE_RUNNING','SOURCE_READY','PREPARATION_PAUSED','AUTHORITY_PAUSED') or value is not None and value['phase']!='PREPARED':fail('SCREENING_ORIGIN_CANNOT_CLOSE')
             for table in ('pos_rewrite_screening_origin_creations','pos_rewrite_screening_origin_payments','pos_rewrite_screening_origin_effects','pos_rewrite_screening_origin_system_metadata'):
                 if rows(session,'SELECT command_id FROM '+table+' WHERE command_id=:id FOR SHARE',{'id':command_id},2):fail('SCREENING_ORIGIN_CANNOT_CLOSE')
             if value is not None:
@@ -417,3 +457,10 @@ class SystemClose:
     def on_post(self,req,resp,command_id):
         if not UUID.fullmatch(command_id) or req.context.get('data') not in (None,{}):fail('SCREENING_ORIGIN_REQUEST_INVALID')
         details=self.system.authenticate(req);resp.text=canonical(self.system.close(command_id,details));resp.set_header('Cache-Control','no-store')
+
+class SystemResume:
+    def __init__(self,system):self.system=system
+    def on_post(self,req,resp,command_id):
+        if not UUID.fullmatch(command_id) or req.context.get('data') not in (None,{}):fail('SCREENING_ORIGIN_REQUEST_INVALID')
+        from system_preparation import resume
+        details=self.system.authenticate(req);resp.text=canonical(resume(self.system,command_id,details));resp.set_header('Cache-Control','no-store')

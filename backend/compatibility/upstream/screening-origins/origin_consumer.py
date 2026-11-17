@@ -13,6 +13,16 @@ from origin_contracts import canonical,digest,fail
 from origin_effects import load,seal_effects,open_effects
 from native import one,rows,json_value
 
+OBSERVER=None
+def set_observer(callback):
+    global OBSERVER
+    if not callable(callback):fail('SCREENING_ORIGIN_EFFECT_UNQUALIFIED')
+    OBSERVER=callback
+def observed(command,phase):
+    if OBSERVER is not None:
+        try:OBSERVER({'phase':phase,'commandId':command['id'],'actorId':command['actorId']})
+        except BaseException:pass
+
 
 def install(bootstrap):
     registry=bootstrap.registry
@@ -59,11 +69,13 @@ def install(bootstrap):
                     if prior[0]['phase']=='INVOKED':
                         result=open_effects(owner.key,'task-result:'+scope['effectId']+':'+str(scope['ordinal']),prior[0]['result_payload'],prior[0]['result_hash'])
                         if len(result)!=1:raise Ignore()
-                        return result[0]
+                        observed(command,'REPLAYED');return result[0]
+                    observed(command,'REFUSED')
                     raise Ignore()
                 record={'contract':'pos-screening-origin-task-invocation-v1','scope':scope,'phase':'SENDING','resultHash':None,'updatedAt':owner.clock()}
                 session.execute(text("INSERT INTO pos_rewrite_screening_origin_task_invocations(effect_id,ordinal,command_id,phase,data,proof_hash) VALUES(:id,:ordinal,:command,'SENDING',:data,:hash)"),
                     {'id':scope['effectId'],'ordinal':scope['ordinal'],'command':scope['commandId'],'data':canonical(record),'hash':digest(owner.key,'task-invocation',record)})
+            observed(command,'SENDING')
             try:
                 result=original(*args,**kwargs)
                 from hashlib import sha256
@@ -79,6 +91,7 @@ def install(bootstrap):
                 updated={**record,'phase':phase,'resultHash':result_hash,'updatedAt':owner.clock()}
                 session.execute(text('UPDATE pos_rewrite_screening_origin_task_invocations SET phase=:phase,data=:data,proof_hash=:hash,result_payload=:payload,result_hash=:result WHERE effect_id=:id AND ordinal=:ordinal'),
                     {'id':scope['effectId'],'ordinal':scope['ordinal'],'phase':phase,'data':canonical(updated),'hash':digest(owner.key,'task-invocation',updated),'payload':payload,'result':result_hash})
+            observed(command,phase)
             if phase!='INVOKED':raise Ignore()
             return result
         task.run=run;task.__screening_origin_consumer__=True

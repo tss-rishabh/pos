@@ -220,6 +220,7 @@ class Frame:
         with origin_history.trusted_native():return self.seal_native(resp)
     def seal_native(self,resp):
         if not self.admitted or VIOLATION.get() or self.order_id is None or self.owner.clock()>=self.value['expiresAt']:fail()
+        if self.system is not None:self.system.assert_running(self.session,self.value)
         try:result=json.loads(resp.text if resp.text else resp.body)
         except Exception:fail()
         if (not str(resp.status).startswith('200') or not isinstance(result,dict) or set(result)!={'order','method','isValid','name'}

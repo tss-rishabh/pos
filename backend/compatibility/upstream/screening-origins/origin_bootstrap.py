@@ -228,10 +228,11 @@ class OriginBootstrap:
         app.add_route(path,resource);app.add_route(path+'/{command_id}',resource)
         app.add_route(path+'/{command_id}/close',OriginClose(resource))
         if self.system is not None:
-            from origin_system import SystemClose
+            from origin_system import SystemClose,SystemResume
             system_path=settings.API_PREFIX+'/external/screening-orders'
             app.add_route(system_path,self.system);app.add_route(system_path+'/{command_id}',self.system)
             app.add_route(system_path+'/{command_id}/close',SystemClose(self.system))
+            app.add_route(system_path+'/{command_id}/resume',SystemResume(self.system))
 
 
 def static_error(error):
