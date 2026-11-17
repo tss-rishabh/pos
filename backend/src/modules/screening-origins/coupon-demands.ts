@@ -201,7 +201,19 @@ export function originCouponDemandJournal(
             updatedAt: now,
           })
           .onDuplicateKeyUpdate({ set: { id: value.id } });
-        await load(tx, value.id);
+        const existing = await load(tx, value.id);
+        // A publication expires even when no native mutation changes its heads.
+        // Refresh only completed readonly preparation; immutable publisher jobs
+        // retain their original ownership and recovery in the generic journal.
+        if (existing.phase === 'prepared' && now - existing.updatedAt >= 60000)
+          await save(tx, {
+            ...existing,
+            request,
+            phase: 'pending',
+            generationId: null,
+            lease: null,
+            dueAt: now,
+          });
       });
       signal.throwIfAborted();
     },
