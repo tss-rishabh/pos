@@ -3,6 +3,8 @@ import io
 import json
 import sys
 import unittest
+from datetime import datetime
+from uuid import UUID as Uuid
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[2]
 for name in ('legacy-order-imports','offline-cash-pricing','public-screening-writer'):
@@ -54,8 +56,12 @@ class NegativeTransportTests(unittest.TestCase):
         status,body,log=self.call(Broken())
         self.assertEqual(status,'409 Conflict');self.assertEqual(body,{'code':'SCREENING_NEGATIVE_REVIEW'})
         self.assertNotIn(canary,log+json.dumps(body));self.assertNotIn(KEY,log)
-        self.assertEqual(json.loads(log),{'module':'public-screening','resource':'no-order-receipts',
-            'eventId':'public-screening.no-order-receipts.review','requestId':'fixture-id-123','userId':None})
+        event=json.loads(log)
+        self.assertEqual(set(event),{'module','resource','eventId','eventInstanceId','timestamp','requestId','userId'})
+        self.assertEqual({key:event[key] for key in ('module','resource','eventId','requestId','userId')},
+            {'module':'public-screening','resource':'no-order-receipts','eventId':'public-screening.no-order-receipts.review','requestId':'fixture-id-123','userId':None})
+        self.assertEqual(str(Uuid(event['eventInstanceId'])),event['eventInstanceId'])
+        self.assertIsNotNone(datetime.fromisoformat(event['timestamp']).tzinfo)
 
     def test_options_and_constructor_default_off_are_io_free(self):
         self.assertIsNone(options({},'proof-key'))

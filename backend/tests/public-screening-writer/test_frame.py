@@ -95,7 +95,9 @@ class FrameTests(unittest.TestCase):
         self.assertEqual(manifest['sourceCommit'],'2960acbea10c4eaf16b6d99e15ff6e03ef7724c5')
         patch=outputs['public-pos-screening.patch']
         self.assertEqual(patch.count('+        after_validate(req)'),1)
-        self.assertIn('+middleware = [_node_screening, DatabaseManager(',patch)
+        self.assertIn('+middleware = [_node_screening, _screening_origins, DatabaseManager(',patch)
+        self.assertIn('+_screening_origins.register(app, settings)',patch)
+        self.assertIn('+app = _screening_origins.coupon_control_application(app, _origin_event_stream.stdout)',patch)
         self.assertEqual(patch.count('-        ValidateCheckout().on_post(req, resp)'),0)
 
     def test_reviewed_global_mapping_preserves_default_constructors_and_scoped_dates(self):

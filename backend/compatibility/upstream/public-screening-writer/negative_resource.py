@@ -3,6 +3,8 @@ import hmac
 import json
 import re
 import time
+from datetime import datetime,timezone
+from uuid import uuid4
 from writer_protocol import ScreeningWriterError,fail
 from protocol import ImportReview
 from transaction import CURRENT
@@ -39,7 +41,7 @@ def private_application(resource,key,emit_stream,fallback=None,allow_post=True):
             return fallback(environ,start_response)
         status='409 Conflict';actor=None;action='read'
         request_id=environ.get('HTTP_X_REQUEST_ID','')
-        request_id=request_id if isinstance(request_id,str) and re.fullmatch(r'[A-Za-z0-9._:-]{1,128}',request_id) else None
+        request_id=request_id if isinstance(request_id,str) and re.fullmatch(r'[A-Za-z0-9._:-]{1,128}',request_id) else str(uuid4())
         try:
             supplied=environ.get(HEADER,'')
             if not isinstance(supplied,str) or not re.fullmatch(r'[!-~]{32,4096}',supplied) or not hmac.compare_digest(key,supplied):
@@ -73,6 +75,7 @@ def private_application(resource,key,emit_stream,fallback=None,allow_post=True):
             body=json.dumps({'code':code},separators=(',',':')).encode()
         event={'module':'public-screening','resource':'no-order-receipts',
                'eventId':'public-screening.no-order-receipts.'+(action if status=='200 OK' else 'review'),
+               'eventInstanceId':str(uuid4()),'timestamp':datetime.now(timezone.utc).isoformat(),
                'requestId':request_id,'userId':actor}
         try:emit_stream.write(json.dumps(event,separators=(',',':'))+'\n');emit_stream.flush()
         except Exception:pass

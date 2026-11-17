@@ -7,6 +7,8 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
+from datetime import datetime
+from uuid import UUID
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -96,8 +98,25 @@ class Factory(unittest.TestCase):
         self.assertEqual(calls, [('read', OP)])
         for secret in (KEY, PROOF, IMPORT_KEY, OP, 'synthetic-fixture-password', 'proofHash'):
             self.assertNotIn(secret, logs.getvalue())
-        self.assertEqual(json.loads(logs.getvalue().splitlines()[0])['eventId'],
-                         'public-screening.no-order-receipts.read')
+        events=[json.loads(line) for line in logs.getvalue().splitlines()]
+        self.assertEqual([event['eventId'] for event in events],[
+            'legacy-order-imports.private-source-runtime.started',
+            'public-screening.no-order-receipts.read',
+            'public-screening.no-order-receipts.review'])
+        for event in events:
+            self.assertEqual(set(event),{'module','resource','eventId','eventInstanceId','timestamp','requestId','userId'})
+            self.assertEqual(str(UUID(event['eventInstanceId'])),event['eventInstanceId'])
+            self.assertIsNotNone(datetime.fromisoformat(event['timestamp'].replace('Z','+00:00')).tzinfo)
+        self.assertEqual(events[0]['module'],'legacy-order-imports')
+        self.assertEqual(events[0]['resource'],'private-source-runtime')
+        self.assertEqual(str(UUID(events[0]['requestId'])),events[0]['requestId'])
+        self.assertIsNone(events[0]['userId'])
+        self.assertEqual(events[1]['module'],'public-screening')
+        self.assertEqual(events[1]['resource'],'no-order-receipts')
+        self.assertEqual(events[1]['requestId'],'private-factory-fixture')
+        self.assertEqual(events[1]['userId'],'7')
+        self.assertEqual(events[2]['requestId'],'private-factory-fixture')
+        self.assertIsNone(events[2]['userId'])
 
     def test_explicit_selector_mounts_post_at_the_existing_private_factory(self):
         environment = self.environment()
@@ -110,11 +129,17 @@ class Factory(unittest.TestCase):
         environment = self.environment()
         environment['POS_PUBLIC_SCREENING_NEGATIVE_KEY'] = PROOF
         with patch.dict(os.environ, environment, clear=True), \
+             patch('sys.stdout',new_callable=io.StringIO) as logs, \
              patch('sqlalchemy.create_engine') as engine, \
              patch('source_runtime.SourceRuntime') as source:
             with self.assertRaises(ImportReview): runtime.create_application()
             engine.assert_not_called()
             source.assert_not_called()
+        event=json.loads(logs.getvalue())
+        self.assertEqual(set(event),{'module','resource','eventId','eventInstanceId','timestamp','requestId','userId'})
+        self.assertEqual(event['eventId'],'legacy-order-imports.private-source-runtime.startup-failed')
+        self.assertEqual(str(UUID(event['eventInstanceId'])),event['eventInstanceId'])
+        self.assertIsNone(event['userId'])
 
 
 if __name__ == '__main__': unittest.main()
