@@ -1,0 +1,23 @@
+# Build from backend/. Supply the reviewed original-source dependency image by
+# immutable digest; this image packages owned adapters, never source credentials.
+ARG SOURCE_DEPENDENCY_IMAGE
+FROM ${SOURCE_DEPENDENCY_IMAGE} AS public-membership-cache-worker
+ARG SOURCE_DEPENDENCY_IMAGE
+RUN python3 -c 'import os,re; raise SystemExit(0 if re.fullmatch(r"[^\s]+@sha256:[a-f0-9]{64}", os.environ["SOURCE_DEPENDENCY_IMAGE"]) else "Pinned source dependency image required")'
+WORKDIR /opt/pos-source-adapters
+COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/*.py ./legacy-order-imports/
+COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/*.json ./legacy-order-imports/
+COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/benefit-profile/*.py ./legacy-order-imports/benefit-profile/
+COPY --chown=65532:65532 compatibility/upstream/legacy-order-imports/benefit-profile/*.json ./legacy-order-imports/benefit-profile/
+COPY --chown=65532:65532 compatibility/upstream/public-screening-writer/*.py ./public-screening-writer/
+COPY --chown=65532:65532 compatibility/upstream/public-screening-writer/*.json ./public-screening-writer/
+COPY --chown=65532:65532 compatibility/upstream/offline-cash-pricing/*.py ./offline-cash-pricing/
+COPY --chown=65532:65532 compatibility/upstream/offline-cash-pricing/patches/*.patch ./offline-cash-pricing/patches/
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/opt/pos-source-adapters/legacy-order-imports:/opt/pos-source-adapters/legacy-order-imports/benefit-profile:/opt/pos-source-adapters/public-screening-writer:/opt/pos-source-adapters/offline-cash-pricing \
+    POS_LEGACY_IMPORT_SOURCE_ROOT=/opt/pos-original-source \
+    POS_LEGACY_IMPORT_RUNTIME_ROOT=/opt/pos-original-source \
+    POS_PUBLIC_SCREENING_MEMBERSHIP_WORKER_ENABLED=false
+USER 65532:65532
+ENTRYPOINT []
+CMD ["python3","/opt/pos-source-adapters/public-screening-writer/public_membership_worker.py"]
