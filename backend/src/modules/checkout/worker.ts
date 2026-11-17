@@ -12,7 +12,7 @@ import { customerRegistrationOutboxDispatcher } from './customers/outbox.js';
 import { localOrderMessageDelivery } from './order-messages/service.js';
 import { checkoutEnvironment } from './gateway.js';
 import { publicScreeningOptions } from './screening-writer/options.js';
-import { publicScreeningCoordinator } from './screening-writer/coordinator.js';
+import { configuredPublicScreeningCoordinator } from './screening-writer/runtime.js';
 import { publicScreeningPublicationWorker } from './screening-writer/publication.js';
 
 const runId = crypto.randomUUID(),
@@ -76,7 +76,12 @@ try {
       observe,
     ),
     dispatchScreening = publicScreeningPublicationWorker(
-      publicScreeningCoordinator(config, db, checkoutEnvironment(), publicScreeningOptions()),
+      configuredPublicScreeningCoordinator(
+        config,
+        db,
+        checkoutEnvironment(),
+        publicScreeningOptions(),
+      ),
     );
   do {
     try {

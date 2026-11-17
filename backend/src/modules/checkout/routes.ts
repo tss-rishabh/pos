@@ -59,7 +59,7 @@ import type { PendingCancellationOptions } from './cancellations/options.js';
 import { registerOrderCopy, type OrderCopyOptions } from './order-copy/routes.js';
 import type { PaymentCorrectionPort } from './payment-reversals/evidence.js';
 import { copyCancellationClearVerifier } from './order-copy/cancellation-evidence.js';
-import { publicScreeningCoordinator } from './screening-writer/coordinator.js';
+import { configuredPublicScreeningCoordinator } from './screening-writer/runtime.js';
 import { publicScreeningOptions, type PublicScreeningOptions } from './screening-writer/options.js';
 import { publicScreeningRequest } from './screening-writer/request-scope.js';
 import { registerPublicScreening } from './screening-writer/routes.js';
@@ -113,7 +113,7 @@ export function registerCheckout(
     overrides.assertCheckIn ||
     ((...args: Parameters<CheckoutServiceOptions['assertCheckIn']>) =>
       checkIns.assertCheckIn(...args));
-  const screening = publicScreeningCoordinator(
+  const screening = configuredPublicScreeningCoordinator(
     config,
     db,
     environment,

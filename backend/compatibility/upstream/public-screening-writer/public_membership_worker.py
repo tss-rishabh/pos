@@ -10,13 +10,32 @@ import os
 from pathlib import Path
 import re
 import sys
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
 
 def main(environment=None):
     env=os.environ if environment is None else environment
     stream=sys.stdout
+    run_id=str(uuid4())
     def emit(value):
-        try:stream.write(json.dumps(value,separators=(',',':'))+'\n');stream.flush()
+        if not isinstance(value,dict): return
+        event_id=value.get('eventId')
+        worker_events={'public-screening.membership-cache-worker.'+status
+                       for status in ('disabled','started','stopped','startup-failed')}
+        task_events={'public-screening.membership-cache.completed','public-screening.membership-cache.review'}
+        if event_id not in worker_events|task_events: return
+        request=value.get('requestId')
+        try:
+            if str(UUID(request))!=request: raise ValueError()
+        except (TypeError,ValueError,AttributeError): request=run_id
+        actor=value.get('userId')
+        if not isinstance(actor,str) or not re.fullmatch(r'[1-9][0-9]{0,18}',actor): actor=None
+        event={'module':'public-screening',
+               'resource':'membership-cache-worker' if event_id in worker_events else 'membership-cache',
+               'eventId':event_id,'eventInstanceId':str(uuid4()),
+               'timestamp':datetime.now(timezone.utc).isoformat(),'requestId':request,'userId':actor}
+        try:stream.write(json.dumps(event,separators=(',',':'))+'\n');stream.flush()
         except Exception:pass
     if env.get('DEMO_MODE')=='true' or env.get('POS_PUBLIC_SCREENING_MEMBERSHIP_WORKER_ENABLED') in (None,'','false'):
         emit({'module':'public-screening','resource':'membership-cache-worker',
