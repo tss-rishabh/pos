@@ -53,13 +53,12 @@ original_driver.compile_class = compile_screening
 
 
 class QualifiedNativePipeline(NativePipeline):
-    def order_pipeline(self, session, user, plan, capability):
+    def _order_pipeline(self, session, user, plan, capability):
         global FIXTURE_ADDRESS
         FIXTURE_ADDRESS = 88 if str(user['user_id']) == '77' else 89
-        cart = Cart(plan)
-        # This is the exact base-profile seam already present in SourceRuntime.
-        assert_plain_profile(cart, K, self.settings, plan, cart.meta['calculations'])
-        result = super().order_pipeline(session, user, plan, capability)
+        # The inherited entry point and its base admission globals match
+        # SourceRuntime, so selected profiles wrap the one real base guard.
+        result = super()._order_pipeline(session, user, plan, capability)
         if self.mode == 'screening-race':
             print('SCREENING_BODY_READY', flush=True)
             deadline = time.monotonic() + 10

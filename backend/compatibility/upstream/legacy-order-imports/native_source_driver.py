@@ -27,6 +27,7 @@ from transaction import normalize_source_sentinels,guard_private_statement,guard
 from receiver import Receiver
 from effects import Tasks
 from protocol import ImportReview
+from profiles import assert_plain_profile
 
 
 class K(enum.Enum):
@@ -74,6 +75,8 @@ class NativePipeline:
         from fixture_broker import FixtureBroker
         self.tasks=FixtureBroker(mode)
     def order_pipeline(self,session,user,plan,capability):
+        return self._order_pipeline(session,user,plan,capability)
+    def _order_pipeline(self,session,user,plan,capability):
         executor=Executor(session)
         namespace,_=source_functions(self.root,vars(self.settings),executor,[row['productId'] for row in plan['lines']])
         if self.mode!='original-model':
@@ -139,7 +142,6 @@ class NativePipeline:
             # Execute the pinned source calculator. The native constructor uses
             # this fixture's catalog shape, with source-calculated money fields.
             cart.meta['calculations']=original.meta['calculations']
-        from profiles import assert_plain_profile
         assert_plain_profile(cart,K,self.settings,plan,cart.meta['calculations'])
         from protocol import source_custom_data
         req=SimpleNamespace(context={'session':session,'session_r':session,'cart':cart,'user':user,
