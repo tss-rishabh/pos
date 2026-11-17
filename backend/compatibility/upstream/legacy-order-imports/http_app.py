@@ -18,9 +18,10 @@ def private_application(receiver,key,emit_stream):
             match=ROUTE.fullmatch(environ.get('PATH_INFO',''))
             supplied=environ.get('HTTP_X_POS_LEGACY_IMPORT_KEY','')
             length=int(environ.get('CONTENT_LENGTH','0'))
+            limit=1400000 if match and match[2]=='order' else 256000
             if (not match or environ.get('REQUEST_METHOD')!='POST' or environ.get('QUERY_STRING') or
                 environ.get('CONTENT_TYPE','').split(';')[0]!='application/json' or
-                not 0<length<=256000 or not isinstance(supplied,str) or not hmac.compare_digest(key,supplied)):
+                not 0<length<=limit or not isinstance(supplied,str) or not hmac.compare_digest(key,supplied)):
                 raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
             raw=environ['wsgi.input'].read(length)
             if len(raw)!=length:

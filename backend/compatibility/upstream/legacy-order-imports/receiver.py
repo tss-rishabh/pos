@@ -7,6 +7,7 @@ import base64
 import hashlib
 import json
 import os
+import re
 import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
@@ -109,10 +110,37 @@ class Receiver:
         self.correction_contract=correction_contract
 
     def order(self,operation_id,body):
-        if not isinstance(body,dict) or set(body)!={'capability','plan'}:
+        if not isinstance(body,dict) or set(body) not in ({'capability','plan'},{'capability','plan','membershipHistory'}):
             raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
         plan=body['plan']
         cap=verify_capability(self.auth_key,body['capability'],operation_id,'order',plan,self.clock())
+        if ('membershipHistory' in body)!=('membershipHistoryHash' in cap):
+            raise ImportReview('ORDER_IMPORT_MEMBERSHIP_PREFETCH_INVALID')
+        history_key=os.environ.get('POS_LEGACY_IMPORT_MEMBERSHIP_HISTORY_KEY','')
+        if 'membershipHistory' in body:
+            from membership_profile import selected
+            if (body['membershipHistory'] is None or not selected()
+                    or history_key in (self.auth_key,self.proof_key)):
+                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_PREFETCH_INVALID')
+        from membership_handoff import prepared_history
+        member_ids=[]
+        if 'membershipHistory' in body:
+            try:
+                member_ids=json.loads(os.environ.get('POS_MEMBERSHIP_PRODUCT_IDS','[]'))
+                if (not isinstance(member_ids,list) or not 1<=len(member_ids)<=1000
+                        or len(set(member_ids))!=len(member_ids)
+                        or any(not isinstance(value,str) or not re.fullmatch(r'[1-9][0-9]{0,18}',value)
+                               or int(value)>9223372036854775807 for value in member_ids)):
+                    raise ValueError()
+            except Exception:
+                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_PREFETCH_INVALID') from None
+        # All parsing/signature/time checks finish before session construction.
+        # Scope remains local to this invocation when WSGI threads overlap.
+        with prepared_history(body.get('membershipHistory'),cap,self.auth_key,history_key,
+                              member_ids,self.zone,self.clock):
+            return self._order(operation_id,body,plan,cap)
+
+    def _order(self,operation_id,body,plan,cap):
         TRUSTED_ACTOR.set(cap['scope']['actorId'])
         self.assert_publisher()
         failure=None

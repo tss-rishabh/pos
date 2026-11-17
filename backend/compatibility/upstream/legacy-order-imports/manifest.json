@@ -32,7 +32,7 @@
     "activated": false,
     "files": {
       "screening_transaction.py": "f05c13db2fb1ca65d6f0b073466c90b78e07ab56baa204868aeb5008235941b4",
-      "receiver.py": "36aaf6246e9e7b2c8ea695ed2fd020f7b5f45e3d9ef57ab7f803bb65d1c51d69"
+      "receiver.py": "5a02c7182faa5c3e917ed78374fbc36a266ab2d271000f4d80e4167cd4d79521"
     }
   },
   "correction": {
@@ -42,8 +42,8 @@
       "correction_profile.py": "80f4c4d0fdb5a61ab4c4d5745743a46491376f34a31f1f6ae40d10e3a958f01c",
       "profiles.py": "fdb121fcd4d91f7064c2765e22fb1b92e63e89bf2cebdcb8a317e9dbfe5ed6af",
       "native.py": "43f7d62d90b8826be78c0174180c3d847c4ab242ae598494689c73a37661882d",
-      "protocol.py": "7c95b7368a885167c32cec8d81117334b265a1f538ee2273661e919261790978",
-      "receiver.py": "36aaf6246e9e7b2c8ea695ed2fd020f7b5f45e3d9ef57ab7f803bb65d1c51d69",
+      "protocol.py": "2cb31803d8cbd93a6506c88a5a5decbdc23e33ed4bffd8137e289ade9c4e42e4",
+      "receiver.py": "5a02c7182faa5c3e917ed78374fbc36a266ab2d271000f4d80e4167cd4d79521",
       "runtime.py": "4c11345ff3af868487fe2f2d02bfe90518dc35866929278fec0356d19b565a1f"
     }
   },
@@ -63,16 +63,19 @@
     "activatedContract": "pos-cancellation-membership-provenance-v2",
     "historyContract": "pos-csv-membership-history-v1",
     "files": {
-      "membership_profile.py": "16b6f9cba8b46068c8abeefcbcae1e85a1f23d3b4c18c072ceb826c971dc6b1a",
+      "membership_profile.py": "b365acd73607aac5e319b65f71e9482d81a186ae96c814509f9310e165922877",
       "membership_history.py": "4801fb8352c59fa46c6af10c4be28342584904fd9597b6b977c217f45ac44bb2",
+      "membership_handoff.py": "67cd6a982ac0599e5222f04353e340f0818b955075e367e72467fe74f2bba3ce",
       "membership_cache.py": "91393225e683e57c6b711d4ecc3d6124e3b8d0c3601ce40765c26fe4cf0bd87f",
       "membership_consumer.py": "f5aa3b57a44c5679a2cfdb1aaf15e7783d59d74024f87f58ed355965ebf42567",
-      "source_runtime.py": "1ab9fb0b74e2d98f698c6d233e8bded58b1d73bbe819a545c0f554d1736316fc",
+      "source_runtime.py": "0910cec62e07b36d1c6f20e074c101792d9b1531c972ee01e2d5bdab3986a800",
       "profiles.py": "fdb121fcd4d91f7064c2765e22fb1b92e63e89bf2cebdcb8a317e9dbfe5ed6af",
       "native.py": "43f7d62d90b8826be78c0174180c3d847c4ab242ae598494689c73a37661882d",
-      "receiver.py": "36aaf6246e9e7b2c8ea695ed2fd020f7b5f45e3d9ef57ab7f803bb65d1c51d69",
+      "receiver.py": "5a02c7182faa5c3e917ed78374fbc36a266ab2d271000f4d80e4167cd4d79521",
       "effects.py": "451343268c03ed356bf69d1c1dbf8314590315e08c07dc342c36c9e535242ade",
-      "runtime.py": "4c11345ff3af868487fe2f2d02bfe90518dc35866929278fec0356d19b565a1f"
+      "runtime.py": "4c11345ff3af868487fe2f2d02bfe90518dc35866929278fec0356d19b565a1f",
+      "protocol.py": "2cb31803d8cbd93a6506c88a5a5decbdc23e33ed4bffd8137e289ade9c4e42e4",
+      "http_app.py": "24d79c9fc3fef0f391defa09e6ca64379653fffaba6419bc0218640652fd0a91"
     },
     "sourceFiles": {
       "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad",

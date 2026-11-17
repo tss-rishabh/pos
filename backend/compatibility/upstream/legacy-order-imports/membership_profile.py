@@ -200,14 +200,19 @@ def compile_free_membership(root, namespace):
             if reader is None:
                 refuse('ORDER_IMPORT_MEMBERSHIP_HISTORY_REQUIRED')
             from membership_history import request,validate,HistorySession
-            point=source_clock.now()
+            from membership_handoff import PreparedMembershipHistory
+            try:
+                point=reader.execution_clock(state) if isinstance(reader,PreparedMembershipHistory) else source_clock.now()
+            except Exception:
+                refuse('ORDER_IMPORT_MEMBERSHIP_PREFETCH_INVALID')
             query=request(state,point)
             try:
                 supplied=reader.read(query)
             except Exception:
                 refuse('ORDER_IMPORT_MEMBERSHIP_HISTORY_REQUIRED')
+            validation_clock=reader.clock() if isinstance(reader,PreparedMembershipHistory) else int(time.time()*1000)
             facts=validate(supplied,query,os.environ.get('POS_LEGACY_IMPORT_MEMBERSHIP_HISTORY_KEY',''),
-                           {str(value) for value in scope['MEMBERSHIP_PROD_ID']},int(time.time()*1000))
+                           {str(value) for value in scope['MEMBERSHIP_PROD_ID']},validation_clock)
             state['historyEvidence']={'generationId':facts['generationId'],'fetchedAt':facts['fetchedAt'],
                                       'asOf':query['asOf'],'cutoff':query['cutoff'],
                                       'proofHash':facts['signature']}
@@ -250,9 +255,11 @@ class MembershipProfile:
                     or bool(user.get('is_exclusive'))):
                 refuse('ORDER_IMPORT_MEMBERSHIP_AUTHORITY_CHANGED')
             before=[]
+        from membership_handoff import CURRENT_HISTORY
         state = {'profile': self, 'session': session, 'user': user, 'plan': plan,
                  'capability': capability, 'before': before, 'invalidations': 0,
-                 'eligibility': 'not-added', 'extras': [], 'kind': None, 'historyReader':self.history_reader, 'historyEvidence':None}
+                 'eligibility': 'not-added', 'extras': [], 'kind': None,
+                 'historyReader':CURRENT_HISTORY.get() or self.history_reader, 'historyEvidence':None}
         token = CONTEXT.set(state)
         try:
             yield state

@@ -16,12 +16,15 @@ import {
 import { financialSourceHash, importFinancialError } from './financial-adapter-crypto.js';
 import { assertCheckoutProjectionReady } from '../checkout/projection.js';
 import { assertRefundAllocationReady } from '../checkout/refund-allocation.js';
+import type { CsvMembershipPrefetch } from './membership-profile/bridge.js';
 export interface FinancialSourceCommand {
   state: ImportFinancialState;
   plan: LegacyOrderImportPlan;
   nonce: string;
   issuedAt: number;
   expiresAt: number;
+  /** Server-prepared warehouse evidence; never a client input or an SQL reader. */
+  membershipHistory?: CsvMembershipPrefetch;
 }
 export interface LegacyImportFinancialTransport {
   assertReady(): void;
@@ -133,6 +136,15 @@ export function legacyImportFinancialTransport(
             ),
           }
         : {}),
+      ...(phase === 'order' && input.membershipHistory
+        ? {
+            membershipHistoryHash: financialSourceHash(
+              options.sourceAuthKey ?? '',
+              'membership-history',
+              input.membershipHistory,
+            ),
+          }
+        : {}),
     };
     return {
       ...value,
@@ -152,7 +164,11 @@ export function legacyImportFinancialTransport(
       url.pathname += `/${input.state.scope.operationId}/order`;
       await send(
         url,
-        { capability: capability(input, 'order', null), plan: input.plan },
+        {
+          capability: capability(input, 'order', null),
+          plan: input.plan,
+          ...(input.membershipHistory ? { membershipHistory: input.membershipHistory } : {}),
+        },
         headers(input),
       );
     },

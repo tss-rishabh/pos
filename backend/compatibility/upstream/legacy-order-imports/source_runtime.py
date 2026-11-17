@@ -160,7 +160,7 @@ def compile_class(root,path,name,namespace):
 
 
 class SourceRuntime:
-    def __init__(self,source_root,runtime_root,membership_history=None):
+    def __init__(self,source_root,runtime_root):
         self.source_root=Path(source_root)
         if self.source_root.resolve()!=Path(runtime_root).resolve():
             raise ImportReview('ORDER_IMPORT_SOURCE_REVISION_UNVERIFIED')
@@ -212,7 +212,7 @@ class SourceRuntime:
         refund_path,refund_ast=refund_tree(source_root,'pos-refund-per-hp-v1')
         allocation=next(node for node in refund_ast.body if isinstance(node,ast.FunctionDef) and node.name=='amount_to_be_refunded_calculation')
         exec(compile(ast.Module(body=[allocation],type_ignores=[]),str(refund_path),'exec'),order_globals)
-        self.membership=MembershipProfile(source_root,self.settings,membership_history) if membership_selected() else None
+        self.membership=MembershipProfile(source_root,self.settings) if membership_selected() else None
         if self.membership:
             dal=importlib.import_module('controllers.user.userDal')
             writers=compile_writers(source_root,dict(vars(dal)),self.membership.adapter)

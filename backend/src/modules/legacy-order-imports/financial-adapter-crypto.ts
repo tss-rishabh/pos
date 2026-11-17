@@ -49,7 +49,8 @@ export function financialSourceHash(
     | 'plan'
     | 'confirmation'
     | 'calculation'
-    | 'correction',
+    | 'correction'
+    | 'membership-history',
   value: unknown,
 ) {
   return operationHash('legacy-order-imports.source.' + kind + '.v1', value, sourceKey);

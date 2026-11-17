@@ -49,7 +49,9 @@ def identifier(value):
 def verify_capability(key, supplied, operation_id, phase, plan=None, now_ms=None):
     expected = {'contract','phase','operationId','requestHash','planHash','namespace','planDigest',
                 'scope','authority','orderId','nonce','issuedAt','expiresAt','signature'}
-    if not isinstance(supplied, dict) or set(supplied) not in (expected,expected|{'correctionHash'}):
+    optional={'correctionHash','membershipHistoryHash'}
+    if (not isinstance(supplied, dict) or not expected.issubset(supplied)
+            or set(supplied)-expected-optional):
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     value = {k:v for k,v in supplied.items() if k != 'signature'}
     current = int(time.time() * 1000) if now_ms is None else now_ms
@@ -61,8 +63,9 @@ def verify_capability(key, supplied, operation_id, phase, plan=None, now_ms=None
         not supplied['issuedAt'] <= current < supplied['expiresAt'] <= supplied['issuedAt'] + 60000):
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     scope = supplied['scope']
-    if 'correctionHash' in supplied and (phase!='order' or not isinstance(supplied['correctionHash'],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied['correctionHash'])):
-        raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
+    for name in optional:
+        if name in supplied and (phase!='order' or not isinstance(supplied[name],str) or not re.fullmatch(r'[a-f0-9]{64}',supplied[name])):
+            raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     if not isinstance(scope,dict) or set(scope) != {'actorId','operationId','storeId','counterId'} or scope['operationId'] != operation_id:
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
     for name in ('actorId','storeId','counterId'):

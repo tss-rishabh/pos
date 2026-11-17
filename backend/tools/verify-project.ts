@@ -533,6 +533,16 @@ const checks: Check[] = [
     ],
   },
   {
+    id: 'checkin-lock-order-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/administration/tsconfig.checkin-lock-order.json',
+    ],
+  },
+  {
     id: 'legacy-import-membership-publication-fixture-typecheck',
     directory: 'backend',
     args: [
