@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import Fastify from 'fastify';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
@@ -40,6 +42,20 @@ import { financialAdapterProfiles } from '../../src/modules/legacy-order-imports
 import { verifiedImportCompletion } from '../../src/modules/legacy-order-imports/financial-adapter-proof.js';
 import type { AdministrationTransaction } from '../../src/modules/administration/checkins.js';
 import { configuredFinancialImportProfiles } from '../../src/modules/legacy-order-imports/membership-profile/options.js';
+import { configuredLegacyOrderImports } from '../../src/modules/legacy-order-imports/runtime.js';
+import { legacyOrderImportService } from '../../src/modules/legacy-order-imports/service.js';
+import { legacyOrderImportRepository } from '../../src/modules/legacy-order-imports/repository.js';
+import { registerLegacyOrderImports } from '../../src/modules/legacy-order-imports/index.js';
+import { legacyOrderImportWorker } from '../../src/modules/legacy-order-imports/worker.js';
+import { legacyOrderImportRows } from '../../src/modules/legacy-order-imports/schema.js';
+import { PosUser } from '../../src/db/legacy-schema.js';
+import { offlineOrderColumns } from '../../src/modules/legacy-order-imports/csv.js';
+import { AppError } from '../../src/domain/errors.js';
+import type { ImportFinancialStart } from '../../src/modules/legacy-order-imports/financial-contracts.js';
+import {
+  runtimeImportInput,
+  runtimeImportSecret,
+} from '../legacy-order-imports/runtime-fixture.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 describe.skipIf(!template)('server-installed membership adapter on isolated native writer', () => {
@@ -67,6 +83,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
     await f?.close();
   });
   beforeEach(async () => {
+    vi.restoreAllMocks();
     await f.reset();
     await f.connection.query('DELETE FROM pos_rewrite_cancellation_membership_provenance');
     await f.connection.query('DELETE FROM pos_rewrite_membership_versions');
@@ -245,7 +262,12 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       })
       .where(eq(cancellationMembershipProvenance.orderId, 5001n));
   }
-  async function core(kind: 'offline' | 'shopify' = 'shopify', free = false, qualified = true) {
+  async function core(
+    kind: 'offline' | 'shopify' = 'shopify',
+    free = false,
+    qualified = true,
+    originalInput?: ImportFinancialStart,
+  ) {
     for (const [index, product] of ['10', '11', '12'].entries()) {
       await f.fixture.insert('products', {
         id: product,
@@ -271,7 +293,7 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
     const membership = { ...adapterOptions, sourceProofKey: sourceKey },
       profile = financialAdapterProfiles(qualified ? { membership } : {}),
       options = { ...f.options },
-      input = f.input(memberEvidence(kind, free).plan),
+      input = originalInput ?? f.input(memberEvidence(kind, free).plan),
       transport = f.transport();
     let evidence: Awaited<ReturnType<typeof prepare>> | null = null,
       cacheJobs = 1,
@@ -378,6 +400,342 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       return profile.expectedQuantities!(tx, evidence, evidence.order, phase);
     });
   }
+  function recoveryRegistration(workerEnabled = true, creationSelected = false) {
+    return configuredLegacyOrderImports(f.config, f.db, {
+      environment: {
+        LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: runtimeImportSecret,
+        LEGACY_ORDER_IMPORT_WORKER_ENABLED: String(workerEnabled),
+        LEGACY_ORDER_IMPORT_WORKER_BATCH_SIZE: '1',
+        ...(creationSelected ? { LEGACY_ORDER_IMPORT_CONTRACT: 'pos-legacy-order-import-v1' } : {}),
+        // The selected-but-incomplete current member configuration must block
+        // NEW work without preventing an authenticated frozen completion.
+        POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT: adapterOptions.contract,
+      },
+    });
+  }
+  async function lostJob() {
+    const repository = legacyOrderImportRepository(f.db, { secret: runtimeImportSecret }),
+      command = runtimeImportInput(),
+      values: Record<(typeof offlineOrderColumns)[number], string> = {
+        SerialNo: 'member-runtime-fixture',
+        StoreId: '1',
+        Email: 'private-import@example.test',
+        UserName: 'Private fixture',
+        IsExclusive: '1',
+        ProductId: '10',
+        ProductQty: '1',
+        ProductPrice: '100.00',
+        PaymentMode: 'cash',
+        OrderDate: '2026-06-15 12:00:00',
+        OrderPlacedSms: '0',
+        OrderMessage: '',
+      };
+    command.csv =
+      offlineOrderColumns.join(',') +
+      '\n' +
+      offlineOrderColumns.map((key) => values[key]).join(',');
+    await repository.stage('1', 'retained-import-runtime-fixture', command);
+    const [row] = await repository.results('1', command.id),
+      input = await repository.financialContext('1', command.id, row!.operationId),
+      c = await core('offline', false, true, input);
+    await repository.runOne({
+      async start(value) {
+        const result = await c.adapter.start(value);
+        expect(result.status).toBe('completed');
+        throw new Error('isolated committed financial reply lost before queue acknowledgment');
+      },
+      read: c.adapter.read,
+    });
+    expect((await repository.results('1', command.id))[0]?.state).toBe('RECONCILING');
+    await f.connection.query(
+      "UPDATE pos_rewrite_import_financial_operations SET state=JSON_SET(state,'$.status','unknown')",
+    );
+    await f.connection.query(
+      "UPDATE users SET email='changed@example.test',is_block=1 WHERE id=77",
+    );
+    await f.connection.query("UPDATE user_eav SET value='changed',is_active=0");
+    await f.connection.query('UPDATE pos_rewrite_operator_auth_epochs SET epoch=epoch+1');
+    await f.connection.query(
+      "UPDATE pos_rewrite_import_financial_source_receipts SET proof='{}',proof_hash=REPEAT('0',64) WHERE kind='membership'",
+    );
+    c.disable();
+    return { command, repository, c };
+  }
+  async function expireLease() {
+    await f.connection.query(
+      'UPDATE pos_rewrite_legacy_order_imports SET lease_until=UTC_TIMESTAMP(3)-INTERVAL 1 SECOND',
+    );
+  }
+  async function financialEffects() {
+    const [effects] = await f.connection.query(`SELECT
+      (SELECT COUNT(*) FROM orders) AS orders,
+      (SELECT COUNT(*) FROM has_products) AS line_count,
+      (SELECT COUNT(*) FROM pos_transaction_logs) AS payments,
+      (SELECT COUNT(*) FROM amount_to_be_refunded_log) AS refunds,
+      (SELECT COUNT(*) FROM pos_rewrite_import_financial_stages) AS stages,
+      (SELECT COUNT(*) FROM pos_rewrite_import_financial_source_receipts) AS receipts,
+      (SELECT COUNT(*) FROM pos_rewrite_import_financial_proofs) AS proofs,
+      (SELECT COUNT(*) FROM pos_rewrite_import_financial_source_effects) AS effects,
+      (SELECT SUM(offline_payment) FROM order_stores) AS cash,
+      (SELECT SUM(offline_payment_recieved) FROM order_stores) AS received,
+      (SELECT SUM(online_other_payment) FROM order_stores) AS manual_other,
+      (SELECT SUM(amount_to_be_refunded) FROM amount_to_be_refunded_log) AS refund_amount,
+      (SELECT SUM(stock) FROM product_store) AS stock`);
+    return effects;
+  }
+  const runtimeOperator = {
+    id: '1',
+    role: 1 as const,
+    userType: 1 as const,
+    storeIds: [],
+    name: 'Fixture',
+    email: 'fixture@example.test',
+  };
+  function recoveryApi(valid: () => Promise<boolean> = async () => true, creationSelected = false) {
+    const app = Fastify({ logger: false });
+    app.decorateRequest('principal', null);
+    app.decorateRequest('authSessionValid', null);
+    app.addHook('preHandler', async (request) => {
+      request.principal = runtimeOperator;
+      request.authSessionValid = valid;
+    });
+    app.setErrorHandler((error, _request, reply) =>
+      error instanceof AppError
+        ? reply.code(error.status).send({ error: { code: error.code } })
+        : reply.code(500).send({ error: { code: 'INTERNAL_ERROR' } }),
+    );
+    registerLegacyOrderImports(app, f.config, f.db, recoveryRegistration(false, creationSelected));
+    return app;
+  }
+  it.each([false, true])(
+    'actual runtime job GET recovers the original completed member receipt after flags/keys/contact changes without dispatch (creation selected=%s)',
+    async (creationSelected) => {
+      const { command, c } = await lostJob();
+      await expireLease();
+      const before = await financialEffects(),
+        network = vi.spyOn(globalThis, 'fetch'),
+        app = recoveryApi(undefined, creationSelected);
+      try {
+        const capabilities = await app.inject({
+          method: 'GET',
+          url: '/api/v1/admin/order-imports/capabilities',
+        });
+        expect(capabilities.json()).toMatchObject({ ready: false });
+        const detail = await app.inject({
+          method: 'GET',
+          url: '/api/v1/admin/order-imports/' + command.id,
+        });
+        expect(detail.statusCode).toBe(200);
+        expect(detail.json()).toMatchObject({ state: 'COMPLETED', importedOrders: 1 });
+        const results = await app.inject({
+          method: 'GET',
+          url: '/api/v1/admin/order-imports/' + command.id + '/results',
+        });
+        expect(results.statusCode).toBe(200);
+        expect(results.json()).toMatchObject({ data: [{ state: 'IMPORTED', orderId: '5001' }] });
+        expect(results.body).not.toMatch(
+          /private-import|changed@example|Private fixture|membership|proofHash/,
+        );
+        expect(
+          (
+            await app.inject({
+              method: 'POST',
+              url: '/api/v1/admin/order-imports',
+              payload: runtimeImportInput(),
+            })
+          ).statusCode,
+        ).toBe(503);
+        expect(await financialEffects()).toEqual(before);
+        expect(network).not.toHaveBeenCalled();
+        expect(c.transport.order).toHaveBeenCalledTimes(1);
+        expect(c.transport.confirm).toHaveBeenCalledTimes(1);
+        expect(c.transport.publication).toHaveBeenCalledTimes(1);
+      } finally {
+        await app.close();
+      }
+    },
+    15000,
+  );
+  it('an explicitly enabled recovery worker skips earlier PENDING jobs and retains one completed proof despite changed old actor authority', async () => {
+    const pending = runtimeImportInput(),
+      repository = legacyOrderImportRepository(f.db, { secret: runtimeImportSecret });
+    await repository.stage('1', 'pending-runtime-fixture', pending);
+    await f.connection.query(
+      'UPDATE pos_rewrite_legacy_order_imports SET lease_until=UTC_TIMESTAMP(3)+INTERVAL 1 HOUR WHERE id=?',
+      [pending.id],
+    );
+    const { command, c } = await lostJob();
+    await expireLease();
+    await f.connection.query('UPDATE pos_user SET is_active=0 WHERE id=1');
+    const registration = recoveryRegistration(),
+      service = legacyOrderImportService(f.config, f.db, registration),
+      before = await financialEffects(),
+      network = vi.spyOn(globalThis, 'fetch'),
+      events: unknown[] = [],
+      workers = Array.from({ length: 4 }, () =>
+        legacyOrderImportWorker(service, (_level, event) => events.push(event)),
+      );
+    expect(registration.canStart).toBe(false);
+    expect(service.ready).toBe(false);
+    expect(service.recoveryReady).toBe(true);
+    try {
+      await Promise.all(workers.map((worker) => worker.runOnce()));
+    } finally {
+      await Promise.all(workers.map((worker) => worker.stop()));
+    }
+    const rows = await f.db.get('writer').select().from(legacyOrderImportRows);
+    expect(rows.find((row) => row.jobId === pending.id)).toMatchObject({
+      state: 'PENDING',
+      orderId: null,
+    });
+    expect(rows.find((row) => row.jobId === command.id)).toMatchObject({
+      state: 'IMPORTED',
+      orderId: '5001',
+    });
+    expect(await financialEffects()).toEqual(before);
+    expect(network).not.toHaveBeenCalled();
+    expect(c.transport.order).toHaveBeenCalledTimes(1);
+    expect(events).toHaveLength(1);
+    expect(JSON.stringify(events)).not.toMatch(
+      /private-import|changed@example|Private fixture|payload|csv/,
+    );
+  }, 15000);
+  it('recovery GET respects active coordinator leases and current native caller authorization', async () => {
+    const { command } = await lostJob(),
+      app = recoveryApi(),
+      before = await financialEffects();
+    try {
+      const leased = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/order-imports/' + command.id,
+      });
+      expect(leased.statusCode).toBe(200);
+      expect(leased.json()).toMatchObject({ state: 'RUNNING', importedOrders: 0 });
+      await expireLease();
+      await f.db.get('writer').update(PosUser).set({ role: 4 }).where(eq(PosUser.id, 1n));
+      const denied = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/order-imports/' + command.id,
+      });
+      expect(denied.statusCode).toBe(403);
+      expect((await f.db.get('writer').select().from(legacyOrderImportRows))[0]?.state).toBe(
+        'RECONCILING',
+      );
+      expect(await financialEffects()).toEqual(before);
+    } finally {
+      await app.close();
+    }
+  }, 15000);
+  it('withholds a recovered job DTO when the current HTTP session is revoked while retaining the committed recovery', async () => {
+    const { command } = await lostJob();
+    await expireLease();
+    let validations = 0;
+    const app = recoveryApi(async () => ++validations === 1);
+    try {
+      const response = await app.inject({
+        method: 'GET',
+        url: '/api/v1/admin/order-imports/' + command.id,
+      });
+      expect(response.statusCode).toBe(401);
+      expect((await f.db.get('writer').select().from(legacyOrderImportRows))[0]?.state).toBe(
+        'IMPORTED',
+      );
+    } finally {
+      await app.close();
+    }
+  }, 15000);
+  it('the production worker entry point actually reconciles retained proof with creation disabled and no HTTP transports', async () => {
+    const { command } = await lostJob();
+    await expireLease();
+    const before = await financialEffects(),
+      env: NodeJS.ProcessEnv = {
+        NODE_ENV: 'test',
+        TZ: 'UTC',
+        SESSION_SECRET: runtimeImportSecret,
+        MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
+        MYSQL_WRITER_URL: f.config.MYSQL_WRITER_URL,
+        MYSQL_PRIMARY_READER_URL: f.config.MYSQL_PRIMARY_READER_URL,
+        LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: runtimeImportSecret,
+        LEGACY_ORDER_IMPORT_WORKER_ENABLED: 'true',
+        LEGACY_ORDER_IMPORT_WORKER_INTERVAL_MS: '1000',
+        LEGACY_ORDER_IMPORT_WORKER_BATCH_SIZE: '1',
+      };
+    for (const name of ['PATH', 'HOME', 'TMPDIR', 'TMP', 'TEMP', 'SYSTEMROOT', 'COMSPEC'])
+      if (process.env[name]) env[name] = process.env[name];
+    const child = spawn(
+      process.execPath,
+      [
+        '--import',
+        'tsx',
+        '--import',
+        './tests/legacy-order-imports/forbid-financial-network.ts',
+        'src/modules/legacy-order-imports/worker-main.ts',
+      ],
+      { env, stdio: ['ignore', 'pipe', 'pipe'] },
+    );
+    let output = '',
+      errors = '';
+    child.stdout.setEncoding('utf8').on('data', (data: string) => {
+      output += data;
+    });
+    child.stderr.setEncoding('utf8').on('data', (data: string) => {
+      errors += data;
+    });
+    const closed = new Promise<number | null>((resolve, reject) => {
+      child.once('error', reject);
+      child.once('close', resolve);
+    });
+    try {
+      let imported = false;
+      const deadline = Date.now() + 10000;
+      while (!imported && Date.now() < deadline && child.exitCode === null) {
+        const [row] = await f.db
+          .get('writer')
+          .select()
+          .from(legacyOrderImportRows)
+          .where(eq(legacyOrderImportRows.jobId, command.id));
+        imported = row?.state === 'IMPORTED';
+        if (!imported) await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(imported).toBe(true);
+      child.kill('SIGTERM');
+      expect(await closed).toBe(0);
+      expect(errors).toBe('');
+      expect(output).toContain('administration.historical-order-import-worker.started');
+      expect(output).toContain('administration.historical-order-import.imported');
+      expect(output).not.toMatch(
+        /private-import|changed@example|Private fixture|password|payload|stack/,
+      );
+      expect(await financialEffects()).toEqual(before);
+    } finally {
+      if (child.exitCode === null) child.kill('SIGKILL');
+      await closed;
+    }
+  }, 15000);
+  it('does not start any unstarted financial stage or PENDING row when a recovery read finds no native operation', async () => {
+    const repository = legacyOrderImportRepository(f.db, { secret: runtimeImportSecret }),
+      command = runtimeImportInput();
+    await repository.stage('1', 'missing-financial-runtime-fixture', command);
+    const pending = runtimeImportInput();
+    await repository.stage('1', 'pending-runtime-fixture', pending);
+    await f.db
+      .get('writer')
+      .update(legacyOrderImportRows)
+      .set({ state: 'STARTING' })
+      .where(eq(legacyOrderImportRows.jobId, command.id));
+    const service = legacyOrderImportService(f.config, f.db, recoveryRegistration()),
+      before = await financialEffects(),
+      network = vi.spyOn(globalThis, 'fetch');
+    expect(await service.runOne()).toMatchObject({ state: 'RECONCILING', jobId: command.id });
+    expect(
+      (await f.db.get('writer').select().from(legacyOrderImportRows)).find(
+        (row) => row.jobId === pending.id,
+      )?.state,
+    ).toBe('PENDING');
+    expect(await f.db.get('writer').select().from(financialImportProofs)).toEqual([]);
+    expect(await financialEffects()).toEqual(before);
+    expect(network).not.toHaveBeenCalled();
+  });
   it.each([false, true])(
     'validates actual staged membership and explicit free manifest (free=%s)',
     async (free) => {

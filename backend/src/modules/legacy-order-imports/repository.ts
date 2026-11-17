@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, exists, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Databases } from '../../db/pools.js';
 import { AppError } from '../../domain/errors.js';
@@ -34,6 +34,8 @@ import { correctedImportPlanHash } from './correction-domain.js';
 
 const terminalRows = ['IMPORTED', 'FAILED', 'CANCELLED'] as const;
 const pendingRows = ['PENDING', 'STARTING', 'RECONCILING'] as const;
+const recoveryRows = ['STARTING', 'RECONCILING'] as const;
+export type LegacyImportProcessingMode = 'all' | 'recovery';
 const leaseMilliseconds = 120000;
 const missing = () =>
   new AppError(404, 'ORDER_IMPORT_NOT_FOUND', 'This order import is unavailable.');
@@ -282,8 +284,13 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
       .where(eq(jobs.id, job.id));
   }
 
-  async function claim(adapter: ImportFinancialAdapter): Promise<Claim | null> {
+  async function claim(
+    adapter: ImportFinancialAdapter,
+    mode: LegacyImportProcessingMode,
+    owner?: { actorId: string; jobId: string },
+  ): Promise<Claim | null> {
     return db.get('writer').transaction(async (tx) => {
+      const eligibleStates = mode === 'recovery' ? recoveryRows : pendingRows;
       const timestamp = sqlTime(now()),
         [candidate] = await tx
           .select()
@@ -292,6 +299,19 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
             and(
               inArray(jobs.state, ['QUEUED', 'RUNNING']),
               or(isNull(jobs.leaseUntil), lte(jobs.leaseUntil, timestamp)),
+              owner ? and(eq(jobs.id, owner.jobId), eq(jobs.actorId, owner.actorId)) : undefined,
+              // An earlier PENDING-only job must not starve retained proof
+              // recovery, and must never be claimed by this mode.
+              mode === 'recovery'
+                ? exists(
+                    tx
+                      .select({ sequence: rows.sequence })
+                      .from(rows)
+                      .where(
+                        and(eq(rows.jobId, jobs.id), inArray(rows.state, [...eligibleStates])),
+                      ),
+                  )
+                : undefined,
             ),
           )
           .orderBy(asc(jobs.sequence))
@@ -300,7 +320,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
       const [candidateRow] = await tx
         .select()
         .from(rows)
-        .where(and(eq(rows.jobId, candidate.id), inArray(rows.state, [...pendingRows])))
+        .where(and(eq(rows.jobId, candidate.id), inArray(rows.state, [...eligibleStates])))
         .orderBy(asc(rows.sequence))
         .limit(1);
       let authorized = false;
@@ -330,7 +350,7 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
       const [row] = await tx
         .select()
         .from(rows)
-        .where(and(eq(rows.jobId, job.id), inArray(rows.state, [...pendingRows])))
+        .where(and(eq(rows.jobId, job.id), inArray(rows.state, [...eligibleStates])))
         .orderBy(asc(rows.sequence))
         .limit(1)
         .for('update');
@@ -506,6 +526,47 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
               : 'RECONCILING',
       };
     });
+  }
+  async function runOne(
+    adapter: ImportFinancialAdapter,
+    mode: LegacyImportProcessingMode = 'all',
+    owner?: { actorId: string; jobId: string },
+  ) {
+    const claimed = await claim(adapter, mode, owner);
+    if (!claimed) return null;
+    let result: ImportFinancialResult | null = null;
+    try {
+      const scope = binding(claimed.job, claimed.row),
+        financialScope = {
+          actorId: scope.actorId,
+          operationId: scope.operationId,
+          storeId: scope.storeId,
+          counterId: scope.counterId,
+        };
+      result = await withRequestTrace(
+        {
+          requestId: claimed.job.requestId ?? scope.operationId,
+          userId: scope.actorId,
+          module: 'administration',
+          resource: 'historical-order-import',
+        },
+        () => {
+          if (claimed.start) {
+            if (!claimed.input || mode === 'recovery')
+              throw new AppError(
+                409,
+                'ORDER_IMPORT_PAYLOAD_INVALID',
+                'The original import input needs review.',
+              );
+            return adapter.start(claimed.input);
+          }
+          return adapter.read(financialScope);
+        },
+      );
+    } catch {
+      // A throw can occur after a remote commit. Only read the original operation next.
+    }
+    return retainResult(claimed, result);
   }
   return {
     async stage(actor: string, request: string | undefined, value: unknown) {
@@ -726,42 +787,14 @@ export function legacyOrderImportRepository(db: Databases, options: LegacyImport
         return financialInput(tx, job, row);
       });
     },
-    async runOne(adapter: ImportFinancialAdapter) {
-      const claimed = await claim(adapter);
-      if (!claimed) return null;
-      let result: ImportFinancialResult | null = null;
-      try {
-        const scope = binding(claimed.job, claimed.row),
-          financialScope = {
-            actorId: scope.actorId,
-            operationId: scope.operationId,
-            storeId: scope.storeId,
-            counterId: scope.counterId,
-          };
-        result = await withRequestTrace(
-          {
-            requestId: claimed.job.requestId ?? scope.operationId,
-            userId: scope.actorId,
-            module: 'administration',
-            resource: 'historical-order-import',
-          },
-          () => {
-            if (claimed.start) {
-              if (!claimed.input)
-                throw new AppError(
-                  409,
-                  'ORDER_IMPORT_PAYLOAD_INVALID',
-                  'The original import input needs review.',
-                );
-              return adapter.start(claimed.input);
-            }
-            return adapter.read(financialScope);
-          },
-        );
-      } catch {
-        // A throw can occur after a remote commit. Only read the original operation next.
-      }
-      return retainResult(claimed, result);
+    /** Current caller authorization precedes scoped GET-only reconciliation;
+     * public readers recheck it again when returning the resulting DTO. */
+    async recover(actor: string, id: string, adapter: ImportFinancialAdapter) {
+      const actorId = identifier.parse(actor),
+        jobId = z.uuid().parse(id);
+      await db.get('writer').transaction((tx) => owned(tx, actorId, jobId));
+      return runOne(adapter, 'recovery', { actorId, jobId });
     },
+    runOne,
   };
 }

@@ -60,8 +60,10 @@ describe('qualified import runtime selection', () => {
       expect(registration.correctionForOperation).toBe(
         registration.corrections?.correctionForOperation,
       );
-      expect(registration.adapter).toBeUndefined();
+      expect(registration.adapter).toBeDefined();
+      expect(registration.canStart).toBe(false);
       expect(service.ready).toBe(false);
+      expect(service.recoveryReady).toBe(false);
       expect(await service.runOne()).toBeNull();
       worker.start();
       await worker.runOnce();
@@ -87,7 +89,37 @@ describe('qualified import runtime selection', () => {
       expect(registration.correctionForOperation).toBe(
         registration.corrections?.correctionForOperation,
       );
-      expect(registration.adapter).toBeUndefined();
+      expect(registration.adapter).toBeDefined();
+      expect(registration.canStart).toBe(false);
+      expect(get).not.toHaveBeenCalled();
+    } finally {
+      await db.close();
+    }
+  });
+  it('keeps an explicitly disabled recovery worker idle even when a retained key and explicit writer are present', async () => {
+    vi.useFakeTimers();
+    const config = {
+        ...configuration,
+        MYSQL_WRITER_URL: configuration.MYSQL_PRIMARY_READER_URL,
+      },
+      db = createDatabases(config),
+      get = vi.spyOn(db, 'get');
+    try {
+      const registration = configuredLegacyOrderImports(config, db, {
+          environment: {
+            LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: 'isolated-import-retained-purpose-key-'.repeat(
+              2,
+            ),
+          },
+        }),
+        service = legacyOrderImportService(config, db, registration),
+        worker = legacyOrderImportWorker(service, () => undefined);
+      expect(service.ready).toBe(false);
+      expect(service.recoveryReady).toBe(true);
+      worker.start();
+      await worker.runOnce();
+      await worker.stop();
+      expect(vi.getTimerCount()).toBe(0);
       expect(get).not.toHaveBeenCalled();
     } finally {
       await db.close();

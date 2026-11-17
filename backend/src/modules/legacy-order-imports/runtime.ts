@@ -13,6 +13,7 @@ import { readLegacyOrderImportOptions } from './options.js';
 import type { LegacyOrderImportRegistrationOptions } from './service.js';
 import { legacyOrderImportCorrections } from './correction-repository.js';
 import { financialImportCorrectionBoundary } from './financial-adapter-correction-boundary.js';
+import { configuredFinancialImportProfiles } from './membership-profile/options.js';
 
 /** Configuration inspection is pure: disabled/demo startup performs no I/O. */
 export function configuredLegacyOrderImports(
@@ -51,14 +52,24 @@ export function configuredLegacyOrderImports(
       corrections,
       correctionForOperation: corrections.correctionForOperation,
     };
+  let canStart = true;
   try {
     transport.assertReady();
   } catch (error: unknown) {
-    if (error instanceof AppError && error.status === 503) return recovery;
-    throw error;
+    if (error instanceof AppError && error.status === 503) canStart = false;
+    else throw error;
   }
   return {
     ...recovery,
-    adapter: legacyOrderImportFinancialAdapter(config, db, financial, transport),
+    canStart,
+    // Immutable local receipts outlive the source transport, membership keys
+    // and creation flags. Construction performs no database or network work.
+    adapter: legacyOrderImportFinancialAdapter(
+      config,
+      db,
+      financial,
+      transport,
+      configuredFinancialImportProfiles(financial, environment),
+    ),
   };
 }

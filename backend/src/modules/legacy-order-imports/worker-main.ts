@@ -74,7 +74,7 @@ try {
         observe: (event) => logger.log.info(event, 'Historical financial import stage recorded.'),
       }),
       service = legacyOrderImportService(config, db, registration);
-    if (!service.ready)
+    if (!service.ready && !service.recoveryReady)
       throw new AppError(
         503,
         'ORDER_IMPORT_WORKER_CONFIGURATION_REQUIRED',

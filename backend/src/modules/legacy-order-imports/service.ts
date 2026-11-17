@@ -35,6 +35,8 @@ import type { legacyOrderImportCorrections } from './correction-repository.js';
 export interface LegacyOrderImportRegistrationOptions {
   runtime?: LegacyOrderImportOptions;
   adapter?: ImportFinancialAdapter;
+  /** Server readiness for NEW work; retaining a read adapter does not enable creation. */
+  canStart?: boolean;
   approvals?: Pick<ReturnType<typeof legacyOrderImportFinancialApprovals>, 'request' | 'read'>;
   history?: Pick<ReturnType<typeof legacyOrderImportHistory>, 'detail' | 'results'>;
   correctionForOperation?: LegacyImportRepositoryOptions['correctionForOperation'];
@@ -49,7 +51,12 @@ export function legacyOrderImportService(
     key = runtime.LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1,
     ready =
       runtime.LEGACY_ORDER_IMPORT_CONTRACT === legacyOrderImportContract &&
-      Boolean(key && options.adapter),
+      options.canStart !== false &&
+      Boolean(key && options.adapter) &&
+      !config.DEMO_MODE &&
+      Boolean(config.MYSQL_WRITER_URL),
+    recoveryReady =
+      Boolean(key && options.adapter) && !config.DEMO_MODE && Boolean(config.MYSQL_WRITER_URL),
     history =
       options.history ?? legacyOrderImportHistory(config, readLegacyOrderImportHistoryOptions()),
     repository = key
@@ -117,6 +124,7 @@ export function legacyOrderImportService(
   }
   return {
     ready,
+    recoveryReady,
     runtime,
     async capabilities(user: Principal) {
       await authorize(user);
@@ -174,21 +182,18 @@ export function legacyOrderImportService(
       return importJobSchema.parse(await configuredRepository().stage(actor, requestId, value));
     },
     async detail(user: Principal, jobId: string) {
-      return importJobSchema.parse(
-        await configuredRepository().detail(permitted(user), z.uuid().parse(jobId)),
-      );
+      const actor = permitted(user),
+        id = z.uuid().parse(jobId),
+        repo = configuredRepository();
+      if (recoveryReady && options.adapter) await repo.recover(actor, id, options.adapter);
+      return importJobSchema.parse(await repo.detail(actor, id));
     },
     async results(user: Principal, jobId: string, after: number, limit: number) {
-      const data = z
-        .array(importResultSchema)
-        .parse(
-          await configuredRepository().results(
-            permitted(user),
-            z.uuid().parse(jobId),
-            after,
-            limit,
-          ),
-        );
+      const actor = permitted(user),
+        id = z.uuid().parse(jobId),
+        repo = configuredRepository();
+      if (recoveryReady && options.adapter) await repo.recover(actor, id, options.adapter);
+      const data = z.array(importResultSchema).parse(await repo.results(actor, id, after, limit));
       return { data, nextAfter: data.length === limit ? data.at(-1)!.sequence : null };
     },
     async cancel(user: Principal, jobId: string) {
@@ -274,8 +279,8 @@ export function legacyOrderImportService(
       };
     },
     async runOne() {
-      if (!ready || !options.adapter) return null;
-      return configuredRepository().runOne(options.adapter);
+      if (!recoveryReady || !options.adapter) return null;
+      return configuredRepository().runOne(options.adapter, ready ? 'all' : 'recovery');
     },
   };
 }

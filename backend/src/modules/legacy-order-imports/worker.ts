@@ -43,7 +43,11 @@ export function legacyOrderImportWorker(
   }
   function runOnce() {
     if (active) return active;
-    if (stopped || !options.LEGACY_ORDER_IMPORT_WORKER_ENABLED || !service.ready)
+    if (
+      stopped ||
+      !options.LEGACY_ORDER_IMPORT_WORKER_ENABLED ||
+      (!service.ready && !service.recoveryReady)
+    )
       return Promise.resolve();
     const requestId = randomUUID();
     active = (async () => {
@@ -99,7 +103,12 @@ export function legacyOrderImportWorker(
   return {
     runOnce,
     start() {
-      if (stopped || started || !options.LEGACY_ORDER_IMPORT_WORKER_ENABLED || !service.ready)
+      if (
+        stopped ||
+        started ||
+        !options.LEGACY_ORDER_IMPORT_WORKER_ENABLED ||
+        (!service.ready && !service.recoveryReady)
+      )
         return;
       started = true;
       void runOnce().then(schedule);

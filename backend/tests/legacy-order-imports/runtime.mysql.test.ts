@@ -181,9 +181,38 @@ describe.skipIf(!template)(
         (await app.inject({ method: 'GET', url: base + '/capabilities' })).json(),
       ).toMatchObject({ ready: true, canPreview: true });
       const routes = resourceRoutes(app);
-      expect(routes).toHaveLength(12);
+      expect(routes).toHaveLength(15);
+      const corrections = base + '/:jobId/orders/:operationId/corrections';
+      expect(routes.filter((route) => route.resource === 'order-import-correction')).toEqual([
+        {
+          module: 'administration',
+          resource: 'order-import-correction',
+          action: 'review',
+          method: 'GET',
+          path: corrections,
+          authentication: 'session',
+        },
+        {
+          module: 'administration',
+          resource: 'order-import-correction',
+          action: 'create',
+          method: 'POST',
+          path: corrections,
+          authentication: 'session',
+        },
+        {
+          module: 'administration',
+          resource: 'order-import-correction',
+          action: 'recovery',
+          method: 'GET',
+          path: corrections + '/:correctionId',
+          authentication: 'session',
+        },
+      ]);
+      const importRoutes = routes.filter((route) => route.resource === 'historical-order-import');
+      expect(importRoutes).toHaveLength(12);
       expect(
-        routes.every(
+        importRoutes.every(
           (route) =>
             route.module === 'administration' &&
             route.resource === 'historical-order-import' &&
