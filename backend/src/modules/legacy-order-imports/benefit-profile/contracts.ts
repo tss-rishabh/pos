@@ -1,7 +1,7 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
 import { identifier } from '../../../domain/validation.js';
-import { equalImportHash, importFinancialError } from '../financial-adapter-crypto.js';
+import { equalImportHash, importFinancialError } from '../financial-adapter-primitives.js';
 import type { ImportFinancialState, SourceOrderReceipt } from '../financial-adapter-contracts.js';
 import { benefitDigest } from './crypto.js';
 

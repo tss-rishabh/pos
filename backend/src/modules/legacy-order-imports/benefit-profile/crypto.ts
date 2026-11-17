@@ -1,5 +1,5 @@
 import { createHmac } from 'node:crypto';
-import { importFinancialError } from '../financial-adapter-crypto.js';
+import { importFinancialError } from '../financial-adapter-primitives.js';
 
 /** Cross-language canonical JSON uses code-point ordering, independent of host
  * ICU locale. In particular refundInputHash/refundable sort differently under

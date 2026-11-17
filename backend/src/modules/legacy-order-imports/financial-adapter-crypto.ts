@@ -1,11 +1,6 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHmac,
-  randomBytes,
-  timingSafeEqual,
-} from 'node:crypto';
-import { AppError } from '../../domain/errors.js';
+import { createCipheriv, createDecipheriv, createHmac, randomBytes } from 'node:crypto';
+import { importFinancialError } from './financial-adapter-primitives.js';
+export { importFinancialError, equalImportHash } from './financial-adapter-primitives.js';
 import { operationHash } from '../checkout/crypto.js';
 import type { ImportFinancialScope } from './financial-contracts.js';
 import { importDigest } from './sealed-groups.js';
@@ -21,12 +16,6 @@ import {
   type ImportCorrectionBinding,
 } from './correction-contracts.js';
 import type { FinancialImportAuthority } from './financial-adapter-contracts.js';
-export const importFinancialError = (code: string, status = 409) =>
-  new AppError(
-    status,
-    code,
-    'The original import needs review. Keep its operation reference; no new order or payment should be dispatched.',
-  );
 export function financialImportKey(
   secret: string,
   purpose: 'encryption' | 'proof' | 'source-proof' | 'source-auth',
@@ -60,13 +49,6 @@ export function financialSourceHash(
   value: unknown,
 ) {
   return operationHash('legacy-order-imports.source.' + kind + '.v1', value, sourceKey);
-}
-export function equalImportHash(left: string, right: string) {
-  return (
-    /^[a-f0-9]{64}$/.test(left) &&
-    /^[a-f0-9]{64}$/.test(right) &&
-    timingSafeEqual(Buffer.from(left, 'hex'), Buffer.from(right, 'hex'))
-  );
 }
 export function expectedFinancialPlanHash(
   secret: string,

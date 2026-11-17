@@ -4,7 +4,7 @@ import { identifier } from '../../../domain/validation.js';
 import { operationHash } from '../../checkout/crypto.js';
 import type { LegacyOrderImportPlan } from '../plans.js';
 import type { ImportFinancialState, SourceOrderReceipt } from '../financial-adapter-contracts.js';
-import { equalImportHash, importFinancialError } from '../financial-adapter-crypto.js';
+import { equalImportHash, importFinancialError } from '../financial-adapter-primitives.js';
 
 export const csvMembershipContract = 'pos-legacy-import-membership-v1';
 export const stagedMembershipContract = 'pos-cancellation-membership-staged-v2';
