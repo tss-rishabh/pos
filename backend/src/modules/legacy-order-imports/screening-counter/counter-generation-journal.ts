@@ -49,14 +49,14 @@ export function counterGenerationJournal(
         throw counterError('GENERATION_JOURNAL');
       const bytes = Buffer.from(row.payload, 'base64url'),
         h = {
-          id: row.id,
-          phase: row.phase,
+          id: counterHash.parse(row.id),
+          phase: counterGenerationRecordSchema.shape.phase.parse(row.phase),
           version: String(row.version),
-          updatedAt: row.updatedAt,
+          updatedAt: counterGenerationRecordSchema.shape.updatedAt.parse(row.updatedAt),
         };
       if (bytes.length < 28 || bytes.length > 2500028) throw counterError('GENERATION_JOURNAL');
       const cipher = createDecipheriv('aes-256-gcm', secret, bytes.subarray(0, 12));
-      cipher.setAAD(header(h as CounterGenerationRecord));
+      cipher.setAAD(header(h));
       cipher.setAuthTag(bytes.subarray(12, 28));
       const r = counterGenerationRecordSchema.parse(
         JSON.parse(

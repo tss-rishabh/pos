@@ -299,16 +299,27 @@ export function counterGenerationDemands(
         inArray(counterGenerationDemandsTable.phase, ['pending', 'capturing', 'prepared']),
         lte(counterGenerationDemandsTable.dueAt, clock()),
       );
-      const newest = await db
+      const newestRows = await db
         .get('writer')
-        .select({ id: counterGenerationDemandsTable.id })
+        .select()
         .from(counterGenerationDemandsTable)
         .where(and(eligible, eq(counterGenerationDemandsTable.lane, 'new')))
         .orderBy(
           desc(counterGenerationDemandsTable.createdAt),
           asc(counterGenerationDemandsTable.id),
         )
-        .limit(Math.floor(limit / 2));
+        .limit(100);
+      // Admission timestamps can tie for a whole discovery page. Compare the
+      // encrypted customer IDs only after bounded retrieval, without exposing
+      // them as scheduling/index columns or ordering by a random digest.
+      const newest = newestRows
+        .map(demandRow)
+        .sort((a, b) => {
+          const left = BigInt(a.request.customerId),
+            right = BigInt(b.request.customerId);
+          return left === right ? b.createdAt - a.createdAt : left > right ? -1 : 1;
+        })
+        .slice(0, Math.floor(limit / 2));
       const turn = await db.get('writer').transaction(async (tx) => {
         const value = await cursor(tx, 'schedule'),
           tick = Number(BigInt(value.after) % 3n),

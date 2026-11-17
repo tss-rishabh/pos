@@ -86,6 +86,12 @@ describe.skipIf(!template)('native automatic quota demand admission', () => {
     f.clock.now += 5000;
     expect(await restarted.due(2)).toEqual([ids['77'], ids['76']]);
   });
+  it('prioritizes the actual newest customer when an entire discovered page shares one millisecond', async () => {
+    const ids = Array.from({ length: 20 }, (_, i) => String(i + 1));
+    await admit(ids.map((id) => request(id)));
+    const [next] = await f.demands.due(2);
+    expect((await f.demands.read(next!)).request.customerId).toBe('20');
+  });
   it('binds one capture lease atomically with its immutable generation and rejects changed heads without orphan jobs', async () => {
     const [row] = await admit([request('77', '3')]);
     const claims = await Promise.all(
@@ -118,6 +124,37 @@ describe.skipIf(!template)('native automatic quota demand admission', () => {
       generationId: null,
       dueAt: f.clock.now + 5000,
     });
+  });
+  it('rejects an expired capture lease atomically before creating any publisher job', async () => {
+    const [row] = await admit([request('77', '3')]),
+      claim = await f.demands.claim(String(row!.id));
+    f.clock.now += 120001;
+    const snapshot = generationSnapshot('77', '3');
+    await expect(
+      f.journal.create(snapshot, counterGenerationPlan(snapshot, f.options), null, (tx, job) =>
+        f.demands.bind(tx, claim!.id, claim!.lease!, job),
+      ),
+    ).rejects.toMatchObject({ code: 'SCREENING_COUNTER_GENERATION_DEMAND_LEASE_LOST' });
+    expect(await rows('pos_rewrite_screening_counter_generation_jobs')).toHaveLength(0);
+  });
+  it('rejects transplanted generation ciphertext as well as unauthenticated source row changes', async () => {
+    const first = generationSnapshot('77', '3'),
+      second = generationSnapshot('78', '3');
+    const a = await f.journal.create(first, counterGenerationPlan(first, f.options), null),
+      b = await f.journal.create(second, counterGenerationPlan(second, f.options), null);
+    const stored = await rows('pos_rewrite_screening_counter_generation_jobs');
+    await f.connection.execute(
+      'UPDATE pos_rewrite_screening_counter_generation_jobs SET payload=? WHERE id=?',
+      [stored.find((row) => row.id === a.id)!.payload, b.id],
+    );
+    await expect(f.journal.read(b.id)).rejects.toMatchObject({
+      code: 'SCREENING_COUNTER_GENERATION_JOURNAL',
+    });
+    const altered = generationSnapshot('79', '3');
+    altered.rows[0]!.included = false;
+    await expect(
+      f.journal.create(altered, counterGenerationPlan(altered, f.options), null),
+    ).rejects.toMatchObject({ code: 'SCREENING_COUNTER_GENERATION_SNAPSHOT_INVALID' });
   });
   it('rejects transplanted encrypted demands and cursor metadata tampering', async () => {
     const [a, b] = await admit([request('77'), request('78')]);
