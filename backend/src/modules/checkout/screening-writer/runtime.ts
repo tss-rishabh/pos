@@ -1,5 +1,6 @@
 import { publicScreeningCoordinator } from './coordinator.js';
 import { configuredPublicBenefitPreparation } from './benefit-preparation-options.js';
+import { configuredPublicMembershipGenerationDemands } from './membership-generation-options.js';
 
 /** Shared HTTP/worker installation. Construction performs no source or warehouse
  * calls. Invalid selected preparation retains a denying port so immutable
@@ -11,13 +12,15 @@ export function configuredPublicScreeningCoordinator(
   options: NonNullable<Parameters<typeof publicScreeningCoordinator>[3]> = {},
   variables: NodeJS.ProcessEnv = process.env,
 ) {
+  const runtimeVariables = config.DEMO_MODE ? {} : variables;
   return publicScreeningCoordinator(config, db, environment, {
     ...options,
     prepareBenefits:
       options.prepareBenefits ??
-      configuredPublicBenefitPreparation(environment, options, config.DEMO_MODE ? {} : variables, {
+      configuredPublicBenefitPreparation(environment, options, runtimeVariables, {
         clock: options.clock,
         fetcher: options.fetcher,
+        membershipDemands: configuredPublicMembershipGenerationDemands(db, runtimeVariables),
       }),
   });
 }

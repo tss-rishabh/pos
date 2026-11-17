@@ -22,6 +22,7 @@
     "worker:settings": "node --env-file-if-exists=.env dist/modules/administration/settings-worker-main.js",
     "worker:order-imports": "node --env-file-if-exists=.env dist/modules/legacy-order-imports/worker-main.js",
     "worker:coupon-history": "node --env-file-if-exists=.env dist/modules/legacy-order-imports/benefit-profile/history-generation-worker-main.js",
+    "worker:membership-history": "node --env-file-if-exists=.env dist/modules/checkout/screening-writer/membership-generation-main.js",
     "receiver:whole-order-status": "node --env-file-if-exists=.env dist/modules/legacy-order-status/receiver-main.js",
     "worker:profile-media": "node --env-file-if-exists=.env dist/auth/profile-media-worker-main.js",
     "worker:store-images": "node --env-file-if-exists=.env dist/modules/administration/store-image-worker-main.js",
