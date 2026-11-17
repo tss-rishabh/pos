@@ -1,5 +1,11 @@
 # POS rewrite checkpoint
 
+Standing user instruction (18 November 2026): finish all feature and integration
+code first; perform parity testing and full verification afterward. During
+implementation, defer further test expansion, certification and repeated check
+runs. Preserve existing tests/evidence and all final release requirements. The
+same work order is recorded in AGENTS.md for future continuations and agents.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
