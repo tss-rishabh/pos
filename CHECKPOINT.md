@@ -96,6 +96,14 @@ SSO fence found in the final code inspection, and other writer-origin protocols.
 The latter is now split between genuine Python/staff/customer callers and the
 separate non-POS Go customer/provider/cron adapters. No tests or builds were run.
 
+The queued-logout SSO fence is integrated from `5fa09e9` as `fa16dc0`.
+Create/resume/current lookup/consume/cancel and local session adoption refuse a
+pending logout; only acknowledged explicit reset clears that fence. Desktop
+and offline implementation slices are now held for later validation. Active
+remaining code is membership contact-reference recovery (consumed and staged)
+and the separate customer/staff/service/provider/cron writer-origin protocols.
+Their source deployment/credential acceptance remains distinct from code work.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
