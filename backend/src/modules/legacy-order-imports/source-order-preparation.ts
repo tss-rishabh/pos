@@ -22,12 +22,13 @@ import {
   csvMembershipSourceInstant,
 } from './membership-profile/bigquery.js';
 import type { CsvMembershipHistoryPort } from './membership-profile/history.js';
-import type { CsvCouponHistoryPort } from './benefit-profile/history.js';
+import type { CsvCouponHistoryPort, CouponHistoryScope } from './benefit-profile/history.js';
 import {
   assertCsvCouponPrefetch,
   couponSourceInstant,
   prefetchCsvCouponHistory,
   type CsvCouponPrefetch,
+  type CouponHistoryWitness,
 } from './benefit-profile/bridge.js';
 import { z } from 'zod';
 import { AppError } from '../../domain/errors.js';
@@ -60,6 +61,14 @@ export function sourceOrderPreparation(
   dependencies: {
     historyReader?: CsvMembershipHistoryPort;
     couponHistoryReader?: CsvCouponHistoryPort;
+    /** Encrypted background demand only; this port must not capture history or
+     * publish synchronously. Called after a genuine source preview is checked. */
+    couponHistoryDemand?: {
+      enqueue(
+        scope: CouponHistoryScope,
+        options: { witness: CouponHistoryWitness; signal?: AbortSignal },
+      ): Promise<unknown>;
+    };
     clock?: () => number;
     fetcher?: typeof fetch;
   } = {},
@@ -223,6 +232,7 @@ export function sourceOrderPreparation(
           reader = dependencies.couponHistoryReader,
           independentKeys = [
             options.couponHistoryKey,
+            options.couponPublicationKey,
             options.couponGuardKey,
             financial.sourceProofKey,
             financial.sourceAuthKey,
@@ -262,8 +272,24 @@ export function sourceOrderPreparation(
             { signal, expiresAt: input.expiresAt },
           ),
           signal,
-        ).catch((error: unknown) => {
+        ).catch(async (error: unknown) => {
           signal.throwIfAborted();
+          if (
+            dependencies.couponHistoryDemand &&
+            error instanceof AppError &&
+            error.code === 'ORDER_IMPORT_COUPON_PUBLICATION_GENERATION_INCOMPLETE'
+          ) {
+            // Preserve the original preparation result even if the separate
+            // queue is unavailable. This never authorizes financial dispatch.
+            try {
+              await abortable(
+                dependencies.couponHistoryDemand.enqueue(scope, { witness, signal }),
+                signal,
+              );
+            } catch {
+              signal.throwIfAborted();
+            }
+          }
           if (error instanceof AppError && /^ORDER_IMPORT_COUPON_[A-Z_]+$/.test(error.code))
             throw error;
           throw importFinancialError('ORDER_IMPORT_PREPARATION_COUPON_HISTORY_REQUIRED', 503);

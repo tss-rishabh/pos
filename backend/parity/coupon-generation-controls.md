@@ -63,6 +63,15 @@ unqualified generation pauses preparation without a synchronous native history
 query or publication attempt. This runtime connection is implemented; validation
 is deferred with the rest of the final verification phase.
 
+Preparation also exposes a `couponHistoryDemand` queue port. After authenticating
+the source preview and checking the original operation, plan, customer and keys,
+an incomplete-generation read can enqueue the exact history scope and witness.
+The queue performs no historical query or publication. Preparation retains its
+original failure and cannot dispatch an order; queue failure does not replace
+that result. The concrete encrypted demand queue and worker installation are a
+separate implementation handoff. The coupon publication key participates in
+the preparation boundary's complete key-separation check.
+
 The shared private runtime mounts the resource after source construction, while
 validating its selector/key before database bootstrap. The source manifest
 includes all three new modules. No production keys, DDL, cache writes, warehouse
