@@ -1,0 +1,400 @@
+{
+  "recordedAt": "2026-11-17T10:07:40.608Z",
+  "readOnly": true,
+  "schema": "tss",
+  "tables": {
+    "order_coupon_log": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "user_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "coupon_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "status",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP",
+        "collation": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "DEFAULT_GENERATED",
+        "default": "CURRENT_TIMESTAMP",
+        "collation": null
+      }
+    ],
+    "order_freebies": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "freebie_prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "freebie_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "freebie_sale_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "grant_level",
+        "type": "varchar(12)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb4_0900_ai_ci"
+      },
+      {
+        "name": "trigger_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "trigger_key",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "",
+        "collation": "utf8mb4_0900_ai_ci"
+      },
+      {
+        "name": "mov",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "qualified_value",
+        "type": "decimal(12,2)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0.00",
+        "collation": null
+      },
+      {
+        "name": "is_exclusive_order",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "base_field",
+        "type": "varchar(16)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb4_0900_ai_ci"
+      },
+      {
+        "name": "status",
+        "type": "varchar(12)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "ACTIVE",
+        "collation": "utf8mb4_0900_ai_ci"
+      },
+      {
+        "name": "revoked_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "revoke_reason",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb4_0900_ai_ci"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      }
+    ],
+    "order_freebie_triggers": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "order_freebie_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "has_product_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "prod_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "contribution",
+        "type": "decimal(12,2)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0.00",
+        "collation": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      }
+    ]
+  },
+  "indexes": [
+    {
+      "TABLE_NAME": "order_coupon_log",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebie_triggers",
+      "INDEX_NAME": "idx_order_freebie_triggers_freebie",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_freebie_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebie_triggers",
+      "INDEX_NAME": "idx_order_freebie_triggers_has_product",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "has_product_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebie_triggers",
+      "INDEX_NAME": "idx_order_freebie_triggers_order",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebie_triggers",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebies",
+      "INDEX_NAME": "idx_order_freebies_freebie",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "freebie_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebies",
+      "INDEX_NAME": "idx_order_freebies_order",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebies",
+      "INDEX_NAME": "idx_order_freebies_order",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 2,
+      "COLUMN_NAME": "status",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebies",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebies",
+      "INDEX_NAME": "uk_order_freebies_grant",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "has_product_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebies",
+      "INDEX_NAME": "uk_order_freebies_grant",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 2,
+      "COLUMN_NAME": "grant_level",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_freebies",
+      "INDEX_NAME": "uk_order_freebies_grant",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 3,
+      "COLUMN_NAME": "trigger_key",
+      "INDEX_TYPE": "BTREE"
+    }
+  ],
+  "errors": []
+}

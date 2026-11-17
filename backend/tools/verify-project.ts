@@ -154,6 +154,7 @@ function inputChecksums() {
     'mysql-order-import-address-schema.json',
     'mysql-screening-schema.json',
     'mysql-import-referral-schema.json',
+    'mysql-import-benefit-profile-schema.json',
     'mysql-auth-history-schema.json',
     'mysql-administration-inbound-schema.json',
     'mysql-legacy-fulfillment-schema.json',
