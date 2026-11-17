@@ -1,0 +1,45 @@
+.order-search-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.order-search-grid label {
+  display: grid;
+  gap: 6px;
+}
+.order-search-grid input,
+.order-search-grid select {
+  width: 100%;
+  min-width: 0;
+}
+.order-search-grid select[multiple] {
+  min-height: 78px;
+}
+.order-search-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 16px 0;
+}
+.order-search-actions label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.order-search-actions details label {
+  display: inline-flex;
+  margin: 6px;
+}
+.order-search-workspace td small {
+  display: block;
+}
+.order-search-workspace dl {
+  max-height: 50vh;
+  overflow: auto;
+}
+.order-search-workspace dd {
+  margin-left: 16px;
+  overflow-wrap: anywhere;
+}

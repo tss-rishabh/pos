@@ -6,12 +6,7 @@ import { useOnline, useProducts } from '../hooks/use-pos';
 import { currency } from '../lib/format';
 import { Empty, ErrorState, Loading, Metric, PageTitle } from '../components/common';
 import { request } from '../api/client';
-import {
-  orderBrowseDetail,
-  orderBrowserDates,
-  orderDateQuery,
-  useOrderBrowse,
-} from './order-history/client';
+import { orderBrowseDetail, orderBrowserDates, orderDateQuery } from './order-history/client';
 import {
   AutomaticInvoicePreview,
   createAutomaticInvoiceRequest,
@@ -23,6 +18,7 @@ import { NavLink, useLocation, useSearchParams } from 'react-router-dom';
 import { orderLink, orderLinkState } from './checkout/order-link';
 import { OrderPaymentActions } from './checkout/OrderPaymentActions';
 import { OrderCancellationActions } from './checkout/cancellations/OrderCancellationActions';
+import { SourceOrderList } from './order-history/SourceOrderList';
 
 export function InventoryPage({ user, storeId }: { user: Principal; storeId: string }) {
   const [search, setSearch] = useState('');
@@ -135,25 +131,20 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
     scope = { operatorId: user.id, storeId },
     link = orderLink(searchParams, location.state as unknown, scope),
     selected = link.needsBinding ? '' : link.id;
-  const orders = useOrderBrowse(
-      user.id,
-      storeId,
-      { from: dates.from, to: dates.to },
-      online && dates.valid,
-    ),
-    rows = orders.data?.pages.flatMap((page) => page.data) || [],
+  const [refreshToken, setRefreshToken] = useState(0),
     [dateDraft, setDateDraft] = useState({ from: dates.from, to: dates.to });
+  const orders = { refetch: () => setRefreshToken((value) => value + 1) };
   useEffect(
     () => setDateDraft({ from: dates.from, to: dates.to }),
     [dates.from, dates.to, user.id, storeId],
   );
   useEffect(() => setAutomaticInvoice(null), [user.id, storeId, selected]);
-  const setSelected = (id: string) => {
+  const setSelected = (id: string, selection = { from: dates.from, to: dates.to }) => {
     const next = new URLSearchParams(searchParams);
     if (id) {
       next.set('orderId', id);
-      next.set('from', dates.from);
-      next.set('to', dates.to);
+      next.set('from', selection.from);
+      next.set('to', selection.to);
     } else next.delete('orderId');
     setSearchParams(next, {
       replace: true,
@@ -261,90 +252,25 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           action.
         </p>
       )}
-      <section className="surface">
-        <div className="surface-title">
-          <h2>Store orders</h2>
-          <span className="muted">Most recent first</span>
-        </div>
-        <p className="muted">
-          {dates.from} through {dates.to}
-          {orders.data?.pages[0]?.reader === 'bigquery'
-            ? ' · Historical snapshot; later source changes may still be replicating.'
-            : ' · Current store selection'}
-        </p>
-        {!dates.valid ? (
-          <Empty title="Choose valid order dates" />
-        ) : !online && !rows.length ? (
-          <Empty title="Connect to load orders" />
-        ) : orders.isPending ? (
-          <Loading />
-        ) : orders.isError ? (
-          <ErrorState error={orders.error} retry={() => void orders.refetch()} />
-        ) : (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Order</th>
-                  <th>Customer</th>
-                  <th>Placed</th>
-                  <th>Amount</th>
-                  <th>Payment</th>
-                  <th>Status</th>
-                  <th>
-                    <span className="sr-only">Details</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((o) => (
-                  <tr key={`${o.id}:${o.rowId || o.id}`}>
-                    <td>
-                      <button className="text-button" onClick={() => setSelected(o.id)}>
-                        {o.reference || o.id}
-                      </button>
-                    </td>
-                    <td>{o.customer}</td>
-                    <td>
-                      {new Date(o.createdAt).toLocaleString('en-IN', {
-                        day: '2-digit',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                    <td>
-                      <strong>{currency(o.amount)}</strong>
-                    </td>
-                    <td>
-                      <span className="badge green">{o.paymentStatus}</span>
-                    </td>
-                    <td>{o.status}</td>
-                    <td>
-                      <button
-                        className="icon-button"
-                        aria-label={`View order ${o.reference}`}
-                        onClick={() => setSelected(o.id)}
-                      >
-                        <ArrowUpRight size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!rows.length && <Empty title="No orders yet" />}
-          </div>
-        )}
-        {orders.hasNextPage && (
-          <button
-            className="button secondary load-more"
-            onClick={() => void orders.fetchNextPage()}
-          >
-            Load more orders
-          </button>
-        )}
-      </section>
+      {dates.valid && (
+        <SourceOrderList
+          key={`${user.id}:${user.role}:${user.userType}:${user.storeIds.join(',')}:${storeId}`}
+          user={user}
+          storeId={storeId}
+          dates={{ from: dates.from, to: dates.to }}
+          online={online}
+          refreshToken={refreshToken}
+          onOpen={(row) => {
+            const day = row.created_at.slice(0, 10);
+            setSelected(
+              row.id,
+              day >= dates.from && day <= dates.to
+                ? { from: dates.from, to: dates.to }
+                : { from: day, to: day },
+            );
+          }}
+        />
+      )}
       {selected && (
         <div className="modal-backdrop" onClick={() => setSelected('')}>
           <section

@@ -1,6 +1,7 @@
 /** Execute ONLY generated synthetic SELECT fixtures. Never reads a source table or key bytes. */
 import { BigQuery } from '@google-cloud/bigquery';
 import { z } from 'zod';
+import { AppError } from '../../src/domain/errors.js';
 import { normalizeWarehouseParameters } from '../../src/modules/warehouse-parameters.js';
 import { publicOrderHistory } from '../../src/modules/order-history/reader.js';
 import {
@@ -42,6 +43,13 @@ async function main() {
       'Provide the authorized read-only BigQuery key filename to run synthetic fixtures.',
     );
   const client = new BigQuery({ projectId: 'tssgcp2025', location: 'asia-south1', keyFilename });
+  if (process.env.ORDER_HISTORY_VALIDATION_GROUP === 'source-order-search') {
+    const { validateSourceOrderSearch } = await import('../order-search/bigquery-fixtures.js');
+    await validateSourceOrderSearch(client, (value) => {
+      stage = value;
+    });
+    return;
+  }
   const quote = (value: string) => "'" + value.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
   function cte(
     name: string,
@@ -274,12 +282,7 @@ async function main() {
       } catch (error) {
         if (
           !corrupt ||
-          !(
-            typeof error === 'object' &&
-            error !== null &&
-            'code' in error &&
-            error.code === 'ORDER_HISTORY_PUBLICATION_INVALID'
-          )
+          !(error instanceof AppError && error.code === 'ORDER_HISTORY_PUBLICATION_INVALID')
         )
           throw error;
       }
