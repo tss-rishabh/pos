@@ -57,6 +57,7 @@ export async function registerOriginHistoryBridge(
         throw originError('SCREENING_ORIGIN_HISTORY_UNAUTHORIZED');
       const signal = AbortSignal.timeout(25000);
       const value = await history.read(data, signal);
+      req.auditUserId = data.command.actorId;
       reply.header('Cache-Control', 'no-store');
       return value;
     },
