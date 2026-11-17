@@ -1,0 +1,557 @@
+{
+  "recordedAt": "2026-11-17T18:12:30.128493Z",
+  "testedCommit": "ff34bf59f23444c5d5b3b6b65f7c4ad1791770a8",
+  "upstreamCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "fullProjectVerification": false,
+  "productionReady": false,
+  "scope": "Composed private source coupon/complementary order preparation and source no-order recovery for already-dispatched Node screening commands.",
+  "checks": [
+    {
+      "command": "CHECKOUT_MYSQL_TEST_URL=[guarded localhost checkout fixture] POS_LEGACY_IMPORT_SOURCE_ROOT=[immutable2960] SCREENING_SOURCE_ROOT=[immutable2960] sh compatibility/upstream/public-screening-writer/run-native-tests.sh",
+      "exitCode": 0,
+      "passed": 80,
+      "testFiles": 13,
+      "skipped": 0,
+      "originalGoBinary": true
+    },
+    {
+      "command": "POS_LEGACY_IMPORT_SOURCE_ROOT=[immutable2960] SCREENING_SOURCE_ROOT=[immutable2960] sh tools/legacy-import-benefits/run-source-tests.sh",
+      "exitCode": 0,
+      "passed": 11,
+      "testFiles": 1,
+      "fixture": "separate cached-image localhost MySQL with named timezone tables; no host timezone mutation"
+    },
+    {
+      "command": "MIGRATION_MYSQL_TEST_URL=mysql://root@127.0.0.1/pos_rewrite_migrations_test node@24.22.3 vitest run tests/migrations.mysql.integration.test.ts tests/migrations.test.ts --maxWorkers=1",
+      "exitCode": 0,
+      "passed": 5,
+      "testFiles": 2
+    },
+    {
+      "command": "ADMINISTRATION_BROWSER_TESTS=true node@24.22.3 vitest run tests/screening-writer/recovery.browser.test.ts --maxWorkers=1",
+      "exitCode": 0,
+      "passed": 6,
+      "testFiles": 1
+    },
+    {
+      "command": "node@24.22.3 --import tsx tools/legacy-import-esm/check.ts",
+      "exitCode": 0,
+      "checks": 42,
+      "passed": 42,
+      "entries": [
+        {
+          "entry": "financial-adapter-crypto.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "financial-adapter-contracts.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "financial-adapter-transport.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "source-order-preparation.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "source-order-preparation-runtime.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/contracts.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/crypto.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/completion.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history-publication.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history-source.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history-bigquery.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history-warehouse-source.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/bridge.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/domain.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/completion.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/history.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/publication.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/publication-native.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/publication-warehouse.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/bridge.ts",
+          "mode": "tsx",
+          "passed": true
+        },
+        {
+          "entry": "financial-adapter-crypto.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "financial-adapter-contracts.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "financial-adapter-transport.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "source-order-preparation.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "source-order-preparation-runtime.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/contracts.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/crypto.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/completion.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history-publication.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history-source.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history-bigquery.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/history-warehouse-source.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "benefit-profile/bridge.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/domain.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/completion.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/history.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/publication.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/publication-native.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/publication-warehouse.ts",
+          "mode": "emitted",
+          "passed": true
+        },
+        {
+          "entry": "membership-profile/bridge.ts",
+          "mode": "emitted",
+          "passed": true
+        }
+      ]
+    },
+    {
+      "command": "node@24.22.3 tsc --noEmit -p [tools/public-screening-writer, tools/legacy-import-preparation, tools/source-runtime-acceptance, frontend/tests/screening-writer]/tsconfig.json",
+      "exitCode": 0
+    },
+    {
+      "command": "python -B tools/source-runtime-acceptance/test_runtime_resources.py",
+      "exitCode": 0,
+      "passed": 3,
+      "scope": "Actual private factory mount: key-only GET, selected POST and wrong service-key rejection before DB/bootstrap"
+    },
+    {
+      "command": "node@24.22.3 eslint [changed integration TypeScript files]",
+      "exitCode": 0
+    }
+  ],
+  "retainedPartialRun": {
+    "evidence": "backend/evidence/private/runtime-preparation-migrations-integrated.log",
+    "exitCode": 1,
+    "passed": 133,
+    "skipped": 11,
+    "failed": 3,
+    "reason": "Wrong migration fixture template was refused by the local-schema guard. The five-case correct-template follow-up passes without weakening the guard; the11 skipped dedicated source-benefit cases pass in their separate timezone-aware runner."
+  },
+  "retainedInsufficientRun": {
+    "evidence": "backend/evidence/private/public-negative-integrated.log",
+    "exitCode": 0,
+    "passed": 11,
+    "skipped": 69,
+    "reason": "Missing local checkout fixture. The runner now refuses missing CHECKOUT_MYSQL_TEST_URL; corrected full native run passes80/80 with no skips."
+  },
+  "migrationInvariant": "Existing source-migration.sql bytes/checksum unchanged; additive negative migration and source review composition verified.",
+  "limitations": [
+    "Generic prepublished BQ generation consumer remains separately assigned; no per-request native historical fallback is installed.",
+    "Screening historical raw COUNT replacement/current operational projection and every cooperating writer remain code work.",
+    "Public ticket membership/gift staging and benefit-aware abandonment remain code work.",
+    "No live DB/cloud writes, providers, activation, deployment, signing or physical printer acceptance."
+  ],
+  "files": [
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_controls.py",
+      "sha256": "6a2c281a236f1ef357bac79f46e38f32bdfb7f8c24ae08cd2be5d62f2f0e8077"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_fence.py",
+      "sha256": "c019e912b336e51f29d03b93a784786e81fe48704638783f0148bec155bc05fe"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_native.py",
+      "sha256": "5c982dd1b44ad569adddae3c2847b7bbbd1ab6786a6427cb4b4e1ab4d8a28918"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_profile.py",
+      "sha256": "f3911a295fb30cf162cf0cf6acc4a53f7bfda4755bf7b16d7ad83174546624a0"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_runtime.py",
+      "sha256": "2d8fe33edff8029de18712e784a5e771047f7cf719d33c3ca747f71259c4974e"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_source.py",
+      "sha256": "4ccd7f89a747db9080f86d5327b8ef0c314eaa2fdc83a56e63d44758e066a42a"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/coupon_handoff.py",
+      "sha256": "c9839eef3216ed9a4ffda2693b9fef0508931b8b6bd86741c26fe37adb99bd25"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/manifest.json",
+      "sha256": "0f08071160afc0c19b4b5271502e362b65569e94a7417f1df7a6030666a7a736"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/order_preparation.py",
+      "sha256": "3f160d908b3f7fd26efe49deeaedc0ecb32cc2ee472bd16510269156761c762a"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/prepare.py",
+      "sha256": "87c7c0054c79db7d486c4904f3bd5036fe4b5606c19f74ad9c27ff37bf2bce14"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/protocol.py",
+      "sha256": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/receiver.py",
+      "sha256": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/runtime.py",
+      "sha256": "892d134b3326d778187c565ed8db1c0aed891f5cfcd3e366b94086ab752eb9d9"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/source_runtime.py",
+      "sha256": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/test_source_sessions.py",
+      "sha256": "b9847facde116f2f1ea2fc58be71e1e601a919502da8687842b514845c0edc20"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/bootstrap.py",
+      "sha256": "f0764433b29d72cff0b366d868e5b28b69291782315600fe4e23d4ae3b33f631"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/manifest.json",
+      "sha256": "1f9a380120e5694b068d3ae7c4857777aecf06f4a09578e0cf19629ec5ea2cfb"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/migration.review.sql",
+      "sha256": "d3a9eec934e329f470476ae257f15d32e7ec29f01374e50e9be799e919d0ce16"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/native_authority.py",
+      "sha256": "6735ea187883428567ecf2a112aea5282106d08daf474219554eeee1bffac3ea"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/negative.py",
+      "sha256": "c3676b6c0c8fe4cadab4825bffcd55d8b7c92f44175dcafb7195af27193755f3"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/negative_resource.py",
+      "sha256": "65d94cf6dfad6b53b97652ebff8e84625a61d1668290ac6b6cfbed994142af6e"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/prepare.py",
+      "sha256": "63aa90c948d252ea7d994aebfeff7d1e3d515e567ecb7c1205d324f9568d5903"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/run-native-tests.sh",
+      "sha256": "789c46973b23bdc8c4e751f1614e245ae14fbff041a6f4b044ba1e8e85c70316"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/source_frame.py",
+      "sha256": "70e2f09a3372b6b27a0280750343b04c6b50c19dfcc9ea0e09694e0c680ed5b3"
+    },
+    {
+      "path": "backend/compatibility/upstream/public-screening-writer/writer_protocol.py",
+      "sha256": "47a7d97a80131325cd5f4105262e9c0c42edc652bfa7174c085d23106f5d3a18"
+    },
+    {
+      "path": "backend/src/db/migrations.ts",
+      "sha256": "5b5b75ba6b2330540a05dca6881de582b1762bdd1273289af59ba02035aca57a"
+    },
+    {
+      "path": "backend/src/modules/checkout/contracts.ts",
+      "sha256": "a5a7fc6cd669a277032bc34b85a7b5fef5c728ad853d03e16f87f00f48c8aefc"
+    },
+    {
+      "path": "backend/src/modules/checkout/screening-writer/api-contracts.ts",
+      "sha256": "320d7e3c51d27f53540bad21468c086e64206edfbf5b5d104347c577c742c38a"
+    },
+    {
+      "path": "backend/src/modules/checkout/screening-writer/negative-migration.sql",
+      "sha256": "f804060b07417a997f262a77415ecab5929ad90d79f62b227a2053cc16a570cb"
+    },
+    {
+      "path": "backend/src/modules/checkout/screening-writer/negative.ts",
+      "sha256": "e67f9c13a571e2a20bcfa00da5b6687dc34c978ec7bfe87c7e371f067a952131"
+    },
+    {
+      "path": "backend/src/modules/checkout/screening-writer/options.ts",
+      "sha256": "fe973fb6fe70647037849140a0fb52106293e696ab6cd14699485a08a5d9c602"
+    },
+    {
+      "path": "backend/src/modules/checkout/screening-writer/proof.ts",
+      "sha256": "eebe3adc3fa241bc34ffaa7a0a41abc27736f76083ac1569cfab984b1a573ea0"
+    },
+    {
+      "path": "backend/src/modules/checkout/screening-writer/recovery.ts",
+      "sha256": "798afc6ea728ccd8ab743fc839b052615336941bd25a51f48f72d383ff006f29"
+    },
+    {
+      "path": "backend/src/modules/checkout/screening-writer/routes.ts",
+      "sha256": "4ca4c9b2eaf62fb1534ed574512eb304237811c2a7fc1ba9e34f23fda4d0347a"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-transport.ts",
+      "sha256": "e9d1f794427c74eecbf6b92940f6baf3cda6a6841c6774a0ca16d617a705fb34"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/source-order-preparation-contracts.ts",
+      "sha256": "8eda7a0c3d6f2327a100fc6ffafa8b063ac3989b06b04f38b9c2ee16c06c54b2"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/source-order-preparation-options.ts",
+      "sha256": "03225c97ce47d8bfc7627a6ddcbea3213f4bbbdf7d398201a80bc3c91be7d01f"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/source-order-preparation.ts",
+      "sha256": "8b6691836ca5fd475e146c050cf5d66c76f875fae5c49121b3ae452750e45b04"
+    },
+    {
+      "path": "backend/tests/legacy-import-benefits/runtime.test.ts",
+      "sha256": "9401621601d76c1728fe05504ea913f64777d1048265aa13e95cfe7e2ed04b87"
+    },
+    {
+      "path": "backend/tests/legacy-import-preparation/benefit-preparation.test.ts",
+      "sha256": "80dd1c05b304b8d8a74644fd17c209ea13f7e54c4e8decb96bd75df9032a9665"
+    },
+    {
+      "path": "backend/tests/legacy-import-preparation/benefit-source.mysql.test.ts",
+      "sha256": "1754b487cd2b8b0dd7ed449c0d8b40206c190cc266a00f43924e4c07dd83e592"
+    },
+    {
+      "path": "backend/tests/legacy-import-preparation/benefit-transport.test.ts",
+      "sha256": "8188722e624b2c84fec8f5fd5c27bd4e58e804ec752ee6b7cb57bf383663a431"
+    },
+    {
+      "path": "backend/tests/legacy-import-preparation/esm.test.ts",
+      "sha256": "8a072a6fb8cc0bfb9e0e45910235f9c97e328a8b9b4d3fe1b4e00cf377690c32"
+    },
+    {
+      "path": "backend/tests/legacy-order-imports/membership-bridge.test.ts",
+      "sha256": "9a5aa7713bd36e1e0bbb5019a04bc5d4c2e0cac2dc577888df83d917da0e06c1"
+    },
+    {
+      "path": "backend/tests/migrations.test.ts",
+      "sha256": "b0735969008d03af228a752a73eb981d8b842785e7f3d2917f8e48e8a6e88000"
+    },
+    {
+      "path": "backend/tests/public-screening-writer/api-fixture.ts",
+      "sha256": "20431f6565cd04e2e3d5f00cfc21b12bf72a08442dcb56cd762ddf42c6826454"
+    },
+    {
+      "path": "backend/tests/public-screening-writer/boundaries.mysql.test.ts",
+      "sha256": "927fb966387c03963d1cf6404148612951e051b5db3d56c57ed337218bf3b2f3"
+    },
+    {
+      "path": "backend/tests/public-screening-writer/native-fixture.ts",
+      "sha256": "e2222488d5d7bc478a48f3970a26c96355c477abf7dbe0a1ba8c58d054e345cb"
+    },
+    {
+      "path": "backend/tests/public-screening-writer/native_source_driver.py",
+      "sha256": "7eba7ae4b2d9de741c51b3ffc5a5dc0dde9aea5621137446ac34854f4888fd5d"
+    },
+    {
+      "path": "backend/tests/public-screening-writer/negative.mysql.test.ts",
+      "sha256": "679f6d29db2b2bcb2362eebbfb3012d54d533f952228eb5d9d11f418fa612499"
+    },
+    {
+      "path": "backend/tests/public-screening-writer/negative_driver.py",
+      "sha256": "292557544f86fcd5095a282c0fcdb87f3242683571b9260e42f9d22a29510489"
+    },
+    {
+      "path": "backend/tests/public-screening-writer/test_negative.py",
+      "sha256": "febe3b6ce0e27f0ca4061149e463641a03b53fcf6b3aaa84452ae14a967ce502"
+    },
+    {
+      "path": "backend/tests/source-runtime-acceptance/source.test.ts",
+      "sha256": "ee0c5e62bfe987217108d08abf28d45f6c7c8dabbbfe02adfb4be5911d931da5"
+    },
+    {
+      "path": "backend/tools/legacy-import-benefits/pipeline_native_driver.py",
+      "sha256": "9f2b06e7f3e6d118f46ac5e88ca148d499b301a6d92c3e6a19558b26f3f8cae5"
+    },
+    {
+      "path": "backend/tools/legacy-import-benefits/run-source-tests.sh",
+      "sha256": "32fd4d9e056523a1d6958b47d02e580160f3c1014f05fc6c9e5fac85586b0a0b"
+    },
+    {
+      "path": "backend/tools/legacy-import-benefits/test_fence.py",
+      "sha256": "ba2dac7302d1b058b2b36dce9a172561baacb9882f21e0b046cc92a00c7d0307"
+    },
+    {
+      "path": "backend/tools/legacy-import-benefits/test_free_gst.py",
+      "sha256": "628d33b206a3a8d1af33cb5cab4c12863e10046711aa43bc7b20bf75a6a5c7a1"
+    },
+    {
+      "path": "backend/tools/legacy-import-benefits/test_runtime.py",
+      "sha256": "4d42a9e9839da6bca862ba0c40a8af8e0f200a54fd266ba19a7cd5c03c4e6a60"
+    },
+    {
+      "path": "backend/tools/legacy-import-esm/check.ts",
+      "sha256": "498f16013cbbc102abdb136f367a87f947f56525305a7ab2062cff349a7b6bb4"
+    },
+    {
+      "path": "backend/tools/source-runtime-acceptance/pipeline_native_driver.py",
+      "sha256": "00854d0a1ee7ff708c17db2d52bf851f1c4cde8457b7fb2b515e14a02aaa7478"
+    },
+    {
+      "path": "backend/tools/source-runtime-acceptance/test_catalog_pipeline.py",
+      "sha256": "ba046d424fb98d73aca0d41fd34f2ba5f3cf86123538ed28edd9a55702ac3253"
+    },
+    {
+      "path": "backend/tools/source-runtime-acceptance/test_runtime_resources.py",
+      "sha256": "810854e9524eec406eda6135cca0da68856bcd38f8bdde3a279f9164fbeadc75"
+    },
+    {
+      "path": "backend/tools/verify-project.ts",
+      "sha256": "f7df11ff035937cedd0b32115a07a32942c7cc8191e31ae12b5a813b175ca097"
+    },
+    {
+      "path": "frontend/src/pages/screening-writer/client.ts",
+      "sha256": "9a0fd3e6a2bf2e3f89ec19b2091e2240ac7ba0b31d7c40f1a642e8a0a98c398e"
+    },
+    {
+      "path": "frontend/src/pages/screening-writer/index.tsx",
+      "sha256": "2bf207e54b4ad029d1dc6d4b77d22b94a005156fa2b59c302028f48f538245c9"
+    },
+    {
+      "path": "frontend/tests/screening-writer/recovery.browser.test.ts",
+      "sha256": "b3a5a087eb0c056bf5fd0e7c9ad9801c750a2cf8b83f6f729009e3a683e7de65"
+    }
+  ]
+}

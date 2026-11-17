@@ -151,3 +151,14 @@ Python checks and six real Chromium recovery cases pass, along with backend
 and frontend scoped strict/lint, generated artifacts and a fresh Node ESM
 module import. The 23 new native cases exercise no-order behavior and invoke
 no Go/payment/provider action.
+
+## Merged integration
+
+Root integration `ff34bf5` registers the additive negative migration without
+changing the existing source-migration checksum. The shared private factory
+validates its separate key before database/source construction and mounts the
+GET-only retained-key or explicitly selected POST resource. Native dependencies
+load after option validation. Three factory tests exercise those actual mount
+paths; the full public native/Go run passes 80 cases and the recovery UI passes
+six Chromium cases. These local results leave deployment/private-ingress and
+all-writer acceptance unselected. See `evidence/source-preparation-negative-ff34bf5.json`.

@@ -34,7 +34,19 @@ component test counts do not certify every original workflow.
 
 ## Remaining code and integration
 
-Native startup now passes 36 isolated tsx/emitted-JS import checks, including the
+The merged private benefit and public no-order integration on `ff34bf5` passes
+80/80 public native/Go cases, 11 timezone-aware actual source benefit cases,
+five migration checks, six recovery-browser workflows and 42 isolated
+tsx/emitted-JS imports, with affected strict/lint checks. The existing source
+migration checksum is unchanged; the negative table is an additive migration.
+The actual private factory mounts retained-key GET-only recovery and selected
+POST, and rejects wrong service keys before DB/bootstrap. Source/public patches
+remain byte-identical; manifests bind the new private helpers. The evidence is
+`backend/evidence/source-preparation-negative-ff34bf5.json`, including the earlier
+wrong-template migration refusal and insufficient native run plus their scoped
+corrections. These are focused results, not a new complete-project result.
+
+Native startup now passes 42 isolated tsx/emitted-JS import checks, including the
 warehouse reader and source attester. The merged warehouse/savepoint/quote/ESM
 group passes 117 cases across ten files with strict checks; the physical commit
 fix permits source savepoints while fencing early commits and unclean pooled
