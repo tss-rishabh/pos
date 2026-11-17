@@ -63,6 +63,17 @@ Remaining assigned code is manager authority succession, other writer-origin
 frames/callers and any unfinished offline/desktop runtime wiring. Full final
 parity/testing stays deferred until these implementations are complete.
 
+Offline cash navigation recovery is integrated from `8741f4d` as `85f048d`,
+with the shared workspace hook on `6c53e5c`. IndexedDB v9 adds/backfills only
+counter-routing metadata/indexes; retained receipt identities and money are
+unchanged. Counter and Workspace share one fenced serial runner. Electron
+normal-launch origin provisioning is integrated from `334e222` as `d67cbaf`,
+with the actual builder hook registration on `a867342` and explicit unsigned-CI
+review origin on `36f42c5`. No tests or package builds were run. Desktop SSO's
+opaque original-flow resume marker is the next narrow desktop implementation.
+Authority succession and other origin protocols remain active code work; Root
+registration/generator changes stay uncommitted until their dependencies arrive.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
