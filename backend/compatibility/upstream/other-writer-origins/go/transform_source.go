@@ -32,7 +32,7 @@ func prunePrivacyLocals(fn *ast.FuncDecl){
 	ast.Inspect(fn.Body,func(n ast.Node)bool{block,ok:=n.(*ast.BlockStmt);if !ok{return true};var kept []ast.Stmt
 		for _,s:=range block.List{if a,ok:=s.(*ast.AssignStmt);ok&&a.Tok==token.DEFINE{allBlank:=true;for i,lhs:=range a.Lhs{if id,ok:=lhs.(*ast.Ident);ok{if counts[id.Name]==1{a.Lhs[i]=ast.NewIdent("_")}else{allBlank=false}}else{allBlank=false}};if allBlank{a.Tok=token.ASSIGN}};kept=append(kept,s)};block.List=kept;return true})
 }
-func sanitize(path string){raw,e:=os.ReadFile(path);if e!=nil{panic("owned privacy source missing")};f,e:=parser.ParseFile(fs,path,raw,parser.ParseComments);if e!=nil{panic("owned privacy source invalid")};names:=map[string]bool{"GokwikProcessOrder":true,"GokwikWebhookUpdate":true,"GokwikPaymentVerifyCron":true,"GokwikPaymentVerify":true,"GokwikPaymentUpdate":true,"WebhookUpdate":true,"VerifyPayment":true,"VerifyPaymentWWE":true,"OrderPaymentStatusUpdate":true}
+func sanitize(path string){raw,e:=os.ReadFile(path);if e!=nil{panic("owned privacy source missing")};f,e:=parser.ParseFile(fs,path,raw,parser.ParseComments);if e!=nil{panic("owned privacy source invalid")};names:=map[string]bool{"ProcessOrder":true,"GokwikProcessOrder":true,"GokwikWebhookUpdate":true,"GokwikPaymentVerifyCron":true,"GokwikPaymentVerify":true,"GokwikPaymentUpdate":true,"WebhookUpdate":true,"VerifyPayment":true,"VerifyPaymentWWE":true,"OrderPaymentStatusUpdate":true}
 	for _,d:=range f.Decls{if fn,ok:=d.(*ast.FuncDecl);ok&&names[fn.Name.Name]{privacyBlock(fn.Body);prunePrivacyLocals(fn)}};if format.Node(os.Stdout,fs,f)!=nil{panic("owned privacy formatting failed")}
 }
 func render(n interface{})string{var b bytes.Buffer;if printer.Fprint(&b,fs,n)!=nil{panic("source AST cannot be rendered")};return b.String()}
@@ -46,7 +46,12 @@ var asyncEffects=map[string]string{"WELCOME_EXCLUSIVE":"welcome-exclusive","ORDE
 
 func rewrite(b *ast.BlockStmt,method string){if b==nil{return};var out []ast.Stmt
 	for _,n:=range b.List{bind(n);text:=render(n)
-		if method=="RevertTssMoney"&&(strings.HasPrefix(text,"rh := RewardPointHistory")||strings.Contains(text,"Db.Create(&rh)")){continue}
+		if method=="RevertTssMoney"{
+			// Remove only the mirror declaration/write, never an enclosing
+			// conditional containing the real money restoration as well.
+			if _,ok:=n.(*ast.AssignStmt);ok&&strings.HasPrefix(text,"rh := RewardPointHistory"){continue}
+			if e,ok:=n.(*ast.ExprStmt);ok{if call,ok:=e.X.(*ast.CallExpr);ok&&render(call.Fun)=="Db.Create"&&len(call.Args)==1&&render(call.Args[0])=="&rh"{continue}}
+		}
 		switch v:=n.(type){
 		case *ast.GoStmt:
 			matched:="";for env,kind:=range asyncEffects{if strings.Contains(text,`"`+env+`"`){if matched!=""{panic("ambiguous pinned asynchronous effect")};matched=kind}}
@@ -88,8 +93,6 @@ func rewrite(b *ast.BlockStmt,method string){if b==nil{return};var out []ast.Stm
 		}
 		// Source reward-history mirrors of a money reversal are not a genuine
 		// cashback credit. Correct only this approved wallet-clobber branch.
-		if method=="RevertTssMoney"&&strings.HasPrefix(text,"rh := RewardPointHistory"){continue}
-		if method=="RevertTssMoney"&&strings.Contains(text,"createOtherOriginRecord(Db, &rh)"){continue}
 		out=append(out,n)
 	};b.List=out
 }

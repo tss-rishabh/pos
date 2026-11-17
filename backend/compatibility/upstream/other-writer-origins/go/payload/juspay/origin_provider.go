@@ -29,11 +29,12 @@ func originCanonicalCustomerID(id string)string{if len(id)>=8{return id};return 
 func(g *originGateway)request(ctx context.Context,provider,method,path string,body io.Reader,contentType string)(int,[]byte,error){
 	base:=g.env("JUSPAY_URL");if provider=="gokwik"{base=g.env("GOKWIK_URL")};if originPrivateEndpoint(base)!=nil||strings.HasPrefix(path,"/"){return 0,nil,poscheckout.ErrReview}
 	req,e:=http.NewRequestWithContext(ctx,method,strings.TrimRight(base,"/")+"/"+path,body);if e!=nil{return 0,nil,poscheckout.ErrReview}
-	if g.env("BASIC_AUTH")==""{return 0,nil,poscheckout.ErrReview};req.SetBasicAuth(g.env("BASIC_AUTH"),"");req.Header.Set("Content-Type",contentType)
+	if provider!="gokwik"||path!="payment/verify"{if g.env("BASIC_AUTH")==""{return 0,nil,poscheckout.ErrReview};req.SetBasicAuth(g.env("BASIC_AUTH"),"")};req.Header.Set("Content-Type",contentType)
 	if provider=="gokwik"{if g.env("GOKWIK_APP_ID")==""||g.env("GOKWIK_APP_SECRET")==""{return 0,nil,poscheckout.ErrReview};req.Header.Set("appid",g.env("GOKWIK_APP_ID"));req.Header.Set("appsecret",g.env("GOKWIK_APP_SECRET"))}else{req.Header.Set("version",g.env("PAYMENT_VERSION_DATE"));if method==http.MethodGet&&strings.HasPrefix(path,"orders/"){req.Header.Set("x-merchantid",g.env("JP_MERCHANT_ID"))}}
 	response,e:=g.client.Do(req);if e!=nil{return 0,nil,poscheckout.ErrReview};defer response.Body.Close();raw,e:=io.ReadAll(io.LimitReader(response.Body,1048577));if e!=nil||len(raw)>1048576{return 0,nil,poscheckout.ErrReview};return response.StatusCode,raw,nil
 }
 func(g *originGateway)Start(ctx context.Context,request poscheckout.OriginProviderRequest)(poscheckout.OriginProviderResponse,error){
+	if request.Provider=="none"{customer,e:=g.customer(ctx,request);if e!=nil{return poscheckout.OriginProviderResponse{},e};return originDirectCustomerResponse(request,customer,"process-order"),nil}
 	if request.Provider=="gokwik"{code,raw,e:=g.request(ctx,"gokwik",http.MethodPost,"order/create",strings.NewReader(request.OrderFields["body"]),"application/json");if e!=nil||code!=http.StatusOK{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};return g.gokwikCreated(ctx,request,raw)}
 	if request.Provider!="juspay"{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
 	customer,e:=g.customer(ctx,request);if e!=nil{return poscheckout.OriginProviderResponse{},e}
@@ -41,8 +42,13 @@ func(g *originGateway)Start(ctx context.Context,request poscheckout.OriginProvid
 	code,raw,e:=g.request(ctx,"juspay",http.MethodPost,"orders",strings.NewReader(fields.Encode()),"application/x-www-form-urlencoded");if e!=nil||code!=http.StatusOK{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};return g.juspayResult(ctx,request,raw,"process-order")
 }
 func(g *originGateway)Recover(ctx context.Context,request poscheckout.OriginProviderRequest)(poscheckout.OriginProviderResponse,error){
+	if request.Provider=="none"{code,raw,e:=g.request(ctx,"juspay",http.MethodGet,"customers/"+originCanonicalCustomerID(request.CustomerID),nil,"");if e!=nil||code!=http.StatusOK{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};var customer CustomerResponse;if json.Unmarshal(raw,&customer)!=nil||customer.Customer==""||customer.Hash!=originCanonicalCustomerID(request.CustomerID){return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};return originDirectCustomerResponse(request,customer.Customer,"provider-read"),nil}
 	if request.Provider=="gokwik"{return g.gokwikRecover(ctx,request)}
 	if request.Provider!="juspay"{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};code,raw,e:=g.request(ctx,"juspay",http.MethodGet,"orders/"+request.OrderID,nil,"");if e!=nil||code!=http.StatusOK{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};return g.juspayResult(ctx,request,raw,"provider-read")
+}
+func originDirectCustomerResponse(request poscheckout.OriginProviderRequest,customer,route string)poscheckout.OriginProviderResponse{
+	evidence:=sha256.Sum256([]byte("source-customer-confirmed:"+request.CustomerID+":"+customer));response,_:=json.Marshal(map[string]interface{}{"status":http.StatusCreated,"message":"/thank-you"})
+	return poscheckout.OriginProviderResponse{OrderID:request.OrderID,Status:"DIRECT",ProviderReference:request.OrderID,EvidenceHash:hex.EncodeToString(evidence[:]),ObservedAt:time.Now().UnixMilli(),Route:route,ClientResponse:response}
 }
 func(g *originGateway)customer(ctx context.Context,request poscheckout.OriginProviderRequest)(string,error){
 	reference:=originCanonicalCustomerID(request.CustomerID);lookup:=reference;var existing JpCustomer
@@ -71,8 +77,17 @@ func(g *originGateway)juspayResult(ctx context.Context,request poscheckout.Origi
 	var result OrderResponse;if json.Unmarshal(raw,&result)!=nil||result.Order!=request.OrderID||result.JuspayOrder==""||result.Customer==""||len(result.JusPay.ClientAuthToken)>16000{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
 	amount:=float64(result.Amount);if math.IsNaN(amount)||math.IsInf(amount,0)||amount<0||amount>999999999{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};sum:=sha256.Sum256(raw)
 	status:=result.Status;switch status{case "CHARGED","AUTHENTICATION_FAILED","AUTHORIZATION_FAILED","JUSPAY_DECLINED":default:status="PENDING"}
+	// The pinned customer token getter is GET-only. It can recover client
+	// access after the original order-create ACK was lost, without reissuing
+	// either the merchant order or a payment request.
+	if route=="provider-read"&&status=="PENDING"&&result.JusPay.ClientAuthToken==""{
+		code,customerRaw,readErr:=g.request(ctx,"juspay",http.MethodGet,"customers/"+url.PathEscape(result.Customer)+"?options.get_client_auth_token=true",nil,"")
+		if readErr==nil&&code==http.StatusOK{var customer jpCustomerResponse;if json.Unmarshal(customerRaw,&customer)==nil&&customer.Customer==result.Customer&&customer.Hash==originCanonicalCustomerID(request.CustomerID)&&len(customer.Content.ClientAuthToken)<=16000{result.JusPay.ClientAuthToken=customer.Content.ClientAuthToken}}
+	}
 	response,_:=json.Marshal(map[string]interface{}{"status":http.StatusCreated,"message":json.Number(request.OrderID),"client_auth_token":result.JusPay.ClientAuthToken})
 	o:=poscheckout.OriginProviderResponse{OrderID:request.OrderID,Status:status,ProviderReference:result.JuspayOrder,ClientAuthToken:result.JusPay.ClientAuthToken,ClientResponse:response,AmountPaise:int64(math.Round(amount*100)),EvidenceHash:hex.EncodeToString(sum[:]),ObservedAt:time.Now().UnixMilli(),Route:route}
+	var details JpWebhookOrder;if json.Unmarshal(raw,&details)!=nil{return o,poscheckout.ErrReview};o.GatewayID=int64(details.GatewayID);o.GatewayReference=strconv.Itoa(details.GatewayRefernceID)
+	if status=="CHARGED"{o.LogStatus="ORDER_SUCCEEDED"}else if status=="AUTHENTICATION_FAILED"||status=="AUTHORIZATION_FAILED"||status=="JUSPAY_DECLINED"{o.LogStatus=status}
 	db,e:=gorm.Open("mysql",g.db);if e!=nil{return o,e};db.LogMode(false);var current JpOrder;res:=db.Where("juspay_order=?",result.JuspayOrder).First(&current);if res.Error!=nil&&!gorm.IsRecordNotFoundError(res.Error){return o,res.Error}
 	value:=JpOrder{Customer:result.Customer,User:int(originParseID(request.CustomerID)),Order:int(originParseID(request.OrderID)),JuspayOrder:result.JuspayOrder,Status:result.Status,Amount:result.Amount,Email:result.Email,Phone:result.Phone,StatusId:result.StatusId,Link_web:result.Links.Link_web,Link_mobile:result.Links.Link_mobile}
 	if current.ID==0{e=db.Create(&value).Error}else{if current.Order!=value.Order||current.User!=value.User{return o,poscheckout.ErrReview};e=db.Model(&current).Updates(value).Error};return o,e
@@ -89,12 +104,23 @@ func(g *originGateway)gokwikRecover(ctx context.Context,request poscheckout.Orig
 	// The pinned provider has POST payment/verify as its read-only status API.
 	// Only the public receiver is GET. Never call order/create from recovery.
 	db,e:=gorm.Open("mysql",g.db);if e!=nil{return poscheckout.OriginProviderResponse{},e};db.LogMode(false);var row GokwikOrder
-	if db.Where("order_id=? AND status='CREATED'",request.OrderID).Order("created_at").First(&row).Error!=nil||row.RequestId==""||row.GokwikOID==""{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
-	if row.OrderType=="cod"{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
-	body,_:=json.Marshal(map[string]string{"request_id":row.RequestId,"gokwik_oid":row.GokwikOID});code,raw,e:=g.request(ctx,"gokwik",http.MethodPost,"payment/verify",bytes.NewReader(body),"application/json");if e!=nil||code!=http.StatusOK{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
-	var result GokwikPaymentVerifyResponse;if json.Unmarshal(raw,&result)!=nil||result.Data.GokwikOID!=row.GokwikOID{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};status:="PENDING";if result.StatusCode==200{status="CHARGED"}else if result.StatusCode!=202{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
+	res:=db.Where("order_id=? AND status='CREATED'",request.OrderID).Order("created_at").First(&row);if res.Error!=nil&&!gorm.IsRecordNotFoundError(res.Error){return poscheckout.OriginProviderResponse{},res.Error}
+	if row.RequestId!=""&&row.GokwikOID!=""{
+		if strconv.FormatUint(uint64(row.UserId),10)!=request.CustomerID||row.MOID!=request.OrderID{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
+		if row.OrderType=="cod"{sum:=sha256.Sum256([]byte("original-gokwik-cod-ack:"+row.RequestId+":"+row.GokwikOID));return poscheckout.OriginProviderResponse{OrderID:request.OrderID,Status:"DIRECT",ProviderReference:row.GokwikOID,EvidenceHash:hex.EncodeToString(sum[:]),ObservedAt:time.Now().UnixMilli(),Route:"gokwik"},nil}
+		return g.gokwikVerify(ctx,request,row.RequestId,row.GokwikOID)
+	}
+	link,err:=poscheckout.ReadOriginGokwikLink(ctx,g.db,g.env("POS_SCREENING_ORIGIN_PROOF_KEY"),request.OrderID);if err!=nil||link==nil||link.CustomerID!=request.CustomerID{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
+	return g.gokwikVerify(ctx,request,link.RequestID,link.ProviderReference)
+}
+func(g *originGateway)gokwikVerify(ctx context.Context,request poscheckout.OriginProviderRequest,requestID,reference string)(poscheckout.OriginProviderResponse,error){
+	if request.Provider!="gokwik"||len(requestID)<1||len(requestID)>255||len(reference)<1||len(reference)>255{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
+	body,_:=json.Marshal(map[string]string{"request_id":requestID,"gokwik_oid":reference});code,raw,e:=g.request(ctx,"gokwik",http.MethodPost,"payment/verify",bytes.NewReader(body),"application/json");if e!=nil||code!=http.StatusOK{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
+	var result GokwikPaymentVerifyResponse;if json.Unmarshal(raw,&result)!=nil||result.Data.GokwikOID!=reference{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};status:="PENDING";if result.StatusCode==200{status="CHARGED"}else if result.StatusCode!=202{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview}
+	var method int64;if g.db.QueryRowContext(ctx,`SELECT payment_method FROM orders WHERE id=? AND user_id=?`,request.OrderID,request.CustomerID).Scan(&method)!=nil{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};if method==1{status="DIRECT"}
 	amount,e:=strconv.ParseFloat(result.Data.Total,64);if e!=nil||math.IsNaN(amount)||math.IsInf(amount,0)||amount<0||amount>999999999{return poscheckout.OriginProviderResponse{},poscheckout.ErrReview};sum:=sha256.Sum256(raw)
-	return poscheckout.OriginProviderResponse{OrderID:request.OrderID,Status:status,ProviderReference:row.GokwikOID,AmountPaise:int64(math.Round(amount*100)),GatewayReference:result.Data.TransactionId,EvidenceHash:hex.EncodeToString(sum[:]),ObservedAt:time.Now().UnixMilli(),Route:"gokwik"},nil
+	clientResponse,_:=json.Marshal(result)
+	return poscheckout.OriginProviderResponse{OrderID:request.OrderID,Status:status,ProviderReference:reference,AmountPaise:int64(math.Round(amount*100)),GatewayReference:result.Data.TransactionId,EvidenceHash:hex.EncodeToString(sum[:]),ObservedAt:time.Now().UnixMilli(),Route:"gokwik",ClientResponse:clientResponse,ProviderMessage:result.StatusMessage},nil
 }
 
 // Static JSON refusal only; callers must never interpolate provider errors.

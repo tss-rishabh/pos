@@ -44,11 +44,11 @@ func(e *OriginEngine)Observe(ctx context.Context,orderID string,o OriginProvider
 	u.counter,err=enterOriginCounter(ctx,u.tx,u.command);if err!=nil{return OriginPaymentView{},err};if err=originNative(ctx,u.tx,u.command,u.creation,false);err!=nil{return OriginPaymentView{},err}
 	a,payload,response,err:=originReadAttempt(ctx,u.tx,command,e.Key);if errors.Is(err,sql.ErrNoRows){return OriginPaymentView{},ErrReview};if err!=nil{return OriginPaymentView{},err}
 	if a.Phase=="CONFIRMED"||a.Phase=="CAPTURED"{view,err:=e.view(ctx,u,a,payload,response);if err!=nil{return view,err};return view,u.commit(ctx)}
-	view,err:=e.apply(ctx,u,a,o,requestID);if err!=nil{return view,err};return view,u.commit(ctx)
+	o,err=originRetainClientResponse(e.Key,a,response,o);if err!=nil{return OriginPaymentView{},err};view,err:=e.apply(ctx,u,a,o,requestID);if err!=nil{return view,err};return view,u.commit(ctx)
 }
 
 func originNativePaymentLog(ctx context.Context,tx *sql.Tx,c OriginCommand,o OriginProviderResponse,key string)error{
-	if o.LogStatus==""{return nil};switch o.LogStatus{case "TXN_CREATED","ORDER_SUCCEEDED","ORDER_FAILED","AUTHENTICATION_FAILED","AUTHORIZATION_FAILED","JUSPAY_DECLINED":default:return ErrReview}
+	if o.LogStatus==""{return nil};switch o.LogStatus{case "TXN_CREATED","ORDER_SUCCEEDED","ORDER_FAILED","AUTHENTICATION_FAILED","AUTHORIZATION_FAILED","JUSPAY_DECLINED","AMOUNT_MISMATCH":default:return ErrReview}
 	id,err:=OriginMAC(key,"payment-native-event",map[string]interface{}{"commandId":c.ID,"providerReference":o.ProviderReference,"evidenceHash":o.EvidenceHash,"status":o.LogStatus});if err!=nil{return err}
 	var found string;err=tx.QueryRowContext(ctx,`SELECT CAST(payment_id AS CHAR) FROM pos_rewrite_screening_origin_payment_events WHERE id=? FOR UPDATE`,id).Scan(&found);if err==nil{return nil};if !errors.Is(err,sql.ErrNoRows){return err}
 	pgResponse,_:=strconv.ParseInt(o.GatewayReference,10,32);if pgResponse<0{pgResponse=0};amount:=strconv.FormatInt(o.AmountPaise/100,10)+"."+func()string{x:=strconv.FormatInt(o.AmountPaise%100,10);if len(x)==1{return "0"+x};return x}()

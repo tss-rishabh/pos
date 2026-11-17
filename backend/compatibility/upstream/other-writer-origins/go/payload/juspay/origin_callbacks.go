@@ -73,7 +73,12 @@ func tryOtherOriginGokwikWebhook(c *gin.Context)bool{
 	// Original source had no configured Gokwik webhook authentication. The
 	// selected adapter requires the real provider header before any work.
 	if !originMachineAuthorized(c,"GOKWIK"){c.JSON(http.StatusUnauthorized,gin.H{"status":http.StatusUnauthorized,"message":"Unauthorized."});return true}
-	return recoverOtherOriginProvider(c,event.MOID,"gokwik",false)
+	engine,err:=originEngine(c,"gokwik",false);if err!=nil{otherOriginRefused(c);return true};request,err:=engine.RetainedProviderRequest(c.Request.Context(),event.MOID);if err!=nil{otherOriginRefused(c);return true}
+	gate,err:=newOriginGateway(engine.DB,os.Getenv);if err!=nil{otherOriginRefused(c);return true};observation,err:=gate.gokwikVerify(c.Request.Context(),request,event.RequestID,event.GokwikOID);if err!=nil||event.TransactionID!=""&&event.TransactionID!=observation.GatewayReference{otherOriginRefused(c);return true}
+	callbackHash:=sha256.Sum256(raw);retained,cancel:=context.WithTimeout(context.WithoutCancel(c.Request.Context()),5*time.Second);defer cancel()
+	if err=engine.RecordGokwikLink(retained,event.MOID,event.RequestID,event.GokwikOID,hex.EncodeToString(callbackHash[:]),observation.EvidenceHash);err!=nil{otherOriginRefused(c);return true}
+	observation.ProviderMessage="Gokwik Webhook"
+	view,err:=engine.Observe(c.Request.Context(),event.MOID,observation,c.GetHeader("X-Request-ID"));if err!=nil{otherOriginRefused(c);return true};c.JSON(http.StatusOK,view);return true
 }
 func tryOtherOriginGokwikUpdate(row GokwikOrder)(bool,GokwikPaymentVerifyResponse){
 	ctx,cancel:=context.WithTimeout(context.Background(),15*time.Second);defer cancel();order:=strconv.FormatUint(uint64(row.OrderId),10);registered,err:=originRegistered(ctx,order);if !registered&&err==nil{return false,GokwikPaymentVerifyResponse{}}

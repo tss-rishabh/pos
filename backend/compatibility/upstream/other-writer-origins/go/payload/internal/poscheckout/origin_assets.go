@@ -49,7 +49,7 @@ func VerifyOriginAssets(ctx context.Context,tx *sql.Tx,c OriginCommand,creation 
 	lines,err:=originReadLineAssets(ctx,tx,value.OrderID);if err!=nil||!originEqual(lines,value.LineAssets){return nil,ErrReview}
 	for i,line:=range lines{if line.LineID!=creation.Lines[i].ID||line.ProductID!=creation.Lines[i].ProductID||!originHash.MatchString(line.InputHash){return nil,ErrReview}}
 	gifts,err:=originReadGifts(ctx,tx,value.OrderID,lines,false);if err!=nil||!originEqual(gifts,value.Gifts){return nil,ErrReview}
-	known:=map[string]bool{};for _,gift:=range gifts{if gift.FromID!=c.CustomerID||gift.OrderID!=creation.OrderID||!originHash.MatchString(gift.InputHash)||len(gift.LineIDs)==0{return nil,ErrReview};known[gift.ID]=true;var status int;if tx.QueryRowContext(ctx,`SELECT status FROM gift_vouchers WHERE id=?`,gift.ID).Scan(&status)!=nil||status!=0{return nil,ErrReview}}
+	known:=map[string]bool{};for _,gift:=range gifts{if gift.FromID!=c.CustomerID||gift.OrderID!=creation.OrderID||!originHash.MatchString(gift.InputHash){return nil,ErrReview};known[gift.ID]=true;var status int;var kind string;if tx.QueryRowContext(ctx,`SELECT status,gv_type FROM gift_vouchers WHERE id=?`,gift.ID).Scan(&status,&kind)!=nil||status!=0||kind!="GIFT_VOUCHER"&&kind!="GIFT_CARD"||kind=="GIFT_CARD"&&len(gift.LineIDs)==0{return nil,ErrReview}}
 	for _,line:=range lines{if line.GiftID!=nil&&!known[*line.GiftID]{return nil,ErrReview}}
 	activation:=&OriginAssetActivation{assets:value}
 	member:=value.Membership;if member==nil{return activation,nil}

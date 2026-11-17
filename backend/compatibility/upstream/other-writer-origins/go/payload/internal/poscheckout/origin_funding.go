@@ -19,6 +19,7 @@ type OriginFundingDeclaration struct {
 func(e *OriginEngine)funding(ctx context.Context,tx *sql.Tx,c OriginCommand,creation OriginCreation,o OriginProviderResponse)(string,*string,error){
 	if o.Status=="CHARGED"{return "provider-charged",nil,nil}
 	if o.Status!="DIRECT"{return "not-confirmed",nil,nil}
+	if e.ExchangeFunding!=nil{selection,err:=e.ExchangeFunding(ctx,tx,c,creation);if err!=nil{return "",nil,err};if selection!=nil{return e.exchangeFunding(ctx,tx,c,creation,*selection)}}
 	var zero bool;if tx.QueryRowContext(ctx,`SELECT pay_amt=0 FROM orders WHERE id=?`,creation.OrderID).Scan(&zero)!=nil{return "",nil,ErrReview}
 	if creation.Method==1{return "source-cod",nil,nil};if creation.Method==14{return "source-coc",nil,nil}
 	if zero{return "source-zero-payable",nil,nil}
@@ -37,6 +38,7 @@ func(e *OriginEngine)funding(ctx context.Context,tx *sql.Tx,c OriginCommand,crea
 // authority was checked before the original commit. New work rechecks current
 // service authority separately and cannot recycle this seal for another order.
 func verifyOriginFunding(ctx context.Context,tx *sql.Tx,c OriginCommand,creation OriginCreation,p OriginPayment,key string)error{
+	if p.FundingBasis=="source-exchange"{return verifyOriginExchangeFunding(ctx,tx,c,creation,p,key)}
 	if p.FundingBasis!="external-system-csk-prepaid"{if p.FundingHash!=nil{return ErrReview};switch p.FundingBasis{case "provider-charged","source-zero-payable","source-cod","source-coc":return nil;default:return ErrReview}}
 	var value OriginFundingDeclaration;var raw []byte;var seal,order string
 	if p.FundingHash==nil||c.Origin!="external-system"||creation.Method!=3||tx.QueryRowContext(ctx,`SELECT CAST(order_id AS CHAR),CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_screening_origin_funding_declarations WHERE command_id=? FOR SHARE`,c.ID).Scan(&order,&raw,&seal)!=nil||seal!=*p.FundingHash||originVerify(key,"funding-declaration",raw,seal,&value,16000)!=nil||value.Contract!="pos-screening-origin-csk-prepaid-v1"||value.CommandID!=c.ID||value.OrderID!=creation.OrderID||order!=value.OrderID||value.CustomerID!=c.CustomerID||value.CreationHash!=*c.CreationHash||value.SystemAuthorityHash!=creation.SystemAuthorityHash||value.AuthorityHash!=c.AuthorityHash||value.RequestHash!=c.RequestHash||value.ReferenceHash!=c.ReferenceHash||value.CartHash!=c.CartHash||value.HeaderHash!=creation.HeaderHash||value.ServiceID!="csk"||value.Declaration!="externally-prepaid"||value.SourceCommit!=OriginSourceCommit||!originPoint(value.CreatedAt)||time.UnixMilli(value.CreatedAt).After(time.UnixMilli(p.CreatedAt)){return ErrReview}

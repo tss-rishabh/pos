@@ -34,12 +34,30 @@ links, voucher identity/value/recipient/date hashes, current ordinary member
 state/revision and actual ordinary provenance when present. A missing ordinary
 provenance row stays missing. The Go activation has its own source-origin
 receipt; it does not manufacture a Node/CSV or ordinary staged-v2 grant.
+Digital `GIFT_VOUCHER` rows may legitimately have no HP; their original
+order/customer/full voucher hash is still mandatory. A physical `GIFT_CARD`
+always retains its real HP relationship.
+
+The optional source `couponHash` is consumed before provider dispatch and
+again around the literal Go confirmation/decline. Source-prepaid consumption
+keeps its original source log and is never debited twice. Go-side consumption
+follows the actual ordinary/store branch; exchange/HL branches retain their
+literal zero counter delta rather than manufacturing a coupon log. Native
+per-HP discounts/refundable amounts remain unchanged. Current-controls-only
+manual coupons carry `historyRequirement=current-controls, history=null`;
+historical branches require the authenticated BigQuery history identifiers.
+No historical scan or empty-history substitution is added in Go. Optional
+welcome consent is source-native sealed evidence, not a new Go consent policy.
 
 Manual review migration order is the source origin foundation, source
 `screening-origins/assets-migration.sql`, then this directory's
 `migration.review.sql`, with the existing qualified current counter,
 membership fence/version and gift-card issuance schemas installed. Runtime
 code performs no DDL and uses no historical raw Order/HP count fallback.
+Additional review-only migrations are `screening-origins/origin-coupon-migration.sql`,
+then this directory's `coupon-migration.review.sql`,
+`admission-migration.review.sql`, `provider-migration.review.sql` and
+`exchange-migration.review.sql`. The original migration checksum is unchanged.
 
 New configuration names are:
 
@@ -59,6 +77,10 @@ New configuration names are:
   and `POS_SCREENING_ORIGIN_DATABASE_DSN` select the separate
   `cmd/screening-origin-effects` worker. Empty/DEMO exits before connection.
   Original HTTP effect endpoint/credential names are retained.
+- `POS_SCREENING_ORIGIN_GO_COUPON_CONTRACT=pos-screening-origin-coupon-consumption-v1`
+  selects the exact source coupon descriptor consumer; empty refuses new coupon
+  admission. The original `IS_DEDUCT` value is frozen into the original attempt
+  and must still agree before financial allocation.
 - The existing current-counter and membership revision/product/key options
   retain their independent original contracts and actual writer definitions.
 
@@ -66,15 +88,48 @@ Dispatch commits SENDING before provider I/O. Replay never calls Start again;
 GET consults the original provider reference. The pinned Gokwik status API is
 POST `payment/verify` (a provider read), while the new public recovery resource
 is GET and never calls `order/create`. A missing Gokwik creation ACK without
-its provider identifiers remains unknown. No provider lookup endpoint is
-invented. Genuine callbacks/cron use their real original signature/header or
+its provider identifiers remains unknown until an authenticated original
+callback and the real `payment/verify` response establish their immutable
+order/request link. Recovery then uses that link, never `order/create`.
+Where the original CREATED ACK row never existed, the retained dispatch-start
+timestamp is a conservative, non-extending two-hour bound; it is never presented
+as a fabricated CREATED ACK. No provider lookup endpoint is invented.
+Genuine callbacks/cron use their real original signature/header or
 authenticated provider read; missing/disabled callback secrets do not qualify
 a selected origin. The old unprotected Gokwik cron now requires its actual
 configured CRON header when origin handling is installed.
 
-Remaining code at this checkpoint includes provider/native-log/retained-token
-normalization, definitive technical admission receipts, full effect/recovery
-edge cleanup and the exact asset/cash-finalization integration with the legacy
-caller. Those are implementation items, not deployment certificates. Existing
-tests are preserved; no new test/build/verification runs were performed under
-the user's implementation-first work order.
+The initial authenticated GET returns bounded404 when there is no attempt.
+That response is not absence proof. Definite refusal BEFORE durable SENDING
+can instead atomically retain a `payment-no-effect` receipt and fence this
+original command against any late POST. Accepted attempts win that race. This
+receipt proves only no dispatch by this Go sender: original source orders,
+benefits, cache locks or wallet staging are not declared undone.
+
+Immutable completed reads use genuinely current read authority while retaining
+the old command/creation/payment proof. Customer contact, genuine staff login
+or CSK service-key rotation cannot rewrite that original receipt. New financial
+dispatch still requires its original stage authority. A current service read
+does not silently become authority to resume an old DIRECT financial stage;
+the separately coordinated source stage-recovery descriptor/use is remaining
+implementation work at this checkpoint.
+
+The real CSK externally-prepaid declaration remains distinct from bank payment.
+Original express-parent/reshipping/original-prepaid exchange selectors have
+their own native source-exchange declaration; their full source online/store
+allocation body is retained. Genuine charged observations that pass signature,
+amount, window and native fences enter the source's captured8→paid4 branch;
+this closes the TXN_CREATED race and the original method15 omission. COD/COC,
+late, declined and underpaid outcomes cannot use that branch. Underpayment
+keeps the original AMOUNT_MISMATCH ledger/comment and optional alert in the
+durable outbox while retaining the order unconfirmed for manager handling.
+
+Original HTTP2xx acceptance is recorded as transport acknowledgment, including
+line-cancel delivery; it is not a fabricated refund completion. SENDING/UNCERTAIN
+effects are retained and never automatically resent. The legacy real-cash asset
+finalization is a separate source-owned receipt, preserving the immutable Go
+unpaid COC proof rather than rewriting it.
+
+Existing tests are preserved. These are implementation checkpoints pending the
+later source/native/provider/browser acceptance phase; no new tests, builds or
+verification runs were performed under the user's implementation-first order.

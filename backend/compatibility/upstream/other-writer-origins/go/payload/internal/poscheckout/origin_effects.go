@@ -21,14 +21,21 @@ type OriginEffect struct {
 	ActorID *string `json:"actorId"`; Kind string `json:"kind"`; ProductID string `json:"productId"`; LineID string `json:"lineId"`; Quantity int64 `json:"quantity"`
 	GatewayPaid bool `json:"gatewayPaid"`; LocationID int64 `json:"locationId"`; RequestID string `json:"requestId"`
 	StockMode string `json:"stockMode"`; Sequence int64 `json:"sequence"`; Priority int64 `json:"priority"`
+	Mismatch *OriginAmountMismatch `json:"mismatch,omitempty"`
 }
+type OriginAmountMismatch struct {Payable string `json:"payable"`;Charged string `json:"charged"`;Shortfall string `json:"shortfall"`;Source string `json:"source"`;OccurredAt string `json:"occurredAt"`}
 type OriginEffectCollector struct {Command OriginCommand;RequestID string;key string;StockMode string;Values []OriginEffect}
-var originEffectKinds=map[string]bool{"inventory":true,"online-product-sync":true,"store-product-sync":true,"hold-set":true,"hold-reconcile":true,"hold-release":true,"wallet-unlock":true,"welcome-exclusive":true,"order-producer":true,"order-engagement":true,"gift-voucher-check":true,"auto-deliver":true,"order-email":true,"gift-voucher-emails":true,"store-utm":true,"freebie-count":true,"hyperlocal":true,"payment-failure":true,"stock-line-cancel":true}
+var originEffectKinds=map[string]bool{"inventory":true,"online-product-sync":true,"store-product-sync":true,"hold-set":true,"hold-reconcile":true,"hold-release":true,"wallet-unlock":true,"welcome-exclusive":true,"order-producer":true,"order-engagement":true,"gift-voucher-check":true,"auto-deliver":true,"order-email":true,"gift-voucher-emails":true,"store-utm":true,"freebie-count":true,"hyperlocal":true,"payment-failure":true,"stock-line-cancel":true,"payment-amount-mismatch":true}
 func NewOriginEffectCollector(c OriginCommand,requestID,key string)*OriginEffectCollector{return &OriginEffectCollector{Command:c,RequestID:originSafeRequestID(requestID),key:key,Values:[]OriginEffect{}}}
 func(c *OriginEffectCollector)Add(kind,product,line string,quantity,location int64,gatewayPaid bool)error{
 	if c.Command.OrderID==nil||!originEffectKinds[kind]||len(c.Values)>=1000||quantity<0||quantity>999||location<0||product!=""&&!originIdentifier(product)||line!=""&&!originIdentifier(line){return ErrReview}
 	v:=OriginEffect{CommandID:c.Command.ID,OrderID:*c.Command.OrderID,CustomerID:c.Command.CustomerID,ActorID:c.Command.ActorID,Kind:kind,ProductID:product,LineID:line,Quantity:quantity,LocationID:location,GatewayPaid:gatewayPaid,RequestID:c.RequestID,StockMode:c.StockMode,Priority:originEffectPriority(kind)};id,e:=OriginMAC(c.key,"go-effect",v);if e!=nil{return e};v.ID=id
 	for _,old:=range c.Values{if old.ID==id{return nil}};c.Values=append(c.Values,v);return nil
+}
+func(c *OriginEffectCollector)AddAmountMismatch(payable,charged,source,occurredAt string)error{
+	if !originCouponAmount.MatchString(payable)||!originCouponAmount.MatchString(charged){return ErrReview};switch source{case "webhook:ORDER_SUCCEEDED","cron","return","gokwik","provider-read","process-order":default:return ErrReview};if t,e:=time.Parse("2006-01-02 15:04:05",occurredAt);e!=nil||t.Format("2006-01-02 15:04:05")!=occurredAt{return ErrReview}
+	minor:=func(v string)int64{parts:=strings.Split(v,".");whole,_:=strconv.ParseInt(parts[0],10,64);fraction,_:=strconv.ParseInt(parts[1],10,64);return whole*100+fraction};shortfall:=minor(payable)-minor(charged);if shortfall<=0{return ErrReview};difference:=strconv.FormatInt(shortfall/100,10)+"."+func()string{v:=strconv.FormatInt(shortfall%100,10);if len(v)==1{return "0"+v};return v}()
+	if err:=c.Add("payment-amount-mismatch","","",0,0,false);err!=nil{return err};i:=len(c.Values)-1;c.Values[i].Mismatch=&OriginAmountMismatch{payable,charged,difference,source,occurredAt};id,err:=OriginMAC(c.key,"go-effect",c.Values[i]);if err!=nil{return err};c.Values[i].ID=id;return nil
 }
 func(c *OriginEffectCollector)persist(ctx context.Context,tx *sql.Tx)(string,error){
 	if len(c.Values)==0{return OriginMAC(c.key,"go-effects",c.Values)}
@@ -71,12 +78,14 @@ var originHTTPTargets=[]originEffectTarget{
 	{"welcome-exclusive","WELCOME_EXCLUSIVE","POST",false,false},{"order-producer","ORDER_PRODUCER_URL","POST",false,false},{"order-engagement","ORDER_EM_CHK_URL","POST",false,false},{"gift-voucher-check","ORDER_GV_CHK_URL","POST",false,false},
 	{"auto-deliver","AUTODELIVER_URL","POST",false,false},{"order-email","ORDER_EMAIL","POST",false,false},{"gift-voucher-emails","GIFTVOUCHER_EMAILS","POST",false,false},{"store-utm","STORE_UTM","GET",false,true},
 	{"freebie-count","FREEBIE_COUNT","POST",false,false},{"hyperlocal","POS_ADMIN_URL","POST",false,false},{"payment-failure","PAYMENT_FAILURE","POST",false,false},{"stock-line-cancel","ORDER_LINE_CANCEL_URL","POST",false,false},
+	{"payment-amount-mismatch","PAYMENT_ALERT_WEBHOOK","POST",false,false},
 }
 func originEndpoint(raw string)(*url.URL,error){u,e:=url.Parse(raw);if e!=nil||u.Scheme!="https"||u.Hostname()==""||u.User!=nil||u.RawQuery!=""||u.Fragment!=""{return nil,ErrReview};return u,nil}
 func OriginHTTPHandlers(env func(string)string,client *http.Client)(map[string]OriginEffectHandler,error){
 	if client==nil{client=&http.Client{Timeout:10*time.Second,CheckRedirect:func(*http.Request,[]*http.Request)error{return ErrReview}}}
 	handlers:=map[string]OriginEffectHandler{}
 	for _,t:=range originHTTPTargets{
+		if t.kind=="payment-amount-mismatch"&&env(t.env)==""{continue}
 		u,e:=originEndpoint(env(t.env));if e!=nil{return nil,e};if t.kind=="hyperlocal"{u.Path=strings.TrimRight(u.Path,"/")+"/api/v1/orders/auto-hl-order/"}
 		target,endpoint:=t,u.String()
 		handlers[target.kind]=func(ctx context.Context,effect OriginEffect)(OriginEffectReceipt,error){
@@ -89,6 +98,7 @@ func OriginHTTPHandlers(env func(string)string,client *http.Client)(map[string]O
 			case "freebie-count":body["change_type"]="incr"
 			case "hyperlocal":body["location_id"]=effect.LocationID;body["is_notify"]=1
 			case "stock-line-cancel":if !effect.GatewayPaid||effect.LineID==""{return OriginEffectReceipt{},ErrReview};body=map[string]interface{}{"order_id":order,"has_product_id":json.Number(effect.LineID),"user_id":json.Number(effect.CustomerID),"reason_id":9,"comment":"Cancelled automatically: this item was out of stock when the payment was confirmed.","system_comment":true,"refund_mode":1}
+			case "payment-amount-mismatch":m:=effect.Mismatch;if m==nil||!originCouponAmount.MatchString(m.Payable)||!originCouponAmount.MatchString(m.Charged)||!originCouponAmount.MatchString(m.Shortfall){return OriginEffectReceipt{},ErrReview};body=map[string]interface{}{"text":":rotating_light: *PAYMENT_AMOUNT_MISMATCH* — order left unconfirmed\n*Order:* "+effect.OrderID+"  *User:* "+effect.CustomerID+"\n*Payable (pay_amt):* "+m.Payable+"  *Charged:* "+m.Charged+"  *Shortfall:* "+m.Shortfall+"\n*Source:* "+m.Source+"  *At:* "+m.OccurredAt}
 			}
 			raw,err:=json.Marshal(body);if err!=nil{return OriginEffectReceipt{},ErrReview};var reader io.Reader
 			contentType:="application/json";if target.method=="POST"{reader=bytes.NewReader(raw)}
@@ -99,7 +109,8 @@ func OriginHTTPHandlers(env func(string)string,client *http.Client)(map[string]O
 			case "hyperlocal":if env("POS_ADMIN_APP_ID")==""||env("POS_ADMIN_APP_KEY")==""{return OriginEffectReceipt{},ErrReview};req.Header.Set("APPID",env("POS_ADMIN_APP_ID"));req.Header.Set("APPKEY",env("POS_ADMIN_APP_KEY"))
 			case "stock-line-cancel":if env("INTERNAL_APP_ID")==""||env("INTERNAL_APP_KEY")==""{return OriginEffectReceipt{},ErrReview};req.Header.Set("ar-app-id",env("INTERNAL_APP_ID"));req.Header.Set("ar-app-key",env("INTERNAL_APP_KEY"))}
 			resp,err:=client.Do(req);if err!=nil{return OriginEffectReceipt{},ErrReview};defer resp.Body.Close();data,err:=io.ReadAll(io.LimitReader(resp.Body,1048577));if err!=nil||len(data)>1048576||resp.StatusCode<200||resp.StatusCode>=300{return OriginEffectReceipt{},ErrReview}
-			if target.kind=="stock-line-cancel"{var result struct{Success bool `json:"success"`;Status interface{} `json:"status"`};if json.Unmarshal(data,&result)!=nil||!result.Success&&result.Status!="success"{return OriginEffectReceipt{},ErrReview}}
+			// Original line-cancel delivery acknowledges HTTP2xx. This records
+			// that bounded transport ACK, never invents refund/stock completion.
 			hash:=sha256.Sum256(data);return OriginEffectReceipt{Accepted:true,EvidenceHash:hex.EncodeToString(hash[:]),Additional:[]OriginEffect{}},nil
 		}
 	};return handlers,nil

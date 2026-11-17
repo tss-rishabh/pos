@@ -33,6 +33,15 @@ func originBool(value interface{})bool{return value==true||originNumber(value,1)
 // Run before any Order/HP lock or financial mutation: actor -> Store -> current
 // assignment/counter -> customer. Command equality is checked afterward.
 func OriginAuthorize(ctx context.Context,tx *sql.Tx,hint OriginCommand,caller OriginCaller,key string,now int64)(map[string]interface{},error){
+	return originAuthorize(ctx,tx,hint,caller,key,now,false,false)
+}
+// Retained facts belong to their immutable original scope. A genuine fresh
+// login/service rotation may read them without reviving old dispatch power.
+func OriginReadAuthorize(ctx context.Context,tx *sql.Tx,hint OriginCommand,caller OriginCaller,key string,now int64)(map[string]interface{},error){
+	return originAuthorize(ctx,tx,hint,caller,key,now,true,false)
+}
+func OriginCurrentAuthority(ctx context.Context,tx *sql.Tx,hint OriginCommand,caller OriginCaller,key string,now int64)(map[string]interface{},error){return originAuthorize(ctx,tx,hint,caller,key,now,true,true)}
+func originAuthorize(ctx context.Context,tx *sql.Tx,hint OriginCommand,caller OriginCaller,key string,now int64,retained,currentPrincipal bool)(map[string]interface{},error){
 	if caller.CustomerID!=hint.CustomerID{return nil,ErrReview}
 	var grant map[string]interface{}
 	var actorHash string
@@ -50,22 +59,31 @@ func OriginAuthorize(ctx context.Context,tx *sql.Tx,hint OriginCommand,caller Or
 		var revoked int64;var raw []byte;var seal string
 		if tx.QueryRowContext(ctx,`SELECT CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash,revoked FROM pos_rewrite_screening_origin_staff_grants WHERE id=? AND actor_id=?`,caller.StaffGrantID,*hint.ActorID).Scan(&raw,&seal,&revoked)!=nil||revoked!=0||originVerify(key,"staff-grant",raw,seal,&grant,16000)!=nil{return nil,ErrReview}
 		issued,_:=grant["issuedAt"].(json.Number);expires,_:=grant["expiresAt"].(json.Number);at,ea:=issued.Int64();until,eb:=expires.Int64()
-		if grant["contract"]!="pos-screening-origin-staff-grant-v1"||grant["id"]!=caller.StaffGrantID||grant["origin"]!=hint.Origin||grant["actorId"]!=*hint.ActorID||grant["customerId"]!=hint.CustomerID||grant["storeId"]!=*hint.StoreID||grant["counterId"]!=*hint.CounterID||grant["identityHash"]!=actorHash||ea!=nil||eb!=nil||at>now||until<=now||until>at+60000{return nil,ErrReview}
+		if grant["contract"]!="pos-screening-origin-staff-grant-v1"||grant["id"]!=caller.StaffGrantID||grant["origin"]!=hint.Origin||grant["actorId"]!=*hint.ActorID||grant["customerId"]!=hint.CustomerID||grant["storeId"]!=*hint.StoreID||grant["counterId"]!=*hint.CounterID||grant["identityHash"]!=actorHash||grant["requestHash"]!=hint.RequestHash||grant["cartHash"]!=hint.CartHash||ea!=nil||eb!=nil||at>now||until<=now||until>at+60000{return nil,ErrReview}
 		if err:=originStaffSession(ctx,tx,grant,actorHash,key,now);err!=nil{return nil,err}
 		var current []byte;var currentSeal string
 		if tx.QueryRowContext(ctx,`SELECT data,proof_hash,revoked FROM pos_rewrite_screening_origin_staff_grants WHERE id=? FOR UPDATE`,caller.StaffGrantID).Scan(&current,&currentSeal,&revoked)!=nil||revoked!=0||currentSeal!=seal||!hmac.Equal(current,raw){return nil,ErrReview}
 	}else if hint.Origin=="external-system"{
-		if !caller.System||caller.Credential!=""{return nil,ErrReview};if e:=originSystem(ctx,tx,hint,key,caller.CSKAPIKey);e!=nil{return nil,e}
+		if !caller.System||caller.Credential!=""{return nil,ErrReview};if retained{if e:=originSystemRead(ctx,tx,hint,key,caller.CSKAPIKey);e!=nil{return nil,e}}else if e:=originSystem(ctx,tx,hint,key,caller.CSKAPIKey);e!=nil{return nil,e}
 	}else if caller.System||hint.Origin!="customer"{return nil,ErrReview}
+	if retained&&!currentPrincipal&&hint.Origin=="external-system"{return originNativeJSON(ctx,tx,`SELECT JSON_OBJECT('id',id) FROM users WHERE id=? FOR SHARE`,hint.CustomerID)}
 	identity,e:=originNativeJSON(ctx,tx,`SELECT JSON_OBJECT('id',id,'status',status,'isBlock',is_block,'isDisabled',is_disabled,'isTwoFa',is_two_fa,'email',email,'telephone',telephone) FROM users WHERE id=? FOR UPDATE`,hint.CustomerID);if e!=nil{return nil,e}
+	// Source customer/system fingerprints use the canonical decimal ID string;
+	// actor fingerprints above intentionally keep the native numeric ID.
+	identity["id"]=hint.CustomerID
 	if !originNumber(identity["status"],1)||identity["isBlock"]!=nil&&!originNumber(identity["isBlock"],0)||identity["isDisabled"]!=nil&&!originNumber(identity["isDisabled"],0){return nil,ErrReview}
-	if hint.Origin=="external-system"{return identity,nil}
+	if hint.Origin=="external-system"{
+		service,e:=originSignedMap(ctx,tx,`SELECT data,proof_hash FROM pos_rewrite_screening_origin_services WHERE id='csk' FOR SHARE`,key,"system-service");if e!=nil{return nil,e};nativeHash,e:=OriginMAC(key,"system-customer",identity);if e!=nil{return nil,e}
+		principal:=map[string]interface{}{"origin":hint.Origin,"customerId":hint.CustomerID,"actorId":nil,"storeId":nil,"counterId":nil,"serviceId":"csk","serviceRevision":service["revision"],"credentialHash":service["credentialHash"],"configurationHash":service["configurationHash"],"identityHash":nativeHash}
+		authority,e:=OriginMAC(key,"authority",principal);if e!=nil||!retained&&!hmac.Equal([]byte(authority),[]byte(hint.AuthorityHash)){return nil,ErrReview};return principal,nil
+	}
 	if caller.AuthorityClock!=nil{now=caller.AuthorityClock()}
 	if caller.Credential==""||len(caller.Credential)>16000||caller.CredentialExpiresAt<=now||caller.TwoFA!=originBool(identity["isTwoFa"]){return nil,ErrReview}
 	credential,e:=OriginMAC(key,"customer-credential",caller.Credential);if e!=nil{return nil,e};nativeHash,e:=OriginMAC(key,"customer-identity",identity);if e!=nil{return nil,e}
 	principal:=map[string]interface{}{"origin":hint.Origin,"customerId":hint.CustomerID,"actorId":hint.ActorID,"storeId":hint.StoreID,"counterId":hint.CounterID,"credentialHash":credential,"identityHash":nativeHash}
-	if grant!=nil{expiry,err:=originInteger(grant["expiresAt"]);if err!=nil||expiry<=now||grant["credentialHash"]!=credential{return nil,ErrReview};if err=originStaffSession(ctx,tx,grant,actorHash,key,now);err!=nil{return nil,err};principal["sessionHash"]=grant["sessionHash"];principal["staffIdentityHash"]=actorHash;principal["grantId"]=caller.StaffGrantID}
-	authority,e:=OriginMAC(key,"authority",principal);if e!=nil||!hmac.Equal([]byte(authority),[]byte(hint.AuthorityHash)){return nil,ErrReview};return identity,nil
+	if grant!=nil{expiry,err:=originInteger(grant["expiresAt"]);if err!=nil||expiry<=now||grant["credentialHash"]!=credential{return nil,ErrReview};if err=originStaffSession(ctx,tx,grant,actorHash,key,now);err!=nil{return nil,err};principal["sessionHash"]=grant["sessionHash"];principal["staffIdentityHash"]=actorHash}
+	// The original source excludes the renewable grantId from authorityHash.
+	authority,e:=OriginMAC(key,"authority",principal);if e!=nil||!retained&&!hmac.Equal([]byte(authority),[]byte(hint.AuthorityHash)){return nil,ErrReview};return principal,nil
 }
 
 // Signed source session is distinct from the one-minute grant. Its exact
@@ -86,4 +104,12 @@ func originSystem(ctx context.Context,tx *sql.Tx,c OriginCommand,key,credential 
 	hash,e:=OriginMAC(key,"system-credential",credential);if e!=nil||service["contract"]!="pos-screening-origin-system-service-v1"||service["id"]!="csk"||service["active"]!=true||service["sourceController"]!="controllers.external.OrderPlacement"||service["credentialHash"]!=hash{return ErrReview}
 	var authority map[string]interface{};if tx.QueryRowContext(ctx,`SELECT CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_screening_origin_system_authorities WHERE command_id=? FOR SHARE`,c.ID).Scan(&raw,&seal)!=nil||originVerify(key,"system-authority",raw,seal,&authority,16000)!=nil{return ErrReview}
 	if authority["contract"]!="pos-screening-origin-system-authority-v1"||authority["commandId"]!=c.ID||authority["customerId"]!=c.CustomerID||authority["requestHash"]!=c.RequestHash||authority["referenceHash"]!=c.ReferenceHash||authority["serviceId"]!="csk"||authority["serviceRevision"]!=service["revision"]||authority["credentialHash"]!=hash||authority["configurationHash"]!=service["configurationHash"]{return ErrReview};return nil
+}
+
+func originSystemRead(ctx context.Context,tx *sql.Tx,c OriginCommand,key,credential string)error{
+	if credential==""||len(credential)>4096{return ErrReview};var raw []byte;var seal string;var revoked int64;var service map[string]interface{}
+	if tx.QueryRowContext(ctx,`SELECT CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash,revoked FROM pos_rewrite_screening_origin_services WHERE id='csk' FOR SHARE`).Scan(&raw,&seal,&revoked)!=nil||revoked!=0||originVerify(key,"system-service",raw,seal,&service,16000)!=nil{return ErrReview}
+	hash,err:=OriginMAC(key,"system-credential",credential);if err!=nil||service["contract"]!="pos-screening-origin-system-service-v1"||service["id"]!="csk"||service["active"]!=true||service["sourceController"]!="controllers.external.OrderPlacement"||service["credentialHash"]!=hash{return ErrReview}
+	var old map[string]interface{};if tx.QueryRowContext(ctx,`SELECT CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_screening_origin_system_authorities WHERE command_id=? FOR SHARE`,c.ID).Scan(&raw,&seal)!=nil||originVerify(key,"system-authority",raw,seal,&old,16000)!=nil{return ErrReview}
+	if old["contract"]!="pos-screening-origin-system-authority-v1"||old["commandId"]!=c.ID||old["customerId"]!=c.CustomerID||old["requestHash"]!=c.RequestHash||old["referenceHash"]!=c.ReferenceHash||old["serviceId"]!="csk"||!originHash.MatchString(originString(old["credentialHash"]))||!originHash.MatchString(originString(old["configurationHash"]))||!originID.MatchString(originString(old["serviceRevision"])){return ErrReview};return nil
 }
