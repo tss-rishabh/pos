@@ -62,8 +62,13 @@ no application compile, tests, service, native/cloud query or deployment ran.
 validation. Host Go was absent, so the assembler now defaults to the existing
 pinned container, with an explicit optional local producer mode.
 
-Still required CODE: CPP budget preflight before permanent write-start checkpoint
-and global privilege/DDL participant audit; Hyper CSK same-command preparation
+Publisher budget ordering is integrated from `4ce082b` as `bbe9da2`: read-only
+preflight precedes durable dispatch, and the exact winning claim consumes its
+single-use witness. Failed budget checks leave ready work resumable. No checks
+or tests ran for this integration.
+
+Still required CODE: CPP bounded global privilege/DDL participant audit;
+Hyper CSK same-command preparation
 continuation, runnable source effect registry/worker, MPos customer-JWT client,
 genuine member/gift/coupon asset variants; Admin exact source asset verifier,
 provider normalization/native payment-log/response edges, mismatch alert effects,
