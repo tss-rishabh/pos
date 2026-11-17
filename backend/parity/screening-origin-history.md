@@ -113,11 +113,15 @@ Worker shutdown aborts work and has a 40-second close deadline. Events contain
 module/resource/eventInstanceId/requestId/userId:null/timestamp and counts only.
 No source IDs, URLs, credentials, SQL, rows or exception stacks enter logs.
 
-Known implementation follow-ups in this intermediate checkpoint: move readonly
-warehouse budget preflight ahead of the permanent write-start checkpoint, and
-finish the global privilege-escalation/DDL-participant refusal audit (not just
-direct head DML/current caller). These are CODE, not deployment acceptance; the
-new-work selector remains unqualified until completed. Tests/checks/builds remain
+Readonly budget preflight now finishes outside SQL before the permanent write
+checkpoint. The claim compares the original journal version and authenticated
+plan; only its winner can consume the exact in-memory preflight witness once.
+Budget/estimate failure leaves the original prepared/qualified state available.
+After a checkpoint, missing jobs and interrupted dispatch still remain GET-only.
+
+The global privilege-escalation/DDL-participant refusal audit remains a CODE
+follow-up in this intermediate checkpoint (beyond direct head DML/current caller).
+The new-work selector stays unqualified until completed. Tests/checks/builds remain
 deferred. Final acceptance must cover native/independent BQ empty/orphan/NULL/future
 rows, proxies/roles/definers, cross-writer races, timeout/budget/privacy, original-job
 recovery, immutable default-byte behavior and deployment performance. Exact hot-head

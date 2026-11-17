@@ -58,6 +58,7 @@ export const originHistoryWriteReplySchema = z
   .strict();
 export type OriginHistoryWriteReply = z.infer<typeof originHistoryWriteReplySchema>;
 export interface OriginHistoryWriter {
+  preflight(plan: OriginHistoryWritePlan, signal: AbortSignal): Promise<void>;
   start(plan: OriginHistoryWritePlan, signal: AbortSignal): Promise<OriginHistoryWriteReply>;
   read(plan: OriginHistoryWritePlan, signal: AbortSignal): Promise<OriginHistoryWriteReply>;
 }
@@ -237,6 +238,9 @@ export function originHistoryWriter(options: {
   )
     throw originError('SCREENING_ORIGIN_HISTORY_WRITER_REQUIRED');
   let client: ReturnType<typeof options.clientFactory> | undefined;
+  // A successful readonly estimate authorizes one in-process dispatch of this
+  // exact authenticated plan. Recovery never obtains or consumes this witness.
+  const preflighted = new WeakMap<OriginHistoryWritePlan, string>();
   const reply = (plan: OriginHistoryWritePlan, status: OriginHistoryWriteReply['status']) => {
     const body = { status, jobId: plan.jobId, queryHash: plan.hash };
     return { ...body, evidenceHash: hash(body) };
@@ -321,69 +325,82 @@ export function originHistoryWriter(options: {
     }
   }
   return {
-    async start(plan, signal) {
+    async preflight(plan, signal) {
       if (!plans.has(plan)) throw originError('SCREENING_ORIGIN_HISTORY_WRITE_PLAN_INVALID');
+      preflighted.delete(plan);
+      signal.throwIfAborted();
+      client ??= options.clientFactory();
+      const fingerprint = hash(plan),
+        names = new Set(
+          [...plan.preflight.matchAll(/@([a-zA-Z][a-zA-Z0-9_]*)/g)].map((match) => match[1]!),
+        ),
+        estimateParams = Object.fromEntries(
+          Object.entries(plan.params).filter(([key]) => names.has(key)),
+        ),
+        estimateTypes = Object.fromEntries(
+          Object.entries(plan.types).filter(([key]) => names.has(key)),
+        );
+      const [estimated] = await bounded(
+        client.createQueryJob({
+          query: plan.preflight,
+          params: normalizeWarehouseParameters(estimateParams, estimateTypes),
+          types: estimateTypes,
+          useLegacySql: false,
+          useQueryCache: false,
+          maximumBytesBilled: String(options.maxBytes),
+          jobTimeoutMs: options.timeoutMs,
+          location: 'asia-south1',
+          dryRun: true,
+        }),
+        signal,
+      );
+      const estimate = z
+        .object({
+          statistics: z.object({
+            query: z.object({
+              totalBytesProcessed: z.string().regex(/^\d{1,20}$/),
+              referencedTables: z
+                .array(
+                  z.object({
+                    projectId: z.literal('tssgcp2025'),
+                    datasetId: z.literal('tss_mysql_raw_layer'),
+                  }),
+                )
+                .min(1)
+                .max(100),
+              referencedRoutines: z.array(z.unknown()).max(0).optional(),
+            }),
+          }),
+        })
+        .safeParse(estimated.metadata);
+      if (
+        !estimate.success ||
+        BigInt(estimate.data.statistics.query.totalBytesProcessed) > BigInt(options.maxBytes)
+      )
+        throw originError('SCREENING_ORIGIN_HISTORY_WRITE_BUDGET');
+      signal.throwIfAborted();
+      if (hash(plan) !== fingerprint)
+        throw originError('SCREENING_ORIGIN_HISTORY_WRITE_PLAN_INVALID');
+      preflighted.set(plan, fingerprint);
+    },
+    async start(plan, signal) {
+      const witnessed = preflighted.get(plan);
+      preflighted.delete(plan);
+      if (!plans.has(plan) || witnessed === undefined || witnessed !== hash(plan))
+        throw originError('SCREENING_ORIGIN_HISTORY_WRITE_PREFLIGHT_REQUIRED');
       try {
         signal.throwIfAborted();
         client ??= options.clientFactory();
-        const params = normalizeWarehouseParameters(plan.params, plan.types),
-          base = {
-            params,
+        const [job] = await bounded(
+          client.createQueryJob({
+            query: plan.sql,
+            params: normalizeWarehouseParameters(plan.params, plan.types),
             types: plan.types,
             useLegacySql: false,
             useQueryCache: false,
             maximumBytesBilled: String(options.maxBytes),
             jobTimeoutMs: options.timeoutMs,
             location: 'asia-south1',
-          };
-        const names = new Set(
-            [...plan.preflight.matchAll(/@([a-zA-Z][a-zA-Z0-9_]*)/g)].map((match) => match[1]!),
-          ),
-          estimateParams = Object.fromEntries(
-            Object.entries(plan.params).filter(([key]) => names.has(key)),
-          ),
-          estimateTypes = Object.fromEntries(
-            Object.entries(plan.types).filter(([key]) => names.has(key)),
-          );
-        const [estimated] = await bounded(
-          client.createQueryJob({
-            ...base,
-            query: plan.preflight,
-            params: normalizeWarehouseParameters(estimateParams, estimateTypes),
-            types: estimateTypes,
-            dryRun: true,
-          }),
-          signal,
-        );
-        const estimate = z
-          .object({
-            statistics: z.object({
-              query: z.object({
-                totalBytesProcessed: z.string().regex(/^\d{1,20}$/),
-                referencedTables: z
-                  .array(
-                    z.object({
-                      projectId: z.literal('tssgcp2025'),
-                      datasetId: z.literal('tss_mysql_raw_layer'),
-                    }),
-                  )
-                  .min(1)
-                  .max(100),
-                referencedRoutines: z.array(z.unknown()).max(0).optional(),
-              }),
-            }),
-          })
-          .safeParse(estimated.metadata);
-        if (
-          !estimate.success ||
-          BigInt(estimate.data.statistics.query.totalBytesProcessed) > BigInt(options.maxBytes)
-        )
-          throw originError('SCREENING_ORIGIN_HISTORY_WRITE_BUDGET');
-        signal.throwIfAborted();
-        const [job] = await bounded(
-          client.createQueryJob({
-            ...base,
-            query: plan.sql,
             jobId: plan.jobId,
             dryRun: false,
             createSession: false,

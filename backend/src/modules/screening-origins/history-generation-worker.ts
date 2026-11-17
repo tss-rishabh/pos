@@ -24,6 +24,7 @@ import {
   restoreOriginHistoryWritePlan,
   type originHistoryCandidate,
   type OriginHistoryWriter,
+  type OriginHistoryWritePlan,
   type OriginHistoryWriteReply,
 } from './history-generation-warehouse.js';
 
@@ -145,18 +146,23 @@ export function originHistoryGenerationPublisher(input: {
   async function remote(
     record: OriginHistoryJournalRecord,
     kind: 'materialize' | 'publish',
-    start: boolean,
     signal: AbortSignal,
+    preflighted?: OriginHistoryWritePlan,
   ) {
     const data = state(record, input.journalKey),
       saved = kind === 'materialize' ? data.materialize : data.publish;
     if (!saved || !input.writer) return record;
-    const plan = restoreOriginHistoryWritePlan(saved, input.journalKey);
+    const retained = restoreOriginHistoryWritePlan(saved, input.journalKey);
+    if (
+      preflighted &&
+      (preflighted.hash !== retained.hash || preflighted.authHash !== retained.authHash)
+    )
+      throw originError('SCREENING_ORIGIN_HISTORY_JOURNAL_INVALID');
     let result: OriginHistoryWriteReply;
     try {
-      result = start
-        ? await input.writer.start(plan, signal)
-        : await input.writer.read(plan, signal);
+      result = preflighted
+        ? await input.writer.start(preflighted, signal)
+        : await input.writer.read(retained, signal);
     } catch {
       return record;
     }
@@ -235,25 +241,39 @@ export function originHistoryGenerationPublisher(input: {
           return record;
         }
       }
-      if (record.phase === 'materializing') return remote(record, 'materialize', false, signal);
-      if (record.phase === 'publishing') return remote(record, 'publish', false, signal);
+      if (record.phase === 'materializing') return remote(record, 'materialize', signal);
+      if (record.phase === 'publishing') return remote(record, 'publish', signal);
       if (!enabled() || signal.aborted) return record;
       if (record.phase === 'prepared' || record.phase === 'qualified') {
-        const kind = record.phase === 'prepared' ? 'materialize' : 'publish';
+        const kind = record.phase === 'prepared' ? 'materialize' : 'publish',
+          savedPlan = kind === 'materialize' ? data.materialize : data.publish,
+          version = record.version;
+        if (!savedPlan || !data.snapshot || !data.options)
+          throw originError('SCREENING_ORIGIN_HISTORY_JOURNAL_INVALID');
+        verifyOriginHistorySnapshot(data.snapshot, input.captureKey!);
+        const plan = restoreOriginHistoryWritePlan(savedPlan, input.journalKey);
+        // This readonly provider call must finish before any permanent dispatch
+        // checkpoint. A failed estimate leaves the original ready phase intact.
+        await input.writer!.preflight(plan, signal);
+        if (signal.aborted || !enabled()) return record;
         let send = false;
         record = await input.journal.change(id, (prior) => {
-          if (prior.phase !== (kind === 'materialize' ? 'prepared' : 'qualified')) return null;
-          const saved = state(prior, input.journalKey);
-          if (!saved.snapshot || !saved.options)
+          if (
+            prior.version !== version ||
+            prior.phase !== (kind === 'materialize' ? 'prepared' : 'qualified')
+          )
+            return null;
+          const saved = state(prior, input.journalKey),
+            current = kind === 'materialize' ? saved.materialize : saved.publish;
+          if (!current || current.hash !== plan.hash || current.authHash !== plan.authHash)
             throw originError('SCREENING_ORIGIN_HISTORY_JOURNAL_INVALID');
-          verifyOriginHistorySnapshot(saved.snapshot, input.captureKey!);
           send = true;
           return { ...prior, phase: kind === 'materialize' ? 'materializing' : 'publishing' };
         });
         // The checkpoint remains permanent if cancellation arrives here. Missing
         // job metadata later is UNKNOWN, never permission to re-POST this job.
         if (!send || signal.aborted || !enabled()) return record;
-        return remote(record, kind, true, signal);
+        return remote(record, kind, signal, plan);
       }
       if (record.phase === 'materialized') {
         if (!data.snapshot || !data.options || !data.generationId)
