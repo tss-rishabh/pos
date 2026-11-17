@@ -31,6 +31,7 @@ export function membershipHistoryLiteralSql(empty = false) {
   const fixture = membershipBigQueryFixture(empty ? [] : undefined),
     pub = fixture.envelope.publications[0]!;
   const publication = select({
+    scope_shard: String(Number(BigInt(pub.customerId) % 1024n)),
     contract: text(pub.contract),
     generation_id: text(pub.generationId),
     customer_id: text(pub.customerId),
@@ -56,6 +57,7 @@ export function membershipHistoryLiteralSql(empty = false) {
     .map(
       (row) =>
         select({
+          scope_shard: String(Number(BigInt(row.customerId) % 1024n)),
           generation_id: text(pub.generationId),
           customer_id: text(row.customerId),
           order_id: text(row.id),
@@ -72,6 +74,7 @@ export function membershipHistoryLiteralSql(empty = false) {
     .map(
       (row) =>
         select({
+          scope_shard: String(Number(BigInt(row.customerId) % 1024n)),
           generation_id: text(pub.generationId),
           customer_id: text(row.customerId),
           order_id: text(row.orderId),

@@ -144,6 +144,9 @@ normalizer. IDs remain canonical signed-positive INT64 strings, including values
 above 2^53. Dry-run referenced tables must stay inside the allowed dataset and
 no referenced routine is accepted. Missing reference/billing metadata fails
 closed. The installed SDK's actual DATETIME parameter serialization is tested.
+The producer follow-up adds a required `scope_shard` INT64 column to every
+projection/control table, derived as exact `customerId % 1024`. All query paths
+bind it explicitly so reviewed range partitions can prune before scanning.
 
 One dry-run and one complete snapshot statement share a total deadline and byte
 budget. Both local and SDK deadlines are bounded; retry/automatic pagination are
@@ -228,13 +231,13 @@ ASCII 32–4096-byte server secrets. They are never published to BQ or the brows
 checks, document signing, expiring immutable prefetch capability, no-I/O replay,
 source/dry-run/negative tests and callable root hooks.
 
-**Remaining CODE if not supplied by an existing qualified ingestion system:** a
-source-consistent per-customer snapshot/control-seal producer that obtains the
-independent source counts and ordered selected facts at the retained execution
-point, verifies warehouse agreement and creates the signed complete manifest.
-The reader's hash helpers/schema are the executable producer contract; they do
-not pretend that this producer or a current native revision/head already exists.
-This task does not implement an out-of-scope writer/ingestion service.
+**Producer code implemented in the follow-up:** native source-authenticated
+read-only snapshot capture, independently queried warehouse candidate reader and
+verified manifest sealer are in `publication-native.ts`,
+`publication-transaction.ts`, `publication-warehouse.ts` and `publication.ts`.
+See `membership-history-publication.md` for real native/negative tests and exact
+hooks. This is a retained snapshot/control seal; it does not invent a continuous
+native writer-revision/head or claim that source/warehouse deployment occurred.
 
 **Remaining root integration CODE:** pre-order-dispatch preparation and durable
 handoff retention, later private capability/document-digest binding, source-side

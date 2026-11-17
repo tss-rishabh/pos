@@ -173,11 +173,11 @@ export function csvMembershipHistorySql(
   // out to manufacture source-equivalent absence.
   const statement = `WITH publications AS (
 SELECT * FROM \`${publications}\`
-WHERE contract=@contract AND customer_id=@customer AND as_of=@asOf AND cutoff=@cutoff
+WHERE scope_shard=@scopeShard AND contract=@contract AND customer_id=@customer AND as_of=@asOf AND cutoff=@cutoff
 AND source_time_zone=@zone LIMIT 2
 ), delivered AS (
 SELECT o.* FROM \`${orders}\` o
-WHERE o.customer_id=@customer AND o.order_status=3
+WHERE o.scope_shard=@scopeShard AND o.customer_id=@customer AND o.order_status=3
 AND o.generation_id IN (SELECT generation_id FROM publications)
 ), selected AS (
 SELECT * FROM delivered
@@ -186,7 +186,7 @@ WHERE created_at>@cutoff OR created_at=(SELECT MAX(created_at) FROM delivered)
 SELECT * FROM selected ORDER BY created_at DESC,SAFE_CAST(order_id AS INT64) DESC LIMIT @orderTake
 ), selected_lines AS (
 SELECT l.* FROM \`${lines}\` l
-WHERE l.generation_id IN (SELECT generation_id FROM publications)
+WHERE l.scope_shard=@scopeShard AND l.generation_id IN (SELECT generation_id FROM publications)
 AND l.order_id IN (SELECT order_id FROM bounded_orders)
 )
 SELECT TO_JSON_STRING(STRUCT(
@@ -229,6 +229,7 @@ ORDER BY SAFE_CAST(order_id AS INT64),SAFE_CAST(line_id AS INT64) LIMIT @lineTak
     params: {
       contract: csvMembershipPublicationContract,
       customer: input.customerId,
+      scopeShard: Number(BigInt(input.customerId) % 1024n),
       asOf: input.asOf,
       cutoff: input.cutoff,
       zone: options.CSV_MEMBERSHIP_SOURCE_TIMEZONE!,
@@ -238,6 +239,7 @@ ORDER BY SAFE_CAST(order_id AS INT64),SAFE_CAST(line_id AS INT64) LIMIT @lineTak
     types: {
       contract: 'STRING',
       customer: 'STRING',
+      scopeShard: 'INT64',
       asOf: 'DATETIME',
       cutoff: 'DATETIME',
       zone: 'STRING',
@@ -292,6 +294,7 @@ function exactStatement(
     .object({
       contract: z.literal(csvMembershipPublicationContract),
       customer: sourceId,
+      scopeShard: z.number().int().min(0).max(1023),
       asOf: wall,
       cutoff: wall,
       zone,
@@ -314,6 +317,7 @@ function exactStatement(
   const expected = csvMembershipHistorySql(options, request);
   if (
     input.statement !== expected.statement ||
+    JSON.stringify(canonical(input.params)) !== JSON.stringify(canonical(expected.params)) ||
     JSON.stringify(canonical(input.types)) !== JSON.stringify(canonical(expected.types))
   )
     throw historyError('DEFINITION', 503);
@@ -333,11 +337,17 @@ export function csvMembershipHistorySdk(
     client.timeout = options.CSV_MEMBERSHIP_QUERY_TIMEOUT_MS;
     return client;
   },
+  definition?: (input: CsvMembershipHistoryStatement) => CsvMembershipHistoryStatement,
 ): CsvMembershipHistoryQueryPort {
   let client: BigQuery | undefined;
   async function run(input: CsvMembershipHistoryStatement, dryRun: boolean, signal?: AbortSignal) {
     qualified(options);
-    input = exactStatement(options, input);
+    input = definition ? definition(input) : exactStatement(options, input);
+    if (
+      !/^WITH\b/.test(input.statement) ||
+      /\b(?:CREATE|ALTER|INSERT|UPDATE|DELETE|MERGE|EXPORT|CALL)\b/i.test(input.statement)
+    )
+      throw historyError('DEFINITION', 503);
     if (signal?.aborted) throw historyError('UNAVAILABLE', 503);
     let job: Job | undefined,
       expired = false,
@@ -359,7 +369,10 @@ export function csvMembershipHistorySdk(
       maximumBytesBilled: String(options.CSV_MEMBERSHIP_MAX_BYTES_BILLED),
       jobTimeoutMs: options.CSV_MEMBERSHIP_QUERY_TIMEOUT_MS,
       location: csvMembershipWarehouse.location,
-      labels: { application: 'pos-rewrite', resource: 'csv-membership-history' },
+      labels: {
+        application: 'pos-rewrite',
+        resource: definition ? 'csv-membership-publication' : 'csv-membership-history',
+      },
     };
     let timer: ReturnType<typeof setTimeout> | undefined;
     let abort: (() => void) | undefined;
@@ -478,14 +491,6 @@ export function csvMembershipBigQueryHistory(
   )
     throw historyError('CONFIGURATION', 503);
   const query = dependencies.query ?? csvMembershipHistorySdk(options, dependencies.clientFactory);
-  const envelope = z
-    .object({
-      publications: z.array(csvMembershipPublicationSchema).max(2),
-      actual,
-      orders: z.array(order).max(options.CSV_MEMBERSHIP_MAX_ORDERS),
-      lines: z.array(line).max(options.CSV_MEMBERSHIP_MAX_LINES),
-    })
-    .strict();
   return {
     async read(input) {
       qualified(options);
@@ -532,119 +537,171 @@ export function csvMembershipBigQueryHistory(
       } finally {
         clearTimeout(timer);
       }
-      const wire = z
-        .array(z.object({ document: z.string().max(2000000) }).strict())
-        .length(1)
-        .safeParse(raw);
-      if (!wire.success || Buffer.byteLength(wire.data[0]!.document) > 2000000)
-        throw historyError('INVALID');
-      let decoded: unknown;
-      try {
-        decoded = JSON.parse(wire.data[0]!.document) as unknown;
-      } catch {
-        throw historyError('INVALID');
-      }
-      const parsed = envelope.safeParse(decoded);
-      if (!parsed.success) throw historyError('INVALID');
-      const result = parsed.data;
-      if (result.publications.length === 0) throw historyError('PUBLICATION_REQUIRED', 503);
-      if (result.publications.length !== 1) throw historyError('INVALID');
-      const p = result.publications[0]!,
-        { signature, ...publicationBody } = p,
-        now = clock(),
-        a = result.actual;
-      if (!Number.isSafeInteger(now) || now <= 0) throw historyError('INVALID');
-      const snapshot = Temporal.Instant.from(p.sourceSnapshotAt).epochNanoseconds,
-        cdc = Temporal.Instant.from(p.sourceCdcThrough).epochNanoseconds,
-        published = Temporal.Instant.from(p.publishedAt).epochNanoseconds;
-      if (
-        !equalImportHash(
-          signature,
-          csvMembershipPublicationHash(publicationBody, publicationKey),
-        ) ||
-        p.customerId !== scope.customerId ||
-        p.asOf !== scope.asOf ||
-        p.cutoff !== scope.cutoff ||
-        p.sourceTimeZone !== options.CSV_MEMBERSHIP_SOURCE_TIMEZONE ||
-        snapshot !== BigInt(sourceAt) * 1000000n ||
-        cdc < snapshot ||
-        published < cdc ||
-        published > BigInt(now) * 1000000n ||
-        now < started ||
-        now - started > options.CSV_MEMBERSHIP_QUERY_TIMEOUT_MS ||
-        now - sourceAt > options.CSV_MEMBERSHIP_MAX_LAG_SECONDS * 1000
-      )
-        throw historyError('INVALID');
-      if (
-        p.sourceOrderCount !== p.warehouseOrderCount ||
-        p.sourceOrderCount !== a.orders ||
-        a.orders !== a.uniqueOrders ||
-        p.sourceSelectedOrderCount !== p.warehouseSelectedOrderCount ||
-        p.sourceSelectedOrderCount !== a.selectedOrders ||
-        a.selectedOrders !== a.uniqueSelectedOrders ||
-        BigInt(a.selectedOrders) !== BigInt(result.orders.length) ||
-        p.sourceLineCount !== p.warehouseLineCount ||
-        p.sourceLineCount !== a.lines ||
-        a.lines !== a.uniqueLines ||
-        BigInt(a.lines) !== BigInt(result.lines.length) ||
-        BigInt(a.selectedOrders) > BigInt(a.orders) ||
-        (a.orders === '0'
-          ? a.selectedOrders !== '0' || a.lines !== '0'
-          : result.orders.length === 0) ||
-        a.invalidOrders !== '0' ||
-        a.foreignLines !== '0' ||
-        (a.orders === '0' ? a.latestTies !== '0' : a.latestTies !== '1')
-      )
-        throw historyError('INCOMPLETE');
-      const headerIds = new Set(result.orders.map((entry) => entry.id)),
-        lineIds = new Set(result.lines.map((entry) => entry.lineId));
-      if (
-        headerIds.size !== result.orders.length ||
-        lineIds.size !== result.lines.length ||
-        result.lines.some((entry) => !headerIds.has(entry.orderId))
-      )
-        throw historyError('INVALID');
-      const linesByOrder = new Map<string, typeof result.lines>();
-      for (const entry of result.lines) {
-        const entries = linesByOrder.get(entry.orderId) ?? [];
-        entries.push(entry);
-        linesByOrder.set(entry.orderId, entries);
-      }
-      const orders = result.orders.map((entry) => ({
-        ...entry,
-        lines: (linesByOrder.get(entry.id) ?? [])
-          .sort((left, right) => (BigInt(left.lineId) < BigInt(right.lineId) ? -1 : 1))
-          .map(({ orderId: _orderId, ...row }) => row),
-      }));
-      if (
-        orders.some(
-          (entry, index) =>
-            entry.createdAt > scope.asOf ||
-            (index > 0 && orders[index - 1]!.createdAt <= entry.createdAt),
-        ) ||
-        (orders.length > 1 && orders.some((entry) => entry.createdAt <= scope.cutoff))
-      )
-        throw historyError('AMBIGUOUS');
-      const selection: CsvMembershipSelection = {
-        lastDeliveredOrder: orders[0] ?? null,
-        recentDeliveredOrders: orders.filter((entry) => entry.createdAt > scope.cutoff),
-      };
-      const digest = csvMembershipSelectionHash(scope, selection);
-      if (p.sourceHistoryHash !== p.warehouseHistoryHash || p.sourceHistoryHash !== digest)
-        throw historyError('INCOMPLETE');
-      const body = {
+      return qualifyCsvMembershipWarehouseSnapshot(
+        raw,
         scope,
-        reader: 'bigquery' as const,
-        generationId: p.generationId,
-        complete: true as const,
-        fetchedAt: now,
-        ...selection,
-      };
-      const document: QualifiedCsvMembershipHistory = {
-        ...body,
-        signature: csvMembershipHistoryHash(body, historyKey),
-      };
-      return assertQualifiedCsvMembershipHistory(document, scope, historyKey, memberIds, now);
+        options,
+        { historyKey, publicationKey, memberProductIds: memberIds },
+        { started, now: clock() },
+      );
     },
   };
+}
+
+/** Pure verifier shared by the production reader and source publication sealer.
+ * Every warehouse row remains independently checked; this performs no I/O. */
+export function qualifyCsvMembershipWarehouseSnapshot(
+  raw: unknown,
+  input: CsvMembershipHistoryRequest,
+  suppliedOptions: CsvMembershipBigQueryOptions,
+  authority: { historyKey: string; publicationKey: string; memberProductIds: readonly string[] },
+  timing: { started: number; now: number },
+): QualifiedCsvMembershipHistory {
+  const parsedOptions = csvMembershipBigQueryOptionsSchema.safeParse(suppliedOptions);
+  if (!parsedOptions.success) throw historyError('CONFIGURATION', 503);
+  const options = parsedOptions.data,
+    scope = validatedScope(input),
+    started = timing.started,
+    sourceAt = csvMembershipSourceInstant(scope.asOf, options.CSV_MEMBERSHIP_SOURCE_TIMEZONE ?? ''),
+    { historyKey, publicationKey } = authority,
+    memberIds = [...authority.memberProductIds];
+  validKeys(historyKey, publicationKey);
+  if (
+    historyKey === publicationKey ||
+    !sourceId.safeParse(scope.customerId).success ||
+    !memberIds.length ||
+    !z.array(sourceId).max(100).safeParse(memberIds).success ||
+    new Set(memberIds).size !== memberIds.length ||
+    !Number.isSafeInteger(started)
+  )
+    throw historyError('CONFIGURATION', 503);
+  const envelope = z
+    .object({
+      publications: z.array(csvMembershipPublicationSchema).max(2),
+      actual,
+      orders: z.array(order).max(options.CSV_MEMBERSHIP_MAX_ORDERS),
+      lines: z.array(line).max(options.CSV_MEMBERSHIP_MAX_LINES),
+    })
+    .strict();
+  const wire = z
+    .array(z.object({ document: z.string().max(2000000) }).strict())
+    .length(1)
+    .safeParse(raw);
+  if (!wire.success || Buffer.byteLength(wire.data[0]!.document) > 2000000)
+    throw historyError('INVALID');
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(wire.data[0]!.document) as unknown;
+  } catch {
+    throw historyError('INVALID');
+  }
+  const shallow = z
+    .object({ publications: z.unknown(), orders: z.unknown(), lines: z.unknown() })
+    .safeParse(decoded);
+  if (
+    !shallow.success ||
+    !Array.isArray(shallow.data.publications) ||
+    shallow.data.publications.length > 2 ||
+    !Array.isArray(shallow.data.orders) ||
+    shallow.data.orders.length > options.CSV_MEMBERSHIP_MAX_ORDERS ||
+    !Array.isArray(shallow.data.lines) ||
+    shallow.data.lines.length > options.CSV_MEMBERSHIP_MAX_LINES
+  )
+    throw historyError('INVALID');
+  const parsed = envelope.safeParse(decoded);
+  if (!parsed.success) throw historyError('INVALID');
+  const result = parsed.data;
+  if (result.publications.length === 0) throw historyError('PUBLICATION_REQUIRED', 503);
+  if (result.publications.length !== 1) throw historyError('INVALID');
+  const p = result.publications[0]!,
+    { signature, ...publicationBody } = p,
+    now = timing.now,
+    a = result.actual;
+  if (!Number.isSafeInteger(now) || now <= 0) throw historyError('INVALID');
+  const snapshot = Temporal.Instant.from(p.sourceSnapshotAt).epochNanoseconds,
+    cdc = Temporal.Instant.from(p.sourceCdcThrough).epochNanoseconds,
+    published = Temporal.Instant.from(p.publishedAt).epochNanoseconds;
+  if (
+    !equalImportHash(signature, csvMembershipPublicationHash(publicationBody, publicationKey)) ||
+    p.customerId !== scope.customerId ||
+    p.asOf !== scope.asOf ||
+    p.cutoff !== scope.cutoff ||
+    p.sourceTimeZone !== options.CSV_MEMBERSHIP_SOURCE_TIMEZONE ||
+    snapshot !== BigInt(sourceAt) * 1000000n ||
+    cdc < snapshot ||
+    published < cdc ||
+    published > BigInt(now) * 1000000n ||
+    now < started ||
+    now - started > options.CSV_MEMBERSHIP_QUERY_TIMEOUT_MS ||
+    now - sourceAt > options.CSV_MEMBERSHIP_MAX_LAG_SECONDS * 1000
+  )
+    throw historyError('INVALID');
+  if (
+    p.sourceOrderCount !== p.warehouseOrderCount ||
+    p.sourceOrderCount !== a.orders ||
+    a.orders !== a.uniqueOrders ||
+    p.sourceSelectedOrderCount !== p.warehouseSelectedOrderCount ||
+    p.sourceSelectedOrderCount !== a.selectedOrders ||
+    a.selectedOrders !== a.uniqueSelectedOrders ||
+    BigInt(a.selectedOrders) !== BigInt(result.orders.length) ||
+    p.sourceLineCount !== p.warehouseLineCount ||
+    p.sourceLineCount !== a.lines ||
+    a.lines !== a.uniqueLines ||
+    BigInt(a.lines) !== BigInt(result.lines.length) ||
+    BigInt(a.selectedOrders) > BigInt(a.orders) ||
+    (a.orders === '0' ? a.selectedOrders !== '0' || a.lines !== '0' : result.orders.length === 0) ||
+    a.invalidOrders !== '0' ||
+    a.foreignLines !== '0' ||
+    (a.orders === '0' ? a.latestTies !== '0' : a.latestTies !== '1')
+  )
+    throw historyError('INCOMPLETE');
+  const headerIds = new Set(result.orders.map((entry) => entry.id)),
+    lineIds = new Set(result.lines.map((entry) => entry.lineId));
+  if (
+    headerIds.size !== result.orders.length ||
+    lineIds.size !== result.lines.length ||
+    result.lines.some((entry) => !headerIds.has(entry.orderId))
+  )
+    throw historyError('INVALID');
+  const linesByOrder = new Map<string, typeof result.lines>();
+  for (const entry of result.lines) {
+    const entries = linesByOrder.get(entry.orderId) ?? [];
+    entries.push(entry);
+    linesByOrder.set(entry.orderId, entries);
+  }
+  const orders = result.orders.map((entry) => ({
+    ...entry,
+    lines: (linesByOrder.get(entry.id) ?? [])
+      .sort((left, right) => (BigInt(left.lineId) < BigInt(right.lineId) ? -1 : 1))
+      .map(({ orderId: _orderId, ...row }) => row),
+  }));
+  if (
+    orders.some(
+      (entry, index) =>
+        entry.createdAt > scope.asOf ||
+        (index > 0 && orders[index - 1]!.createdAt <= entry.createdAt),
+    ) ||
+    (orders.length > 1 && orders.some((entry) => entry.createdAt <= scope.cutoff))
+  )
+    throw historyError('AMBIGUOUS');
+  const selection: CsvMembershipSelection = {
+    lastDeliveredOrder: orders[0] ?? null,
+    recentDeliveredOrders: orders.filter((entry) => entry.createdAt > scope.cutoff),
+  };
+  const digest = csvMembershipSelectionHash(scope, selection);
+  if (p.sourceHistoryHash !== p.warehouseHistoryHash || p.sourceHistoryHash !== digest)
+    throw historyError('INCOMPLETE');
+  const body = {
+    scope,
+    reader: 'bigquery' as const,
+    generationId: p.generationId,
+    complete: true as const,
+    fetchedAt: now,
+    ...selection,
+  };
+  const document: QualifiedCsvMembershipHistory = {
+    ...body,
+    signature: csvMembershipHistoryHash(body, historyKey),
+  };
+  return assertQualifiedCsvMembershipHistory(document, scope, historyKey, memberIds, now);
 }

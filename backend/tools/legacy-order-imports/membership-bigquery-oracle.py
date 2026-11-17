@@ -10,6 +10,7 @@ import hashlib
 import json
 from pathlib import Path
 import sys
+import subprocess
 
 ROOT = Path(sys.argv[1]).resolve()
 HERE = Path(__file__).resolve().parents[2]
@@ -23,7 +24,9 @@ PINS = {
 
 
 def pinned(path):
-    raw = (ROOT / path).read_bytes()
+    # Source siblings may move to another clean commit during a long rewrite.
+    # Execute the declared immutable baseline, never silently follow HEAD.
+    raw = subprocess.check_output(['git', '-C', str(ROOT), 'show', '2960acbea10c4eaf16b6d99e15ff6e03ef7724c5:' + path], stderr=subprocess.DEVNULL, timeout=5)
     if hashlib.sha256(raw).hexdigest() != PINS[path]:
         raise RuntimeError('Source revision mismatch')
     return ast.parse(raw.decode())
