@@ -1,0 +1,81 @@
+{
+  "recordedAt": "2026-11-17T11:30:51.225Z",
+  "readOnly": true,
+  "schema": "tss",
+  "tables": {
+    "coupon_countries": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "coupon_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "country_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      }
+    ]
+  },
+  "indexes": [
+    {
+      "TABLE_NAME": "coupon_countries",
+      "INDEX_NAME": "country_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "country_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "coupon_countries",
+      "INDEX_NAME": "coupon_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "coupon_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "coupon_countries",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    }
+  ],
+  "errors": []
+}
