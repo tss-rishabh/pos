@@ -39,6 +39,18 @@ CREATE TABLE pos_rewrite_screening_origin_payment_events (
  UNIQUE KEY uq_screening_origin_native_payment(payment_id),
  KEY ix_screening_origin_event_command(command_id,id)
 ) ENGINE=InnoDB;
+CREATE TABLE pos_rewrite_screening_origin_funding_declarations (
+ command_id VARCHAR(36) NOT NULL PRIMARY KEY,
+ order_id BIGINT NOT NULL UNIQUE,
+ data JSON NOT NULL,
+ proof_hash VARCHAR(64) NOT NULL
+) ENGINE=InnoDB;
+CREATE TABLE pos_rewrite_screening_origin_asset_activations (
+ command_id VARCHAR(36) NOT NULL PRIMARY KEY,
+ order_id BIGINT NOT NULL UNIQUE,
+ data JSON NOT NULL,
+ proof_hash VARCHAR(64) NOT NULL
+) ENGINE=InnoDB;
 CREATE TABLE pos_rewrite_screening_origin_go_effects (
  id VARCHAR(64) NOT NULL PRIMARY KEY,
  command_id VARCHAR(36) NOT NULL,

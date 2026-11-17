@@ -30,6 +30,7 @@ func originEngineContext(requestContext context.Context,c *gin.Context,provider 
 	selected:=os.Getenv("POS_SCREENING_ORIGIN_GO_CONTRACT")==poscheckout.OriginPaymentsContract&&os.Getenv("DEMO_MODE")!="true"
 	if newWork&&!selected{return nil,poscheckout.ErrReview}
 	e:=&poscheckout.OriginEngine{DB:utils.Db.DB(),Key:key,LegacyKey:legacy,CSKAPIKey:os.Getenv("POS_SCREENING_ORIGIN_CSK_API_KEY"),Selected:selected,Clock:time.Now}
+	e.MemberProducts=map[string]bool{};for _,name:=range []string{"EXCLUSIVE_PRODUCT_ID","EXCLUSIVE_99_PRODUCT_ID","EXCLUSIVE_QUARTERLY_ID","EXCLUSIVE_QUARTERLY_ID_FREE","EXCLUSIVE_UPGRADE_IDS"}{for _,id:=range strings.Split(os.Getenv(name),","){id=strings.TrimSpace(id);if id!=""{e.MemberProducts[id]=true}}}
 	gate,err:=newOriginGateway(e.DB,os.Getenv);if err!=nil{if newWork{return nil,poscheckout.ErrReview}}else{e.Provider=gate}
 	stockMode,modeErr:=poscheckout.OriginStockMode(requestContext,os.Getenv);if newWork&&(!selected||modeErr!=nil){return nil,poscheckout.ErrReview}
 	e.BuildRequest=func(ctx context.Context,tx *sql.Tx,command poscheckout.OriginCommand,creation poscheckout.OriginCreation,input poscheckout.OriginPaymentInput)(poscheckout.OriginProviderRequest,error){if c==nil{return poscheckout.OriginProviderRequest{},poscheckout.ErrReview};request,err:=buildOriginRequest(ctx,tx,command,creation,input,provider,c);request.StockMode=stockMode;return request,err}

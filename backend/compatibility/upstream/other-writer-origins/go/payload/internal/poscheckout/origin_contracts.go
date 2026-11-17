@@ -55,6 +55,7 @@ type OriginCreation struct {
 	Lines []OriginLine `json:"lines"`; TicketLines []OriginTicketLine `json:"ticketLines"`; Markers []OriginMarker `json:"markers"`
 	LineItemsEnabled bool `json:"lineItemsEnabled"`; EffectsHash string `json:"effectsHash"`; SourceCommit string `json:"sourceCommit"`; CreatedAt int64 `json:"createdAt"`
 	SystemAuthorityHash string `json:"systemAuthorityHash,omitempty"`
+	AssetsHash string `json:"assetsHash,omitempty"`
 }
 type OriginPaymentAuthorization struct {
 	Contract string `json:"contract"`; CommandID string `json:"commandId"`; OrderID string `json:"orderId"`; CustomerID string `json:"customerId"`
@@ -120,6 +121,7 @@ func (v *OriginCommand) validate()error{
 func (v *OriginCreation) validate(c OriginCommand)error{
 	if v.Contract!="pos-screening-origin-creation-v1"||v.SourceCommit!=OriginSourceCommit||v.CommandID!=c.ID||v.Origin!=c.Origin||v.CustomerID!=c.CustomerID||c.OrderID==nil||v.OrderID!=*c.OrderID||!originSame(v.ActorID,c.ActorID)||!originSame(v.StoreID,c.StoreID)||!originSame(v.CounterID,c.CounterID)||v.AuthorityHash!=c.AuthorityHash||v.RequestHash!=c.RequestHash||v.CartHash!=c.CartHash||v.ReferenceHash!=c.ReferenceHash||v.LineItemsEnabled!=c.LineItemsEnabled||!originEqual(v.TicketLines,c.Lines)||!originEqual(v.Markers,c.Markers)||v.Method<1||v.Method>math.MaxInt32||!originHash.MatchString(v.HeaderHash)||!originHash.MatchString(v.AllocationHash)||!originHash.MatchString(v.EffectsHash)||len(v.Lines)<1||len(v.Lines)>1000||!originPoint(v.CreatedAt){return ErrReview}
 	if (v.Origin=="external-system")!=originHash.MatchString(v.SystemAuthorityHash){return ErrReview}
+	if v.AssetsHash!=""&&!originHash.MatchString(v.AssetsHash){return ErrReview}
 	seen:=map[string]bool{};for _,l:=range v.Lines{if !originIdentifier(l.ID)||!originIdentifier(l.ProductID)||l.Quantity<1||l.Quantity>999||!originHash.MatchString(l.InputHash)||seen[l.ID]{return ErrReview};seen[l.ID]=true};return nil
 }
 func OriginAuthorization(raw,key,purpose string,now int64)(OriginPaymentAuthorization,error){

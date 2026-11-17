@@ -145,7 +145,8 @@ def compose_payments(target: Path | str, reference: Path | str,
         'composed': {str(file.relative_to(target)): hashlib.sha256(file.read_bytes()).hexdigest()
                      for file in [target / 'juspay/Order.go', target / 'juspay/model.go', target / 'juspay/payment.go',
                                   target / 'internal/poscheckout/screening.go', target / 'main.go']},
-        'reviewMigrations': ['screening-origins/migration.sql', 'other-writer-origins/go/migration.review.sql'],
+        'reviewMigrations': ['screening-origins/migration.sql', 'screening-origins/assets-migration.sql',
+                             'other-writer-origins/go/migration.review.sql'],
         'effectsCommand': 'cmd/screening-origin-effects',
     }
     (target / 'other-writer-origins-manifest.json').write_text(json.dumps(manifest, sort_keys=True, indent=2) + '\n')

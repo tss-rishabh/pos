@@ -107,5 +107,5 @@ func OriginHTTPHandlers(env func(string)string,client *http.Client)(map[string]O
 
 func OriginLogEvent(w io.Writer,event string,requestID string,actor *string){
 	if w==nil{return};switch event{case "accepted","refused","uncertain","effect-accepted","effect-uncertain","startup-refused":default:return}
-	data,_:=json.Marshal(map[string]interface{}{"eventId":"payments.screening-origin."+event,"eventInstanceId":originSafeRequestID(""),"module":"payments","resource":"screening-origin-payment","requestId":originSafeRequestID(requestID),"userId":actor,"timestamp":time.Now().UTC().Format(time.RFC3339Nano)});w.Write(append(data,'\n'))
+	data,_:=json.Marshal(map[string]interface{}{"eventId":"payments.screening-origin-payment."+event,"eventInstanceId":originSafeRequestID(""),"module":"payments","resource":"screening-origin-payment","requestId":originSafeRequestID(requestID),"userId":actor,"timestamp":time.Now().UTC().Format(time.RFC3339Nano)});w.Write(append(data,'\n'))
 }

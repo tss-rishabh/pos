@@ -43,6 +43,7 @@ type OriginBuildRequest func(context.Context,*sql.Tx,OriginCommand,OriginCreatio
 type OriginEngine struct {
 	DB *sql.DB; Key string; LegacyKey string; CSKAPIKey string; Selected bool
 	Apply OriginApply; Decline OriginApply; BuildRequest OriginBuildRequest; Provider OriginProvider
+	MemberProducts map[string]bool
 	Clock func()time.Time
 	WebhookWindowMillis int64
 }
@@ -60,6 +61,7 @@ type OriginPayment struct {
 	Status string `json:"status"`; ObservationHash string `json:"observationHash"`; Provider string `json:"provider"`
 	Before OriginNativeEvidence `json:"before"`; After OriginNativeEvidence `json:"after"`; EffectsHash string `json:"effectsHash"`
 	SourceCommit string `json:"sourceCommit"`; CreatedAt int64 `json:"createdAt"`
+	FundingBasis string `json:"fundingBasis,omitempty"`;FundingHash *string `json:"fundingHash,omitempty"`;AssetActivationHash *string `json:"assetActivationHash,omitempty"`
 }
 type OriginPaymentOutcome struct { OriginPayment; NoConfirmation bool `json:"noConfirmation"` }
 type OriginPaymentView struct { Status string `json:"status"`; CommandID string `json:"commandId"`; OrderID string `json:"orderId"`; Response *OriginProviderResponse `json:"response,omitempty"`; Receipt *OriginPayment `json:"receipt,omitempty"` }
@@ -103,6 +105,7 @@ func(e *OriginEngine)Start(ctx context.Context,cap OriginPaymentAuthorization,ca
 	attempt,payload,response,err:=originReadAttempt(ctx,u.tx,cap.CommandID,e.Key);if err==nil{if attempt.PaymentRequestHash!=cap.PaymentRequestHash{return OriginPaymentView{},ErrReview};view,err:=e.view(ctx,u,attempt,payload,response);if err!=nil{return view,err};return view,u.commit(ctx)};if !errors.Is(err,sql.ErrNoRows){return OriginPaymentView{},err}
 	if u.command.Phase!="BOUND"||originNative(ctx,u.tx,u.command,u.creation,true)!=nil{return OriginPaymentView{},ErrReview}
 	var nativeStatus int64;if u.tx.QueryRowContext(ctx,`SELECT order_status FROM orders WHERE id=?`,cap.OrderID).Scan(&nativeStatus)!=nil||nativeStatus!=0{return OriginPaymentView{},ErrReview}
+	if err=originLockAssets(ctx,u.tx,u.command);err!=nil{return OriginPaymentView{},err};if _,err=e.verifyAssets(ctx,u.tx,u.command,u.creation);err!=nil{return OriginPaymentView{},err}
 	providerRequest,err:=e.BuildRequest(ctx,u.tx,u.command,u.creation,input);if err!=nil{return OriginPaymentView{},err}
 	if providerRequest.OrderID!=cap.OrderID||providerRequest.CustomerID!=cap.CustomerID{return OriginPaymentView{},ErrReview}
 	sealed,hash,err:=originSeal(e.Key,"payment-request:"+cap.CommandID,providerRequest);if err!=nil{return OriginPaymentView{},err}
@@ -142,6 +145,7 @@ func(e *OriginEngine)apply(ctx context.Context,u *originUnit,a OriginAttempt,o O
 	confirmed:=o.Status=="DIRECT"||o.Status=="CHARGED";failed:=o.Status=="AUTHENTICATION_FAILED"||o.Status=="AUTHORIZATION_FAILED"||o.Status=="JUSPAY_DECLINED"||o.Status=="ORDER_FAILED"
 	phase:="PENDING";collector:=NewOriginEffectCollector(u.command,originSafeRequestID(requestID),e.Key)
 	collector.StockMode=savedRequest.StockMode
+	fundingBasis:="";var fundingHash,assetActivationHash *string
 	if o.Status=="TXN_CREATED"{
 		if before.OrderStatus==0&&before.PaymentStatus!=6{if err=originNativePaymentLog(ctx,u.tx,u.command,o,e.Key);err!=nil{return OriginPaymentView{},err};if _,err=u.tx.ExecContext(ctx,`UPDATE orders SET payment_status=6 WHERE id=? AND order_status=0`,a.OrderID);err!=nil{return OriginPaymentView{},err}}
 	}
@@ -155,13 +159,17 @@ func(e *OriginEngine)apply(ctx context.Context,u *originUnit,a OriginAttempt,o O
 		if confirmed{
 			pending,err:=PendingOriginScreeningCredit(ctx,u.tx,u.command.CustomerID,e.Key,u.command.ID);if err!=nil{return OriginPaymentView{},err};legacy,err:=pendingLegacyOriginCredit(ctx,u.tx,u.command.CustomerID,e.LegacyKey);if err!=nil||u.counter.before+pending+legacy+uint64(u.command.MarkerRows)>2{return OriginPaymentView{},ErrReview}
 			if err=originLockAssets(ctx,u.tx,u.command);err!=nil{return OriginPaymentView{},err}
+			assets,err:=e.verifyAssets(ctx,u.tx,u.command,u.creation);if err!=nil{return OriginPaymentView{},err}
+			fundingBasis,fundingHash,err=e.funding(ctx,u.tx,u.command,u.creation,o);if err!=nil{return OriginPaymentView{},err}
 			cards,err:=lockPendingGiftCards(ctx,u.tx,originInt(a.OrderID));if err!=nil{return OriginPaymentView{},err}
 			if e.Apply==nil{return OriginPaymentView{},ErrReview};if err=e.Apply(ctx,u.tx,OriginApplyContext{u.command,u.creation,o,collector.RequestID,savedRequest.StockMode},collector);err!=nil{return OriginPaymentView{},err}
 			var paid int64;if u.tx.QueryRowContext(ctx,`SELECT payment_status FROM orders WHERE id=?`,a.OrderID).Scan(&paid)!=nil{return OriginPaymentView{},ErrReview}
+			if paid==4&&(fundingBasis=="source-cod"||fundingBasis=="source-coc"){return OriginPaymentView{},ErrReview}
 			// A source placed/COD order is not a funded gift. Activation is bound
 			// to actual paid native status; retained issuance evidence is mandatory.
 			activation:=int64(14);if paid==4{activation=3}
-			if err=recordGiftCardIssuances(ctx,u.tx,originInt(a.OrderID),activation,cards);err!=nil{return OriginPaymentView{},err};phase="CONFIRMED"
+			if err=recordGiftCardIssuances(ctx,u.tx,originInt(a.OrderID),activation,cards);err!=nil{return OriginPaymentView{},err}
+			assetHash,err:=FinishOriginAssets(ctx,u.tx,u.command,u.creation,assets,e.Key);if err!=nil{return OriginPaymentView{},err};if assetHash!=""{assetActivationHash=&assetHash};phase="CONFIRMED"
 		}
 	}else if failed{
 		if before.OrderStatus!=0&&before.OrderStatus!=17{return OriginPaymentView{},ErrReview}
@@ -180,7 +188,7 @@ func(e *OriginEngine)apply(ctx context.Context,u *originUnit,a OriginAttempt,o O
 	view:=OriginPaymentView{Status:phase,CommandID:a.CommandID,OrderID:a.OrderID,Response:&o}
 	if phase=="CONFIRMED"{
 		if after.OrderStatus==0||after.OrderStatus==17||after.PaymentStatus!=1&&after.PaymentStatus!=4{return OriginPaymentView{},ErrReview}
-		proof:=OriginPayment{Contract:"pos-screening-origin-payment-v1",CommandID:a.CommandID,Origin:u.command.Origin,OrderID:a.OrderID,CustomerID:a.CustomerID,CreationHash:a.CreationHash,RequestHash:a.RequestHash,ReferenceHash:a.ReferenceHash,Method:u.creation.Method,Status:phase,ObservationHash:observationHash,Provider:a.Provider,Before:before,After:after,EffectsHash:effectsHash,SourceCommit:OriginPaymentsSourceCommit,CreatedAt:e.now()}
+		proof:=OriginPayment{Contract:"pos-screening-origin-payment-v1",CommandID:a.CommandID,Origin:u.command.Origin,OrderID:a.OrderID,CustomerID:a.CustomerID,CreationHash:a.CreationHash,RequestHash:a.RequestHash,ReferenceHash:a.ReferenceHash,Method:u.creation.Method,Status:phase,ObservationHash:observationHash,Provider:a.Provider,Before:before,After:after,EffectsHash:effectsHash,SourceCommit:OriginPaymentsSourceCommit,CreatedAt:e.now(),FundingBasis:fundingBasis,FundingHash:fundingHash,AssetActivationHash:assetActivationHash}
 		if err=originPersist(ctx,u.tx,"payment",a.CommandID,e.Key,"payment",proof);err!=nil{return OriginPaymentView{},err};view.Receipt=&proof
 	}else if phase=="FAILED"||phase=="CAPTURED"{
 		proof:=OriginPaymentOutcome{OriginPayment:OriginPayment{Contract:"pos-screening-origin-payment-outcome-v1",CommandID:a.CommandID,Origin:u.command.Origin,OrderID:a.OrderID,CustomerID:a.CustomerID,CreationHash:a.CreationHash,RequestHash:a.RequestHash,ReferenceHash:a.ReferenceHash,Method:u.creation.Method,Status:phase,ObservationHash:observationHash,Provider:a.Provider,Before:before,After:after,EffectsHash:effectsHash,SourceCommit:OriginPaymentsSourceCommit,CreatedAt:e.now()},NoConfirmation:true}
@@ -194,7 +202,7 @@ func(e *OriginEngine)view(ctx context.Context,u *originUnit,a OriginAttempt,payl
 	if a.Phase=="CONFIRMED"{p,err:=ReadOriginPayment(ctx,u.tx,u.command,u.creation,e.Key);if err!=nil{return v,err};v.Receipt=&p};return v,nil
 }
 func ReadOriginPayment(ctx context.Context,tx *sql.Tx,c OriginCommand,creation OriginCreation,key string)(OriginPayment,error){
-	var p OriginPayment;var raw []byte;var seal,order string;if tx.QueryRowContext(ctx,`SELECT CAST(order_id AS CHAR),CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_screening_origin_payments WHERE command_id=? FOR SHARE`,c.ID).Scan(&order,&raw,&seal)!=nil||originVerify(key,"payment",raw,seal,&p,16000)!=nil||p.Contract!="pos-screening-origin-payment-v1"||p.CommandID!=c.ID||p.OrderID!=creation.OrderID||order!=p.OrderID||p.CustomerID!=c.CustomerID||p.Origin!=c.Origin||p.CreationHash!=*c.CreationHash||p.RequestHash!=c.RequestHash||p.ReferenceHash!=c.ReferenceHash||p.Method!=creation.Method||p.Status!="CONFIRMED"||p.SourceCommit!=OriginPaymentsSourceCommit||p.After.HeaderHash!=creation.HeaderHash||p.Before.HeaderHash!=creation.HeaderHash||p.After.LinesHash!=p.Before.LinesHash||!originHash.MatchString(p.ObservationHash)||!originHash.MatchString(p.EffectsHash){return p,ErrReview};return p,nil
+	var p OriginPayment;var raw []byte;var seal,order string;if tx.QueryRowContext(ctx,`SELECT CAST(order_id AS CHAR),CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_screening_origin_payments WHERE command_id=? FOR SHARE`,c.ID).Scan(&order,&raw,&seal)!=nil||originVerify(key,"payment",raw,seal,&p,16000)!=nil||p.Contract!="pos-screening-origin-payment-v1"||p.CommandID!=c.ID||p.OrderID!=creation.OrderID||order!=p.OrderID||p.CustomerID!=c.CustomerID||p.Origin!=c.Origin||p.CreationHash!=*c.CreationHash||p.RequestHash!=c.RequestHash||p.ReferenceHash!=c.ReferenceHash||p.Method!=creation.Method||p.Status!="CONFIRMED"||p.SourceCommit!=OriginPaymentsSourceCommit||p.After.HeaderHash!=creation.HeaderHash||p.Before.HeaderHash!=creation.HeaderHash||p.After.LinesHash!=p.Before.LinesHash||!originHash.MatchString(p.ObservationHash)||!originHash.MatchString(p.EffectsHash){return p,ErrReview};if verifyOriginFunding(ctx,tx,c,creation,p,key)!=nil{return p,ErrReview};if creation.AssetsHash!=""{if p.AssetActivationHash==nil||verifyOriginAssetActivation(ctx,tx,c,creation,*p.AssetActivationHash,key)!=nil{return p,ErrReview}}else if p.AssetActivationHash!=nil{return p,ErrReview};return p,nil
 }
 
 func originLockAssets(ctx context.Context,tx *sql.Tx,c OriginCommand)error{
@@ -234,8 +242,14 @@ func(e *OriginEngine)NativeAuthorization(ctx context.Context,commandID string,ca
 }
 func(e *OriginEngine)NativeReadAuthorization(ctx context.Context,commandID string,caller OriginCaller)(OriginPaymentAuthorization,error){
 	var cap OriginPaymentAuthorization;if caller.System||caller.Credential==""||e.ready(false)!=nil{return cap,ErrReview};tx,err:=e.DB.BeginTx(ctx,&sql.TxOptions{Isolation:sql.LevelReadCommitted});if err!=nil{return cap,err};defer tx.Rollback()
+	caller.AuthorityClock=e.now
 	c,err:=ReadOriginCommand(ctx,tx,commandID,caller.CustomerID,e.Key,false);if err!=nil{return cap,err};if c.Origin=="external-system"||c.OrderID==nil||c.CreationHash==nil{return cap,ErrReview};if _,err=OriginAuthorize(ctx,tx,c,caller,e.Key,e.now());err!=nil{return cap,err}
 	a,_,_,err:=originReadAttempt(ctx,tx,c.ID,e.Key);if err!=nil{return cap,err};return OriginPaymentAuthorization{Contract:"pos-screening-origin-payment-submission-v1",CommandID:c.ID,OrderID:*c.OrderID,CustomerID:c.CustomerID,CreationHash:*c.CreationHash,RequestHash:c.RequestHash,ReferenceHash:c.ReferenceHash,AuthorityHash:c.AuthorityHash,PaymentRequestHash:a.PaymentRequestHash,IssuedAt:e.now(),ExpiresAt:e.now()+60000},nil
+}
+func(e *OriginEngine)verifyAssets(ctx context.Context,tx *sql.Tx,c OriginCommand,creation OriginCreation)(*OriginAssetActivation,error){
+	if creation.AssetsHash!=""{return VerifyOriginAssets(ctx,tx,c,creation,e.Key)}
+	var gifts int;if tx.QueryRowContext(ctx,`SELECT COUNT(*) FROM gift_vouchers WHERE order_id=?`,creation.OrderID).Scan(&gifts)!=nil||gifts!=0{return nil,ErrReview}
+	for _,line:=range creation.Lines{if e.MemberProducts[line.ProductID]{return nil,ErrReview}};return nil,nil
 }
 
 // Server-only provider recovery input. Caller authentication is performed by
