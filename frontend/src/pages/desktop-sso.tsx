@@ -10,6 +10,7 @@ import {
   saveDesktopSsoReference,
   markDesktopSsoCreation,
   hasPendingDesktopSsoCreation,
+  hasPendingDesktopLogout,
   type DesktopSsoReference,
 } from '../offline/desktop-sso';
 export { isDesktopRuntime } from '../lib/desktop-runtime';
@@ -76,7 +77,8 @@ export function DesktopSsoLogin({
     [working, setWorking] = useState(false);
   const [resumable, setResumable] = useState<DesktopSsoReference | null>(null),
     [resumeReady, setResumeReady] = useState(false),
-    [creationUnknown, setCreationUnknown] = useState(false);
+    [creationUnknown, setCreationUnknown] = useState(false),
+    [logoutBlocked, setLogoutBlocked] = useState(false);
   const [problem, setProblem] = useState<unknown>(null),
     [unknown, setUnknown] = useState(false),
     [confirmed, setConfirmed] = useState(false);
@@ -87,9 +89,19 @@ export function DesktopSsoLogin({
     lifetime = useRef(new AbortController());
   const callbacks = useRef({ beforeStart, onActiveChange, onSession });
   callbacks.current = { beforeStart, onActiveChange, onSession };
+  const logoutFence = useCallback(() => {
+    if (hasPendingDesktopLogout()) {
+      setLogoutBlocked(true);
+      setUnknown(true);
+      throw new Error(
+        'The previous sign-out is not confirmed. Reset desktop sign-in before continuing.',
+      );
+    }
+  }, []);
   useEffect(() => {
     const controller = new AbortController();
     lifetime.current = controller;
+    setLogoutBlocked(hasPendingDesktopLogout());
     try {
       const previous = readDesktopSsoReference();
       setResumable(previous);
@@ -98,7 +110,15 @@ export function DesktopSsoLogin({
     } catch (error) {
       setProblem(error);
     }
+    const signOut = (event: StorageEvent) => {
+      if (event.key === 'pos-pending-logout' && event.newValue) {
+        setLogoutBlocked(true);
+        setUnknown(true);
+      }
+    };
+    window.addEventListener('storage', signOut);
     return () => {
+      window.removeEventListener('storage', signOut);
       controller.abort();
       current.current = null;
     };
@@ -107,21 +127,27 @@ export function DesktopSsoLogin({
     () => AbortSignal.any([lifetime.current.signal, AbortSignal.timeout(12000)]),
     [],
   );
-  const finish = useCallback(async (target: Flow, saved: Session) => {
-    if (current.current !== target || lifetime.current.signal.aborted) return;
-    credential.current = saved;
-    dispatch.current = 'confirmed';
-    setConfirmed(true);
-    setUnknown(false);
-    clearDesktopSsoReference(target.id);
-    await callbacks.current.onSession(saved);
-    if (current.current !== target || lifetime.current.signal.aborted) return;
-    current.current = null;
-    setFlow(null);
-    callbacks.current.onActiveChange(false);
-  }, []);
+  const finish = useCallback(
+    async (target: Flow, saved: Session) => {
+      if (current.current !== target || lifetime.current.signal.aborted) return;
+      logoutFence();
+      credential.current = saved;
+      dispatch.current = 'confirmed';
+      setConfirmed(true);
+      setUnknown(false);
+      clearDesktopSsoReference(target.id);
+      await callbacks.current.onSession(saved);
+      logoutFence();
+      if (current.current !== target || lifetime.current.signal.aborted) return;
+      current.current = null;
+      setFlow(null);
+      callbacks.current.onActiveChange(false);
+    },
+    [logoutFence],
+  );
   const consume = useCallback(
     async (target: Flow) => {
+      logoutFence();
       dispatch.current = 'inflight';
       try {
         const saved = await request(
@@ -130,6 +156,7 @@ export function DesktopSsoLogin({
           sessionSchema,
         );
         if (current.current !== target) return;
+        logoutFence();
         await finish(target, saved);
       } catch (error) {
         if (current.current !== target || lifetime.current.signal.aborted) return;
@@ -140,7 +167,7 @@ export function DesktopSsoLogin({
         setProblem(error);
       }
     },
-    [finish, signal],
+    [finish, signal, logoutFence],
   );
   const check = useCallback(async () => {
     const target = current.current;
@@ -154,6 +181,7 @@ export function DesktopSsoLogin({
     busy.current = true;
     setWorking(true);
     try {
+      logoutFence();
       if (target.expires <= Date.now()) {
         clearDesktopSsoReference(target.id);
         current.current = null;
@@ -198,7 +226,7 @@ export function DesktopSsoLogin({
       busy.current = false;
       if (!lifetime.current.signal.aborted) setWorking(false);
     }
-  }, [consume, signal]);
+  }, [consume, signal, logoutFence]);
   useEffect(() => {
     if (!flow) return;
     void check();
@@ -222,7 +250,9 @@ export function DesktopSsoLogin({
     callbacks.current.onActiveChange(true);
     let dispatched = false;
     try {
+      logoutFence();
       await callbacks.current.beforeStart();
+      logoutFence();
       lifetime.current.signal.throwIfAborted();
       markDesktopSsoCreation();
       dispatched = true;
@@ -258,7 +288,9 @@ export function DesktopSsoLogin({
     setWorking(true);
     setProblem(null);
     try {
+      logoutFence();
       await callbacks.current.beforeStart();
+      logoutFence();
       const original = await request(
         '/api/v1/auth/desktop-sso-sessions/current',
         { cache: 'no-store', signal: signal() },
@@ -310,6 +342,7 @@ export function DesktopSsoLogin({
     try {
       await request('/api/v1/auth/sessions/current', { method: 'DELETE', signal: signal() });
       lifetime.current.signal.throwIfAborted();
+      localStorage.removeItem('pos-pending-logout');
       // An acknowledged idempotent logout clears the HttpOnly desktop proof.
       // A missing/failed response keeps the dispatch marker and original UUID.
       clearDesktopSsoReference();
@@ -321,6 +354,7 @@ export function DesktopSsoLogin({
       setUnknown(false);
       setConfirmed(false);
       setCreationUnknown(false);
+      setLogoutBlocked(false);
       callbacks.current.onActiveChange(false);
     } catch (error) {
       if (!lifetime.current.signal.aborted) setProblem(error);
@@ -336,6 +370,7 @@ export function DesktopSsoLogin({
     setProblem(null);
     callbacks.current.onActiveChange(true);
     try {
+      logoutFence();
       if (resumable.expires <= Date.now()) {
         clearDesktopSsoReference(resumable.id);
         setResumable(null);
@@ -344,6 +379,7 @@ export function DesktopSsoLogin({
         return;
       }
       await callbacks.current.beforeStart();
+      logoutFence();
       lifetime.current.signal.throwIfAborted();
       const original = { ...resumable };
       current.current = original;
@@ -388,6 +424,7 @@ export function DesktopSsoLogin({
     busy.current = true;
     setWorking(true);
     try {
+      logoutFence();
       await request(
         flowPath(target) + '/cancellations',
         { method: 'POST', body: '{}', signal: signal() },
@@ -418,7 +455,7 @@ export function DesktopSsoLogin({
         <button
           className="button secondary full"
           type="button"
-          disabled={!enabled || disabled || working || !resumeReady}
+          disabled={!enabled || disabled || working || !resumeReady || logoutBlocked}
           onClick={() => void (resumable ? resume() : creationUnknown ? restoreCurrent() : start())}
         >
           {resumable
@@ -495,6 +532,11 @@ export function DesktopSsoLogin({
           </div>
         </section>
       )}
+      {logoutBlocked && (
+        <p role="status" className="caption">
+          Confirm the previous sign-out with Reset desktop sign-in before continuing.
+        </p>
+      )}
       {!flow && !resumable && !creationUnknown && (
         <button
           className="button secondary full"
@@ -505,7 +547,7 @@ export function DesktopSsoLogin({
           Check previous Google sign-in
         </button>
       )}
-      {(creationUnknown || unknown) && (
+      {(creationUnknown || unknown || logoutBlocked) && (
         <button
           className="button secondary full"
           type="button"

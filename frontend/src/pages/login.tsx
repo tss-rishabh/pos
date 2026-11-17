@@ -8,6 +8,7 @@ import { ErrorState, Loading } from '../components/common';
 import { useWorkspace } from '../state/workspace';
 import { db } from '../offline/database';
 import { isDesktopRuntime } from '../lib/desktop-runtime';
+import { hasPendingDesktopLogout } from '../offline/desktop-sso';
 
 const DesktopSsoLogin = lazy(() =>
   import('./desktop-sso').then((module) => ({ default: module.DesktopSsoLogin })),
@@ -134,18 +135,25 @@ export function Login() {
     }
   }
   async function acceptDesktopSession(expected: z.infer<typeof sessionSchema>) {
-    if (localStorage.getItem('pos-pending-logout'))
-      throw new Error('Sign-in was cancelled. Start again.');
+    if (hasPendingDesktopLogout()) throw new Error('Sign-in was cancelled. Start again.');
     const current = await request('/api/v1/auth/sessions/current', {}, sessionSchema);
+    if (hasPendingDesktopLogout()) throw new Error('Sign-in was cancelled. Reset desktop sign-in.');
     if (current.user.id !== expected.user.id) {
       await complete();
       throw new Error('The signed-in operator changed. Refresh the workspace.');
     }
-    await db.sessions.put({
-      id: 'current',
-      user: current.user,
-      expiresAt: current.sessionExpiresAt,
+    await db.transaction('rw', db.sessions, async () => {
+      if (hasPendingDesktopLogout())
+        throw new Error('Sign-in was cancelled. Reset desktop sign-in.');
+      await db.sessions.put({
+        id: 'current',
+        user: current.user,
+        expiresAt: current.sessionExpiresAt,
+      });
+      if (hasPendingDesktopLogout())
+        throw new Error('Sign-in was cancelled. Reset desktop sign-in.');
     });
+    if (hasPendingDesktopLogout()) throw new Error('Sign-in was cancelled. Reset desktop sign-in.');
     client.setQueryData(['operator'], current.user);
   }
   return (

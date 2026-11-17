@@ -2,6 +2,13 @@ import { z } from 'zod';
 
 const key = 'pos-desktop-sso-reference';
 const pendingKey = 'pos-desktop-sso-create-pending';
+export function hasPendingDesktopLogout() {
+  try {
+    return !!localStorage.getItem('pos-pending-logout');
+  } catch {
+    return true;
+  }
+}
 export const desktopSsoReferenceSchema = z
   .object({ id: z.uuid(), expires: z.number().int().positive().safe() })
   .strict();
