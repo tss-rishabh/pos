@@ -70,6 +70,17 @@ provider normalization/native payment-log/response edges, mismatch alert effects
 callback/privacy/recovery cleanup. Selectors remain off; none of these guards or
 unfinished variants is claimed as feature-complete. Final validation stays later.
 
+On `318f8dd`, source assembly also includes the composer's explicitly named
+review SQL under `pos-review-migrations/`, with hashes in the retained manifest.
+Latest generated tree: `/tmp/pos-payments-origin-assembly-20261118-review`
+(85 files). This only generated source/copies SQL; no SQL was applied.
+
+CSK positive-prepaid authority is under source inspection. No blanket refusal or
+new mandatory external receipt requirement is an approved business correction.
+Preserve genuine source-authorized externally prepaid behavior; establish whether
+the original service key carries that authority before changing the contract.
+Technical refusal receipts cannot stand in for completing that existing feature.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only
