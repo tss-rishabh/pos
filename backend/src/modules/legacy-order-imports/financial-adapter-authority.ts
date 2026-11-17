@@ -1,3 +1,4 @@
+import { successionExecution } from './authority-succession/execution.js';
 import { and, desc, eq } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import { MUser, PosUser, Store, StoreDayClose } from '../../db/legacy-schema.js';
@@ -127,6 +128,8 @@ export async function assertFinancialImportAuthority(
   scope: ImportFinancialScope,
   original: FinancialImportAuthority,
 ) {
+  const delegated = successionExecution(tx, scope, original);
+  if (delegated) return delegated.grant.data.authority;
   const actor = await lockFinancialImportScope(tx, scope),
     contact = await readCustomerContactBinding(tx, original.customerId);
   if (

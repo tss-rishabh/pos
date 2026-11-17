@@ -21,6 +21,8 @@ import (
 const LegacyImportContract = "pos-legacy-order-import-confirmation-v1"
 
 type importContextKey struct{}
+type importScope struct { ActorID string `json:"actorId"`; OperationID string `json:"operationId"`; StoreID string `json:"storeId"`; CounterID string `json:"counterId"` }
+type importAuthority struct { CustomerID string `json:"customerId"`; ActorVersion string `json:"actorVersion"`; ActorEpoch string `json:"actorEpoch"`; Contact ContactBinding `json:"contact"` }
 type importCapability struct {
 	Contract    string `json:"contract"`
 	Phase       string `json:"phase"`
@@ -31,18 +33,10 @@ type importCapability struct {
 	PlanDigest  string `json:"planDigest"`
 	OrderID     string `json:"orderId"`
 	Nonce       string `json:"nonce"`
-	Scope       struct {
-		ActorID     string `json:"actorId"`
-		OperationID string `json:"operationId"`
-		StoreID     string `json:"storeId"`
-		CounterID   string `json:"counterId"`
-	} `json:"scope"`
-	Authority struct {
-		CustomerID   string         `json:"customerId"`
-		ActorVersion string         `json:"actorVersion"`
-		ActorEpoch   string         `json:"actorEpoch"`
-		Contact      ContactBinding `json:"contact"`
-	} `json:"authority"`
+	Scope importScope `json:"scope"`
+	Authority importAuthority `json:"authority"`
+	Succession *importSuccessionEnvelope `json:"succession,omitempty"`
+	authKey string
 	IssuedAt  int64 `json:"issuedAt"`
 	ExpiresAt int64 `json:"expiresAt"`
 	raw       map[string]interface{}
@@ -131,7 +125,7 @@ func WithLegacyImport(ctx context.Context, raw, key string, now time.Time) (cont
 	var input map[string]interface{}
 	decoder := json.NewDecoder(bytes.NewReader(bytesValue))
 	decoder.UseNumber()
-	if decoder.Decode(&input) != nil || len(input) != 14 {
+	if decoder.Decode(&input) != nil || (len(input) != 14 && len(input) != 15) {
 		return bad()
 	}
 	var extra interface{}
@@ -156,6 +150,8 @@ func WithLegacyImport(ctx context.Context, raw, key string, now time.Time) (cont
 		return bad()
 	}
 	capability.raw = input
+	capability.authKey = key
+	if len(input)==13 { if _,has:=input["succession"];has{return bad()} } else if input["succession"]==nil{return bad()}
 	if capability.Contract != "pos-legacy-order-import-source-v1" || capability.Phase != "confirmation" ||
 		!consentIdentifier(capability.OrderID) || !consentIdentifier(capability.Scope.ActorID) ||
 		!consentIdentifier(capability.Scope.StoreID) || !consentIdentifier(capability.Scope.CounterID) ||
@@ -166,6 +162,7 @@ func WithLegacyImport(ctx context.Context, raw, key string, now time.Time) (cont
 		capability.IssuedAt > now.UnixMilli() || capability.ExpiresAt <= now.UnixMilli() || capability.ExpiresAt > capability.IssuedAt+60000 {
 		return bad()
 	}
+	if validateImportSuccessionCapability(&capability,key,now)!=nil{return bad()}
 	return context.WithValue(ctx, importContextKey{}, importContext{value: &capability}), nil
 }
 
@@ -226,7 +223,9 @@ func lockLegacyImport(ctx context.Context, tx *sql.Tx, orderID, userID, storeID,
 	if c.IssuedAt > time.Now().UnixMilli() || c.ExpiresAt <= time.Now().UnixMilli() {
 		return nil, ErrReview
 	}
-	if err = freshLegacyImportActor(ctx, tx, c); err != nil {
+	if err=verifyLegacyImportSuccession(ctx,tx,c);err!=nil{return nil,err}
+	if marker,has:=original["authoritySuccession"];has { if c.Succession==nil||!importEqualJSON(marker,map[string]interface{}{"id":c.Succession.Data.ID,"sequence":c.Succession.Data.Sequence,"hash":c.Succession.SourceHash}){return nil,ErrReview} }
+	if err = freshLegacyImportActor(ctx, tx, effectiveLegacyImport(c)); err != nil {
 		return nil, err
 	}
 	var digest string
@@ -238,7 +237,7 @@ func lockLegacyImport(ctx context.Context, tx *sql.Tx, orderID, userID, storeID,
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
-	if digest != c.Authority.Contact.Digest || strconv.FormatUint(revision, 10) != c.Authority.Contact.Revision {
+	if digest != effectiveLegacyImport(c).Authority.Contact.Digest || strconv.FormatUint(revision, 10) != effectiveLegacyImport(c).Authority.Contact.Revision {
 		return nil, ErrReview
 	}
 	if c.ExpiresAt <= time.Now().UnixMilli() {
@@ -316,6 +315,7 @@ func recordLegacyImportConfirmation(ctx context.Context, tx *sql.Tx, c *importCa
 	proof := map[string]interface{}{"contract": LegacyImportContract, "operationId": c.OperationID, "orderId": c.OrderID,
 		"requestHash": c.RequestHash, "nonce": c.Nonce, "customerId": c.Authority.CustomerID, "storeId": c.Scope.StoreID,
 		"counterId": c.Scope.CounterID, "headerHash": header, "confirmedAt": time.Now().UnixMilli()}
+	if c.Succession!=nil{proof["succession"]=map[string]interface{}{"id":c.Succession.Data.ID,"sequence":c.Succession.Data.Sequence,"hash":c.Succession.SourceHash}}
 	encoded, err := json.Marshal(proof)
 	if err != nil {
 		return err

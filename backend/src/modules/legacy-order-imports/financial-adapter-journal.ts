@@ -1,3 +1,8 @@
+import { readSuccessionHead } from './authority-succession/ledger.js';
+import {
+  successionScopePrefix,
+  assertSuccessionExecution,
+} from './authority-succession/execution.js';
 import { and, eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -81,7 +86,7 @@ export async function lockFinancialImportStore(
 export function legacyImportFinancialJournal(
   config: Config,
   db: Databases,
-  options: FinancialApprovalOptions,
+  options: FinancialApprovalOptions & { sourceAuthKey?: string },
   profiles: FinancialImportProfiles = financialAdapterProfiles(),
   preparationSelected = false,
 ) {
@@ -104,7 +109,7 @@ export function legacyImportFinancialJournal(
       storeId: scope.storeId,
       counterId: scope.counterId,
     });
-    await lockFinancialImportStore(tx, boundScope);
+    if (!successionScopePrefix(tx, boundScope)) await lockFinancialImportStore(tx, boundScope);
     return readFinancialImportRecord(tx, boundScope, options.secret);
   }
   async function save(tx: AdministrationTransaction, state: ImportFinancialState) {
@@ -292,6 +297,8 @@ export function legacyImportFinancialJournal(
         const loaded = await load(tx, scope);
         if (!loaded || loaded.state.status !== 'running')
           throw importFinancialError('ORDER_IMPORT_ORIGINAL_STAGE_UNCERTAIN');
+        await readSuccessionHead(tx, loaded.state, options);
+        assertSuccessionExecution(tx, loaded.state);
         await assertFinancialImportAuthority(tx, scope, loaded.state.authority);
         if (kind !== 'publication') {
           const authorization = await approvals.authorizeStart(tx, {

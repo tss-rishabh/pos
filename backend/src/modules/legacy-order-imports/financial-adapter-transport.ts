@@ -28,6 +28,7 @@ import {
 } from './source-order-preparation-contracts.js';
 export interface FinancialSourceCommand {
   state: ImportFinancialState;
+  succession?: import('./authority-succession/contracts.js').ImportSuccessionEnvelope;
   plan: LegacyOrderImportPlan;
   nonce: string;
   issuedAt: number;
@@ -151,6 +152,7 @@ export function legacyImportFinancialTransport(
               input.couponHistory?.capability.expiresAt ?? input.expiresAt,
             )
           : input.expiresAt,
+      ...(input.succession ? { succession: input.succession } : {}),
       ...(phase === 'order' &&
       'preparationContract' in input.state &&
       input.state.preparationContract
@@ -194,7 +196,7 @@ export function legacyImportFinancialTransport(
   }
   const headers = (input: FinancialSourceCommand) => ({
     'X-POS-Legacy-Import-Key': options.sourceAuthKey ?? '',
-    'X-POS-Operator-ID': input.state.scope.actorId,
+    'X-POS-Operator-ID': input.succession?.data.managerId ?? input.state.scope.actorId,
     'X-Request-ID': input.state.requestId,
   });
   return {
@@ -239,7 +241,7 @@ export function legacyImportFinancialTransport(
           'X-POS-Legacy-Import-Capability': Buffer.from(JSON.stringify(proof)).toString(
             'base64url',
           ),
-          'X-POS-Operator-ID': input.state.scope.actorId,
+          'X-POS-Operator-ID': input.succession?.data.managerId ?? input.state.scope.actorId,
           'X-Request-ID': input.state.requestId,
         },
       );

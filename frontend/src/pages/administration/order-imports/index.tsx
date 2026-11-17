@@ -1,3 +1,4 @@
+import { ImportAuthorityRecovery } from './ImportAuthorityRecovery';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import type { Principal } from '../../../api/types';
@@ -52,6 +53,7 @@ export default function OrderImportsPage(props: { user: Principal; online: boole
   return <OrderImports key={orderImportActorScope(props.user)} {...props} />;
 }
 function OrderImports({ user, online }: { user: Principal; online: boolean }) {
+  const [authorityPending, setAuthorityPending] = useState(false);
   const [correctionPending, setCorrectionPending] = useState(false),
     [correctionReceipt, setCorrectionReceipt] = useState<CorrectionReceipt | null>(null),
     [correctionFence, setCorrectionFence] = useState<CorrectionFence | null>(null),
@@ -116,6 +118,7 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
     busy ||
     resumePending ||
     correctionPending ||
+    authorityPending ||
     !online ||
     Boolean(initial.error || approvalProblem);
   useEffect(() => {
@@ -356,6 +359,14 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
             )}
           </section>
         )}
+      <ImportAuthorityRecovery
+        user={user}
+        online={online}
+        disabled={
+          busy || resumePending || correctionPending || Boolean(initial.error || approvalProblem)
+        }
+        onPending={setAuthorityPending}
+      />
       <SavedImportApprovals
         user={user}
         intents={approvalIntents}

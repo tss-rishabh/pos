@@ -130,10 +130,12 @@ func beginImportConfirmation(ctx context.Context, db *sql.DB, orderID int64) (*s
 	}
 	// Every SELECT before the customer is a current locking read. Owned RC also
 	// prevents absent control-proof next-key gaps between different customers.
-	if p.actor != "" {
+	actorForLocks:=p.actor
+	if p.operation!=""&&p.binding=="held"{actorForLocks=legacyImportActorHint(state.value,p.actor)}
+	if actorForLocks != "" {
 		for _, query := range []string{`SELECT id FROM pos_user WHERE id=? FOR SHARE`, `SELECT epoch FROM pos_rewrite_operator_auth_epochs WHERE operator_id=? FOR SHARE`} {
 			var ignored string
-			if err = tx.QueryRowContext(ctx, query, p.actor).Scan(&ignored); err != nil && err != sql.ErrNoRows {
+			if err = tx.QueryRowContext(ctx, query, actorForLocks).Scan(&ignored); err != nil && err != sql.ErrNoRows {
 				return fail(err)
 			}
 		}
@@ -142,6 +144,7 @@ func beginImportConfirmation(ctx context.Context, db *sql.DB, orderID int64) (*s
 	if err = tx.QueryRowContext(ctx, `SELECT id FROM stores WHERE id=? FOR UPDATE`, p.store).Scan(&found); err != nil {
 		return fail(err)
 	}
+	if p.operation!=""&&p.binding=="held"&&state.value!=nil&&state.value.Succession!=nil{var checkin string;if err=tx.QueryRowContext(ctx,`SELECT operator_id FROM pos_rewrite_operator_checkins WHERE operator_id=? AND store_id=? AND counter_id=? AND expires_at>UTC_TIMESTAMP(3) FOR SHARE`,actorForLocks,p.store,p.counter).Scan(&checkin);err!=nil{return fail(err)}}
 	if p.operation != "" {
 		var actor, store, counter string
 		if err = tx.QueryRowContext(ctx, `SELECT actor_id,store_id,counter_id FROM pos_rewrite_import_financial_operations WHERE id=? FOR UPDATE`, p.operation).Scan(&actor, &store, &counter); err != nil {
@@ -151,6 +154,7 @@ func beginImportConfirmation(ctx context.Context, db *sql.DB, orderID int64) (*s
 			return fail(ErrReview)
 		}
 	}
+	if p.operation!=""&&p.binding=="held"{if err=verifyLegacyImportSuccession(ctx,tx,state.value);err!=nil{return fail(err)}}
 	if err = tx.QueryRowContext(ctx, `SELECT id FROM users WHERE id=? FOR UPDATE`, p.user).Scan(&found); err != nil {
 		return fail(err)
 	}

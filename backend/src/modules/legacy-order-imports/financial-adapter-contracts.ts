@@ -1,3 +1,7 @@
+import {
+  successionReferenceSchema,
+  successionSnapshotSchema,
+} from './authority-succession/contracts.js';
 import { z } from 'zod';
 import { Temporal } from '@js-temporal/polyfill';
 import { identifier } from '../../domain/validation.js';
@@ -203,6 +207,7 @@ export const sourceConfirmationReceiptSchema = z
     counterId: identifier,
     headerHash: importProofHash,
     confirmedAt: time,
+    succession: successionReferenceSchema.optional(),
   })
   .strict();
 export const sourceRejectionReceiptSchema = z
@@ -234,6 +239,7 @@ export const importPublicationReceiptSchema = z
     requestHash: importProofHash,
     sourceHash: importProofHash,
     acceptedAt: time,
+    succession: successionReferenceSchema.optional(),
     delivery: z.literal('durable-queue-accepted'),
     jobs: z
       .array(
@@ -272,6 +278,7 @@ export const importSettlementReceiptSchema = z
     manualOther: amount,
     recordedAt: date,
     finalizedAt: time,
+    succession: successionReferenceSchema.optional(),
     closeImpactId: z.string().max(100).nullable(),
     smsJobId: z.string().max(80).nullable(),
   })
@@ -290,6 +297,7 @@ export const importCompletedProofSchema = z
     order: sourceOrderReceiptSchema,
     settlement: importSettlementReceiptSchema,
     publication: importPublicationReceiptSchema,
+    authoritySuccession: successionSnapshotSchema.optional(),
     // Absence is preserved for existing HMACs. Never inject a default null.
     membership: csvMembershipCompletionSnapshotSchema.optional(),
     benefits: csvFinancialBenefitSnapshotSchema.optional(),
@@ -307,6 +315,7 @@ export const importFinancialStateSchema = z
     namespace: z.string().regex(/^pos-import-v1:[a-f0-9-]{36}$/),
     authority: financialImportAuthoritySchema,
     status: z.enum(['running', 'unknown', 'rejected', 'completed']),
+    authoritySuccession: successionReferenceSchema.optional(),
     correction: importCorrectionBindingSchema.optional(),
     preparationContract: z.literal(financialOrderPreparationContract).optional(),
     benefitContracts: financialBenefitContractsSchema.optional(),

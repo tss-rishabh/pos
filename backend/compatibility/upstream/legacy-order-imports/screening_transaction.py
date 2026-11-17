@@ -58,17 +58,21 @@ class _Witness:
                 self.customer_seen=True
 
 
-def prefix(session,cap):
+def prefix(session,cap,factual=False):
     # Shared actor/epoch prefix matches Node administration. It deliberately
     # does not require an active old actor: original immutable service receipt
     # reconciliation must survive archival. New work still calls fresh_authority.
-    rows(session,'SELECT id FROM pos_user WHERE id=:id FOR SHARE',{'id':cap['scope']['actorId']},2)
-    rows(session,'SELECT epoch FROM pos_rewrite_operator_auth_epochs WHERE operator_id=:id FOR SHARE',{'id':cap['scope']['actorId']},2)
+    from authority_succession import actor_hint
+    actor=actor_hint(cap)
+    rows(session,'SELECT id FROM pos_user WHERE id=:id FOR SHARE',{'id':actor},2)
+    rows(session,'SELECT epoch FROM pos_rewrite_operator_auth_epochs WHERE operator_id=:id FOR SHARE',{'id':actor},2)
     one(session,'SELECT id FROM stores WHERE id=:id FOR UPDATE',{'id':cap['scope']['storeId']})
+    if cap.get('succession') and not factual:
+        one(session,'SELECT operator_id FROM pos_rewrite_operator_checkins WHERE operator_id=:actor AND store_id=:store AND counter_id=:counter AND expires_at>UTC_TIMESTAMP(3) FOR SHARE',{'actor':actor,'store':cap['scope']['storeId'],'counter':cap['scope']['counterId']})
 
 
 @contextmanager
-def owned(session,cap):
+def owned(session,cap,factual=False):
     session=_session(session)
     if session.in_transaction() or _ACTIVE.get() is not None:
         raise ImportReview('ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED')
@@ -86,7 +90,7 @@ def owned(session,cap):
         observer=witness.observe
         event.listen(connection,'before_cursor_execute',observer)
         try:
-            prefix(session,cap)
+            prefix(session,cap,factual)
             yield witness
             if witness.violation:witness.reject()
         finally:

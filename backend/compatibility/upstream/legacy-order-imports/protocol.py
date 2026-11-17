@@ -58,7 +58,7 @@ def verify_benefit_contracts(value):
 def verify_capability(key, supplied, operation_id, phase, plan=None, now_ms=None):
     expected = {'contract','phase','operationId','requestHash','planHash','namespace','planDigest',
                 'scope','authority','orderId','nonce','issuedAt','expiresAt','signature'}
-    optional={'correctionHash','membershipHistoryHash','preparationContract','couponHistoryHash','benefitContracts'}
+    optional={'succession','correctionHash','membershipHistoryHash','preparationContract','couponHistoryHash','benefitContracts'}
     if (not isinstance(supplied, dict) or not expected.issubset(supplied)
             or set(supplied)-expected-optional):
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
@@ -93,6 +93,8 @@ def verify_capability(key, supplied, operation_id, phase, plan=None, now_ms=None
         identifier(supplied['orderId'])
     elif supplied['orderId'] is not None:
         raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
+    from authority_succession import verify_envelope
+    verify_envelope(key,supplied,phase,current)
     return supplied
 
 

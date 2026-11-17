@@ -1,3 +1,4 @@
+import { importAuthoritySuccessionContract } from './authority-succession/contracts.js';
 import { z } from 'zod';
 import type { CheckoutEnvironment } from '../checkout/gateway.js';
 import { checkoutEnvironment } from '../checkout/gateway.js';
@@ -12,6 +13,7 @@ import {
 } from './financial-adapter-contracts.js';
 export interface LegacyImportFinancialOptions {
   secret: string;
+  authoritySuccessionContract?: typeof importAuthoritySuccessionContract;
   correctionContract?: typeof importCorrectionContract;
   contract?: typeof financialImportContract;
   sourceContract?: typeof financialSourceContract;
@@ -47,6 +49,9 @@ export function legacyImportFinancialOptions(
   const value = z
     .object({
       LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: z.string().regex(/^[!-~]{32,4096}$/),
+      LEGACY_ORDER_IMPORT_AUTHORITY_SUCCESSION_CONTRACT: optional(
+        z.literal(importAuthoritySuccessionContract),
+      ),
       LEGACY_ORDER_IMPORT_CORRECTION_CONTRACT: optional(z.literal(importCorrectionContract)),
       UPSTREAM_POS_LEGACY_IMPORT_FINANCIAL_CONTRACT: optional(z.literal(financialImportContract)),
       UPSTREAM_POS_LEGACY_IMPORT_SOURCE_CONTRACT: optional(z.literal(financialSourceContract)),
@@ -65,6 +70,7 @@ export function legacyImportFinancialOptions(
     .parse(env);
   return {
     secret: value.LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1,
+    authoritySuccessionContract: value.LEGACY_ORDER_IMPORT_AUTHORITY_SUCCESSION_CONTRACT,
     correctionContract: value.LEGACY_ORDER_IMPORT_CORRECTION_CONTRACT,
     contract: value.UPSTREAM_POS_LEGACY_IMPORT_FINANCIAL_CONTRACT,
     sourceContract: value.UPSTREAM_POS_LEGACY_IMPORT_SOURCE_CONTRACT,

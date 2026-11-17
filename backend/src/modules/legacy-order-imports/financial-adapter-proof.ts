@@ -1,3 +1,4 @@
+import { assertCompletedAuthoritySuccession } from './authority-succession/completion.js';
 import { createHash } from 'node:crypto';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { AdministrationTransaction } from '../administration/checkins.js';
@@ -187,6 +188,7 @@ export async function readAuthenticatedImportCompletion(
   )
     throw importFinancialError('ORDER_IMPORT_RECEIPT_INVALID');
   assertCompletedImportCorrection(proof);
+  assertCompletedAuthoritySuccession(proof);
   if (proof.membership !== undefined) {
     validateCsvMembershipCompletionSnapshot(proof.membership, proof);
   } else {

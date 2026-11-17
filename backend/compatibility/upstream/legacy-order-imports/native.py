@@ -30,7 +30,7 @@ def json_value(value):
     return json.loads(value) if isinstance(value,(str,bytes)) else value
 
 
-def lock_command(session,capability,phase):
+def lock_command(session,capability,phase,auth_key=None,factual=False):
     operation=one(session,"SELECT actor_id,store_id,counter_id,request_hash,plan_hash,namespace,state FROM pos_rewrite_import_financial_operations WHERE id=:id AND OCTET_LENGTH(state)<=16000 FOR UPDATE",{'id':capability['operationId']})
     state=json_value(operation['state'])
     for name,column in [('actorId','actor_id'),('storeId','store_id'),('counterId','counter_id')]:
@@ -40,6 +40,8 @@ def lock_command(session,capability,phase):
         operation['namespace']!=capability['namespace'] or state['scope']!=capability['scope'] or
         state['authority']!=capability['authority'] or state['status'] not in ('running','unknown')):
         raise ImportReview('ORDER_IMPORT_NATIVE_SCOPE_INVALID')
+    from authority_succession import verify_native
+    verify_native(session,capability,state,phase,auth_key,factual)
     stage=one(session,"SELECT nonce,status FROM pos_rewrite_import_financial_stages WHERE operation_id=:id AND kind=:kind FOR UPDATE",{'id':capability['operationId'],'kind':phase})
     if stage['nonce']!=capability['nonce'] or stage['status']!='dispatched':
         raise ImportReview('ORDER_IMPORT_ORIGINAL_STAGE_UNCERTAIN')
@@ -47,7 +49,9 @@ def lock_command(session,capability,phase):
 
 
 def fresh_authority(session,capability):
-    scope,authority=capability['scope'],capability['authority']
+    from authority_succession import effective
+    current=effective(capability)
+    scope,authority=current['scope'],current['authority']
     # Native flag types are checked rather than relying on Python truthiness.
     actor=one(session,"SELECT * FROM pos_user WHERE id=:id FOR SHARE",{'id':scope['actorId']})
     if actor['is_active']!=1 or actor['user_type']!=1 or actor['role'] not in (1,2,3):

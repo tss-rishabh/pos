@@ -1,3 +1,5 @@
+import { legacyImportAuthoritySuccession } from './authority-succession/service.js';
+import { successionCompletionSnapshot } from './authority-succession/ledger.js';
 import { and, eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -369,6 +371,9 @@ export function legacyOrderImportFinancialAdapter(
       ...(benefits ? { benefits } : {}),
       ...(state.benefitContracts ? { benefitContracts: state.benefitContracts } : {}),
       ...(state.correction ? { correction: state.correction } : {}),
+      ...(state.authoritySuccession
+        ? { authoritySuccession: await successionCompletionSnapshot(tx, state, options) }
+        : {}),
       finalizedAt: now(),
     });
     await tx.insert(financialImportProofs).values({
@@ -549,6 +554,12 @@ export function legacyOrderImportFinancialAdapter(
     }
   }
   return {
+    authoritySuccession: legacyImportAuthoritySuccession(config, db, options, {
+      journal,
+      profiles,
+      transport,
+      read,
+    }),
     preparationRecovery: preparation.recovery,
     ...(preparation.hooks ? { preparation: preparation.hooks } : {}),
     async authorizeStart(tx, input) {

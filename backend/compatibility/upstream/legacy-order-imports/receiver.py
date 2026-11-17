@@ -178,14 +178,15 @@ class Receiver:
             return self._order(operation_id,body,plan,cap)
 
     def _order(self,operation_id,body,plan,cap):
-        TRUSTED_ACTOR.set(cap['scope']['actorId'])
+        from authority_succession import actor_hint
+        TRUSTED_ACTOR.set(actor_hint(cap))
         self.assert_publisher()
         failure=None
         calculation_review=None
         with self.session_factory() as session:
             try:
                 with owned(session,cap):
-                    state=lock_command(session,cap,'order')
+                    state=lock_command(session,cap,'order',self.auth_key)
                     if state.get('preparationContract')!=cap.get('preparationContract'):
                         raise ImportReview('ORDER_IMPORT_PREPARATION_INVALID')
                     if state.get('benefitContracts')!=cap.get('benefitContracts'):
@@ -267,7 +268,7 @@ class Receiver:
                 failure=error.code if isinstance(error,ImportReview) else 'ORDER_IMPORT_SOURCE_REVIEW'
                 calculation_review=error if type(error) is CalculatedImportReview else None
             with owned(session,cap):
-                lock_command(session,cap,'order')
+                lock_command(session,cap,'order',self.auth_key)
                 if prior(session,operation_id,'order'):
                     return {'recorded':True}
                 bound=rows(session,'SELECT order_id FROM pos_rewrite_import_financial_order_bindings WHERE operation_id=:op FOR UPDATE',{'op':operation_id},2)
@@ -285,15 +286,18 @@ class Receiver:
         if not isinstance(body,dict) or set(body)!={'capability','orderId'}:
             raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
         cap=verify_capability(self.auth_key,body['capability'],operation_id,'publication',None,self.clock())
-        TRUSTED_ACTOR.set(cap['scope']['actorId'])
+        from authority_succession import actor_hint
+        TRUSTED_ACTOR.set(actor_hint(cap))
         if body['orderId']!=cap['orderId']:
             raise ImportReview('ORDER_IMPORT_NATIVE_SCOPE_INVALID')
         self.assert_publisher()
         with self.session_factory() as session:
             with owned(session,cap):
-                lock_command(session,cap,'publication')
+                lock_command(session,cap,'publication',self.auth_key)
                 if prior(session,operation_id,'publication'):
                     return {'recorded':True}
+                user=fresh_authority(session,cap)
+                mark_customer(session,cap,str(user['id']))
                 source=prior(session,operation_id,'order')
                 if not source or source['status']!='completed':
                     raise ImportReview('ORDER_IMPORT_ORDER_UNCONFIRMED')
@@ -317,11 +321,14 @@ class Receiver:
             with self.session_factory() as session, session.begin():
                 session.execute(text("UPDATE pos_rewrite_import_financial_source_effects SET status='uncertain',updated_at_ms=:now WHERE operation_id=:op"),{'now':self.clock(),'op':operation_id})
             raise ImportReview('ORDER_IMPORT_PUBLICATION_UNCONFIRMED') from None
-        with self.session_factory() as session, owned(session,cap):
-            lock_command(session,cap,'publication')
+        with self.session_factory() as session, owned(session,cap,factual=True):
+            lock_command(session,cap,'publication',self.auth_key,factual=True)
             proof={'contract':PUBLICATION_CONTRACT,'operationId':operation_id,'orderId':cap['orderId'],
                 'requestHash':cap['requestHash'],'sourceHash':effects['effects_hash'],'acceptedAt':self.clock(),
                 'delivery':'durable-queue-accepted','jobs':deliveries}
+            if cap.get('succession'):
+                from authority_succession import reference
+                proof['succession']=reference(cap['succession'])
             record(session,operation_id,'publication',cap['requestHash'],'completed',proof,self.proof_key,self.clock())
             session.execute(text("UPDATE pos_rewrite_import_financial_source_effects SET status='accepted',updated_at_ms=:now WHERE operation_id=:op"),{'now':self.clock(),'op':operation_id})
         return {'recorded':True}

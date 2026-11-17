@@ -1,3 +1,5 @@
+import { readSuccessionHead } from './authority-succession/ledger.js';
+import { assertSuccessionExecution } from './authority-succession/execution.js';
 import { Temporal } from '@js-temporal/polyfill';
 import { and, eq } from 'drizzle-orm';
 import {
@@ -161,11 +163,14 @@ export async function settleNativeImport(
   expectedQuantities?: ReadonlyMap<string, number> | null,
   benefits?: CsvBenefitQualification | null,
 ): Promise<ImportSettlementReceipt> {
-  await assertFinancialImportAuthority(tx, state.scope, state.authority);
+  await readSuccessionHead(tx, state, options);
+  const delegated = assertSuccessionExecution(tx, state),
+    executionAuthority = await assertFinancialImportAuthority(tx, state.scope, state.authority),
+    actorId = delegated?.grant.data.managerId ?? state.scope.actorId;
   const currentClose = await currentImportClose(tx, state.scope, plan.createdAt.slice(0, 10));
   if (
     financialImportHash(options.secret, 'close', currentClose) !==
-    financialImportHash(options.secret, 'close', state.authority.close)
+    financialImportHash(options.secret, 'close', executionAuthority.close)
   )
     throw importFinancialError('ORDER_IMPORT_APPROVAL_REQUIRED');
   const native = await assertNativeImportOrder(
@@ -192,6 +197,7 @@ export async function settleNativeImport(
     manualOther = zero,
     transactionId: string | null = null,
     smsJobId: string | null = null;
+  assertSuccessionExecution(tx, state);
   if (plan.kind === 'offline') {
     await assertCheckoutProjection(tx, {
       orderId: receipt.orderId,
@@ -240,7 +246,7 @@ export async function settleNativeImport(
       status_id: 3n,
       comment: `Store Order: ${status.label} status changed by pos admin.`,
       notify: 0,
-      user_id: BigInt(state.scope.actorId),
+      user_id: BigInt(actorId),
       package_details: '',
       created_at: plan.createdAt,
       updated_at: plan.createdAt,
@@ -255,7 +261,7 @@ export async function settleNativeImport(
       order_status: 3n,
       payment_status: 4n,
       user_id: 0n,
-      pos_user_id: BigInt(state.scope.actorId),
+      pos_user_id: BigInt(actorId),
       pay_dict: JSON.stringify({
         'cash payment': Number(cash),
         [others ? 'online payment (others)' : 'online payment']: others ? value : 0,
@@ -274,7 +280,7 @@ export async function settleNativeImport(
         storeId: state.scope.storeId,
         status: 'pending',
         requestId: state.requestId,
-        operatorId: state.scope.actorId,
+        operatorId: actorId,
         createdAt: plan.createdAt,
       });
     }
@@ -316,7 +322,7 @@ export async function settleNativeImport(
         storeId: state.scope.storeId,
         productId: line.productId,
         stock: after,
-        operatorId: state.scope.actorId,
+        operatorId: actorId,
         comment: 'shopify order',
       });
       await tx.update(ProductStore).set({ stock: after }).where(eq(ProductStore.id, row.id));
@@ -326,7 +332,7 @@ export async function settleNativeImport(
       id: state.scope.operationId,
       storeId: state.scope.storeId,
       productIds: plan.lines.map((line) => line.productId),
-      operatorId: state.scope.actorId,
+      operatorId: actorId,
       reason: 'legacy-order-import',
       requestId: state.requestId,
     });
@@ -372,6 +378,7 @@ export async function settleNativeImport(
     manualOther,
     recordedAt: plan.createdAt,
     finalizedAt: now,
+    ...(delegated ? { succession: state.authoritySuccession } : {}),
     closeImpactId,
     smsJobId,
   });

@@ -53,6 +53,7 @@ export const importStartAuthorizationSchema = z.discriminatedUnion('ready', [
 ]);
 /** A trusted adapter must resolve current authority and verify native financial receipts. */
 export interface ImportFinancialAdapter {
+  readonly authoritySuccession?: import('./authority-succession/contracts.js').ImportAuthoritySuccessionPort;
   readonly preparation?: FinancialPreparationHooks;
   readonly preparationRecovery?: Pick<FinancialPreparationHooks, 'lock' | 'cancel'>;
   /** Native checks only, under the coordinator lock and before any dispatch checkpoint. */

@@ -27,8 +27,10 @@ def private_application(receiver,key,emit_stream):
             if len(raw)!=length:
                 raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
             value=json.loads(raw)
-            if (not isinstance(value,dict) or environ.get('HTTP_X_POS_OPERATOR_ID','')!=
-                value.get('capability',{}).get('scope',{}).get('actorId')):
+            capability=value.get('capability',{}) if isinstance(value,dict) else {}
+            successor=capability.get('succession') if isinstance(capability,dict) else None
+            actor=successor.get('data',{}).get('managerId') if isinstance(successor,dict) else capability.get('scope',{}).get('actorId')
+            if (not isinstance(value,dict) or environ.get('HTTP_X_POS_OPERATOR_ID','')!=actor):
                 raise ImportReview('ORDER_IMPORT_CAPABILITY_INVALID')
             result=getattr(receiver,match[2])(match[1],value)
             status='200 OK'
