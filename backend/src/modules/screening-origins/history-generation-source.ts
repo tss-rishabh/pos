@@ -30,6 +30,7 @@ export function originHistorySource(options: {
   triggerDefiner: string;
   auditDefiner: string;
   administrators: readonly string[];
+  headDefiners?: { membership?: string; coupon?: string; counter?: string; counterPublisher?: string };
   timeoutMs: number;
 }): OriginHistorySourcePort {
   if (
@@ -64,6 +65,10 @@ export function originHistorySource(options: {
           POS_SCREENING_ORIGIN_HISTORY_DEFINER: options.triggerDefiner,
           POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER: options.auditDefiner,
           POS_SCREENING_ORIGIN_HISTORY_ADMIN_GRANTEES: JSON.stringify(options.administrators),
+          POS_MEMBERSHIP_HISTORY_TRIGGER_DEFINER: options.headDefiners?.membership ?? '',
+          POS_COUPON_HISTORY_DEFINER: options.headDefiners?.coupon ?? '',
+          POS_SCREENING_COUNTER_TRIGGER_DEFINER: options.headDefiners?.counter ?? '',
+          POS_SCREENING_COUNTER_PUBLISHER_GRANTEE: options.headDefiners?.counterPublisher ?? '',
         },
       });
       const chunks: Buffer[] = [];

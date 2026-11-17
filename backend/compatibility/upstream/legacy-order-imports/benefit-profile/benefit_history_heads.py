@@ -207,18 +207,15 @@ class NativeCouponHistoryHeads:
         for table in ('orders', 'order_coupon_log', 'coupons', 'users'):
             result = session.execute(text('SELECT id FROM ' + table + ' LIMIT 0'))
             result.close()
-        names = [row['name'] for row in manifest['definitions']]
-        parameters = {'name' + str(index): name for index, name in enumerate(names)}
-        actual = _rows(session, """SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS `table`,
-          EVENT_MANIPULATION AS `event`,ACTION_TIMING AS timing,ACTION_STATEMENT AS statement
-          FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()
-          AND EVENT_OBJECT_SCHEMA=DATABASE() AND TRIGGER_NAME IN (""" +
-                       ','.join(':' + name for name in parameters) + ') LIMIT 11', parameters, 10)
+        from origin_history_privileges import qualified_head_metadata
+        actual = qualified_head_metadata(session)['couponTriggers']
         if len(actual) != 10 or len({row['name'] for row in actual}) != 10: _reject()
-        for row in actual:
-            row['statement'] = ' '.join(row['statement'].split())
-        if sorted(actual, key=lambda row: row['name']) != sorted(manifest['definitions'], key=lambda row: row['name']):
-            _reject('ORDER_IMPORT_COUPON_HEADS_UNAVAILABLE')
+        for expected in manifest['definitions']:
+            matches=[row for row in actual if row['name']==expected['name']]
+            if (len(matches)!=1 or matches[0]['tableName']!=expected['table']
+                    or matches[0]['event']!=expected['event'] or matches[0]['timing']!=expected['timing']
+                    or matches[0]['hash']!=hashlib.sha256(expected['statement'].encode()).hexdigest()):
+                _reject('ORDER_IMPORT_COUPON_HEADS_UNAVAILABLE')
         identities = _rows(session, 'SELECT @@server_uuid AS serverUuid,DATABASE() AS sourceSchema', maximum=1)
         if len(identities) != 1: _reject()
         identity = identities[0]

@@ -10,7 +10,7 @@ import re
 import os
 from pathlib import Path
 from uuid import UUID
-from native_authority import one,rows
+from native_authority import one
 from writer_protocol import fail
 
 CONTRACT='pos-membership-history-head-v1'
@@ -38,7 +38,9 @@ def capture(session,customer_id,lock=False):
     # Hold table MDL through the owned transaction; trigger DROP/replacement
     # cannot race final source admission after this metadata is verified.
     row=one(session,'SELECT revision FROM '+TABLE+' WHERE customer_id=:id'+(' FOR SHARE' if lock else ''),{'id':customer_id})
-    actual=rows(session,"SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,EVENT_MANIPULATION AS event,ACTION_TIMING AS timing,LOWER(SHA2(ACTION_STATEMENT,256)) AS hash,SQL_MODE AS sqlMode,DEFINER AS definer FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_member_history_order_i','pos_rewrite_member_history_order_u','pos_rewrite_member_history_order_d','pos_rewrite_member_history_hp_i','pos_rewrite_member_history_hp_u','pos_rewrite_member_history_hp_d','pos_rewrite_member_history_user_i')",maximum=7)
+    from origin_history_privileges import qualified_head_metadata
+    metadata=qualified_head_metadata(session)
+    actual=metadata['membershipTriggers']
     if len(actual)!=7:fail('SCREENING_MEMBERSHIP_HISTORY_UNQUALIFIED')
     indexed={item['name']:item for item in actual}
     for expected in manifest['definitions']:
@@ -48,7 +50,8 @@ def capture(session,customer_id,lock=False):
     revision=str(row['revision'])
     if not re.fullmatch(r'0|[1-9][0-9]{0,19}',revision) or int(revision)>18446744073709551615:fail()
     return {'contract':CONTRACT,'origin':{'schema':origin['schemaName'],'serverUuid':origin['serverUuid']},
-            'revision':revision,'writersHash':hashlib.sha256((manifest['writersHash']+'\n'+definer).encode()).hexdigest()}
+            'revision':revision,'writersHash':hashlib.sha256((manifest['writersHash']+'\n'+definer+'\n'+
+                json.dumps(metadata['policy'],sort_keys=True,separators=(',',':'))).encode()).hexdigest()}
 
 
 def validate(session,customer_id,expected):

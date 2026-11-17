@@ -3,8 +3,8 @@
 -- or proxy exposure. The audit definer exposes only this fixed readonly body.
 -- Every array has a 1001 sentinel; the consumer rejects >1000, never truncates
 -- an over-capacity installation into an apparently complete privilege proof.
--- Only the four reviewed trigger bodies are returned. Other object metadata
--- contains identities/security types, never SQL bodies, credentials or rows.
+-- Only the four source trigger bodies are returned. Other reviewed head writers
+-- expose hashes/identities, never arbitrary SQL bodies, credentials or rows.
 -- Use the explicit configured audit definer; replace this owner only during
 -- reviewed installation. The function body itself remains byte-identical.
 DELIMITER $$
@@ -18,6 +18,30 @@ RETURN JSON_OBJECT(
   FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_origin_history_user_i','pos_rewrite_origin_history_order_i','pos_rewrite_origin_history_order_d','pos_rewrite_origin_history_order_u')
   ORDER BY TRIGGER_NAME LIMIT 1001
  ) trigger_rows),JSON_ARRAY()),
+ 'membershipTriggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',name,'tableName',tableName,'event',eventName,'timing',timing,'hash',bodyHash,'definer',owner,'sqlMode',sqlMode)) FROM (
+  SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,EVENT_MANIPULATION AS eventName,ACTION_TIMING AS timing,
+   LOWER(SHA2(ACTION_STATEMENT,256)) AS bodyHash,DEFINER AS owner,SQL_MODE AS sqlMode
+  FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_rewrite_member_history_%'
+  ORDER BY TRIGGER_NAME LIMIT 1001
+ ) membership_trigger_rows),JSON_ARRAY()),
+ 'couponTriggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',name,'tableName',tableName,'event',eventName,'timing',timing,'hash',bodyHash,'definer',owner,'sqlMode',sqlMode)) FROM (
+  SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,EVENT_MANIPULATION AS eventName,ACTION_TIMING AS timing,
+   LOWER(SHA2(TRIM(REGEXP_REPLACE(ACTION_STATEMENT,'[[:space:]]+',' ')),256)) AS bodyHash,DEFINER AS owner,SQL_MODE AS sqlMode
+  FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_rewrite_coupon_history_%'
+  ORDER BY TRIGGER_NAME LIMIT 1001
+ ) coupon_trigger_rows),JSON_ARRAY()),
+ 'counterTriggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',name,'tableName',tableName,'event',eventName,'timing',timing,'hash',bodyHash,'definer',owner,'sqlMode',sqlMode)) FROM (
+  SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,EVENT_MANIPULATION AS eventName,ACTION_TIMING AS timing,
+   LOWER(SHA2(TRIM(REGEXP_REPLACE(ACTION_STATEMENT,'[[:space:]]+',' ')),256)) AS bodyHash,DEFINER AS owner,SQL_MODE AS sqlMode
+  FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_screening_%'
+  ORDER BY TRIGGER_NAME LIMIT 1001
+ ) counter_trigger_rows),JSON_ARRAY()),
+ 'counterProcedures',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',name,'kind',kind,'security',security,'hash',bodyHash,'definer',owner)) FROM (
+  SELECT ROUTINE_NAME AS name,ROUTINE_TYPE AS kind,SECURITY_TYPE AS security,DEFINER AS owner,
+   LOWER(SHA2(TRIM(REGEXP_REPLACE(ROUTINE_DEFINITION,'[[:space:]]+',' ')),256)) AS bodyHash
+  FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'
+  ORDER BY ROUTINE_NAME LIMIT 1001
+ ) counter_procedure_rows),JSON_ARRAY()),
  'accounts',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'locked',account_locked)) FROM (
   SELECT User,Host,account_locked FROM mysql.user ORDER BY User,Host LIMIT 1001
  ) account_rows),JSON_ARRAY()),
@@ -31,8 +55,8 @@ RETURN JSON_OBJECT(
  'target',CASE WHEN scope='global' THEN 'global'
   WHEN scope='schema' AND (schemaName=DATABASE() OR schemaName='mysql' OR DATABASE() LIKE schemaName ESCAPE X'5C' OR 'mysql' LIKE schemaName ESCAPE X'5C') THEN 'protected-schema'
   WHEN scope IN ('table','column') AND schemaName='mysql' THEN 'grants'
-  WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes') THEN 'control'
-  WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('orders','users') THEN 'watched'
+  WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions') THEN 'control'
+  WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders') THEN 'watched'
   ELSE 'other' END)) FROM (
   SELECT GRANTEE AS grantee,'global' AS scope,'' AS schemaName,'' AS tableName,PRIVILEGE_TYPE AS privilegeName,IS_GRANTABLE AS grantable FROM INFORMATION_SCHEMA.USER_PRIVILEGES
   UNION ALL SELECT GRANTEE,'schema',TABLE_SCHEMA,'',PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.SCHEMA_PRIVILEGES
@@ -52,18 +76,18 @@ RETURN JSON_OBJECT(
  ) object_rows),JSON_ARRAY()),
  'aliases',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('schema',VIEW_SCHEMA,'name',VIEW_NAME,'sourceSchema',TABLE_SCHEMA,'sourceTable',TABLE_NAME)) FROM (
   SELECT VIEW_SCHEMA,VIEW_NAME,TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.VIEW_TABLE_USAGE
-  WHERE (TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes'))
+  WHERE (TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions'))
    OR (TABLE_SCHEMA='mysql' AND TABLE_NAME IN ('user','db','tables_priv','columns_priv','procs_priv','proxies_priv','global_grants','role_edges','default_roles','password_history','func'))
   ORDER BY VIEW_SCHEMA,VIEW_NAME,TABLE_SCHEMA,TABLE_NAME LIMIT 1001
  ) alias_rows),JSON_ARRAY()),
  'tables',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',TABLE_NAME,'kind',TABLE_TYPE,'engine',ENGINE)) FROM (
-  SELECT TABLE_NAME,TABLE_TYPE,ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('orders','users','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes')
+  SELECT TABLE_NAME,TABLE_TYPE,ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions')
   ORDER BY TABLE_NAME LIMIT 1001
  ) table_rows),JSON_ARRAY()),
  'foreignKeys',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('table',TABLE_NAME,'column',COLUMN_NAME,'update',UPDATE_RULE,'delete',DELETE_RULE)) FROM (
   SELECT k.TABLE_NAME,k.COLUMN_NAME,r.UPDATE_RULE,r.DELETE_RULE FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE k
   JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME AND r.TABLE_NAME=k.TABLE_NAME
-  WHERE k.TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IS NOT NULL AND k.TABLE_NAME IN ('orders','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes')
+  WHERE k.TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IS NOT NULL AND k.TABLE_NAME IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions')
   ORDER BY k.TABLE_NAME,k.CONSTRAINT_NAME,k.ORDINAL_POSITION LIMIT 1001
  ) foreign_key_rows),JSON_ARRAY()),
  'replicationChannels',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CHANNEL_NAME,'state',SERVICE_STATE)) FROM (

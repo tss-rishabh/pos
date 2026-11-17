@@ -78,6 +78,10 @@ function settings(env: NodeJS.ProcessEnv) {
       module: file.optional(),
       definer: z.string().max(320).optional(),
       auditDefiner: z.string().max(320).optional(),
+      membershipDefiner: z.string().max(320).optional(),
+      couponDefiner: z.string().max(320).optional(),
+      counterDefiner: z.string().max(320).optional(),
+      counterPublisher: z.string().max(320).optional(),
       administrators: z.string().max(16000).default('[]'),
       intervalMs: z.coerce.number().int().min(1000).max(60000).default(5000),
       deadlineMs: z.coerce.number().int().min(1000).max(60000).default(25000),
@@ -97,6 +101,10 @@ function settings(env: NodeJS.ProcessEnv) {
       module: env.POS_SCREENING_ORIGIN_HISTORY_SOURCE_MODULE || undefined,
       definer: env.POS_SCREENING_ORIGIN_HISTORY_DEFINER || undefined,
       auditDefiner: env.POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER || undefined,
+      membershipDefiner: env.POS_MEMBERSHIP_HISTORY_TRIGGER_DEFINER || undefined,
+      couponDefiner: env.POS_COUPON_HISTORY_DEFINER || undefined,
+      counterDefiner: env.POS_SCREENING_COUNTER_TRIGGER_DEFINER || undefined,
+      counterPublisher: env.POS_SCREENING_COUNTER_PUBLISHER_GRANTEE || undefined,
       administrators: env.POS_SCREENING_ORIGIN_HISTORY_ADMIN_GRANTEES || '[]',
       intervalMs: env.POS_SCREENING_ORIGIN_HISTORY_PUBLISHER_INTERVAL_MS || undefined,
       deadlineMs: env.POS_SCREENING_ORIGIN_HISTORY_PUBLISHER_DEADLINE_MS || undefined,
@@ -249,6 +257,8 @@ export async function runOriginHistoryPublisher(
           captureKey: config.captureKey!,
           triggerDefiner: config.definer!,
           auditDefiner: config.auditDefiner!,
+          headDefiners: { membership: config.membershipDefiner, coupon: config.couponDefiner,
+            counter: config.counterDefiner, counterPublisher: config.counterPublisher },
           administrators: z
             .array(z.string().max(320))
             .max(32)

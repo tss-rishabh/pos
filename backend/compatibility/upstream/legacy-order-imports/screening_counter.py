@@ -104,19 +104,22 @@ def _qualify(session):
             if not any(row['sourceTable']==table and row['columnName']==column and row['position']=='1' and row['indexType']=='BTREE' for row in indexes):fail('WRITERS_UNQUALIFIED')
         primary=[row for row in indexes if row['sourceTable']==table and row['indexName']=='PRIMARY']
         if len(primary)!=1 or primary[0]['columnName']!=columns[0] or primary[0]['position']!='1' or primary[0]['nonUnique']!='0':fail('WRITERS_UNQUALIFIED')
-    found=rows(session,"SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS source_table,EVENT_MANIPULATION AS event,ACTION_TIMING AS timing,ACTION_STATEMENT AS statement,DEFINER AS owner FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_screening_%'",maximum=9)
+    from origin_history_privileges import qualified_head_metadata
+    metadata=qualified_head_metadata(session)
+    found=metadata['counterTriggers']
     if len(found)!=9:fail('WRITERS_UNQUALIFIED')
     for expected in definition['triggers']:
         match=[row for row in found if row['name']==expected['name']]
-        if (len(match)!=1 or match[0]['source_table']!=expected['table'] or match[0]['event']!=expected['event']
-                or match[0]['timing']!=expected['timing'] or _normalize(match[0]['statement'])!=_normalize(expected['statement'])):fail('WRITERS_UNQUALIFIED')
-    routine=one(session,"SELECT ROUTINE_NAME AS name,ROUTINE_TYPE AS kind,SECURITY_TYPE AS security,ROUTINE_DEFINITION AS statement,DEFINER AS owner FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'")
+        if (len(match)!=1 or match[0]['tableName']!=expected['table'] or match[0]['event']!=expected['event']
+                or match[0]['timing']!=expected['timing'] or match[0]['hash']!=hashlib.sha256(_normalize(expected['statement']).encode()).hexdigest()):fail('WRITERS_UNQUALIFIED')
+    if len(metadata['counterProcedures'])!=1:fail('WRITERS_UNQUALIFIED')
+    routine=metadata['counterProcedures'][0]
     expected=definition['procedure']
     if (routine['name']!=expected['name'] or routine['kind']!='PROCEDURE' or routine['security']!='DEFINER'
-            or _normalize(routine['statement'])!=_normalize(expected['statement']) or not _owner(routine['owner'])
-            or any(row['owner']!=routine['owner'] for row in found)):fail('WRITERS_UNQUALIFIED')
-    session.info['screening_counter_definitions']=(transaction,routine['owner'])
-    definition['_owner']=routine['owner']
+            or routine['hash']!=hashlib.sha256(_normalize(expected['statement']).encode()).hexdigest() or not _owner(routine['definer'])
+            or any(row['definer']!=routine['definer'] for row in found)):fail('WRITERS_UNQUALIFIED')
+    session.info['screening_counter_definitions']=(transaction,routine['definer'])
+    definition['_owner']=routine['definer']
     return definition
 
 
@@ -149,7 +152,13 @@ def _runtime_privileges(session,definition,owner):
     grants=rows(session,definition['privilegeSql'],maximum=1000)
     if any(row.get('privilegeName') not in ('SELECT','USAGE','SHOW_ROUTINE') or row.get('grantable')!='NO' for row in grants):fail('APPLICATION_GRANTS')
     direct=rows(session,'SHOW GRANTS FOR CURRENT_USER',maximum=1000)
-    if any(len(row)!=1 or any(not isinstance(value,str) or re.search(r'\b(?:EXECUTE|PROXY)\b|\bWITH GRANT OPTION\b',value,re.I) for value in row.values()) for row in direct):fail('APPLICATION_GRANTS')
+    schema=one(session,'SELECT DATABASE() AS name')['name']
+    for row in direct:
+        if len(row)!=1:fail('APPLICATION_GRANTS')
+        value=next(iter(row.values()))
+        if not isinstance(value,str) or re.search(r'\bPROXY\b|\bWITH GRANT OPTION\b',value,re.I):fail('APPLICATION_GRANTS')
+        if re.search(r'\bEXECUTE\b',value,re.I) and not re.fullmatch(
+            r'GRANT EXECUTE ON FUNCTION `?'+re.escape(schema)+r'`?\.`?pos_rewrite_origin_history_metadata`? TO .+',value,re.I):fail('APPLICATION_GRANTS')
     session.info['screening_counter_privileges']=(transaction,owner)
 
 

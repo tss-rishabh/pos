@@ -20,7 +20,7 @@ COPY --chown=65532:65532 compatibility/upstream/offline-cash-pricing/patches/*.p
 COPY --chown=65532:65532 compatibility/upstream/pending-cancellation/membership_provenance.py ./pending-cancellation/
 COPY --chown=65532:65532 compatibility/upstream/pending-cancellation/membership_fence_contract.py ./pending-cancellation/
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
-    PYTHONPATH=/opt/pos-source-adapters/legacy-order-imports:/opt/pos-source-adapters/legacy-order-imports/benefit-profile:/opt/pos-source-adapters/public-screening-writer:/opt/pos-source-adapters/offline-cash-pricing \
+    PYTHONPATH=/opt/pos-source-adapters/legacy-order-imports:/opt/pos-source-adapters/legacy-order-imports/benefit-profile:/opt/pos-source-adapters/public-screening-writer:/opt/pos-source-adapters/offline-cash-pricing:/opt/pos-source-adapters/screening-origins \
     POS_LEGACY_IMPORT_SOURCE_ROOT=/opt/pos-original-source \
     POS_LEGACY_IMPORT_RUNTIME_ROOT=/opt/pos-original-source \
     POS_PUBLIC_SCREENING_MEMBERSHIP_WORKER_ENABLED=false
