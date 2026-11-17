@@ -24,8 +24,12 @@ existing wrappers and adding genuine customer/provider/system confirmation and
 the separate origin effects command.
 
 The origin composer runs only its owned standard-library Go AST producer.
-`POS_GO_BINARY` can select an installed reviewed Go executable; automatic
-toolchain download, module proxy and checksum-network access are disabled.
+The default uses the pinned Go image already present locally, with registry
+pulls disabled, no network and read-only source mounts. It uses the existing
+Go build cache volume and a temporary writable compiler directory. Select
+`--producer local` to use an installed Go executable; `POS_GO_BINARY` can choose
+that executable. Automatic toolchain download, module proxy and checksum-network
+access are disabled for both modes.
 No original Go application package is executed. Callers can also supply a
 network-disabled producer runner to `assemble_payments(reference, output,
 generate=...)`.

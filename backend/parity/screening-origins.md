@@ -95,3 +95,15 @@ their publication is older than a minute; operation responses retain their
 60-second maximum lifetime. The independent source capture and publisher are
 still implementation work. These commits have not undergone the deferred final
 validation phase.
+
+The caller/system checkpoint is now integrated as `202b03c`: the pinned legacy
+URL/template/static nonce mounts, true session/grant recovery and actual legacy
+effects command are present. The Node publisher implementation is integrated as
+`197ac08`, and the non-POS Go foundation/composer as `94a2729`. Root has generated
+their composed payments source and retained its pending-validation manifest;
+this is source artifact generation, not an application build or parity result.
+Source member/gift/coupon variants, source effect-worker installation, CSK
+preparation continuation, MPos customer-JWT client, exact Go asset verification
+and remaining provider/privacy/recovery edges are still implementation work.
+Publisher budget checkpoint ordering and the global privilege audit are also
+still assigned code follow-ups. All previous final acceptance requirements remain.

@@ -46,6 +46,30 @@ claim these images built. Root flagged child PYTHONPATH and deadline consistency
 for CPP, and legacy effect log/stream bounds/uncertain queue/shutdown handling
 for Hyper. Final testing remains deferred while these implementations continue.
 
+All three saved implementation checkpoints are now integrated: Hyper `757d1c6`
+as `202b03c`, Admin `d9323ad` as `94a2729`, and CPP `4979ae1` as `197ac08`.
+The actual legacy URL/template/static nonce mounts, genuine session/grant and
+recovery resources, legacy effects worker, CSK lifecycle and four publisher
+modules are present. Root registers/packages the two new system/legacy effects
+control migrations and regenerates the pinned source artifacts. Go's separately
+reviewed payment/effects SQL remains manual, outside automatic migrations.
+
+Root generated the full 83-file payments source tree at
+`/tmp/pos-payments-origin-assembly-20261118-0248` using the pinned Go container
+with network disabled/read-only source mounts. Only the owned AST producer ran;
+no application compile, tests, service, native/cloud query or deployment ran.
+`upstream/payments-assembly-manifest.json` retains hashes and explicit pending
+validation. Host Go was absent, so the assembler now defaults to the existing
+pinned container, with an explicit optional local producer mode.
+
+Still required CODE: CPP budget preflight before permanent write-start checkpoint
+and global privilege/DDL participant audit; Hyper CSK same-command preparation
+continuation, runnable source effect registry/worker, MPos customer-JWT client,
+genuine member/gift/coupon asset variants; Admin exact source asset verifier,
+provider normalization/native payment-log/response edges, mismatch alert effects,
+callback/privacy/recovery cleanup. Selectors remain off; none of these guards or
+unfinished variants is claimed as feature-complete. Final validation stays later.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only

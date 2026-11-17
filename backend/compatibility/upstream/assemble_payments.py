@@ -23,6 +23,7 @@ from uuid import uuid4
 ROOT = Path(__file__).resolve().parent
 PAYMENTS_COMMIT = '434f3e438d1cb48c64e5723222c6efda506db571'
 CONTRACT = 'pos-composed-payments-source-v1'
+GO_IMAGE = 'golang:1.25.4@sha256:698183780de28062f4ef46f82a79ec0ae69d2d22f7b160cf69f71ea8d98bf25d'
 
 
 def fail():
@@ -75,12 +76,14 @@ def patch_inputs():
     return result
 
 
-def assemble_payments(reference, output, generate=None):
+def assemble_payments(reference, output, generate=None, producer='docker'):
     """Produce a review/build input, never a parity or release certificate.
 
     Optional generate(args)->bytes supports a caller-owned network-disabled
     Go producer runner; upstream application packages are never executed.
     """
+    if producer not in ('docker', 'local'):
+        fail()
     reference = Path(reference).resolve(strict=True)
     requested = Path(output).absolute()
     parent = requested.parent.resolve(strict=True)
@@ -124,10 +127,36 @@ def assemble_payments(reference, output, generate=None):
             run(['git', 'apply', str(patch)], tree)
 
         if generate is None:
-            environment = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off', 'GOSUMDB': 'off'}
+            environment = {**os.environ, 'GOTOOLCHAIN': 'local', 'GOPROXY': 'off',
+                           'GOSUMDB': 'off', 'GO111MODULE': 'off', 'GOWORK': 'off'}
 
             def generate(arguments):
-                return subprocess.run([os.environ.get('POS_GO_BINARY', 'go'), 'run', *arguments],
+                if producer == 'local':
+                    command = [os.environ.get('POS_GO_BINARY', 'go'), 'run', *arguments]
+                else:
+                    roots = [(ROOT, '/contract'), (reference, '/reference'), (tree, '/work')]
+                    mapped = []
+                    for value in arguments:
+                        if value.startswith('/'):
+                            path = Path(value).resolve(strict=True)
+                            for root, mounted in roots:
+                                if path.is_relative_to(root):
+                                    mapped.append(mounted + '/' + str(path.relative_to(root)))
+                                    break
+                            else:
+                                fail()
+                        else:
+                            mapped.append(value)
+                    command = ['docker', 'run', '--rm', '--pull', 'never', '--network', 'none',
+                               '--read-only', '--tmpfs', '/tmp:rw,nosuid,nodev,size=512m',
+                               '-v', str(ROOT) + ':/contract:ro',
+                               '-v', str(reference) + ':/reference:ro',
+                               '-v', str(tree) + ':/work:ro',
+                               '-v', 'pos-rewrite-membership-go-build:/root/.cache/go-build',
+                               '-w', '/tmp', '-e', 'GO111MODULE=off', '-e', 'GOWORK=off',
+                               '-e', 'GOTOOLCHAIN=local', '-e', 'GOPROXY=off', '-e', 'GOSUMDB=off',
+                               GO_IMAGE, 'go', 'run', *mapped]
+                return subprocess.run(command,
                                       cwd=tree, env=environment, check=True, capture_output=True,
                                       timeout=120).stdout
 
@@ -171,8 +200,9 @@ def main():
         parser = Arguments(description=__doc__)
         parser.add_argument('--source-root', required=True)
         parser.add_argument('--output', required=True)
+        parser.add_argument('--producer', choices=['docker', 'local'], default='docker')
         args = parser.parse_args()
-        result = assemble_payments(args.source_root, args.output)
+        result = assemble_payments(args.source_root, args.output, producer=args.producer)
         print(json.dumps(event('completed', contract=CONTRACT, sourceCommit=PAYMENTS_COMMIT,
                                validation=result['validation'], files=len(result['files']))))
     except Exception:
