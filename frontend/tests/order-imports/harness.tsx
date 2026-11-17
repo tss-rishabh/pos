@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { useState } from 'react';
+import { StrictMode, useState } from 'react';
 import { setRequestOperator } from '../../src/api/client';
 import type { Principal } from '../../src/api/types';
 import OrderImportsPage from '../../src/pages/administration/order-imports';
@@ -31,10 +31,21 @@ function Harness() {
         >
           Switch operator
         </button>
+        <button onClick={() => setUser((value) => ({ ...value, storeIds: ['2'] }))}>
+          Change store assignments
+        </button>
         <output data-testid="operator">{user.id}</output>
       </aside>
       <OrderImportsPage user={user} online={online} />
     </>
   );
 }
-createRoot(document.getElementById('root')!).render(<Harness />);
+createRoot(document.getElementById('root')!).render(
+  new URLSearchParams(location.search).has('strict') ? (
+    <StrictMode>
+      <Harness />
+    </StrictMode>
+  ) : (
+    <Harness />
+  ),
+);

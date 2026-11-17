@@ -508,5 +508,48 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
         await context.close();
       }
     });
+    it('does not dispatch the old file if assignments change while its digest is pending', async () => {
+      const context = await browser.newContext(),
+        page = await context.newPage();
+      try {
+        const state = await fixture(page);
+        await prepare(page);
+        await page.evaluate(() => {
+          const digest = crypto.subtle.digest.bind(crypto.subtle);
+          Object.defineProperty(crypto.subtle, 'digest', {
+            value: async (...args: Parameters<SubtleCrypto['digest']>) => {
+              await new Promise<void>((resolve) => {
+                Object.assign(window, { releaseImportDigest: resolve });
+              });
+              const result = await digest(...args);
+              Object.assign(window, { importDigestCompleted: true });
+              return result;
+            },
+          });
+        });
+        await page.getByRole('button', { name: 'Queue reviewed orders', exact: true }).click();
+        await browserExpect
+          .poll(() => page.evaluate(() => typeof Reflect.get(window, 'releaseImportDigest')))
+          .toBe('function');
+        await page.getByRole('button', { name: 'Change store assignments', exact: true }).click();
+        await page.evaluate(() => {
+          const release = Reflect.get(window, 'releaseImportDigest') as unknown;
+          if (typeof release === 'function') release();
+        });
+        await browserExpect
+          .poll(() => page.evaluate(() => Reflect.get(window, 'importDigestCompleted') as unknown))
+          .toBe(true);
+        await browserExpect(page.getByLabel('Store ID 1', { exact: true })).toHaveValue('');
+        expect(state.starts).toHaveLength(0);
+        expect(
+          await page.evaluate(() =>
+            Object.keys(localStorage).filter((key) => key.startsWith('pos-legacy-order-import:')),
+          ),
+        ).toEqual([]);
+        expect(state.errors).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    });
   },
 );

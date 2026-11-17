@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import type { Principal } from '../../../api/types';
 import { ApiError, captureOperatorScope } from '../../../api/client';
@@ -28,6 +28,13 @@ import {
 } from './journal';
 import '../styles.css';
 import { ImportResumeActions } from './ImportResumeActions';
+import { ImportApprovalAction } from './ImportApprovalAction';
+import { SavedImportApprovals } from './SavedImportApprovals';
+import {
+  listImportApprovalIntents,
+  orderImportActorScope,
+  type ImportApprovalIntent,
+} from './approval-journal';
 
 export default function OrderImportsPage(props: { user: Principal; online: boolean }) {
   if (props.user.userType !== 1 || ![1, 2, 3].includes(props.user.role))
@@ -37,7 +44,7 @@ export default function OrderImportsPage(props: { user: Principal; online: boole
         <p>Internal administration access is required.</p>
       </section>
     );
-  return <OrderImports key={props.user.id} {...props} />;
+  return <OrderImports key={orderImportActorScope(props.user)} {...props} />;
 }
 function OrderImports({ user, online }: { user: Principal; online: boolean }) {
   const [initial] = useState(() => {
@@ -69,11 +76,34 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
     [resumePending, setResumePending] = useState(false),
     [problem, setProblem] = useState(initial.error),
     [notice, setNotice] = useState('');
+  const [initialApprovals] = useState(() => {
+    try {
+      return { intents: listImportApprovalIntents(user.id), error: '' };
+    } catch {
+      return {
+        intents: [] as ImportApprovalIntent[],
+        error:
+          'The saved approval references are unreadable. Keep this device for administrator recovery.',
+      };
+    }
+  });
+  const [approvalIntents, setApprovalIntents] = useState(initialApprovals.intents),
+    [approvalProblem, setApprovalProblem] = useState(initialApprovals.error);
+  const approvalsChanged = useCallback(() => {
+    try {
+      setApprovalIntents(listImportApprovalIntents(user.id));
+    } catch (error) {
+      setApprovalProblem(
+        'The saved approval references are unreadable. Keep this device for administrator recovery.',
+      );
+      throw error;
+    }
+  }, [user.id]);
   const locked = useRef(false),
     alive = useRef(true),
     readRevision = useRef(0),
     fileInput = useRef<HTMLInputElement>(null);
-  const disabled = busy || resumePending || !online || Boolean(initial.error);
+  const disabled = busy || resumePending || !online || Boolean(initial.error || approvalProblem);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -81,7 +111,7 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
     };
   }, []);
   async function act(task: (signal: AbortSignal) => Promise<void>) {
-    if (locked.current || !online || initial.error) return;
+    if (locked.current || !online || initial.error || approvalProblem) return;
     const signal = captureOperatorScope(user.id);
     locked.current = true;
     setBusy(true);
@@ -118,6 +148,22 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
     setResults(page.data);
     setNextAfter(page.nextAfter);
   }
+  useEffect(() => {
+    const recoverReferences = () => {
+      try {
+        approvalsChanged();
+      } catch {
+        /* The saved reference remains blocked and visible. */
+      }
+    };
+    recoverReferences();
+    const changed = (event: StorageEvent) => {
+      if (event.key === null || event.key.startsWith('pos-order-import-approval:'))
+        recoverReferences();
+    };
+    window.addEventListener('storage', changed);
+    return () => window.removeEventListener('storage', changed);
+  }, [approvalsChanged, online]);
   useEffect(() => {
     if (!online || initial.error) return;
     const signal = captureOperatorScope(user.id);
@@ -177,6 +223,7 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
       if (file.size > 5242880) throw new Error('Select a CSV file no larger than 5 MB.');
       const bytes = await file.arrayBuffer();
       signal.throwIfAborted();
+      if (!alive.current) throw new DOMException('The import review scope changed.', 'AbortError');
       let text: string;
       try {
         text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
@@ -191,6 +238,7 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
     const body = input(),
       hash = await orderImportInputHash(body);
     signal.throwIfAborted();
+    if (!alive.current) throw new DOMException('The import review scope changed.', 'AbortError');
     if (intent && (body.id !== intent.id || hash !== intent.inputHash))
       throw new Error('Retry requires the exact original file, format and counter selections.');
     if (!retry && (!preview || preview.id !== body.id))
@@ -248,6 +296,20 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
         </p>
       )}
       {notice && <p role="status">{notice}</p>}
+      {approvalProblem && <p role="alert">{approvalProblem}</p>}
+      <SavedImportApprovals
+        user={user}
+        intents={approvalIntents}
+        online={online}
+        enabled={
+          Boolean(capabilities?.ready) &&
+          !busy &&
+          !resumePending &&
+          !initial.error &&
+          !approvalProblem
+        }
+        onPendingChanged={approvalsChanged}
+      />
       {capabilities && !capabilities.ready && (
         <p role="status">
           You can validate files and recover existing imports. Creating historical orders is not
@@ -481,6 +543,7 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
               disabled={disabled}
               onClick={() => {
                 try {
+                  // Per-row approval references remain in the saved-receipt panel.
                   clearImportIntent(user.id, job.id);
                   readRevision.current++;
                   setIntent(null);
@@ -512,11 +575,12 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
                   <th>Order</th>
                   <th>Business date</th>
                   <th>Review code</th>
+                  <th>Financial approval</th>
                 </tr>
               </thead>
               <tbody>
                 {results.map((row) => (
-                  <tr key={row.sequence}>
+                  <tr key={`${job.id}:${row.operationId}`}>
                     <td>{row.firstRow}</td>
                     <td>{row.storeId}</td>
                     <td>{row.counterId}</td>
@@ -524,6 +588,27 @@ function OrderImports({ user, online }: { user: Principal; online: boolean }) {
                     <td>{row.orderId ?? '—'}</td>
                     <td>{row.businessDate ?? '—'}</td>
                     <td>{row.errorCode ?? '—'}</td>
+                    <td>
+                      <ImportApprovalAction
+                        user={user}
+                        job={job}
+                        row={row}
+                        online={online}
+                        enabled={
+                          Boolean(capabilities?.ready) &&
+                          !busy &&
+                          !resumePending &&
+                          !initial.error &&
+                          !approvalProblem &&
+                          !importIsTerminal(job)
+                        }
+                        pending={approvalIntents.some(
+                          (value) =>
+                            value.jobId === job.id && value.operationId === row.operationId,
+                        )}
+                        onPendingChanged={approvalsChanged}
+                      />
+                    </td>
                   </tr>
                 ))}
               </tbody>
