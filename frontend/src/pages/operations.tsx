@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowUpRight, Building2, CheckCircle2, Search, X } from 'lucide-react';
 import type { Principal, Store } from '../api/types';
 import { useOnline, useProducts } from '../hooks/use-pos';
+import { useWorkspace } from '../state/workspace';
 import { currency } from '../lib/format';
 import { Empty, ErrorState, Loading, Metric, PageTitle } from '../components/common';
 import { request } from '../api/client';
@@ -19,7 +20,8 @@ import { orderLink, orderLinkState } from './checkout/order-link';
 import { OrderPaymentActions } from './checkout/OrderPaymentActions';
 import { OrderCancellationActions } from './checkout/cancellations/OrderCancellationActions';
 import { SourceOrderList } from './order-history/SourceOrderList';
-import { PaymentReversalPanel } from './payment-reversals';
+import { CashReturnPendingQueue, PaymentReversalPanel } from './payment-reversals';
+import type { CorrectionReceipt } from './payment-reversals/client';
 import { WholeOrderStatusActions } from './order-status';
 
 export function InventoryPage({ user, storeId }: { user: Principal; storeId: string }) {
@@ -126,7 +128,13 @@ export function InventoryPage({ user, storeId }: { user: Principal; storeId: str
 }
 export function OrdersPage({ user, storeId }: { user: Principal; storeId: string }) {
   const online = useOnline(),
+    counterId = useWorkspace((state) => state.counterId),
     [automaticInvoice, setAutomaticInvoice] = useState<AutomaticInvoiceRequest | null>(null);
+  const [confirmedCorrection, setConfirmedCorrection] = useState<{
+    scopeKey: string;
+    orderId: string;
+    receipt: CorrectionReceipt;
+  } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams(),
     location = useLocation(),
     dates = orderBrowserDates(searchParams),
@@ -137,6 +145,15 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
     [paymentRevision, setPaymentRevision] = useState(0),
     [dateDraft, setDateDraft] = useState({ from: dates.from, to: dates.to });
   const orders = { refetch: () => setRefreshToken((value) => value + 1) };
+  const cashScopeKey = JSON.stringify([
+    user.id,
+    user.role,
+    user.userType,
+    [...user.storeIds].sort(),
+    storeId,
+    counterId,
+  ]);
+  useEffect(() => setConfirmedCorrection(null), [cashScopeKey, selected]);
   useEffect(
     () => setDateDraft({ from: dates.from, to: dates.to }),
     [dates.from, dates.to, user.id, storeId],
@@ -196,6 +213,9 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           <ArrowUpRight size={16} />
         </button>
       </PageTitle>
+      {[1, 2, 3].includes(user.role) && storeId && (
+        <CashReturnPendingQueue key={cashScopeKey} user={user} storeId={storeId} online={online} />
+      )}
       {link.invalid && (
         <p className="inline-error" role="alert">
           The order link contains an invalid reference.
@@ -292,6 +312,14 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
             </button>
             <div className="eyebrow">ORDER DETAILS</div>
             <h2 id="order-title">{detail.data?.reference || selected}</h2>
+            {confirmedCorrection?.scopeKey === cashScopeKey &&
+              confirmedCorrection.orderId === selected &&
+              (detail.isPending || detail.isError || !detail.data) && (
+                <p role="status" aria-label="Confirmed cash correction">
+                  Returned cash is recorded. Financial reference{' '}
+                  <code>{confirmedCorrection.receipt.id}</code>. Do not return cash again.
+                </p>
+              )}
             {!online && !detail.data ? (
               <Empty title="Connect to load order details" />
             ) : detail.isPending ? (
@@ -346,12 +374,20 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                 />
                 {[1, 2, 3].includes(user.role) && (
                   <PaymentReversalPanel
+                    key={`cash-correction:${cashScopeKey}:${selected}`}
                     deferUntilOpened
                     user={user}
                     storeId={storeId}
                     orderId={selected}
                     online={online}
-                    onCorrected={async () => {
+                    onCorrected={async (receipt) => {
+                      if (receipt.storeId !== storeId || receipt.orderId !== selected)
+                        throw new Error('The financial receipt belongs to a different order.');
+                      setConfirmedCorrection({
+                        scopeKey: cashScopeKey,
+                        orderId: selected,
+                        receipt,
+                      });
                       setAutomaticInvoice(null);
                       setPaymentRevision((value) => value + 1);
                       await detail.refetch();
