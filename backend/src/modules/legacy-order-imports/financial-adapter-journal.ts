@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { retryTransaction } from '../../db/retry.js';
@@ -48,7 +48,13 @@ export function legacyImportFinancialJournal(
     const [row] = await tx
       .select()
       .from(financialImportOperations)
-      .where(eq(financialImportOperations.id, scope.operationId))
+      .where(
+        and(
+          eq(financialImportOperations.id, scope.operationId),
+          sql`OCTET_LENGTH(${financialImportOperations.state})<=16000`,
+          sql`OCTET_LENGTH(${financialImportOperations.payload})<=342000`,
+        ),
+      )
       .limit(1)
       .for('update');
     if (!row) return null;

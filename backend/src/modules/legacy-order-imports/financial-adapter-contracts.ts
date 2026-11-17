@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Temporal } from '@js-temporal/polyfill';
 import { identifier } from '../../domain/validation.js';
 import { customerContactBindingSchema } from '../checkout/customer-contact-authority.js';
+import { isLegacyLatinText } from '../checkout/settlement-note.js';
 import type { LegacyOrderImportPlan } from './plans.js';
 
 export const financialImportContract = 'pos-legacy-order-import-financial-v1';
@@ -55,7 +56,7 @@ export const financialImportPlanSchema: z.ZodType<LegacyOrderImportPlan> = z
         kind: z.literal('offline'),
         payment: z.enum(['cash', 'manual-other']),
         sendOrderPlacedSms: z.boolean(),
-        message: z.string().max(1000),
+        message: z.string().max(255).refine(isLegacyLatinText),
       })
       .strict(),
     z

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { randomUUID } from 'node:crypto';
 import { importFinancialFixture, financialPlan, financialClock, sourceKey } from './fixture.js';
 import { legacyOrderImportFinancialAdapter } from '../../src/modules/legacy-order-imports/financial-adapter.js';
@@ -327,4 +327,25 @@ describe.skipIf(!template)('native legacy CSV financial journal', () => {
         ),
     ).rejects.toMatchObject({ code: 'ORDER_IMPORT_ORDER_HELD' });
   });
+});
+
+// A prior nonlocking RR read must not certify a stale native line identity.
+describe.skipIf(!template)('financial import current structural evidence', () => {
+  it('refuses a concurrent HP quantity change after an established repeatable-read snapshot', async () => {
+    const f = await importFinancialFixture(template!);
+    try {
+      await f.reset();
+      const adapter = legacyOrderImportFinancialAdapter(f.config, f.db, f.options, f.transport());
+      expect((await adapter.start(f.input())).status).toBe('completed');
+      await f.db.get('writer').transaction(async (tx) => {
+        await tx.execute(sql`SELECT qty FROM has_products WHERE id=9007199254740997`);
+        await f.connection.query('UPDATE has_products SET qty=3 WHERE id=9007199254740997');
+        await expect(
+          assertImportOrderMutationAvailable(tx, '9007199254740995', runtimeImportSecret),
+        ).rejects.toMatchObject({ code: 'ORDER_IMPORT_RECEIPT_INVALID' });
+      });
+    } finally {
+      await f.close();
+    }
+  }, 30000);
 });

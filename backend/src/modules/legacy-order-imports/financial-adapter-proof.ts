@@ -113,6 +113,7 @@ export async function readSourceOrderReceipt(
         eq(financialImportSourceReceipts.operationId, operationId),
         eq(financialImportSourceReceipts.kind, 'order'),
         eq(financialImportSourceReceipts.status, 'completed'),
+        sql`OCTET_LENGTH(${financialImportSourceReceipts.proof})<=1000000`,
       ),
     )
     .limit(1)
@@ -135,7 +136,12 @@ export async function verifiedImportCompletion(
   const [row] = await tx
     .select()
     .from(financialImportProofs)
-    .where(eq(financialImportProofs.operationId, operationId))
+    .where(
+      and(
+        eq(financialImportProofs.operationId, operationId),
+        sql`OCTET_LENGTH(${financialImportProofs.data})<=1000000`,
+      ),
+    )
     .limit(1)
     .for('share');
   if (!row) return null;
@@ -155,12 +161,14 @@ export async function verifiedImportCompletion(
     .select({ id: Order.id, customerId: Order.user })
     .from(Order)
     .where(eq(Order.id, BigInt(row.orderId)))
-    .limit(1);
+    .limit(1)
+    .for('share');
   const mappings = await tx
     .select({ storeId: OrderStore.store, counterId: OrderStore.counter })
     .from(OrderStore)
     .where(eq(OrderStore.order, BigInt(row.orderId)))
-    .limit(2);
+    .limit(2)
+    .for('share');
   const lines = await tx
     .select({
       id: HasProduct.id,
@@ -171,7 +179,8 @@ export async function verifiedImportCompletion(
     .from(HasProduct)
     .where(eq(HasProduct.order, BigInt(row.orderId)))
     .orderBy(asc(HasProduct.id))
-    .limit(1001);
+    .limit(1001)
+    .for('share');
   if (
     !order ||
     String(order.customerId) !== proof.authority.customerId ||

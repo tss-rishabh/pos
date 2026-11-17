@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AppError } from '../../domain/errors.js';
 import { amount, minorUnits } from '../../domain/money.js';
 import { identifier } from '../../domain/validation.js';
+import { isLegacyLatinText } from '../checkout/settlement-note.js';
 import type { LegacyImportGroup } from './csv.js';
 
 const maximumCents = 100_000_000_000n;
@@ -181,7 +182,7 @@ export function offlineOrderImportPlan(group: LegacyImportGroup): OfflineOrderIm
     message = field(group, 'order_message');
   if (!['0', '1'].includes(sms))
     invalid('ORDER_IMPORT_SMS_INVALID', 'OrderPlacedSms must be 0 or 1.');
-  if (message.length > 1000 || unsafeText(message))
+  if (message.length > 255 || unsafeText(message) || !isLegacyLatinText(message))
     invalid('ORDER_IMPORT_MESSAGE_INVALID', 'The order message exceeds the supported text limits.');
   return {
     ...plan,

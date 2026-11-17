@@ -1,0 +1,29 @@
+{
+  "paymentsCommit": "434f3e438d1cb48c64e5723222c6efda506db571",
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "contract": "pos-legacy-order-import-confirmation-v1",
+  "activated": false,
+  "base": {
+    "internal/poscheckout/confirmation.go": "4555e75c112a814ab6b3185e6b4ed6ff9746a009cfdda9b4c79c869e268b41f1",
+    "internal/poscheckout/privacy.go": "28df2b4797922c3c5854553ef4c89b96cebbd408423c9ca443113a35b80b4c68",
+    "internal/poscheckout/effects.go": "030d126e70372eb7a0d7213a6991125bdc948993689cd1c14bc5f141455863be"
+  },
+  "candidate": {
+    "internal/poscheckout/confirmation.go": "92281e810267446d6761a2d66a0740332c28bdabb03703a26bff837fb80cf24b",
+    "internal/poscheckout/privacy.go": "322dd6eae7955f2c7f4bcd35b8737dddd3f28116022097334e814e4d132a0c38",
+    "internal/poscheckout/effects.go": "62b26ebc1a75b0cfc98b8691176a952c682cc0b14fae9af973f616a53c41233a",
+    "internal/poscheckout/legacy_import.go": "22ae264d5d91dbdb4a51a70b8b2a6c013dbce2ae497bdb9ecd419ad7a51b5383"
+  },
+  "patchSha256": "03cbf695ff4280d2bb754e0934ff180db1e3eb747661699db1ec4e25c43a5ad4",
+  "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
+  "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
+  "sourceFiles": {
+    "models/Order.py": "d9ee1cd52546e9d8dce0952e901ecba0d58fe1c1b68d95149781131e1553fca5",
+    "libs/OrderHelper.py": "a3ec2d593ddfb990b6462fe4f71a8c70f5aa7b95a6704ffb4a0566b14e515e46",
+    "controllers/CheckoutController.py": "f4b240f5a84683f41eeb819f52dfad4cf8f7a1a129c25708d2d26a3b849a6b40",
+    "controllers/CatalogController.py": "5dcf3d5db2d1bea2001b0e1d8349b02725b11482e831a7355b6eaaf343de400e",
+    "controllers/KinesisProducer.py": "18a7c4dd7ce2858b95869655122c78d2559337d490aef20809c803bd2caf6b1d",
+    "main.py": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7"
+  },
+  "modelContract": "pos-import-source-model-v1"
+}
