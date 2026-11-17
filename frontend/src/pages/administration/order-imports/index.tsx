@@ -29,6 +29,13 @@ import {
 import '../styles.css';
 
 export default function OrderImportsPage(props: { user: Principal; online: boolean }) {
+  if (props.user.userType !== 1 || ![1, 2, 3].includes(props.user.role))
+    return (
+      <section className="surface">
+        <h1>Historical order imports</h1>
+        <p>Internal administration access is required.</p>
+      </section>
+    );
   return <OrderImports key={props.user.id} {...props} />;
 }
 function OrderImports({ user, online }: { user: Principal; online: boolean }) {

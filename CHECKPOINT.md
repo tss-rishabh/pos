@@ -34,8 +34,10 @@ component test counts do not certify every original workflow.
 ## Fixed remaining code checklist
 
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
-  encrypted staging, GET-only recovery coordinator and published-history repository
-  integration exist; the financial adapters and service/API/worker remain unfinished. See
+  encrypted staging, native authorization/preflight, job API, recovery UI,
+  worker loop and published-history repository are integrated. Sixty-nine backend
+  and eight frontend checks pass. Financial/approval adapters, cooperative writer
+  fences, explicit blocked-job resume and the standalone processor remain unfinished. See
   `backend/parity/legacy-order-imports.md`.
 - Membership provenance producers are integrated as source-pinned compatibility
   candidates. Actual Python staging → Go activation → Node cancellation passes

@@ -363,10 +363,10 @@ def define_families():
     family('inventory-workbooks', ['src/modules/inventory-workbooks'], ['src/pages/operational-reports/exports.tsx'], ['tests/inventory-workbooks', 'frontend/tests/inventory-workbooks'],
            ['parity/inventory-workbooks.md'], scope='Literal nine-column per-selected-store workbook pipeline, bounded DATA snapshot, streaming private spool and queued lifecycle; debug task is inlined pass-through.',
            external=['Accept actual reader lag/ambiguity reconciliation and private report storage; no live upload or production timing proof is implied.'])
-    family('legacy-order-imports', ['src/modules/legacy-order-imports'], ['src/pages/administration/imports.tsx'],
-           ['tests/legacy-order-imports'], ['parity/legacy-order-imports.md'], state='partial',
-           scope='Source CSV parsers/planners, encrypted staging, original-operation coordinator and typed financial contracts exist.',
-           gaps=['Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.'],
+    family('legacy-order-imports', ['src/modules/legacy-order-imports'], ['src/pages/administration/order-imports'],
+           ['tests/legacy-order-imports', 'frontend/tests/order-imports'], ['parity/legacy-order-imports.md'], state='partial',
+           scope='Source parsers/planners, encrypted immutable staging, native store/counter authority, authenticated job API, private actor-bound recovery UI, bounded worker loop and qualified >24h BigQuery history are integrated. Before STARTING a native approval preflight can retain unsent rows without burning the nonce; unknown outcomes remain GET-only and frontend retries require exact original input/UUID.',
+           gaps=['Complete and wire the real offline/Shopify financial adapter, purpose-bound approval resources, standalone worker entry and cooperative mutation fences. Source grouping/job API/browser tests still use a synthetic financial port and do not certify financial imports. Access-blocked partial jobs also need explicit safe resume without reimporting completed rows.'],
            external=['Accept closed-period/custom-date privilege, original source financial/Kinesis cooperation and historical publication.'])
     family('parent-store-assignment-csv', ['src/modules/administration/parent-store-imports','src/modules/administration/import-profile.ts','src/modules/administration/imports.ts','src/modules/administration/worker.ts'],
            ['src/pages/administration/parent-store-imports.tsx','src/pages/administration/imports.tsx'], ['tests/administration/parent-store-imports','tools/administration/parent-store-imports/source-oracle.py','frontend/tests/administration/parent-store-imports'], ['parity/parent-store-imports.md'],

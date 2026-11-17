@@ -71,6 +71,11 @@ jobs:
         working-directory: frontend
         env:
           ORDER_COPY_BROWSER_TESTS: 'true'
+      - name: Historical CSV job recovery browser checks
+        run: npx vitest run tests/order-imports --maxWorkers=1
+        working-directory: frontend
+        env:
+          ORDER_IMPORT_BROWSER_TESTS: 'true'
       - name: Historical order reader browser checks
         run: node tests/order-history/browser-check.mjs
         working-directory: frontend

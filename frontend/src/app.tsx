@@ -42,6 +42,7 @@ const DashboardPage = lazy(() => import('./pages/dashboard'));
 const BarcodeAssignmentsPage = lazy(() => import('./pages/administration/barcodes'));
 const ParentStoreImportsPage = lazy(() => import('./pages/administration/parent-store-imports'));
 const OperatorModelAccountsPage = lazy(() => import('./pages/administration/model-accounts'));
+const HistoricalOrderImportsPage = lazy(() => import('./pages/administration/order-imports'));
 const SecondaryCountrySearchPage = lazy(() => import('./pages/administration/secondary-countries'));
 const InventoryPage = lazy(() =>
   import('./pages/operations').then((m) => ({ default: m.InventoryPage })),
@@ -231,6 +232,13 @@ const links = [
     to: '/administration/parent-store-imports',
     name: 'Product/store assignments',
     icon: Building2,
+  },
+  {
+    to: '/administration/order-imports',
+    name: 'Historical order imports',
+    icon: ReceiptText,
+    roles: [1, 2, 3],
+    internalOnly: true,
   },
   { to: '/documentation', name: 'Help & documents', icon: BookOpen },
   { to: '/application-links', name: 'Application links', icon: QrCode },
@@ -476,6 +484,10 @@ function Workspace({ user }: { user: Principal }) {
                 <Route
                   path="/administration/parent-store-imports"
                   element={<ParentStoreImportsPage user={user} online={sync.online} />}
+                />
+                <Route
+                  path="/administration/order-imports"
+                  element={<HistoricalOrderImportsPage user={user} online={sync.online} />}
                 />
                 <Route path="/dashboard" element={<DashboardPage key={user.id} user={user} />} />
                 <Route

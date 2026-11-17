@@ -130,7 +130,7 @@
     "backend/parity/invoice-documents.md": "d7a8b995439fca93ff2f45c4fe8dfe853563e62f1ecf246ea904eef0378b9b1d",
     "backend/parity/legacy-fulfillment.md": "b6169abe8dd57768f36793d3c2bedc89e1e0cf6b12b5719d38b7adca52d5a136",
     "backend/parity/legacy-inventory.json": "2893078e431fd66bf74661368e776b60fbce7a2125e8f00a6aeae9eac305c85a",
-    "backend/parity/legacy-order-imports.md": "45ad2092faddeb9fb50ce9cc28455b0f446313e147d9eebd1924959c6d943360",
+    "backend/parity/legacy-order-imports.md": "c3d451bfdb9d7dd771377bb176991b88d381cde1e12ecb8aea5cbad2862bab6b",
     "backend/parity/local-delivery-lifecycle.md": "7ab62faecfcf5e6f32af8105d596581880f489d90141219ecb7c4ffc866829e0",
     "backend/parity/offline-invoice-worksheet.md": "019677536db53a0cea5a1dc775c992cceeb6e36c5dcd93e1804e27403684a4a3",
     "backend/parity/operational-reports.md": "33a48500a6deed2c82b224da52be819cf85ba0cf36ff03048312f549012e5de4",
@@ -146,7 +146,7 @@
     "backend/parity/report-exports.md": "fc6e51d06dc0656132102a3ad32f67781700deaab87915fd89a0ef9e2d98b47f",
     "backend/parity/scheduled-reports.md": "309be1084c4e01a3fbafd868e1bb830cf136ec26c0fe22c4b77a804d42191504",
     "backend/parity/wallet-adjustments.md": "ab1929b2ac1af5bad8d3a2992b76bb659c5cad867fb7a414d968a8c6d2004bb0",
-    "backend/src/app.ts": "ca873dbdb09deef7ac3599fca4657b61fbfdfa38a93cadc51713fd087d360574",
+    "backend/src/app.ts": "d1e34ef90d83240f548dcccd8cef8b9c98baa955242589bbc2af747bdc097235",
     "backend/src/auth/delivery.ts": "b813640dcda4f8fe910d29cd8d471d03fe2d452ab931c3f45c19cdb342a43d63",
     "backend/src/auth/device-handoff-routes.ts": "ad454f2c02ed3af385118b68fada5eb654f1888fb741e2cd29c3afb601fa0001",
     "backend/src/auth/device-handoff-store.ts": "7b0c168f550954a66a257bb514eeed9f805d6733e76807f138aedac9d3a2f76d",
@@ -597,16 +597,21 @@
     "backend/src/modules/legacy-fulfillment/migration.sql": "4286c9baf9ded51642e7b3ab9f388d514596f633456d48594dff622e452c787d",
     "backend/src/modules/legacy-fulfillment/schema.ts": "19ab1284a2348cda7238f8718764d4f9231fdaa9d5ac28d7ca8c1784575e0a9c",
     "backend/src/modules/legacy-fulfillment/service.ts": "844d1571f754cd83c220cd1b5ce3c25022ccf2cd0b2a3a0b9e060e1f749ae146",
-    "backend/src/modules/legacy-order-imports/authorization.ts": "c647632812cfadc2613fa1aa839c93544035d187811d1c245365a55052553733",
+    "backend/src/modules/legacy-order-imports/authorization.ts": "86342c6a70eb6471bc3435a3587406877c38321ccac08a69672a31162c2b1d19",
     "backend/src/modules/legacy-order-imports/csv.ts": "89fbde1f6b23ccdf9542a27abebb735c0bd45a9c2362ccf474b4c7394e7b57de",
-    "backend/src/modules/legacy-order-imports/financial-contracts.ts": "3d17f0fdbbc593075814969088b22ac50a610da7eee91a48fe89926ab6c3c25f",
+    "backend/src/modules/legacy-order-imports/domain.ts": "8a6050e56c90dcee6d11b7f16a39ef579e8696032b23b0bf4062c29feffdbc09",
+    "backend/src/modules/legacy-order-imports/financial-contracts.ts": "250fc6d3b957017772f260461272b1a85aa5a7785455c60989d37322be1cf918",
     "backend/src/modules/legacy-order-imports/history.ts": "fc91689ba950a0da713f40ae7105d1ba1b20a59bfa2d634ccad9cb081f44bfa1",
+    "backend/src/modules/legacy-order-imports/index.ts": "8443941658e6daa290f012a28024c7add400955ab8af4a6892e0fc8ef9ac1ba2",
     "backend/src/modules/legacy-order-imports/migration.sql": "d13c8c2737c9b61c8221c9992a14f24a7d399000fc53cf73599da836379d9f1d",
+    "backend/src/modules/legacy-order-imports/options.ts": "0015573a37059444d7144dfb93f2cc6f1544699dde29bc3236bf62855cdf532e",
     "backend/src/modules/legacy-order-imports/plans.ts": "49c7cd8919bcc39b6a3a0bcb4f6b495819ced7b28c7d785d8c377a692f0a89da",
     "backend/src/modules/legacy-order-imports/preparation.ts": "582962a9f6fb10a34cb2299c855bf8f2c7b2453e0fa3927de094961fd6330b01",
-    "backend/src/modules/legacy-order-imports/repository.ts": "4a0f57f5a8e180657ea5a30d99c680e435932db82b8ac9850e7fcc5964f70155",
+    "backend/src/modules/legacy-order-imports/repository.ts": "b733740350102d1a5ede2579436291aa4df508f9600ff24ef216718686d70dd4",
     "backend/src/modules/legacy-order-imports/schema.ts": "80c849040dd80ab01c62fc6c29f68bc3351c47a7502ab4e04847cfe5bc3ba3fa",
     "backend/src/modules/legacy-order-imports/sealed-groups.ts": "6ca20486dd793df0413bbf31aaccffcf70743313a6444659343213d28cfe19d9",
+    "backend/src/modules/legacy-order-imports/service.ts": "3fac2ed1d36f56351cacee95257e72f74b7270ba89fe89b4c46436395ce3e66a",
+    "backend/src/modules/legacy-order-imports/worker.ts": "9ccc1f968281895a32d10414ec2c1a4d29e3545c6b49cfa3d88aac1b12d4f4a3",
     "backend/src/modules/motivational-quotes/index.ts": "81777fdeaee4da255376ab5c91fd03ccbe78d0e13a78532db4415714e9552b33",
     "backend/src/modules/motivational-quotes/pool.ts": "f11cf91915267ec9c8db94bd894099a018536d1b5ab6b2f0c77f22ff76a1bd8b",
     "backend/src/modules/operational-reports/acceptance.ts": "7607a2a9b81815d485ea645fc211688e1adc391c6d007ef84765c65a95fd8212",
@@ -843,6 +848,8 @@
     "backend/tests/legacy-order-imports/history.test.ts": "ebe3a9ed8873f169918fe2da8f65e81bd73a3b3061d99622a57e6ade6ccc7aad",
     "backend/tests/legacy-order-imports/plans.test.ts": "82314d1114ff4fc6795c53a48ec4f7b19650f0116e98ad8a544fd0b3c4f6c1da",
     "backend/tests/legacy-order-imports/repository.mysql.test.ts": "0ff91f85556a2f9b3fef015aa6dd990e6359ab258c23ca4e35df8b3d4634c689",
+    "backend/tests/legacy-order-imports/runtime-fixture.ts": "4a2cf4c243e877f25e98918e0fdf96c02727083dfdee803d9882a755e70d44e5",
+    "backend/tests/legacy-order-imports/runtime.mysql.test.ts": "1bcbbe4ac8828deca2cb9bbacb25fa5d8fd6c78a718d0d373034589a251d3984",
     "backend/tests/logging.test.ts": "6f762bc7a1cabc37a7b6c6011d8a2f1169bd0421127bc406a380e4aafb1460de",
     "backend/tests/motivational-quotes.test.ts": "c06b57e64e6fd81c10e87c12e399d45bf3837b9df40e717c6f081a2d3e6a50b2",
     "backend/tests/mysql.integration.test.ts": "c5935de791e5123bc19239dc13c9e2366eaea225164ead1d74da8435fec90dc6",
@@ -913,7 +920,7 @@
     "frontend/e2e/checkout/product-feedback.spec.ts": "ea4472b0f05ada86a836e7772dbedc9a59a9634b999cc3366deb66e723b3c963",
     "frontend/e2e/checkout/wallet-adjustments.spec.ts": "4316c31ee98c66ed3c6f293f6827d5f67a0f4e17055114078f40938e5ac4312d",
     "frontend/e2e/motivational-quotes.spec.ts": "79337d023bb9b8e72dedba7195ea16bb9a1b459f5d9d457ad25040f76276279c",
-    "frontend/src/app.tsx": "c9c3c4e244e19b1c0511063a81aedb8065bc48881c64524aef5731e2cf470d27",
+    "frontend/src/app.tsx": "ee307685c1a63ddb710e763b5352f8a853ebc61795311f0415475e584241b561",
     "frontend/src/components/common.tsx": "91b559434cf73ef433e191ed9157c8a381b49acbfa55cc5528314a609c7f11f4",
     "frontend/src/components/error-boundary.tsx": "068a7926f94588d641584e72e1589902be6134394b7aab971ca8866dfef7a13c",
     "frontend/src/components/motivational-quote.tsx": "c5ae3992a5beb1ff2b3e1ba3a4060159220811961158d8f2613d1ed3c7e02d50",
@@ -973,6 +980,9 @@
     "frontend/src/pages/administration/model-accounts/index.tsx": "2dd561bab52ccbdd667f6affe7650463adb1b574293b020f45fa7d406de7aea6",
     "frontend/src/pages/administration/model-accounts/pending.ts": "919e7a84d915dd82ebf492053d30a0e8198fe3251fba2363675ac2d5cdc885f5",
     "frontend/src/pages/administration/operator-administration.tsx": "022e76e780929603e56da622c93caf5c49ea50bc3ce89e9656f5e058f98cc820",
+    "frontend/src/pages/administration/order-imports/client.ts": "5cbfb91fec146d20459f4134f0241b5a016cc960aea01da960cd0f3007b2b2bd",
+    "frontend/src/pages/administration/order-imports/index.tsx": "914d1fe77e5d292934f13f67d57b437d6bc05a9d350ec915fae7662fbb3e14cc",
+    "frontend/src/pages/administration/order-imports/journal.ts": "18033d75bdb01244fbe322e947600b1e168834679b11b06054bf1101e97e5d9e",
     "frontend/src/pages/administration/parent-store-imports.tsx": "63adab5b6ec64daf8364341761db9975f36714882d11568f3519499935ace39a",
     "frontend/src/pages/administration/people.tsx": "289e4bac9de7755c892090698d3d5eddb1adab239bb100bfad1bd55ed4f2e991",
     "frontend/src/pages/administration/permission-history.tsx": "38eab4d8bab87c7837882cf5db56c513a20dc23e6bcf0bf7378e1c4c2c767590",
@@ -1219,6 +1229,10 @@
     "frontend/tests/order-history/fixture.tsx": "915556e81d0d8eb3193e8f8b82e4d0544495762e7e2bfd73e63b1f15c58f5365",
     "frontend/tests/order-history/tsconfig.json": "519a2838358fb05aaf371ed08cab3549bebb524fafccdf43d5a5d06ab2650325",
     "frontend/tests/order-history/vitest.config.ts": "7caa4d8e01bfbfe6a9f64951a3e7133c33f347ddd9c061bd1cb85d3210548648",
+    "frontend/tests/order-imports/browser.test.ts": "0f71e48216c6c174dcf58a4fb594140661c1ca8557c79a59c00832cacd0c48da",
+    "frontend/tests/order-imports/harness.tsx": "783e4ec1513bbb30f63ee737d5dae83b1f9d71c27478d9401e58c32c10f4598c",
+    "frontend/tests/order-imports/journal.test.ts": "b6680c02b465a69f624b777a7f1185e01aa59215b4d054783c54ded9e399b09f",
+    "frontend/tests/order-imports/tsconfig.json": "85a5ea06f7c90cd1297a5e0d393894318b5530d00d33cc78ce27a89fdc75b41d",
     "frontend/tests/order-link.test.ts": "c3ce3edff661cce5f675002da30bbbc52bedca91d27d155345e31de3ce54aaa1",
     "frontend/tests/order-payments/harness.tsx": "605ef29d4143cc072d12178507f4f595646a1807f489a6481d43402cec7e90d3",
     "frontend/tests/order-payments/order-payments.browser.test.ts": "1e741bd81058732e5037cf5ad3a17a1c2e207028aa836bde93f85677a8431f57",
@@ -3320,6 +3334,8 @@
         "frontend/tests/order-copy/marker.test.ts",
         "frontend/tests/order-copy/operation-reference.test.ts",
         "frontend/tests/order-history/client.test.ts",
+        "frontend/tests/order-imports/browser.test.ts",
+        "frontend/tests/order-imports/journal.test.ts",
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
         "frontend/tests/order-search/client.test.ts",
@@ -3555,6 +3571,8 @@
         "frontend/tests/order-copy/marker.test.ts",
         "frontend/tests/order-copy/operation-reference.test.ts",
         "frontend/tests/order-history/client.test.ts",
+        "frontend/tests/order-imports/browser.test.ts",
+        "frontend/tests/order-imports/journal.test.ts",
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
         "frontend/tests/order-search/client.test.ts",
@@ -3906,6 +3924,8 @@
         "frontend/tests/order-copy/marker.test.ts",
         "frontend/tests/order-copy/operation-reference.test.ts",
         "frontend/tests/order-history/client.test.ts",
+        "frontend/tests/order-imports/browser.test.ts",
+        "frontend/tests/order-imports/journal.test.ts",
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
         "frontend/tests/order-search/client.test.ts",
@@ -5272,17 +5292,18 @@
         "backend/src/modules/legacy-order-imports"
       ],
       "frontend": [
-        "frontend/src/pages/administration/imports.tsx"
+        "frontend/src/pages/administration/order-imports"
       ],
       "tests": [
-        "backend/tests/legacy-order-imports"
+        "backend/tests/legacy-order-imports",
+        "frontend/tests/order-imports"
       ],
       "parity_documents": [
         "backend/parity/legacy-order-imports.md"
       ],
-      "implemented_scope": "Source CSV parsers/planners, encrypted staging, original-operation coordinator and typed financial contracts exist.",
+      "implemented_scope": "Source parsers/planners, encrypted immutable staging, native store/counter authority, authenticated job API, private actor-bound recovery UI, bounded worker loop and qualified >24h BigQuery history are integrated. Before STARTING a native approval preflight can retain unsent rows without burning the nonce; unknown outcomes remain GET-only and frontend retries require exact original input/UUID.",
       "remaining_code": [
-        "Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports."
+        "Complete and wire the real offline/Shopify financial adapter, purpose-bound approval resources, standalone worker entry and cooperative mutation fences. Source grouping/job API/browser tests still use a synthetic financial port and do not certify financial imports. Access-blocked partial jobs also need explicit safe resume without reimporting completed rows."
       ],
       "external_acceptance": [
         "Accept closed-period/custom-date privilege, original source financial/Kinesis cooperation and historical publication."
@@ -5296,7 +5317,10 @@
         "backend/tests/legacy-order-imports/csv.test.ts",
         "backend/tests/legacy-order-imports/history.test.ts",
         "backend/tests/legacy-order-imports/plans.test.ts",
-        "backend/tests/legacy-order-imports/repository.mysql.test.ts"
+        "backend/tests/legacy-order-imports/repository.mysql.test.ts",
+        "backend/tests/legacy-order-imports/runtime.mysql.test.ts",
+        "frontend/tests/order-imports/browser.test.ts",
+        "frontend/tests/order-imports/journal.test.ts"
       ]
     },
     {
@@ -5511,7 +5535,7 @@
       "family": "legacy-order-imports",
       "state": "partial",
       "tasks": [
-        "Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports."
+        "Complete and wire the real offline/Shopify financial adapter, purpose-bound approval resources, standalone worker entry and cooperative mutation fences. Source grouping/job API/browser tests still use a synthetic financial port and do not certify financial imports. Access-blocked partial jobs also need explicit safe resume without reimporting completed rows."
       ]
     }
   ],

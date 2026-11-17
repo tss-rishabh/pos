@@ -63,6 +63,7 @@ import {
   readSlackOAuthOptions,
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
+import { registerLegacyOrderImports } from './modules/legacy-order-imports/index.js';
 import { checkoutEnvironment } from './modules/checkout/gateway.js';
 import {
   paymentCorrectionEvidence,
@@ -346,6 +347,7 @@ export async function buildApp(
     );
   registerBarcodeAssignments(app, config, db);
   registerOperatorModelAccounts(app, config, db);
+  registerLegacyOrderImports(app, config, db);
   registerSecondaryCountrySearch(app, db);
   registerParentStoreImports(app, config, db, {
     stockProcedure: stockProjection,

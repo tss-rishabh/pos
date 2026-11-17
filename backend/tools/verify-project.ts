@@ -841,6 +841,16 @@ const checks: Check[] = [
     ],
   },
   {
+    id: 'legacy-order-import-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/order-imports/tsconfig.json',
+    ],
+  },
+  {
     id: 'model-accounts-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -934,6 +944,12 @@ if (flags.has('--browser')) {
     environment: { PAYMENT_REVERSAL_BROWSER_TESTS: 'true' },
   });
   checks.push(
+    {
+      id: 'legacy-order-import-browser-tests',
+      directory: 'frontend',
+      args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/order-imports', '--maxWorkers=1'],
+      environment: { ORDER_IMPORT_BROWSER_TESTS: 'true' },
+    },
     {
       id: 'order-copy-browser-tests',
       directory: 'frontend',
