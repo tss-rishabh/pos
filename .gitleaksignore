@@ -186,3 +186,18 @@ f745f336b8157738deee8ef17b84f68434c6b6fb:backend/evidence/verification.json:gene
 7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1117
 # Source checksum verified against the exact tracked blob in this immutable commit.
 0951bc483780058e5fba4dcf0d4bf142483f0ced:backend/parity/source-surface-map.json:generic-api-key:691
+
+# Verified immutable source hashes and pinned Git commit IDs.
+5f8dae7eb35bc5de414fd1d7f23a149844442de5:backend/parity/source-surface-map.json:generic-api-key:626
+5e23e00e14a5b33c22805189c5723302c83e4526:backend/parity/source-surface-map.json:generic-api-key:959
+7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/tools/administration/ecommerce-sync/pin-source.py:generic-api-key:11
+dbbf120ca55f93341d30dbc0642a4e29905ed63e:backend/evidence/verification.json:generic-api-key:1617
+dbbf120ca55f93341d30dbc0642a4e29905ed63e:backend/evidence/verification.json:generic-api-key:2108
+dbbf120ca55f93341d30dbc0642a4e29905ed63e:backend/evidence/verification.json:generic-api-key:2123
+dbbf120ca55f93341d30dbc0642a4e29905ed63e:backend/evidence/verification.json:generic-api-key:2128
+7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:3
+7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:34
+7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:109
+7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:163
+7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:177
+7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:256
