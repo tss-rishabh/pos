@@ -54,6 +54,37 @@ def payment(session,value,key):
             or not hmac.compare_digest(digest(key,'payment',proof),row['proof_hash'])):fail()
     return proof
 
+def failed_payment(session,value,key):
+    """Only a retained genuine decline may release a not-counted order.
+
+    A timeout, authorization-only failure, phase flag, or mutable status alone
+    never relinquishes the original reservation. Caller holds the customer.
+    """
+    attempt=rows(session,'SELECT order_id,customer_id,phase,data,proof_hash FROM pos_rewrite_screening_origin_payment_attempts WHERE command_id=:id AND OCTET_LENGTH(data)<=16000 FOR SHARE',{'id':value['id']},2)
+    if not attempt:return False
+    if len(attempt)!=1:fail()
+    row=attempt[0];record=json_value(row['data'])
+    if (not isinstance(record,dict) or record.get('contract')!='pos-screening-origin-payments-v1'
+            or record.get('commandId')!=value['id'] or record.get('orderId')!=value['orderId'] or record.get('customerId')!=value['customerId']
+            or str(row['order_id'])!=value['orderId'] or str(row['customer_id'])!=value['customerId'] or record.get('phase')!=row['phase']
+            or record.get('creationHash')!=value['creationHash'] or record.get('requestHash')!=value['requestHash']
+            or record.get('referenceHash')!=value['referenceHash'] or not hmac.compare_digest(digest(key,'payment-attempt',record),row['proof_hash'])):fail()
+    if record['phase']!='FAILED':return False
+    observation=record.get('observationHash')
+    if not isinstance(observation,str) or len(observation)!=64:fail()
+    negative=one(session,'SELECT order_id,data,proof_hash FROM pos_rewrite_screening_origin_payment_outcomes WHERE command_id=:id AND observation_hash=:hash AND OCTET_LENGTH(data)<=1000000 FOR SHARE',{'id':value['id'],'hash':observation})
+    proof=json_value(negative['data'])
+    if (not isinstance(proof,dict) or proof.get('contract')!='pos-screening-origin-payment-outcome-v1' or proof.get('status')!='FAILED'
+            or proof.get('noConfirmation') is not True or proof.get('commandId')!=value['id'] or proof.get('origin')!=value['origin']
+            or proof.get('customerId')!=value['customerId'] or proof.get('orderId')!=value['orderId'] or str(negative['order_id'])!=value['orderId']
+            or proof.get('creationHash')!=value['creationHash'] or proof.get('requestHash')!=value['requestHash'] or proof.get('referenceHash')!=value['referenceHash']
+            or proof.get('observationHash')!=observation or not isinstance(proof.get('after'),dict)
+            or not hmac.compare_digest(digest(key,'payment-outcome',proof),negative['proof_hash'])):fail()
+    if proof['after'].get('orderStatus')!=17:return False
+    if rows(session,'SELECT order_id FROM pos_rewrite_screening_origin_payments WHERE command_id=:id FOR SHARE',{'id':value['id']},2):fail()
+    native=one(session,'SELECT user_id,order_status FROM orders WHERE id=:id FOR SHARE',{'id':value['orderId']})
+    return str(native['user_id'])==value['customerId'] and native['order_status']==17
+
 def pending(session,customer,key,except_id=None):
     customer=identifier(customer)
     found=rows(session,'SELECT * FROM pos_rewrite_screening_origin_commands FORCE INDEX(ix_screening_origin_customer) WHERE customer_id=:customer ORDER BY id LIMIT 1001',{'customer':customer},1001)
@@ -68,7 +99,7 @@ def pending(session,customer,key,except_id=None):
         elif value['phase']=='BOUND':
             creation(session,value,key)
             included=projection(session,value)
-            if not included:total+=value['markerRows']
+            if not included and not failed_payment(session,value,key):total+=value['markerRows']
         elif value['phase']=='REJECTED':
             closure=one(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_closures WHERE command_id=:id AND OCTET_LENGTH(data)<=16000 FOR SHARE',{'id':value['id']})
             proof=json_value(closure['data'])

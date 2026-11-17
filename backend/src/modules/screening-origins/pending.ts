@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { bigint, json, mysqlTable, varchar } from 'drizzle-orm/mysql-core';
 import { z } from 'zod';
 import type { AdministrationTransaction } from '../administration/checkins.js';
@@ -34,6 +34,21 @@ const payments = mysqlTable('pos_rewrite_screening_origin_payments', {
   data: json('data').$type<unknown>().notNull(),
   proofHash: varchar('proof_hash', { length: 64 }).notNull(),
 });
+const attempts = mysqlTable('pos_rewrite_screening_origin_payment_attempts', {
+  commandId: varchar('command_id', { length: 36 }).primaryKey(),
+  orderId: bigint('order_id', { mode: 'bigint' }).notNull(),
+  customerId: bigint('customer_id', { mode: 'bigint' }).notNull(),
+  phase: varchar('phase', { length: 32 }).notNull(),
+  data: json('data').$type<unknown>().notNull(),
+  proofHash: varchar('proof_hash', { length: 64 }).notNull(),
+});
+const outcomes = mysqlTable('pos_rewrite_screening_origin_payment_outcomes', {
+  commandId: varchar('command_id', { length: 36 }).notNull(),
+  observationHash: varchar('observation_hash', { length: 64 }).notNull(),
+  orderId: bigint('order_id', { mode: 'bigint' }).notNull(),
+  data: json('data').$type<unknown>().notNull(),
+  proofHash: varchar('proof_hash', { length: 64 }).notNull(),
+});
 function document(value: unknown): Record<string, unknown> {
   try {
     if (typeof value === 'string') value = JSON.parse(value);
@@ -58,6 +73,33 @@ async function verifyCreation(tx: AdministrationTransaction, value: ScreeningOri
       proof.customerId !== value.customerId || proof.orderId !== value.orderId || String(row.orderId) !== value.orderId ||
       proof.requestHash !== value.requestHash || proof.cartHash !== value.cartHash || proof.authorityHash !== value.authorityHash ||
       row.proofHash !== value.creationHash || !sameOriginHash(originDigest(secret, 'creation', proof), row.proofHash)) throw originError();
+}
+async function declinedCredit(tx: AdministrationTransaction, value: ScreeningOriginCommand, secret: string): Promise<boolean> {
+  const saved = await tx.select().from(attempts).where(eq(attempts.commandId, value.id)).limit(2).for('share');
+  if (!saved.length) return false;
+  const row = saved[0];
+  if (saved.length !== 1 || !row) throw originError();
+  const attempt = document(row.data);
+  if (attempt.contract !== 'pos-screening-origin-payments-v1' || attempt.commandId !== value.id || attempt.orderId !== value.orderId ||
+      attempt.customerId !== value.customerId || String(row.orderId) !== value.orderId || String(row.customerId) !== value.customerId ||
+      attempt.phase !== row.phase || attempt.creationHash !== value.creationHash || attempt.requestHash !== value.requestHash ||
+      attempt.referenceHash !== value.referenceHash || !sameOriginHash(originDigest(secret, 'payment-attempt', attempt), row.proofHash)) throw originError();
+  if (attempt.phase !== 'FAILED') return false;
+  if (typeof attempt.observationHash !== 'string' || !/^[a-f0-9]{64}$/.test(attempt.observationHash)) throw originError();
+  const records = await tx.select().from(outcomes).where(and(eq(outcomes.commandId, value.id), eq(outcomes.observationHash, attempt.observationHash))).limit(2).for('share');
+  const record = records[0];
+  if (records.length !== 1 || !record) throw originError();
+  const proof = document(record.data);
+  if (proof.contract !== 'pos-screening-origin-payment-outcome-v1' || proof.status !== 'FAILED' || proof.noConfirmation !== true ||
+      proof.commandId !== value.id || proof.origin !== value.origin || proof.customerId !== value.customerId || proof.orderId !== value.orderId ||
+      String(record.orderId) !== value.orderId || proof.creationHash !== value.creationHash || proof.requestHash !== value.requestHash ||
+      proof.referenceHash !== value.referenceHash || proof.observationHash !== attempt.observationHash ||
+      !sameOriginHash(originDigest(secret, 'payment-outcome', proof), record.proofHash)) throw originError();
+  const after = document(proof.after);
+  if (after.orderStatus !== 17) return false;
+  const confirmed = await tx.select({ id: payments.orderId }).from(payments).where(eq(payments.commandId, value.id)).limit(2).for('share');
+  if (confirmed.length) throw originError();
+  return true;
 }
 /** Caller already holds the exact global customer lock in its owned RC writer
  * transaction. No customer token, browser nonce, or public bypass is accepted. */
@@ -95,6 +137,7 @@ export async function readOtherOriginScreeningCredits(
       if (lines.length > 1000) throw originError();
       const ticket = lines.filter((line) => String(line.productId) === '390238');
       if (ticket.length !== value.lines.length || ticket.some((line, index) => String(line.id) !== value.lines[index]!.id || line.quantity !== value.lines[index]!.quantity)) throw originError();
+      if (current[0]!.status === 17 && await declinedCredit(tx, value, secret)) continue;
       if (current[0]!.status === null || current[0]!.status === 0 || current[0]!.status === 17) pending += value.markerRows;
     } else if (value.phase === 'REJECTED') {
       const proofs = await tx.select().from(closures).where(eq(closures.commandId, value.id)).limit(2).for('share');
