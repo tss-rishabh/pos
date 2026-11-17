@@ -26,6 +26,7 @@
   "build": {
     "appId": "com.thesouledstore.pos",
     "productName": "Souled POS",
+    "beforePack": "./electron/before-pack.cjs",
     "files": [
       "dist/**/*",
       "electron/**/*",
