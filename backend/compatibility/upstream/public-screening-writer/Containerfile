@@ -36,5 +36,14 @@ FROM public-membership-cache-worker AS private-source-receiver
 EXPOSE 4423
 CMD ["python3","-m","gunicorn","--workers","1","--worker-class","sync","--bind","0.0.0.0:4423","--timeout","60","--access-logfile","/dev/null","--error-logfile","/dev/null","runtime:create_application()"]
 
+# Separate queue supervisor. The original immutable API base and the composed
+# public API candidate are mounted independently, never copied into this image.
+FROM public-membership-cache-worker AS source-origin-worker
+ENV POS_SCREENING_ORIGIN_SOURCE_WORKER_SOURCE_ROOT=/opt/pos-public-source \
+    POS_SCREENING_ORIGIN_SOURCE_WORKER_ENABLED=false \
+    POS_SCREENING_ORIGIN_SOURCE_WORKER_SYSTEM_ENABLED=false \
+    POS_SCREENING_ORIGIN_SOURCE_WORKER_EFFECTS_ENABLED=false
+CMD ["python3","/opt/pos-source-adapters/screening-origins/source_worker.py"]
+
 # Keep the default target a disabled queue consumer.
 FROM public-membership-cache-worker AS runtime

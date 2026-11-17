@@ -34,10 +34,11 @@
     "legacy-nonce.mjs": "0cee864fbf5f26cbe7c094d8924b51ff5285ba26885e1127a658948473adda98",
     "legacy_client.py": "c2d457e5a39ea300c0f3ba07aab03ec7c3ef5ca103e70913725b77d55370fff7",
     "legacy_execution.py": "cec15e9e684f809e32274c4c7cfe3749aeea3c5c141c21df37162d631ced85ae",
-    "legacy_resources.py": "22e2ca12fb9d91187b066312e9c9b535caa5089022c4ab24d38368111c7c8c97",
+    "legacy_resources.py": "ed214a3996ea065ede4f7bbd4837447d2e0cd93a089e51068f6dadf6b03d5c19",
     "legacy_staff.py": "9792bd414b8b788542ef6ed0453f5f58f7ae43969f1bfd44c6eca66da088c856",
     "legacy_worker.py": "fde76292f5c03c38067920d102228e434f403359fed7b32260a6d49e72e1e12b",
     "migration.sql": "c284515eeaa25c2999a3d4126e6a557c57586b5392dadc938808e2d94afc8ffa",
+    "mpos-command.mjs": "14dc1bdaf771c85975d2ebd657aa60535918922921b67a049f1bff031270ba27",
     "origin_assets.py": "cc6393e795e1143e4199ae63edf9c84e30ab0ab4542e554a3b072a415e5886fa",
     "origin_assets_guard.py": "a3eaf40031116e530f739568b7a00deff17252aeb7a42aaea25004a63395b51c",
     "origin_auth.py": "207b833e92a9e6a34f6d7995b18b51688acfcd98153e9d56a048c9431e69948e",
@@ -48,11 +49,12 @@
     "origin_history.py": "c83a5bd94a95ea33bd7c475ba1311a36822a35e200b4b4513fee18f0008d1025",
     "origin_history_http.py": "caa4e05a1cf7da887ce70e0a1d258c52a0e56bedffa1db43b7ab54904d4dc7bd",
     "origin_history_privileges.py": "761ce865174fea941ecb4239e2cd22f7d8642ef216438bdd304efdb3890aac5e",
-    "origin_ledger.py": "460256790a9f7ccfb48c2c2747bc373e9f94901a458d61661b76eb2319e9fec4",
+    "origin_ledger.py": "e1c0e8fbee129fcbc1034ecc054e5f2e163be63f898551d2223fcd7fe436778c",
     "origin_resource.py": "f298dee518c0a3ea68944681f515f41cfd5e54939850c06e339a1b799e9c7a9d",
     "origin_system.py": "9f65a6cf5224c2f88c37d8b2ea2991cf3d16efb501c0af2e9188413ab9701b99",
     "prepare.py": "a0f534a8ce705876b50b20e56ba7d2fde7ae3f5e1ed44f8a79b973bc4bb786e2",
     "source_hooks.py": "45bce810694f7892b630bd994490bb2f3ebe6b7d7cdd59c664cb3c89f5750852",
+    "source_worker.py": "fab8424e79636c11981e1b13cb5b0db92583195024abf253e3ededa7b3464129",
     "system-migration.sql": "a23c78333a15653d8e7aa60b900497de65aa81d7b875c7d43e59ce6b1570f933"
   }
 }
