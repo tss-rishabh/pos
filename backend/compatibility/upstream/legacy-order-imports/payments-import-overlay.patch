@@ -1328,7 +1328,7 @@
 +}
 --- /dev/null
 +++ b/internal/poscheckout/screening_counter.go
-@@ -0,0 +1,411 @@
+@@ -0,0 +1,421 @@
 +// Current operational screening projection. The independent baseline is BQ
 +// qualified; interactive confirmation never scans old raw Order/HP markers.
 +package poscheckout
@@ -1337,6 +1337,8 @@
 +	"bytes"
 +	"context"
 +	"crypto/hmac"
++ "crypto/sha256"
++ "encoding/hex"
 +	"database/sql"
 +	"database/sql/driver"
 +	"encoding/json"
@@ -1428,43 +1430,46 @@
 +			}
 +		}
 +	}
-+	rows, err = tx.QueryContext(ctx, `SELECT TRIGGER_NAME,EVENT_OBJECT_TABLE,EVENT_MANIPULATION,ACTION_TIMING,ACTION_STATEMENT,DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_screening_%'`)
-+	if err != nil {
-+		return err
++	_,err=counterMetadata(ctx,tx);return err
++}
++var counterOwnerPattern=regexp.MustCompile(`^[A-Za-z0-9_.$-]{1,64}@[A-Za-z0-9_.:%-]{1,255}$`)
++type counterTriggerMetadata struct{ Name string `json:"name"`;TableName string `json:"tableName"`;Event string `json:"event"`;Timing string `json:"timing"`;Hash string `json:"hash"`;Definer string `json:"definer"`;SQLMode string `json:"sqlMode"` }
++type counterProcedureMetadata struct{ Name string `json:"name"`;Kind string `json:"kind"`;Security string `json:"security"`;Hash string `json:"hash"`;Definer string `json:"definer"` }
++type counterMetadataDocument struct{CounterTriggers []counterTriggerMetadata;CounterProcedures []counterProcedureMetadata}
++func counterStatementHash(value string)string{sum:=sha256.Sum256([]byte(counterNormalize(value)));return hex.EncodeToString(sum[:])}
++// A fixed, read-only audit function exposes metadata under an isolated definer.
++// The application never needs TRIGGER authority or EXECUTE on a writer routine.
++func counterMetadata(ctx context.Context,tx *sql.Tx)(counterMetadataDocument,error){
++ var result counterMetadataDocument
++ audit:=os.Getenv("POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER");owner:=os.Getenv("POS_SCREENING_COUNTER_TRIGGER_DEFINER")
++ if !counterOwnerPattern.MatchString(audit)||!counterOwnerPattern.MatchString(owner)||audit==owner{return result,ErrReview}
++ var actor,roles string
++ if tx.QueryRowContext(ctx,`SELECT CURRENT_USER(),CURRENT_ROLE()`).Scan(&actor,&roles)!=nil||!counterOwnerPattern.MatchString(actor)||actor==audit||actor==owner||roles!="NONE"{return result,ErrReview}
++ var definer,security,access,body string
++ if tx.QueryRowContext(ctx,`SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER,SECURITY_TYPE,SQL_DATA_ACCESS,CASE WHEN OCTET_LENGTH(ROUTINE_DEFINITION)<=60000 THEN ROUTINE_DEFINITION ELSE NULL END FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_history_metadata' AND ROUTINE_TYPE='FUNCTION'`).Scan(&definer,&security,&access,&body)!=nil||definer!=audit||security!="DEFINER"||access!="READS SQL DATA"||counterStatementHash(strings.TrimRight(counterNormalize(body),";"))!=screeningCounterMetadataBodyHash{return result,ErrReview}
++ var raw []byte
++ if tx.QueryRowContext(ctx,`SELECT /*+ MAX_EXECUTION_TIME(3000) */ CASE WHEN OCTET_LENGTH(pos_rewrite_origin_history_metadata())<=500000 THEN pos_rewrite_origin_history_metadata() ELSE NULL END`).Scan(&raw)!=nil||len(raw)==0||len(raw)>500000{return result,ErrReview}
++ var sections map[string]json.RawMessage
++ if json.Unmarshal(raw,&sections)!=nil||len(sections)!=15{return result,ErrReview}
++ for _,name:=range []string{"triggers","accounts","roles","proxies","privileges","routineGrants","objects","aliases","tables","foreignKeys","replicationChannels","membershipTriggers","couponTriggers","counterTriggers","counterProcedures"}{
++  var values []json.RawMessage
++  value,ok:=sections[name];if !ok||json.Unmarshal(value,&values)!=nil||values==nil||len(values)>1000{return result,ErrReview}
++ }
++ decode:=func(raw json.RawMessage,target interface{})error{decoder:=json.NewDecoder(bytes.NewReader(raw));decoder.DisallowUnknownFields();if decoder.Decode(target)!=nil{return ErrReview};return nil}
++ if decode(sections["counterTriggers"],&result.CounterTriggers)!=nil||decode(sections["counterProcedures"],&result.CounterProcedures)!=nil||len(result.CounterTriggers)!=9||len(result.CounterProcedures)!=1{return result,ErrReview}
++ d,err:=counterDefinition();if err!=nil{return result,err}
++	if len(result.CounterTriggers)!=9||len(result.CounterProcedures)!=1{return result,ErrReview}
++	seen:=map[string]bool{}
++	if !counterOwnerPattern.MatchString(owner){return result,ErrReview}
++	for _,actual:=range result.CounterTriggers{
++	 matched:=false
++	 for _,expected:=range d.Triggers{if actual.Name==expected.Name&&actual.TableName==expected.Table&&actual.Event==expected.Event&&actual.Timing==expected.Timing&&actual.Hash==counterStatementHash(expected.Statement){matched=true}}
++	 strict:=false;for _,mode:=range strings.Split(actual.SQLMode,","){if mode=="STRICT_TRANS_TABLES"||mode=="STRICT_ALL_TABLES"{strict=true}}
++	 if !matched||seen[actual.Name]||actual.Definer!=owner||!strict{return result,ErrReview};seen[actual.Name]=true
 +	}
-+	seen := map[string]bool{}
-+	owner := ""
-+	for rows.Next() {
-+		var name, table, event, timing, body, definer string
-+		if rows.Scan(&name, &table, &event, &timing, &body, &definer) != nil {
-+			rows.Close()
-+			return ErrReview
-+		}
-+		matched := false
-+		for _, expected := range d.Triggers {
-+			if expected.Name == name && expected.Table == table && expected.Event == event && expected.Timing == timing && counterNormalize(expected.Statement) == counterNormalize(body) {
-+				matched = true
-+			}
-+		}
-+		if owner == "" {
-+			owner = definer
-+		}
-+		if !matched || seen[name] || owner != definer {
-+			rows.Close()
-+			return ErrReview
-+		}
-+		seen[name] = true
-+	}
-+	err = rows.Err()
-+	rows.Close()
-+	if err != nil || len(seen) != 9 {
-+		return ErrReview
-+	}
-+	var name, kind, security, body, definer string
-+	if tx.QueryRowContext(ctx, `SELECT ROUTINE_NAME,ROUTINE_TYPE,SECURITY_TYPE,ROUTINE_DEFINITION,DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'`).Scan(&name, &kind, &security, &body, &definer) != nil || name != d.Procedure.Name || kind != "PROCEDURE" || security != "DEFINER" || definer != owner || counterNormalize(body) != counterNormalize(d.Procedure.Statement) {
-+		return ErrReview
-+	}
-+	return nil
++	procedure:=result.CounterProcedures[0]
++	if procedure.Name!=d.Procedure.Name||procedure.Kind!="PROCEDURE"||procedure.Security!="DEFINER"||procedure.Definer!=owner||procedure.Hash!=counterStatementHash(d.Procedure.Statement){return result,ErrReview}
++ return result,nil
 +}
 +func counterUint(value interface{}) (uint64, bool) {
 +	text, ok := value.(string)
@@ -1531,7 +1536,9 @@
 +		return 0, ErrReview
 +	}
 +	var owner string
-+	if tx.QueryRowContext(ctx, `SELECT DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'`).Scan(&owner) != nil || proof["writersOwner"] != owner {
++	metadata,metadataErr:=counterMetadata(ctx,tx)
++	if metadataErr!=nil||len(metadata.CounterProcedures)!=1{return 0,ErrReview};owner=metadata.CounterProcedures[0].Definer
++	if !counterOwnerPattern.MatchString(owner)||owner!=os.Getenv("POS_SCREENING_COUNTER_TRIGGER_DEFINER")||proof["writersOwner"] != owner {
 +		return 0, ErrReview
 +	}
 +	if err = counterRuntimePrivileges(ctx, tx, d, owner); err != nil {
@@ -1599,6 +1606,9 @@
 +	if err != nil || count > 1000 {
 +		return ErrReview
 +	}
++	var schema string
++	if tx.QueryRowContext(ctx,`SELECT DATABASE()`).Scan(&schema)!=nil||!regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`).MatchString(schema){return ErrReview}
++	metadataGrant:=regexp.MustCompile("(?i)^GRANT EXECUTE ON FUNCTION `?"+regexp.QuoteMeta(schema)+"`?\\.`?pos_rewrite_origin_history_metadata`? TO .+$")
 +	rows, err = tx.QueryContext(ctx, `SHOW GRANTS FOR CURRENT_USER`)
 +	if err != nil {
 +		return err
@@ -1606,7 +1616,7 @@
 +	count = 0
 +	for rows.Next() {
 +		var grant string
-+		if rows.Scan(&grant) != nil || regexp.MustCompile(`(?i)\b(EXECUTE|PROXY)\b|\bWITH GRANT OPTION\b`).MatchString(grant) {
++		if rows.Scan(&grant) != nil || regexp.MustCompile(`(?i)\b(PROXY|TRIGGER)\b|\bWITH GRANT OPTION\b`).MatchString(grant)||regexp.MustCompile(`(?i)\bEXECUTE\b`).MatchString(grant)&&!metadataGrant.MatchString(grant) {
 +			rows.Close()
 +			return ErrReview
 +		}
@@ -1742,11 +1752,13 @@
 +}
 --- /dev/null
 +++ b/internal/poscheckout/screening_counter_definition.go
-@@ -0,0 +1,4 @@
+@@ -0,0 +1,6 @@
 +// Generated by tools/screening-counter/generate.ts; review only.
 +package poscheckout
 +
 +const screeningCounterDefinitionJSON = "{\"contract\":\"pos-screening-current-counter-v1\",\"publicationContract\":\"pos-screening-counter-publication-v1\",\"writersContract\":\"pos-screening-counter-writers-v1\",\"sourceCommit\":\"2960acbea10c4eaf16b6d99e15ff6e03ef7724c5\",\"sku\":\"390238\",\"definitionHash\":\"c7fafc39fdff2e7447147094c802d038b9835a7ad8a13ed8527b61d0edc36836\",\"procedure\":{\"name\":\"pos_screening_sync_marker\",\"type\":\"PROCEDURE\",\"security\":\"DEFINER\",\"statement\":\"BEGIN\\nDECLARE previous_customer BIGINT DEFAULT NULL;\\nDECLARE previous_order BIGINT DEFAULT NULL;\\nDECLARE previous_line BIGINT DEFAULT NULL;\\nDECLARE previous_included TINYINT DEFAULT 0;\\nDECLARE current_customer BIGINT DEFAULT NULL;\\nDECLARE current_order BIGINT DEFAULT NULL;\\nDECLARE current_line BIGINT DEFAULT NULL;\\nDECLARE current_included TINYINT DEFAULT 0;\\nDECLARE first_customer BIGINT DEFAULT NULL;\\nDECLARE second_customer BIGINT DEFAULT NULL;\\nDECLARE current_revision BIGINT UNSIGNED;\\nDECLARE available BIGINT UNSIGNED;\\nDECLARE found_previous TINYINT DEFAULT 1;\\nDECLARE found_current TINYINT DEFAULT 1;\\nDECLARE ready_count INT;\\nIF @@transaction_isolation<>'READ-COMMITTED' THEN\\n SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter writer requires current reads';\\nEND IF;\\nBEGIN\\n DECLARE CONTINUE HANDLER FOR NOT FOUND SET found_previous=0;\\n SELECT customer_id,order_id,line_id,included INTO previous_customer,previous_order,previous_line,previous_included\\n FROM pos_rewrite_screening_contributions WHERE marker_id=target_marker;\\nEND;\\nBEGIN\\n DECLARE CONTINUE HANDLER FOR NOT FOUND SET found_current=0;\\n SELECT s.user_id,s.order_id,s.has_product_id,IF(hp.prod_id=390238 AND o.order_status NOT IN(0,17),1,0)\\n INTO current_customer,current_order,current_line,current_included\\n FROM spiderman_screening_orders s LEFT JOIN orders o ON o.id=s.order_id\\n LEFT JOIN has_products hp ON hp.id=s.has_product_id WHERE s.id=target_marker;\\nEND;\\nIF old_exists=0 AND found_previous=1 THEN\\n SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening contribution identity is invalid';\\nEND IF;\\nIF old_exists=1 AND old_customer>0 THEN\\n SELECT COUNT(*) INTO ready_count FROM pos_rewrite_screening_counters WHERE customer_id=old_customer;\\n IF ready_count=1 AND (found_previous=0 OR previous_customer<>old_customer OR previous_order<>old_order OR previous_line<>old_line) THEN\\n  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening contribution reconciliation required';\\n END IF;\\nEND IF;\\nSET first_customer=IF(old_exists=1 AND old_customer>0,old_customer,NULL);\\nIF found_current=1 AND current_customer>0 THEN\\n IF first_customer IS NULL THEN SET first_customer=current_customer;\\n ELSEIF first_customer<>current_customer THEN\\n  SET second_customer=GREATEST(first_customer,current_customer);\\n  SET first_customer=LEAST(first_customer,current_customer);\\n END IF;\\nEND IF;\\nWHILE first_customer IS NOT NULL DO\\n IF NOT (IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':u:',first_customer))<=>CONNECTION_ID()) THEN\\n  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter writer entry required';\\n END IF;\\n IF old_exists=1 AND old_customer=first_customer AND (\\n  NOT(IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':o:',old_order))<=>CONNECTION_ID()) OR\\n  NOT(IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':p:',old_line))<=>CONNECTION_ID())) THEN\\n  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent entry required';\\n END IF;\\n IF found_current=1 AND current_customer=first_customer AND (\\n  NOT(IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':o:',current_order))<=>CONNECTION_ID()) OR\\n  NOT(IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':p:',current_line))<=>CONNECTION_ID())) THEN\\n  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent entry required';\\n END IF;\\n INSERT INTO pos_rewrite_screening_counter_heads(customer_id,revision) VALUES(first_customer,1)\\n ON DUPLICATE KEY UPDATE revision=revision+1;\\n SELECT revision INTO current_revision FROM pos_rewrite_screening_counter_heads WHERE customer_id=first_customer;\\n SELECT COUNT(*) INTO ready_count FROM pos_rewrite_screening_counters WHERE customer_id=first_customer;\\n IF ready_count=1 THEN\\n  SET available=NULL;\\n  BEGIN\\n   DECLARE CONTINUE HANDLER FOR NOT FOUND SET available=NULL;\\n   SELECT bought INTO available FROM pos_rewrite_screening_counters WHERE customer_id=first_customer AND revision=current_revision-1 FOR UPDATE;\\n  END;\\n  IF available IS NULL OR (found_previous=1 AND previous_customer=first_customer AND previous_included>available) THEN\\n   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter revision is invalid';\\n  END IF;\\n  UPDATE pos_rewrite_screening_counters SET\\n   bought=available-IF(found_previous=1 AND previous_customer=first_customer,previous_included,0)+IF(found_current=1 AND current_customer=first_customer,current_included,0),\\n   revision=current_revision WHERE customer_id=first_customer;\\n END IF;\\n SET first_customer=second_customer;SET second_customer=NULL;\\nEND WHILE;\\nDELETE FROM pos_rewrite_screening_contributions WHERE marker_id=target_marker;\\nIF found_current=1 AND current_customer>0 AND EXISTS(SELECT 1 FROM pos_rewrite_screening_counters WHERE customer_id=current_customer) THEN\\n INSERT INTO pos_rewrite_screening_contributions(marker_id,customer_id,order_id,line_id,included)\\n VALUES(target_marker,current_customer,current_order,current_line,current_included);\\nEND IF;\\nEND\"},\"triggers\":[{\"name\":\"pos_screening_orders_insert\",\"table\":\"orders\",\"event\":\"INSERT\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE order_id=NEW.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF TRUE THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_has_products_insert\",\"table\":\"has_products\",\"event\":\"INSERT\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE has_product_id=NEW.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF TRUE THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_markers_insert\",\"table\":\"spiderman_screening_orders\",\"event\":\"INSERT\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nCALL pos_screening_sync_marker(NEW.id,0,NULL,NULL,NULL);\\nEND\"},{\"name\":\"pos_screening_orders_update\",\"table\":\"orders\",\"event\":\"UPDATE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE order_id=OLD.id OR order_id=NEW.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF NOT(OLD.id<=>NEW.id) OR IF(OLD.order_status NOT IN(0,17),1,0)<>IF(NEW.order_status NOT IN(0,17),1,0) THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_has_products_update\",\"table\":\"has_products\",\"event\":\"UPDATE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE has_product_id=OLD.id OR has_product_id=NEW.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF NOT(OLD.id<=>NEW.id) OR IF(OLD.prod_id=390238,1,0)<>IF(NEW.prod_id=390238,1,0) THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_markers_update\",\"table\":\"spiderman_screening_orders\",\"event\":\"UPDATE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nIF NOT(OLD.id<=>NEW.id) THEN\\n CALL pos_screening_sync_marker(OLD.id,1,OLD.user_id,OLD.order_id,OLD.has_product_id);\\n CALL pos_screening_sync_marker(NEW.id,0,NULL,NULL,NULL);\\nELSEIF NOT(OLD.user_id<=>NEW.user_id) OR NOT(OLD.order_id<=>NEW.order_id) OR NOT(OLD.has_product_id<=>NEW.has_product_id) THEN\\n CALL pos_screening_sync_marker(NEW.id,1,OLD.user_id,OLD.order_id,OLD.has_product_id);\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_orders_delete\",\"table\":\"orders\",\"event\":\"DELETE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE order_id=OLD.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF TRUE THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_has_products_delete\",\"table\":\"has_products\",\"event\":\"DELETE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE has_product_id=OLD.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF TRUE THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_markers_delete\",\"table\":\"spiderman_screening_orders\",\"event\":\"DELETE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nCALL pos_screening_sync_marker(OLD.id,1,OLD.user_id,OLD.order_id,OLD.has_product_id);\\nEND\"}],\"privilegeSql\":\"SELECT 'global' AS scope,PRIVILEGE_TYPE AS privilegeName,'' AS objectName,IS_GRANTABLE AS grantable FROM information_schema.USER_PRIVILEGES WHERE GRANTEE=CONCAT(\\\"'\\\",REPLACE(CURRENT_USER(),'@',\\\"'@'\\\"),\\\"'\\\")\\nUNION ALL SELECT 'schema',PRIVILEGE_TYPE,'',IS_GRANTABLE FROM information_schema.SCHEMA_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE() AND GRANTEE=CONCAT(\\\"'\\\",REPLACE(CURRENT_USER(),'@',\\\"'@'\\\"),\\\"'\\\")\\nUNION ALL SELECT 'table',PRIVILEGE_TYPE,TABLE_NAME,IS_GRANTABLE FROM information_schema.TABLE_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN('pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions') AND GRANTEE=CONCAT(\\\"'\\\",REPLACE(CURRENT_USER(),'@',\\\"'@'\\\"),\\\"'\\\")\\nUNION ALL SELECT 'column',PRIVILEGE_TYPE,TABLE_NAME,IS_GRANTABLE FROM information_schema.COLUMN_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN('pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions') AND GRANTEE=CONCAT(\\\"'\\\",REPLACE(CURRENT_USER(),'@',\\\"'@'\\\"),\\\"'\\\")\",\"requiredPrefixes\":{\"orders\":[\"id\"],\"has_products\":[\"id\",\"order_id\"],\"spiderman_screening_orders\":[\"id\",\"user_id\",\"order_id\",\"has_product_id\"],\"pos_rewrite_screening_counter_heads\":[\"customer_id\"],\"pos_rewrite_screening_counters\":[\"customer_id\"],\"pos_rewrite_screening_contributions\":[\"marker_id\",\"customer_id\",\"order_id\",\"line_id\"]},\"indexSql\":\"SELECT TABLE_NAME AS sourceTable,INDEX_NAME AS indexName,COLUMN_NAME AS columnName,CAST(SEQ_IN_INDEX AS CHAR) AS position,INDEX_TYPE AS indexType,CAST(NON_UNIQUE AS CHAR) AS nonUnique FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN('orders','has_products','spiderman_screening_orders','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions')\"}"
++
++const screeningCounterMetadataBodyHash = "78a86bfe3e0e6b646807de8a90d21de52c881a326047e35314d1e5b72b66a2a5"
 --- /dev/null
 +++ b/internal/poscheckout/public_screening.go
 @@ -0,0 +1,138 @@

@@ -57,8 +57,8 @@
     "internal/poscheckout/public_screening.go": "1f8b38699166b93e41f201979e30df9c60ce0f7d1d49d409ed6d41d6bb96b4f5",
     "internal/poscheckout/public_screening_benefits.go": "f125547c3854c5116b724f45efd368b47c656fb7e11bfa382843e4212a11e93e",
     "internal/poscheckout/screening.go": "7cbf99fa6fe23fa00bce5a11a0522350c8d5b215a46b973661946c225b38139c",
-    "internal/poscheckout/screening_counter.go": "b6f1752bffb23a6459f4def6b076512903dac604acf634959b40ad7e0a639f93",
-    "internal/poscheckout/screening_counter_definition.go": "c595071549546f8b3338c1ef29ce97dc18e19b69b80883ab848405ff06097591",
+    "internal/poscheckout/screening_counter.go": "a6ec6972db5e2e97fe15a36051887ab2849d25c2eac5c3f8fc4d278eb33d9990",
+    "internal/poscheckout/screening_counter_definition.go": "3a7f8be8559a4bbe41e43f92c4dfc781a9e0f8c53af14452b86cce7101676a54",
     "internal/poscheckout/stock.go": "c3caea35e7356ada5ab91428fb773941fa23250ec98d9cbe70f536ac83d8abb7",
     "internal/posstock/stock.go": "ffe08720c3527e0514faa0253194edc9b7fed88cd49bd5bfce00c1f92ec648ae",
     "internal/posstock/stock_test.go": "25cfb0300d30effaa366f2745cda9e4f776d8a9402a0b6a681199acdb146e4dc",
@@ -159,7 +159,7 @@
     "validation": "pending-final-validation"
   },
   "patches": {
-    "legacy-order-imports/payments-import-overlay.patch": "b4ef91d34e3757b8ba6e8f751c4defb4f82173bf95fd0d7df2ff436eb126110e",
+    "legacy-order-imports/payments-import-overlay.patch": "a6f50838dcd273177c799808499a3cac0243e407f74683700882f936a7212401",
     "patches/payments-pos-checkout.patch": "1dfcc98cc71f0ff290b0b12de1c6830758f735eab27bec99f8e7a17aa4002e6a",
     "patches/payments-pos-exchange.patch": "9d71b4984c5f8c4b7d81c8594025e739bc7eaf032b56f310114f591909948bdf"
   },
