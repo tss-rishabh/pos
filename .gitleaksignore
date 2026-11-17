@@ -184,3 +184,5 @@ f745f336b8157738deee8ef17b84f68434c6b6fb:backend/evidence/verification.json:gene
 7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1089
 7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1098
 7e82335cb69801b28caf937e9d4dfd4ea491ecf0:backend/parity/source-surface-map.json:generic-api-key:1117
+# Source checksum verified against the exact tracked blob in this immutable commit.
+0951bc483780058e5fba4dcf0d4bf142483f0ced:backend/parity/source-surface-map.json:generic-api-key:691
