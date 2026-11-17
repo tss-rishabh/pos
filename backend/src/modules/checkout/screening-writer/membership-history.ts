@@ -64,6 +64,7 @@ const selectionSchema = qualifiedCsvMembershipHistorySchema.pick({
   lastDeliveredOrder: true,
   recentDeliveredOrders: true,
 });
+export { selectionSchema as membershipSelectionSchema };
 export const membershipGenerationSchema = z
   .object({
     contract: z.literal(membershipGenerationContract),
@@ -118,6 +119,26 @@ export type PublicMembershipHead = z.infer<typeof publicMembershipHeadSchema>;
 export type MembershipGeneration = z.infer<typeof membershipGenerationSchema>;
 export type MembershipGenerationPublication = z.infer<typeof membershipGenerationPublicationSchema>;
 export type PublicMembershipHistory = z.infer<typeof publicMembershipHistorySchema>;
+export const membershipExecutionSchema = z
+  .object({
+    customerId: identifier,
+    configurationHash: hash,
+    sourceTimeZone: zone,
+    asOf: wall,
+    cutoff: wall,
+  })
+  .strict()
+  .refine((value) => cutoff(value.asOf) === value.cutoff);
+export type MembershipExecution = z.infer<typeof membershipExecutionSchema>;
+export function membershipExecution(value: MembershipExecution): MembershipExecution {
+  return membershipExecutionSchema.parse({
+    customerId: value.customerId,
+    configurationHash: value.configurationHash,
+    sourceTimeZone: value.sourceTimeZone,
+    asOf: value.asOf,
+    cutoff: value.cutoff,
+  });
+}
 export interface PublicMembershipHistoryPort {
   read(
     request: PublicMembershipHistoryRequest,
@@ -192,6 +213,8 @@ export function validateMembershipSelection(
   since: string,
   memberIds: readonly string[],
 ) {
+  wall.parse(asOf);
+  wall.parse(since);
   const value = selectionSchema.parse(selection),
     recent = value.recentDeliveredOrders,
     last = value.lastDeliveredOrder;
@@ -201,12 +224,10 @@ export function validateMembershipSelection(
     new Set(recent.map((order) => order.id)).size !== recent.length ||
     recent.some(
       (order, index) =>
-        order.createdAt <= since ||
-        order.createdAt > asOf ||
-        (index > 0 && recent[index - 1]!.createdAt <= order.createdAt),
+        order.createdAt <= since || (index > 0 && recent[index - 1]!.createdAt <= order.createdAt),
     ) ||
     (recent.length && JSON.stringify(last) !== JSON.stringify(recent[0])) ||
-    (last && (last.createdAt > asOf || (last.createdAt > since && !recent.length))) ||
+    (last && last.createdAt > since && !recent.length) ||
     all.reduce((sum, order) => sum + order.lines.length, 0) > 20000 ||
     Buffer.byteLength(JSON.stringify(value)) > 900000 ||
     all.some(
@@ -225,8 +246,8 @@ export function validateMembershipSelection(
 /** A complete generation is independent of any checkout/operation. Its native
  * witness must be unchanged at the new literal execution point. Recompute the
  * rolling predicate from primitive dates, never reuse a same-day total. */
-export function bindPublicMembershipGeneration(input: {
-  request: PublicMembershipHistoryRequest;
+export function qualifyMembershipGeneration(input: {
+  request: MembershipExecution;
   head: PublicMembershipHead;
   generation: unknown;
   publication: unknown;
@@ -234,12 +255,11 @@ export function bindPublicMembershipGeneration(input: {
   memberIds: readonly string[];
   sourceKey: string;
   publicationKey: string;
-  historyKey: string;
   expiresAt: number;
   now: number;
-  maximumAgeMs?: number;
-}): PublicMembershipHistory {
-  const r = publicMembershipHistoryRequestSchema.parse(input.request),
+  maximumAgeMs?: number | null;
+}) {
+  const r = membershipExecutionSchema.parse(input.request),
     h = publicMembershipHeadSchema.parse(input.head),
     g = membershipGenerationSchema.parse(input.generation),
     p = membershipGenerationPublicationSchema.parse(input.publication),
@@ -254,8 +274,8 @@ export function bindPublicMembershipGeneration(input: {
     { signature: publicationSignature, ...publicationBody } = p,
     sourceAt = csvMembershipSourceInstant(g.asOf, g.sourceTimeZone),
     executionAt = csvMembershipSourceInstant(r.asOf, r.sourceTimeZone),
-    keys = [input.sourceKey, input.publicationKey, input.historyKey],
-    maximumAge = input.maximumAgeMs ?? 60000;
+    keys = [input.sourceKey, input.publicationKey],
+    maximumAge = input.maximumAgeMs === null ? null : (input.maximumAgeMs ?? 60000);
   const uniqueOrders = [
     ...new Map(
       [
@@ -265,10 +285,9 @@ export function bindPublicMembershipGeneration(input: {
     ).values(),
   ];
   if (
-    new Set(keys).size !== 3 ||
-    !Number.isSafeInteger(maximumAge) ||
-    maximumAge < 1000 ||
-    maximumAge > 60000 ||
+    new Set(keys).size !== 2 ||
+    (maximumAge !== null &&
+      (!Number.isSafeInteger(maximumAge) || maximumAge < 1000 || maximumAge > 60000)) ||
     keys.some((key) => !/^[!-~]{32,4096}$/.test(key)) ||
     sourceSignature !== membershipHistoryDigest('generation', sourceBody, input.sourceKey) ||
     publicationSignature !==
@@ -287,7 +306,7 @@ export function bindPublicMembershipGeneration(input: {
     p.publishedAt < g.capturedAt ||
     g.capturedAt < sourceAt ||
     g.capturedAt - sourceAt >= 1000 ||
-    input.now - sourceAt >= maximumAge ||
+    (maximumAge !== null && input.now - sourceAt >= maximumAge) ||
     membershipSelectionHash(selected) !== g.selectionHash ||
     membershipSelectionHash(warehouse) !== g.selectionHash ||
     p.warehouseSelectionHash !== g.selectionHash ||
@@ -312,8 +331,6 @@ export function bindPublicMembershipGeneration(input: {
     input.memberIds,
   );
   const body = {
-    contract: publicMemberHistoryContract,
-    scope: r,
     head: h,
     generationId: g.generationId,
     sourceCaptureHash: sourceSignature,
@@ -321,10 +338,39 @@ export function bindPublicMembershipGeneration(input: {
     reader: 'bigquery' as const,
     complete: true as const,
     fetchedAt: input.now,
-    expiresAt: Math.min(input.expiresAt, sourceAt + maximumAge, executionAt + maximumAge),
+    expiresAt: Math.min(
+      input.expiresAt,
+      executionAt + 60000,
+      ...(maximumAge === null ? [] : [sourceAt + maximumAge, executionAt + maximumAge]),
+    ),
     selection,
   };
   if (body.expiresAt <= input.now) throw publicMembershipHistoryError();
+  return Object.freeze(body);
+}
+/** Public checkout binding retains its actual Node operation identity. Other
+ * origins use the generic qualifier above and their own authenticated scope. */
+export function bindPublicMembershipGeneration(input: {
+  request: PublicMembershipHistoryRequest;
+  head: PublicMembershipHead;
+  generation: unknown;
+  publication: unknown;
+  warehouseSelection: unknown;
+  memberIds: readonly string[];
+  sourceKey: string;
+  publicationKey: string;
+  historyKey: string;
+  expiresAt: number;
+  now: number;
+  maximumAgeMs?: number;
+}): PublicMembershipHistory {
+  assertMembershipHistoryKeys(input.sourceKey, input.publicationKey, input.historyKey);
+  const request = publicMembershipHistoryRequestSchema.parse(input.request);
+  const qualified = qualifyMembershipGeneration({
+    ...input,
+    request: membershipExecution(request),
+  });
+  const body = { contract: publicMemberHistoryContract, scope: request, ...qualified };
   return Object.freeze(
     publicMembershipHistorySchema.parse({
       ...body,
@@ -334,7 +380,7 @@ export function bindPublicMembershipGeneration(input: {
 }
 export function publicMembershipHistorySql(
   options: CsvMembershipBigQueryOptions,
-  request: PublicMembershipHistoryRequest,
+  request: MembershipExecution,
 ): CsvMembershipHistoryStatement {
   const view = options.BQ_CSV_MEMBERSHIP_PUBLICATIONS_VIEW;
   if (!view || !/^tssgcp2025\.tss_mysql_raw_layer\.[A-Za-z_][A-Za-z0-9_]{0,1023}$/.test(view))

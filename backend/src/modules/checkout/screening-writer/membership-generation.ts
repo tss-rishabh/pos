@@ -21,6 +21,9 @@ import {
   publicMembershipHistoryError,
   publicMembershipHistoryRequestSchema,
   type PublicMembershipHistoryRequest,
+  membershipExecution,
+  membershipExecutionSchema,
+  type MembershipExecution,
   type PublicMembershipHead,
   type MembershipGeneration,
 } from './membership-history.js';
@@ -213,53 +216,65 @@ export function publicMembershipGenerationJournal(
       .where(eq(membershipGenerationJobs.id, value.id));
     return value;
   }
+  async function requestGeneration(
+    request: MembershipExecution,
+    head: PublicMembershipHead,
+    call: { signal?: AbortSignal } = {},
+  ): Promise<void> {
+    call.signal?.throwIfAborted();
+    request = membershipExecutionSchema.parse(request);
+    const scope = scopeSchema.parse({
+      customerId: request.customerId,
+      configurationHash: request.configurationHash,
+      sourceTimeZone: request.sourceTimeZone,
+      head,
+    });
+    const now = clock(),
+      bucket =
+        Math.floor(csvMembershipSourceInstant(request.asOf, request.sourceTimeZone) / 10000) *
+        10000;
+    const id = membershipHistoryDigest('generation-demand', { scope, bucket }, journalKey);
+    const value = recordSchema.parse({
+      contract: membershipGenerationPublisherContract,
+      id,
+      version: '1',
+      phase: 'queued',
+      scope,
+      bucket,
+      owner: null,
+      leaseUntil: 0,
+      artifact: null,
+      writeHash: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    await db
+      .get('writer')
+      .insert(membershipGenerationJobs)
+      .values({
+        id,
+        version: 1n,
+        phase: value.phase,
+        leaseUntil: 0,
+        updatedAt: now,
+        ...encode(value),
+      })
+      .onDuplicateKeyUpdate({ set: { id: sql`${membershipGenerationJobs.id}` } });
+    call.signal?.throwIfAborted();
+  }
   return {
     async request(
       request: PublicMembershipHistoryRequest,
       head: PublicMembershipHead,
       call: { signal?: AbortSignal } = {},
-    ) {
-      call.signal?.throwIfAborted();
-      request = publicMembershipHistoryRequestSchema.parse(request);
-      const scope = scopeSchema.parse({
-        customerId: request.customerId,
-        configurationHash: request.configurationHash,
-        sourceTimeZone: request.sourceTimeZone,
+    ): Promise<void> {
+      return requestGeneration(
+        membershipExecution(publicMembershipHistoryRequestSchema.parse(request)),
         head,
-      });
-      const now = clock(),
-        bucket =
-          Math.floor(csvMembershipSourceInstant(request.asOf, request.sourceTimeZone) / 10000) *
-          10000;
-      const id = membershipHistoryDigest('generation-demand', { scope, bucket }, journalKey);
-      const value = recordSchema.parse({
-        contract: membershipGenerationPublisherContract,
-        id,
-        version: '1',
-        phase: 'queued',
-        scope,
-        bucket,
-        owner: null,
-        leaseUntil: 0,
-        artifact: null,
-        writeHash: null,
-        createdAt: now,
-        updatedAt: now,
-      });
-      await db
-        .get('writer')
-        .insert(membershipGenerationJobs)
-        .values({
-          id,
-          version: 1n,
-          phase: value.phase,
-          leaseUntil: 0,
-          updatedAt: now,
-          ...encode(value),
-        })
-        .onDuplicateKeyUpdate({ set: { id: sql`${membershipGenerationJobs.id}` } });
-      call.signal?.throwIfAborted();
+        call,
+      );
     },
+    requestGeneration,
     read: (id: string) => db.get('writer').transaction((tx) => load(tx, id)),
     async pending(limit = 5) {
       const amount = z.number().int().min(1).max(20).parse(limit);
@@ -415,7 +430,10 @@ export function publicMembershipGenerationPublisher(
           authority,
           { signal, clock: now },
         );
-        const artifact = artifactSchema.parse({ ...qualified, publicationTable: dependencies.writer.publicationTable });
+        const artifact = artifactSchema.parse({
+          ...qualified,
+          publicationTable: dependencies.writer.publicationTable,
+        });
         if (now() >= capture.capturedAt + 60000) throw publicMembershipHistoryError();
         row = await dependencies.journal.qualified(
           claim,

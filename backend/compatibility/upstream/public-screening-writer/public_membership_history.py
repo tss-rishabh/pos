@@ -86,7 +86,7 @@ class PreparedPublicMembershipHistory:
         count=0
         for order in ([last] if last is not None else [])+recent:
             if (not isinstance(order,dict) or set(order)!={'id','paymentMethod','createdAt','lines'}
-                    or not re.fullmatch(r'[1-9][0-9]{0,18}',order['id']) or order['createdAt']>scope['asOf']
+                    or not re.fullmatch(r'[1-9][0-9]{0,18}',order['id'])
                     or type(order['paymentMethod']) is not int or not 0<=order['paymentMethod']<=32767
                     or not isinstance(order['lines'],list) or len(order['lines'])>10000):raise ValueError()
             datetime.strptime(order['createdAt'],'%Y-%m-%d %H:%M:%S')
@@ -101,7 +101,7 @@ class PreparedPublicMembershipHistory:
             count+=len(order['lines'])
             if len(flags)>1 or count>20000:raise ValueError()
         if (len({order['id'] for order in recent})!=len(recent)
-                or any(not scope['cutoff']<order['createdAt']<=scope['asOf'] for order in recent)
+                or any(not scope['cutoff']<order['createdAt'] for order in recent)
                 or any(a['createdAt']<=b['createdAt'] for a,b in zip(recent,recent[1:]))
                 or recent and last!=recent[0]
                 or last is not None and last['createdAt']>scope['cutoff'] and not recent):raise ValueError()

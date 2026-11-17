@@ -170,7 +170,7 @@ FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAM
             const [total] = await tx
               .select({
                 count: sql<string>`CAST(COUNT(*) AS CHAR)`,
-                invalid: sql<string>`CAST(COUNT(CASE WHEN ${header.id}<=0 OR ${header.createdAt} IS NULL OR YEAR(${header.createdAt})=0 OR MICROSECOND(${header.createdAt})<>0 OR ${header.createdAt}>CAST(${asOf} AS DATETIME) OR ${header.method}<0 OR ${header.method}>32767 THEN 1 END) AS CHAR)`,
+                invalid: sql<string>`CAST(COUNT(CASE WHEN ${header.id}<=0 OR ${header.createdAt} IS NULL OR YEAR(${header.createdAt})=0 OR MICROSECOND(${header.createdAt})<>0 OR ${header.method}<0 OR ${header.method}>32767 THEN 1 END) AS CHAR)`,
                 latest: sql<string | null>`MAX(${header.createdAt})`,
               })
               .from(header)
@@ -331,7 +331,7 @@ CAST((SELECT COUNT(*) FROM delivered) AS STRING) AS orderCount,
 CAST((SELECT COUNT(*) FROM selected) AS STRING) AS selectedOrderCount,
 CAST((SELECT COUNT(*) FROM selected_lines) AS STRING) AS lineCount,
 CAST((SELECT COUNT(*) FROM delivered WHERE SAFE_CAST(order_id AS INT64) IS NULL OR SAFE_CAST(order_id AS INT64)<=0
-OR created_at IS NULL OR created_at>@asOf OR created_at!=DATETIME_TRUNC(created_at,SECOND)
+OR created_at IS NULL OR created_at!=DATETIME_TRUNC(created_at,SECOND)
 OR payment_method IS NULL OR payment_method<0 OR payment_method>32767)
 +(SELECT COUNT(*) FROM selected_lines WHERE customer_id IS NULL OR customer_id!=@customer) AS STRING) AS invalidRows,
 CAST((SELECT COUNT(*)-COUNT(DISTINCT order_id) FROM delivered)
