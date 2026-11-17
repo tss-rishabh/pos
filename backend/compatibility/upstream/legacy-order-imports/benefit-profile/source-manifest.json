@@ -1,0 +1,25 @@
+{
+  "contract": "pos-csv-benefit-source-2960-v1",
+  "apiCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "apiFiles": {
+    "models/Order.py": "d9ee1cd52546e9d8dce0952e901ecba0d58fe1c1b68d95149781131e1553fca5",
+    "controllers/CartController.py": "22604e22405c778f9fd756fb277f8bd0d026ccbd29d4eca84363427f48403072",
+    "controllers/CatalogController.py": "5dcf3d5db2d1bea2001b0e1d8349b02725b11482e831a7355b6eaaf343de400e",
+    "controllers/cart/Cart.py": "1f9eff0f1a4ea66f3cac8903d3c1cb9a5b39e2a3babd6dd6c8dcf192de7defd3",
+    "controllers/cart/initializers/MetaInitializers.py": "e631cbac8c1f2f50e9692fdc128c15d0d1eefac64a21556201068a81e75d4e9f",
+    "controllers/cart/validators/CouponValidation.py": "e2d45aabb1a0b51215ce62f8e87532829d01708b97ab2ae3ac1ffc20dadda303",
+    "controllers/cart/wrappers/CouponWrapper.py": "9aed9f8d0f853cad5364a1a6336f709a6fd3b7245cf1da24b4b2f7a9bbed94c1",
+    "controllers/cart/wrappers/PosFreebieWrapper.py": "b7c85c54a1cd9a9e6208abb3aa66daaababb3c7038af6306e2fe6fbc9bcbd9e2",
+    "libs/helper.py": "4070e7da46499c8041c6831777b0403b2ffbf9d30911551da2da9ef0575b7766",
+    "libs/OrderHelper.py": "a3ec2d593ddfb990b6462fe4f71a8c70f5aa7b95a6704ffb4a0566b14e515e46",
+    "libs/FreebieGrantHelper.py": "27c90149bb46aefd08f20ec080a9b36b141bee9e5edb27a8ab5c92003e14a463",
+    "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad"
+  },
+  "djangoCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "djangoFiles": {
+    "helpers/task_helpers.py": "ee9053da7d0a90b145bdeb0c669e846014d7e664cae8939d76aa2db051351d60",
+    "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea"
+  },
+  "refundAllocationContract": "pos-refund-per-hp-v1",
+  "refundPatchHash": "e156c0c281cf5d846b6ae88cd7824959babe2069ed409ca9dff31b7882945f11"
+}
