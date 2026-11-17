@@ -45,20 +45,40 @@ export function readScreeningCounterOptions(
     ...(contract === counterContract ? { headMetadata: readNativeHeadMetadataOptions(env) } : {}),
   };
 }
-const qualified = new WeakMap<
-  AdministrationTransaction,
-  { hash: string; owner: string; configuration: string }
->();
+export interface CounterDefinitionQualification {
+  hash: string;
+  owner: string;
+  configuration: string;
+}
 export async function qualifyCounterWriterDefinitions(
   tx: AdministrationTransaction,
   options: NativeHeadMetadataOptions = readNativeHeadMetadataOptions(),
-) {
-  const configuration = canonicalNativeHeadJson(options);
-  const prior = qualified.get(tx);
-  if (prior) {
-    if (prior.configuration !== configuration) throw counterError('WRITERS_UNQUALIFIED');
-    return prior;
-  }
+): Promise<CounterDefinitionQualification> {
+  return qualifyCounterDefinitions(tx, options, 'application');
+}
+/** Only the configured projection publisher may enter this dedicated path.
+ * The source reader's authenticated configuration is compared inside its CAS
+ * transaction; generic/application qualification retains its stricter caller. */
+export async function qualifyCounterPublisherDefinitions(
+  tx: AdministrationTransaction,
+  options: NativeHeadMetadataOptions,
+  expectedConfiguration: string,
+): Promise<CounterDefinitionQualification> {
+  if (
+    typeof expectedConfiguration !== 'string' ||
+    expectedConfiguration.length < 1 ||
+    Buffer.byteLength(expectedConfiguration) > 20000
+  )
+    throw counterError('WRITERS_UNQUALIFIED');
+  const value = await qualifyCounterDefinitions(tx, options, 'counter-publication');
+  if (value.configuration !== expectedConfiguration) throw counterError('WRITERS_UNQUALIFIED');
+  return value;
+}
+async function qualifyCounterDefinitions(
+  tx: AdministrationTransaction,
+  options: NativeHeadMetadataOptions,
+  purpose: 'application' | 'counter-publication',
+): Promise<CounterDefinitionQualification> {
   // No source rows: hold metadata locks until this transaction ends.
   await tx.execute(
     sql.raw(
@@ -67,7 +87,8 @@ export async function qualifyCounterWriterDefinitions(
   );
   const [indexes] = await tx.execute(sql.raw(counterIndexSql));
   assertCounterIndexes(indexes);
-  const metadata = await readNativeHeadMetadata(tx, options);
+  const metadata = await readNativeHeadMetadata(tx, options, { purpose });
+  const configuration = canonicalNativeHeadJson({ options, policy: metadata.policy });
   const normalizedHash = (body: string) =>
     createHash('sha256').update(body.trim().split(/\s+/).join(' ')).digest('hex');
   if (metadata.counterTriggers.length !== 9 || metadata.counterProcedures.length !== 1)
@@ -94,7 +115,6 @@ export async function qualifyCounterWriterDefinitions(
   )
     throw counterError('WRITERS_UNQUALIFIED');
   const hash = { hash: counterDefinitionHash, owner: procedure.definer, configuration };
-  qualified.set(tx, hash);
   return hash;
 }
 function parsedJson(value: unknown): unknown {

@@ -250,6 +250,11 @@ const familyHeads = {
     pos_rewrite_screening_contributions: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
   },
 };
+const publisherRights: Record<string, string[]> = {
+  pos_rewrite_screening_counter_heads: ['SELECT', 'INSERT', 'UPDATE'],
+  pos_rewrite_screening_counters: ['SELECT', 'INSERT', 'UPDATE'],
+  pos_rewrite_screening_contributions: ['SELECT', 'INSERT', 'DELETE'],
+};
 const allHeads = new Set([
   ...HEADS,
   ...Object.values(familyHeads).flatMap((item) => Object.keys(item)),
@@ -297,7 +302,10 @@ async function one(tx: NativeHeadTransaction, statement: string): Promise<Record
 export async function readNativeHeadMetadata(
   tx: NativeHeadTransaction,
   options: NativeHeadMetadataOptions,
+  mode: { purpose: 'application' | 'counter-publication' } = { purpose: 'application' },
 ): Promise<NativeHeadMetadata> {
+  if (mode.purpose !== 'application' && mode.purpose !== 'counter-publication') return refuse();
+  const publication = mode.purpose === 'counter-publication';
   if (!nativeHeadMetadataOptionsSchema.safeParse(options).success) return refuse();
   const { auditDefiner: audit, originDefiner: origin } = options;
   if (
@@ -330,6 +338,13 @@ export async function readNativeHeadMetadata(
     caller.skipGrants !== 0 ||
     administrators.has(current.data) ||
     [audit, origin].includes(current.data)
+  )
+    return refuse();
+  if (
+    publication &&
+    (!options.publisherGrantee ||
+      current.data !== options.publisherGrantee ||
+      !options.counterDefiner)
   )
     return refuse();
   const schemaValue = await one(tx, 'SELECT DATABASE() AS db');
@@ -367,11 +382,18 @@ export async function readNativeHeadMetadata(
       )
     )
       return refuse();
-    if (
-      rights.some((right) => ['INSERT', 'UPDATE', 'DELETE', 'INDEX'].includes(right)) &&
-      (target === '*.*' || target.endsWith('.*') || allHeads.has(target.split('.').at(-1)!))
-    )
-      return refuse();
+    if (rights.some((right) => ['INSERT', 'UPDATE', 'DELETE', 'INDEX'].includes(right))) {
+      if (publication) {
+        const table = target.startsWith(schema + '.') ? target.slice(schema.length + 1) : '';
+        const allowed = publisherRights[table];
+        if (!allowed || rights.some((right) => !allowed.includes(right))) return refuse();
+      } else if (
+        target === '*.*' ||
+        target.endsWith('.*') ||
+        allHeads.has(target.split('.').at(-1)!)
+      )
+        return refuse();
+    }
     if (rights.includes('EXECUTE') && target !== `FUNCTION ${schema}.${INFO}`) return refuse();
   }
   const declared = new Set([...HEADS, ...WATCHED]);
@@ -475,11 +497,7 @@ export async function readNativeHeadMetadata(
     const owner = options.publisherGrantee;
     if (!accountPattern.test(owner) || owner === origin || owners.has(owner) || !families.counter)
       return refuse();
-    const rights = {
-      pos_rewrite_screening_counter_heads: ['SELECT', 'INSERT', 'UPDATE'],
-      pos_rewrite_screening_counters: ['SELECT', 'INSERT', 'UPDATE'],
-      pos_rewrite_screening_contributions: ['SELECT', 'INSERT', 'DELETE'],
-    };
+    const rights = publisherRights;
     owners.set(owner, {
       names: new Set(),
       watched: new Set(),
@@ -494,8 +512,14 @@ export async function readNativeHeadMetadata(
       ),
     };
   }
+  if (publication && !families.counter) return refuse();
   for (const owner of owners.keys())
-    if (administrators.has(owner) || [audit, current.data].includes(owner)) return refuse();
+    if (
+      administrators.has(owner) ||
+      owner === audit ||
+      (owner === current.data && !(publication && owner === options.publisherGrantee))
+    )
+      return refuse();
   owners.set(origin, {
     names: new Set(descriptor.originTriggers.map((item) => item.name)),
     watched: new Set(['orders', 'users']),
@@ -566,7 +590,9 @@ export async function readNativeHeadMetadata(
     if (spec) {
       const allowed =
         item.scope === 'global'
-          ? ['USAGE']
+          ? spec.publisher
+            ? ['USAGE', 'SHOW_ROUTINE', 'SHOW ROUTINE']
+            : ['USAGE']
           : spec.publisher && item.scope === 'schema' && item.schema === schema
             ? sourceRead
             : spec.publisher &&
