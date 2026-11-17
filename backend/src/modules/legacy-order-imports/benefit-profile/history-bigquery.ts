@@ -12,8 +12,10 @@ import {
   type CouponWarehouseDependencies,
 } from './history-warehouse-read.js';
 import { couponHistoryScopeSchema } from './history.js';
-/** Runtime BQ-only eligibility port. New-work constructor is pure; a qualified
- * native witness and bounded signal are mandatory on every actual read. */
+/** Operation-scoped qualification adapter. Its publication binds the original
+ * operation, so it cannot consume a prepublished generic generation for a new
+ * sale. Never create native historical captures on request to make it fit.
+ * Construction is pure; actual reads require a native witness and signal. */
 export function couponBigQueryHistory(
   supplied: CouponBigQueryOptions,
   authority: { sourceKey: string; publicationKey: string; historyKey: string },

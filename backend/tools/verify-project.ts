@@ -563,6 +563,31 @@ const checks: Check[] = [
     ],
   },
   {
+    id: 'legacy-import-native-esm-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-esm/tsconfig.json',
+    ],
+  },
+  {
+    id: 'coupon-history-bigquery-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-coupon-history/bigquery.tsconfig.json',
+    ],
+  },
+  {
+    id: 'legacy-import-native-esm-startup',
+    directory: 'backend',
+    args: ['--import', 'tsx', 'tools/legacy-import-esm/check.ts'],
+  },
+  {
     id: 'screening-recovery-browser-fixture-typecheck',
     directory: 'frontend',
     args: [

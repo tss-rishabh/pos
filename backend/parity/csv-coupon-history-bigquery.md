@@ -1,8 +1,10 @@
 # Bounded BigQuery coupon history
 
-The runtime couponBigQueryHistory implements CsvCouponHistoryPort.read(scope, {witness, signal}) for the five literal coupon queries in API-v2 2960acbea10c4eaf16b6d99e15ff6e03ef7724c5. It reads only dedicated immutable BigQuery projections in tssgcp2025.tss_mysql_raw_layer, location asia-south1. It has no database handle, native history fallback, raw CDC fallback, or assumed empty-history path. Construction performs no SDK, credential or database I/O.
+The operation-scoped qualification adapter couponBigQueryHistory implements CsvCouponHistoryPort.read(scope, {witness, signal}) for the five literal coupon queries in API-v2 2960acbea10c4eaf16b6d99e15ff6e03ef7724c5. It reads only dedicated immutable BigQuery projections in tssgcp2025.tss_mysql_raw_layer, location asia-south1. It has no database handle, native history fallback, raw CDC fallback, or assumed empty-history path. Construction performs no SDK, credential or database I/O.
 
 The source all-writer/late-head fence is a separate required participant. The reader recomputes couponHistoryControlHeadHash with the retained source proof key, checks the current imported writer-definition hash, and requires matching signed capture and publication. The caller must still check that same witness after the awaited read inside its pre-source transaction; the reader cannot prevent a later source mutation alone.
+
+Its publication includes the original operation/request/plan/asOf scope. It therefore cannot serve a newly created operation from a prepublished generation. The production consumer needs the separately implemented generic-generation protocol; this adapter must not be installed by adding per-request native historical captures. Runtime registration remains pending that integration.
 
 ## Exact facts
 
@@ -38,7 +40,9 @@ The review-only physical schemas and primitive projection selections are in tool
 6. sealCouponWarehousePublication(capture, candidatePort, {sourceKey, publicationKey, historyKey}, {signal, clock}) compares actual warehouse facts to signed native facts and emits a signed publication artifact. It performs no cloud write.
 7. A separately authorized publisher appends one immutable publication row. Runtime recomputes the five facts and verifies publication/current witness before returning the existing qualified history document. Missing, duplicate, mixed, stale or tampered evidence never becomes zero.
 
-The read-only tools/legacy-import-coupon-history/seal-publication.ts --seal-candidate accepts one bounded signed native capture on stdin and emits the independently verified signed publication on stdout. It reads the three purpose keys from CSV_COUPON_SOURCE_PROOF_KEY, CSV_COUPON_PUBLICATION_KEY and CSV_COUPON_HISTORY_KEY; ADC and the configured candidate/projection views supply read access. It performs no warehouse write and prints only a static failure on invalid/private input.\n\nNo publication pipeline is deployed by this slice. A raw CDC alias, manually asserted complete flag, or copied native count row cannot qualify it. Actual complete generation builder/publication deployment and bounded query plans must be accepted before enabling the selector.
+The read-only tools/legacy-import-coupon-history/seal-publication.ts --seal-candidate accepts one bounded signed native capture on stdin and emits the independently verified signed publication on stdout. It reads the three purpose keys from CSV_COUPON_SOURCE_PROOF_KEY, CSV_COUPON_PUBLICATION_KEY and CSV_COUPON_HISTORY_KEY; ADC and the configured candidate/projection views supply read access. It performs no warehouse write and prints only a static failure on invalid/private input.
+
+No publication pipeline is deployed by this slice. A raw CDC alias, manually asserted complete flag, or copied native count row cannot qualify it. Actual complete generation builder/publication deployment and bounded query plans must be accepted before enabling the selector.
 
 ## Integration
 

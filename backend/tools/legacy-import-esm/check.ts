@@ -15,6 +15,8 @@ export const esmImportEntries = [
   'benefit-profile/history.ts',
   'benefit-profile/history-publication.ts',
   'benefit-profile/history-source.ts',
+  'benefit-profile/history-bigquery.ts',
+  'benefit-profile/history-warehouse-source.ts',
   'benefit-profile/bridge.ts',
   'membership-profile/domain.ts',
   'membership-profile/completion.ts',
