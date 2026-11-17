@@ -6,6 +6,17 @@ implementation, defer further test expansion, certification and repeated check
 runs. Preserve existing tests/evidence and all final release requirements. The
 same work order is recorded in AGENTS.md for future continuations and agents.
 
+Implementation update: generic coupon generation runtime/publisher is integrated
+from `833d115` as `3978c5a`, alongside the private current-control descriptor on
+`39e9be7`. The application preparation factory now installs the selected read-only
+warehouse reader, and its encrypted publication journal has an additive registered
+migration packaged by the existing Docker SQL glob. Configuration examples keep
+selectors blank. This code is pending final validation; no new parity or test run
+was performed for this integration. The executable publisher/demand-queue handoff,
+screening counter and public membership/gift composition remain implementation
+work in parallel agents. Changed-actor/contact settlement succession also remains
+unimplemented; immutable completed-result recovery already exists.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during

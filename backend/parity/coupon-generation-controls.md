@@ -46,6 +46,23 @@ generations; this endpoint neither calculates history nor refreshes a generation
 for a checkout request. Missing controls or writer coverage are unavailable
 states, never an inferred empty history.
 
+The Node application installs `couponHistoryRuntime` in its configured source
+preparation factory. `CSV_COUPON_GENERATION_CONTRACT` selects
+`pos-csv-coupon-generation-runtime-v1`; `CSV_COUPON_PUBLICATION_KEY` is independent
+of the membership publication key, coupon history key and source proof key.
+The reader is constructed without network or database work. An explicitly
+supplied reader remains available for composed runtimes. Invalid selected
+configuration enters the existing preparation-unavailable guard, preserving
+immutable completed-result recovery. The reader uses the application's
+read-only warehouse identity; publisher credentials are configured separately.
+
+Deployment must populate the generation, candidate, order, log and control views
+listed in `backend/.env.example` and provide their exact source comparison
+fingerprint. Declaring view names does not populate them. A missing, stale or
+unqualified generation pauses preparation without a synchronous native history
+query or publication attempt. This runtime connection is implemented; validation
+is deferred with the rest of the final verification phase.
+
 The shared private runtime mounts the resource after source construction, while
 validating its selector/key before database bootstrap. The source manifest
 includes all three new modules. No production keys, DDL, cache writes, warehouse

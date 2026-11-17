@@ -6,6 +6,7 @@ import type { FinancialOrderPreparationPort } from './financial-adapter-preparat
 import { importFinancialError } from './financial-adapter-crypto.js';
 import { readSourceOrderPreparationOptions } from './source-order-preparation-options.js';
 import { sourceOrderPreparation } from './source-order-preparation.js';
+import { couponHistoryRuntime } from './benefit-profile/history-generation-runtime.js';
 
 /** Pure installation. Invalid selected configuration blocks new work while
  * retaining the adapter/key needed to authenticate already committed results. */
@@ -21,13 +22,24 @@ export function configuredSourceOrderPreparation(
 } {
   if (!environment.UPSTREAM_POS_LEGACY_IMPORT_PREPARATION_CONTRACT) return { ready: true };
   try {
+    const options = readSourceOrderPreparationOptions(environment),
+      authority =
+        financial.sourceProofKey && options.couponPublicationKey && options.couponHistoryKey
+          ? {
+              sourceKey: financial.sourceProofKey,
+              publicationKey: options.couponPublicationKey,
+              historyKey: options.couponHistoryKey,
+            }
+          : undefined,
+      couponHistoryReader =
+        dependencies.couponHistoryReader ?? couponHistoryRuntime(environment, authority);
     return {
       ready: true,
       port: sourceOrderPreparation(
         config,
         financial,
-        readSourceOrderPreparationOptions(environment),
-        dependencies,
+        options,
+        { ...dependencies, couponHistoryReader },
       ),
     };
   } catch (error: unknown) {
