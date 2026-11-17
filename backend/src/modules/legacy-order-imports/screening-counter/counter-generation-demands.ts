@@ -117,11 +117,18 @@ export function counterGenerationDemands(
     >,
   ) => [r.id, r.version, r.phase, r.lane, r.dueAt, r.createdAt, r.updatedAt];
   function demandRow(row: typeof counterGenerationDemandsTable.$inferSelect) {
-    const h = { ...row, version: String(row.version) },
-      r = demandSchema.parse(decrypt(row.payload, demandHeader(h as CounterGenerationDemand)));
+    const h = {
+        id: counterHash.parse(row.id),
+        version: String(row.version),
+        phase: phase.parse(row.phase),
+        lane: laneSchema.parse(row.lane),
+        dueAt: point.parse(row.dueAt),
+        createdAt: point.parse(row.createdAt),
+        updatedAt: point.parse(row.updatedAt),
+      },
+      r = demandSchema.parse(decrypt(row.payload, demandHeader(h)));
     if (
-      JSON.stringify(demandHeader(r)) !==
-        JSON.stringify(demandHeader(h as CounterGenerationDemand)) ||
+      JSON.stringify(demandHeader(r)) !== JSON.stringify(demandHeader(h)) ||
       r.id !== identity(r.request)
     )
       throw counterError('GENERATION_DEMAND_INVALID');
@@ -134,8 +141,12 @@ export function counterGenerationDemands(
     r.updatedAt,
   ];
   function cursorRow(row: typeof counterGenerationCursorsTable.$inferSelect) {
-    const h = { ...row, version: String(row.version) },
-      r = cursorSchema.parse(decrypt(row.payload, cursorHeader(h as CounterGenerationCursor)));
+    const h = {
+        lane: cursorSchema.shape.lane.parse(row.lane),
+        version: String(row.version),
+        updatedAt: point.parse(row.updatedAt),
+      },
+      r = cursorSchema.parse(decrypt(row.payload, cursorHeader(h)));
     if (r.lane !== row.lane || r.version !== String(row.version) || r.updatedAt !== row.updatedAt)
       throw counterError('GENERATION_DEMAND_INVALID');
     return r;

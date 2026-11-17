@@ -170,11 +170,7 @@ export function originCouponHistory(
       signal.throwIfAborted();
       const checked = verifyOriginCouponGeneration(
           facts,
-          {
-            customerId: command.customerId,
-            selection: request.selection,
-            witness: request.witness,
-          },
+          request,
           authority,
           selected.comparisonFingerprint!,
           runner.clock(),
