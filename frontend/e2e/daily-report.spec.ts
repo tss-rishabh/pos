@@ -41,6 +41,8 @@ test('multiple-store daily reporting retains all source columns and full totals 
     gift_voucher: 0.04,
     district: 0.05,
     cash: 50,
+    payment_correction_cash_out: index === 0 ? '25.49' : '0.00',
+    cash_after_payment_corrections: index === 0 ? '24.51' : '50.00',
     total_online: 50,
     banking: 50,
     membership_revenue: 99.99,
@@ -64,6 +66,9 @@ test('multiple-store daily reporting retains all source columns and full totals 
           total_revenue: 6100,
           total_orders: 122,
           total_qty: 183,
+          cash: 3050,
+          payment_correction_cash_out: '25.49',
+          cash_after_payment_corrections: '3024.51',
           pending_offline_orders: 1,
         },
         pendingOrderCount: 1,
@@ -81,9 +86,9 @@ test('multiple-store daily reporting retains all source columns and full totals 
   await expect(
     page.getByRole('status').filter({ hasText: 'offline cash receipt is awaiting order import' }),
   ).toBeVisible();
-  await page.getByText('Columns (16 of 32)', { exact: true }).click();
+  await page.getByText('Columns (18 of 34)', { exact: true }).click();
   await page.getByRole('button', { name: 'Show all columns' }).click();
-  await expect(table.locator('thead th')).toHaveCount(32);
+  await expect(table.locator('thead th')).toHaveCount(34);
   for (const name of [
     'Target achieved %',
     'Online quantity',
@@ -95,9 +100,22 @@ test('multiple-store daily reporting retains all source columns and full totals 
     'PG discount',
     'Gift voucher',
     'Membership revenue',
+    'Cash returned on corrections',
+    'Cash after corrections',
     'Offline orders awaiting import',
   ])
     await expect(table.getByRole('columnheader', { name, exact: true })).toBeVisible();
+  const headings = await table.locator('thead th').allTextContents(),
+    firstRow = table.locator('tbody tr').first();
+  await expect(
+    firstRow.locator('td').nth(headings.indexOf('Cash returned on corrections')),
+  ).toHaveText('25.49');
+  await expect(firstRow.locator('td').nth(headings.indexOf('Cash after corrections'))).toHaveText(
+    '24.51',
+  );
+  await expect(
+    table.locator('tfoot td').nth(headings.indexOf('Cash after corrections')),
+  ).toHaveText('3024.51');
   await page.getByRole('button', { name: 'Next page' }).click();
   await expect(table.locator('tbody tr')).toHaveCount(11);
   await expect(table.locator('tfoot')).toContainText('6100');
@@ -110,6 +128,10 @@ test('multiple-store daily reporting retains all source columns and full totals 
   const csv = await readFile(path, 'utf8');
   expect(csv.trim().split('\r\n')).toHaveLength(63);
   expect(csv).toContain('"Membership revenue"');
+  expect(csv).toContain('"Cash returned on corrections"');
+  expect(csv).toContain('"Cash after corrections"');
+  expect(csv).toContain('"50","25.49","24.51"');
+  expect(csv).toContain('"3050","25.49","3024.51"');
   expect(csv).toContain('"Offline orders awaiting import"');
   expect(csv).toContain('"Fixture store 60"');
   expect(csv).toContain('"\'\u200b=SUM(1,2)"');
