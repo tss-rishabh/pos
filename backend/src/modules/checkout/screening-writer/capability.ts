@@ -7,6 +7,7 @@ import type { CustomerContextConfiguration } from '../customer-context.js';
 import { customerContactBindingSchema } from '../customer-contact-authority.js';
 import { cartSchema, type CheckoutState } from '../contracts.js';
 import type { Payload } from '../payloads.js';
+import { publicScreeningBenefitsContract } from './benefit-contracts.js';
 
 export const nodeScreeningWriterContract = 'pos-node-screening-writer-v1';
 export const nodeScreeningWriterHeader = 'X-POS-Screening-Writer';
@@ -36,15 +37,24 @@ export const nodeScreeningWriterSchema = z
     requestHash: hash,
     issuedAt: z.number().int().positive().safe(),
     expiresAt: z.number().int().positive().safe(),
+    benefitsContract: z.literal(publicScreeningBenefitsContract).optional(),
+    membershipHistoryHash: hash.optional(),
   })
   .strict()
   .refine(
     (value) => value.expiresAt > value.issuedAt && value.expiresAt <= value.issuedAt + 60000,
     'The source writer capability has an invalid time bound.',
+  )
+  .refine(
+    (value) =>
+      value.membershipHistoryHash === undefined ||
+      value.benefitsContract === publicScreeningBenefitsContract,
+    'Membership evidence requires the selected public profile.',
   );
 export type NodeScreeningWriterCapability = z.infer<typeof nodeScreeningWriterSchema>;
 export interface NodeScreeningWriterConfiguration extends CustomerContextConfiguration {
   screeningWriterContract?: string;
+  screeningBenefitsContract?: typeof publicScreeningBenefitsContract;
 }
 const unavailable = () =>
   new AppError(
@@ -171,8 +181,8 @@ export function signNodeScreeningWriter(
     now?: number;
   },
 ): { header: string; value: NodeScreeningWriterCapability } {
-  const secret = key(environment),
-    { state } = input,
+  key(environment);
+  const { state } = input,
     now = input.now ?? Date.now();
   if (
     state.phase !== 'quoted' ||
@@ -200,7 +210,22 @@ export function signNodeScreeningWriter(
       requestHash: screeningPortableHash(input.payload),
       issuedAt: now,
       expiresAt: now + 60000,
+      ...(environment.screeningBenefitsContract
+        ? { benefitsContract: environment.screeningBenefitsContract }
+        : {}),
     }),
+    sealed = sealNodeScreeningWriter(environment, value);
+  return sealed;
+}
+
+/** Internal reseal of the same opaque operation. Callers must retain native
+ * prepared authority; this function performs no authorization or renewal. */
+export function sealNodeScreeningWriter(
+  environment: NodeScreeningWriterConfiguration,
+  supplied: NodeScreeningWriterCapability,
+): { header: string; value: NodeScreeningWriterCapability } {
+  const secret = key(environment),
+    value = nodeScreeningWriterSchema.parse(supplied),
     raw = Buffer.from(JSON.stringify(value), 'utf8').toString('base64url'),
     signature = createHmac('sha256', secret)
       .update(tokenDomain + raw)

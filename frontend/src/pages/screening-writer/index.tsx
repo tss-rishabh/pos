@@ -185,6 +185,36 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
       <h3>Screening sale</h3>
       <p>Reference {scope.operationId}</p>
       {view?.orderId && <p>Order {view.orderId}</p>}
+      {view?.benefits?.membership && (
+        <p>
+          Membership:{' '}
+          {
+            {
+              new: 'new membership',
+              upgrade: 'membership upgrade',
+              'auto-free': 'automatic free membership',
+            }[view.benefits.membership]
+          }
+          .
+        </p>
+      )}
+      {Boolean(view?.benefits?.giftCards) && (
+        <p>
+          Gift cards: {view!.benefits!.giftCards}.
+          {view?.status === 'abandoned'
+            ? ' Unfunded cards remain unavailable; their references are retained.'
+            : ''}
+        </p>
+      )}
+      {view?.benefits?.restoration && (
+        <p>
+          {view.benefits.restoration === 'prior-entitlement-restored'
+            ? 'The prior membership and its original expiry were restored.'
+            : view.benefits.restoration === 'deactivated'
+              ? 'The unpaid membership staging was removed.'
+              : 'The prior membership is unchanged.'}
+        </p>
+      )}
       <p role="status">
         {view?.status === 'completed'
           ? 'Original payment is confirmed.'
@@ -203,6 +233,13 @@ function Recovery({ scope, online, disabled = false, onPending, onSaved }: Scree
       {view?.publicationStatus && !['accepted', 'cancelled'].includes(view.publicationStatus) && (
         <p>Order notifications are awaiting reconciliation.</p>
       )}
+      {view?.benefitCacheStatus &&
+        !['completed', 'cancelled'].includes(view.benefitCacheStatus) && (
+          <p>
+            Membership cache refresh is awaiting confirmation. Keep the original sale reference; a
+            status check does not enroll or charge again.
+          </p>
+        )}
       {notice && <p role="status">{notice}</p>}
       {error && <p role="alert">{error}</p>}
       <button className="button secondary" disabled={!online || busy} onClick={() => void check()}>

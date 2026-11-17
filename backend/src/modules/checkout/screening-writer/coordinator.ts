@@ -16,6 +16,13 @@ import type { PaymentAttempt, PaymentInput } from '../payments/contracts.js';
 import { nodeScreeningWriterIssuer } from './issuer.js';
 import { nodeScreeningWriterContract, type NodeScreeningWriterCapability } from './capability.js';
 import type { PublicScreeningOptions } from './options.js';
+import { assertPublicBenefits } from './benefits.js';
+import {
+  publicBenefitPreparations,
+  publicBenefitPreparationSchema,
+  type PublicBenefitPreparationPort,
+} from './benefit-preparation.js';
+import { screeningPortableHash } from './capability.js';
 import { publicScreeningWork, publicScreeningSubmissionDispatches } from './schema.js';
 import {
   publicScreeningHash,
@@ -57,6 +64,7 @@ export function publicScreeningCoordinator(
       transaction?: AdministrationTransaction,
     ) => Promise<boolean>;
     checkins?: Pick<ReturnType<typeof checkInService>, 'assertCheckIn'>;
+    prepareBenefits?: PublicBenefitPreparationPort;
   } = {},
 ) {
   const clock = options.clock ?? Date.now,
@@ -125,11 +133,48 @@ export function publicScreeningCoordinator(
   }
   const issuer = nodeScreeningWriterIssuer({
     db,
-    environment: { ...environment, screeningWriterContract: options.contract },
+    environment: {
+      ...environment,
+      screeningWriterContract: options.contract,
+      screeningBenefitsContract: options.benefitsContract,
+    },
     checkins,
     authSessionValid: valid,
     clock,
     recordAdmission,
+    async recordPreparation(tx, original, next, document) {
+      const saved = await readPublicIntent(tx, original.operationId, key());
+      if (
+        !saved ||
+        saved.row.status !== 'prepared' ||
+        JSON.stringify(saved.value) !== JSON.stringify(original)
+      )
+        throw screeningReconciliationRequired();
+      const [dispatch] = await tx
+        .select({ id: publicScreeningSubmissionDispatches.operationId })
+        .from(publicScreeningSubmissionDispatches)
+        .where(eq(publicScreeningSubmissionDispatches.operationId, original.operationId))
+        .limit(1)
+        .for('share');
+      if (dispatch || (await readPublicScreeningCreation(tx, original.operationId, key())))
+        throw screeningReconciliationRequired();
+      await tx
+        .insert(publicBenefitPreparations)
+        .values({
+          operationId: original.operationId,
+          data: document,
+          proofHash: publicScreeningHash(key(), 'benefit-preparation', document),
+        });
+      await tx
+        .update(publicScreeningWork)
+        .set({
+          data: next,
+          proofHash: publicScreeningHash(key(), 'intent', next),
+          nextCheckAt: next.expiresAt,
+          updatedAt: clock(),
+        })
+        .where(eq(publicScreeningWork.operationId, next.operationId));
+    },
   });
   const service = {
     async issue(user: Principal, state: CheckoutState, operationId: string, payload: Payload) {
@@ -142,11 +187,26 @@ export function publicScreeningCoordinator(
       key();
       if (options.proofKey === environment.customerContextKey)
         throw screeningReconciliationRequired();
-      assertPublicScreeningVariant(state);
+      assertPublicScreeningVariant(state, options.benefitsContract);
+      if (options.benefitsContract && !options.prepareBenefits)
+        throw screeningReconciliationRequired();
+      const signed = await issuer.issue(
+        user,
+        { storeId: state.storeId, checkoutId: state.id, operationId },
+        payload,
+      );
+      if (!options.benefitsContract) return signed;
+      const remaining = signed.value.expiresAt - clock();
+      if (remaining <= 0) throw screeningReconciliationRequired();
+      const document = await options.prepareBenefits!.prepare(
+        { capability: signed.value, header: signed.header, payload },
+        { signal: AbortSignal.timeout(remaining) },
+      );
       return issuer.issue(
         user,
         { storeId: state.storeId, checkoutId: state.id, operationId },
         payload,
+        { original: signed.value, document },
       );
     },
     async beforeDispatch(user: Principal, state: CheckoutState, operationId: string) {
@@ -180,6 +240,26 @@ export function publicScreeningCoordinator(
           .where(eq(publicScreeningSubmissionDispatches.operationId, operationId))
           .limit(1);
         if (prior) throw screeningReconciliationRequired();
+        if (intent.value.benefitsContract) {
+          const [prepared] = await tx
+            .select()
+            .from(publicBenefitPreparations)
+            .where(eq(publicBenefitPreparations.operationId, operationId))
+            .limit(1)
+            .for('share');
+          if (!prepared) throw screeningReconciliationRequired();
+          const document = publicBenefitPreparationSchema.parse(prepared.data);
+          if (
+            document.operationId !== operationId ||
+            document.requestHash !== intent.value.requestHash ||
+            document.cartHash !== intent.value.cartHash ||
+            publicScreeningHash(key(), 'benefit-preparation', document) !== prepared.proofHash ||
+            (document.membershipHistory
+              ? screeningPortableHash(document.membershipHistory)
+              : undefined) !== intent.value.membershipHistoryHash
+          )
+            throw screeningReconciliationRequired();
+        }
         const proof = {
           contract: 'pos-node-screening-submission-dispatch-v1',
           operationId,
@@ -272,6 +352,7 @@ export function publicScreeningCoordinator(
       if (!creation) return;
       await assertPublicScreeningOrderAvailable(tx, orderId);
       await activePublicCustomer(tx, creation);
+      await assertPublicBenefits(tx, creation, key(), options, 'confirmed');
     },
     async intent(
       tx: AdministrationTransaction,
@@ -294,7 +375,7 @@ export function publicScreeningCoordinator(
         const user = actors.get(tx);
         if (!user) throw screeningReconciliationRequired();
         await session(user, tx);
-        await completePublicPayment(tx, creation, attempt, key(), hashSecret, clock);
+        await completePublicPayment(tx, creation, attempt, key(), hashSecret, clock, options);
         await session(user, tx);
       }
     },
@@ -340,7 +421,7 @@ export function publicScreeningCoordinator(
     async finish(tx: AdministrationTransaction, orderId: string) {
       const creation = remembered(tx, orderId);
       if (!creation) return;
-      if (creation.method === 3) await completePublicPrepaid(tx, creation, key(), clock);
+      if (creation.method === 3) await completePublicPrepaid(tx, creation, key(), clock, options);
     },
     async read(tx: AdministrationTransaction, orderId: string) {
       const creation = remembered(tx, orderId);

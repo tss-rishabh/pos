@@ -60,10 +60,12 @@ def assert_absent(session,cap,state):
     # These are causal journals keyed by the original creation nonce. Order,
     # HP, benefits and stock cannot commit outside the selected frame and its
     # atomically bound creation receipt. Never infer absence from paid status.
-    for table in ('pos_rewrite_public_screening_orders','pos_rewrite_public_screening_effects',
+    tables=('pos_rewrite_public_screening_orders','pos_rewrite_public_screening_effects',
                   'pos_rewrite_public_screening_completions','pos_rewrite_public_screening_abandonments',
                   'pos_rewrite_public_screening_payment_evidence','pos_rewrite_public_screening_publication_dispatches',
-                  'pos_rewrite_public_screening_publication_replies','pos_rewrite_import_screening_reservations'):
+                  'pos_rewrite_public_screening_publication_replies','pos_rewrite_import_screening_reservations')
+    if cap.get('benefitsContract'):tables+=('pos_rewrite_public_screening_benefits','pos_rewrite_public_screening_benefit_cache')
+    for table in tables:
         if rows(session,'SELECT operation_id FROM '+table+' WHERE operation_id=:op LIMIT 1 FOR SHARE',{'op':cap['operationId']},1):fail()
     if (state.get('orderId') is not None or state.get('orderSubmissionOperationId') is not None or
             state.get('paymentConfirmation') is not None or state.get('orderCustomerConsent') is not None or

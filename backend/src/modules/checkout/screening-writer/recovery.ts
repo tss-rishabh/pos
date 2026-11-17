@@ -31,6 +31,7 @@ import { readPublicCompletion } from './settlement.js';
 import { readPublicPublication } from './publication.js';
 import { equalImportHash } from '../../legacy-order-imports/financial-adapter-crypto.js';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
+import { readPublicBenefits } from './benefits.js';
 import {
   readPublicScreeningNegative,
   assertNoPublicScreeningEffects,
@@ -109,6 +110,7 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
     user: Principal,
   ) {
     const { p, intent, creation } = locked;
+    const benefits = creation ? await readPublicBenefits(tx, creation, coordinator.key()) : null;
     const base = {
       operationId: p.operationId,
       checkoutId: p.checkoutId,
@@ -117,6 +119,14 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
       publicationStatus: null,
       canAbandon: false,
       reviewCode: null,
+      ...(benefits
+        ? {
+            benefits: {
+              membership: benefits.membership?.kind ?? null,
+              giftCards: benefits.gifts.length,
+            },
+          }
+        : {}),
     };
     if (!creation) {
       const negative = await readPublicScreeningNegative(tx, intent.value, coordinator.key());
@@ -163,6 +173,16 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
         ...base,
         status: 'abandoned',
         publicationStatus: 'cancelled',
+        ...(tombstone.benefits
+          ? {
+              benefits: {
+                membership: benefits?.membership?.kind ?? null,
+                giftCards: benefits?.gifts.length ?? 0,
+                restoration: tombstone.benefits.membership,
+              },
+              benefitCacheStatus: 'cancelled',
+            }
+          : {}),
       });
     }
     await verifyPublicStructure(tx, creation, coordinator.key());
@@ -178,6 +198,11 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
           (coordinator.options.publicationContract ? 'pending' : 'unavailable'),
         reviewCode:
           publication?.status === 'uncertain' ? 'SCREENING_PUBLICATION_OUTCOME_UNKNOWN' : null,
+        ...(publication?.benefitCacheStatus
+          ? { benefitCacheStatus: publication.benefitCacheStatus }
+          : benefits?.membership
+            ? { benefitCacheStatus: 'pending' }
+            : {}),
       });
     }
     const [order] = await tx
@@ -423,6 +448,7 @@ export function publicScreeningRecovery(coordinator: PublicScreeningCoordinator)
           return true;
         },
         clock: coordinator.clock,
+        membershipProofKey: coordinator.options.membershipProofKey,
       });
       await adapter.abandon(user, {
         operationId: parsed.commandId,

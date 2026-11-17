@@ -56,6 +56,8 @@ def expected_kinds(intents):
 class PublicationResource:
     def __init__(self,sessions,proof_key,tasks,clock=None):
         self.sessions=sessions;self.proof_key=proof_key;self.tasks=tasks;self.clock=clock
+        from public_benefit_cache import install_kind
+        install_kind()  # Retained GETs remain readable with new selection off.
 
     def read(self,operation):
         if not isinstance(operation,str) or not UUID.fullmatch(operation) or CURRENT.get() is not None:
@@ -88,6 +90,12 @@ class PublicationResource:
                 data={'contract':CONTRACT,'operationId':operation,'creationHash':creation_hash(self.proof_key,creation),
                       'completionHash':completion['proof_hash'],'effectsHash':effect['effects_hash'],
                       'status':status,'deliveries':deliveries,'updatedAt':updated}
+                if 'benefitsHash' in creation:
+                    from public_benefit_cache import read as cache_state
+                    cached=cache_state(session,creation,self.proof_key)
+                    if cached is not None:
+                        data['benefitCacheStatus']=cached['status']
+                        data['updatedAt']=max(data['updatedAt'],cached['updatedAt'])
                 return {'data':data,'proofHash':digest(self.proof_key,'public-screening-publication',data)}
 
     def post(self,operation):

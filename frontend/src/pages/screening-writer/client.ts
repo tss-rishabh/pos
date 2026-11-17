@@ -29,6 +29,17 @@ export const screeningViewSchema = z
       .nullable(),
     canAbandon: z.boolean(),
     canCloseNoOrder: z.boolean().optional(),
+    benefits: z
+      .object({
+        membership: z.enum(['new', 'upgrade', 'auto-free']).nullable(),
+        giftCards: z.number().int().min(0).max(100),
+        restoration: z.enum(['unchanged', 'deactivated', 'prior-entitlement-restored']).optional(),
+      })
+      .strict()
+      .optional(),
+    benefitCacheStatus: z
+      .enum(['pending', 'processing', 'uncertain', 'completed', 'cancelled'])
+      .optional(),
     reviewCode: z
       .enum([
         'SCREENING_SOURCE_OUTCOME_UNKNOWN',

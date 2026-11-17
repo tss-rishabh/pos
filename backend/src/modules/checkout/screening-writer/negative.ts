@@ -154,7 +154,7 @@ export async function assertNoPublicScreeningEffects(
     .safeParse(rawOperation);
   if (!operation.success) throw screeningReconciliationRequired();
   // Exact nonce journals, not an inference from a status flag or HTTP failure.
-  for (const table of [
+  const tables = [
     'pos_rewrite_public_screening_orders',
     'pos_rewrite_public_screening_effects',
     'pos_rewrite_public_screening_completions',
@@ -163,7 +163,13 @@ export async function assertNoPublicScreeningEffects(
     'pos_rewrite_public_screening_publication_dispatches',
     'pos_rewrite_public_screening_publication_replies',
     'pos_rewrite_import_screening_reservations',
-  ] as const) {
+  ];
+  if (intent.benefitsContract)
+    tables.push(
+      'pos_rewrite_public_screening_benefits',
+      'pos_rewrite_public_screening_benefit_cache',
+    );
+  for (const table of tables) {
     const [records] = await tx.execute(
       sql`SELECT operation_id FROM ${sql.identifier(table)} WHERE operation_id=${intent.operationId} LIMIT 1 FOR SHARE`,
     );

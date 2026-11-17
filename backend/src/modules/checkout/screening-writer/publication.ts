@@ -57,6 +57,9 @@ export const publicPublicationSchema = z
       )
       .max(20),
     updatedAt: z.number().int().positive().safe(),
+    benefitCacheStatus: z
+      .enum(['pending', 'processing', 'uncertain', 'completed', 'cancelled'])
+      .optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -170,7 +173,12 @@ export function publicScreeningPublicationWorker(coordinator: PublicScreeningCoo
       const completion = await readPublicCompletion(tx, creation, coordinator.key());
       if (!completion) return null;
       const accepted = await readPublicPublication(tx, creation, coordinator.key());
-      if (accepted && ['accepted', 'cancelled'].includes(accepted.status)) {
+      if (
+        accepted &&
+        ['accepted', 'cancelled'].includes(accepted.status) &&
+        (!accepted.benefitCacheStatus ||
+          ['completed', 'cancelled'].includes(accepted.benefitCacheStatus))
+      ) {
         await tx
           .update(publicScreeningWork)
           .set({
@@ -270,22 +278,39 @@ export function publicScreeningPublicationWorker(coordinator: PublicScreeningCoo
       )
         throw screeningReconciliationRequired();
       const prior = await readPublicPublication(tx, creation, coordinator.key());
+      const fixedDelivery = (value: z.infer<typeof publicPublicationSchema>) => {
+        const { updatedAt: _time, benefitCacheStatus: _cache, ...fixed } = value;
+        return JSON.stringify(fixed);
+      };
+      const cacheProgress =
+        !prior?.benefitCacheStatus ||
+        prior.benefitCacheStatus === data.benefitCacheStatus ||
+        (prior.benefitCacheStatus === 'pending' &&
+          ['processing', 'completed', 'uncertain'].includes(data.benefitCacheStatus ?? '')) ||
+        (prior.benefitCacheStatus === 'processing' &&
+          ['completed', 'uncertain'].includes(data.benefitCacheStatus ?? ''));
       if (
         prior &&
         (prior.updatedAt > data.updatedAt ||
           (['accepted', 'cancelled'].includes(prior.status) &&
-            JSON.stringify(prior) !== JSON.stringify(data)))
+            fixedDelivery(prior) !== fixedDelivery(data)) ||
+          !cacheProgress)
       )
         throw screeningReconciliationRequired();
       await tx
         .insert(publicScreeningPublicationReplies)
         .values({ operationId, data, proofHash })
         .onDuplicateKeyUpdate({ set: { data, proofHash } });
-      const terminal = ['accepted', 'cancelled'].includes(data.status);
+      const terminal =
+        ['accepted', 'cancelled'].includes(data.status) &&
+        (!data.benefitCacheStatus || ['completed', 'cancelled'].includes(data.benefitCacheStatus));
       await tx
         .update(publicScreeningWork)
         .set({
-          status: 'publication-' + data.status,
+          status:
+            data.status === 'accepted' && !terminal
+              ? 'publication-processing'
+              : 'publication-' + data.status,
           nextCheckAt: terminal ? Number.MAX_SAFE_INTEGER : coordinator.clock() + 30000,
           updatedAt: coordinator.clock(),
         })
@@ -316,7 +341,11 @@ export function publicScreeningPublicationWorker(coordinator: PublicScreeningCoo
         .strict()
         .parse(JSON.parse(await boundedText(response, 16000)) as unknown);
       await retain(operationId, result.data, result.proofHash);
-      return result.data.status === 'accepted' ? ('accepted' as const) : ('pending' as const);
+      return result.data.status === 'accepted' &&
+        (!result.data.benefitCacheStatus ||
+          ['completed', 'cancelled'].includes(result.data.benefitCacheStatus))
+        ? ('accepted' as const)
+        : ('pending' as const);
     } catch {
       // The durable dispatch remains. Even a timeout before fetch/receipt GET
       // is unknown; the worker can only GET the original operation next time.

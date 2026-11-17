@@ -41,7 +41,11 @@ def _unique(pairs):
 def validate_saved(cap):
     """Bounded immutable shape only; not authorization or a renewed capability."""
     try:
-        if not isinstance(cap,dict) or set(cap)!=FIELDS or type(cap['v']) is not int or cap['v']!=1 or cap['contract']!=CONTRACT:fail()
+        if (not isinstance(cap,dict) or not FIELDS.issubset(cap) or set(cap)-FIELDS-{'benefitsContract','membershipHistoryHash'}
+                or type(cap['v']) is not int or cap['v']!=1 or cap['contract']!=CONTRACT):fail()
+        if 'benefitsContract' in cap and cap['benefitsContract']!='pos-node-screening-benefits-v1':fail()
+        if 'membershipHistoryHash' in cap and (cap.get('benefitsContract')!='pos-node-screening-benefits-v1'
+                or not isinstance(cap['membershipHistoryHash'],str) or not re.fullmatch(r'[a-f0-9]{64}',cap['membershipHistoryHash'])):fail()
         for name in ('operationId','checkoutId'):
             if not isinstance(cap[name],str) or not re.fullmatch(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}',cap[name]):fail()
         for name in ('actorId','customerId','storeId','counterId'):

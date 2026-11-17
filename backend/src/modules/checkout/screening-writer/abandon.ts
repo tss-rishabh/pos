@@ -27,6 +27,11 @@ import {
   readPublicScreeningCreation,
   screeningReconciliationRequired,
 } from './proof.js';
+import {
+  abandonPublicBenefits,
+  readPublicBenefits,
+  type PublicBenefitVerification,
+} from './benefits.js';
 
 const commandSchema = z
   .object({
@@ -53,6 +58,14 @@ export const publicScreeningAbandonmentSchema = z
     reservationHash: z.string().regex(/^[a-f0-9]{64}$/),
     reason: commandSchema.shape.reason,
     noFinancialEffects: z.literal(true),
+    benefits: z
+      .object({
+        sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
+        membership: z.enum(['unchanged', 'deactivated', 'prior-entitlement-restored']),
+        quarantinedVoucherIds: z.array(identifier).max(100),
+      })
+      .strict()
+      .optional(),
     createdAt: z.number().int().positive().safe(),
   })
   .strict();
@@ -74,14 +87,19 @@ async function absent(tx: AdministrationTransaction, statement: ReturnType<typeo
     );
 }
 /** Native tombstone. It changes no Order/HP/status, stock, wallet or cash field. */
-export function publicScreeningAbandonment(options: {
-  config: Pick<Config, 'BUSINESS_TIMEZONE'>;
-  db: Databases;
-  proofKey: string;
-  checkins: Pick<ReturnType<typeof checkInService>, 'assertCheckIn'>;
-  authSessionValid: (user: Principal, transaction?: AdministrationTransaction) => Promise<boolean>;
-  clock?: () => number;
-}) {
+export function publicScreeningAbandonment(
+  options: {
+    config: Pick<Config, 'BUSINESS_TIMEZONE'>;
+    db: Databases;
+    proofKey: string;
+    checkins: Pick<ReturnType<typeof checkInService>, 'assertCheckIn'>;
+    authSessionValid: (
+      user: Principal,
+      transaction?: AdministrationTransaction,
+    ) => Promise<boolean>;
+    clock?: () => number;
+  } & PublicBenefitVerification,
+) {
   const clock = options.clock ?? Date.now;
   return {
     async read(
@@ -306,8 +324,24 @@ export function publicScreeningAbandonment(options: {
           throw screeningReconciliationRequired();
         await absent(
           tx,
-          sql`SELECT id FROM has_products WHERE order_id=${order.id} AND (status IS NULL OR status<>'INCOMPLETE' OR gift_voucher_id<>0) LIMIT 1`,
+          sql`SELECT id FROM has_products WHERE order_id=${order.id} AND (status IS NULL OR status<>'INCOMPLETE') LIMIT 1`,
         );
+        const benefitEvidence = await readPublicBenefits(tx, creation, options.proofKey);
+        const ownedGiftLines = benefitEvidence?.gifts.map((gift) => gift.lineId) ?? [];
+        await absent(
+          tx,
+          ownedGiftLines.length
+            ? sql`SELECT id FROM has_products WHERE order_id=${order.id} AND gift_voucher_id<>0 AND id NOT IN (${sql.join(
+                ownedGiftLines.map((id) => sql`${BigInt(id)}`),
+                sql`, `,
+              )}) LIMIT 1`
+            : sql`SELECT id FROM has_products WHERE order_id=${order.id} AND gift_voucher_id<>0 LIMIT 1`,
+        );
+        if (!benefitEvidence?.membership)
+          await absent(
+            tx,
+            sql`SELECT order_id FROM pos_rewrite_cancellation_membership_provenance WHERE order_id=${order.id} LIMIT 1`,
+          );
         const lines = await tx
             .select({ id: HasProduct.id, quantity: HasProduct.qty, sub: HasProduct.sub_prod_id })
             .from(HasProduct)
@@ -338,7 +372,6 @@ export function publicScreeningAbandonment(options: {
           sql`SELECT order_id FROM order_tss_money WHERE order_id=${order.id} LIMIT 1`,
           sql`SELECT order_id FROM order_tss_point WHERE order_id=${order.id} LIMIT 1`,
           sql`SELECT order_id FROM gift_voucher_history WHERE order_id=${order.id} LIMIT 1`,
-          sql`SELECT order_id FROM pos_rewrite_cancellation_membership_provenance WHERE order_id=${order.id} LIMIT 1`,
           sql`SELECT id FROM amount_to_be_refunded_log WHERE order_id=${order.id} AND is_refunded<>0 LIMIT 1`,
           sql`SELECT id FROM pos_rewrite_offline_cash_receipts WHERE (operator_id=${creation.actorId} AND draft_id=${state.draftId ?? ''}) OR order_id=${creation.orderId} LIMIT 1`,
           sql`SELECT receipt_id FROM pos_rewrite_offline_cash_order_links WHERE order_id=${creation.orderId} LIMIT 1`,
@@ -377,6 +410,13 @@ export function publicScreeningAbandonment(options: {
         )
           throw screeningReconciliationRequired();
         const now = clock(),
+          restoredBenefits = await abandonPublicBenefits(
+            tx,
+            creation,
+            options.proofKey,
+            options,
+            now,
+          ),
           proof = publicScreeningAbandonmentSchema.parse({
             contract: 'pos-node-screening-abandonment-v1',
             operationId: creation.operationId,
@@ -391,6 +431,7 @@ export function publicScreeningAbandonment(options: {
             reservationHash: reservation.proofHash,
             reason: command.reason,
             noFinancialEffects: true,
+            ...(restoredBenefits ? { benefits: restoredBenefits } : {}),
             createdAt: now,
           }),
           seal = publicScreeningHash(options.proofKey, 'abandonment', proof),

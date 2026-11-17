@@ -36,6 +36,7 @@ import {
   type PublicScreeningCreation,
 } from './proof.js';
 import { verifyPublicStructure } from './native.js';
+import { assertPublicBenefits, type PublicBenefitVerification } from './benefits.js';
 
 const hash = z.string().regex(/^[a-f0-9]{64}$/);
 const paymentIntent = z
@@ -340,6 +341,7 @@ export async function completePublicPayment(
   key: string,
   hashSecret: string,
   clock: () => number,
+  benefits: PublicBenefitVerification = {},
 ) {
   const evidence = await paymentEvidence(tx, creation, attempt, key, hashSecret),
     projection = await projectionEvidence(tx, creation);
@@ -347,6 +349,7 @@ export async function completePublicPayment(
     await readPublicCompletion(tx, creation, key);
     return;
   }
+  await assertPublicBenefits(tx, creation, key, benefits, 'settled');
   const value = paidProof.parse({
     contract: 'pos-node-screening-paid-evidence-v1',
     operationId: creation.operationId,
@@ -369,6 +372,7 @@ export async function completePublicPrepaid(
   creation: PublicScreeningCreation,
   key: string,
   clock: () => number,
+  benefits: PublicBenefitVerification = {},
 ) {
   const [order] = await tx
     .select({
@@ -414,6 +418,7 @@ export async function completePublicPrepaid(
     await readPublicCompletion(tx, creation, key);
     return;
   }
+  await assertPublicBenefits(tx, creation, key, benefits, 'settled');
   const projection = await projectionEvidence(tx, creation),
     value = paidProof.parse({
       contract: 'pos-node-screening-paid-evidence-v1',

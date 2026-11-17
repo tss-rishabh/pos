@@ -45,6 +45,7 @@ export const publicScreeningCreationSchema = z
     markers: screeningReservationSchema.shape.markers,
     effectsHash: hash,
     createdAt: z.number().int().positive().safe(),
+    benefitsHash: hash.optional(),
   })
   .strict();
 export type PublicScreeningCreation = z.infer<typeof publicScreeningCreationSchema>;
@@ -68,7 +69,10 @@ export function publicScreeningHash(
     | 'publication'
     | 'publication-dispatch'
     | 'submission-dispatch'
-    | 'negative',
+    | 'negative'
+    | 'benefits'
+    | 'benefit-preparation'
+    | 'benefit-cache',
   value: unknown,
 ) {
   if (!/^[!-~]{32,4096}$/.test(key)) throw screeningReconciliationRequired();

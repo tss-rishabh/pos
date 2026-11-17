@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { nodeScreeningWriterContract } from './capability.js';
+import { publicScreeningBenefitsContract } from './benefit-contracts.js';
 
 /** Verification/publication configuration is independent of new admission. */
 export interface PublicScreeningOptions {
@@ -11,6 +12,8 @@ export interface PublicScreeningOptions {
   negativeUrl?: string;
   negativeKey?: string;
   negativeContract?: 'pos-node-screening-negative-resource-v1';
+  benefitsContract?: typeof publicScreeningBenefitsContract;
+  membershipProofKey?: string;
   clock?: () => number;
   fetcher?: typeof fetch;
 }
@@ -33,6 +36,10 @@ export function publicScreeningOptions(
       UPSTREAM_POS_PUBLIC_SCREENING_NEGATIVE_CONTRACT: optional(
         z.literal('pos-node-screening-negative-resource-v1'),
       ),
+      UPSTREAM_POS_NODE_SCREENING_BENEFITS_CONTRACT: optional(
+        z.literal(publicScreeningBenefitsContract),
+      ),
+      POS_MEMBERSHIP_PROOF_KEY: optional(z.string().regex(/^[!-~]{32,4096}$/)),
     })
     .parse(env);
   return {
@@ -44,5 +51,7 @@ export function publicScreeningOptions(
     negativeUrl: value.TSS_POS_PUBLIC_SCREENING_NEGATIVE_URL,
     negativeKey: value.TSS_POS_PUBLIC_SCREENING_NEGATIVE_KEY,
     negativeContract: value.UPSTREAM_POS_PUBLIC_SCREENING_NEGATIVE_CONTRACT,
+    benefitsContract: value.UPSTREAM_POS_NODE_SCREENING_BENEFITS_CONTRACT,
+    membershipProofKey: value.POS_MEMBERSHIP_PROOF_KEY,
   };
 }

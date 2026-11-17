@@ -25,6 +25,7 @@ from negative import assert_open,seal as seal_negative,CODES as NEGATIVE_CODES
 
 FRAME=ContextVar('pos_node_screening_writer',default=None)
 CONTEXT='pos_node_screening_writer'
+class NoCounterReadRefused(BaseException):pass
 
 
 class RoutedSession:
@@ -106,20 +107,49 @@ class _Frame:
         self.session=owner.sessions()
         self.effects=[];self.tokens=[];self.validated=False;self.reservation=None
         self.rejection_code=None
-    def open(self):
+        self.benefit_context=None;self.benefit_state=None;self.counter_context=None;self.history_context=None
+    def open(self,preview=False,history=None):
+        self.preview=preview
         self.transaction=self.session.begin()
         connection=self.session.connection(execution_options={'isolation_level':'READ COMMITTED'})
         self.connection=connection
         if connection.get_isolation_level()!='READ COMMITTED':fail()
         self.state,self.customer=lock_authority(self.session,self.cap,self.owner.clock())
         assert_open(self.session,self.cap,self.owner.proof_key)
+        if self.cap.get('benefitsContract'):
+            if preview:
+                from native_authority import one,value_json
+                saved=one(self.session,'SELECT data,proof_hash,status FROM pos_rewrite_public_screening_work WHERE operation_id=:id FOR UPDATE',{'id':self.cap['operationId']})
+                if (saved['status']!='prepared' or value_json(saved['data'])!=self.cap
+                        or saved['proof_hash']!=digest(self.owner.proof_key,'public-screening-intent',self.cap)
+                        or rows(self.session,'SELECT operation_id FROM pos_rewrite_public_screening_submission_dispatches WHERE operation_id=:id FOR SHARE',{'id':self.cap['operationId']},1)):
+                    fail()
+            else:
+                from negative import intent
+                if intent(self.session,self.cap['operationId'],self.owner.proof_key)[0]!=self.cap:fail()
+            if self.owner.benefits is None:fail('SCREENING_BENEFITS_UNAVAILABLE')
         # Keep authority/creation locks outside the source savepoint. A typed
         # native denial rolls back every original write, then seals its nonce
         # in this same outer transaction, without an unlocked create window.
         self.savepoint=self.session.begin_nested()
         self.tokens.append((FRAME,FRAME.set(self)))
         self.tokens.append((CAPTURE,CAPTURE.set(self.effects)))
-        self.private=private_session(self.session)
+        replay=self.session
+        if self.owner.counter_scope is not None:
+            self.counter_context=self.owner.counter_scope(self.session,self.cap,preview=preview)
+            replay=self.counter_context.__enter__()
+        if self.cap.get('benefitsContract'):
+            from receiver import source_user
+            user=source_user(self.customer,self.cap['customerId'],False)
+            self.benefit_context=self.owner.benefits.scope(self.session,self.cap,user,preview=preview,history=history)
+            self.benefit_state=self.benefit_context.__enter__()
+        # Only the literal in-memory membership replay may answer the three
+        # historical queries. Guard both this proxy and already imported aliases
+        # on its physical connection; an old Session alias is never a fallback.
+        from cart_preparation import guard_history
+        self.history_context=guard_history(replay)
+        replay=self.history_context.__enter__()
+        self.private=private_session(replay)
         self.source=self.private.__enter__()
         self.tainted=False
     def rollback(self):
@@ -133,13 +163,31 @@ class _Frame:
             self.rejection_code=error.code
     def abort(self):
         try:
-            self.rollback()
-            private=getattr(self,'private',None)
-            if private is not None:private.__exit__(None,None,None)
+            try:self.exit_source(False)
+            finally:self.rollback()
         finally:
             for variable,token in reversed(self.tokens):variable.reset(token)
             self.tokens=[]
             self.session.close()
+    def close_contexts(self,succeeded):
+        error=None if succeeded else ScreeningWriterError('SCREENING_WRITER_RECONCILIATION_REQUIRED')
+        def close(name):
+            context=getattr(self,name,None)
+            if context is not None:
+                setattr(self,name,None)
+                context.__exit__(None if succeeded else type(error),error,None)
+        try:close('history_context')
+        finally:
+            try:close('benefit_context')
+            finally:close('counter_context')
+    def exit_source(self,succeeded):
+        private=getattr(self,'private',None)
+        try:
+            if private is not None:
+                self.private=None
+                error=None if succeeded else ScreeningWriterError('SCREENING_WRITER_RECONCILIATION_REQUIRED')
+                private.__exit__(None if succeeded else type(error),error,None)
+        finally:self.close_contexts(succeeded)
     def after_validate(self,req):
         if req is not self.req or self.validated:fail()
         cap=self.cap
@@ -163,10 +211,13 @@ class _Frame:
         products=req.context['cart'].get(ItemTypes.PRODUCTS)
         exclusive=req.context['cart'].get_item(ItemTypes.META,{'name':'exclusive_user'})
         upgrade=self.owner.namespace['get_exclusive_upgrade_product'](req.context['cart'])
-        if exclusive and not exclusive.get('store_exclusive',0) and (exclusive.get('cart') and not user.get('is_exclusive') or upgrade):
+        if self.benefit_state is None and exclusive and not exclusive.get('store_exclusive',0) and (exclusive.get('cart') and not user.get('is_exclusive') or upgrade):
             fail('SCREENING_MEMBERSHIP_PROFILE_REQUIRED')
-        if req.context['cart'].get(ItemTypes.GIFT_VOUCHERS) or any(row.get('prod_type')==8 for row in products):
+        if self.benefit_state is None and (req.context['cart'].get(ItemTypes.GIFT_VOUCHERS) or any(row.get('prod_type')==8 for row in products)):
             fail('SCREENING_GIFT_ISSUANCE_PROFILE_REQUIRED')
+        if self.benefit_state is not None:
+            if bool(user.get('is_exclusive'))!=bool(self.benefit_state.user['is_exclusive']):fail()
+            self.benefit_state.admit(req.context['cart'],ItemTypes,payload)
         additional=[row for row in req.context['cart'].get(ItemTypes.COMPLEMENTARY_PRODUCTS) if row.get('is_valid')]
         count=sum(int(row.get('quantity',0)) for row in [*products,*additional]) if self.owner.line_items else len(products)+len(additional)
         if count<1 or count>1000:fail('SCREENING_WRITER_LINE_LIMIT')
@@ -193,13 +244,15 @@ class _Frame:
             # Collector already bounds/serializes allowed source intents. Route
             # resolution may execute application code and is deferred to the
             # retained postcommit publication consumer, outside SQL locks.
+            benefits_hash=None if self.benefit_state is None else self.benefit_state.capture(result['order'],now)
             effects_hash=hashlib.sha256(canonical(self.effects).encode()).hexdigest()
-            proof,_=bind(self.session,self.cap,self.reservation,self.owner.proof_key,result,self.owner.controller_hash,effects_hash,now)
+            proof,_=bind(self.session,self.cap,self.reservation,self.owner.proof_key,result,self.owner.controller_hash,effects_hash,now,benefits_hash)
             from sqlalchemy import text
             self.session.execute(text("INSERT INTO pos_rewrite_public_screening_effects(operation_id,payload,effects_hash,status,deliveries,created_at_ms,updated_at_ms) VALUES(:op,:payload,:hash,'pending','[]',:now,:now)"),
                 {'op':self.cap['operationId'],'payload':seal_effects(self.owner.proof_key,'public-screening:'+self.cap['operationId'],self.effects),
                  'hash':effects_hash,'now':now})
-            self.private.__exit__(None,None,None);self.private=None
+            self.exit_source(True)
+            if self.owner.clock()>=self.cap['expiresAt']:fail('SCREENING_WRITER_EXPIRED')
             self.savepoint.commit()
             self.transaction.commit()
             resp.set_header('X-POS-Screening-Writer-Contract',CONTRACT)
@@ -212,19 +265,20 @@ class _Frame:
                       self.savepoint.is_active and self.transaction.is_active and not self.tainted and not VIOLATION.get())
             if eligible:
                 try:
-                    if self.private is not None:
-                        self.private.__exit__(type(caught),caught,None);self.private=None
+                    self.exit_source(False)
                     self.savepoint.rollback()
                     seal_negative(self.session,self.cap,self.state,self.owner.proof_key,caught.code,self.owner.clock())
                     self.transaction.commit()
                 except Exception:
-                    self.rollback()
+                    try:self.exit_source(False)
+                    finally:self.rollback()
                     error=ScreeningWriterError('SCREENING_WRITER_RECONCILIATION_REQUIRED')
-            else:self.rollback()
+            else:
+                try:self.exit_source(False)
+                finally:self.rollback()
         finally:
             try:
-                if self.private is not None:
-                    self.private.__exit__(type(error) if error else None,error,None)
+                self.exit_source(error is None)
             finally:
                 for variable,token in reversed(self.tokens):variable.reset(token)
                 self.tokens=[]
@@ -237,10 +291,11 @@ class _Frame:
 
 
 class NodePosWriterMiddleware:
-    def __init__(self,sessions,root,secret,proof_key,contracts,order_namespace,tasks,line_items,clock=None):
+    def __init__(self,sessions,root,secret,proof_key,contracts,order_namespace,tasks,line_items,clock=None,benefits=None,counter_scope=None,counter_refused=NoCounterReadRefused):
         from screening_profile import CONTRACT as PROFILE,SCHEMA,WRITERS
         if contracts!={'node':CONTRACT,'profile':PROFILE,'schema':SCHEMA,'writers':WRITERS}:fail('SCREENING_WRITER_UNAVAILABLE')
         self.sessions,self.secret,self.proof_key=sessions,secret,proof_key
+        self.root=Path(root).resolve()
         from writer_protocol import key
         key(secret);digest(proof_key,'public-screening-ready',None)
         if secret==proof_key:fail('SCREENING_WRITER_UNAVAILABLE')
@@ -249,6 +304,8 @@ class NodePosWriterMiddleware:
         self.project=projection(root,order_namespace)
         self.namespace=order_namespace
         self.tasks=tasks;self.line_items=bool(line_items)
+        self.benefits,self.counter_scope=benefits,counter_scope
+        self.counter_refused=counter_refused
         from source_refunds import CORRECTED_CONTROLLER_SHA256
         self.controller_hash=CORRECTED_CONTROLLER_SHA256
         self.paths={order_namespace['settings'].POS_API_PREFIX+'/order'}
@@ -259,6 +316,9 @@ class NodePosWriterMiddleware:
         cap=verify(header,self.secret,self.clock())
         frame=_Frame(self,req,cap)
         try:frame.open()
+        except self.counter_refused:
+            frame.abort()
+            raise
         except Exception:
             frame.abort()
             raise

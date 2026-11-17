@@ -16,9 +16,15 @@ import { readCustomerContactBinding } from '../customer-contact-authority.js';
 import type { Payload } from '../payloads.js';
 import {
   signNodeScreeningWriter,
+  sealNodeScreeningWriter,
+  screeningPortableHash,
   type NodeScreeningWriterConfiguration,
   type NodeScreeningWriterCapability,
 } from './capability.js';
+import {
+  publicBenefitPreparationSchema,
+  type PublicBenefitPreparation,
+} from './benefit-preparation.js';
 
 const inputSchema = z
   .object({ storeId: identifier, checkoutId: z.uuid(), operationId: z.uuid() })
@@ -41,10 +47,21 @@ export function nodeScreeningWriterIssuer(options: {
     state: CheckoutState,
     capability: NodeScreeningWriterCapability,
   ) => Promise<void>;
+  recordPreparation?: (
+    tx: AdministrationTransaction,
+    original: NodeScreeningWriterCapability,
+    next: NodeScreeningWriterCapability,
+    preparation: PublicBenefitPreparation,
+  ) => Promise<void>;
 }) {
   const clock = options.clock ?? Date.now;
   return {
-    async issue(user: Principal, scope: z.infer<typeof inputSchema>, payload: Payload) {
+    async issue(
+      user: Principal,
+      scope: z.infer<typeof inputSchema>,
+      payload: Payload,
+      prepared?: { original: NodeScreeningWriterCapability; document: PublicBenefitPreparation },
+    ) {
       scope = inputSchema.parse(scope);
       if (!(await options.authSessionValid(user)))
         throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
@@ -122,8 +139,36 @@ export function nodeScreeningWriterIssuer(options: {
             actorEpoch: String(epoch?.value ?? 0n),
             contact,
             payload,
-            now: clock(),
+            now: prepared?.original.issuedAt ?? clock(),
           });
+          if (prepared) {
+            const document = publicBenefitPreparationSchema.parse(prepared.document),
+              original = prepared.original;
+            if (
+              JSON.stringify(signed.value) !== JSON.stringify(original) ||
+              original.membershipHistoryHash ||
+              document.operationId !== original.operationId ||
+              document.requestHash !== original.requestHash ||
+              document.cartHash !== original.cartHash ||
+              document.preparedAt < original.issuedAt ||
+              document.preparedAt > clock() ||
+              clock() >= original.expiresAt ||
+              !options.recordPreparation
+            )
+              throw changed();
+            const next = sealNodeScreeningWriter(options.environment, {
+              ...original,
+              expiresAt: Math.min(
+                original.expiresAt,
+                document.membershipHistory?.expiresAt ?? original.expiresAt,
+              ),
+              ...(document.membershipHistory
+                ? { membershipHistoryHash: screeningPortableHash(document.membershipHistory) }
+                : {}),
+            });
+            await options.recordPreparation(tx, original, next.value, document);
+            return next;
+          }
           await options.recordAdmission?.(tx, state, signed.value);
           return signed;
         },

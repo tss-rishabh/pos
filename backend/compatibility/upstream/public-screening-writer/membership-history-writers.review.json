@@ -1,0 +1,55 @@
+{
+  "contract": "pos-membership-history-head-v1",
+  "definitions": [
+    {
+      "name": "pos_rewrite_member_history_order_i",
+      "tableName": "orders",
+      "event": "INSERT",
+      "timing": "AFTER",
+      "hash": "467c1435e6bf885a8c424688e4498f8bd4778a6479fe9d8f9ef38dba45c6533b"
+    },
+    {
+      "name": "pos_rewrite_member_history_order_d",
+      "tableName": "orders",
+      "event": "DELETE",
+      "timing": "AFTER",
+      "hash": "d13e99a7b1b91f1db60f9361f4fa24efa44534d862a9c1efdb677d2e91989a3e"
+    },
+    {
+      "name": "pos_rewrite_member_history_order_u",
+      "tableName": "orders",
+      "event": "UPDATE",
+      "timing": "AFTER",
+      "hash": "73371a6e0cc9d6300b3006d375862fb00071eb80ef90800b33d2b3dac5508b6e"
+    },
+    {
+      "name": "pos_rewrite_member_history_hp_i",
+      "tableName": "has_products",
+      "event": "INSERT",
+      "timing": "AFTER",
+      "hash": "fd0c18c5e285f2dab97544d1376569ccfa7fa6fa35e48ad20d569b016d84eceb"
+    },
+    {
+      "name": "pos_rewrite_member_history_hp_d",
+      "tableName": "has_products",
+      "event": "DELETE",
+      "timing": "AFTER",
+      "hash": "5d2bf94db39f7486d59e733fe314eefe86adb12c4dd3804841d9784b39ccdfee"
+    },
+    {
+      "name": "pos_rewrite_member_history_hp_u",
+      "tableName": "has_products",
+      "event": "UPDATE",
+      "timing": "AFTER",
+      "hash": "361c1227d17d6e14c98eb4925edd9c84259d4ef6e46e8d28b87aa61ec0fa5263"
+    },
+    {
+      "name": "pos_rewrite_member_history_user_i",
+      "tableName": "users",
+      "event": "INSERT",
+      "timing": "AFTER",
+      "hash": "3b7eca668c26da9f5e779dcd52c29d6ba82faa47ad30474572d560b588aea3fe"
+    }
+  ],
+  "writersHash": "6f502233a5afe693c5c92cc66e7e27a49ba04db499d41905067ccffb5370d253"
+}

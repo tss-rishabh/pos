@@ -54,7 +54,7 @@ def reserve(session,cap,key,quantity,line_items,now):
     return value
 
 
-def bind(session,cap,value,key,result,source_controller_hash,effects_hash,now):
+def bind(session,cap,value,key,result,source_controller_hash,effects_hash,now,benefits_hash=None):
     if set(result)!={'order','method','isValid','name'} or result['isValid'] is not True or result['name']!='placed_order' or result['method'] not in (3,14):fail()
     order_id=str(result['order'])
     projection,_=native_projection(session,value,order_id)
@@ -65,6 +65,7 @@ def bind(session,cap,value,key,result,source_controller_hash,effects_hash,now):
                                      'requestHash','cartHash','actorVersion','actorEpoch','contact')}
     proof.update(contract=CREATION_CONTRACT,source=SOURCE,sourceControllerHash=source_controller_hash,orderId=order_id,method=result['method'],
                  lineItemsEnabled=value['lineItemsEnabled'],**projection,effectsHash=effects_hash,createdAt=now)
+    if benefits_hash is not None:proof['benefitsHash']=benefits_hash
     seal=creation_hash(key,proof)
     session.execute(text('INSERT INTO pos_rewrite_public_screening_orders(operation_id,checkout_id,actor_id,customer_id,store_id,counter_id,order_id,request_hash,data,proof_hash) VALUES(:op,:checkout,:actor,:customer,:store,:counter,:order,:request,:data,:hash)'),
                     {'op':cap['operationId'],'checkout':cap['checkoutId'],'actor':cap['actorId'],'customer':cap['customerId'],
@@ -78,7 +79,7 @@ def read_creation(session,operation_id,key,expected_scope):
     found=rows(session,'SELECT * FROM pos_rewrite_public_screening_orders WHERE operation_id=:id AND OCTET_LENGTH(data)<=16000 FOR SHARE',{'id':operation_id},1)
     if not found:return None
     row=found[0];value=value_json(row['data'])
-    if (not isinstance(value,dict) or set(value)!=CREATION_FIELDS or value['contract']!=CREATION_CONTRACT or value['source']!=SOURCE or
+    if (not isinstance(value,dict) or set(value) not in (CREATION_FIELDS,CREATION_FIELDS|{'benefitsHash'}) or value['contract']!=CREATION_CONTRACT or value['source']!=SOURCE or
         value['operationId']!=operation_id or any(value[name]!=expected_scope[name] for name in ('actorId','storeId','counterId')) or
         any(str(row[column])!=value[name] for name,column in (('operationId','operation_id'),('checkoutId','checkout_id'),('actorId','actor_id'),
             ('customerId','customer_id'),('storeId','store_id'),('counterId','counter_id'),('orderId','order_id'),('requestHash','request_hash'))) or
@@ -88,4 +89,7 @@ def read_creation(session,operation_id,key,expected_scope):
         reservation['lines']!=value['lines'] or reservation['markers']!=value['markers'] or
         reservation['requestHash']!=value['requestHash'] or reservation['catalogHash']!=value['cartHash']):fail()
     native_projection(session,reservation,value['orderId'])
+    if 'benefitsHash' in value:
+        from public_benefits import read
+        read(session,value,key)
     return value

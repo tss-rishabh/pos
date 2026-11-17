@@ -9,6 +9,8 @@ import { assertCurrentStoreAccess } from '../../administration/authorization.js'
 import { checkoutSessions } from '../schema.js';
 import { checkoutStateSchema, type CheckoutState } from '../contracts.js';
 import type { Payload } from '../payloads.js';
+import { publicScreeningBenefitsContract } from './benefit-contracts.js';
+import { readPublicBenefits } from './benefits.js';
 import {
   screeningPortableHash,
   screeningQuoteSnapshot,
@@ -53,7 +55,10 @@ export function publicScreeningOrderPayload(payload: Payload): Payload {
     throw screeningReconciliationRequired();
   return { ...payload, id };
 }
-export function assertPublicScreeningVariant(state: CheckoutState): void {
+export function assertPublicScreeningVariant(
+  state: CheckoutState,
+  benefitsContract?: string,
+): void {
   const cart = state.quote ?? state.cart;
   const parsed = z
     .object({
@@ -66,6 +71,16 @@ export function assertPublicScreeningVariant(state: CheckoutState): void {
     })
     .parse(cart);
   const products = [...parsed.products.items, ...(parsed.complementary_products?.items ?? [])];
+  if (benefitsContract === publicScreeningBenefitsContract) {
+    const members = products.filter((row) => Number(row.prod_type) === 5);
+    if (
+      members.length > 1 ||
+      members.some((row) => Number(row.quantity) !== 1) ||
+      (parsed.giftvouchers?.items.length ?? 0) > 100
+    )
+      throw screeningReconciliationRequired();
+    return;
+  }
   if (parsed.giftvouchers?.items.length || products.some((row) => Number(row.prod_type) === 8))
     throw new AppError(
       409,
@@ -172,6 +187,7 @@ export function matchesPublicCreation(
     creation.actorEpoch === intent.actorEpoch &&
     creation.contact.revision === intent.contact.revision &&
     creation.contact.digest === intent.contact.digest &&
+    Boolean(creation.benefitsHash) === Boolean(intent.benefitsContract) &&
     creation.createdAt >= intent.issuedAt &&
     creation.createdAt < intent.expiresAt
   );
@@ -263,6 +279,7 @@ export async function verifyPublicStructure(
   key: string,
 ) {
   assertScreeningCustomer(tx, creation.customerId);
+  await readPublicBenefits(tx, creation, key);
   const [order] = await tx
     .select({ customer: Order.user, method: Order.payment_methods })
     .from(Order)
