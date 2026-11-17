@@ -768,6 +768,26 @@ const checks: Check[] = [
     args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tools/order-copy/tsconfig.json'],
   },
   {
+    id: 'payment-reversals-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/payment-reversals/tsconfig.json',
+    ],
+  },
+  {
+    id: 'payment-reversals-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/payment-reversals/tsconfig.json',
+    ],
+  },
+  {
     id: 'model-accounts-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -849,6 +869,12 @@ if (flags.has('--mysql')) {
   );
 }
 if (flags.has('--browser')) {
+  checks.push({
+    id: 'payment-reversals-browser-tests',
+    directory: 'frontend',
+    args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/payment-reversals/browser.test.ts'],
+    environment: { PAYMENT_REVERSAL_BROWSER_TESTS: 'true' },
+  });
   checks.push(
     {
       id: 'order-copy-browser-tests',

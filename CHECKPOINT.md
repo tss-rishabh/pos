@@ -25,7 +25,7 @@ component test counts do not certify every original workflow.
 | Invoice worksheet       | Manual prices, customer labels, exact totals, source-format CSV export and sandboxed printing. Fourteen focused checks and two Chromium workflows pass. This worksheet records no payment.                                       |
 | Parent/store CSV        | Three-column product-family assignment import, atomic reset/delete/recreate, audit, shared durable worker and separate historical profile are wired. Twenty-nine merged database/source/parser checks and seven import browser workflows pass. Actual stock/sync/publication acceptance remains required. |
 | Historical order reads  | Public date selections now reach PRIMARY/DATA/BigQuery readers, with scoped cursors and post-read session revocation checks. Forty-four backend checks and five browser cases pass. Full original order-list filtering/formatting is still in progress. |
-| Order copying           | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Three integrated Chromium and 33 existing offline/fast-cash checks pass. Customer-proof hardening and safe unsent cancellation remain in progress. |
+| Order copying           | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Thirty-one backend checks, three integrated Chromium and 33 existing offline/fast-cash checks pass. Native customer OTP/contact/session fences are integrated; safe unsent cancellation remains in progress. |
 
 ## Fixed remaining code checklist
 
@@ -39,8 +39,8 @@ component test counts do not certify every original workflow.
   historical provenance is fabricated.
 - Integrate the implemented payment-status reversal slice into financial
   collections, ledger, DSR and historical publications before enabling it.
-- Finish customer proof and unsent-operation cancellation for order copying;
-  the shared readers, UI recovery and offline-cash guards are already wired.
+- Finish unsent-operation cancellation for order copying; native customer proof,
+  shared readers, UI recovery and offline-cash guards are already wired.
 - Complete the original order-list filters, sorting, queues and formatter fields;
   the simplified projection's qualified history reader does not certify them.
 - Finish ecommerce inventory synchronization and whole-order Vinculum status

@@ -20,15 +20,14 @@
     "by_status": {
       "external_acceptance": 268,
       "implementation_present": 100,
-      "partial": 23,
-      "missing": 5
+      "partial": 25,
+      "missing": 3
     },
     "by_kind": {
       "routes": {
         "external_acceptance": 176,
         "implementation_present": 68,
-        "partial": 9,
-        "missing": 2
+        "partial": 11
       },
       "jobs": {
         "external_acceptance": 27,
@@ -1323,7 +1322,7 @@
     "backend/parity/catalog-details.md": "029db5d4a19e4709e5e1231b13803a6904207833742dbbe58ad80e5645400e22",
     "backend/parity/checkout-customer-verification.md": "f638f0929caf008f2a9ab329f3a82cd71809cc8cd17a6c06c88d3d9cac1fc0f6",
     "backend/parity/checkout-performance.md": "31a1d228231ba90578e01a0cc63bb5b966f57fb98b60440ed1e862872c6b1b16",
-    "backend/parity/checkout.md": "900f66909d198b388252deb511d04008ea5b700ec1538c97c5297c471f0f8444",
+    "backend/parity/checkout.md": "51c3ab185fe09f6be71e5a75ac1bfb7df5007116efc2eca549d8d315fe26bb07",
     "backend/parity/customer-contacts.md": "e0f27b373a8d7d36df88ad2520b5c291e85d5a5c4bd198712bb594b78ce21e37",
     "backend/parity/customer-history.md": "1e1140126540850ef5014e927c21c1f8a961459f24601b0d3719bff4ac648d06",
     "backend/parity/customer-website-handoff.md": "54feb05497e10e192a93f34d20e45e613f595cb7fcd95ec532bb42819674e12d",
@@ -1331,7 +1330,7 @@
     "backend/parity/dashboard.md": "0f93466279321b98e6ab5097175ada6f3f5d1f55eabccfe5b929bb6759d3f291",
     "backend/parity/device-handoff.md": "0f5eb709b3a72ed7c6eb5f6161b0ee0aa34bfac184cc8b234b381eda32458e3f",
     "backend/parity/export-history.md": "2d1b900f9e2614536e49e9709bdebeca33afbc9fba999394db94a98f2be49f66",
-    "backend/parity/fast-cash.md": "0e4d745b0b8452608049e5565bdfb828a8335b546a2af63f0eda1f6d25f8b301",
+    "backend/parity/fast-cash.md": "d2a6989ff9bbd7bdb42d9ffcd5fc4f55e02ebebdf77c6d1cfa4593ef42ec50fc",
     "backend/parity/finance.md": "e4b76bf163230867ccafacb16d46398dd09c29946453608e19b8fdef3cb38255",
     "backend/parity/fulfillment-shipping.md": "fc258cf5779abe6de81c1945cd78c666d568b672635190f0250a17db097e2f91",
     "backend/parity/fulfillment.md": "224c67570315912448bb33db2bf7b769df82bf9e2d30201d7344a0cf4df88180",
@@ -1344,15 +1343,17 @@
     "backend/parity/local-delivery-lifecycle.md": "7ab62faecfcf5e6f32af8105d596581880f489d90141219ecb7c4ffc866829e0",
     "backend/parity/offline-invoice-worksheet.md": "019677536db53a0cea5a1dc775c992cceeb6e36c5dcd93e1804e27403684a4a3",
     "backend/parity/operational-reports.md": "33a48500a6deed2c82b224da52be819cf85ba0cf36ff03048312f549012e5de4",
+    "backend/parity/order-copy.md": "fea210474ab84430f9ce2e2b03d3d139a8f158e3490103fb13dbacb9694953fa",
     "backend/parity/order-history.md": "5a85cece3be6b198c7bac24d65afdac2fc19ca238d68ba38af84244c3f83af04",
     "backend/parity/order-messages.md": "b82295d5aebabea8b3d4d196d46e9443b978d018d62b9ef68ead98bac04badc6",
     "backend/parity/order-payments.md": "546228744d2ac60b40d4974348f2ca2c3d0cec900af0073d3c757e19aa89f299",
     "backend/parity/parent-store-imports.md": "d7092221dfcf118e66ba9652b4319001d76dc5e0a871667d0ebf34bfc8f7e200",
+    "backend/parity/payment-reversals.md": "79155486c697691e2469b0af96bd4b4ad4ecc74c589e1ccc9b9a51d3de9e95a7",
     "backend/parity/pending-order-cancellation.md": "920296a9c5e99460d0030d6d21e18789d93659e2bbe40d5ec8575d64f67614c1",
     "backend/parity/report-exports.md": "fc6e51d06dc0656132102a3ad32f67781700deaab87915fd89a0ef9e2d98b47f",
     "backend/parity/scheduled-reports.md": "309be1084c4e01a3fbafd868e1bb830cf136ec26c0fe22c4b77a804d42191504",
     "backend/parity/wallet-adjustments.md": "ab1929b2ac1af5bad8d3a2992b76bb659c5cad867fb7a414d968a8c6d2004bb0",
-    "backend/src/app.ts": "6b103c3a1249963df0f196c2da58a278e9b3211d7060d7ba454a731b542c51d5",
+    "backend/src/app.ts": "4d8e99bd8f032960b53f1cb329e7acf5ca89c979c876e25edfa48c0dc6016ee6",
     "backend/src/auth/delivery.ts": "b813640dcda4f8fe910d29cd8d471d03fe2d452ab931c3f45c19cdb342a43d63",
     "backend/src/auth/device-handoff-routes.ts": "ad454f2c02ed3af385118b68fada5eb654f1888fb741e2cd29c3afb601fa0001",
     "backend/src/auth/device-handoff-store.ts": "7b0c168f550954a66a257bb514eeed9f805d6733e76807f138aedac9d3a2f76d",
@@ -1561,30 +1562,39 @@
     "backend/src/modules/checkout/offline-cash/source-ledger.ts": "3d1d9a7a71f6bc19f7f75173d3bb7888e9b47dc2d6542e9530b296e77b0ad347",
     "backend/src/modules/checkout/offline-cash/template.ts": "f105427b99fe2b2c9c73a8d1fdf22f88a8428c49a641950d0da9dc9da3983e80",
     "backend/src/modules/checkout/offline-cash/writer.ts": "4ee8021e327cde6c089835ffdf8dda18c06238d4655d95a7ff532f72985390ef",
-    "backend/src/modules/checkout/order-copy/contracts.ts": "2efe8290cd16e8c95787ec1a4b4c9ab4704a62038051e4ff4a361709f3c4b73f",
+    "backend/src/modules/checkout/order-copy/contracts.ts": "e15a80c235a375d7c641428b8bf0edff9ad35731c6b66795641ec7f5ce0de876",
+    "backend/src/modules/checkout/order-copy/customer-authority.ts": "b28d21a8e6e943fd48a9cd7edd5bfa95fc0323e3a8764aa2356c6cac72a5c48d",
     "backend/src/modules/checkout/order-copy/domain.ts": "76c3f7a9f799c058660d7ac5f46702f774db8243ab047120762ac0e0ef1fa696",
     "backend/src/modules/checkout/order-copy/migration.sql": "903f0a2fbefbb94d5a73d29985cf9c6953b5207dcb21241fda94afd406cad976",
     "backend/src/modules/checkout/order-copy/reader.ts": "39ce4d8b804173ce7312536a3a6f08746a68fe2fc5a2d0119e84d0e49d9038d1",
-    "backend/src/modules/checkout/order-copy/repository.ts": "e0ff7192f47d0a0c834c06d32fa1ea598727dddcf95b2d60fffaaeaf7e7c925a",
-    "backend/src/modules/checkout/order-copy/routes.ts": "c1e2e4acdc64806fa4f3eba54b19e010822bf0c306468eaf459f3ccb20eb6961",
+    "backend/src/modules/checkout/order-copy/repository.ts": "4143f8e61be95bfd4d9ce0cfbe6b9c81c7a45ce18a3ff65aaafd1279ebd0a3b6",
+    "backend/src/modules/checkout/order-copy/routes.ts": "a406f94aa7751bb3a4b1c554b8e9713a2ddd52f2af1c8f0e508d369ffc7fd984",
     "backend/src/modules/checkout/order-copy/schema.ts": "5a66c523a9ade96b56fcc62f170779497ea901eea9fa898bb7de9a4a734bf5e2",
-    "backend/src/modules/checkout/order-copy/service.ts": "d74296a4d07eeee830e4f480f34f05962ca2091c3a35d4517f3f95c6fb16cdc0",
+    "backend/src/modules/checkout/order-copy/service.ts": "90318af8a6ac69d566d344cc229a8c592c488b769c2a9c9e7f87b2e1d34c9f36",
     "backend/src/modules/checkout/order-message-proof.ts": "b315d435b679b316633383ba3fd6a699bb88d882b9fa3805a37215dacc5e45da",
     "backend/src/modules/checkout/order-messages/migration.sql": "d2745a6bc9dba234f88d2114658fbdcaeb9347d227d5fb7e7f577375cb9b47f6",
     "backend/src/modules/checkout/order-messages/options.ts": "e270e410b209702db557e56ee714902b8ec00990ff7762ac343e93803b8b7f20",
     "backend/src/modules/checkout/order-messages/policy.ts": "d7a759954437439300655ac3019d8abdcd45e06055e99eceef746266833453b5",
     "backend/src/modules/checkout/order-messages/service.ts": "b7acd6862a629b247d8972e0ab7867d86ada3babe2742b6db1f79aed83da1686",
     "backend/src/modules/checkout/payloads.ts": "a6a8383602255d27a19769bf28c12123468fd2c602addc47e9d0f78d3fae37c4",
-    "backend/src/modules/checkout/payments/contracts.ts": "0a66e276a0ca47c8f775b54a299ee0640e10067a1315b8756f0c1dab3ffe3cb5",
+    "backend/src/modules/checkout/payment-reversals/cash-projection.ts": "8c667c7a5cad733767dd0ac3df84cb1d8dffbf1c825035a178d5a46c926c5cc8",
+    "backend/src/modules/checkout/payment-reversals/contracts.ts": "2f6e42b72ebaba2c2bd02e11a0ff1af05900149514857f36ec803ff4da4d82b0",
+    "backend/src/modules/checkout/payment-reversals/evidence.ts": "3b9faa8d32c53188d7be5abda8f15c832c3ef8b18a14d23e479a4633e5ebb3a8",
+    "backend/src/modules/checkout/payment-reversals/index.ts": "95ea0ba05de0a921c6d526be766217b225a4b5c6a49af6706e91535beb7c4768",
+    "backend/src/modules/checkout/payment-reversals/migration.sql": "a945f20f1a1441f711f78528d029b0e73d6c3c09bcf97ddd95938992c723f70f",
+    "backend/src/modules/checkout/payment-reversals/repository.ts": "15587deb9750cdde22c4b97a98b1398c6541b7e09273ea8bbecc841bac974281",
+    "backend/src/modules/checkout/payment-reversals/routes.ts": "16bca46d1fbd787f53e00d21b3119564d05c2c4f353098dcc18938f18cc56db3",
+    "backend/src/modules/checkout/payment-reversals/schema.ts": "16440ae1ca98d2c7d8cbe9372d42cda35c57afa47f521c299b0b02c6edb6a152",
+    "backend/src/modules/checkout/payments/contracts.ts": "c9d6ebf214d7896d1cd3413746a062a55ed4c340fad05489b0ee2abfb7919026",
     "backend/src/modules/checkout/payments/gateway.ts": "e884d918122d0e54329a8cd862a9a7b026f3c225b0bf2145e04eeda5e35e94ab",
     "backend/src/modules/checkout/payments/legacy-migration.sql": "12af87d734a12ed462035a619cb83647b406655a6514b75f06e33444e6a6c3da",
     "backend/src/modules/checkout/payments/legacy.ts": "8ca211e10b2833eee1772526588e3e4ff6dee47b15cfdb5e1756562fb4090de1",
     "backend/src/modules/checkout/payments/outbox.ts": "0e8e338f1598f051149577abd975f869bf44493c96ca2fa4fc43eb5c524caf47",
     "backend/src/modules/checkout/payments/paytmchecksum.d.ts": "07cda035ef01b9af93c41ca08bcb9defe9b8275d245f92e732fef1605bf209a7",
-    "backend/src/modules/checkout/payments/repository.ts": "9d8fedc58b6c4265afacde4e5dd0e10fdcc689dd4de1f550e012c1a9ad0cb73a",
+    "backend/src/modules/checkout/payments/repository.ts": "6da5ea6c9bbe522ff63c6ffb6e402129f7579f3a4bcf606d5f9de0986e0d9db0",
     "backend/src/modules/checkout/payments/routes.ts": "63d69c9158f0dcca2cdfa52585cea7c453e95c0382d9b09ea8a4c4dd5be11275",
     "backend/src/modules/checkout/payments/schema.ts": "235d9b6bfac8cfa40e7e572b25a8b9874af725b06064721f2292a2b5e3a64ef6",
-    "backend/src/modules/checkout/payments/service.ts": "fa3f711cdb51b0987cc14f938422d2023f73f25ea6e651ef6e01e60ba489c560",
+    "backend/src/modules/checkout/payments/service.ts": "a235debe5315ab0f61f82e46f81861160641df6d7fc651b0f453a79b33130e60",
     "backend/src/modules/checkout/projection.ts": "c374f27795a95e28d493c85c2c0a81450acfa255cbd55f6c667ef0d49780990d",
     "backend/src/modules/checkout/refund-allocation.ts": "0a31917b42d48121a867fabfea0e106f9579b29c3ed7b5da4c4aff813b74a8fb",
     "backend/src/modules/checkout/repository.ts": "4328d3031cbb9a5b67c9da1eaa1a4a2a109f6972aa04e489f9e905028e1b025f",
@@ -1602,7 +1612,7 @@
     "backend/src/modules/checkout/return-workflow/verification-state.ts": "8d5e93dda25f0c04e6730d7775ec4e0ebf4c6d5130f0e6541595ba7da59472cd",
     "backend/src/modules/checkout/return-workflow/verification.ts": "ac588f52b286be29ae6969aada95a93a6dd5ef17654780c4310ccebc5326940b",
     "backend/src/modules/checkout/returns.ts": "e3da3e19e1f0e430760981428b0cadbf9f16fd33e85831b0bbac269dc3505120",
-    "backend/src/modules/checkout/routes.ts": "3a8e9bbc1b035e0fbbd588dc24ac78966f70a292f49abd2e12917ddc05218c2d",
+    "backend/src/modules/checkout/routes.ts": "447b87b5885635431e9d652fd245737a196470732b7dca6a96de01aa2e41ec0a",
     "backend/src/modules/checkout/schema.ts": "1e94c4723c1f04095610b5febe19e74f0ff38ac9c8a394c30cfbc53cc7190cda",
     "backend/src/modules/checkout/service.ts": "e3f5415a90d64d620f11d16facb7bdaf7fa35c333b35bbcbf30645f1872c22b9",
     "backend/src/modules/checkout/settlement-note.ts": "b2a3a6f130ec67fce76707ae01e37b207cd4d4a8bef2721c176e83184e40430a",
@@ -1890,6 +1900,14 @@
     "backend/tests/catalog-details/maintenance.mysql.integration.test.ts": "61e27057afaab08e90ab3e0721fa7818d97d42697b7a06052da44e0d1291b36b",
     "backend/tests/catalog-details/mysql.integration.test.ts": "6691ba27492a73a1da7744a979c0d08640e1af54fd354a2539cda4761ce3975a",
     "backend/tests/catalog-details/routing-security.test.ts": "489b6aa8dd70ad4652ab94e23c067bf4878cc4ed7b2cd24886f44db5e9ee30a3",
+    "backend/tests/checkout-order-copy/customer-authority.mysql.test.ts": "7079051e34935ec8b25a13f7b087ea5073201ca8fdfece33b8819078f1cc085a",
+    "backend/tests/checkout-order-copy/domain.test.ts": "1d1b9d7e5ce1a81df9646d6f9d44561183bd69d29a07893ebf9dda11dace9a00",
+    "backend/tests/checkout-order-copy/mysql-fixture.ts": "08038e0deeab06edf8a6051ff6d0b075cccd4f7d2a7d5f3ca43e3252e8ca70a9",
+    "backend/tests/checkout-order-copy/service.mysql.test.ts": "578fefe9a7489dc4a1be3875be84ea31bcba90057419572a81d3b1bf9436f0e9",
+    "backend/tests/checkout-order-copy/source.test.ts": "c5831220813bbcb639623f0afcb99c875cb933a41fc582b40c0468d3318b43ec",
+    "backend/tests/checkout-payment-reversals/mysql-fixture.ts": "fec8b6f80622e200d912839e6abcc7be54a2efc5d935d81be824947a0bdb7dd7",
+    "backend/tests/checkout-payment-reversals/reversal.mysql.test.ts": "0143d7adcf589165c41873427fd4426336ae8e8cb2857a52377abd2be08ddaaf",
+    "backend/tests/checkout-payment-reversals/source.test.ts": "6f39236cc37b6a310de1606176fab4b4da692e96e672f1565d48d2e5fcba9933",
     "backend/tests/checkout-performance/contracts.test.ts": "b35ed372002455962572e8643204f9fdaf606492acae29baec056e4462b54819",
     "backend/tests/checkout-performance/http.test.ts": "8a1e41e243505e3a375fa945890a556127a9f20ba8fb991c49f1a08dacfa6dba",
     "backend/tests/checkout-performance/mysql.integration.test.ts": "e021b52ceea3eaf22819a8e49510181dfc57bd358e50fd01be3fca5ff721e263",
@@ -2065,7 +2083,7 @@
     "frontend/e2e/checkout/product-feedback.spec.ts": "ea4472b0f05ada86a836e7772dbedc9a59a9634b999cc3366deb66e723b3c963",
     "frontend/e2e/checkout/wallet-adjustments.spec.ts": "4316c31ee98c66ed3c6f293f6827d5f67a0f4e17055114078f40938e5ac4312d",
     "frontend/e2e/motivational-quotes.spec.ts": "79337d023bb9b8e72dedba7195ea16bb9a1b459f5d9d457ad25040f76276279c",
-    "frontend/src/app.tsx": "abfdb264a159ff3c1ad47bedce7068aebffeecf2cc63ad1287342026e60df6bb",
+    "frontend/src/app.tsx": "c9c3c4e244e19b1c0511063a81aedb8065bc48881c64524aef5731e2cf470d27",
     "frontend/src/components/common.tsx": "91b559434cf73ef433e191ed9157c8a381b49acbfa55cc5528314a609c7f11f4",
     "frontend/src/components/error-boundary.tsx": "068a7926f94588d641584e72e1589902be6134394b7aab971ca8866dfef7a13c",
     "frontend/src/components/motivational-quote.tsx": "c5ae3992a5beb1ff2b3e1ba3a4060159220811961158d8f2613d1ed3c7e02d50",
@@ -2159,7 +2177,7 @@
     "frontend/src/pages/checkout/InvoiceActions.css": "01bb585d638da9e9696755f77ae49571dca60f104a7ec242cf8842dd0dbbf14a",
     "frontend/src/pages/checkout/InvoiceActions.tsx": "413a24ba3d611eb5581d654e0c66d56f6e0839875446b9e8e022207f45b43cba",
     "frontend/src/pages/checkout/OrderPaymentActions.tsx": "c19e080f1c28fa4a3c89770499ba641c7fccc1804defb652b9cdfa7ab5144f12",
-    "frontend/src/pages/checkout/PaymentPanel.tsx": "19cba69bdffc804d979f091b7b87bf60925677fbc8b74d0dec54b954a2c03fd1",
+    "frontend/src/pages/checkout/PaymentPanel.tsx": "f2a5cad744b6b96add829c4fea6bbd36bc461d89c922ac3fc439f667b0ce7009",
     "frontend/src/pages/checkout/SalespersonAssignments.tsx": "4b0821de7432ae215995e55ac5988bc58e93360c042316ce6b29a40941f82838",
     "frontend/src/pages/checkout/benefit-adjustments/index.tsx": "d917210ab0d44217c417e04f029e43a079b65c9d85d3a309754842cfa0788848",
     "frontend/src/pages/checkout/benefit-adjustments/styles.css": "89c0e849b21f1aeacec02bf1b6d198b424d0a86cc9f8b81cced1dadc2d836fc6",
@@ -2248,7 +2266,12 @@
     "frontend/src/pages/operational-reports/returned-orders.tsx": "fa8e17c577e3462dd083559f6c79982c85bb591b301a9ec4a94df3fa90d1fa23",
     "frontend/src/pages/operational-reports/style.css": "28334af838dad80297f85b3bc042734f772e2902801ffd0bf3d77e778d101210",
     "frontend/src/pages/operations.tsx": "fa0f6be062661f1a8bde0a34b0789a1be9d40ab3eb72a04fa88ccee312c1f1f3",
+    "frontend/src/pages/order-copy/client.ts": "0635e0f41bf253c6b995e359f5c9bbbd8700f6acd2f99c2057d8474886a93e3e",
+    "frontend/src/pages/order-copy/index.tsx": "3d7f18cc32a1edaa6edd309b1c8ad200971a257ab5c3e0ca28fb95d67f7da6e8",
+    "frontend/src/pages/order-copy/marker.ts": "3ae37435c7da14a69bcbce1ec158e14ca168b6733b5c22527d2835c81bcbc2d9",
     "frontend/src/pages/order-history/client.ts": "0bc307eb08a8b4099e8020599eedcd1c9146b35c8f35c71ab59be78126e3edcd",
+    "frontend/src/pages/payment-reversals/client.ts": "9f743c3ebb40403bfae623c7b09377db9f0eb2f6aec7b698f8179be251bce6d4",
+    "frontend/src/pages/payment-reversals/index.tsx": "b8f0c344a1c095b7bcd4cdea1588a029d5308b7d6a8723277e89bb378e805078",
     "frontend/src/pages/product-feedback/client.ts": "e4265117a2bf3e4a7883c2f96028c437e5a6c998bcf7b6194a7934944c32e61c",
     "frontend/src/pages/product-feedback/index.tsx": "25cf2ad85ad26bbbbd9ec32d8c4b08a4dacbc0864de42ed4cff55d08911f0a48",
     "frontend/src/pages/product-feedback/style.css": "be1ac5a70650ecb8ad82d2a8d0df92ffb20fd92b08d61aa49a0e53daa7dce695",
@@ -2363,6 +2386,9 @@
     "frontend/tests/order-payments/order-payments.browser.test.ts": "a2d8062ac021a167d78c0f2e736b412830eeeeeac1e8c3f132abb085c46f57d0",
     "frontend/tests/order-payments/tsconfig.json": "6828059d4b954f138c989febde69a1b920ed8916eecc99000b6fb940822a6b85",
     "frontend/tests/payment-recovery.test.ts": "115af018fed94a525de463d2c7395d8f7690bb0a9ee37b2ce66707824cf266d4",
+    "frontend/tests/payment-reversals/browser.test.ts": "2370974b96277f317fd0e20116780b4f300c2667032d22ce952467f7a45917fe",
+    "frontend/tests/payment-reversals/harness.tsx": "bc4e60493053ceb53f4ce6de9852099569ea29d80f55c1287dc4eb0a382e9d90",
+    "frontend/tests/payment-reversals/tsconfig.json": "7659cfe3fd0de355674266e234556ab84e5345c7197d52f47aa76c0d3214dd93",
     "frontend/tests/performance-review/performance-review.test.ts": "877a175dc571e5f1c86a85c5223cc722e1a04da72036a1cdf0945ceda13acc1a",
     "frontend/tests/performance-review/source-form-boundary.test.ts": "eab6b6e14a7dbe8b9e5e131413cf954122200e9c88fb077cc1d8f91674c8b2a8",
     "frontend/tests/performance-review/tsconfig.json": "2578c99c6225cc26f7e671a4c022aacc3f4354da847ec4c154e11c222ca434c1",
@@ -4330,6 +4356,7 @@
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
         "frontend/tests/payment-recovery.test.ts",
+        "frontend/tests/payment-reversals/browser.test.ts",
         "frontend/tests/performance-review/performance-review.test.ts",
         "frontend/tests/performance-review/source-form-boundary.test.ts",
         "frontend/tests/performance-runner/runner.test.ts",
@@ -4551,6 +4578,7 @@
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
         "frontend/tests/payment-recovery.test.ts",
+        "frontend/tests/payment-reversals/browser.test.ts",
         "frontend/tests/performance-review/performance-review.test.ts",
         "frontend/tests/performance-review/source-form-boundary.test.ts",
         "frontend/tests/performance-runner/runner.test.ts",
@@ -4888,6 +4916,7 @@
         "frontend/tests/order-link.test.ts",
         "frontend/tests/order-payments/order-payments.browser.test.ts",
         "frontend/tests/payment-recovery.test.ts",
+        "frontend/tests/payment-reversals/browser.test.ts",
         "frontend/tests/performance-review/performance-review.test.ts",
         "frontend/tests/performance-review/source-form-boundary.test.ts",
         "frontend/tests/performance-runner/runner.test.ts",
@@ -5124,66 +5153,38 @@
     },
     {
       "id": "legacy-paid-reversal",
-      "implementation_status": "missing",
+      "implementation_status": "partial",
       "backend": [
+        "backend/src/modules/checkout/payment-reversals",
         "backend/src/modules/checkout/payments"
       ],
       "frontend": [
+        "frontend/src/pages/payment-reversals",
         "frontend/src/pages/checkout/PaymentPanel.tsx"
       ],
       "tests": [
-        "backend/tests/checkout"
+        "backend/tests/checkout-payment-reversals",
+        "frontend/tests/payment-reversals"
       ],
       "parity_documents": [
-        "backend/parity/order-payments.md"
+        "backend/parity/payment-reversals.md"
       ],
-      "implemented_scope": "Visible mark-payment is implemented; arbitrary source paid/revert mutation is a distinct reachable API.",
+      "implemented_scope": "Audited ordinary-cash correction, immutable original paid/comments history, exact cash-out/new repayment movements and latest-close invalidation are implemented with native races and child browser recovery; derived reversed status never completes a local sale.",
       "remaining_code": [
-        "Resolve/implement the retained AjaxPaymentStatusView status/tender reversal semantics with financial evidence. Source Revert buttons are commented; do not claim ordinary payment recovery implements this API or expose its unsafe overwrites."
+        "Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow."
       ],
-      "external_acceptance": [],
+      "external_acceptance": [
+        "Accept physical net cash-return attestations and supported current source funding/projection contracts; provider/split/offline/historical-unproved/handed-over cases remain explicit separate reconciliation, never an invented refund."
+      ],
       "code_task_required": true,
       "notes": [],
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
-      "reference_binding": "Adjacent code inspected; these paths do not implement the missing source behavior.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
       "test_files": [
-        "backend/tests/checkout/cancellation-benefit-candidate.test.ts",
-        "backend/tests/checkout/cancellation-benefits.mysql.test.ts",
-        "backend/tests/checkout/cancellation-membership-context.test.ts",
-        "backend/tests/checkout/customer-consent-proof.mysql.integration.test.ts",
-        "backend/tests/checkout/customer-consent.test.ts",
-        "backend/tests/checkout/customer-context.test.ts",
-        "backend/tests/checkout/customer-mysql.integration.test.ts",
-        "backend/tests/checkout/customer-verification.test.ts",
-        "backend/tests/checkout/customers.test.ts",
-        "backend/tests/checkout/discounts.test.ts",
-        "backend/tests/checkout/fast-cash-source.test.ts",
-        "backend/tests/checkout/gift-cards.test.ts",
-        "backend/tests/checkout/gift-issuance.mysql.integration.test.ts",
-        "backend/tests/checkout/global-benefit-policy.test.ts",
-        "backend/tests/checkout/global-benefit-source.mysql.integration.test.ts",
-        "backend/tests/checkout/global-benefit-writer.mysql.integration.test.ts",
-        "backend/tests/checkout/invoice-feedback.test.ts",
-        "backend/tests/checkout/invoice-reader.mysql.integration.test.ts",
-        "backend/tests/checkout/invoice-security.test.ts",
-        "backend/tests/checkout/invoices.test.ts",
-        "backend/tests/checkout/mysql.integration.test.ts",
-        "backend/tests/checkout/offline-cash-gateway.test.ts",
-        "backend/tests/checkout/offline-cash-import.mysql.integration.test.ts",
-        "backend/tests/checkout/offline-cash-mysql.integration.test.ts",
-        "backend/tests/checkout/offline-cash-reference.test.ts",
-        "backend/tests/checkout/offline-cash-source-pricing.mysql.integration.test.ts",
-        "backend/tests/checkout/offline-cash-source-pricing.test.ts",
-        "backend/tests/checkout/offline-cash.test.ts",
-        "backend/tests/checkout/order-messages.test.ts",
-        "backend/tests/checkout/parity.test.ts",
-        "backend/tests/checkout/payments.test.ts",
-        "backend/tests/checkout/pending-cancellation-source.test.ts",
-        "backend/tests/checkout/projection.test.ts",
-        "backend/tests/checkout/returns-parity.test.ts",
-        "backend/tests/checkout/routes.test.ts",
-        "backend/tests/checkout/service.test.ts"
+        "backend/tests/checkout-payment-reversals/reversal.mysql.test.ts",
+        "backend/tests/checkout-payment-reversals/source.test.ts",
+        "frontend/tests/payment-reversals/browser.test.ts"
       ]
     },
     {
@@ -5490,26 +5491,48 @@
     },
     {
       "id": "order-to-cart-copy",
-      "implementation_status": "missing",
+      "implementation_status": "partial",
       "backend": [
-        "backend/src/modules/checkout/service.ts"
+        "backend/src/modules/checkout/order-copy",
+        "backend/src/modules/order-history/copy-adapter.ts"
       ],
       "frontend": [
-        "frontend/src/pages/checkout/CheckoutReview.tsx"
+        "frontend/src/pages/order-copy",
+        "frontend/src/pages/checkout/CheckoutReview.tsx",
+        "frontend/src/pages/counter.tsx",
+        "frontend/src/offline/review-snapshot.ts"
       ],
-      "tests": [],
-      "parity_documents": [],
-      "implemented_scope": "",
+      "tests": [
+        "backend/tests/checkout-order-copy",
+        "frontend/tests/order-copy",
+        "frontend/tests/offline-cash.test.ts"
+      ],
+      "parity_documents": [
+        "backend/parity/order-copy.md"
+      ],
+      "implemented_scope": "One unit per original HP row into the current owned cart, immutable original draft, partial/result acknowledgement, native customer OTP/contact/actor authority, qualified historical facts, dedicated GET recovery and durable offline-cash origin fences are integrated.",
       "remaining_code": [
-        "Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source."
+        "Finish serialized cancellation/tombstones for rejected or never-dispatched copy intents so an expired review cannot permanently fence the checkout. A404 or failed HTTP response alone cannot release an in-flight command."
       ],
-      "external_acceptance": [],
+      "external_acceptance": [
+        "Accept actual source cart/stock/gift-card contracts and complete historical publications. A dispatched uncertain step requires causal upstream evidence; equal cart quantities are insufficient, and collected cash is retained for manager reconciliation."
+      ],
       "code_task_required": true,
       "notes": [],
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
-      "reference_binding": "Adjacent code inspected; these paths do not implement the missing source behavior.",
-      "test_files": []
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "test_files": [
+        "backend/tests/checkout-order-copy/customer-authority.mysql.test.ts",
+        "backend/tests/checkout-order-copy/domain.test.ts",
+        "backend/tests/checkout-order-copy/service.mysql.test.ts",
+        "backend/tests/checkout-order-copy/source.test.ts",
+        "frontend/tests/offline-cash.test.ts",
+        "frontend/tests/order-copy/browser.test.ts",
+        "frontend/tests/order-copy/checkout.browser.test.ts",
+        "frontend/tests/order-copy/marker.test.ts",
+        "frontend/tests/order-copy/operation-reference.test.ts"
+      ]
     },
     {
       "id": "customer-website-handoff",
@@ -6476,16 +6499,16 @@
     },
     {
       "family": "legacy-paid-reversal",
-      "state": "missing",
+      "state": "partial",
       "tasks": [
-        "Resolve/implement the retained AjaxPaymentStatusView status/tender reversal semantics with financial evidence. Source Revert buttons are commented; do not claim ordinary payment recovery implements this API or expose its unsafe overwrites."
+        "Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow."
       ]
     },
     {
       "family": "order-to-cart-copy",
-      "state": "missing",
+      "state": "partial",
       "tasks": [
-        "Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source."
+        "Finish serialized cancellation/tombstones for rejected or never-dispatched copy intents so an expired review cannot permanently fence the checkout. A404 or failed HTTP response alone cannot release an in-flight command."
       ]
     },
     {
@@ -10277,7 +10300,7 @@
       "families": [
         "legacy-paid-reversal"
       ],
-      "status": "missing",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11025,7 +11048,7 @@
       "families": [
         "order-to-cart-copy"
       ],
-      "status": "missing",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {

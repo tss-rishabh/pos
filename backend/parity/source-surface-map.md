@@ -18,8 +18,8 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 - **ecommerce-inventory-sync (partial)**: Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.
 - **orders-read (partial)**: Finish original AjaxOrderListView ST/HL/HE/N/queue filters, explicit IDs, contact/payment/status filters, source search/sort and formatter/actions. Qualified historical routing of the simplified projection does not certify this complete datatable.
-- **legacy-paid-reversal (missing)**: Resolve/implement the retained AjaxPaymentStatusView status/tender reversal semantics with financial evidence. Source Revert buttons are commented; do not claim ordinary payment recovery implements this API or expose its unsafe overwrites.
-- **order-to-cart-copy (missing)**: Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source.
+- **legacy-paid-reversal (partial)**: Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow.
+- **order-to-cart-copy (partial)**: Finish serialized cancellation/tombstones for rejected or never-dispatched copy intents so an expired review cannot permanently fence the checkout. A404 or failed HTTP response alone cannot release an in-flight command.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
 
@@ -29,7 +29,7 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 9 | 2 | 176 |
+| routes | 68 | 11 | 0 | 176 |
 | jobs | 0 | 4 | 1 | 27 |
 | templates | 32 | 9 | 2 | 63 |
 | websockets | 0 | 0 | 0 | 1 |
@@ -166,7 +166,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:37` | `ajax-order-cancel/` | pending-order-cancellation | external_acceptance |
 | `order/urls.py:38` | `ajax-add-salesperson/` | checkout-cart | external_acceptance |
 | `order/urls.py:39` | `ajax-add-salesperson-per-product/` | checkout-cart | external_acceptance |
-| `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | missing |
+| `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | partial |
 | `order/urls.py:41` | `ajax-check-save-gc/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:42` | `ajax-save-gc-date/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:43` | `ajax-extend-return/` | returns-exchanges | external_acceptance |
@@ -190,7 +190,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:69` | `ajax-pass-order/` | local-deliveries | external_acceptance |
 | `order/urls.py:72` | `webhook-cancelled-order/` | local-deliveries | external_acceptance |
 | `order/urls.py:75` | `ajax-check-order-status/` | local-deliveries | external_acceptance |
-| `order/urls.py:78` | `ajax-fetch-the-products/` | order-to-cart-copy | missing |
+| `order/urls.py:78` | `ajax-fetch-the-products/` | order-to-cart-copy | partial |
 | `order/urls.py:80` | `ajax-update-status-vinc/` | legacy-vinculum-status | partial |
 | `order/urls.py:82` | `ajax-online-order/` | customer-website-handoff | external_acceptance |
 | `order/urls.py:85` | `ajax-gift-voucher-check/` | global-vouchers | external_acceptance |

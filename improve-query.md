@@ -409,3 +409,23 @@ It is deliberately excluded from automatic migrations: production deployment
 must review existing indexes and online-DDL behavior. No live DDL, production
 row access or live latency claim occurred. Local rollback/replay tests cover
 the restoration independently of this response-equivalent index change.
+
+## Recorded payment correction lookups
+
+Correction and repayment checks select payment-outbox jobs by order, kind and
+delivery status. The existing pending-worker index begins with status and time,
+so it cannot bound every order-only lock/read. The additive rewrite migration
+includes:
+
+```sql
+ALTER TABLE pos_rewrite_payment_outbox
+ADD INDEX ix_payment_outbox_order_state(order_id,kind,status,id);
+```
+
+The native fixture compares identical selected rows/frontend values with and
+without the index and verifies `ref` access. It retains the worker's pending
+index. New cash movement lookups also use store/date and order indexes, and
+proofs are read in bounded batches. Details and scoped evidence are in
+`backend/compatibility/payment-reversals/improve-query.md`. No live DDL or
+production latency measurement was performed; the correction finance contract
+remains unselected until its collection/ledger/DSR/publication integration passes.
