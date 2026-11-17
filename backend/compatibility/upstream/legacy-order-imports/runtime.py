@@ -33,6 +33,9 @@ def _create_application():
     sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'public-screening-writer'))
     from publication_resource import options as publication_options
     public_options=publication_options(os.environ,proof,(key,os.environ.get('TSS_POS_CUSTOMER_CONTEXT_KEY','')))
+    from negative_resource import options as negative_options
+    no_order_options=negative_options(os.environ,proof,(key,os.environ.get('TSS_POS_CUSTOMER_CONTEXT_KEY',''),
+        os.environ.get('POS_PUBLIC_SCREENING_PUBLICATION_KEY','')))
     url=make_url(os.environ['POS_LEGACY_IMPORT_MYSQL_WRITER_URL'])
     ca=Path(os.environ['POS_LEGACY_IMPORT_MYSQL_CA_FILE']).resolve(strict=True)
     if url.drivername!='mysql+pymysql' or not all((url.host,url.username,url.password,url.database)) or url.query:
@@ -69,6 +72,10 @@ def _create_application():
     if public_options is not None:
         from publication_resource import PublicationResource,private_application as publication_application
         application=publication_application(PublicationResource(factory,proof,pipeline.tasks),public_options['key'],emit_stream,application,public_options['allowPost'])
+    if no_order_options is not None:
+        from negative_resource import resource as negative_resource,private_application as negative_application
+        application=negative_application(negative_resource(factory,proof),no_order_options['key'],emit_stream,
+                                         application,no_order_options['allowPost'])
     return application
 
 

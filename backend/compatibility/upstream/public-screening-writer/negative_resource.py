@@ -5,7 +5,6 @@ import re
 import time
 from writer_protocol import ScreeningWriterError,fail
 from protocol import ImportReview
-from negative import NegativeResource
 from transaction import CURRENT
 
 SELECTOR='pos-node-screening-negative-resource-v1'
@@ -84,4 +83,7 @@ def private_application(resource,key,emit_stream,fallback=None,allow_post=True):
 
 
 def resource(sessions,proof_key):
+    # Options are validated before source bootstrap. Native source/refund
+    # dependencies are only loaded when the configured resource is constructed.
+    from negative import NegativeResource
     return NegativeResource(sessions,proof_key,lambda:int(time.time()*1000))

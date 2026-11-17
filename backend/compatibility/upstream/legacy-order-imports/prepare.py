@@ -10,8 +10,10 @@ import sys
 HERE=Path(__file__).resolve().parent
 SOURCE=Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT',str(HERE.parents[4]/'backend-tss-api_v2')))
 sys.path.insert(0,str(HERE))
+sys.path.insert(0,str(HERE/'benefit-profile'))
 from native import HEADER,LINE
 from source_runtime import PINS,checked_source
+from benefit_source import PINS as BENEFIT_PINS,checked as checked_benefit_source
 
 
 def once(value,old,new):
@@ -32,6 +34,7 @@ def api_guard_changes():
 
 def outputs():
     for name in PINS:checked_source(SOURCE,name)
+    for name in BENEFIT_PINS:checked_benefit_source(SOURCE,name)
     base=HERE.parent/'go/internal/poscheckout'
     changes={}
     before=(base/'confirmation.go').read_text()
@@ -84,7 +87,19 @@ def outputs():
         'privateRuntime':{'contract':'pos-import-owned-celery-v1','activated':False,
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
                 'private_celery.py','private_cache.py','cart_tracking.py','source_runtime.py',
-                'runtime.py','receiver.py','effects.py')}},
+                'runtime.py','receiver.py','effects.py','transaction.py','model_compat.py')}},
+        'benefits':{'automaticCoupon':'pos-csv-automatic-coupon-v1',
+            'complementary':'pos-csv-pos-complementary-v1','activated':False,
+            'history':'authenticated preload; no native historical fallback',
+            'sourceFiles':BENEFIT_PINS,
+            'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
+                'benefit-profile/benefit_profile.py','benefit-profile/benefit_source.py',
+                'benefit-profile/benefit_history.py','benefit-profile/benefit_claims.py',
+                'benefit-profile/benefit_receipts.py','benefit-profile/benefit_codec.py',
+                'benefit-profile/benefit_controls.py','benefit-profile/benefit_fence.py',
+                'benefit-profile/benefit_native.py','benefit-profile/benefit_runtime.py',
+                'benefit-profile/coupon_handoff.py','benefit-profile/benefit_history_heads.py',
+                'benefit-profile/coupon-history-writers.review.json')}},
         'preparation':{'contract':'pos-import-order-preparation-v1','activated':False,
             'purpose':'source-cart-preview; no order/absence/payment receipt',
             'transaction':'fresh current authority; SELECT-only source execution; always rollback',

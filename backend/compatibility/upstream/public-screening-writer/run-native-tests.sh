@@ -1,5 +1,9 @@
 #!/bin/sh
 set -eu
+if [ -z "${CHECKOUT_MYSQL_TEST_URL:-}" ]; then
+  printf '%s\n' 'An explicit guarded localhost checkout fixture URL is required.' >&2
+  exit 1
+fi
 public_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 public_backend=$(CDPATH= cd -- "$public_root/../../.." && pwd)
 public_work=$(mktemp -d /tmp/pos-public-screening.XXXXXX)

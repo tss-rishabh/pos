@@ -6,6 +6,7 @@ describe('private source runtime effect and resource oracles', () => {
   for (const file of [
     'test_effects.py',
     'test_publication_resource.py',
+    'test_runtime_resources.py',
     'test_catalog_pipeline.py',
   ])
     it(`executes ${file} without broker/provider I/O`, () => {

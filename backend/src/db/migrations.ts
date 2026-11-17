@@ -76,6 +76,7 @@ export const migrationPaths = [
   'src/modules/legacy-order-imports/preparation-migration.sql',
   'src/modules/legacy-order-imports/screening-shared-migration.sql',
   'src/modules/checkout/screening-writer/source-migration.sql',
+  'src/modules/checkout/screening-writer/negative-migration.sql',
   'src/modules/checkout/screening-writer/migration.sql',
   'compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql',
   'src/modules/legacy-order-imports/financial-close-operation-index.sql',

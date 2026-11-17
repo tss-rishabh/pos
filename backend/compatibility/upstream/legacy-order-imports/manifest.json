@@ -36,10 +36,47 @@
       "private_celery.py": "4a53f09a5e2669fc0e2cd95335b6cb3a6b342c6944c0dc7eed46ae4fea2cc987",
       "private_cache.py": "9d8013157dc4e6c8babbe13a9dc20afba63229c5b4a7295ff0a0737d38a1d6ff",
       "cart_tracking.py": "e9d02a51fffc4b6d8973401dca21068eaa40be81ea6ab0e4ea37279487c4061a",
-      "source_runtime.py": "07c60c8f86d15883f8acc789c343c2f72f16e68f7e9f77cf459802b670739704",
-      "runtime.py": "b9d4159596cf97d0d61279a033343db702dbb1e6a0df5d42f30e08f29854cd9f",
-      "receiver.py": "05150cc8cf33a8253fc01acbe05cd54eac7f785a2e11d5d9268ffba319ffb7fb",
-      "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac"
+      "source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
+      "runtime.py": "892d134b3326d778187c565ed8db1c0aed891f5cfcd3e366b94086ab752eb9d9",
+      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
+      "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac",
+      "transaction.py": "00f4487027742a96fc1f330187a065504e96a48bfe2dc9df110745cabb07658b",
+      "model_compat.py": "3492926c4c12afba4094a016befb6b6b48d47afdc80b237204a4dd7d6174af65"
+    }
+  },
+  "benefits": {
+    "automaticCoupon": "pos-csv-automatic-coupon-v1",
+    "complementary": "pos-csv-pos-complementary-v1",
+    "activated": false,
+    "history": "authenticated preload; no native historical fallback",
+    "sourceFiles": {
+      "models/Order.py": "d9ee1cd52546e9d8dce0952e901ecba0d58fe1c1b68d95149781131e1553fca5",
+      "controllers/CartController.py": "22604e22405c778f9fd756fb277f8bd0d026ccbd29d4eca84363427f48403072",
+      "controllers/CatalogController.py": "5dcf3d5db2d1bea2001b0e1d8349b02725b11482e831a7355b6eaaf343de400e",
+      "controllers/cart/Cart.py": "1f9eff0f1a4ea66f3cac8903d3c1cb9a5b39e2a3babd6dd6c8dcf192de7defd3",
+      "controllers/cart/initializers/MetaInitializers.py": "e631cbac8c1f2f50e9692fdc128c15d0d1eefac64a21556201068a81e75d4e9f",
+      "controllers/cart/validators/CouponValidation.py": "e2d45aabb1a0b51215ce62f8e87532829d01708b97ab2ae3ac1ffc20dadda303",
+      "controllers/cart/wrappers/CouponWrapper.py": "9aed9f8d0f853cad5364a1a6336f709a6fd3b7245cf1da24b4b2f7a9bbed94c1",
+      "controllers/cart/wrappers/PosFreebieWrapper.py": "b7c85c54a1cd9a9e6208abb3aa66daaababb3c7038af6306e2fe6fbc9bcbd9e2",
+      "libs/helper.py": "4070e7da46499c8041c6831777b0403b2ffbf9d30911551da2da9ef0575b7766",
+      "libs/OrderHelper.py": "a3ec2d593ddfb990b6462fe4f71a8c70f5aa7b95a6704ffb4a0566b14e515e46",
+      "libs/FreebieGrantHelper.py": "27c90149bb46aefd08f20ec080a9b36b141bee9e5edb27a8ab5c92003e14a463",
+      "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad"
+    },
+    "files": {
+      "benefit-profile/benefit_profile.py": "f3911a295fb30cf162cf0cf6acc4a53f7bfda4755bf7b16d7ad83174546624a0",
+      "benefit-profile/benefit_source.py": "4ccd7f89a747db9080f86d5327b8ef0c314eaa2fdc83a56e63d44758e066a42a",
+      "benefit-profile/benefit_history.py": "9ee54b42d26ee3d52c46e13cea18b9162b556d4e4136c779cf3b652d6b170e22",
+      "benefit-profile/benefit_claims.py": "40ab06ae1b844f36789d5568ae3b789295646471754b81b04b1dbd351ecc270e",
+      "benefit-profile/benefit_receipts.py": "261c257156b24ee2941f3e361364e905af660c803c3e878a168500c8fb74071d",
+      "benefit-profile/benefit_codec.py": "f99b8cfd547c6e70f1dd9db6e6d1646cacd977ba9860dd3d53491c68fe6f1a0f",
+      "benefit-profile/benefit_controls.py": "6a2c281a236f1ef357bac79f46e38f32bdfb7f8c24ae08cd2be5d62f2f0e8077",
+      "benefit-profile/benefit_fence.py": "c019e912b336e51f29d03b93a784786e81fe48704638783f0148bec155bc05fe",
+      "benefit-profile/benefit_native.py": "5c982dd1b44ad569adddae3c2847b7bbbd1ab6786a6427cb4b4e1ab4d8a28918",
+      "benefit-profile/benefit_runtime.py": "2d8fe33edff8029de18712e784a5e771047f7cf719d33c3ca747f71259c4974e",
+      "benefit-profile/coupon_handoff.py": "c9839eef3216ed9a4ffda2693b9fef0508931b8b6bd86741c26fe37adb99bd25",
+      "benefit-profile/benefit_history_heads.py": "5e23eb8bd11f836aee15e5e647a35e77a6156486916b8836e9f37930970f3c4e",
+      "benefit-profile/coupon-history-writers.review.json": "4221426d0def19fc05b16d33d5531fad681a48187342b925ec783d0c339eabb7"
     }
   },
   "preparation": {
@@ -49,11 +86,11 @@
     "transaction": "fresh current authority; SELECT-only source execution; always rollback",
     "membershipBatch": "native preparationContract; defer automatic process only during catalog population",
     "files": {
-      "order_preparation.py": "0ed097ca931f734ee2305be7a82d5356eeb7334fa4c7e3e308aafe60f5d3574e",
+      "order_preparation.py": "3f160d908b3f7fd26efe49deeaedc0ecb32cc2ee472bd16510269156761c762a",
       "cart_preparation.py": "23b2629665bf611bca59534b9000a5dc95772f7d18e1103dbb1c4400a8a6ea09",
-      "source_runtime.py": "07c60c8f86d15883f8acc789c343c2f72f16e68f7e9f77cf459802b670739704",
-      "receiver.py": "05150cc8cf33a8253fc01acbe05cd54eac7f785a2e11d5d9268ffba319ffb7fb",
-      "protocol.py": "d1eb5aac2a3bbb3b10d0aa69a0ab78dfe31f368619772db8d996a91920e73b14",
+      "source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
+      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
+      "protocol.py": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea",
       "http_app.py": "b3b1905c59795de0ab953f172a95b8cb6f7752df459d6e61a685f5c4407b1b7a"
     }
   },
@@ -62,7 +99,7 @@
     "activated": false,
     "files": {
       "screening_transaction.py": "f05c13db2fb1ca65d6f0b073466c90b78e07ab56baa204868aeb5008235941b4",
-      "receiver.py": "05150cc8cf33a8253fc01acbe05cd54eac7f785a2e11d5d9268ffba319ffb7fb"
+      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89"
     }
   },
   "correction": {
@@ -72,9 +109,9 @@
       "correction_profile.py": "80f4c4d0fdb5a61ab4c4d5745743a46491376f34a31f1f6ae40d10e3a958f01c",
       "profiles.py": "a39be566a97ec67c071e5643cc89a847645a32f5a6e66ca351a45ac68ceb4fd8",
       "native.py": "e980393f1949980d2c62f55e9c709d3151f0262b649a1d8647d642c53a2b3a77",
-      "protocol.py": "d1eb5aac2a3bbb3b10d0aa69a0ab78dfe31f368619772db8d996a91920e73b14",
-      "receiver.py": "05150cc8cf33a8253fc01acbe05cd54eac7f785a2e11d5d9268ffba319ffb7fb",
-      "runtime.py": "b9d4159596cf97d0d61279a033343db702dbb1e6a0df5d42f30e08f29854cd9f"
+      "protocol.py": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea",
+      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
+      "runtime.py": "892d134b3326d778187c565ed8db1c0aed891f5cfcd3e366b94086ab752eb9d9"
     }
   },
   "screening": {
@@ -104,15 +141,15 @@
       "membership_handoff.py": "67cd6a982ac0599e5222f04353e340f0818b955075e367e72467fe74f2bba3ce",
       "membership_cache.py": "91393225e683e57c6b711d4ecc3d6124e3b8d0c3601ce40765c26fe4cf0bd87f",
       "membership_consumer.py": "f5aa3b57a44c5679a2cfdb1aaf15e7783d59d74024f87f58ed355965ebf42567",
-      "source_runtime.py": "07c60c8f86d15883f8acc789c343c2f72f16e68f7e9f77cf459802b670739704",
+      "source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
       "cart_preparation.py": "23b2629665bf611bca59534b9000a5dc95772f7d18e1103dbb1c4400a8a6ea09",
-      "order_preparation.py": "0ed097ca931f734ee2305be7a82d5356eeb7334fa4c7e3e308aafe60f5d3574e",
+      "order_preparation.py": "3f160d908b3f7fd26efe49deeaedc0ecb32cc2ee472bd16510269156761c762a",
       "profiles.py": "a39be566a97ec67c071e5643cc89a847645a32f5a6e66ca351a45ac68ceb4fd8",
       "native.py": "e980393f1949980d2c62f55e9c709d3151f0262b649a1d8647d642c53a2b3a77",
-      "receiver.py": "05150cc8cf33a8253fc01acbe05cd54eac7f785a2e11d5d9268ffba319ffb7fb",
+      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
       "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac",
-      "runtime.py": "b9d4159596cf97d0d61279a033343db702dbb1e6a0df5d42f30e08f29854cd9f",
-      "protocol.py": "d1eb5aac2a3bbb3b10d0aa69a0ab78dfe31f368619772db8d996a91920e73b14",
+      "runtime.py": "892d134b3326d778187c565ed8db1c0aed891f5cfcd3e366b94086ab752eb9d9",
+      "protocol.py": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea",
       "http_app.py": "b3b1905c59795de0ab953f172a95b8cb6f7752df459d6e61a685f5c4407b1b7a"
     },
     "sourceFiles": {

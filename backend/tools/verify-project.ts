@@ -1165,6 +1165,12 @@ if (flags.has('--mysql')) {
       args: ['compatibility/upstream/legacy-order-imports/benefit-profile/run-native-tests.sh'],
     },
     {
+      id: 'legacy-import-benefits-composed-source-native-tests',
+      directory: 'backend',
+      command: 'sh',
+      args: ['tools/legacy-import-benefits/run-source-tests.sh'],
+    },
+    {
       id: 'legacy-import-coupon-consumption-native-tests',
       directory: 'backend',
       command: 'sh',

@@ -9,6 +9,9 @@ const backend = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 export const esmImportEntries = [
   'financial-adapter-crypto.ts',
   'financial-adapter-contracts.ts',
+  'financial-adapter-transport.ts',
+  'source-order-preparation.ts',
+  'source-order-preparation-runtime.ts',
   'benefit-profile/contracts.ts',
   'benefit-profile/crypto.ts',
   'benefit-profile/completion.ts',

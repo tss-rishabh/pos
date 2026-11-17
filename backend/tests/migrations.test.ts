@@ -25,16 +25,25 @@ it('ships the exact shared source schema before public financial journals', () =
   const paths = migrationPlan().map((value) => value.id);
   const shared = 'src/modules/legacy-order-imports/screening-shared-migration.sql',
     source = 'src/modules/checkout/screening-writer/source-migration.sql',
+    negatives = 'src/modules/checkout/screening-writer/negative-migration.sql',
     journals = 'src/modules/checkout/screening-writer/migration.sql',
     facts = 'src/modules/checkout/payments/provider-evidence-migration.sql';
-  for (const path of [shared, source, journals, facts]) expect(paths).toContain(path);
+  for (const path of [shared, source, negatives, journals, facts]) expect(paths).toContain(path);
   expect(paths.indexOf(shared)).toBeLessThan(paths.indexOf(source));
-  expect(paths.indexOf(source)).toBeLessThan(paths.indexOf(journals));
+  expect(paths.indexOf(source)).toBeLessThan(paths.indexOf(negatives));
+  expect(paths.indexOf(negatives)).toBeLessThan(paths.indexOf(journals));
   expect(paths.indexOf('src/modules/checkout/migrations/0003_payments.sql')).toBeLessThan(
     paths.indexOf(facts),
   );
   expect(readFileSync(shared, 'utf8')).toBe(screeningReservationDdl + ';\n');
-  expect(readFileSync(source)).toEqual(
-    readFileSync('compatibility/upstream/public-screening-writer/migration.review.sql'),
+  // Retain the previously shipped migration checksum. New source/rewrite
+  // installations and incremental upgrades must produce the same statements.
+  expect([
+    ...splitMigration(readFileSync(source, 'utf8')),
+    ...splitMigration(readFileSync(negatives, 'utf8')),
+  ]).toEqual(
+    splitMigration(
+      readFileSync('compatibility/upstream/public-screening-writer/migration.review.sql', 'utf8'),
+    ),
   );
 });
