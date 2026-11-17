@@ -1,0 +1,69 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-17T15:49:38.647111+00:00",
+  "applicationCommit": "33ea1728eae965215e57d7a383514bf6737aee93",
+  "fullProjectVerification": false,
+  "productionReady": false,
+  "exitCode": 0,
+  "checks": [
+    {
+      "id": "public-checkout-go-source-publication",
+      "passed": 57,
+      "skipped": 0,
+      "files": 12
+    },
+    {
+      "id": "original-go-consumed-benefit-recovery",
+      "passed": 41,
+      "skipped": 0,
+      "files": 2
+    },
+    {
+      "id": "source-runtime-schema-history-bridge",
+      "passed": 58,
+      "skipped": 0,
+      "files": 8
+    },
+    {
+      "id": "screening-recovery-browser",
+      "passed": 3,
+      "skipped": 0
+    },
+    {
+      "id": "actual-dependency-source-bootstrap",
+      "network": "none",
+      "externalCalls": 0,
+      "passed": true
+    },
+    {
+      "id": "fixture-strict-checks",
+      "passed": true,
+      "configs": [
+        "tools/public-screening-writer/tsconfig.json",
+        "tools/source-runtime-acceptance/tsconfig.json",
+        "tools/legacy-import-benefits/tsconfig.json",
+        "tools/legacy-import-coupon-history/tsconfig.json",
+        "frontend/tests/screening-writer/tsconfig.json"
+      ]
+    }
+  ],
+  "selectedInputChecksums": {
+    "backend/src/auth/routes.ts": "83d52b333f314e5ae47e257116cf5dd94f38d553b6494e8b69c6ec93c23d1a09",
+    "backend/src/fastify-extensions.ts": "e6c11a6fd8640c8638b2c47b128b40fbcee6b894a9ebaa76e58db31524b416c5",
+    "backend/src/db/migrations.ts": "336bbae34dad5c7001d2ecd233c3e38aa446a15e41803df91c41a6cce825501b",
+    "backend/Dockerfile": "c80676e0cfafaa53c70d8c7b1e1c3d53ea38a58bc76da56c727526b79548ce21",
+    "backend/src/modules/legacy-order-imports/screening-shared-migration.sql": "afadd624b25f10437404f045bf1c2503f21847ea556ac32f2409d6dbfc4bcb5c",
+    "backend/src/modules/checkout/screening-writer/source-migration.sql": "c9f8402ce3518910aa6ac64ddc9f5065d8f89e10059f5519857c3f94fbce0603",
+    "backend/src/modules/checkout/screening-writer/migration.sql": "5283a41d168be6cbe19397f9389de1dfc12902ad00997439c0d58aeb238e6b62",
+    "backend/src/modules/checkout/payments/provider-evidence-migration.sql": "2aa7e2c048bc92b402c5d48626e84dace4affb5672a2d875e4a3589b4b4b9a49",
+    "backend/compatibility/upstream/legacy-order-imports/manifest.json": "977a9998cccfbdbbb19ce56647af71daec42c4e48af07fcabb92d90fada96340",
+    "backend/compatibility/upstream/public-screening-writer/manifest.json": "15a0dd95ee2b5a39407e39ec41ae977ed9fe5b5414fde9eaf3bb438ea1008d9a",
+    "backend/tools/verify-project.ts": "ec1caa4078b6f0b8555526c31e8a7a69d594f955c18fe96da154d8830fc19d5f",
+    "backend/tests/migrations.test.ts": "ff6d87e6198e897b434856c0c7ec7378056ae19820fa792790c4d0e5d15f87f1"
+  },
+  "limits": [
+    "Focused tests use disposable databases and explicit synthetic catalog/broker/provider I/O.",
+    "The frozen full-project and native-OS successful revision remains1e129d6.",
+    "Complete source workflow certification, pending source/coupon/other-writer code, operational integrations, signing/printers and performance/security acceptance remain incomplete."
+  ]
+}

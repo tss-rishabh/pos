@@ -4,6 +4,36 @@ Investigation uses MySQL 8.0.39, schema `tss`, TLS verification and a read-only
 session. No index or schema changes have been executed. Saved query plans and
 bounded comparison results are in `backend/evidence/mysql-readonly.json`.
 
+## Coupon consumption logs and assignments
+
+The native coupon proof checks retain duplicate detection and exact ID ordering:
+
+```sql
+SELECT id FROM order_coupon_log
+WHERE order_id = ? ORDER BY id LIMIT 2 FOR UPDATE;
+SELECT id FROM coupons_users
+WHERE user_id = ? AND c_id = ? ORDER BY id FOR UPDATE;
+```
+
+The actual ORM projections also return native digest and allowance fields.
+Saved schema metadata shows only a primary key on the log and separate user/coupon
+indexes on assignments. Proposed nonunique indexes preserve every response row:
+
+```sql
+CREATE INDEX ix_order_coupon_log_order_id
+ON order_coupon_log(order_id,id);
+CREATE INDEX ix_coupons_users_user_coupon_id
+ON coupons_users(user_id,c_id,id);
+```
+
+An isolated 20,000-row fixture compares every actual projection field before
+and after each index, including IDs above 2^53 and duplicate logs/assignments.
+Observed maximum rows visited at one plan node fall from 20,000 to 1 for the
+log and 6,659 to 67 for assignments. This establishes local plan/response
+evidence, not production latency. No live DDL was executed and neither index
+is an automatic rewrite migration. See the
+[exact query and qualification scope](backend/parity/csv-benefit-query-improvements.md).
+
 ## Rewrite CSV financial close-impact guard
 
 The no-effect verifier must reject any retained close impact for an import

@@ -543,6 +543,36 @@ const checks: Check[] = [
     ],
   },
   {
+    id: 'source-runtime-acceptance-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/source-runtime-acceptance/tsconfig.json',
+    ],
+  },
+  {
+    id: 'coupon-history-publication-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-coupon-history/tsconfig.json',
+    ],
+  },
+  {
+    id: 'screening-recovery-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/screening-writer/tsconfig.json',
+    ],
+  },
+  {
     id: 'legacy-import-coupon-go-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -1113,7 +1143,10 @@ if (flags.has('--mysql')) {
       id: 'legacy-import-coupon-consumption-native-tests',
       directory: 'backend',
       command: 'sh',
-      args: ['compatibility/upstream/legacy-order-imports/run-coupon-tests.sh'],
+      args: [
+        'compatibility/upstream/legacy-order-imports/run-coupon-tests.sh',
+        'tests/legacy-import-benefits/consumed-recovery.mysql.test.ts',
+      ],
     },
     {
       id: 'public-screening-writer-native-tests',
@@ -1214,6 +1247,17 @@ if (flags.has('--browser')) {
       'node_modules/vitest/vitest.mjs',
       'run',
       'tests/order-payments/order-payments.browser.test.ts',
+    ],
+    environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
+  });
+  checks.push({
+    id: 'screening-recovery-browser-tests',
+    directory: 'frontend',
+    args: [
+      'node_modules/vitest/vitest.mjs',
+      'run',
+      'tests/screening-writer/recovery.browser.test.ts',
+      '--maxWorkers=1',
     ],
     environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
   });

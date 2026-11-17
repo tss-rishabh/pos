@@ -55,7 +55,7 @@ def outputs():
     entry='''"""Installed only with the reviewed source bundle and explicit contracts."""\nimport os\nimport sys\nfrom pathlib import Path\n_module_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()\nsys.path.insert(0,str(_module_root/'legacy-order-imports'))\nsys.path.insert(0,str(_module_root/'offline-cash-pricing'))\nsys.path.insert(0,str(_module_root/'public-screening-writer'))\nfrom bootstrap import Bootstrap,after_validate\ndef install(main_file):return Bootstrap(Path(main_file).resolve().parent)\n'''
     changes['pos_node_screening.py']=('',entry)
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+name if old else '/dev/null',tofile='b/'+name)) for name,(old,new) in changes.items())
-    files=('writer_protocol.py','native_authority.py','creation.py','source_frame.py','bootstrap.py','public_effects.py','migration.review.sql')
+    files=('writer_protocol.py','native_authority.py','creation.py','source_frame.py','bootstrap.py','public_effects.py','publication_resource.py','migration.review.sql')
     manifest={'contract':'pos-node-screening-writer-v1','activated':False,'sourceCommit':'2960acbea10c4eaf16b6d99e15ff6e03ef7724c5',
               'scope':'Node POS origin plus private-import order guard; other public/system writers unqualified',
               'base':{name:hashlib.sha256(old.encode()).hexdigest() for name,(old,_) in changes.items() if old},

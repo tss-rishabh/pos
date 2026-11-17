@@ -81,6 +81,10 @@ def outputs():
         'apiGuardBaseSha256':hashlib.sha256(public_main.encode()).hexdigest(),
         'sourceFiles':{path:hashlib.sha256((SOURCE/path).read_bytes()).hexdigest() for path in source_paths},
         'modelContract':'pos-import-source-model-v1',
+        'privateRuntime':{'contract':'pos-import-owned-celery-v1','activated':False,
+            'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
+                'private_celery.py','private_cache.py','cart_tracking.py','source_runtime.py',
+                'runtime.py','receiver.py','effects.py')}},
         'preparation':{'contract':'pos-import-order-preparation-v1','activated':False,
             'purpose':'source-cart-preview; no order/absence/payment receipt',
             'transaction':'fresh current authority; SELECT-only source execution; always rollback',

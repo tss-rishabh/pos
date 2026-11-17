@@ -20,6 +20,7 @@
     "source_frame.py": "349df69db817ed57f05ee03218da9c0aa9a44e913935a6df1c32954788c127d6",
     "bootstrap.py": "295840d4d0fd95def276eb837230cf7337f8b9208ebc9f8fd96b1aaa50a065d1",
     "public_effects.py": "34dce2502289593c5e89afa284be33b0091edbaa066b0b385a4c7dfd18cfcfa9",
+    "publication_resource.py": "be6e008bc6bb70e0b2600d7a6016cf901121bedfd4f75a1e74082670b44ab679",
     "migration.review.sql": "c9f8402ce3518910aa6ac64ddc9f5065d8f89e10059f5519857c3f94fbce0603"
   },
   "modelComposition": {

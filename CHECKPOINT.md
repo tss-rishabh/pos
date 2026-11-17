@@ -34,6 +34,24 @@ component test counts do not certify every original workflow.
 
 ## Remaining code and integration
 
+The latest merged financial/runtime composition passes 57 public checkout cases
+with the actual Go binary and peer WSGI publication resource, plus 41 original-Go
+coupon/recovery cases. Another 58 merged source-runtime, migration, native history
+and bridge checks pass, as do three screening recovery browser workflows and
+their strict checks. The actual dependency-image SourceRuntime initializes with
+network disabled and zero external calls. The shared session validator now uses
+the owned financial transaction; 20 real session-backed contenders conserve one
+settlement. Rewrite-owned shared/source ledgers and provider evidence are in the
+explicit migration plan and container copies. No constructor executes DDL.
+
+These focused checks extend the frozen `1e129d6` consolidated/native baseline;
+they do not replace it with a new complete-project result. Historical coupon
+publication, final current-head validation and source benefit preparation remain
+code work. Public ticket/membership/gift combinations, other writer origins and
+benefit-aware abandonment also remain unqualified code paths. See
+`backend/parity/public-screening-api.md`, `source-private-runtime.md`,
+`csv-consumed-benefit-recovery.md` and `csv-coupon-history-publication.md`.
+
 Recent focused checks cover CSV coordination, financial approval/settlement,
 whole-order recovery, private source/Go boundaries, API and trace isolation. The
 approval/import UI passed 37 checks, including 23 Chromium workflows; the actual

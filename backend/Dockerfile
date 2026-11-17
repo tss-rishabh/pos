@@ -33,6 +33,7 @@ COPY src/modules/checkout/order-messages/*.sql ./src/modules/checkout/order-mess
 COPY src/modules/checkout/order-copy/*.sql ./src/modules/checkout/order-copy/
 COPY src/modules/checkout/payment-reversals/*.sql ./src/modules/checkout/payment-reversals/
 COPY src/modules/checkout/payments/*.sql ./src/modules/checkout/payments/
+COPY src/modules/checkout/screening-writer/*.sql ./src/modules/checkout/screening-writer/
 COPY src/modules/checkout/cancellations/*.sql ./src/modules/checkout/cancellations/
 COPY src/modules/legacy-order-imports/*.sql ./src/modules/legacy-order-imports/
 COPY compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql ./compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql
