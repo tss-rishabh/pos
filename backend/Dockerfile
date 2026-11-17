@@ -49,6 +49,11 @@ COPY compatibility/upstream/screening-origins/assets-migration.sql ./compatibili
 COPY compatibility/upstream/screening-origins/effects-migration.sql ./compatibility/upstream/screening-origins/effects-migration.sql
 COPY compatibility/upstream/screening-origins/system-preparation-migration.sql ./compatibility/upstream/screening-origins/system-preparation-migration.sql
 COPY compatibility/upstream/screening-origins/legacy-assets-migration.sql ./compatibility/upstream/screening-origins/legacy-assets-migration.sql
+COPY compatibility/upstream/screening-origins/system-successor-migration.sql ./compatibility/upstream/screening-origins/system-successor-migration.sql
+COPY compatibility/upstream/screening-origins/origin-coupon-migration.sql ./compatibility/upstream/screening-origins/origin-coupon-migration.sql
+COPY compatibility/upstream/screening-origins/origin-coupon-generation-migration.sql ./compatibility/upstream/screening-origins/origin-coupon-generation-migration.sql
+COPY compatibility/upstream/screening-origins/screening-counter-generation-migration.sql ./compatibility/upstream/screening-origins/screening-counter-generation-migration.sql
+COPY compatibility/upstream/screening-origins/stage-recovery-migration.sql ./compatibility/upstream/screening-origins/stage-recovery-migration.sql
 COPY src/modules/screening-origins/*.sql ./src/modules/screening-origins/
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql
@@ -79,6 +84,9 @@ CMD ["node","dist/modules/screening-origins/bridge-main.js"]
 
 FROM runtime-base AS membership-history-worker
 CMD ["node","dist/modules/checkout/screening-writer/membership-generation-main.js"]
+
+FROM runtime-base AS screening-counter-worker
+CMD ["node","dist/modules/legacy-order-imports/screening-counter/counter-generation-main.js"]
 
 FROM runtime-base AS runtime
 EXPOSE 4410
