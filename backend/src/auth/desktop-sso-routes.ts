@@ -17,16 +17,22 @@ export const desktopClientCookieName = 'pos_desktop_sso_client';
 export const desktopClientCookiePath = '/api/v1/auth/desktop-sso-sessions';
 const params = z.object({ id: z.uuid() }).strict();
 const empty = z.object({}).strict();
-function proof(config: Config, request: FastifyRequest, id: string) {
+function clientProof(config: Config, request: FastifyRequest) {
   try {
     const value = desktopSsoClientProof.parse(
       unseal(request.cookies[desktopClientCookieName] ?? '', config.SESSION_SECRET),
     );
-    if (value.id !== id || value.expires <= Date.now()) throw new Error('Expired desktop flow');
-    return value.secret;
+    if (value.expires <= Date.now()) throw new Error('Expired desktop flow');
+    return value;
   } catch {
     throw new AppError(401, 'DESKTOP_SSO_CLIENT_EXPIRED', 'Start a new desktop sign-in.');
   }
+}
+function proof(config: Config, request: FastifyRequest, id: string) {
+  const value = clientProof(config, request);
+  if (value.id !== id)
+    throw new AppError(401, 'DESKTOP_SSO_CLIENT_EXPIRED', 'Start a new desktop sign-in.');
+  return value.secret;
 }
 function browserProof(config: Config, request: FastifyRequest) {
   try {
@@ -89,6 +95,25 @@ export function registerDesktopSso(
         code: flow.code,
         expires: flow.expires,
         browserUrl: browser.href,
+      });
+    },
+  );
+  app.get(
+    '/api/v1/auth/desktop-sso-sessions/current',
+    {
+      config: {
+        trace: trace('desktop-sso-session', 'recover-current'),
+        rateLimit: { max: 30, timeWindow: '1 minute' },
+      },
+    },
+    async (request, reply) => {
+      empty.parse(request.query);
+      const value = clientProof(config, request);
+      const result = await service.status(value.id, value.secret);
+      return reply.header('Cache-Control', 'private, no-store').send({
+        id: value.id,
+        status: result.status,
+        expires: result.expires,
       });
     },
   );
