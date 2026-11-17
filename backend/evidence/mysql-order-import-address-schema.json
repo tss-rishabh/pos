@@ -1,0 +1,304 @@
+{
+  "recordedAt": "2026-11-17T03:32:31.448Z",
+  "readOnly": true,
+  "schema": "tss",
+  "tables": {
+    "has_addresses": [
+      {
+        "name": "id",
+        "type": "int",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "user_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "firstname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "lastname",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "address",
+        "type": "text",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "address1",
+        "type": "varchar(35)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "address2",
+        "type": "varchar(35)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "address3",
+        "type": "varchar(35)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "city",
+        "type": "varchar(128)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "postcode",
+        "type": "varchar(10)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "country_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "country_code",
+        "type": "varchar(5)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "91",
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "zone_id",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "phone_no",
+        "type": "varchar(32)",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "is_default",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "MUL",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "address_type",
+        "type": "enum('HOME','WORK','OTHER')",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "latitude",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "longitude",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "flat",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "address4",
+        "type": "varchar(255)",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "utf8mb3_general_ci"
+      },
+      {
+        "name": "is_active",
+        "type": "tinyint",
+        "nullable": true,
+        "key": "",
+        "extra": "",
+        "default": "1",
+        "collation": null
+      }
+    ],
+    "order_address_mapping": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "UNI",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "has_address_id",
+        "type": "int",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      }
+    ]
+  },
+  "indexes": [
+    {
+      "TABLE_NAME": "has_addresses",
+      "INDEX_NAME": "customer_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "user_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_addresses",
+      "INDEX_NAME": "idx_has_addresses_phone_no",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "phone_no",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_addresses",
+      "INDEX_NAME": "is_default",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "is_default",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "has_addresses",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_address_mapping",
+      "INDEX_NAME": "idx_has_address_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "has_address_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_address_mapping",
+      "INDEX_NAME": "order_id",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "order_address_mapping",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    }
+  ],
+  "errors": []
+}
