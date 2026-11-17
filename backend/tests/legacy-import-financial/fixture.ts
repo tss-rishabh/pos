@@ -319,27 +319,34 @@ export async function importFinancialFixture(template: string) {
         .select({ hash: sql<string>`${sql.raw(checkoutHeaderHashSql)}` })
         .from(Order)
         .where(eq(Order.id, BigInt(order.orderId)));
+      const lines = await tx
+        .select({
+          id: HasProduct.id,
+          productId: HasProduct.product,
+          quantity: HasProduct.qty,
+          hash: sql<string>`${sql.raw(checkoutLineHashSql)}`,
+        })
+        .from(HasProduct)
+        .where(eq(HasProduct.order, BigInt(order.orderId)));
       await tx.insert(checkoutProjections).values({
         orderId: BigInt(order.orderId),
         storeId: 1n,
         counterId: 2n,
         userId: 77n,
         inputHash: header!.hash,
-        lineCount: 1,
+        lineCount: lines.length,
         contractVersion: 'pos-checkout-projection-v1',
         confirmedAt: '2026-06-15 06:30:00',
       });
-      const [line] = await tx
-        .select({ hash: sql<string>`${sql.raw(checkoutLineHashSql)}` })
-        .from(HasProduct)
-        .where(eq(HasProduct.order, BigInt(order.orderId)));
-      await tx.insert(checkoutProjectionLines).values({
-        orderId: BigInt(order.orderId),
-        lineId: 9007199254740997n,
-        productId: 9007199254740993n,
-        quantity: 2n,
-        inputHash: line!.hash,
-      });
+      await tx.insert(checkoutProjectionLines).values(
+        lines.map((line) => ({
+          orderId: BigInt(order.orderId),
+          lineId: line.id,
+          productId: line.productId,
+          quantity: line.quantity,
+          inputHash: line.hash,
+        })),
+      );
       await tx.insert(checkoutCustomerConsents).values({
         orderId: BigInt(order.orderId),
         customerId: 77n,

@@ -1,6 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -25,6 +25,17 @@ const childEnvironment: NodeJS.ProcessEnv = {
 };
 for (const name of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'COMSPEC'])
   if (process.env[name]) childEnvironment[name] = process.env[name];
+// Only local source roots are forwarded, never arbitrary service environment or
+// credentials. Every source consumer still validates its immutable byte pins.
+for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT', 'SCREENING_SOURCE_ROOT']) {
+  const value = process.env[name];
+  if (value) {
+    const path = resolve(value);
+    if (!existsSync(path) || !statSync(path).isDirectory())
+      throw new Error('Pinned source root is unavailable.');
+    childEnvironment[name] = path;
+  }
+}
 if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE)
   childEnvironment.PLAYWRIGHT_CHROMIUM_EXECUTABLE = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
 childEnvironment.WHOLE_ORDER_STATUS_ORACLE_PYTHON = resolve(
@@ -142,6 +153,7 @@ function inputChecksums() {
     'mysql-admin-shipping-schema.json',
     'mysql-order-import-address-schema.json',
     'mysql-screening-schema.json',
+    'mysql-import-referral-schema.json',
     'mysql-auth-history-schema.json',
     'mysql-administration-inbound-schema.json',
     'mysql-legacy-fulfillment-schema.json',
@@ -991,6 +1003,12 @@ if (flags.has('--mysql')) {
       directory: 'backend',
       command: 'sh',
       args: ['compatibility/upstream/legacy-order-imports/run-go-tests.sh'],
+    },
+    {
+      id: 'legacy-import-corrected-source-go-tests',
+      directory: 'backend',
+      command: 'sh',
+      args: ['compatibility/upstream/legacy-order-imports/run-correction-tests.sh'],
     },
     {
       id: 'membership-native-producer-tests',

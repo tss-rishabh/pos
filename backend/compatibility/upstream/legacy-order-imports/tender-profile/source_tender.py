@@ -8,13 +8,14 @@ import copy
 import hashlib
 import importlib.util
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 HERE=Path(__file__).resolve().parent
 BACKEND=HERE.parents[3]
-API=HERE.parents[5]/'backend-tss-api_v2'
+API=Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT',str(HERE.parents[5]/'backend-tss-api_v2')))
 WEB=HERE.parents[5]/'backend-pos-web'
 sys.path.insert(0,str(HERE.parents[1]/'offline-cash-pricing'))
 from source_calculator import PlainCashCart,ItemTypes,SilentLogger,load_calculator

@@ -124,6 +124,15 @@ export function legacyImportFinancialTransport(
       nonce: input.nonce,
       issuedAt: input.issuedAt,
       expiresAt: input.expiresAt,
+      ...(phase === 'order' && input.state.correction
+        ? {
+            correctionHash: financialSourceHash(
+              options.sourceAuthKey ?? '',
+              'correction',
+              input.state.correction,
+            ),
+          }
+        : {}),
     };
     return {
       ...value,

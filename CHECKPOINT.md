@@ -52,15 +52,19 @@ now also cover 41 CSV tender scenarios and 13 review cases, plus four Python
 checks over 20 frozen source vectors. The user selected pausing tender/header
 mismatches for manager correction before import. The correction API/UI and native
 financial binding/approval/settlement composition are implemented. The private
-source calculation-rejection producer and source execution of a correction still
-require integration; financial production flags remain unselected.
+source calculation-rejection producer and selected correction execution now pass
+the pinned calculator/PosOrder → original Go confirmation → Node settlement
+native workflow. Financial production flags remain unselected; complete private
+startup, cooperating writers and provider acceptance remain required.
 
 The connected manager-correction slice passes all77 scoped financial-core,
 native coordinator/API and runtime checks, strict TypeScript and lint. All21
 actual-page correction/approval Chromium workflows pass in the merged tree.
 The native workflow now includes the new correction compiler/browser checks.
 These focused results do not replace the pending consolidated parity run or
-the private-source correction producer qualification.
+the complete private runtime and production source qualification. The newer
+source-correction slice passes84 scoped checks, with its separate original-Go
+bridge case passing as well; see `backend/parity/import-correction-source.md`.
 
 The integrated private fulfillment runtime passes 50 focused checks, including
 six native shared-guard cases, strict compilation and lint. The backend and

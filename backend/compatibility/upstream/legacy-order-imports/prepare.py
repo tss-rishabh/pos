@@ -3,11 +3,12 @@ import argparse
 import difflib
 import hashlib
 import json
+import os
 from pathlib import Path
 import sys
 
 HERE=Path(__file__).resolve().parent
-SOURCE=HERE.parents[4]/'backend-tss-api_v2'
+SOURCE=Path(os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT',str(HERE.parents[4]/'backend-tss-api_v2')))
 sys.path.insert(0,str(HERE))
 from native import HEADER
 from source_runtime import PINS,checked_source
@@ -72,6 +73,9 @@ def outputs():
         'modelContract':'pos-import-source-model-v1',
         'sourceTransaction':{'contract':'pos-import-customer-first-snapshot-v1','activated':False,
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in ('screening_transaction.py','receiver.py')}},
+        'correction':{'contract':'pos-import-manager-correction-v1','activated':False,
+            'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
+                'correction_profile.py','profiles.py','native.py','protocol.py','receiver.py','runtime.py')}},
         'screening':{'contract':'pos-csv-screening-2960-v1','schema':'pos-screening-schema-v1',
             'writers':'pos-screening-all-writers-v1','activated':False,
             'count':'marker-first nonlocking under owned read-committed customer witness',

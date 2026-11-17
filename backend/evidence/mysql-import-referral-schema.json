@@ -1,0 +1,160 @@
+{
+  "recordedAt": "2026-11-17T09:14:02.330Z",
+  "readOnly": true,
+  "schema": "tss",
+  "tables": {
+    "referral_log": [
+      {
+        "name": "id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "PRI",
+        "extra": "auto_increment",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "order_id",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "referred_to",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "referred_by",
+        "type": "bigint",
+        "nullable": false,
+        "key": "MUL",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "referred_code",
+        "type": "varchar(45)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "pending_amt",
+        "type": "float",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "order_count",
+        "type": "int",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "platform",
+        "type": "enum('REFERRAL')",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "status",
+        "type": "tinyint",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "0",
+        "collation": null
+      },
+      {
+        "name": "comments",
+        "type": "varchar(255)",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": "",
+        "collation": "latin1_swedish_ci"
+      },
+      {
+        "name": "created_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      },
+      {
+        "name": "updated_at",
+        "type": "datetime",
+        "nullable": false,
+        "key": "",
+        "extra": "",
+        "default": null,
+        "collation": null
+      }
+    ]
+  },
+  "indexes": [
+    {
+      "TABLE_NAME": "referral_log",
+      "INDEX_NAME": "order_id",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "order_id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "referral_log",
+      "INDEX_NAME": "PRIMARY",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "id",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "referral_log",
+      "INDEX_NAME": "refered_by",
+      "NON_UNIQUE": 1,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "referred_by",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "referral_log",
+      "INDEX_NAME": "unique_refer_pair",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 1,
+      "COLUMN_NAME": "referred_to",
+      "INDEX_TYPE": "BTREE"
+    },
+    {
+      "TABLE_NAME": "referral_log",
+      "INDEX_NAME": "unique_refer_pair",
+      "NON_UNIQUE": 0,
+      "SEQ_IN_INDEX": 2,
+      "COLUMN_NAME": "referred_by",
+      "INDEX_TYPE": "BTREE"
+    }
+  ],
+  "errors": []
+}

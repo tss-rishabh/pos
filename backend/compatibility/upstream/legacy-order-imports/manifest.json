@@ -32,7 +32,19 @@
     "activated": false,
     "files": {
       "screening_transaction.py": "f05c13db2fb1ca65d6f0b073466c90b78e07ab56baa204868aeb5008235941b4",
-      "receiver.py": "354228ca6a18f3f78b59ee246496644bfdc5a8d828065bc514c28de6543552f6"
+      "receiver.py": "36aaf6246e9e7b2c8ea695ed2fd020f7b5f45e3d9ef57ab7f803bb65d1c51d69"
+    }
+  },
+  "correction": {
+    "contract": "pos-import-manager-correction-v1",
+    "activated": false,
+    "files": {
+      "correction_profile.py": "80f4c4d0fdb5a61ab4c4d5745743a46491376f34a31f1f6ae40d10e3a958f01c",
+      "profiles.py": "fdb121fcd4d91f7064c2765e22fb1b92e63e89bf2cebdcb8a317e9dbfe5ed6af",
+      "native.py": "43f7d62d90b8826be78c0174180c3d847c4ab242ae598494689c73a37661882d",
+      "protocol.py": "7c95b7368a885167c32cec8d81117334b265a1f538ee2273661e919261790978",
+      "receiver.py": "36aaf6246e9e7b2c8ea695ed2fd020f7b5f45e3d9ef57ab7f803bb65d1c51d69",
+      "runtime.py": "4c11345ff3af868487fe2f2d02bfe90518dc35866929278fec0356d19b565a1f"
     }
   },
   "screening": {
@@ -56,11 +68,11 @@
       "membership_cache.py": "071d19eb10a059e149422bddd28ae8d07caed42d1e81c645babe1ccb5ae3afd8",
       "membership_consumer.py": "f5aa3b57a44c5679a2cfdb1aaf15e7783d59d74024f87f58ed355965ebf42567",
       "source_runtime.py": "1ca27d5d434c7698152ecacace02ac13c7f8ecfbbdd482ccbe0c0045bc2abce4",
-      "profiles.py": "abc099cf56bf90f81c9929683964d30ea1c04a1b15f5c49b798c5f438516096d",
-      "native.py": "3ce658e02673f1f648baa232627e5a7c728c8dbf89e5e9e70ab8f3470709f2d9",
-      "receiver.py": "354228ca6a18f3f78b59ee246496644bfdc5a8d828065bc514c28de6543552f6",
+      "profiles.py": "fdb121fcd4d91f7064c2765e22fb1b92e63e89bf2cebdcb8a317e9dbfe5ed6af",
+      "native.py": "43f7d62d90b8826be78c0174180c3d847c4ab242ae598494689c73a37661882d",
+      "receiver.py": "36aaf6246e9e7b2c8ea695ed2fd020f7b5f45e3d9ef57ab7f803bb65d1c51d69",
       "effects.py": "451343268c03ed356bf69d1c1dbf8314590315e08c07dc342c36c9e535242ade",
-      "runtime.py": "4e12a4fb2ae8e96af841c4477f74e9c87e55a68f7173cfe11f9c491111b2ceca"
+      "runtime.py": "4c11345ff3af868487fe2f2d02bfe90518dc35866929278fec0356d19b565a1f"
     },
     "sourceFiles": {
       "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad",

@@ -77,6 +77,7 @@ def fresh_authority(session,capability):
 
 
 def native_order(session,order_id,plan,capability,additional=None):
+    from correction_profile import effective_tender
     header=one(session,'SELECT orders.*,DATE_FORMAT(created_at,\'%Y-%m-%d %H:%i:%s\') AS recorded_at,'+HEADER+' AS native_hash FROM orders WHERE id=:id FOR UPDATE',{'id':order_id})
     mapping=one(session,'SELECT store_id,counter_id FROM order_stores WHERE order_id=:id FOR UPDATE',{'id':order_id})
     values=rows(session,'SELECT id,prod_id,sub_prod_id,qty,price,'+LINE+' AS native_hash FROM has_products WHERE order_id=:id ORDER BY id FOR UPDATE',{'id':order_id})
@@ -102,7 +103,7 @@ def native_order(session,order_id,plan,capability,additional=None):
     if not result or counts!={key:row['quantity'] for key,row in expected.items()}:
         raise ImportReview('ORDER_IMPORT_NATIVE_LINES_MISMATCH')
     payable=amount(header['pay_amt'])
-    if plan['kind']=='offline' and payable!=plan['originalTenderAmount']:
+    if plan['kind']=='offline' and payable!=effective_tender(plan):
         raise ImportReview('ORDER_IMPORT_ORIGINAL_TENDER_MISMATCH')
     line_hash=hashlib.sha256('\n'.join(f"{row['id']}:{row['productId']}:{row['quantity']}:{row['inputHash']}" for row in result).encode()).hexdigest()
     return header,result,line_hash,payable

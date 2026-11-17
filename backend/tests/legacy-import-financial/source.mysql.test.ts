@@ -2,10 +2,26 @@ import { execFileSync, spawn } from 'node:child_process';
 import { resolve } from 'node:path';
 import { beforeAll, beforeEach, afterAll, describe, it, expect } from 'vitest';
 import { eq } from 'drizzle-orm';
+import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { splitMigration } from '../../src/db/migrations.js';
+import { mysqlSessions } from '../../src/auth/sessions.js';
+import { legacyOrderImportRepository } from '../../src/modules/legacy-order-imports/repository.js';
+import { legacyOrderImportCorrections } from '../../src/modules/legacy-order-imports/correction-repository.js';
+import { financialImportCorrectionBoundary } from '../../src/modules/legacy-order-imports/financial-adapter-correction-boundary.js';
+import { legacyOrderImportFinancialApprovals } from '../../src/modules/legacy-order-imports/financial-adapter-approval.js';
+import { legacyOrderImportRows } from '../../src/modules/legacy-order-imports/schema.js';
+import { sourceRejectionReceiptSchema } from '../../src/modules/legacy-order-imports/financial-adapter-contracts.js';
+import { runtimeImportInput } from '../legacy-order-imports/runtime-fixture.js';
+import { correctionActor, correctionCommand } from '../import-corrections/fixture.js';
 import { importFinancialFixture, financialPlan, financialClock, sourceKey } from './fixture.js';
 import { legacyImportFinancialJournal } from '../../src/modules/legacy-order-imports/financial-adapter-journal.js';
 import { financialSourceHash } from '../../src/modules/legacy-order-imports/financial-adapter-crypto.js';
-import { financialImportSourceReceipts } from '../../src/modules/legacy-order-imports/financial-adapter-schema.js';
+import {
+  financialImportApprovals,
+  financialImportSourceReceipts,
+} from '../../src/modules/legacy-order-imports/financial-adapter-schema.js';
+import { importCorrections } from '../../src/modules/legacy-order-imports/correction-schema.js';
 import { readSourceOrderReceipt } from '../../src/modules/legacy-order-imports/financial-adapter-proof.js';
 import { assertNativeImportOrder } from '../../src/modules/legacy-order-imports/financial-adapter-writer.js';
 import type { FinancialSourceCommand } from '../../src/modules/legacy-order-imports/financial-adapter-transport.js';
@@ -37,6 +53,9 @@ describe.skipIf(!template)('literal API-v2 source order inside private native re
     f = await importFinancialFixture(template!);
     sourceFixture = verifiedMysqlFixture(f.connection, [
       'evidence/mysql-order-import-address-schema.json',
+      'evidence/mysql-import-referral-schema.json',
+      'evidence/mysql-pending-cancellation-benefits-schema.json',
+      'evidence/mysql-global-benefits-schema.json',
     ]);
     await sourceFixture.create([
       'cities',
@@ -48,13 +67,40 @@ describe.skipIf(!template)('literal API-v2 source order inside private native re
       'order_address_mapping',
       'flag_history',
       'order_cancel_message_mapping',
+      'referral_log',
+      'order_tss_money',
+      'order_tss_point',
+      'tss_money_history',
+      'tss_point_history',
+      'reward_point_history',
+      'gift_voucher_history',
     ]);
+    await f.connection.query(
+      'ALTER TABLE referral_log ADD UNIQUE KEY unique_refer_pair(referred_to,referred_by)',
+    );
+    for (const path of [
+      'migrations/0002_auth_sessions.sql',
+      'src/modules/checkout/cancellations/benefit-migration.sql',
+      'src/modules/checkout/cancellations/membership-producer-migration.sql',
+      'src/modules/administration/migration.sql',
+      'src/modules/legacy-order-imports/correction-migration.sql',
+      'src/modules/legacy-order-imports/correction-command-migration.sql',
+    ])
+      for (const statement of splitMigration(readFileSync(path, 'utf8')))
+        await f.connection.query(statement);
   }, 30000);
   afterAll(async () => {
     await f?.close();
   });
   beforeEach(async () => {
     await f.reset();
+    for (const name of [
+      'pos_rewrite_import_corrections',
+      'pos_rewrite_import_correction_commands',
+      'pos_rewrite_sessions',
+      'pos_rewrite_operator_checkins',
+    ])
+      await f.connection.query('DELETE FROM ' + name);
     await f.connection.query('ALTER TABLE orders AUTO_INCREMENT=5001');
     for (const name of [
       'cities',
@@ -66,6 +112,13 @@ describe.skipIf(!template)('literal API-v2 source order inside private native re
       'order_address_mapping',
       'flag_history',
       'order_cancel_message_mapping',
+      'referral_log',
+      'order_tss_money',
+      'order_tss_point',
+      'tss_money_history',
+      'tss_point_history',
+      'reward_point_history',
+      'gift_voucher_history',
     ])
       await f.connection.query('DELETE FROM `' + name + '`');
     await f.fixture.insert('cities', { id: 10, city_name: 'Fixture city', state_id: 20 });
@@ -82,7 +135,7 @@ describe.skipIf(!template)('literal API-v2 source order inside private native re
     await f.fixture.insert('pricelist_meta', { id: 1, is_active: 1 });
     await sourceFixture.insert('has_addresses', { id: 88, user_id: 77 });
   });
-  function driverInput(
+  function driverValue(
     input: FinancialSourceCommand,
     mode?: string,
     phase: 'order' | 'publication' = 'order',
@@ -101,33 +154,47 @@ describe.skipIf(!template)('literal API-v2 source order inside private native re
       nonce: input.nonce,
       issuedAt: input.issuedAt,
       expiresAt: input.expiresAt,
+      ...(phase === 'order' && input.state.correction
+        ? { correctionHash: financialSourceHash(authKey, 'correction', input.state.correction) }
+        : {}),
     };
-    return JSON.stringify({
+    return {
       url: f.config.MYSQL_WRITER_URL,
-      sourceRoot: resolve('../../backend-tss-api_v2'),
+      sourceRoot: process.env.POS_LEGACY_IMPORT_SOURCE_ROOT ?? resolve('../../backend-tss-api_v2'),
       authKey,
       proofKey: sourceKey,
-      now: financialClock,
+      now: input.issuedAt,
       operationId: input.state.scope.operationId,
       mode,
       phase,
+      ...(input.state.correction ? { correctionContract: 'pos-import-manager-correction-v1' } : {}),
       body: {
         capability: { ...cap, signature: financialSourceHash(authKey, 'capability', cap) },
         ...(phase === 'order' ? { plan: input.plan } : { orderId: input.state.orderId }),
       },
-    });
+    };
+  }
+  function driverInput(
+    input: FinancialSourceCommand,
+    mode?: string,
+    phase: 'order' | 'publication' = 'order',
+  ) {
+    return JSON.stringify(driverValue(input, mode, phase));
   }
   function run(
     input: FinancialSourceCommand,
     mode?: string,
     phase: 'order' | 'publication' = 'order',
   ) {
+    return runRaw(driverInput(input, mode, phase));
+  }
+  function runRaw(input: string) {
     const result: unknown = JSON.parse(
       execFileSync(
         resolve('compatibility/upstream/offline-cash-pricing/.venv/bin/python'),
         ['-B', resolve('compatibility/upstream/legacy-order-imports/native_source_driver.py')],
         {
-          input: driverInput(input, mode, phase),
+          input,
           encoding: 'utf8',
           timeout: 20000,
           env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
@@ -136,6 +203,265 @@ describe.skipIf(!template)('literal API-v2 source order inside private native re
       ),
     );
     return result;
+  }
+  for (const scenario of [
+    'accepted',
+    'accepted-go',
+    'missing-correction-hash',
+    'missing-source-contract',
+    'changed-retained-binding',
+    'changed-original-receipt',
+    'wrong-approval-reason',
+    'recalculated-payable',
+  ] as const) {
+    it.skipIf(scenario === 'accepted-go' && !process.env.POS_IMPORT_CORRECTION_GO_BINARY)(
+      `qualifies the source calculator and manager successor: ${scenario}`,
+      async () => {
+        await f.connection.query(
+          "INSERT INTO pos_rewrite_operator_checkins(operator_id,store_id,counter_id,expires_at,checked_in_at) VALUES('1',1,2,'2099-01-01 00:00:00','2026-06-15 12:00:00')",
+        );
+        let confirmationFailure: string | null = null;
+        const session = await mysqlSessions(f.db).create('1', Date.parse('2099-01-01T00:00:00Z')),
+          options = {
+            ...f.options,
+            clock: scenario === 'accepted-go' ? Date.now : () => financialClock,
+            correctionContract: 'pos-import-manager-correction-v1' as const,
+          },
+          corrections = legacyOrderImportCorrections(f.db, f.config, {
+            secret: options.secret,
+            contract: options.correctionContract,
+            clock: options.clock,
+            boundary: financialImportCorrectionBoundary({
+              secret: options.secret,
+              sourceProofKey: sourceKey,
+            }),
+          }),
+          queue = legacyOrderImportRepository(f.db, {
+            secret: options.secret,
+            now: options.clock,
+            correctionForOperation: corrections.correctionForOperation,
+          }),
+          transport = f.transport(),
+          adapter = legacyOrderImportFinancialAdapter(f.config, f.db, options, {
+            ...transport,
+            async order(command) {
+              if (command.state.correction) {
+                const value = driverValue(
+                  command,
+                  scenario === 'recalculated-payable'
+                    ? 'correction-current-discount'
+                    : 'correction-calculator',
+                );
+                if (scenario === 'missing-correction-hash') {
+                  delete value.body.capability.correctionHash;
+                  const { signature: _signature, ...unsigned } = value.body.capability;
+                  value.body.capability.signature = financialSourceHash(
+                    authKey,
+                    'capability',
+                    unsigned,
+                  );
+                }
+                if (scenario === 'missing-source-contract') delete value.correctionContract;
+                if (scenario === 'changed-retained-binding')
+                  await f.db
+                    .get('writer')
+                    .update(importCorrections)
+                    .set({ body: { ...command.state.correction, historicalTenderAmount: '49.00' } })
+                    .where(eq(importCorrections.id, command.state.correction.id));
+                if (scenario === 'changed-original-receipt')
+                  await f.db
+                    .get('writer')
+                    .update(financialImportSourceReceipts)
+                    .set({ proofHash: '0'.repeat(64) })
+                    .where(
+                      eq(
+                        financialImportSourceReceipts.operationId,
+                        command.state.correction.original.operationId,
+                      ),
+                    );
+                if (scenario === 'wrong-approval-reason') {
+                  const [grant] = await f.db
+                    .get('writer')
+                    .select()
+                    .from(financialImportApprovals)
+                    .where(eq(financialImportApprovals.id, command.state.authority.approvalId!));
+                  await f.db
+                    .get('writer')
+                    .update(financialImportApprovals)
+                    .set({ data: { ...grant!.data, reason: 'late-recording' } })
+                    .where(eq(financialImportApprovals.id, grant!.id));
+                }
+                expect(runRaw(JSON.stringify(value))).toMatchObject({ recorded: true });
+              } else
+                expect(run(command, 'correction-calculator')).toMatchObject({ recorded: true });
+            },
+            async publication(command) {
+              expect(run(command, undefined, 'publication')).toMatchObject({ recorded: true });
+            },
+            async confirm(command, order, customer) {
+              if (scenario !== 'accepted-go') return transport.confirm(command, order, customer);
+              const { signature: _signature, ...unsigned } = driverValue(
+                command,
+                undefined,
+                'publication',
+              ).body.capability;
+              const capability = { ...unsigned, phase: 'confirmation', orderId: order.orderId };
+              let output: string;
+              try {
+                output = execFileSync(
+                  process.env.POS_IMPORT_CORRECTION_GO_BINARY!,
+                  ['-test.run', '^TestImportCorrectionExistingSource$', '-test.v'],
+                  {
+                    input: JSON.stringify({
+                      url: f.config.MYSQL_WRITER_URL,
+                      authKey,
+                      proofKey: sourceKey,
+                      orderId: Number(order.orderId),
+                      capability: {
+                        ...capability,
+                        signature: financialSourceHash(authKey, 'capability', capability),
+                      },
+                    }),
+                    env: { ...process.env, POS_IMPORT_CORRECTION_GO_FIXTURE: '1' },
+                    encoding: 'utf8',
+                    timeout: 25000,
+                    maxBuffer: 16000,
+                  },
+                );
+              } catch (error: unknown) {
+                const raw =
+                  typeof error === 'object' &&
+                  error !== null &&
+                  'stdout' in error &&
+                  (typeof error.stdout === 'string' || Buffer.isBuffer(error.stdout))
+                    ? error.stdout.toString()
+                    : '';
+                confirmationFailure =
+                  raw.match(/local correction [^\r\n]*/)?.[0] ?? 'GO_CORRECTION_FIXTURE_FAILED';
+                throw new Error('The isolated Go correction fixture failed.');
+              }
+              expect(output).toContain('PASS');
+            },
+          }),
+          input = runtimeImportInput();
+        await queue.stage('1', 'source-correction-original', input);
+        if (scenario === 'accepted-go') {
+          const [row] = await f.db
+            .get('writer')
+            .select()
+            .from(legacyOrderImportRows)
+            .where(eq(legacyOrderImportRows.jobId, input.id));
+          const current = await queue.financialContext('1', input.id, row!.operationId);
+          await legacyOrderImportFinancialApprovals(f.config, f.db, options).request({
+            approverId: '1',
+            scope: {
+              actorId: current.actorId,
+              operationId: current.operationId,
+              storeId: current.storeId,
+              counterId: current.counterId,
+            },
+            plan: current.plan,
+            planHash: current.planHash,
+            commandId: randomUUID(),
+            reason: 'late-recording',
+          });
+        }
+        await queue.runOne(adapter);
+        const [original] = await f.db
+          .get('writer')
+          .select()
+          .from(legacyOrderImportRows)
+          .where(eq(legacyOrderImportRows.jobId, input.id));
+        expect(original).toMatchObject({
+          state: 'FAILED',
+          errorCode: 'ORDER_IMPORT_ORIGINAL_TENDER_MISMATCH',
+        });
+        const [negative] = await f.db
+          .get('writer')
+          .select()
+          .from(financialImportSourceReceipts)
+          .where(eq(financialImportSourceReceipts.operationId, original!.operationId));
+        const proof = sourceRejectionReceiptSchema.parse(negative!.proof);
+        expect(proof.review?.calculation).toMatchObject({
+          payable: '50.00',
+          profileQualified: true,
+          profileCode: null,
+        });
+        expect(negative!.proofHash).toBe(financialSourceHash(sourceKey, 'rejection', proof));
+        const [effects] = await f.connection.query(
+          'SELECT (SELECT COUNT(*) FROM orders) AS orders_count,(SELECT COUNT(*) FROM has_products) AS lines_count,(SELECT COUNT(*) FROM pos_rewrite_import_financial_source_effects) AS effects_count',
+        );
+        expect(effects).toEqual([{ orders_count: '0', lines_count: '0', effects_count: '0' }]);
+        const review = await corrections.review(
+            correctionActor,
+            input.id,
+            original!.operationId,
+            session.sessionId,
+          ),
+          command = correctionCommand(review.reviewHash!);
+        await corrections.create(
+          correctionActor,
+          input.id,
+          original!.operationId,
+          command,
+          session.sessionId,
+          'source-correction-successor',
+        );
+        const context = await queue.financialContext(
+            '1',
+            command.successorJobId,
+            command.successorOperationId,
+          ),
+          approvals = legacyOrderImportFinancialApprovals(f.config, f.db, options);
+        await approvals.request({
+          approverId: '1',
+          scope: {
+            actorId: context.actorId,
+            operationId: context.operationId,
+            storeId: context.storeId,
+            counterId: context.counterId,
+          },
+          plan: context.plan,
+          planHash: context.planHash,
+          correction: context.correction,
+          commandId: randomUUID(),
+          reason: 'historical-correction',
+        });
+        const result = await adapter.start(context);
+        expect(confirmationFailure).toBeNull();
+        if (scenario !== 'accepted' && scenario !== 'accepted-go') {
+          expect(result).toMatchObject({
+            status: 'rejected',
+            operationId: command.successorOperationId,
+            code:
+              scenario === 'missing-source-contract'
+                ? 'ORDER_IMPORT_CORRECTION_DISABLED'
+                : scenario === 'wrong-approval-reason'
+                  ? 'ORDER_IMPORT_APPROVAL_REQUIRED'
+                  : scenario === 'recalculated-payable'
+                    ? 'ORDER_IMPORT_ORIGINAL_TENDER_MISMATCH'
+                    : 'ORDER_IMPORT_CORRECTION_EVIDENCE_INVALID',
+          });
+          const [none] = await f.connection.query(
+            'SELECT (SELECT COUNT(*) FROM orders) AS orders_count,(SELECT COUNT(*) FROM has_products) AS lines_count,(SELECT COUNT(*) FROM pos_rewrite_import_financial_source_effects) AS effects_count',
+          );
+          expect(none).toEqual([{ orders_count: '0', lines_count: '0', effects_count: '0' }]);
+          return;
+        }
+        expect(result).toMatchObject({
+          status: 'completed',
+          operationId: command.successorOperationId,
+        });
+        const [native] = await f.connection.query(
+          'SELECT o.pay_amt,hp.price,hp.qty,hp.amount_to_be_refunded FROM orders o JOIN has_products hp ON hp.order_id=o.id',
+        );
+        expect(native).toEqual([
+          { pay_amt: 50, price: 50.98, qty: '2', amount_to_be_refunded: 50 },
+        ]);
+        expect(await adapter.read(context)).toMatchObject({ status: 'completed' });
+      },
+      30000,
+    );
   }
   it('never exposes an unbound source order when literal inner commits flush before the outer receipt transaction', async () => {
     const input = f.input(),

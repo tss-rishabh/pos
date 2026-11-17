@@ -1,6 +1,7 @@
 """Temporary, explicit unsupported-source profiles; no financial mutation."""
 from decimal import Decimal
 from protocol import ImportReview
+from correction_profile import CalculatedImportReview,effective_tender
 
 
 def assert_plain_profile(cart,types,settings,plan,calculations):
@@ -23,5 +24,5 @@ def assert_plain_profile(cart,types,settings,plan,calculations):
     if not calculations or any(Decimal(str(calculations.get(key) or 0))!=0 for key in
         ('used_tss_money','used_tss_points','used_reward_points','gift_voucher_value','coupon_discount','used_pg_discount','used_store_discount_pg')):
         raise ImportReview('ORDER_IMPORT_AUTO_BENEFIT_PROFILE_REQUIRED')
-    if plan['kind']=='offline' and Decimal(str(calculations['total']))!=Decimal(plan['originalTenderAmount']):
-        raise ImportReview('ORDER_IMPORT_ORIGINAL_TENDER_MISMATCH')
+    if plan['kind']=='offline' and Decimal(str(calculations['total']))!=Decimal(effective_tender(plan)):
+        raise CalculatedImportReview(calculations['total'])

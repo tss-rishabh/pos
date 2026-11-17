@@ -42,7 +42,14 @@ export function financialImportHash(secret: string, kind: string, value: unknown
 export function financialSourceHash(
   sourceKey: string,
   kind:
-    'order' | 'rejection' | 'publication' | 'capability' | 'plan' | 'confirmation' | 'calculation',
+    | 'order'
+    | 'rejection'
+    | 'publication'
+    | 'capability'
+    | 'plan'
+    | 'confirmation'
+    | 'calculation'
+    | 'correction',
   value: unknown,
 ) {
   return operationHash('legacy-order-imports.source.' + kind + '.v1', value, sourceKey);

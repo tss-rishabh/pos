@@ -129,6 +129,18 @@ class NativePipeline:
         exec(compile(ast.Module(body=refund,type_ignores=[]),'<pinned-approved-refund>','exec'),namespace)
         order=compile_class(self.root,'controllers/OrderController.py','PosOrder',namespace)()
         cart=Cart(plan)
+        if self.mode in ('correction-calculator','correction-current-discount'):
+            import os
+            os.environ['POS_LEGACY_IMPORT_SOURCE_ROOT']=str(self.root)
+            sys.path.insert(0,str(HERE/'tender-profile'))
+            from source_tender import calculated
+            original=calculated({'id':'source-correction','lines':[(row['unitPrice'],row['quantity']) for row in plan['lines']],
+                                 'gst':0,'appPercent':5 if self.mode=='correction-current-discount' else 0})
+            # Execute the pinned source calculator. The native constructor uses
+            # this fixture's catalog shape, with source-calculated money fields.
+            cart.meta['calculations']=original.meta['calculations']
+        from profiles import assert_plain_profile
+        assert_plain_profile(cart,K,self.settings,plan,cart.meta['calculations'])
         from protocol import source_custom_data
         req=SimpleNamespace(context={'session':session,'session_r':session,'cart':cart,'user':user,
             'data':{'is_pos':True,'store_id':int(capability['scope']['storeId']),'counter_id':int(capability['scope']['counterId']),
@@ -165,7 +177,7 @@ if __name__=='__main__':
     event.listen(Session,'before_commit',guard_private_commit)
     event.listen(engine,'before_cursor_execute',guard_private_statement)
     pipeline=NativePipeline(value['sourceRoot'],value.get('mode'))
-    service=Receiver(sessionmaker(bind=engine,expire_on_commit=False),pipeline,value['authKey'],value['proofKey'],clock=lambda:value['now'])
+    service=Receiver(sessionmaker(bind=engine,expire_on_commit=False),pipeline,value['authKey'],value['proofKey'],clock=lambda:value['now'],correction_contract=value.get('correctionContract'))
     original=pipeline.order_pipeline
     failure=[]
     def checked(*args):

@@ -20,6 +20,7 @@ from effects import CAPTURE,publish_once,prepared_calls
 from tracing import TRUSTED_ACTOR
 from screening_transaction import owned,mark_customer
 from membership_profile import additional_lines as member_additions, receipt as membership_receipt
+from correction_profile import CalculatedImportReview,selected as selected_correction
 
 
 def seal_effects(key,operation_id,intents):
@@ -59,7 +60,7 @@ def prior(session,operation_id,kind):
     return values[0] if values else None
 
 
-def assert_period(session,capability,plan,now_ms,zone):
+def assert_period(session,capability,plan,now_ms,zone,required_reason=None):
     day=plan['createdAt'][:10]
     created=datetime.strptime(plan['createdAt'],'%Y-%m-%d %H:%M:%S').replace(tzinfo=ZoneInfo(zone))
     now=datetime.fromtimestamp(now_ms/1000,ZoneInfo(zone))
@@ -70,7 +71,7 @@ def assert_period(session,capability,plan,now_ms,zone):
     if close!=capability['authority']['close']:
         raise ImportReview('ORDER_IMPORT_APPROVAL_REQUIRED')
     approval_id=capability['authority']['approvalId']
-    if day!=now.strftime('%Y-%m-%d') or close is not None:
+    if required_reason is not None or day!=now.strftime('%Y-%m-%d') or close is not None:
         if not approval_id:
             raise ImportReview('ORDER_IMPORT_APPROVAL_REQUIRED')
         approval=one(session,'SELECT operation_id,plan_hash,data,authority FROM pos_rewrite_import_financial_approvals WHERE id=:id FOR SHARE',{'id':approval_id})
@@ -78,7 +79,12 @@ def assert_period(session,capability,plan,now_ms,zone):
         authority={**capability['authority'],'approvalId':None}
         if (approval['operation_id']!=capability['operationId'] or approval['plan_hash']!=capability['planHash'] or
             json_value(approval['authority'])!=authority or grant['expiresAt']<=now_ms or grant['issuedAt']>now_ms or
-            grant['close']!=close or grant['businessDate']!=day or grant['status']!='approved'):
+            grant['close']!=close or grant['businessDate']!=day or grant['status']!='approved' or
+            (required_reason is not None and
+             (grant['reason']!=required_reason or grant['operationId']!=capability['operationId'] or
+              grant['actorId']!=capability['scope']['actorId'] or grant['approverId']!=capability['scope']['actorId'] or
+              grant['storeId']!=capability['scope']['storeId'] or grant['counterId']!=capability['scope']['counterId'] or
+              grant['planHash']!=capability['planHash'] or grant['expiresAt']-grant['issuedAt']!=3600000))):
             raise ImportReview('ORDER_IMPORT_APPROVAL_REQUIRED')
 
 
@@ -93,13 +99,14 @@ def assert_source_customer(session,capability,plan):
 
 
 class Receiver:
-    def __init__(self,session_factory,pipeline,auth_key,proof_key,clock=None,zone='Asia/Kolkata'):
+    def __init__(self,session_factory,pipeline,auth_key,proof_key,clock=None,zone='Asia/Kolkata',correction_contract=None):
         self.session_factory=session_factory
         self.pipeline=pipeline
         self.auth_key=auth_key
         self.proof_key=proof_key
         self.clock=clock or (lambda:int(time.time()*1000))
         self.zone=zone
+        self.correction_contract=correction_contract
 
     def order(self,operation_id,body):
         if not isinstance(body,dict) or set(body)!={'capability','plan'}:
@@ -109,6 +116,7 @@ class Receiver:
         TRUSTED_ACTOR.set(cap['scope']['actorId'])
         self.assert_publisher()
         failure=None
+        calculation_review=None
         with self.session_factory() as session:
             try:
                 with owned(session,cap):
@@ -119,7 +127,8 @@ class Receiver:
                         return {'recorded':True}
                     user=fresh_authority(session,cap)
                     mark_customer(session,cap,str(user['id']))
-                    assert_period(session,cap,plan,self.clock(),self.zone)
+                    assert_period(session,cap,plan,self.clock(),self.zone,
+                                  'historical-correction' if state.get('correction') is not None else None)
                     assert_source_customer(session,cap,plan)
                     # Retain each exact SKU row before source stock checks. No
                     # cached stock result can authorize the final writer.
@@ -133,7 +142,7 @@ class Receiver:
                     effects=[]
                     token=CAPTURE.set(effects)
                     try:
-                        with private_session(session) as source_session:
+                        with selected_correction(session,state,cap,plan,self.auth_key,self.proof_key,self.correction_contract), private_session(session) as source_session:
                             order_id,cart=self.pipeline.order_pipeline(source_session,user,plan,cap)
                             session.flush()
                             header,lines,line_hash,payable=native_order(session,int(order_id),plan,cap,member_additions(cart))
@@ -172,6 +181,7 @@ class Receiver:
                 # receipt is written. It owns the same operation lock, so a
                 # delayed duplicate cannot later create a supposedly absent order.
                 failure=error.code if isinstance(error,ImportReview) else 'ORDER_IMPORT_SOURCE_REVIEW'
+                calculation_review=error if type(error) is CalculatedImportReview else None
             with owned(session,cap):
                 lock_command(session,cap,'order')
                 if prior(session,operation_id,'order'):
@@ -181,7 +191,10 @@ class Receiver:
                     raise ImportReview('ORDER_IMPORT_ORIGINAL_STAGE_UNCERTAIN')
                 proof={'contract':SOURCE_CONTRACT,'operationId':operation_id,'requestHash':cap['requestHash'],
                        'namespace':cap['namespace'],'status':'rejected','code':failure,'noFinancialEffects':True}
-                record(session,operation_id,'order',cap['requestHash'],'rejected',proof,self.proof_key,self.clock())
+                rejected_at=self.clock()
+                if calculation_review is not None:
+                    proof['review']=calculation_review.sealed_review(cap,self.proof_key,rejected_at)
+                record(session,operation_id,'order',cap['requestHash'],'rejected',proof,self.proof_key,rejected_at)
             return {'recorded':True}
 
     def publication(self,operation_id,body):

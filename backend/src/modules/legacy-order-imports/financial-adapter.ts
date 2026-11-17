@@ -452,6 +452,7 @@ export function legacyOrderImportFinancialAdapter(
           await journal.transaction(async (tx) => {
             const loaded = await journal.load(tx, scope);
             if (!loaded) throw importFinancialError('ORDER_IMPORT_FINANCIAL_SCOPE_INVALID');
+            await profiles.lock(tx, loaded);
             await assertCheckoutProjection(tx, {
               orderId: order.orderId,
               storeId: scope.storeId,

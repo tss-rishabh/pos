@@ -54,7 +54,8 @@ def _create_application():
     if pipeline.membership:
         from membership_cache import register_task
         register_task(pipeline.tasks,factory,proof)
-    receiver=Receiver(factory,pipeline,key,proof,zone=os.environ.get('BUSINESS_TIMEZONE','Asia/Kolkata'))
+    receiver=Receiver(factory,pipeline,key,proof,zone=os.environ.get('BUSINESS_TIMEZONE','Asia/Kolkata'),
+                      correction_contract=os.environ.get('POS_LEGACY_IMPORT_CORRECTION_CONTRACT'))
     from http_app import private_application
     return private_application(receiver,key,emit_stream)
 
