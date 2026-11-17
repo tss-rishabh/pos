@@ -105,6 +105,10 @@ jobs:
       - name: Package unsigned review artifact on its target OS
         run: node node_modules/electron-builder/out/cli/cli.js --dir
         working-directory: frontend
+        env:
+          # Review packaging has no production tenant. Native smoke fixtures
+          # supply their own validated origin when launching the packaged app.
+          POS_DESKTOP_URL: 'https://desktop-review.invalid'
       - name: Verify packaged integrity, native restart, sandbox and offline profile
         run: node tools/smoke-desktop-package.mjs
         working-directory: frontend
