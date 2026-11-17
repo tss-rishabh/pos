@@ -161,6 +161,26 @@ def assemble_payments(reference, output, generate=None, producer='docker'):
                                       timeout=120).stdout
 
         origins = composer.compose_payments(tree, reference, generate)
+        review_paths = origins.get('reviewMigrations')
+        if (not isinstance(review_paths, list) or not 1 <= len(review_paths) <= 32
+                or any(not isinstance(value, str) for value in review_paths)
+                or len(set(review_paths)) != len(review_paths)):
+            fail()
+        reviews = {}
+        for relative in review_paths:
+            if (not re.fullmatch(r'[A-Za-z0-9_./-]+\.sql', relative)
+                    or Path(relative).is_absolute() or '..' in Path(relative).parts):
+                fail()
+            source = (ROOT / relative).resolve(strict=True)
+            if not source.is_relative_to(ROOT) or not source.is_file() or source.stat().st_size > 1000000:
+                fail()
+            destination = tree / 'pos-review-migrations' / relative
+            if destination.exists():
+                fail()
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            sql = source.read_bytes()
+            destination.write_bytes(sql)
+            reviews[str(destination.relative_to(tree))] = digest(sql)
         files = {}
         for path in sorted(tree.rglob('*')):
             if path.is_symlink():
@@ -172,7 +192,7 @@ def assemble_payments(reference, output, generate=None, producer='docker'):
             'validation': 'pending-final-validation', 'selectedByDefault': False,
             'patches': {relative: expected for relative, _path, expected in inputs},
             'originComposerSha256': digest(composer_path.read_bytes()),
-            'origins': origins, 'files': files,
+            'origins': origins, 'reviewMigrations': reviews, 'files': files,
         }
         (tree / 'pos-composed-payments-manifest.json').write_text(
             json.dumps(manifest, sort_keys=True, indent=2) + '\n')

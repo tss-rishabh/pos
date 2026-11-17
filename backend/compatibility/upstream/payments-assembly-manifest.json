@@ -74,6 +74,8 @@
     "juspay/upi.go": "127c0e139fda8b8e0ab3732be492ddda745db84655278ef4309249beff8d7d41",
     "main.go": "0441a4ef99edd4e03bcac0740cdf3f3df3f5d35c32a7aa8fdc52bc1e6664e32c",
     "other-writer-origins-manifest.json": "ec892463644b7b3b02af840ec806a308791a637b18a507ec5eb95a2b02aa2b54",
+    "pos-review-migrations/other-writer-origins/go/migration.review.sql": "3676740f8c412f0b6196dc0c16d7f2ed9d86131b9c2379c90736e0b7b3727809",
+    "pos-review-migrations/screening-origins/migration.sql": "c284515eeaa25c2999a3d4126e6a557c57586b5392dadc938808e2d94afc8ffa",
     "utils/Hash.go": "138c6c8d0f79703a86316683e477389dfafe8a84b6fd28ca2dca81338bd661b4",
     "utils/Health.go": "ed85b45e9872d266d0f04dc72409db410d7a7368755fea4e49cf9f1d20f453df",
     "utils/Mysql.go": "95cd265a9fe20a6bb3479d421acd8efae217b8e41bdc87d0d2226e93d79d9021",
@@ -128,6 +130,10 @@
     "legacy-order-imports/payments-import-overlay.patch": "b4ef91d34e3757b8ba6e8f751c4defb4f82173bf95fd0d7df2ff436eb126110e",
     "patches/payments-pos-checkout.patch": "1dfcc98cc71f0ff290b0b12de1c6830758f735eab27bec99f8e7a17aa4002e6a",
     "patches/payments-pos-exchange.patch": "9d71b4984c5f8c4b7d81c8594025e739bc7eaf032b56f310114f591909948bdf"
+  },
+  "reviewMigrations": {
+    "pos-review-migrations/other-writer-origins/go/migration.review.sql": "3676740f8c412f0b6196dc0c16d7f2ed9d86131b9c2379c90736e0b7b3727809",
+    "pos-review-migrations/screening-origins/migration.sql": "c284515eeaa25c2999a3d4126e6a557c57586b5392dadc938808e2d94afc8ffa"
   },
   "selectedByDefault": false,
   "sourceCommit": "434f3e438d1cb48c64e5723222c6efda506db571",

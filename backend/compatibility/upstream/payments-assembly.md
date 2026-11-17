@@ -42,6 +42,12 @@ validation pending and contracts unselected. This file is not a release or parit
 certificate. The separate existing and origin effects commands are build inputs,
 not processes started by assembly.
 
+The origin composer's explicitly named review SQL is copied under
+`pos-review-migrations/` in the generated tree and hashed in the assembly
+manifest. The assembler validates those paths and copies bytes only; it never
+connects to MySQL or executes the SQL. Existing ordinary/counter/gift rollout
+dependencies still follow their separate reviewed deployment plans.
+
 Migration, trigger, grant, provider and key rollout remains a separate controlled
 deployment step. The assembler injects no credentials or production contract
 selectors. CLI events contain fixed module/resource/event IDs and per-invocation
