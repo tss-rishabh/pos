@@ -15,6 +15,7 @@ from origin_contracts import command,digest,point,unsafe
 from public_membership_history import configuration,instant,validate_selection
 
 CONTRACT='pos-screening-origin-membership-history-v1'
+PREVIEW='pos-screening-origin-membership-preview-v1'
 IDENTITY=('origin','customerId','requestHash','cartHash','authorityHash')
 HASH=re.compile(r'[a-f0-9]{64}')
 
@@ -35,6 +36,18 @@ def request(value,source_point,settings,session):
     scope={'contract':CONTRACT,'commandId':value['id'],
            **{name:value[name] for name in IDENTITY},
            'configurationHash':configuration(settings),
+           'sourceTimeZone':os.environ.get('BUSINESS_TIMEZONE','Asia/Kolkata'),
+           'asOf':source_point.strftime('%Y-%m-%d %H:%M:%S'),
+           'cutoff':(source_point-timedelta(days=45)).strftime('%Y-%m-%d %H:%M:%S')}
+    return scope,membership_history_heads.capture(session,value['customerId'])
+
+
+def preview_request(value,source_point,settings,session):
+    from preview_contracts import preview
+    preview(value)
+    if not isinstance(source_point,datetime) or source_point.tzinfo is not None:refused()
+    source_point=source_point.replace(microsecond=0)
+    scope={'contract':PREVIEW,'preview':copy.deepcopy(value),'configurationHash':configuration(settings),
            'sourceTimeZone':os.environ.get('BUSINESS_TIMEZONE','Asia/Kolkata'),
            'asOf':source_point.strftime('%Y-%m-%d %H:%M:%S'),
            'cutoff':(source_point-timedelta(days=45)).strftime('%Y-%m-%d %H:%M:%S')}
@@ -88,6 +101,54 @@ class PreparedOriginMembershipHistory:
         command(value)
         if (value['id']!=self.value['id'] or any(value[name]!=self.value[name] for name in IDENTITY)
                 or not self._document['fetchedAt']<=self.clock()<min(self._document['expiresAt'],value['expiresAt'])):refused()
+        if late:
+            if session is None:refused()
+            membership_history_heads.validate(session,value['customerId'],self._document['head'])
+            if not self._document['fetchedAt']<=self.clock()<self._document['expiresAt']:refused()
+
+    def facts(self):return copy.deepcopy(self._facts)
+
+    def evidence(self):
+        return {name:self._document[name] for name in ('generationId','sourceCaptureHash','publicationHash','signature','fetchedAt','expiresAt')}|{
+            name:self._document['scope'][name] for name in ('asOf','cutoff','configurationHash')}
+
+
+class PreparedOriginMembershipPreview:
+    """Reusable facts during one owned rollback/replay; never an Order grant."""
+    def __init__(self,supplied,value,key,settings,clock):
+        from preview_contracts import preview
+        self.value,self.clock=copy.deepcopy(preview(value)),clock
+        try:
+            from origin_contracts import canonical
+            if (not isinstance(supplied,dict) or len(canonical(supplied).encode())>2000000
+                    or set(supplied)!={'contract','scope','head','generationId','sourceCaptureHash','publicationHash',
+                                      'reader','complete','fetchedAt','expiresAt','selection','signature'}):refused()
+            body={name:item for name,item in supplied.items() if name!='signature'}
+            scope=supplied['scope']
+            if (supplied['contract']!=PREVIEW or supplied['reader']!='bigquery' or supplied['complete'] is not True
+                    or any(not isinstance(supplied[name],str) or not HASH.fullmatch(supplied[name])
+                           for name in ('signature','generationId','sourceCaptureHash','publicationHash'))
+                    or not hmac.compare_digest(digest(key,'membership-preview',body),supplied['signature'])
+                    or not isinstance(scope,dict) or set(scope)!={'contract','preview','configurationHash','sourceTimeZone','asOf','cutoff'}
+                    or scope['contract']!=PREVIEW or scope['preview']!=self.value
+                    or scope['configurationHash']!=configuration(settings)
+                    or scope['sourceTimeZone']!=os.environ.get('BUSINESS_TIMEZONE','Asia/Kolkata')):refused()
+            self.point,source_at=instant(scope['asOf'],scope['sourceTimeZone'])
+            now=clock()
+            if ((self.point-timedelta(days=45)).strftime('%Y-%m-%d %H:%M:%S')!=scope['cutoff']
+                    or not all(point(item) for item in (now,supplied['fetchedAt'],supplied['expiresAt']))
+                    or not self.value['issuedAt']<=now<self.value['expiresAt']
+                    or not source_at<=supplied['fetchedAt']<=now<supplied['expiresAt']<=min(self.value['expiresAt'],source_at+60000)
+                    or source_at<self.value['issuedAt']-999):refused()
+            _head(supplied['head'])
+            facts_scope={**scope,'customerId':self.value['customerId']}
+            self._facts=validate_selection(supplied['selection'],facts_scope,settings.MEMBERSHIP_PROD_ID)
+            self._document=copy.deepcopy(supplied)
+        except Exception:refused()
+
+    def assert_current(self,value,late=False,session=None):
+        from preview_contracts import preview
+        if preview(value)!=self.value or not self._document['fetchedAt']<=self.clock()<self._document['expiresAt']:refused()
         if late:
             if session is None:refused()
             membership_history_heads.validate(session,value['customerId'],self._document['head'])

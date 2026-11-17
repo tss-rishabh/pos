@@ -3,10 +3,12 @@ import Fastify, { type FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { AppError } from '../../domain/errors.js';
 import { registerOriginHistoryBridge } from './history-routes.js';
+import { registerOriginCouponHistoryBridge } from './coupon-history-routes.js';
+import { registerOriginMembershipHistoryBridge } from './membership-history-routes.js';
 
 export interface OriginHistoryBridgeEvent {
   module: 'screening-origins';
-  resource: 'customer-history' | 'history-bridge-runtime';
+  resource: 'customer-history' | 'coupon-history' | 'membership-history' | 'history-bridge-runtime';
   eventId: string;
   eventInstanceId: string;
   timestamp: string;
@@ -24,6 +26,8 @@ export interface OriginHistoryBridgeEvent {
 export async function createOriginHistoryBridge(options: {
   sourceKey: string;
   history: Parameters<typeof registerOriginHistoryBridge>[2];
+  couponHistory?: Parameters<typeof registerOriginCouponHistoryBridge>[2];
+  membershipHistory?: Parameters<typeof registerOriginMembershipHistoryBridge>[2];
   clock?: () => number;
   observe?: (event: OriginHistoryBridgeEvent) => void;
   maxConcurrentRequests?: number;
@@ -48,6 +52,20 @@ export async function createOriginHistoryBridge(options: {
     );
   const maxConcurrentRequests = concurrency.data;
   let activeRequests = 0;
+  async function bounded<T>(operation: () => Promise<T>): Promise<T> {
+    if (activeRequests >= maxConcurrentRequests)
+      throw new AppError(
+        429,
+        'SCREENING_ORIGIN_HISTORY_BUSY',
+        'History service is busy. Retry the original command.',
+      );
+    activeRequests += 1;
+    try {
+      return await operation();
+    } finally {
+      activeRequests -= 1;
+    }
+  }
   const errors = new WeakMap<FastifyRequest, string>();
   const app = Fastify({
     logger: false,
@@ -104,9 +122,12 @@ export async function createOriginHistoryBridge(options: {
   });
   app.addHook('onResponse', async (request, reply) => {
     const action = request.routeOptions.config.trace?.action ?? 'handle';
+    const selectedResource = request.routeOptions.config.trace?.resource;
     const resource =
-      request.routeOptions.config.trace?.resource === 'history-bridge-runtime'
-        ? 'history-bridge-runtime'
+      selectedResource === 'history-bridge-runtime' ||
+      selectedResource === 'coupon-history' ||
+      selectedResource === 'membership-history'
+        ? selectedResource
         : 'customer-history';
     const code = errors.get(request);
     try {
@@ -134,21 +155,33 @@ export async function createOriginHistoryBridge(options: {
     options.sourceKey,
     {
       async read(...args: Parameters<typeof options.history.read>) {
-        if (activeRequests >= maxConcurrentRequests)
-          throw new AppError(
-            429,
-            'SCREENING_ORIGIN_HISTORY_BUSY',
-            'History service is busy. Retry the original command.',
-          );
-        activeRequests += 1;
-        try {
-          return await options.history.read(...args);
-        } finally {
-          activeRequests -= 1;
-        }
+        return bounded(() => options.history.read(...args));
       },
     },
     options.clock,
   );
+  const coupons = options.couponHistory;
+  if (coupons)
+    await registerOriginCouponHistoryBridge(
+      app,
+      options.sourceKey,
+      {
+        read: (...args: Parameters<typeof coupons.read>) => bounded(() => coupons.read(...args)),
+      },
+      options.clock,
+    );
+  const membership = options.membershipHistory;
+  if (membership)
+    await registerOriginMembershipHistoryBridge(
+      app,
+      options.sourceKey,
+      {
+        read: (...args: Parameters<typeof membership.read>) =>
+          bounded(() => membership.read(...args)),
+        readPreview: (...args: Parameters<typeof membership.readPreview>) =>
+          bounded(() => membership.readPreview(...args)),
+      },
+      options.clock,
+    );
   return app;
 }

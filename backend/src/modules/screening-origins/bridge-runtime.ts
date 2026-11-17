@@ -10,6 +10,13 @@ import { createOriginHistoryBridge, type OriginHistoryBridgeEvent } from './brid
 import { originHistoryRuntime, readOriginHistoryOptions } from './history.js';
 import { originHistoryDemands } from './history-generation-demand.js';
 import { boundedWarehouseSelect, type SelectClient } from '../warehouse/bounded-select.js';
+import { originMembershipRuntime } from './membership-runtime.js';
+import { originCouponRuntime } from './coupon-runtime.js';
+import {
+  publicMembershipGenerationJournal,
+  membershipGenerationDemandContract,
+} from '../checkout/screening-writer/membership-generation.js';
+import { originCouponDemandContract, originCouponDemandJournal } from './coupon-demands.js';
 
 const contract = 'pos-screening-origin-history-bridge-v1';
 const key = z.string().regex(/^[!-~]{32,4096}$/);
@@ -66,9 +73,17 @@ export function readOriginHistoryBridgeConfiguration(env: NodeJS.ProcessEnv) {
     )
       throw originError();
     const keys = [value.sourceKey, options.publicationKey];
-    if (value.demands) {
-      if (!value.journalKey || !value.journalUrl) throw originError();
-      keys.push(value.journalKey);
+    const memberDemands = env.POS_SCREENING_ORIGIN_MEMBERSHIP_HISTORY_CONTRACT
+      ? env.PUBLIC_SCREENING_MEMBERSHIP_DEMAND_CONTRACT
+      : undefined;
+    const couponDemands = env.POS_SCREENING_ORIGIN_COUPON_HISTORY_CONTRACT
+      ? env.POS_SCREENING_ORIGIN_COUPON_DEMAND_CONTRACT
+      : undefined;
+    if (memberDemands && memberDemands !== membershipGenerationDemandContract) throw originError();
+    if (couponDemands && couponDemands !== originCouponDemandContract) throw originError();
+    if (value.demands || memberDemands || couponDemands) {
+      if ((value.demands && !value.journalKey) || !value.journalUrl) throw originError();
+      if (value.demands) keys.push(key.parse(value.journalKey));
       const url = new URL(value.journalUrl);
       if (
         url.protocol !== 'mysql:' ||
@@ -83,8 +98,37 @@ export function readOriginHistoryBridgeConfiguration(env: NodeJS.ProcessEnv) {
       decodeURIComponent(url.username);
       decodeURIComponent(url.password);
     }
+    if (memberDemands) {
+      const memberJournalKey = key.parse(env.PUBLIC_SCREENING_MEMBERSHIP_GENERATION_JOURNAL_KEY);
+      if (
+        [
+          env.TSS_POS_LEGACY_IMPORT_PROOF_KEY,
+          env.PUBLIC_SCREENING_MEMBERSHIP_PUBLICATION_KEY,
+          env.PUBLIC_SCREENING_MEMBERSHIP_HISTORY_KEY,
+        ].includes(memberJournalKey)
+      )
+        throw originError();
+      keys.push(memberJournalKey);
+    }
+    if (couponDemands) {
+      const couponJournalKey = key.parse(env.CSV_COUPON_GENERATION_JOURNAL_KEY);
+      if (
+        [
+          env.TSS_POS_LEGACY_IMPORT_PROOF_KEY,
+          env.CSV_COUPON_PUBLICATION_KEY,
+          env.CSV_COUPON_HISTORY_KEY,
+        ].includes(couponJournalKey)
+      )
+        throw originError();
+      keys.push(couponJournalKey);
+    }
     if (new Set(keys).size !== keys.length) throw originError();
-    return { ...value, options };
+    return {
+      ...value,
+      options,
+      memberDemands: Boolean(memberDemands),
+      couponDemands: Boolean(couponDemands),
+    };
   } catch {
     // Never surface validation issues, URLs, paths or secret values.
     throw originError('SCREENING_ORIGIN_HISTORY_CONFIGURATION');
@@ -154,23 +198,63 @@ export async function buildOriginHistoryBridgeRuntime(
         ] as const;
       },
     };
+    const journal = () => {
+      if (!pool) {
+        pool = databasePool(selected.journalUrl!, {
+          MYSQL_ALLOW_LOCAL_PLAINTEXT: false,
+          MYSQL_POOL_SIZE: selected.poolSize,
+          MYSQL_TLS_CA_FILE: selected.tlsCaFile,
+        });
+      }
+      const journalPool = pool;
+      return { get: () => drizzle(journalPool) };
+    };
     const demand = selected.demands
       ? (() => {
-          pool = databasePool(selected.journalUrl!, {
-            MYSQL_ALLOW_LOCAL_PLAINTEXT: false,
-            MYSQL_POOL_SIZE: selected.poolSize,
-            MYSQL_TLS_CA_FILE: selected.tlsCaFile,
+          return originHistoryDemands(journal(), {
+            journalKey: selected.journalKey!,
+            sourceKey: selected.sourceKey,
           });
-          const journalPool = pool;
-          return originHistoryDemands(
-            { get: () => drizzle(journalPool) },
-            {
-              journalKey: selected.journalKey!,
-              sourceKey: selected.sourceKey,
-            },
-          );
         })()
       : undefined;
+    const membershipHistory = originMembershipRuntime(env, selected.sourceKey, {
+      select: boundedWarehouseSelect(
+        {
+          maxBytes: selected.maxBytes,
+          timeoutMs: selected.options.timeoutMs ?? 8000,
+          maxDocumentBytes: 2000000,
+          resource: 'origin-membership-history',
+        },
+        () => client,
+      ),
+      ...(selected.memberDemands
+        ? {
+            demands: publicMembershipGenerationJournal(
+              journal(),
+              env.PUBLIC_SCREENING_MEMBERSHIP_GENERATION_JOURNAL_KEY!,
+            ),
+          }
+        : {}),
+    });
+    const couponHistory = originCouponRuntime(
+      env,
+      {
+        originKey: selected.sourceKey,
+        sourceKey: env.TSS_POS_LEGACY_IMPORT_PROOF_KEY ?? '',
+        publicationKey: env.CSV_COUPON_PUBLICATION_KEY ?? '',
+      },
+      {
+        clientFactory: () => client,
+        ...(selected.couponDemands
+          ? {
+              demand: originCouponDemandJournal(journal(), {
+                journalKey: env.CSV_COUPON_GENERATION_JOURNAL_KEY!,
+                originKey: selected.sourceKey,
+              }),
+            }
+          : {}),
+      },
+    );
     const history = originHistoryRuntime(
       { BIGQUERY_MAX_BYTES_BILLED: selected.maxBytes },
       env,
@@ -192,6 +276,8 @@ export async function buildOriginHistoryBridgeRuntime(
     app = await createOriginHistoryBridge({
       sourceKey: selected.sourceKey,
       history,
+      ...(membershipHistory ? { membershipHistory } : {}),
+      ...(couponHistory ? { couponHistory } : {}),
       observe,
       maxConcurrentRequests: selected.concurrency,
     });

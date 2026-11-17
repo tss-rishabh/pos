@@ -14,6 +14,7 @@ import { couponGenerationDemands } from './history-generation-demands.js';
 import { couponGenerationDemandWorker } from './history-generation-demand-worker.js';
 import { readGenerationPublisherConfiguration } from './history-generation-worker-options.js';
 import type { GenerationClient } from './history-generation-sdk.js';
+import { originCouponPublishingRuntime } from '../../screening-origins/coupon-publisher-runtime.js';
 const credentialSchema = z.object({
   type: z.literal('service_account'),
   project_id: z.literal('tssgcp2025'),
@@ -165,6 +166,14 @@ export async function runCouponGenerationWorker(
       query: { clientFactory },
     });
     const activeRuntime = runtime,
+      originPreparation = originCouponPublishingRuntime(env, {
+        db,
+        journalKey: installation.authority.journalKey,
+        sourceKey: installation.authority.sourceKey,
+        publicationKey: installation.authority.publicationKey,
+        publisher: activeRuntime.publisher,
+        enabled: () => installation.newWorkEnabled && !controller.signal.aborted,
+      }),
       demands = couponGenerationDemands(db, installation.authority),
       preparation = couponGenerationDemandWorker(
         demands,
@@ -178,6 +187,8 @@ export async function runCouponGenerationWorker(
       ]);
       try {
         if (!signal.aborted) {
+          const originPrepared = await originPreparation?.drain(signal);
+          if (originPrepared?.unavailable) event(requestId, 'unavailable', originPrepared);
           const prepared = await preparation.drain(signal, 1);
           if (prepared.unavailable) event(requestId, 'unavailable', prepared);
         }

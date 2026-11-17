@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { identifier } from '../../domain/validation.js';
+import { originPreviewSchema } from './preview-contracts.js';
 import {
   membershipExecutionSchema,
   membershipExecution,
@@ -70,6 +71,33 @@ export const originMembershipDocumentSchema = z
     signature: originHashSchema,
   })
   .strict();
+export const originMembershipPreviewContract = 'pos-screening-origin-membership-preview-v1';
+export const originMembershipPreviewScopeSchema = z
+  .object({
+    contract: z.literal(originMembershipPreviewContract),
+    preview: originPreviewSchema,
+    configurationHash: originHashSchema,
+    sourceTimeZone: z.string().min(1).max(128),
+    asOf: z.string(),
+    cutoff: z.string(),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      !membershipExecutionSchema.safeParse({
+        customerId: value.preview.customerId,
+        configurationHash: value.configurationHash,
+        sourceTimeZone: value.sourceTimeZone,
+        asOf: value.asOf,
+        cutoff: value.cutoff,
+      }).success
+    )
+      context.addIssue({ code: 'custom', message: 'Invalid membership preview point.' });
+  });
+export const originMembershipPreviewDocumentSchema = originMembershipDocumentSchema.extend({
+  contract: z.literal(originMembershipPreviewContract),
+  scope: originMembershipPreviewScopeSchema,
+});
 export type OriginMembershipScope = z.infer<typeof originMembershipScopeSchema>;
 export type OriginMembershipDocument = z.infer<typeof originMembershipDocumentSchema>;
 export interface OriginMembershipDemandPort {
@@ -115,6 +143,62 @@ export function originMembershipHistory(
       maxDocumentBytes: 2000000,
       resource: 'origin-membership-history',
     });
+  async function generation(
+    execution: MembershipExecution,
+    head: PublicMembershipHead,
+    expiresAt: number,
+    signal: AbortSignal,
+  ) {
+    const statement = originMembershipStatement(view, execution, head);
+    let raw: unknown;
+    try {
+      raw = JSON.parse(await select.read(statement, signal)) as unknown;
+    } catch {
+      signal.throwIfAborted();
+      throw originError('SCREENING_ORIGIN_MEMBERSHIP_UNAVAILABLE');
+    }
+    const data = z
+      .object({
+        generations: z
+          .array(
+            z
+              .object({
+                generationId: originHashSchema,
+                sourceCapture: z.unknown(),
+                publication: z.unknown(),
+                warehouseSelection: z.unknown(),
+              })
+              .strict(),
+          )
+          .max(2),
+      })
+      .strict()
+      .parse(raw);
+    if (!data.generations.length) {
+      await dependencies.demands?.requestGeneration(execution, head, { signal });
+      throw originError('SCREENING_ORIGIN_MEMBERSHIP_GENERATION_REQUIRED');
+    }
+    if (data.generations.length !== 1) throw originError('SCREENING_ORIGIN_MEMBERSHIP_UNQUALIFIED');
+    const record = data.generations[0]!,
+      now = clock();
+    const qualified = qualifyMembershipGeneration({
+      request: execution,
+      head,
+      generation: record.sourceCapture,
+      publication: record.publication,
+      warehouseSelection: record.warehouseSelection,
+      memberIds: members,
+      sourceKey: authority.captureKey,
+      publicationKey: authority.publicationKey,
+      expiresAt,
+      now,
+      maximumAgeMs: null,
+    });
+    if (record.generationId !== qualified.generationId)
+      throw originError('SCREENING_ORIGIN_MEMBERSHIP_UNQUALIFIED');
+    signal.throwIfAborted();
+    return qualified;
+  }
   return {
     async read(
       input: {
@@ -151,59 +235,60 @@ export function originMembershipHistory(
         point = csvMembershipSourceInstant(scope.asOf, scope.sourceTimeZone);
       if (point > before || point < command.createdAt - 999 || point + 60000 <= before)
         throw originError('SCREENING_ORIGIN_MEMBERSHIP_EXPIRED');
-      const statement = originMembershipStatement(view, execution, head);
-      let raw: unknown;
-      try {
-        raw = JSON.parse(await select.read(statement, signal)) as unknown;
-      } catch {
-        signal.throwIfAborted();
-        throw originError('SCREENING_ORIGIN_MEMBERSHIP_UNAVAILABLE');
-      }
-      const data = z
-        .object({
-          generations: z
-            .array(
-              z
-                .object({
-                  generationId: originHashSchema,
-                  sourceCapture: z.unknown(),
-                  publication: z.unknown(),
-                  warehouseSelection: z.unknown(),
-                })
-                .strict(),
-            )
-            .max(2),
-        })
-        .strict()
-        .parse(raw);
-      if (!data.generations.length) {
-        await dependencies.demands?.requestGeneration(execution, head, { signal });
-        throw originError('SCREENING_ORIGIN_MEMBERSHIP_GENERATION_REQUIRED');
-      }
-      if (data.generations.length !== 1)
-        throw originError('SCREENING_ORIGIN_MEMBERSHIP_UNQUALIFIED');
-      const record = data.generations[0]!,
-        now = clock();
-      const qualified = qualifyMembershipGeneration({
-        request: execution,
+      const qualified = await generation(
+        execution,
         head,
-        generation: record.sourceCapture,
-        publication: record.publication,
-        warehouseSelection: record.warehouseSelection,
-        memberIds: members,
-        sourceKey: authority.captureKey,
-        publicationKey: authority.publicationKey,
-        expiresAt: Math.min(command.expiresAt, point + 60000),
-        now,
-        maximumAgeMs: null,
-      });
-      if (record.generationId !== qualified.generationId)
-        throw originError('SCREENING_ORIGIN_MEMBERSHIP_UNQUALIFIED');
-      signal.throwIfAborted();
+        Math.min(command.expiresAt, point + 60000),
+        signal,
+      );
       const body = { contract: originMembershipHistoryContract, scope, ...qualified };
       return originMembershipDocumentSchema.parse({
         ...body,
         signature: originDigest(authority.originKey, 'membership-history', body),
+      });
+    },
+    async readPreview(
+      input: {
+        preview: z.infer<typeof originPreviewSchema>;
+        previewProof: string;
+        scope: z.infer<typeof originMembershipPreviewScopeSchema>;
+        head: PublicMembershipHead;
+      },
+      signal: AbortSignal,
+    ) {
+      signal.throwIfAborted();
+      const preview = originPreviewSchema.parse(input.preview),
+        scope = originMembershipPreviewScopeSchema.parse(input.scope),
+        head = publicMembershipHeadSchema.parse(input.head),
+        before = clock();
+      if (
+        preview.issuedAt > before ||
+        preview.expiresAt <= before ||
+        scope.sourceTimeZone !== options.sourceTimeZone ||
+        !sameOriginHash(
+          originDigest(authority.originKey, 'preview-context', preview),
+          input.previewProof,
+        ) ||
+        !sameOriginHash(
+          originDigest(authority.originKey, 'preview-context', scope.preview),
+          input.previewProof,
+        )
+      )
+        throw originError('SCREENING_ORIGIN_MEMBERSHIP_SCOPE_CHANGED');
+      const execution = membershipExecution({ ...scope, customerId: preview.customerId }),
+        point = csvMembershipSourceInstant(scope.asOf, scope.sourceTimeZone);
+      if (point > before || point < preview.issuedAt - 999 || point + 60000 <= before)
+        throw originError('SCREENING_ORIGIN_MEMBERSHIP_EXPIRED');
+      const qualified = await generation(
+        execution,
+        head,
+        Math.min(preview.expiresAt, point + 60000),
+        signal,
+      );
+      const body = { contract: originMembershipPreviewContract, scope, ...qualified };
+      return originMembershipPreviewDocumentSchema.parse({
+        ...body,
+        signature: originDigest(authority.originKey, 'membership-preview', body),
       });
     },
   };
