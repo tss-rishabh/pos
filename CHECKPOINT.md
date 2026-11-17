@@ -59,6 +59,14 @@ private receiver container target build; its default command passes a
 network-disabled container smoke check. These do not certify real ingress or
 provider acceptance.
 
+Native CI on `7956713` passed the entire macOS job. Windows passed compilation,
+unit tests and Electron/offline checks, then two actual-OrdersPage recovery
+tests exceeded their unchanged 20-second limit in the concurrent browser group.
+`backend/evidence/desktop-ci-7956713.json` records both outcomes. That group now
+limits Chromium/Vite fixture concurrency to one worker; a fresh native run is
+required to validate the change. Earlier `523c904` remains the last both-platform
+packaging/smoke success.
+
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
   encrypted staging, native authorization/preflight, job API, recovery UI,
   worker loop, explicit blocked-job resume and published-history repository are

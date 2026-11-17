@@ -72,6 +72,7 @@ export const migrationPaths = [
   'src/modules/legacy-order-status/repair-migration.sql',
   'src/modules/finance/migration.sql',
   'src/modules/legacy-order-imports/financial-proof-migration.sql',
+  'src/modules/legacy-order-imports/correction-migration.sql',
   'src/modules/operational-reports/migration.sql',
   'src/modules/operational-reports/scheduled-migration.sql',
   'src/modules/catalog-details/maintenance-migration.sql',
