@@ -82,6 +82,9 @@ import {
 } from './modules/special-permission-history/index.js';
 import { catalogService } from './modules/catalog.js';
 import { ordersService } from './modules/orders.js';
+import { publicOrderHistory } from './modules/order-history/index.js';
+import { registerPublicOrders } from './modules/order-history/routes.js';
+import { historicalOrderCopyFacts } from './modules/order-history/copy-adapter.js';
 import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { demoServices, demoUser } from './modules/demo.js';
 import { registerEventCatalog, requestEvent } from './observability/events.js';
@@ -140,10 +143,15 @@ export async function buildApp(
   await app.register(rateLimit, { max: 240, timeWindow: '1 minute' });
   const db = createDatabases(config),
     identity = identityService(config, db);
-  const reports = reportService(config, db);
+  const reports = reportService(config, db),
+    orderHistory = publicOrderHistory(config);
   const services = config.DEMO_MODE
     ? demoServices()
-    : { catalog: catalogService(db), orders: ordersService(db), drafts: draftService(db) };
+    : {
+        catalog: catalogService(db),
+        orders: ordersService(db, config, orderHistory),
+        drafts: draftService(db),
+      };
   app.addHook('onClose', async () => {
     await identity.close();
     await db.close();
@@ -303,6 +311,7 @@ export async function buildApp(
   registerSecondaryCountrySearch(app, db);
   await registerCheckout(app, config, db, {
     customerOtp,
+    orderCopy: { history: historicalOrderCopyFacts(orderHistory) },
     ...(stockProjection
       ? { inventoryProcedureVerified: true, stockProcedure: stockProjection }
       : {}),
@@ -424,26 +433,7 @@ export async function buildApp(
       q.includeOutOfStock,
     );
   });
-  app.get('/api/v1/stores/:storeId/orders', async (request) => {
-    const { storeId } = scope.parse(request.params);
-    const q = z
-      .object({ before: id.optional(), limit: z.coerce.number().int().min(1).max(100).default(30) })
-      .strict()
-      .parse(request.query);
-    return services.orders.list(authenticated(request), storeId, q.before, q.limit);
-  });
-  app.get('/api/v1/stores/:storeId/orders/:orderId', async (request) => {
-    const params = scope.extend({ orderId: id }).parse(request.params);
-    const result = await services.orders.detail(
-      authenticated(request),
-      params.storeId,
-      params.orderId,
-    );
-    // Driver BigInts are converted to decimal strings without precision loss.
-    return JSON.parse(
-      JSON.stringify(result, (_key, v) => (typeof v === 'bigint' ? v.toString() : v)),
-    );
-  });
+  registerPublicOrders(app, services.orders);
   app.get('/api/v1/stores/:storeId/cart-drafts', async (request) => {
     const q = scope.parse(request.params);
     return { data: await services.drafts.list(authenticated(request), q.storeId) };

@@ -25,6 +25,7 @@ export interface CashToolsProps {
   draft: LocalDraft | undefined;
   online: boolean;
   reviewBusy: boolean;
+  onlineReviewRequired?: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: (snapshot: LocalDraft, receipt: LocalCashReceipt) => void;
 }
@@ -184,6 +185,7 @@ export function CashTools({
   draft,
   online,
   reviewBusy,
+  onlineReviewRequired = false,
   onOpenChange,
   onCompleted,
 }: CashToolsProps) {
@@ -363,6 +365,10 @@ export function CashTools({
     setBusy(true);
     setProblem('');
     try {
+      if (onlineReviewRequired)
+        throw new Error(
+          'This copied sale must be completed or cleared online before separate cash can be recorded.',
+        );
       const prepared = await prepareReview(draft, recoveryFor(user.id, draft.id));
       const record = await db.reviewSnapshots.get([user.id, draft.id]);
       if (record?.checkoutId)
@@ -419,12 +425,17 @@ export function CashTools({
         </button>
         <button
           className="button secondary"
-          disabled={busy || reviewBusy || !authorization || !draft?.lines.length}
+          disabled={
+            busy || reviewBusy || onlineReviewRequired || !authorization || !draft?.lines.length
+          }
           onClick={() => void open()}
         >
           <Banknote size={17} /> Complete cash offline
         </button>
       </div>
+      {onlineReviewRequired && (
+        <p role="status">Finish or clear the copied sale online before recording separate cash.</p>
+      )}
       <p className="cash-status">
         {authorization
           ? `Saved cash prices for ${authorization.snapshot.products.length} items, valid until ${new Date(authorization.expiresAt).toLocaleTimeString()}.`

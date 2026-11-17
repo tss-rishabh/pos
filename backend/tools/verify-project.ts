@@ -62,6 +62,7 @@ if (flags.has('--mysql')) {
     INVENTORY_WORKBOOK_MYSQL_TEST_URL: 'pos_rewrite_inventory_workbooks_test',
     DASHBOARD_MYSQL_TEST_URL: 'pos_rewrite_dashboard_test',
     BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
+    ORDER_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_order_history_test',
     GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
     ADMINISTRATION_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_administration_history_test',
   })) {
@@ -759,6 +760,36 @@ const checks: Check[] = [
       'tests/administration/barcodes/tsconfig.tests.json',
     ],
   },
+  {
+    id: 'order-copy-fixture-typecheck',
+    directory: 'backend',
+    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tools/order-copy/tsconfig.json'],
+  },
+  {
+    id: 'order-history-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/order-history/backend.tsconfig.json',
+    ],
+  },
+  {
+    id: 'order-copy-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tests/order-copy/tsconfig.json'],
+  },
+  {
+    id: 'order-history-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/order-history/tsconfig.json',
+    ],
+  },
 ];
 if (flags.has('--mysql')) {
   checks.push(
@@ -776,6 +807,19 @@ if (flags.has('--mysql')) {
   );
 }
 if (flags.has('--browser')) {
+  checks.push(
+    {
+      id: 'order-copy-browser-tests',
+      directory: 'frontend',
+      args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/order-copy', '--maxWorkers=1'],
+      environment: { ORDER_COPY_BROWSER_TESTS: 'true' },
+    },
+    {
+      id: 'order-history-browser-tests',
+      directory: 'frontend',
+      args: ['tests/order-history/browser-check.mjs'],
+    },
+  );
   checks.push({
     id: 'offline-worksheet-browser-tests',
     directory: 'frontend',

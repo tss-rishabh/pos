@@ -43,6 +43,7 @@ export const migrationPaths = [
   'src/modules/checkout/migrations/0015_gift_card_issuance.sql',
   'src/modules/checkout/migrations/0016_product_feedback.sql',
   'src/modules/checkout/migrations/0017_customer_consent_proof.sql',
+  'src/modules/checkout/order-copy/migration.sql',
   'src/modules/checkout/cancellations/migration.sql',
   'src/modules/checkout/cancellations/benefit-migration.sql',
   'src/modules/checkout/cancellations/membership-producer-migration.sql',

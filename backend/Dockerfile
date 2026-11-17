@@ -27,6 +27,7 @@ COPY src/modules/checkout-performance/*.sql ./src/modules/checkout-performance/
 COPY compatibility/customer-contacts/migration.sql ./compatibility/customer-contacts/migration.sql
 COPY src/modules/checkout/migrations ./src/modules/checkout/migrations
 COPY src/modules/checkout/order-messages/*.sql ./src/modules/checkout/order-messages/
+COPY src/modules/checkout/order-copy/*.sql ./src/modules/checkout/order-copy/
 COPY src/modules/checkout/payments/*.sql ./src/modules/checkout/payments/
 COPY src/modules/checkout/cancellations/*.sql ./src/modules/checkout/cancellations/
 COPY src/modules/legacy-order-imports/*.sql ./src/modules/legacy-order-imports/

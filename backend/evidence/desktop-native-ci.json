@@ -1,0 +1,192 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-17T00:07:33.819551+00:00",
+  "repository": "https://github.com/thesouledstore-tss/pos",
+  "commit": "88b7a4e24745a0fd272f429fabaa7e48a4b5a4ac",
+  "runUrl": "https://github.com/thesouledstore-tss/pos/actions/runs/43983200922",
+  "workflow": "Desktop platform checks",
+  "status": "completed",
+  "conclusion": "success",
+  "scope": "unsigned native review artifacts; source snapshot identified by commit",
+  "productionReady": false,
+  "jobs": [
+    {
+      "name": "Desktop on windows-latest",
+      "url": "https://github.com/thesouledstore-tss/pos/actions/runs/43983200922/job/133704633097",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npx playwright install chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run typecheck",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native Electron and offline browser checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "Browser sign-in, customer and order recovery",
+          "conclusion": "success"
+        },
+        {
+          "name": "Scoped invoice browser checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package unsigned review artifact on its target OS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify packaged integrity, native restart, sandbox and offline profile",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain review artifacts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "name": "Desktop on macos-latest",
+      "url": "https://github.com/thesouledstore-tss/pos/actions/runs/43983200922/job/133704633552",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm ci",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npx playwright install chromium",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run typecheck",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm run build",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run npm test",
+          "conclusion": "success"
+        },
+        {
+          "name": "Native Electron and offline browser checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "Browser sign-in, customer and order recovery",
+          "conclusion": "success"
+        },
+        {
+          "name": "Scoped invoice browser checks",
+          "conclusion": "success"
+        },
+        {
+          "name": "Package unsigned review artifact on its target OS",
+          "conclusion": "success"
+        },
+        {
+          "name": "Verify packaged integrity, native restart, sandbox and offline profile",
+          "conclusion": "success"
+        },
+        {
+          "name": "Retain review artifacts",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ],
+  "artifacts": [
+    {
+      "name": "desktop-macos-latest",
+      "id": 14283817763,
+      "bytes": 366346417,
+      "expired": false
+    },
+    {
+      "name": "desktop-windows-latest",
+      "id": 14283459665,
+      "bytes": 162238722,
+      "expired": false
+    }
+  ],
+  "remaining": [
+    "Signed installer/notarization acceptance",
+    "Physical printer/device validation",
+    "Complete original feature/workflow parity",
+    "Repeat native checks after later source changes"
+  ]
+}

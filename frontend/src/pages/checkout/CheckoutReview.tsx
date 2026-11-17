@@ -42,6 +42,8 @@ import { cashIntentAmounts } from '../../offline/fast-cash/contracts';
 import { invokeCashierShortcut, type CashierShortcutRequest } from '../cashier-shortcuts/shortcuts';
 import { displayedMembershipBenefits } from '../cashier-shortcuts/membership';
 import { CustomerWebsiteHandoffAction } from '../customer-website-handoff';
+import { OrderCopyPanel } from '../order-copy';
+import { checkoutOperationReference } from './operation-reference';
 
 export interface CheckoutReviewProps {
   user: Principal;
@@ -117,6 +119,12 @@ export function CheckoutReview({
   const [profilePending, setProfilePending] = useState(false);
   const [contactPending, setContactPending] = useState(false);
   const [conversionPending, setConversionPending] = useState(false);
+  const [copyPending, setCopyPending] = useState(false);
+  const copyActive = useRef(false);
+  const onCopyPending = useCallback((value: boolean) => {
+    copyActive.current = value;
+    setCopyPending(value);
+  }, []);
   const [fastCashBusy, setFastCashBusy] = useState(false),
     [fastCashPending, setFastCashPending] = useState(true);
   const [recoveryError, setRecoveryError] = useState(() => {
@@ -226,15 +234,22 @@ export function CheckoutReview({
     }
   };
   const store = (state: Checkout, operationId: string | null) => {
+    const genericReference = checkoutOperationReference(state, operationId);
     saveRecovery(draft.ownerId, draft.id, {
       checkoutId: state.id,
-      pendingOperationId: operationId,
+      pendingOperationId: genericReference,
       draftVersion: draft.updatedAt,
     });
-    setPendingId(operationId);
+    setPendingId(genericReference);
   };
   const act = async (task: () => Promise<void>) => {
-    if (locked.current || fastCashActive.current) return;
+    if (
+      locked.current ||
+      fastCashActive.current ||
+      copyActive.current ||
+      (current.current?.orderCopy && current.current.orderCopy.status !== 'acknowledged')
+    )
+      return;
     locked.current = true;
     setBusy(true);
     setProblem('');
@@ -338,7 +353,7 @@ export function CheckoutReview({
       .then(async (value) => {
         if (active) {
           await adopt(value);
-          setPendingId(value.busyOperationId || recovery.pendingOperationId);
+          setPendingId(checkoutOperationReference(value, recovery.pendingOperationId));
         }
       })
       .catch((error) => {
@@ -378,6 +393,10 @@ export function CheckoutReview({
   async function recover() {
     const state = current.current;
     if (!state || !pendingId) return;
+    if (pendingId === state.orderCopy?.commandId) {
+      store(state, null);
+      return;
+    }
     let result = await readOperation(state, pendingId);
     if (
       ['inflight', 'uncertain'].includes(result.status) &&
@@ -403,6 +422,7 @@ export function CheckoutReview({
           : 'The outcome needs administrator review. No payment or order action will be repeated.',
       );
   }
+  const copyOwned = Boolean(checkout?.orderCopy && checkout.orderCopy.status !== 'acknowledged');
   const editable =
       !!checkout &&
       ['open', 'quoted'].includes(checkout.phase) &&
@@ -411,6 +431,8 @@ export function CheckoutReview({
       !profilePending &&
       !contactPending &&
       !conversionPending &&
+      !copyPending &&
+      !copyOwned &&
       !fastCashBusy &&
       !fastCashPending &&
       !checkout.busyOperationId,
@@ -420,6 +442,8 @@ export function CheckoutReview({
       profilePending ||
       contactPending ||
       conversionPending ||
+      copyPending ||
+      copyOwned ||
       !online ||
       Boolean(recoveryError),
     total = checkout ? authoritativeTotal(checkout) : null,
@@ -728,6 +752,8 @@ export function CheckoutReview({
                   fastCashPending ||
                   contactPending ||
                   conversionPending ||
+                  copyPending ||
+                  copyOwned ||
                   !online ||
                   Boolean(recoveryError)
                 }
@@ -762,6 +788,8 @@ export function CheckoutReview({
                   fastCashPending ||
                   profilePending ||
                   conversionPending ||
+                  copyPending ||
+                  copyOwned ||
                   !online ||
                   Boolean(recoveryError)
                 }
@@ -776,6 +804,60 @@ export function CheckoutReview({
                       'Customer contact saved. Recalculate the quote and verify benefits again before completing this sale.',
                     );
                   },
+                }}
+              />
+            )}
+            {checkout.customerId && (
+              <OrderCopyPanel
+                scope={{
+                  operatorId: draft.ownerId,
+                  storeId: draft.storeId,
+                  checkoutId: checkout.id,
+                  customerId: checkout.customerId,
+                }}
+                checkoutVersion={checkout.version}
+                online={online}
+                disabled={
+                  busy ||
+                  fastCashBusy ||
+                  fastCashPending ||
+                  profilePending ||
+                  contactPending ||
+                  conversionPending ||
+                  !online ||
+                  Boolean(recoveryError) ||
+                  Boolean(pendingId) ||
+                  Boolean(checkout.orderId) ||
+                  checkout.draftImport?.status !== 'complete' ||
+                  (!['open', 'quoted'].includes(checkout.phase) && !copyOwned) ||
+                  Boolean(
+                    checkout.busyOperationId &&
+                    checkout.busyOperationId !== checkout.orderCopy?.commandId,
+                  )
+                }
+                beforeDispatch={async () => {
+                  const latest = current.current;
+                  if (
+                    !latest ||
+                    latest.id !== checkout.id ||
+                    latest.customerId !== checkout.customerId
+                  )
+                    throw new Error(
+                      'The checkout customer changed. Refresh its original reference.',
+                    );
+                  // Recheck actual local cash evidence and the immutable draft
+                  // binding immediately before a copy POST. The binding also
+                  // serializes stale-tab cash completion through IndexedDB.
+                  await bindReviewedCheckout(draft, latest.id);
+                }}
+                onPending={onCopyPending}
+                onSaved={async () => {
+                  const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                  await adopt(latest);
+                  store(latest, latest.busyOperationId);
+                  setNotice(
+                    'Review the copied cart and get a fresh quote before completing this sale.',
+                  );
                 }}
               />
             )}
@@ -814,6 +896,8 @@ export function CheckoutReview({
                   fastCashPending ||
                   profilePending ||
                   contactPending ||
+                  copyPending ||
+                  copyOwned ||
                   !online ||
                   Boolean(recoveryError)
                 }

@@ -61,6 +61,14 @@ jobs:
       - name: Scoped invoice browser checks
         run: node tools/run-browser-fixture.mjs invoice-documents
         working-directory: frontend
+      - name: Historical order browsing and checkout copy recovery
+        run: npx vitest run tests/order-copy --maxWorkers=1
+        working-directory: frontend
+        env:
+          ORDER_COPY_BROWSER_TESTS: 'true'
+      - name: Historical order reader browser checks
+        run: node tests/order-history/browser-check.mjs
+        working-directory: frontend
       - name: Package unsigned review artifact on its target OS
         run: node node_modules/electron-builder/out/cli/cli.js --dir
         working-directory: frontend

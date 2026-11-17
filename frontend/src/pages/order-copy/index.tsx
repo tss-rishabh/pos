@@ -44,6 +44,7 @@ export interface OrderCopyPanelProps {
   checkoutVersion: number;
   online: boolean;
   disabled?: boolean;
+  beforeDispatch?: () => Promise<void>;
   onPending: (value: boolean) => void;
   onSaved: () => Promise<void>;
 }
@@ -61,6 +62,7 @@ function CopyPanel({
   checkoutVersion,
   online,
   disabled = false,
+  beforeDispatch,
   onPending,
   onSaved,
 }: OrderCopyPanelProps) {
@@ -186,6 +188,8 @@ function CopyPanel({
     setBusy(true);
     setError(null);
     try {
+      await beforeDispatch?.();
+      signal.throwIfAborted();
       await action(signal);
       signal.throwIfAborted();
     } catch {

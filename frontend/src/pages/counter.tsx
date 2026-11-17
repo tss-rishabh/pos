@@ -41,6 +41,7 @@ import {
 } from './invoice-documents';
 import { CashierShortcutHelp } from './cashier-shortcuts/help';
 import { MotivationalQuote } from '../components/motivational-quote';
+import { clearOrderCopyOrigin, orderCopyRequiresOnlineReview } from './order-copy';
 import {
   bindCashierShortcuts,
   cashierShortcutScope,
@@ -129,10 +130,24 @@ export function CounterPage({
     }
   });
   const [shortcutRequest, setShortcutRequest] = useState<CashierShortcutRequest>();
+  const [, refreshCopyOrigin] = useState(0);
+  useEffect(() => {
+    const refresh = () => refreshCopyOrigin((value) => value + 1);
+    window.addEventListener('storage', refresh);
+    window.addEventListener('pos-order-copy-marker-changed', refresh);
+    return () => {
+      window.removeEventListener('storage', refresh);
+      window.removeEventListener('pos-order-copy-marker-changed', refresh);
+    };
+  }, []);
   const shortcutRoot = useRef<HTMLDivElement>(null),
     openingReview = useRef(false),
     shortcutAction = useRef<(action: CashierShortcut) => boolean>(() => false);
   const cart = drafts.find((c) => c.id === activeId) || drafts[0];
+  const recoveredCheckoutId = cart ? recoveryFor(user.id, cart.id)?.checkoutId : undefined;
+  const copiedOriginNeedsOnline = Boolean(
+    recoveredCheckoutId && orderCopyRequiresOnlineReview(user.id, storeId, recoveredCheckoutId),
+  );
   const draftId =
     cart?.ownerId === user.id && cart.storeId === storeId && cart.counterId === counterId
       ? cart.id
@@ -341,6 +356,9 @@ export function CounterPage({
       signal.throwIfAborted();
       const result = await completeSale(snapshot, receipt);
       if (signal.aborted || workspaceScope.current !== completedScope) return;
+      const copiedCheckoutId = recoveryFor(snapshot.ownerId, snapshot.id)?.checkoutId;
+      if (copiedCheckoutId)
+        clearOrderCopyOrigin(snapshot.ownerId, snapshot.storeId, copiedCheckoutId);
       clearRecovery(snapshot.ownerId, snapshot.id);
       setReview((current) => (current?.id === snapshot.id ? null : current));
       const currentDraft = !activeDraftId.current || activeDraftId.current === snapshot.id;
@@ -371,6 +389,7 @@ export function CounterPage({
   async function checkoutCleared(snapshot: LocalDraft, clearance: CheckoutClearance) {
     try {
       const result = await clearReviewedDraft(snapshot, clearance);
+      clearOrderCopyOrigin(snapshot.ownerId, snapshot.storeId, clearance.checkoutId);
       clearRecovery(snapshot.ownerId, snapshot.id);
       setReview((current) => (current?.id === snapshot.id ? null : current));
       if (
@@ -733,6 +752,7 @@ export function CounterPage({
               draft={cart}
               online={online}
               reviewBusy={Boolean(review) || reviewOpening}
+              onlineReviewRequired={copiedOriginNeedsOnline}
               onOpenChange={setCashOpen}
               onCompleted={cashCompleted}
             />

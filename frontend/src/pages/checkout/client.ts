@@ -6,6 +6,7 @@ import {
 } from '../../offline/performance/storage';
 import { confirmedPaymentSchema } from './receipts';
 import { checkoutClearanceSchema } from '../../api/checkout-clearance';
+import { copyBindingSchema } from '../order-copy/client';
 
 const cartSchema = z
   .object({
@@ -103,6 +104,7 @@ export const checkoutSchema = z
     cart: cartSchema.nullable(),
     quote: z.record(z.string(), z.unknown()).nullable(),
     busyOperationId: z.string().nullable(),
+    orderCopy: copyBindingSchema.nullable().optional(),
     giftCards: z.record(
       z.string(),
       z.object({ number: z.string(), startDate: z.string(), endDate: z.string() }),
