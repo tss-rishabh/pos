@@ -77,6 +77,14 @@ jobs:
         working-directory: frontend
         env:
           ORDER_IMPORT_BROWSER_TESTS: 'true'
+      - name: Manager import correction validation
+        run: npx tsc -p tests/import-corrections/tsconfig.json --noEmit
+        working-directory: frontend
+      - name: Manager import correction recovery browser checks
+        run: npx vitest run tests/import-corrections/browser.test.ts --maxWorkers=1
+        working-directory: frontend
+        env:
+          ORDER_IMPORT_BROWSER_TESTS: 'true'
       - name: Historical order reader browser checks
         run: node tests/order-history/browser-check.mjs
         working-directory: frontend

@@ -55,6 +55,13 @@ financial binding/approval/settlement composition are implemented. The private
 source calculation-rejection producer and source execution of a correction still
 require integration; financial production flags remain unselected.
 
+The connected manager-correction slice passes all77 scoped financial-core,
+native coordinator/API and runtime checks, strict TypeScript and lint. All21
+actual-page correction/approval Chromium workflows pass in the merged tree.
+The native workflow now includes the new correction compiler/browser checks.
+These focused results do not replace the pending consolidated parity run or
+the private-source correction producer qualification.
+
 The integrated private fulfillment runtime passes 50 focused checks, including
 six native shared-guard cases, strict compilation and lint. The backend and
 private receiver container target build; its default command passes a
@@ -84,7 +91,7 @@ printer acceptance remain outstanding.
   Source-qualified membership staging and screening admission candidates are
   merged, with native rollback, replay and contention checks. Manager correction
   APIs, recovery fences and UI are also merged; the original signed rejection,
-  native correction, approval and settlement composition is being qualified.
+  native correction, approval and settlement composition passes scoped checks.
   Membership historical publication, all-writer screening coordination and
   remaining benefit/complementary profiles still require implementation and
   consolidated qualification. Tender/header mismatches stay paused before
