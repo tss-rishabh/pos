@@ -36,7 +36,11 @@ The independent counter publisher is an active service account declared as
 `POS_SCREENING_COUNTER_PUBLISHER_GRANTEE`, separate from the application and
 all locked owners. It may SELECT/INSERT/UPDATE counter heads and counters,
 SELECT/INSERT/DELETE contributions, and read source tables. It owns no stored
-objects. This declaration is included in the history policy; it is not a DBA
+objects. SHOW_ROUTINE permits it to compare the exact readonly metadata function
+body. A dedicated counter-publication qualifier accepts this exact current
+publisher only while performing projection CAS; ordinary application/source
+qualification continues to reject that caller. All grant, object, role, proxy,
+table, alias and trigger checks still apply. This declaration is included in the history policy; it is not a DBA
 exception or permission for interactive historical reads. Warehouse readers
 remain read-only and are never reused as warehouse writers.
 

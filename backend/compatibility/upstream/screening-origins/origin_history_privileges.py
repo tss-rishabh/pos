@@ -50,7 +50,7 @@ def grantee(value):
     return account(match.group(1)+'@'+match.group(2))
 
 
-def _qualified(session,expected,trigger_owner):
+def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     audit=os.environ.get('POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER','')
     try:administrators=json.loads(os.environ.get('POS_SCREENING_ORIGIN_HISTORY_ADMIN_GRANTEES','[]'))
     except Exception:refused()
@@ -60,6 +60,8 @@ def _qualified(session,expected,trigger_owner):
     administrators=set(administrators)
     caller=one(session,'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,@@GLOBAL.performance_schema AS performanceSchema,@@GLOBAL.skip_grant_tables AS skipGrants')
     current=account(caller['account'])
+    publisher=os.environ.get('POS_SCREENING_COUNTER_PUBLISHER_GRANTEE','')
+    if type(counter_publication) is not bool or counter_publication and (not publisher or current!=publisher):refused()
     if (caller['roles']!='NONE' or caller['proxyAccount'] is not None or caller['mandatoryRoles'] not in ('','NONE')
             or caller['performanceSchema']!=1 or caller['skipGrants']!=0
             or current in administrators or current in (audit,trigger_owner)):refused()
@@ -76,7 +78,16 @@ def _qualified(session,expected,trigger_owner):
         target=match.group(2).replace('`','')
         if 'WITH GRANT OPTION' in value.upper():refused()
         if privileges-{'USAGE','SELECT','SHOW VIEW','SHOW_ROUTINE','SHOW ROUTINE','PROCESS','EXECUTE','INSERT','UPDATE','DELETE','REFERENCES','INDEX'}:refused()
-        if privileges.intersection({'INSERT','UPDATE','DELETE','INDEX'}) and (target=='*.*' or target.endswith('.*') or target.split('.')[-1] in ALL_HEADS):refused()
+        writes=privileges.intersection({'INSERT','UPDATE','DELETE','INDEX'})
+        publication_rights={
+            'pos_rewrite_screening_counter_heads':{'INSERT','UPDATE'},
+            'pos_rewrite_screening_counters':{'INSERT','UPDATE'},
+            'pos_rewrite_screening_contributions':{'INSERT','DELETE'},
+        }
+        if writes:
+            if counter_publication:
+                if not target.startswith(schema+'.') or writes-publication_rights.get(target[len(schema)+1:],set()):refused()
+            elif target=='*.*' or target.endswith('.*') or target.split('.')[-1] in ALL_HEADS:refused()
         if 'EXECUTE' in privileges and target!=f'FUNCTION {schema}.{INFO}':refused()
     # Pin actual base tables before reading their trigger metadata. Optional
     # families are explicit deployment declarations; no historical rows are read.
@@ -103,12 +114,13 @@ def _qualified(session,expected,trigger_owner):
             or any(not isinstance(data[name],list) or len(data[name])>1000 for name in sections)):refused()
     additional,families=participants(data,trigger_owner)
     publication_owner(additional,families,trigger_owner)
+    if counter_publication and (publisher not in additional or not additional[publisher].get('publisher')):refused()
     owner_specs={trigger_owner:{'family':'origin','names':{item['name'] for item in expected},
         'watched':{'orders','users'},'heads':{
             'pos_rewrite_screening_origin_history_heads':{'SELECT','INSERT','UPDATE'},
             'pos_rewrite_screening_origin_history_changes':{'INSERT'}},'procedures':{}},**additional}
     heads=HEADS|set().union(*(set(spec['heads']) for spec in additional.values()))
-    if set(additional).intersection(administrators|{audit,current}):refused()
+    if set(additional).intersection(administrators|{audit}|(set() if counter_publication else {current})):refused()
     accounts={}
     for raw in data['accounts']:
         item=fields(raw,{'name','locked'});name=account(item['name'])
@@ -150,7 +162,7 @@ def _qualified(session,expected,trigger_owner):
                 or item['target'] not in ('global','protected-schema','grants','control','watched','other')):refused()
         if owner in owner_specs:
             spec=owner_specs[owner]
-            allowed={'USAGE'} if scope=='global' else (
+            allowed=({'USAGE','SHOW_ROUTINE','SHOW ROUTINE'} if spec.get('publisher') else {'USAGE'}) if scope=='global' else (
                 SOURCE_READ if spec.get('publisher') and scope=='schema' and target_schema==schema else
                 {'SELECT'} if spec.get('publisher') and scope=='table' and target_schema==schema and table in WATCHED else
                 {'SELECT','TRIGGER'} if scope=='table' and target_schema==schema and table in spec['watched'] else
@@ -260,11 +272,11 @@ def qualify(session,expected,trigger_owner):
     return _qualified(session,expected,trigger_owner)['policy']
 
 
-def qualified_head_metadata(session):
+def qualified_head_metadata(session,*,counter_publication=False):
     definition=Path(__file__).with_name('history-heads.review.sql').read_text()
     expected=[]
     for name,action,table,body in re.findall(r"CREATE(?: DEFINER='[^']+'@'[^']+')? TRIGGER (\w+) AFTER (INSERT|UPDATE|DELETE) ON (\w+) FOR EACH ROW\s*(.*?)END\$\$",definition,re.S):
         expected.append({'name':name,'action':action,'table':table,'body':' '.join((body+'END').split())})
     owner=os.environ.get('POS_SCREENING_ORIGIN_HISTORY_DEFINER','')
     if len(expected)!=4 or not ADMIN.fullmatch(owner):refused()
-    return _qualified(session,expected,owner)
+    return _qualified(session,expected,owner,counter_publication=counter_publication)
