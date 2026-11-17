@@ -5,7 +5,7 @@ import json
 from sqlalchemy import text
 from writer_protocol import CONTRACT,fail
 from native_authority import rows,one,value_json
-from screening_profile import (SOURCE,CONTRACT as RESERVATION_CONTRACT,SKU,COUNT_SQL,
+from screening_profile import (SOURCE,CONTRACT as RESERVATION_CONTRACT,SKU,
                                checked_state,native_projection,write_state)
 from protocol import digest,canonical
 from transaction import TransactionSession
@@ -36,7 +36,8 @@ def authority_hash(key,cap):
 def reserve(session,cap,key,quantity,line_items,now):
     if type(quantity) is not int or quantity not in (1,2) or type(line_items) is not bool:fail('SCREENING_WRITER_LIMIT')
     if rows(session,'SELECT operation_id FROM pos_rewrite_import_screening_reservations WHERE operation_id=:id FOR UPDATE',{'id':cap['operationId']},1):fail('SCREENING_WRITER_RECONCILIATION_REQUIRED')
-    bought=int(one(session,COUNT_SQL,{'user_id':cap['customerId'],'sku':SKU})['cnt'])
+    from screening_counter import read_current
+    bought=read_current(session,cap['customerId']).count
     pending=0
     others=rows(session,'SELECT * FROM pos_rewrite_import_screening_reservations FORCE INDEX (ix_import_screening_customer) WHERE customer_id=:id AND sku=:sku ORDER BY operation_id',{'id':cap['customerId'],'sku':SKU},1000)
     for row in others:

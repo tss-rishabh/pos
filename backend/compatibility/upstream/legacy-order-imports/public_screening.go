@@ -34,6 +34,7 @@ type publicScreeningCreation struct {
 	Markers              []screeningMarker `json:"markers"`
 	EffectsHash          string            `json:"effectsHash"`
 	CreatedAt            int64             `json:"createdAt"`
+	BenefitsHash         *string           `json:"benefitsHash,omitempty"`
 }
 
 func verifyPublicScreeningCreation(ctx context.Context, tx *sql.Tx, state screeningState, key string) error {
@@ -58,7 +59,11 @@ func verifyPublicScreeningCreation(ctx context.Context, tx *sql.Tx, state screen
 	var original map[string]interface{}
 	decoder = json.NewDecoder(bytes.NewReader(raw))
 	decoder.UseNumber()
-	if decoder.Decode(&original) != nil || len(original) != 22 {
+	if decoder.Decode(&original) != nil || len(original) != 22 && len(original) != 23 {
+		return ErrReview
+	}
+	_, hasBenefits := original["benefitsHash"]
+	if hasBenefits != (value.BenefitsHash != nil) || len(original) != 22+boolCount(hasBenefits) || hasBenefits && !consentDigest.MatchString(*value.BenefitsHash) {
 		return ErrReview
 	}
 	expected, err := importMAC(key, "legacy-order-imports.source.public-screening-creation.v1", original)
@@ -109,7 +114,19 @@ func verifyPublicScreeningCreation(ctx context.Context, tx *sql.Tx, state screen
 	if abandoned != 0 {
 		return ErrReview
 	}
+	if value.BenefitsHash != nil {
+		if err = verifyPublicBenefitBinding(ctx, tx, value, key); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+func boolCount(value bool) int {
+	if value {
+		return 1
+	}
+	return 0
 }
 
 func validPublicRevision(value string) bool {

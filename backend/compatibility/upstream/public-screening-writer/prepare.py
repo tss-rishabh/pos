@@ -56,6 +56,9 @@ def outputs():
     changes['pos_node_screening.py']=('',entry)
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+name if old else '/dev/null',tofile='b/'+name)) for name,(old,new) in changes.items())
     files=('writer_protocol.py','native_authority.py','creation.py','source_frame.py','bootstrap.py','public_effects.py','publication_resource.py','negative.py','negative_resource.py','migration.review.sql')
+    benefit_files=('benefit_preparation.py','membership_history_heads.py','public_benefit_cache.py','public_benefits.py',
+                   'public_gifts.py','public_membership.py','public_membership_history.py','public_membership_worker.py',
+                   'public_tracking.py','membership-history-writers.review.json','membership-history-writers.review.sql')
     manifest={'contract':'pos-node-screening-writer-v1','activated':False,'sourceCommit':'2960acbea10c4eaf16b6d99e15ff6e03ef7724c5',
               'scope':'Node POS origin plus private-import order guard; other public/system writers unqualified',
               'base':{name:hashlib.sha256(old.encode()).hexdigest() for name,(old,_) in changes.items() if old},
@@ -63,6 +66,12 @@ def outputs():
               'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in files},
               'modelComposition':{'contract':'pos-import-source-model-v1','activated':False,
                 'files':{name:hashlib.sha256((COMMON/name).read_bytes()).hexdigest() for name in ('model_compat.py','transaction.py')}},
+              'screeningCurrentCounter':{'contract':'pos-screening-current-counter-v1','activated':False,
+                'historicalRouting':'complete independently qualified BQ baseline plus atomic current contributions',
+                'files':{name:hashlib.sha256((COMMON/name).read_bytes()).hexdigest() for name in (
+                    'screening_counter.py','screening_preparation.py','screening-counter-definition.json','screening-counter.review.sql')}},
+              'benefits':{'contract':'pos-node-screening-benefits-v1','activated':False,
+                'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in benefit_files}},
               'patchSha256':hashlib.sha256(patch.encode()).hexdigest()}
     return {'public-pos-screening.patch':patch,'manifest.json':json.dumps(manifest,indent=2)+'\n'}
 

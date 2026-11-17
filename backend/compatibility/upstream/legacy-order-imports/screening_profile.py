@@ -11,6 +11,7 @@ import inspect
 import json
 import hmac
 import re
+from contextlib import contextmanager
 from contextvars import ContextVar
 
 from protocol import ImportReview, digest, verify_capability
@@ -133,7 +134,7 @@ def native_projection(session, value, order_id):
     return projection, order['order_status'] is not None and order['order_status'] not in (0, 17)
 
 
-def admission(session, cap, plan, key, line_items):
+def admission(session, cap, plan, key, line_items, snapshot=None):
     # Only the Receiver-owned current RC prelude can issue this opaque witness.
     # Missing/primed/reused scopes are not converted into a zero bought-count.
     try:
@@ -151,14 +152,11 @@ def admission(session, cap, plan, key, line_items):
         value['kind'] != plan['kind'] or value['quantity'] != quantity or value['lineItemsEnabled'] != line_items or
         value['phase'] != 'RESERVED' or value['orderId'] is not None):
         raise ImportReview('ORDER_IMPORT_SCREENING_REPLAY_REQUIRED')
-    # Same global user lock is required before Order locks in every cooperating
-    # writer. The original receiver already holds fresh actor/store/customer scope.
-    # First consistent native read after the witnessed customer lock. It takes
-    # no marker range or joined Order locks, including on an empty customer.
-    try:
-        bought = int(one(session, COUNT_SQL, {'user_id': value['customerId'], 'sku': SKU})['cnt'])
-    except Exception:
-        raise ImportReview('ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE') from None
+    from screening_counter import read_current
+    snapshot=read_current(session,value['customerId']) if snapshot is None else snapshot
+    snapshot.guard()
+    if snapshot.customer!=value['customerId']:raise ImportReview('ORDER_IMPORT_SCREENING_SCOPE_CHANGED')
+    bought=snapshot.count
     all_rows = rows(session, 'SELECT * FROM pos_rewrite_import_screening_reservations FORCE INDEX (ix_import_screening_customer) WHERE customer_id=:id AND sku=:sku ORDER BY operation_id', {'id': value['customerId'], 'sku': SKU}, 1002)
     if len(all_rows) > 1000:
         raise ImportReview('ORDER_IMPORT_SCREENING_RECONCILIATION_REQUIRED')
@@ -201,24 +199,41 @@ class ScreeningSourceRuntime:
     def __getattr__(self, name):
         return getattr(self.source, name)
 
+    @contextmanager
+    def preparation_scope(self, session, user, plan, capability):
+        if not any(line['productId'] == SKU for line in plan['lines']):
+            yield
+            return
+        from screening_preparation import capture
+        with capture(self,session,user,plan,capability):yield
+
+    def preparation_pipeline(self, session, user, plan, capability):
+        if not any(line['productId'] == SKU for line in plan['lines']):
+            return self.source.preparation_pipeline(session,user,plan,capability)
+        from screening_preparation import replay
+        with replay(self,session,user,plan,capability) as supplied:
+            return self.source.preparation_pipeline(supplied,user,plan,capability)
+
     def order_pipeline(self, session, user, plan, capability):
         if not any(line['productId'] == SKU for line in plan['lines']):
             return self.source.order_pipeline(session, user, plan, capability)
         cap = verify_capability(self.auth_key, capability, capability['operationId'], 'order', plan, self.clock())
         if str(user['user_id']) != cap['authority']['customerId']:
             raise ImportReview('ORDER_IMPORT_SCREENING_SCOPE_CHANGED')
-        value = admission(session, cap, plan, self.proof_key, bool(self.source.settings.IS_LINE_ITEM_ENABLED))
+        from screening_counter import read_current,writer_entry,ReplaySession,CounterReadRefused
+        snapshot=read_current(session,cap['authority']['customerId'])
+        value = admission(session, cap, plan, self.proof_key, bool(self.source.settings.IS_LINE_ITEM_ENABLED),snapshot)
         token = CURRENT_PROFILE.set(self.base)
         try:
-            order_id, cart = self.source.order_pipeline(session, user, plan, cap)
-            projection, _counted = native_projection(session, value, order_id)
-            write_state(session, self.proof_key, {**value, 'phase': 'BOUND', 'orderId': str(order_id), **projection}, self.clock())
-            # Re-read after the literal source writes: an original helper's
-            # catch-and-return-zero can never stand in for a valid counter read.
-            try:
-                one(session, COUNT_SQL, {'user_id': value['customerId'], 'sku': SKU})
-            except Exception:
-                raise ImportReview('ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE') from None
-            return order_id, cart
+            with writer_entry(session,snapshot.customer):
+                supplied=ReplaySession(session,snapshot)
+                order_id, cart = self.source.order_pipeline(supplied, user, plan, cap)
+                projection, counted = native_projection(session, value, order_id)
+                write_state(session, self.proof_key, {**value, 'phase': 'BOUND', 'orderId': str(order_id), **projection}, self.clock())
+                if supplied.reads==0:raise ImportReview('ORDER_IMPORT_SCREENING_COUNTER_INVALID')
+                snapshot.validate(value['markerRows'] if counted else 0)
+                return order_id, cart
+        except CounterReadRefused:
+            raise ImportReview('ORDER_IMPORT_SCREENING_COUNTER_INVALID') from None
         finally:
             CURRENT_PROFILE.reset(token)

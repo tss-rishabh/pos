@@ -52,6 +52,10 @@ import {
   screeningMaximum,
   screeningReservationOrigins,
 } from './screening-contracts.js';
+import {
+  readCurrentScreeningCounter,
+  type ScreeningCounterOptions,
+} from './screening-counter/reader.js';
 export {
   screeningProfileContract,
   screeningSchemaContract,
@@ -146,6 +150,7 @@ export interface ScreeningProfileOptions {
   proofKey: string;
   financialSecret: string;
   clock?: () => number;
+  counter?: ScreeningCounterOptions;
 }
 /** Physical IDs/indexes verified in evidence/mysql-screening-schema.json. */
 export const screeningPurchases = mysqlTable('spiderman_screening_orders', {
@@ -199,24 +204,16 @@ export function screeningCountStatement(customerId: string) {
       WHERE s.user_id=${BigInt(customerId)} AND hp.prod_id=${BigInt(screeningTicketSku)}
         AND o.order_status NOT IN (0,17)`;
 }
-/** Exact source count with no joined/range locks. RC + customer lock are mandatory. */
+/** The literal source query is qualification/oracle-only. Interactive reads
+ * use the complete current projection, never old raw marker/Order/HP facts. */
 export async function readScreeningTicketCount(
   tx: AdministrationTransaction,
   customerId: string,
+  options?: ScreeningCounterOptions,
 ): Promise<bigint> {
   identifier.parse(customerId);
   assertScreeningCustomer(tx, customerId);
-  try {
-    const [rows] = await tx.execute(screeningCountStatement(customerId));
-    return BigInt(
-      z
-        .array(z.object({ value: count }))
-        .length(1)
-        .parse(rows)[0]!.value,
-    );
-  } catch {
-    throw importFinancialError('ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE', 503);
-  }
+  return (await readCurrentScreeningCounter(tx, customerId, options)).count;
 }
 export function enforceScreeningTicketLimit(bought: bigint, quantity: number, pending = 0) {
   if (
@@ -476,7 +473,11 @@ export function screeningImportProfile(
       else if (value.phase === 'BOUND' && !(await structural(tx, value)).counted)
         pending += value.markerRows;
     }
-    const bought = await readScreeningTicketCount(tx, bound.state.authority.customerId);
+    const bought = await readScreeningTicketCount(
+      tx,
+      bound.state.authority.customerId,
+      options.counter,
+    );
     enforceScreeningTicketLimit(bought, line.quantity, pending);
     const now = clock(),
       value = screeningReservationSchema.parse({

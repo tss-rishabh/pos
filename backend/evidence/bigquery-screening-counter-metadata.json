@@ -1,0 +1,24 @@
+{
+  "checkedAt": "2026-11-17T17:36:27.552Z",
+  "project": "tssgcp2025",
+  "dataset": "tss_mysql_raw_layer",
+  "location": "asia-south1",
+  "requestedNames": [
+    "tss_spiderman_screening_orders",
+    "spiderman_screening_orders",
+    "tss_orders",
+    "tss_has_products"
+  ],
+  "tables": [
+    {
+      "table_name": "tss_has_products",
+      "table_type": "BASE TABLE"
+    },
+    {
+      "table_name": "tss_orders",
+      "table_type": "BASE TABLE"
+    }
+  ],
+  "sourceRowsRead": 0,
+  "readOnly": true
+}

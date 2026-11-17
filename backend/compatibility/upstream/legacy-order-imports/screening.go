@@ -31,6 +31,9 @@ type importConfirmationPrelude struct {
 	publicOperation           string
 	ticket, customerLocked    bool
 	projection                *screeningProjection
+	counterLocks              []string
+	counterConnection         *sql.Conn
+	counterPoisoned           bool
 }
 
 // The only consistent hint is outside the owned transaction. It grants no
@@ -103,11 +106,25 @@ func beginImportConfirmation(ctx context.Context, db *sql.DB, orderID int64) (*s
 	if p.ticket || p.operation != "" {
 		isolation = sql.LevelReadCommitted
 	}
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: isolation})
+	var tx *sql.Tx
+	if p.ticket {
+		p.counterConnection, err = db.Conn(ctx)
+		if err == nil {
+			tx, err = p.counterConnection.BeginTx(ctx, &sql.TxOptions{Isolation: isolation})
+		}
+	} else {
+		tx, err = db.BeginTx(ctx, &sql.TxOptions{Isolation: isolation})
+	}
 	if err != nil {
+		closeScreeningCounterConnection(p)
 		return nil, nil, err
 	}
-	fail := func(err error) (*sql.Tx, *importConfirmationPrelude, error) { tx.Rollback(); return nil, nil, err }
+	fail := func(err error) (*sql.Tx, *importConfirmationPrelude, error) {
+		releaseScreeningCounter(ctx, tx, p)
+		tx.Rollback()
+		closeScreeningCounterConnection(p)
+		return nil, nil, err
+	}
 	if !p.ticket && p.operation == "" {
 		return tx, p, nil
 	}
@@ -138,6 +155,9 @@ func beginImportConfirmation(ctx context.Context, db *sql.DB, orderID int64) (*s
 		return fail(err)
 	}
 	p.customerLocked = true
+	if err = enterScreeningCounter(ctx, tx, p, orderID); err != nil {
+		return fail(err)
+	}
 	return tx, p, nil
 }
 
@@ -455,8 +475,8 @@ func checkScreeningConfirmation(ctx context.Context, tx *sql.Tx, p *importConfir
 	if p.projection != nil && !sameScreeningProjection(p.projection, own) {
 		return ErrReview
 	}
-	var bought uint64
-	if err = tx.QueryRowContext(ctx, ScreeningCountSQL, p.user).Scan(&bought); err != nil {
+	bought, err := readCurrentScreeningCount(ctx, tx, p.user)
+	if err != nil {
 		return err
 	}
 	rows, err := tx.QueryContext(ctx, `SELECT operation_id,customer_id,sku,order_id,CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_import_screening_reservations FORCE INDEX (ix_import_screening_customer) WHERE customer_id=? AND sku='390238' ORDER BY operation_id LIMIT 1001`, strconv.FormatInt(p.user, 10))
