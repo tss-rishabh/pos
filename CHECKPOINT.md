@@ -75,11 +75,16 @@ review SQL under `pos-review-migrations/`, with hashes in the retained manifest.
 Latest generated tree: `/tmp/pos-payments-origin-assembly-20261118-review`
 (85 files). This only generated source/copies SQL; no SQL was applied.
 
-CSK positive-prepaid authority is under source inspection. No blanket refusal or
-new mandatory external receipt requirement is an approved business correction.
-Preserve genuine source-authorized externally prepaid behavior; establish whether
-the original service key carries that authority before changing the contract.
-Technical refusal receipts cannot stand in for completing that existing feature.
+CSK positive-prepaid authority is resolved from pinned API2960 source:
+`controllers/external/OrderPlacement.py:17–61` validates the actual configured
+CSK key/pricelist, forces prepaid and invokes original Order/payment;
+`libs/OrderHelper.py:303` exempts authenticated external_api from the nonzero
+method3 restriction. Admin/Hyper will preserve this genuine externally prepaid
+authority through a purpose-bound durable service funding declaration tied to
+original authority/reference/request/cart/header. No new PSP prerequisite,
+blanket refusal or user policy question is needed. Ordinary customer/staff
+method3 retains its source zero-payable restriction. Technical refusal receipts
+cannot stand in for completing an existing feature.
 
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
