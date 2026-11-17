@@ -328,7 +328,7 @@ export async function abandonPublicBenefits(
       .limit(1)
       .for('update');
     if (!cache) throw screeningReconciliationRequired();
-    const value = z
+    const cacheValue = z
       .object({
         contract: z.literal('pos-public-screening-membership-cache-v1'),
         operationId: z.uuid(),
@@ -342,13 +342,13 @@ export async function abandonPublicBenefits(
       .parse(cache.data);
     if (
       cache.status !== 'pending' ||
-      value.operationId !== creation.operationId ||
-      value.benefitHash !== creation.benefitsHash ||
-      value.createdAt !== creation.createdAt ||
-      cache.proofHash !== publicScreeningHash(key, 'benefit-cache', value)
+      cacheValue.operationId !== creation.operationId ||
+      cacheValue.benefitHash !== creation.benefitsHash ||
+      cacheValue.createdAt !== creation.createdAt ||
+      cache.proofHash !== publicScreeningHash(key, 'benefit-cache', cacheValue)
     )
       throw screeningReconciliationRequired();
-    const cancelled = { ...value, status: 'cancelled', updatedAt: now };
+    const cancelled = { ...cacheValue, status: 'cancelled', updatedAt: now };
     await tx
       .update(publicBenefitCache)
       .set({

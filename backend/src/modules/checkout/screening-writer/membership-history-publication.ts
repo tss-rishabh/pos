@@ -10,6 +10,7 @@ import {
   readNativeHeadMetadata,
   nativeHeadMetadataOptionsSchema,
   canonicalNativeHeadJson,
+  type NativeHeadMetadataOptions,
 } from '../../screening-origins/native-head-metadata.js';
 import {
   membershipGenerationContract,
@@ -70,7 +71,9 @@ function records<T>(raw: unknown, schema: z.ZodType<T>, maximum: number): T[] {
  * origin is checked inside its explicit READ ONLY consistent snapshot. */
 export function nativeMembershipGenerationPublisher(
   db: Databases,
-  suppliedOptions: z.input<typeof optionsSchema>,
+  suppliedOptions: Omit<z.input<typeof optionsSchema>, 'headMetadata'> & {
+    readonly headMetadata: NativeHeadMetadataOptions;
+  },
   authority: { sourceKey: string; memberIds: readonly string[] },
 ) {
   const options = optionsSchema.parse(suppliedOptions);
