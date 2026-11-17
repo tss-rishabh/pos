@@ -14,13 +14,22 @@ describe('source customer-service thoughts', () => {
       'python3',
       [
         '-c',
-        `import ast, hashlib, json, types
+        `import ast, hashlib, json, os, types
 from pathlib import Path
-source = Path('../../backend-pos-web/core')
-pool_file = source / 'quotes.py'
-assert hashlib.sha256(pool_file.read_bytes()).hexdigest() == '5a0367c1557da49fcf1bea16b689718a674fe18bfa735507b8df1e22858c9216'
-pool = ast.literal_eval(ast.parse(pool_file.read_text()).body[0].value)
-handler = next(node for node in ast.parse((source / 'views.py').read_text()).body if isinstance(node, ast.ClassDef) and node.name == 'AjaxGetQuotesView')
+source = Path(os.environ.get('LEGACY_SOURCE_ROOT', '../../backend-pos-web')) / 'core'
+pins = {'quotes.py':'5a0367c1557da49fcf1bea16b689718a674fe18bfa735507b8df1e22858c9216',
+        'views.py':'20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349',
+        'urls.py':'d39946333ef88c2f9210844172d6191f2cf9c4adff4cb7c83be9d920d586a124'}
+raw = {name:(source / name).read_bytes() for name in pins}
+assert all(hashlib.sha256(raw[name]).hexdigest() == expected for name,expected in pins.items())
+pool = ast.literal_eval(ast.parse(raw['quotes.py']).body[0].value)
+handler = next(node for node in ast.parse(raw['views.py']).body if isinstance(node, ast.ClassDef) and node.name == 'AjaxGetQuotesView')
+assert [base.id for base in handler.bases] == ['LoginRequiredMixin','View']
+route = [node for node in ast.walk(ast.parse(raw['urls.py'])) if isinstance(node,ast.Call)
+         and isinstance(node.func,ast.Name) and node.func.id == 'path' and node.args
+         and isinstance(node.args[0],ast.Constant) and node.args[0].value == 'ajax-get-quotes/']
+assert len(route) == 1 and route[0].lineno == 66
+assert ast.unparse(route[0].args[1]) == 'sync_to_async(core_views.AjaxGetQuotesView.as_view(), thread_sensitive=False)'
 method = next(node for node in handler.body if isinstance(node, ast.FunctionDef) and node.name == 'get')
 space = {'json': json, 'quotes': types.SimpleNamespace(quotes_list=pool), 'HttpResponse': lambda body, **kwargs: json.loads(body)}
 exec(compile(ast.fix_missing_locations(ast.Module(body=[method], type_ignores=[])), 'pinned-quote-handler', 'exec'), space)

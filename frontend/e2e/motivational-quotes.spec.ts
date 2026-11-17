@@ -1,4 +1,32 @@
 import { expect, test } from '@playwright/test';
+import { z } from 'zod';
+
+test('the signed-in counter displays and refreshes the real backend quote', async ({ page }) => {
+  const responseSchema = z.object({ text: z.string().min(1).max(2000) }).strict();
+  const firstReply = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/v1/motivational-quotes/random') &&
+      response.request().method() === 'GET',
+  );
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Explore demo workspace' }).click();
+  const initial = await firstReply;
+  expect(initial.status()).toBe(200);
+  const initialBody: unknown = await initial.json();
+  const card = page.getByRole('complementary', { name: 'Customer service thought' });
+  await expect(card).toContainText(responseSchema.parse(initialBody).text);
+
+  const refreshedReply = page.waitForResponse(
+    (response) =>
+      response.url().endsWith('/api/v1/motivational-quotes/random') &&
+      response.request().method() === 'GET',
+  );
+  await card.getByRole('button', { name: 'Refresh thought' }).click();
+  const refreshed = await refreshedReply;
+  expect(refreshed.status()).toBe(200);
+  const refreshedBody: unknown = await refreshed.json();
+  await expect(card).toContainText(responseSchema.parse(refreshedBody).text);
+});
 
 test('thoughts refresh asynchronously, render as text and remain readable offline', async ({
   page,
