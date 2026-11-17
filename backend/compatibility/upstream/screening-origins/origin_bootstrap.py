@@ -225,14 +225,29 @@ class OriginBootstrap:
         if self.runtime is None:return
         resource=OriginCommands(self.runtime)
         path=settings.API_PREFIX+'/screening-commands'
-        app.add_route(path,resource);app.add_route(path+'/{command_id}',resource)
-        app.add_route(path+'/{command_id}/close',OriginClose(resource))
+        app.add_route(path,OriginBoundary(resource,('on_post',)));app.add_route(path+'/{command_id}',OriginBoundary(resource,('on_get',)))
+        app.add_route(path+'/{command_id}/close',OriginBoundary(OriginClose(resource),('on_post',)))
         if self.system is not None:
             from origin_system import SystemClose,SystemResume
             system_path=settings.API_PREFIX+'/external/screening-orders'
-            app.add_route(system_path,self.system);app.add_route(system_path+'/{command_id}',self.system)
-            app.add_route(system_path+'/{command_id}/close',SystemClose(self.system))
-            app.add_route(system_path+'/{command_id}/resume',SystemResume(self.system))
+            app.add_route(system_path,OriginBoundary(self.system,('on_post',)));app.add_route(system_path+'/{command_id}',OriginBoundary(self.system,('on_get',)))
+            app.add_route(system_path+'/{command_id}/close',OriginBoundary(SystemClose(self.system),('on_post',)))
+            app.add_route(system_path+'/{command_id}/resume',OriginBoundary(SystemResume(self.system),('on_post',)))
+
+
+class OriginBoundary:
+    """Prevent native SDK/SQL errors and private values reaching source logs."""
+    def __init__(self,resource,methods):self.resource,self.methods=resource,methods
+    def invoke(self,method,req,resp,*args,**kwargs):
+        handler=getattr(self.resource,method,None)
+        if handler is None or method not in self.methods:
+            import falcon
+            raise falcon.HTTPMethodNotAllowed([name[3:].upper() for name in self.methods])
+        try:return handler(req,resp,*args,**kwargs)
+        except OriginReview as error:static_error(error)
+        except BaseException:static_error(OriginReview())
+    def on_get(self,req,resp,*args,**kwargs):return self.invoke('on_get',req,resp,*args,**kwargs)
+    def on_post(self,req,resp,*args,**kwargs):return self.invoke('on_post',req,resp,*args,**kwargs)
 
 
 def static_error(error):
