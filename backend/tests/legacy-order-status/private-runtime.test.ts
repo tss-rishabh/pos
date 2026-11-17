@@ -80,6 +80,8 @@ describe('private whole-order receiver process composition', () => {
     { MYSQL_WRITER_URL: undefined },
     { MYSQL_DATA_READER_URL: 'postgres://root@localhost/synthetic' },
     { MYSQL_DATA_READER_URL: 'mysql://root@localhost/synthetic?secret=SYNTHETIC_PRIVATE_VALUE' },
+    { MYSQL_PRIMARY_READER_URL: 'mysql://invalid%ZZ@localhost/synthetic' },
+    { MYSQL_DATA_READER_URL: 'mysql://root:invalid%ZZ@localhost/synthetic' },
     { WHOLE_ORDER_STATUS_RECEIVER_HOST: 'SYNTHETIC_PRIVATE_VALUE.invalid' },
     { WHOLE_ORDER_STATUS_RECEIVER_PORT: '65536' },
     { WHOLE_ORDER_STATUS_RECEIVER_ENABLED: 'SYNTHETIC_PRIVATE_VALUE' },

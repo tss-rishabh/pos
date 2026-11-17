@@ -7,7 +7,7 @@ COPY src ./src
 COPY compatibility/upstream/whole-order-status ./compatibility/upstream/whole-order-status
 RUN npm run build
 
-FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime
+FROM node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54 AS runtime-base
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=4410
 WORKDIR /app
 COPY package.json package-lock.json ./
@@ -47,6 +47,14 @@ COPY src/modules/finance/migration.sql ./src/modules/finance/migration.sql
 COPY src/modules/operational-reports/*.sql ./src/modules/operational-reports/
 COPY src/modules/catalog-details/*.sql ./src/modules/catalog-details/
 USER node
+
+FROM runtime-base AS whole-order-status-receiver
+ENV WHOLE_ORDER_STATUS_RECEIVER_HOST=0.0.0.0 WHOLE_ORDER_STATUS_RECEIVER_PORT=4422
+EXPOSE 4422
+HEALTHCHECK --interval=30s --timeout=8s --start-period=30s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:4422/health/live',{signal:AbortSignal.timeout(6000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
+CMD ["node","dist/modules/legacy-order-status/receiver-main.js"]
+
+FROM runtime-base AS runtime
 EXPOSE 4410
 HEALTHCHECK --interval=30s --timeout=8s --start-period=30s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:4410/health/ready',{signal:AbortSignal.timeout(6000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node","dist/server.js"]

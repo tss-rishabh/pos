@@ -1,6 +1,6 @@
 # CSV tender and calculated bill: source evidence and review candidate
 
-The original CSV importer records the sum of uploaded unit prices as tender even when API-v2 calculates a lower payable. It marks the order paid/delivered and records no change. The header, refund allocation, physical counter record and reports can consequently disagree. The current rewrite refusal remains selected. The new dual-value candidate is executable **review code only**; it cannot create a payment, refund, cash-out or financial completion.
+The original CSV importer records the sum of uploaded unit prices as tender even when API-v2 calculates a lower payable. It marks the order paid/delivered and records no change. The header, refund allocation, physical counter record and reports can consequently disagree. The user selected **pausing mismatched rows for manager correction before financial import**. The correction workflow is being implemented with immutable original input and a proved no-effect boundary. The dual-value candidate is executable **review code only**; it cannot create a payment, refund, cash-out or financial completion.
 
 ## Pinned, executable evidence
 
@@ -53,22 +53,24 @@ For a cash50.98/header50 row, the review proposal is:
 
 For manual-other50.98/header50, actual online-other stays50.98, and the candidate online value is50.98 rather than50.00. In either branch, adding signed tender/header difference to the original DSR online residual yields the actual recorded noncash amount. Counter tender is counted once; source line revenue/tax are unchanged. A shortfall, e.g. declared80/header100, remains80 collected plus20 unresolved, never an invented20 collection. Native matrix assertions verify these identities against source records.
 
-## Business decision required before relaxing the existing gate
+## Approved pause-and-correct policy
 
 CSV unit prices are a historical declaration, not independent provider/cash-receipt evidence. In particular, original code does not prove whether the person actually paid50 or50.98, and it does not prove a current automatic birthday promotion existed on the historical sale date. The rewrite must not silently decide the customer's extra refund entitlement or reinterpret an uploaded price as another payment.
 
-The concrete choices for review are:
+The selected policy pauses a mismatched row for manager correction before financial import. The original uploaded declaration, calculation and references remain immutable. A corrected successor requires current authority, a bound approval and proof the earlier attempt had no effects. Unknown outcomes remain GET-only. A manager must explicitly attest any corrected historical tender; changing both unit prices and inferred tender together cannot generally resolve automatic percentage discounts.
+
+The alternatives evaluated were:
 
 - **Keep mismatches blocked for correction before financial import (recommended).** Preserve the original uploaded declaration and exact source calculation in a manager review record. Do not accept a new payment, change header/refunds, mark a mismatched row paid or issue an invoice automatically. A corrected import must retain auditable original references and prove the earlier command had no effects; it must never redispatch an unknown stage.
 - **Permit the exact declared tender with an unresolved manager variance.** Preserve source header/refunds and collected tender, append the bound immutable variance, and correct DSR using actual counter channels. This requires deciding how that variance is resolved/refunded and ensuring pending/late collected money is visible in day-close/ledger. No automatic cash-out or enlarged refund is implied. Source paid-status behavior versus pending manager reconciliation must be explicitly selected, not inferred.
 
-Neither choice is enabled by this commit. A nonzero difference is not just a deployment flag. The manager workflow, bound approval, source receipt extension, immutable variance journal/finance publication and final core execution remain CODE work after a reviewed policy. The current equality refusal remains intact.
+The selected manager workflow, bound correction descriptor and private financial/source receipt integration remain CODE work. A nonzero difference is not just a deployment flag. The equality refusal remains in force until the approved correction is validated. The alternate variance journal/finance-publication path is unselected and is not required by the approved policy.
 
-## Minimal future integration contract
+## Required correction integration contract
 
-Before changing the financial core, compose a versioned, HMAC-sealed private source tender descriptor with operation/plan/order/native header+HP+counter hashes, original ordered CSV unit sequence, original float text, canonical declaration and exact original channels. Bind its selection to the existing authenticated actor/store/counter/date/price approval; do not trust browser body approver IDs. An immutable same-transaction variance record must survive later status/refund/contact changes and have one operation identity. Completion/read/replay must verify it before releasing the existing import hold. Unknown commands remain GET-only.
+Before changing the financial core, compose a versioned, HMAC-sealed correction descriptor with the original upload/ordered units/plan, original operation and definite no-effect receipt, corrected successor operation, explicit corrected historical tender and current source calculation. Bind it to the authenticated manager/store/counter/date/price approval; do not trust browser body approver IDs. Corrections must never overwrite the original declaration, rewrite a completed sibling row or replace an unknown operation. Recheck calculation/authority before effects, and retain the exact native header/HP/counter receipt before releasing the existing import hold.
 
-The finance/DSR bridge must correct only a source row whose exact imported proof is verified. Cash remains its existing native amount, DSR online delta is signed `declared tender - source payable`, and the unresolved variance is separately visible. Historical warehouse publication needs the same immutable proof/partition lineage; absence is not a zero fallback. Frozen day-close figures must not be silently edited. Source membership/upgrade/free-membership provenance, complementary/freebie spending, and screening ticket profiles remain separate CODE gaps, not covered by these vectors. The existing-member birthday fixture adds the source order attribute but does not activate/revoke membership. No screening or actor/proof guard composition was edited.
+A corrected row proceeds only when its approved tender matches the qualified source payable; otherwise it remains paused. It does not create an unresolved variance, automatic change, extra payment or enlarged refund. The existing finance/DSR path consumes the final verified balanced record and its original channel once. Historical warehouse publication still requires immutable proof/partition lineage; missing facts are not zero and frozen closes are not silently edited. Membership/upgrade/free-membership provenance, complementary/freebie spending and screening tickets remain separate code profiles. The existing-member birthday fixture proves no membership activation/revocation. The alternate dual-value review helpers remain useful for displaying source discrepancies, but do not authorize financial execution.
 
 ## Scoped checks
 

@@ -30,7 +30,7 @@ component test counts do not certify every original workflow.
 | Order copying            | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Native OTP/contact/session fences, serialized unsent cancellation and dedicated validated terminal clear are integrated. Fifty-three affected backend and 21 scoped frontend checks pass, including five actual Counter/Review Chromium flows and lost-clear recovery without another POST. |
 | Cash payment corrections | Durable prepare/arm/attest/record commands, cross-manager pending-return recovery and retained device claims are integrated. Native corrections compose with current collections, ledger, DSR and sealed historical deltas. The actual Orders page preserves confirmed receipts after a failed refresh and shows one scoped manager queue. Focused native/source/browser checks pass; production contracts stay unselected. |
 | Ecommerce inventory sync | Source threshold selection, writer-current system projection/checkpoints, authenticated complete catalog bridge and the actual settings recovery UI are wired into the existing queue/worker. Twenty-four merged backend checks (including 16 bridge subcases) and eight frontend checks pass, with strict checks. Actual stock/writer/catalog coordination and provider deployment acceptance remain required.                                         |
-| Whole-order fulfillment  | Dedicated PACK/SHIP/DELIVER commands, full immutable order-line scope, source-pinned STORE worker, public resources and deferred Orders recovery UI are integrated. Atomic rejected-return obligations, bounded dispatch, manager recovery and public financial handover guards are integrated. The standalone private receiver composition remains pending; production contracts stay disabled. |
+| Whole-order fulfillment  | Dedicated PACK/SHIP/DELIVER commands, full immutable order-line scope, source-pinned STORE worker, public resources and deferred Orders recovery UI are integrated. Atomic rejected-return obligations, bounded dispatch, manager recovery and shared public/private financial handover guards are integrated. The standalone private receiver has its own command, bind settings and container target. Production ingress/vendor/writer acceptance remains required. |
 
 ## Fixed remaining code checklist
 
@@ -49,8 +49,15 @@ fixture compiler check and all 50 main Playwright cases then passed; the exact
 follow-up scope is `backend/evidence/integration-followup-56f2543.json`.
 Subsequent code requires another consolidated run. Native source/candidate tests
 now also cover 41 CSV tender scenarios and 13 review cases, plus four Python
-checks over 20 frozen source vectors. The mismatch policy is awaiting the user;
-the new tender review helpers cannot execute financial actions.
+checks over 20 frozen source vectors. The user selected pausing tender/header
+mismatches for manager correction before import. That correction workflow is
+being implemented; the tender review helpers cannot execute financial actions.
+
+The integrated private fulfillment runtime passes 50 focused checks, including
+six native shared-guard cases, strict compilation and lint. The backend and
+private receiver container target build; its default command passes a
+network-disabled container smoke check. These do not certify real ingress or
+provider acceptance.
 
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
   encrypted staging, native authorization/preflight, job API, recovery UI,
@@ -77,8 +84,8 @@ the new tender review helpers cannot execute financial actions.
   actual publisher/source-barrier acceptance remains external.
 - Qualify the source order-search historical publication/contact-key generation
   and representative queue workload; the complete UI/API/source-filter code is integrated.
-- Finish the standalone private whole-order receiver with the same shared
-  financial handover fences already injected in the public entry. The dedicated API/UI, source-pinned STORE chain,
+- Qualify the integrated standalone private whole-order receiver, container
+  target and shared financial handover fences. The dedicated API/UI, source-pinned STORE chain,
   atomic rejected-return obligations, bounded dispatcher and scoped manager
   recovery are integrated. Ecommerce stock/catalog
   synchronization, parent/store CSV and source-default account creation are

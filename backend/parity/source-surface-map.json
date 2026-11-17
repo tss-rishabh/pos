@@ -18,26 +18,25 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 285,
+      "external_acceptance": 288,
       "implementation_present": 100,
-      "partial": 8,
+      "partial": 5,
       "missing": 3
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 186,
-        "implementation_present": 68,
-        "partial": 1
+        "external_acceptance": 187,
+        "implementation_present": 68
       },
       "jobs": {
-        "external_acceptance": 28,
-        "partial": 3,
+        "external_acceptance": 29,
+        "partial": 2,
         "missing": 1
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 68,
-        "partial": 4,
+        "external_acceptance": 69,
+        "partial": 3,
         "missing": 2
       },
       "websockets": {
@@ -48,7 +47,7 @@
       }
     },
     "families": 75,
-    "code_task_groups": 2,
+    "code_task_groups": 1,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -105,6 +104,7 @@
     "backend/compatibility/upstream/whole-order-status/README.md": "bb683ebddce871408e46bad2a966bd62b5bc62a08ec6331e14fa7096d1353ee9",
     "backend/compatibility/upstream/whole-order-status/pinned-source.d.ts": "3dc383ede9c13e2deb974168991f6563a1bd071c2fefa8b7ed895daa0869b527",
     "backend/compatibility/upstream/whole-order-status/pos-source.json": "ca18ae2300683dc4e04e73dd08e0fa6711aff35efedbaf81c6d544174c2268a4",
+    "backend/compatibility/upstream/whole-order-status/private-runtime.md": "90d16374ee98024fae586d220e24a96c17db7b03abb08176355dbaec0207b566",
     "backend/compatibility/upstream/whole-order-status/source-manifest.json": "4dc912e793f424e56ab286e0daaef1a66996ad754d6e65f0636d5f314140ef43",
     "backend/parity/administration-barcodes-country.md": "a0824e85b8b8cc98742e268d4c8a389d3245eb4a052b243be1fa9f9971d0c12a",
     "backend/parity/administration-feature-map.json": "8777d8b63679ec26e452956a1ede56edc69ce86eb63548fbcc0d1a45d5752cb1",
@@ -117,7 +117,7 @@
     "backend/parity/checkout-customer-verification.md": "f638f0929caf008f2a9ab329f3a82cd71809cc8cd17a6c06c88d3d9cac1fc0f6",
     "backend/parity/checkout-performance.md": "31a1d228231ba90578e01a0cc63bb5b966f57fb98b60440ed1e862872c6b1b16",
     "backend/parity/checkout.md": "51c3ab185fe09f6be71e5a75ac1bfb7df5007116efc2eca549d8d315fe26bb07",
-    "backend/parity/csv-tender-decision.md": "b57e95b0e2905cfe8e5905777751c1801a31067bd589d62acbd3d71240e07697",
+    "backend/parity/csv-tender-decision.md": "91d6713740bfa87ea859451cdb8d6c696e05407ccf0128e7020dbcc125995af8",
     "backend/parity/customer-contacts.md": "e0f27b373a8d7d36df88ad2520b5c291e85d5a5c4bd198712bb594b78ce21e37",
     "backend/parity/customer-history.md": "1e1140126540850ef5014e927c21c1f8a961459f24601b0d3719bff4ac648d06",
     "backend/parity/customer-website-handoff.md": "54feb05497e10e192a93f34d20e45e613f595cb7fcd95ec532bb42819674e12d",
@@ -659,6 +659,7 @@
     "backend/src/modules/legacy-order-status/options.ts": "b0d63f7445ee77d851c5ccb448d31d47c5082e1e614dfb1985d813dc5973e91b",
     "backend/src/modules/legacy-order-status/receiver-auth.ts": "19c9338d16e9f9f3f1ade5d8cb30e79972d98b5ed0929fbd9b24e60b5fa000f2",
     "backend/src/modules/legacy-order-status/receiver-http.ts": "60b5d12de05a47aefb379195bf8d262a1962ccfe7344823470937e9fc4da3c3b",
+    "backend/src/modules/legacy-order-status/receiver-main.ts": "f4f76227882f73f19ea190903741516f4c4747736b52e0dc195bb07da021be08",
     "backend/src/modules/legacy-order-status/receiver-netcore.ts": "6c2510818f3972e24d864fa6b6fec83792d263bc7aa7148eb87c4c120254179e",
     "backend/src/modules/legacy-order-status/receiver-notifications.ts": "ebdd6ecd7dd3b77cb74f7da208af0ca48093ccfdfb5c70f5c209060c29e6cfa2",
     "backend/src/modules/legacy-order-status/receiver-options.ts": "3788732f2b06fde830462aa8eaaa52d45fc79b0d590cf76129c8302204b83eef",
@@ -670,6 +671,7 @@
     "backend/src/modules/legacy-order-status/repair-obligations.ts": "f14e2e572a49daf2721e46df354c394b96eb77e118272eb7d3c2df0ee833308d",
     "backend/src/modules/legacy-order-status/repair-schema.ts": "c90b8e82dc8eb84a18f72005e4a9de2cc9bd0ca13f7ea56d9e1100251512c56e",
     "backend/src/modules/legacy-order-status/repository.ts": "417440b7425083d9618deb7032ee32df41c706e0302d3607d20c48e1affcdf03",
+    "backend/src/modules/legacy-order-status/runtime.ts": "1cdf3c27e0a46a4c68cf18ab3a447de3640215870835680256ac76596500a8ae",
     "backend/src/modules/legacy-order-status/schema.ts": "e4b00c5a0c71d43793e364ee542ec9e7ada8cd43ca8d0c7cd6409dad9decb95c",
     "backend/src/modules/legacy-order-status/service.ts": "74ebf150fe2359cc1f4a8de4c2ef94afdd4940c0f39c261f8a878fcba33e99c4",
     "backend/src/modules/legacy-order-status/transport.ts": "3a698625da739f47eb1d3a724ac11223225ba4d97fdb1e9985bec5e7646010f1",
@@ -926,6 +928,9 @@
     "backend/tests/legacy-order-status/commands.mysql.test.ts": "03a20aa6f7bb96081d831ea2c9065cb6ad532f8a5cbb8e3bb59457d2d61625e2",
     "backend/tests/legacy-order-status/fixtures.ts": "d48022d1f6f702ae553836979a672c95b1b9fbffab35be43cf957bedc2615b3c",
     "backend/tests/legacy-order-status/mysql-fixture.ts": "95bd30ccde16525bb6b9775dd91cbbc125a33c1894be581f2a2fa4d60f6225f1",
+    "backend/tests/legacy-order-status/private-runtime-fixtures.ts": "ea6bfa3c2dfb82ef66b9561885038ecec7ba710f4025df32615f8ba7f9974639",
+    "backend/tests/legacy-order-status/private-runtime.mysql.test.ts": "68d7ce4a91093b280441e3b519898f45a8a657d9635002095fe38b3830fae1e8",
+    "backend/tests/legacy-order-status/private-runtime.test.ts": "ccb5bde133e182923d8f90d858f91d4ac0d484062ae0a1e371efce3dfc043347",
     "backend/tests/legacy-order-status/receiver-routes.test.ts": "c1037eb219f67691fadc429daec9fe6382ed6ba91b6485028d36a5d18fb74b44",
     "backend/tests/legacy-order-status/receiver.mysql.test.ts": "9c9e6a50e157259ed3a1e4ec25fe808388064c64ceae8ff7991e07e30a49e21f",
     "backend/tests/legacy-order-status/repair-obligations.mysql.test.ts": "f35920c520ce3b7c729d6d8ca627381412b27aa44926bab52140139fce0ceff7",
@@ -4982,7 +4987,7 @@
     },
     {
       "id": "legacy-vinculum-status",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/legacy-order-status",
         "backend/compatibility/upstream/whole-order-status",
@@ -5000,12 +5005,11 @@
       ],
       "parity_documents": [
         "backend/parity/whole-order-status.md",
-        "backend/parity/rejected-return-repairs.md"
+        "backend/parity/rejected-return-repairs.md",
+        "backend/compatibility/upstream/whole-order-status/private-runtime.md"
       ],
-      "implemented_scope": "Current-authority whole-order PACK/SHIP/DELIVER commands, immutable full HP scope, source-pinned private STORE chain and deferred Orders recovery UI are integrated separately from Express.",
-      "remaining_code": [
-        "Finish the standalone private receiver entry with the shared cash-return and imported-order handover fences already composed in the public app. Durable rejected-return obligations, the bounded dispatcher and scoped manager recovery are integrated."
-      ],
+      "implemented_scope": "Current-authority whole-order PACK/SHIP/DELIVER commands, immutable full HP scope, source-pinned private STORE chain, standalone private receiver and deferred Orders recovery UI are integrated separately from Express. Public/private entries compose shared cash-return/import handover fences. Durable rejected-return obligations, bounded dispatch and scoped manager recovery are integrated.",
+      "remaining_code": [],
       "external_acceptance": [
         "Qualify the independently deployed source receiver, vendor and Netcore outcomes, shared-writer coordination and representative queue workload."
       ],
@@ -5017,6 +5021,8 @@
       "test_files": [
         "backend/tests/legacy-order-status/background.test.ts",
         "backend/tests/legacy-order-status/commands.mysql.test.ts",
+        "backend/tests/legacy-order-status/private-runtime.mysql.test.ts",
+        "backend/tests/legacy-order-status/private-runtime.test.ts",
         "backend/tests/legacy-order-status/receiver-routes.test.ts",
         "backend/tests/legacy-order-status/receiver.mysql.test.ts",
         "backend/tests/legacy-order-status/repair-obligations.mysql.test.ts",
@@ -5666,13 +5672,6 @@
     }
   ],
   "remaining_code_tasks": [
-    {
-      "family": "legacy-vinculum-status",
-      "state": "partial",
-      "tasks": [
-        "Finish the standalone private receiver entry with the shared cash-return and imported-order handover fences already composed in the public app. Durable rejected-return obligations, the bounded dispatcher and scoped manager recovery are integrated."
-      ]
-    },
     {
       "family": "legacy-order-imports",
       "state": "partial",
@@ -10234,7 +10233,7 @@
       "families": [
         "legacy-vinculum-status"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13848,7 +13847,7 @@
       "families": [
         "legacy-vinculum-status"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -15473,7 +15472,7 @@
         "local-deliveries",
         "legacy-vinculum-status"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

@@ -326,9 +326,8 @@ def define_families():
     bind('shipping-labels', ['ShowOnlineOrderShippingView'])
     family('legacy-vinculum-status', ['src/modules/legacy-order-status', 'compatibility/upstream/whole-order-status', 'src/modules/checkout/return-workflow/repository.ts', 'src/modules/checkout/return-workflow/service.ts', 'src/modules/checkout/routes.ts'],
            ['src/pages/order-status', 'src/pages/operations.tsx'], ['tests/legacy-order-status', 'frontend/tests/legacy-order-status'],
-           ['parity/whole-order-status.md', 'parity/rejected-return-repairs.md'], state='partial',
-           scope='Current-authority whole-order PACK/SHIP/DELIVER commands, immutable full HP scope, source-pinned private STORE chain and deferred Orders recovery UI are integrated separately from Express.',
-           gaps=['Finish the standalone private receiver entry with the shared cash-return and imported-order handover fences already composed in the public app. Durable rejected-return obligations, the bounded dispatcher and scoped manager recovery are integrated.'],
+           ['parity/whole-order-status.md', 'parity/rejected-return-repairs.md', 'compatibility/upstream/whole-order-status/private-runtime.md'],
+           scope='Current-authority whole-order PACK/SHIP/DELIVER commands, immutable full HP scope, source-pinned private STORE chain, standalone private receiver and deferred Orders recovery UI are integrated separately from Express. Public/private entries compose shared cash-return/import handover fences. Durable rejected-return obligations, bounded dispatch and scoped manager recovery are integrated.',
            external=['Qualify the independently deployed source receiver, vendor and Netcore outcomes, shared-writer coordination and representative queue workload.'])
     bind('legacy-vinculum-status', ['AjaxUpdateStatusVincView'])
     family('notifications', ['src/modules/fulfillment/index.ts', 'src/modules/fulfillment/notification-bus.ts', 'src/modules/fulfillment/notifications.ts'],

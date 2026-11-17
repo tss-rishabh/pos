@@ -90,6 +90,10 @@ function privateConfiguration(env: NodeJS.ProcessEnv) {
         url.hash
       )
         throw configurationRequired();
+      // The pool decodes credentials. Reject malformed escapes before any pool
+      // can be constructed, including pools for earlier valid URLs.
+      decodeURIComponent(url.username);
+      decodeURIComponent(url.password);
     }
     return {
       enabled: true,

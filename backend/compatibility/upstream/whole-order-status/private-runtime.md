@@ -9,7 +9,7 @@ This entry adds process composition, not another source compatibility profile.
 
 ## Selection and root wiring
 
-The root package can expose:
+The root package exposes:
 
 ```json
 "receiver:whole-order-status": "node --env-file-if-exists=.env dist/modules/legacy-order-status/receiver-main.js"
@@ -68,9 +68,12 @@ financial-proof tables, before selection. Missing or invalid financial tables or
 proofs fail the request/dispatch; they do not mean there is no hold. Preserve the
 existing Docker copy of the pinned source JS and source manifest.
 
-For a separate service using the backend image, override its command to this
-entry and its image-default 4410 readiness healthcheck to the private port's
-`GET /health/live`. That route is process liveness only: it reads no DB and sends
+Build the separate backend image target with
+`docker build --target whole-order-status-receiver -t pos-private-status:review backend`
+from the workspace root. That target selects this entry, container bind
+`0.0.0.0:4422` and the private `GET /health/live` healthcheck. The final/default
+`runtime` target serves the public API. When overriding the private port, override
+the healthcheck port as well. The liveness route reads no DB and sends
 no provider request. Do not use it as proof of migrations, provider readiness or
 source-deployment acceptance. Place the listener behind the private TLS service
 boundary matching the configured HTTPS base URL. No infra/deployment changes
@@ -116,13 +119,15 @@ WHOLE_ORDER_STATUS_MYSQL_TEST_URL=mysql://root@127.0.0.1/pos_rewrite_whole_statu
 npx -y node@24.22.3 node_modules/eslint/bin/eslint.js src/modules/legacy-order-status/runtime.ts src/modules/legacy-order-status/receiver-main.ts tests/legacy-order-status/private-runtime.test.ts tests/legacy-order-status/private-runtime.mysql.test.ts tests/legacy-order-status/private-runtime-fixtures.ts
 ```
 
-All 48 selected tests passed: 34 new process/configuration/auth/logging/shutdown
+All 50 selected tests passed: 36 new process/configuration/auth/logging/shutdown
 checks, six new native runtime/fence cases, and eight existing route/startup
 checks. Strict TypeScript and focused lint passed. Tests use private random
 localhost schemas and actual migrations; vendor fetches are stubbed. The actual
 selected entry listens on an ephemeral loopback port, serves health without
 opening a SQL connection (a local TCP trap verifies this), and exits cleanly on
 SIGTERM. Default/DEMO and invalid-config subprocesses are also executed.
+The backend and private image target build successfully. The built image's
+default command exits with its disabled resource event using `--network none`.
 
 The native cases prove signed original-UUID accept/GET/replay, cash/import holds
 at HTTP acceptance and later dispatch, and inverse refusal by the actual

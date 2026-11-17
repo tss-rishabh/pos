@@ -16,7 +16,6 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **legacy-vinculum-status (partial)**: Finish the standalone private receiver entry with the shared cash-return and imported-order handover fences already composed in the public app. Durable rejected-return obligations, the bounded dispatcher and scoped manager recovery are integrated.
 - **legacy-order-imports (partial)**: Imported membership/provenance, automatic benefit spending, extra complementary lines, screening-ticket profiles and CSV-tender/source-header rounding differences still require source-supported code profiles; refusal is not full parity. The real adapter, purpose-bound approval API/UI, standalone worker, public handover fences and ordinary mutation guards are integrated with production flags unselected. The executable pinned private source receiver and Go confirmation overlay have bounded native/source evidence; the full runtime/broker and cooperating writers remain unqualified.
 
 These are code gaps, distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.
@@ -25,9 +24,9 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 1 | 0 | 186 |
-| jobs | 0 | 3 | 1 | 28 |
-| templates | 32 | 4 | 2 | 68 |
+| routes | 68 | 0 | 0 | 187 |
+| jobs | 0 | 2 | 1 | 29 |
+| templates | 32 | 3 | 2 | 69 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
@@ -187,7 +186,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:72` | `webhook-cancelled-order/` | local-deliveries | external_acceptance |
 | `order/urls.py:75` | `ajax-check-order-status/` | local-deliveries | external_acceptance |
 | `order/urls.py:78` | `ajax-fetch-the-products/` | order-to-cart-copy | external_acceptance |
-| `order/urls.py:80` | `ajax-update-status-vinc/` | legacy-vinculum-status | partial |
+| `order/urls.py:80` | `ajax-update-status-vinc/` | legacy-vinculum-status | external_acceptance |
 | `order/urls.py:82` | `ajax-online-order/` | customer-website-handoff | external_acceptance |
 | `order/urls.py:85` | `ajax-gift-voucher-check/` | global-vouchers | external_acceptance |
 | `order/urls.py:86` | `ajax-gift-voucher-convert/` | global-vouchers | external_acceptance |
@@ -312,7 +311,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/tasks.py:171` | `new_order_create_communication` | local-deliveries | external_acceptance |
 | `core/tasks.py:182` | `sync_ecom_inventory` | ecommerce-inventory-sync | external_acceptance |
 | `core/tasks.py:209` | `generate_and_upload_gift_card` | gift-card-batches | external_acceptance |
-| `core/tasks.py:226` | `push_vinc_order_for_all` | legacy-vinculum-status | partial |
+| `core/tasks.py:226` | `push_vinc_order_for_all` | legacy-vinculum-status | external_acceptance |
 | `core/tasks.py:232` | `send_pg_disc_otp` | discount-approval | external_acceptance |
 | `core/tasks.py:271` | `pg_disc_otp_applied_email` | discount-approval | external_acceptance |
 | `order/tasks.py:150` | `auto_reject_timed_out_for_store` | express-fulfillment | external_acceptance |
@@ -399,7 +398,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
 | `order/templates/order/shipping.html` | `order/templates/order/shipping.html` | shipping-labels | external_acceptance |
 | `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
-| `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | partial |
+| `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | external_acceptance |
 | `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | external_acceptance |
 | `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |
 | `report/templates/bd_report/daily_report_matric_upload.html` | `report/templates/bd_report/daily_report_matric_upload.html` | business-metrics-upload | missing |
