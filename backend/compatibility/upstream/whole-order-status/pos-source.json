@@ -1,0 +1,19 @@
+{
+  "pin": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "sourceSha256": {
+    "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+    "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+    "core/tasks.py": "776a423fde4538b88cbb270cd336e9a3b210ff5c0c811f231f34ae24fee19571"
+  },
+  "fragments": {
+    "order/views.py": {
+      "AjaxUpdateStatusVincView": "class AjaxUpdateStatusVincView(View):\n    \"\"\"Base Async View.\"\"\"\n\n    @classonlymethod\n    def as_view(cls, **initkwargs):\n        view = super().as_view(**initkwargs)\n        view._is_coroutine = asyncio.coroutines._is_coroutine\n        return view\n\n    async def post(self, request):\n        \"\"\"Async post\"\"\"\n        status = 200\n        order_id = int(request.POST.get('order_id', 0))\n        platform = request.POST.get('platform', \"\")\n\n        if order_id and platform:\n            data = await self.push_data(order_id, platform)\n            message = data\n        else:\n            status = 400\n            message = \"Invalid Data\"\n\n        return JsonResponse({'status': status, 'message': message})\n\n    @sync_to_async\n    def push_data(self, order_id, platform):\n        hp_ids = list(HasProduct.objects.filter(order_id=order_id).values_list('id', flat=True))\n        Helpers.call_status_api(order_id, hp_ids, status=platform)\n        return \"Request has been queued for processing\"\n"
+    },
+    "helpers/helpers.py": {
+      "call_status_api": "    @staticmethod\n    def call_status_api(order_id, line_item_ids, status, is_hyperlocal=False):\n        \"\"\"Notify the sync-repo service of a PACK/SHIP/DELIVER status change.\n\n        Hyperlocal (express) line items post to /order/status; store orders post to\n        /store-order/status. For store orders, the sync-repo service chains forward\n        through the remaining statuses on its own (e.g. a PACK call there also\n        triggers SHIP and DELIVER), so this only sends one request.\n        \"\"\"\n        if not BACKEND_SYNC_API_BASE_URL:\n            logger.warning(f'BACKEND_SYNC_API_BASE_URL not configured, skipping status={status} push for order {order_id}')\n            return\n        path = '/order/status' if is_hyperlocal else '/store-order/status'\n        try:\n            response = requests.post(\n                f\"{BACKEND_SYNC_API_BASE_URL}{path}\",\n                json={\n                    'orderId': str(order_id),\n                    'has_product_ids': [str(lid) for lid in line_item_ids],\n                    'platform': status,\n                },\n                headers={'Content-Type': 'application/json', 'x-api-key': BACKEND_SYNC_REPO_API_KEY},\n                timeout=10,\n            )\n            response.raise_for_status()\n        except requests.exceptions.RequestException as e:\n            logger.exception(f'[sync-repo] Request failed for order {order_id} status={status} | {e}')\n"
+    },
+    "core/tasks.py": {
+      "push_vinc_order_for_all": "@app.task\ndef push_vinc_order_for_all(order_id):\n    logger.info(f\"push_vinc_order_for_all started for order_id={order_id}\")\n    hp_ids = list(HasProduct.objects.filter(order_id=order_id).values_list('id', flat=True))\n    Helpers.call_status_api(order_id, hp_ids, status='PACK')\n"
+    }
+  }
+}

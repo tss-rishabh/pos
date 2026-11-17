@@ -1,0 +1,21 @@
+{
+  "pin": "70b80159016db39a73572f80bfa87c47201c0a9f",
+  "path": "new-src/api/services/vinculum/storeOrderVinc.ts",
+  "sourceSha256": "9d3c9c6bd3faa51de5b6e166f8a503088a4819ab521d4a1ecc424d32f9022900",
+  "functions": [
+    "getInitialDelaySeconds",
+    "getRetryDelaySeconds",
+    "paceVinculumCall",
+    "prepareStorePackShipPayload",
+    "prepareDeliverPayload",
+    "fireNetcoreEvents",
+    "processStoreOrderVincStatus"
+  ],
+  "corrections": [
+    "Lossless order ID propagation",
+    "Lossless minimum HP ID selection",
+    "Credential-bearing source error helpers replaced with static strings",
+    "Await bounded Netcore attempts without changing the source payload or call order",
+    "Dependencies injected; original bootstrap/global logger/DB are never loaded"
+  ]
+}
