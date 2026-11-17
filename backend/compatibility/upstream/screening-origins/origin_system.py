@@ -194,6 +194,19 @@ class Context:
             if (value is None or value['phase']!='PREPARED' or value['authorityHash']!=authority_hash(key,current)
                     or value['requestHash']!=request_hash(self.req) or value['cartHash']!=self.cart_hash()):fail('SCREENING_ORIGIN_SCOPE_CHANGED')
             witness=origin_history.head(session,value['customerId'])
+        coupon_snapshot=None;selections=[];documents=[]
+        if self.owner.runtime.coupons is not None:
+            coupons=self.owner.runtime.coupons
+            coupon_snapshot=coupons.snapshot(value['customerId'])
+            from controllers.cart.Cart import ItemTypes
+            meta={'items':copy.deepcopy(self.cart.get(ItemTypes.META))}
+            with self.owner.runtime.sessions() as session,session.begin():
+                session.connection(execution_options={'isolation_level':'READ COMMITTED'})
+                _native,principal,_grant=self.authorize(session,self.req)
+                if authority_hash(key,principal)!=value['authorityHash'] or read(session,value['id'],value['customerId'],key)!=value:fail()
+                assert_attempt(session,self)
+                selections=coupons.prepare(session,value,'customer',self.namespace(),coupon_snapshot,cart_meta=meta)
+            documents=[self.owner.runtime.coupon_history_provider.read(coupons.request(value,item)) for item in selections]
         if self.owner.runtime.history_provider is None:fail('SCREENING_ORIGIN_HISTORY_REQUIRED')
         document=self.owner.runtime.history_provider.read(value,witness)
         with self.owner.runtime.sessions() as session,session.begin():
@@ -203,6 +216,7 @@ class Context:
             assert_attempt(session,self)
             if saved!=value or authority_hash(key,current)!=value['authorityHash']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
             origin_history.save(session,value,document,key,self.owner.runtime.clock())
+            if self.owner.runtime.coupons is not None:self.owner.runtime.coupons.save(session,value,selections,documents,coupon_snapshot)
         self.value=value
         self.req.origin_headers['X-TSS-Screening-Command']=self.command_id
         self.req.origin_headers['X-TSS-Screening-Origin']='external-system'
@@ -305,8 +319,9 @@ class SystemOrders:
         # Own source request/session; no native job lock crosses original calls.
         from middleware.CartMiddleware import CartFactory
         from controllers.priceList.PricelistManager import PricelistManager
+        from origin_frame import LegacySession
         prefix=self.runtime.sessions();response=Response()
-        context={'session':prefix,'user':None,'data':copy.deepcopy(payload)}
+        context={'session':LegacySession(prefix),'user':None,'data':copy.deepcopy(payload)}
         if original_request is None:original_request=SimpleNamespace(access_route=saved_payload['accessRoute'])
         request=Request(original_request,context);context['cart']=CartFactory.empty_cart();context['cart'].context=context
         context['pricelist_manager']=PricelistManager(context)

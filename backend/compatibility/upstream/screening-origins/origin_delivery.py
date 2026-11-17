@@ -76,7 +76,9 @@ def install_capture(root,modules):
 
 class FlushOnly:
     def __init__(self,session):self.session=session
-    def execute(self,statement,*args,**kwargs):return self.session.execute(text(statement) if isinstance(statement,str) else statement,*args,**kwargs)
+    def execute(self,statement,*args,**kwargs):
+        from transaction import LegacyResult
+        return LegacyResult(self.session.execute(text(statement) if isinstance(statement,str) else statement,*args,**kwargs))
     def commit(self):self.session.flush()
     def rollback(self):fail('SCREENING_ORIGIN_CART_RECONCILIATION_REQUIRED')
     def close(self):fail('SCREENING_ORIGIN_CART_RECONCILIATION_REQUIRED')

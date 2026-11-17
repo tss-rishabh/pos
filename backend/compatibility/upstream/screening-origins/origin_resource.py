@@ -14,6 +14,15 @@ def response(resp,value):
     resp.text=canonical(value)
     resp.set_header('Cache-Control','no-store')
 
+def current_ticket_quantity(session,name,customer):
+    # Current owned cart facts only. No meta/Product initializer is allowed to
+    # consult old coupon/member history before its qualified preparation.
+    found=rows(session,"SELECT user_id,quantity FROM cart_items WHERE cart_id=:cart AND prod_id=390238 AND status='active' LIMIT 3 FOR SHARE",{'cart':name},4)
+    if len(found)>2 or any(str(row['user_id'])!=customer or type(row['quantity']) is not int or row['quantity'] not in (1,2) for row in found):fail('SCREENING_ORIGIN_CART_CHANGED')
+    quantity=sum(row['quantity'] for row in found)
+    if quantity not in (0,1,2):fail('SCREENING_ORIGIN_LIMIT')
+    return quantity
+
 
 class OriginCommands:
     """POST prepares only; GET never creates/retries an order or source stage."""
@@ -30,6 +39,12 @@ class OriginCommands:
         # the same request digest without installing an arbitrary URL target.
         if dict(req.params)!=body['params']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
         try:
+            coupon_snapshot=None
+            if self.owner.coupons is not None:
+                with self.owner.sessions() as session,session.begin():
+                    session.connection(execution_options={'isolation_level':'READ COMMITTED'})
+                    _native,captured,_grant=source_origin(req,session,self.owner.key,self.owner.clock(),req.get_header('X-TSS-Screening-Origin') or 'customer')
+                coupon_snapshot=self.owner.coupons.snapshot(captured['customerId'])
             with self.owner.sessions() as session,session.begin():
                 session.connection(execution_options={'isolation_level':'READ COMMITTED'})
                 native,principal,grant=source_origin(req,session,self.owner.key,self.owner.clock(),req.get_header('X-TSS-Screening-Origin') or 'customer')
@@ -42,17 +57,10 @@ class OriginCommands:
                     if prior['phase']!='PREPARED':fail('SCREENING_ORIGIN_CLOSED_NO_ORDER')
                     value=prior
                 else:
-                    # Current namespace is rehydrated with the original source
-                    # serializer. This resource never runs PosOrder or payments.
-                    from middleware.CartMiddleware import CartFactory,PosCartFactory
-                    from receiver import source_user
-                    user=source_user(native,str(native['id']),bool(req.context.get('user',{}).get('is_exclusive')))
-                    context={**req.context,'session':session,'user':user}
                     if body['kind']=='pos':
                         if principal['origin'] not in ('legacy-django','mpos'):fail('SCREENING_ORIGIN_STAFF_REQUIRED')
-                        cart=PosCartFactory.instantiate(None,user,context,store_id=principal['storeId'],is_pos=True)
-                    else:cart=CartFactory.instantiate(None,user,context)
-                    quantity=tickets(cart)
+                    name=namespace(principal,req)
+                    quantity=current_ticket_quantity(session,name,principal['customerId'])
                     if quantity==0:return response(resp,{'commandId':None,'prepared':False})
                     if quantity not in (1,2):fail('SCREENING_ORIGIN_LIMIT')
                     name=namespace(principal,req);cart_hash=cart_native_hash(session,name)
@@ -66,17 +74,26 @@ class OriginCommands:
                         'lineItemsEnabled':self.owner.line_items,'phase':'PREPARED','orderId':None,'lines':[],'markers':[],
                         'creationHash':None,'closureHash':None,'version':1,'createdAt':now,'updatedAt':now,'expiresAt':now+600000}
                     insert(session,value,self.owner.key)
+                if value['phase']=='PREPARED' and authority_hash(self.owner.key,principal)!=value['authorityHash']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
+                selections=[]
+                if self.owner.coupons is not None:
+                    selections=self.owner.coupons.prepare(session,value,body['kind'],namespace(principal,req),coupon_snapshot)
                 if body['kind']=='customer':revision=origin_history.head(session,value['customerId'])
             # No SQL connection/lock is retained while reading BigQuery.
+            documents=[]
+            if self.owner.coupons is not None:
+                documents=[self.owner.coupon_history_provider.read(self.owner.coupons.request(value,selection)) for selection in selections]
+            document=None
             if body['kind']=='customer':
                 if self.owner.history_provider is None:fail('SCREENING_ORIGIN_HISTORY_REQUIRED')
                 document=self.owner.history_provider.read(value,revision)
-                with self.owner.sessions() as session,session.begin():
-                    session.connection(execution_options={'isolation_level':'READ COMMITTED'})
-                    _native,principal,_grant=source_origin(req,session,self.owner.key,self.owner.clock(),value['origin'])
-                    current=read(session,value['id'],value['customerId'],self.owner.key)
-                    if current!=value or authority_hash(self.owner.key,principal)!=value['authorityHash'] or cart_native_hash(session,namespace(principal,req))!=value['cartHash']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
-                    origin_history.save(session,value,document,self.owner.key,self.owner.clock())
+            with self.owner.sessions() as session,session.begin():
+                session.connection(execution_options={'isolation_level':'READ COMMITTED'})
+                _native,principal,_grant=source_origin(req,session,self.owner.key,self.owner.clock(),value['origin'])
+                current=read(session,value['id'],value['customerId'],self.owner.key)
+                if current!=value or authority_hash(self.owner.key,principal)!=value['authorityHash'] or cart_native_hash(session,namespace(principal,req))!=value['cartHash']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
+                if document is not None:origin_history.save(session,value,document,self.owner.key,self.owner.clock())
+                if self.owner.coupons is not None:self.owner.coupons.save(session,value,selections,documents,coupon_snapshot)
             return response(resp,{'commandId':value['id'],'phase':value['phase'],'orderId':None,'prepared':True,'expiresAt':value['expiresAt']})
         finally:req.context.clear();req.context.update(original)
     def on_get(self,req,resp,command_id):

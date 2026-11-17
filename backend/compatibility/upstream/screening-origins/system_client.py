@@ -27,7 +27,7 @@ class CSKScreeningClient:
         parsed=urlsplit(endpoint)
         if parsed.scheme!='https' or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment or not parsed.path.endswith('/external/screening-orders'):refused()
         if not callable(credential):refused()
-        self.endpoint,self.credential,self.path,self.http=endpoint,credential,Path(journal).resolve(),session or requests.Session()
+        self.endpoint,self.credential,self.path,self.http=endpoint,credential,Path(journal).absolute(),session or requests.Session()
         self.namespace=hashlib.sha256(endpoint.encode()).hexdigest()
         if self.path.is_symlink() or not self.path.parent.is_dir():refused()
         if self.path.exists() and self.path.stat().st_mode&0o077:refused()

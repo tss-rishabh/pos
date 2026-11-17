@@ -30,6 +30,20 @@ SOURCE='2960acbea10c4eaf16b6d99e15ff6e03ef7724c5'
 ALLOCATION="LOWER(SHA2(CAST(JSON_OBJECT('parentOrderId',parent_order_id,'originalOrderId',original_order_id,'hlParentOrderId',hl_parent_order_id,'locationId',location_id,'locationType',location_type,'isExpress',is_express,'flagId',flag_id,'isNewCalc',is_new_calc) AS CHAR CHARACTER SET utf8mb4),256))"
 NEGATIVE={'SCREENING_ORIGIN_LIMIT','SCREENING_ORIGIN_CART_CHANGED','SCREENING_ORIGIN_QUOTE_CHANGED'}
 
+class CouponSnapshotRequired(BaseException):
+    def __init__(self,customer):self.customer=customer
+
+class LegacySession:
+    """Source SQLAlchemy-1 calling syntax on this exact SQLAlchemy-2 session."""
+    def __init__(self,session):self.session=session
+    def execute(self,statement,parameters=None,**kwargs):
+        from transaction import LegacyResult
+        if 'params' in kwargs:
+            if parameters is not None:fail()
+            parameters=kwargs.pop('params')
+        return LegacyResult(self.session.execute(text(statement) if isinstance(statement,str) else statement,parameters or {},**kwargs))
+    def __getattr__(self,name):return getattr(self.session,name)
+
 
 def request_hash(req):
     data=copy.deepcopy(req.context.get('data') or {})
@@ -46,7 +60,7 @@ def namespace(principal,req):
 def cart_native_hash(session,name):
     # Current cart facts, bounded and never copied to a response/log/receipt.
     from database.mysqlCart import MySQLCart
-    result=MySQLCart(session).get_cart_unified(name)
+    result=MySQLCart(LegacySession(session)).get_cart_unified(name)
     values=[dict(row._mapping) if hasattr(row,'_mapping') else dict(row) for row in result]
     if len(values)>2000:fail('SCREENING_ORIGIN_CART_TOO_LARGE')
     def scalar(value):
@@ -124,10 +138,11 @@ def after_original_auth(kind):
 
 
 class Frame:
-    def __init__(self,owner,req,kind):
+    def __init__(self,owner,req,kind,coupon_snapshot=None):
         self.owner,self.req,self.kind=owner,req,kind
         self.session=owner.sessions();self.contexts=ExitStack();self.order_id=None;self.admitted=False
         self.effects=[];self.original_context=dict(req.context);self.cart_persist=None
+        self.coupon_snapshot=coupon_snapshot
     def open(self):
         self.transaction=self.session.begin()
         self.connection=self.session.connection(execution_options={'isolation_level':'READ COMMITTED'})
@@ -157,6 +172,7 @@ class Frame:
             if rows(self.session,'SELECT command_id FROM '+table+' WHERE command_id=:id FOR SHARE',{'id':self.command_id},2):fail('SCREENING_ORIGIN_RECONCILIATION_REQUIRED')
         if (self.value['authorityHash']!=authority_hash(self.owner.key,self.principal) or self.value['requestHash']!=request_hash(self.req)
                 or any(self.value[name]!=self.principal[name] for name in ('actorId','customerId','storeId','counterId'))):fail('SCREENING_ORIGIN_SCOPE_CHANGED')
+        if self.owner.coupons is not None and self.coupon_snapshot is None:raise CouponSnapshotRequired(self.value['customerId'])
         self.namespace=self.system.namespace() if self.system is not None else namespace(self.principal,self.req)
         actual_cart_hash=self.system.cart_hash() if self.system is not None else cart_native_hash(self.session,self.namespace)
         if fingerprint(self.owner.key,'namespace',self.namespace)!=self.value['namespaceHash'] or actual_cart_hash!=self.value['cartHash']:fail('SCREENING_ORIGIN_CART_CHANGED')
@@ -173,6 +189,7 @@ class Frame:
         if self.kind=='customer':
             replay=self.contexts.enter_context(origin_history.scope(replay,self.value,self.owner.key,self.owner.clock()))
             self.history=replay
+        if self.owner.coupons is not None:self.contexts.enter_context(self.owner.coupons.before(self,self.coupon_snapshot))
         replay=CounterReplay(replay,snapshot)
         self.source=self.contexts.enter_context(private_session(replay))
         self.contexts.enter_context(origin_history.guard_source(self.session,self))
@@ -229,11 +246,14 @@ class Frame:
         except Exception:fail()
         if (not str(resp.status).startswith('200') or not isinstance(result,dict) or set(result)!={'order','method','isValid','name'}
                 or result['isValid'] is not True or result['name']!='placed_order' or str(result['order'])!=self.order_id):fail()
-        header=one(self.session,'SELECT user_id,payment_method,order_status,payment_status,'+HEADER+' AS hash,'+ALLOCATION+' AS allocationHash FROM orders WHERE id=:id FOR SHARE',{'id':self.order_id})
+        header=one(self.session,'SELECT user_id,payment_method,order_status,payment_status,coupon_used,coupon_amt_used,'+HEADER+' AS hash,'+ALLOCATION+' AS allocationHash FROM orders WHERE id=:id FOR SHARE',{'id':self.order_id})
         if str(header['user_id'])!=self.value['customerId'] or header['payment_method']!=result['method'] or header['order_status']!=0 or header['payment_status']!=0:fail()
         lines=rows(self.session,'SELECT id,prod_id,qty,sub_prod_id,gift_voucher_id AS gv_id,'+LINE+' AS hash FROM has_products WHERE order_id=:id ORDER BY id LIMIT 1001',{'id':self.order_id},1002)
         if not 1<=len(lines)<=1000:fail('SCREENING_ORIGIN_LINE_LIMIT')
         now=self.owner.clock();assets_hash=None
+        coupon_hash=None
+        if self.owner.coupons is not None:coupon_hash=self.owner.coupons.capture(self,header['hash'],now)
+        elif header['coupon_used'] not in (None,0,'0','') or header['coupon_amt_used'] not in (None,0):fail('SCREENING_ORIGIN_COUPON_PROFILE_REQUIRED')
         if self.owner.assets is None:
             from origin_assets_guard import no_new_assets
             no_new_assets(self,lines)
@@ -253,6 +273,7 @@ class Frame:
             'lineItemsEnabled':self.value['lineItemsEnabled'],'effectsHash':effects_hash,'sourceCommit':SOURCE,'createdAt':now}
         if self.system is not None:proof['systemAuthorityHash']=self.system.system_authority_hash
         if assets_hash is not None:proof['assetsHash']=assets_hash
+        if coupon_hash is not None:proof['couponHash']=coupon_hash
         seal=digest(self.owner.key,'creation',proof)
         self.session.execute(text('INSERT INTO pos_rewrite_screening_origin_creations(command_id,order_id,data,proof_hash) VALUES(:id,:order,:data,:proof)'),
                              {'id':self.value['id'],'order':self.order_id,'data':canonical(proof),'proof':seal})
@@ -302,9 +323,10 @@ class OriginRuntime:
         self.history_provider=history_provider
         self.member_product_ids=set()
         self.assets=None
-    def order(self,req,resp,kind,call):
-        frame=Frame(self,req,kind)
-        failure=None
+        self.coupons=None;self.coupon_history_provider=None
+    def order(self,req,resp,kind,call,coupon_snapshot=None):
+        frame=Frame(self,req,kind,coupon_snapshot)
+        failure=None;coupon_customer=None
         try:
             if frame.open():
                 # The original ValidateCheckout still runs in the original body.
@@ -316,11 +338,19 @@ class OriginRuntime:
             resp.set_header('X-TSS-Screening-Command',proof['commandId'])
             resp.set_header('X-TSS-Screening-Origin-Contract',CONTRACT)
             return None
+        except CouponSnapshotRequired as needed:
+            failure=needed;coupon_customer=needed.customer
         except BaseException as error:
             failure=error
             if isinstance(error,OriginReview):frame.reject(error)
             raise
         finally:frame.close(failure)
+        if coupon_customer is not None:
+            # The first exact native authority snapshot has been closed. Redis
+            # observations occur outside SQL and the second pass freshly checks
+            # every original principal/command/cart row before source work.
+            snapshot=self.coupons.snapshot(coupon_customer)
+            return self.order(req,resp,kind,call,snapshot)
     def cart(self,req,resp,call):
         # Add/set screening checks use the same projection; no reservation,
         # order or financial receipt is created by a cart mutation.

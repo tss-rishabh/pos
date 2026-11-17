@@ -89,6 +89,7 @@ class OriginBootstrap:
         self.runtime=None
         self.system=None
         self.registry=None
+        self.coupon_composition=None
     def activate(self,public_bootstrap,namespace,history_provider=None):
         if self.options is None:return self
         if public_bootstrap.middleware is None:fail('SCREENING_ORIGIN_UNAVAILABLE')
@@ -109,6 +110,24 @@ class OriginBootstrap:
             @functools.wraps(original_gift)
             def gift(*args,**kwargs):return self.runtime.assets.construct(original_gift,*args,**kwargs)
             namespace['build_gift_voucher_model']=gift
+        if self.environment.get('POS_SCREENING_ORIGIN_COUPON_CONTRACT'):
+            common=Path(__file__).resolve().parent.parent/'legacy-order-imports/benefit-profile'
+            if str(common) not in sys.path:sys.path.insert(0,str(common))
+            from origin_coupon_runtime import configured_coupons
+            constants=importlib.import_module('constants.Constants')
+            settings=namespace['settings']
+            cache=importlib.import_module('database.database').redis_object
+            cache=getattr(cache,'__dict__',{}).get('original',cache)
+            values={'BIRTHDAY_MESSAGE':constants.BIRTHDAY_MESSAGE,'EMPLOYEE_COUPON_DOMAIN_MAP':constants.EMPLOYEE_COUPON_DOMAIN_MAP,
+                    'REDIS_COUPON_EXPIRY_IN_SEC':settings.REDIS_COUPON_EXPIRY_IN_SEC,'EXCLUSIVE_PRODUCT':settings.EXCLUSIVE_PRODUCT}
+            self.coupon_composition=configured_coupons(self.environment,root=public_bootstrap.base,origin_key=self.options['key'],
+                history_source_key=self.environment.get('POS_LEGACY_IMPORT_PROOF_KEY',''),source_cache=cache,coupon_settings=values,
+                prepaid=bool(settings.PREPAID_AMT_DEDUCTION),source_time_zone=self.environment.get('BUSINESS_TIMEZONE','Asia/Kolkata'),
+                point_factory=importlib.import_module('controllers.cart.Cart').datetime.now,
+                sessions=self.runtime.sessions,other_keys=tuple(self.environment.get(name) for name in ('POS_MEMBERSHIP_PROOF_KEY',
+                    'POS_PUBLIC_SCREENING_PUBLICATION_KEY','POS_SCREENING_ORIGIN_HISTORY_CAPTURE_KEY','POS_SCREENING_ORIGIN_HISTORY_PUBLICATION_KEY') if self.environment.get(name)),clock=self.runtime.clock)
+            self.coupon_composition['install']()
+            self.runtime.coupons=self.coupon_composition['coupons'];self.runtime.coupon_history_provider=self.coupon_composition['history_provider']
         install(self.runtime);patch_public_routes()
         from origin_delivery import OriginEffectRegistry,install_capture
         install_capture(public_bootstrap.root,tuple(sys.modules.values()))
@@ -201,6 +220,9 @@ class OriginBootstrap:
         from origin_effects import dispatch
         result=dispatch(self.runtime.sessions,command_id,self.runtime.key,self.registry,self.runtime.clock)
         return result
+    def coupon_control_application(self,fallback,emit_stream):
+        if self.coupon_composition is None or self.coupon_composition['mount_controls'] is None:return fallback
+        return self.coupon_composition['mount_controls'](emit_stream,fallback)
     def effect_candidates(self,limit=25):
         if type(limit) is not int or not 1<=limit<=100 or self.runtime is None or self.registry is None:fail()
         from native import rows

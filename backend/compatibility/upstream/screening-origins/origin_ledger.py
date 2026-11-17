@@ -52,7 +52,25 @@ def payment(session,value,key):
             or proof.get('commandId')!=value['id'] or proof.get('orderId')!=value['orderId'] or proof.get('customerId')!=value['customerId']
             or proof.get('creationHash')!=value['creationHash'] or str(row['order_id'])!=value['orderId']
             or not hmac.compare_digest(digest(key,'payment',proof),row['proof_hash'])):fail()
+    coupon_effect(session,value,key,creation(session,value,key),proof,'confirm')
     return proof
+
+def coupon_effect(session,value,key,source,outcome,action):
+    required=source.get('couponHash')
+    if required is None:
+        if 'couponConsumptionHash' in outcome:fail()
+        return
+    from origin_contracts import HASH
+    seal=outcome.get('couponConsumptionHash')
+    if not isinstance(required,str) or not HASH.fullmatch(required) or not isinstance(seal,str) or not HASH.fullmatch(seal):fail()
+    row=one(session,'SELECT order_id,data,proof_hash FROM pos_rewrite_screening_origin_coupon_consumptions WHERE command_id=:id AND action=:action AND OCTET_LENGTH(data)<=500000 FOR SHARE',{'id':value['id'],'action':action})
+    proof=json_value(row['data'])
+    if (not isinstance(proof,dict) or proof.get('contract')!='pos-screening-origin-coupon-consumption-v1' or row['proof_hash']!=seal
+            or str(row['order_id'])!=value['orderId'] or proof.get('orderId')!=value['orderId'] or proof.get('customerId')!=value['customerId']
+            or proof.get('commandId')!=value['id'] or proof.get('creationHash')!=value['creationHash'] or proof.get('sourceReceiptHash')!=required
+            or proof.get('headerHash')!=source['headerHash'] or proof.get('action')!=action
+            or proof.get('sourceCommit')!='434f3e438d1cb48c64e5723222c6efda506db571'
+            or not hmac.compare_digest(digest(key,'coupon-consumption',proof),row['proof_hash'])):fail()
 
 def failed_payment(session,value,key):
     """Only a retained genuine decline may release a not-counted order.
@@ -81,6 +99,7 @@ def failed_payment(session,value,key):
             or proof.get('observationHash')!=observation or not isinstance(proof.get('after'),dict)
             or not hmac.compare_digest(digest(key,'payment-outcome',proof),negative['proof_hash'])):fail()
     if proof['after'].get('orderStatus')!=17:return False
+    coupon_effect(session,value,key,creation(session,value,key),proof,'decline')
     if rows(session,'SELECT order_id FROM pos_rewrite_screening_origin_payments WHERE command_id=:id FOR SHARE',{'id':value['id']},2):fail()
     native=one(session,'SELECT user_id,order_status FROM orders WHERE id=:id FOR SHARE',{'id':value['orderId']})
     return str(native['user_id'])==value['customerId'] and native['order_status']==17

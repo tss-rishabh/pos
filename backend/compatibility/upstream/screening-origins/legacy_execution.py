@@ -180,6 +180,11 @@ def cash_completion(original):
             checked=Helpers.get_checkin_data(actual_actor)
             if not checked or str(checked[0])!=str(store_id):fail('SCREENING_ORIGIN_STAFF_REVOKED')
             one(cursor,'SELECT id FROM users WHERE id=%s FOR UPDATE',(creation['customerId'],))
+            from legacy_assets import NativeSession
+            from origin_ledger import read as read_origin,payment as verified_payment
+            source_command=read_origin(NativeSession(cursor),value['commandId'],creation['customerId'],secret)
+            if (source_command is None or source_command['phase'] not in ('BOUND','COUNTED') or source_command['creationHash']!=origin['proof_hash']
+                    or source_command['orderId']!=str(order_id)):fail('SCREENING_ORIGIN_PAYMENT_PROOF_REQUIRED')
             _row,saved=work(cursor,value['commandId'],secret)
             prior=rows(cursor,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_legacy_cash WHERE command_id=%s FOR UPDATE',(value['commandId'],))
             if prior:
@@ -190,6 +195,7 @@ def cash_completion(original):
             paid=json.loads(payment['data']) if isinstance(payment['data'],str) else payment['data']
             if (paid.get('status')!='CONFIRMED' or paid.get('creationHash')!=origin['proof_hash'] or
                 not hmac.compare_digest(digest(secret,'payment',paid),payment['proof_hash'])):fail('SCREENING_ORIGIN_PAYMENT_PROOF_REQUIRED')
+            if verified_payment(NativeSession(cursor),source_command,secret)!=paid:fail('SCREENING_ORIGIN_PAYMENT_PROOF_REQUIRED')
             from legacy_assets import prepare as prepare_assets,lock_order_assets,finish as finish_assets
             asset_state=prepare_assets(cursor,creation,origin['proof_hash'],paid,payment['proof_hash'],secret)
             from native import HEADER,LINE
