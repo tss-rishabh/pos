@@ -181,7 +181,6 @@ export function validateCsvMembershipSourceSelection(
     recent.some(
       (row, index) =>
         row.createdAt <= scope.cutoff ||
-        row.createdAt > scope.asOf ||
         (index > 0 && recent[index - 1]!.createdAt <= row.createdAt),
     ) ||
     (recent.length && JSON.stringify(last) !== JSON.stringify(recent[0])) ||
@@ -194,7 +193,6 @@ export function validateCsvMembershipSourceSelection(
     if (
       !/^[1-9]\d{0,18}$/.test(row.id) ||
       BigInt(row.id) > 9223372036854775807n ||
-      row.createdAt > scope.asOf ||
       row.createdAt.startsWith('0000-') ||
       new Set(row.lines.map((line) => line.lineId)).size !== row.lines.length ||
       new Set(

@@ -130,7 +130,6 @@ export function assertQualifiedCsvMembershipHistory(
   for (const entry of all) {
     const rows = entry.lines;
     if (
-      entry.createdAt > scope.asOf ||
       new Set(rows.map((row) => row.lineId)).size !== rows.length ||
       new Set(rows.filter((row) => !members.has(row.productId)).map((row) => row.isExclusiveOrder))
         .size > 1
@@ -142,7 +141,7 @@ export function assertQualifiedCsvMembershipHistory(
     count > 20000 ||
     Buffer.byteLength(JSON.stringify(body)) > 1000000 ||
     new Set(recent.map((row) => row.id)).size !== recent.length ||
-    recent.some((row) => row.createdAt <= scope.cutoff || row.createdAt > scope.asOf) ||
+    recent.some((row) => row.createdAt <= scope.cutoff) ||
     recent.some((row, index) => index > 0 && recent[index - 1]!.createdAt <= row.createdAt) ||
     (recent.length > 0 && JSON.stringify(last) !== JSON.stringify(recent[0])) ||
     (last && last.createdAt > scope.cutoff && recent.length === 0)

@@ -159,6 +159,7 @@ export async function runCouponGenerationWorker(
     runtime = couponGenerationPublishingRuntime(installation.options, installation.authority, {
       db,
       origin: source,
+      sourceOptions: installation.sourceOptions,
       controlHttp: installation.controlHttp,
       writer: nativeWriter,
       newWorkEnabled: () => installation.newWorkEnabled && !controller.signal.aborted,

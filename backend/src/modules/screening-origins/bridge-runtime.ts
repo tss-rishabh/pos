@@ -12,6 +12,8 @@ import { originHistoryDemands } from './history-generation-demand.js';
 import { boundedWarehouseSelect, type SelectClient } from '../warehouse/bounded-select.js';
 import { originMembershipRuntime } from './membership-runtime.js';
 import { originCouponRuntime } from './coupon-runtime.js';
+import { originCouponPreviewHistory } from './coupon-preview.js';
+import { readGenerationOptions } from '../legacy-order-imports/benefit-profile/history-generation-options.js';
 import {
   publicMembershipGenerationJournal,
   membershipGenerationDemandContract,
@@ -236,25 +238,25 @@ export async function buildOriginHistoryBridgeRuntime(
           }
         : {}),
     });
-    const couponHistory = originCouponRuntime(
-      env,
-      {
-        originKey: selected.sourceKey,
-        sourceKey: env.TSS_POS_LEGACY_IMPORT_PROOF_KEY ?? '',
-        publicationKey: env.CSV_COUPON_PUBLICATION_KEY ?? '',
-      },
-      {
-        clientFactory: () => client,
-        ...(selected.couponDemands
-          ? {
-              demand: originCouponDemandJournal(journal(), {
-                journalKey: env.CSV_COUPON_GENERATION_JOURNAL_KEY!,
-                originKey: selected.sourceKey,
-              }),
-            }
-          : {}),
-      },
-    );
+    const couponDemands = selected.couponDemands
+      ? originCouponDemandJournal(journal(), {
+          journalKey: env.CSV_COUPON_GENERATION_JOURNAL_KEY!,
+          originKey: selected.sourceKey,
+        })
+      : undefined;
+    const couponAuthority = {
+      originKey: selected.sourceKey,
+      sourceKey: env.TSS_POS_LEGACY_IMPORT_PROOF_KEY ?? '',
+      publicationKey: env.CSV_COUPON_PUBLICATION_KEY ?? '',
+    };
+    const couponDependencies = {
+      clientFactory: () => client,
+      ...(couponDemands ? { demand: couponDemands } : {}),
+    };
+    const couponHistory = originCouponRuntime(env, couponAuthority, couponDependencies);
+    const couponPreview = couponHistory
+      ? originCouponPreviewHistory(readGenerationOptions(env), couponAuthority, couponDependencies)
+      : undefined;
     const history = originHistoryRuntime(
       { BIGQUERY_MAX_BYTES_BILLED: selected.maxBytes },
       env,
@@ -278,6 +280,7 @@ export async function buildOriginHistoryBridgeRuntime(
       history,
       ...(membershipHistory ? { membershipHistory } : {}),
       ...(couponHistory ? { couponHistory } : {}),
+      ...(couponPreview ? { couponPreview } : {}),
       observe,
       maxConcurrentRequests: selected.concurrency,
     });

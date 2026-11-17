@@ -146,6 +146,7 @@ export async function runPublicMembershipGenerationWorker(
             sourceSchema: v.PUBLIC_SCREENING_MEMBERSHIP_PUBLISHER_SOURCE_SCHEMA!,
             sourceServerUuid: v.PUBLIC_SCREENING_MEMBERSHIP_PUBLISHER_SOURCE_SERVER_UUID!,
             triggerDefiner: v.PUBLIC_SCREENING_MEMBERSHIP_PUBLISHER_TRIGGER_DEFINER!,
+            headMetadata: installation.headMetadata!,
             sourceTimeZone: options.CSV_MEMBERSHIP_SOURCE_TIMEZONE!,
             timeoutMs: options.CSV_MEMBERSHIP_QUERY_TIMEOUT_MS,
             maxOrders: options.CSV_MEMBERSHIP_MAX_ORDERS,

@@ -169,8 +169,8 @@ export function csvMembershipHistorySql(
     orders = options.BQ_CSV_MEMBERSHIP_ORDERS_VIEW!,
     lines = options.BQ_CSV_MEMBERSHIP_LINES_VIEW!;
   // One statement sees one immutable generation. No raw table or current MySQL
-  // fallback. Future/null/subsecond source dates are diagnosed, never filtered
-  // out to manufacture source-equivalent absence.
+  // fallback. Null/subsecond source dates are diagnosed. The literal source
+  // includes future-dated delivered rows; no upper date predicate is invented.
   const statement = `WITH publications AS (
 SELECT * FROM \`${publications}\`
 WHERE scope_shard=@scopeShard AND contract=@contract AND customer_id=@customer AND as_of=@asOf AND cutoff=@cutoff
@@ -210,7 +210,7 @@ CAST((SELECT COUNT(*) FROM selected) AS STRING) AS selectedOrders,
 CAST((SELECT COUNT(DISTINCT order_id) FROM selected) AS STRING) AS uniqueSelectedOrders,
 CAST((SELECT COUNT(*) FROM selected_lines) AS STRING) AS lines,
 CAST((SELECT COUNT(DISTINCT line_id) FROM selected_lines) AS STRING) AS uniqueLines,
-CAST((SELECT COUNT(*) FROM delivered WHERE created_at IS NULL OR created_at>@asOf
+CAST((SELECT COUNT(*) FROM delivered WHERE created_at IS NULL
 OR created_at!=DATETIME_TRUNC(created_at,SECOND)
 OR SAFE_CAST(order_id AS INT64) IS NULL OR SAFE_CAST(order_id AS INT64)<=0
 OR payment_method IS NULL OR payment_method<0 OR payment_method>32767) AS STRING) AS invalidOrders,
@@ -676,11 +676,7 @@ export function qualifyCsvMembershipWarehouseSnapshot(
       .map(({ orderId: _orderId, ...row }) => row),
   }));
   if (
-    orders.some(
-      (entry, index) =>
-        entry.createdAt > scope.asOf ||
-        (index > 0 && orders[index - 1]!.createdAt <= entry.createdAt),
-    ) ||
+    orders.some((entry, index) => index > 0 && orders[index - 1]!.createdAt <= entry.createdAt) ||
     (orders.length > 1 && orders.some((entry) => entry.createdAt <= scope.cutoff))
   )
     throw historyError('AMBIGUOUS');

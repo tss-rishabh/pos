@@ -1,6 +1,7 @@
 import { isAbsolute } from 'node:path';
 import { z } from 'zod';
 import type { Databases } from '../../../db/pools.js';
+import { readNativeHeadMetadataOptions } from '../../screening-origins/native-head-metadata.js';
 import {
   assertMembershipHistoryKeys,
   publicMembershipHistoryError,
@@ -162,5 +163,11 @@ export function readPublicMembershipPublisherConfiguration(env: NodeJS.ProcessEn
     ) !== value.PUBLIC_SCREENING_MEMBERSHIP_PUBLISHER_SOURCE_SCHEMA
   )
     throw publicMembershipHistoryError();
-  return { value, options, authority, memberIds, newWork };
+  const headMetadata = newWork ? readNativeHeadMetadataOptions(env) : undefined;
+  if (
+    newWork &&
+    headMetadata?.membershipDefiner !== value.PUBLIC_SCREENING_MEMBERSHIP_PUBLISHER_TRIGGER_DEFINER
+  )
+    throw publicMembershipHistoryError();
+  return { value, options, authority, memberIds, newWork, headMetadata };
 }

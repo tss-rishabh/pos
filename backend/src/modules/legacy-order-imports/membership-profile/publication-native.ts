@@ -174,7 +174,7 @@ export function csvMembershipNativeSnapshot(
           const [aggregate] = await tx
             .select({
               total: sql<string>`${hint()} CAST(COUNT(*) AS CHAR)`,
-              invalid: sql<string>`CAST(COUNT(CASE WHEN ${headers.id}<=0 OR ${headers.createdAt} IS NULL OR YEAR(${headers.createdAt})=0 OR MICROSECOND(${headers.createdAt})<>0 OR ${headers.createdAt}>CAST(${scope.asOf} AS DATETIME) OR ${headers.paymentMethod}<0 OR ${headers.paymentMethod}>32767 THEN 1 END) AS CHAR)`,
+              invalid: sql<string>`CAST(COUNT(CASE WHEN ${headers.id}<=0 OR ${headers.createdAt} IS NULL OR YEAR(${headers.createdAt})=0 OR MICROSECOND(${headers.createdAt})<>0 OR ${headers.paymentMethod}<0 OR ${headers.paymentMethod}>32767 THEN 1 END) AS CHAR)`,
               maximum: sql<string | null>`MAX(${headers.createdAt})`,
             })
             .from(headers)

@@ -8,7 +8,28 @@ same work order is recorded in AGENTS.md for future continuations and agents.
 The user explicitly requested this approach be retained in memory: complete
 all implementation first; only then begin parity and testing.
 
-Latest implementation: bounded source-origin history reader and independent
+Current implementation checkpoint (18 November, supersedes the progress notes
+below): source coupon preparation and current-only branches, encrypted generic
+coupon demands, separate authenticated cart coupon previews, undispatched CSK
+successors, provider recovery and read-only payment-effect status are integrated.
+The common Python/Go head readers use the fixed readonly metadata function;
+isolated writer/audit account qualification is on policy v3. The membership
+command and preview readers, source transport, private routes, generic demand
+queue connection and background coupon demand drain are wired on `63336d1`
+with subsequent preview integration in progress. Additive coupon/successor
+tables are registered; upstream account/trigger/Go review SQL remains manual.
+
+Remaining implementation: genuine source cart/early CSK preview rollback and
+replay, membership consumer/bootstrap wiring, same-order source stage-recovery
+issuer, runnable quota projection publisher, shared TypeScript metadata
+qualification and native member/coupon publisher configuration. Then regenerate
+the composed source artifacts, reconcile every remaining requirement, and only
+after implementation is complete begin consolidated validation. No new tests,
+typechecks, lint, application builds, live writes or deployments were run.
+The release gate remains unaccepted; historical results below do not certify
+these new changes.
+
+Earlier implementation: bounded source-origin history reader and independent
 encrypted generation queue integrated on `86ca3d0`; runnable private bridge on
 `47dcd22`. The actual npm command, Docker target, TLS journal configuration,
 reader-only BigQuery identity, safe lifecycle/request events and additive queue

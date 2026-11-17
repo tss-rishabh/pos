@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { AppError } from '../../domain/errors.js';
 import { registerOriginHistoryBridge } from './history-routes.js';
 import { registerOriginCouponHistoryBridge } from './coupon-history-routes.js';
+import { registerOriginCouponPreviewBridge } from './coupon-preview-routes.js';
 import { registerOriginMembershipHistoryBridge } from './membership-history-routes.js';
 
 export interface OriginHistoryBridgeEvent {
@@ -27,6 +28,7 @@ export async function createOriginHistoryBridge(options: {
   sourceKey: string;
   history: Parameters<typeof registerOriginHistoryBridge>[2];
   couponHistory?: Parameters<typeof registerOriginCouponHistoryBridge>[2];
+  couponPreview?: Parameters<typeof registerOriginCouponPreviewBridge>[2];
   membershipHistory?: Parameters<typeof registerOriginMembershipHistoryBridge>[2];
   clock?: () => number;
   observe?: (event: OriginHistoryBridgeEvent) => void;
@@ -171,6 +173,17 @@ export async function createOriginHistoryBridge(options: {
       options.clock,
     );
   const membership = options.membershipHistory;
+  const couponPreview = options.couponPreview;
+  if (couponPreview)
+    await registerOriginCouponPreviewBridge(
+      app,
+      options.sourceKey,
+      {
+        read: (...args: Parameters<typeof couponPreview.read>) =>
+          bounded(() => couponPreview.read(...args)),
+      },
+      options.clock,
+    );
   if (membership)
     await registerOriginMembershipHistoryBridge(
       app,

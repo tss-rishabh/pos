@@ -7,6 +7,11 @@ import type { Databases } from '../../../db/pools.js';
 import { readMembershipSourceSnapshot } from '../../legacy-order-imports/membership-profile/publication-transaction.js';
 import { membershipHistoryWriters } from './membership-history-writers.js';
 import {
+  readNativeHeadMetadata,
+  nativeHeadMetadataOptionsSchema,
+  canonicalNativeHeadJson,
+} from '../../screening-origins/native-head-metadata.js';
+import {
   membershipGenerationContract,
   membershipGenerationPublicationContract,
   membershipGenerationSchema,
@@ -51,6 +56,7 @@ const optionsSchema = z.object({
   sourceSchema: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/),
   sourceServerUuid: z.uuid(),
   triggerDefiner: z.string().regex(/^[A-Za-z0-9_.$-]{1,64}@[A-Za-z0-9_.:%-]{1,255}$/),
+  headMetadata: nativeHeadMetadataOptionsSchema,
   sourceTimeZone: z.string().min(1).max(128),
   timeoutMs: z.number().int().min(100).max(10000).default(8000),
   maxOrders: z.number().int().min(1).max(5000).default(1000),
@@ -125,32 +131,17 @@ DATE_FORMAT(UTC_TIMESTAMP(3),'%Y-%m-%dT%H:%i:%s.%fZ') AS capturedAt`),
             if (!head) throw publicMembershipHistoryError();
             await tx.execute(sql`SELECT id FROM orders LIMIT 0`);
             await tx.execute(sql`SELECT id FROM has_products LIMIT 0`);
-            const definitions = records(
-              await tx.execute(sql`SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,
-EVENT_MANIPULATION AS event,ACTION_TIMING AS timing,LOWER(SHA2(ACTION_STATEMENT,256)) AS hash,SQL_MODE AS sqlMode,DEFINER AS definer
-FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN (${sql.join(
-                membershipHistoryWriters.definitions.map((value) => sql`${value.name}`),
-                sql`, `,
-              )})`),
-              z
-                .object({
-                  name: z.string(),
-                  tableName: z.string(),
-                  event: z.string(),
-                  timing: z.string(),
-                  hash,
-                  sqlMode: z.string(),
-                  definer: z.literal(options.triggerDefiner),
-                })
-                .strict(),
-              7,
-            );
+            const metadata = await readNativeHeadMetadata(tx, options.headMetadata);
+            const definitions = metadata.membershipTriggers;
+            if (options.headMetadata.membershipDefiner !== options.triggerDefiner)
+              throw publicMembershipHistoryError();
             if (
               definitions.length !== 7 ||
               membershipHistoryWriters.definitions.some((expected) => {
                 const actual = definitions.find((row) => row.name === expected.name);
                 return (
                   !actual ||
+                  actual.definer !== options.triggerDefiner ||
                   ['name', 'tableName', 'event', 'timing', 'hash'].some(
                     (field) =>
                       actual[field as keyof typeof actual] !==
@@ -255,7 +246,13 @@ FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAM
                 origin: { schema: identity.schemaName, serverUuid: identity.serverUuid },
                 revision: String(head.revision),
                 writersHash: createHash('sha256')
-                  .update(membershipHistoryWriters.writersHash + '\n' + options.triggerDefiner)
+                  .update(
+                    membershipHistoryWriters.writersHash +
+                      '\n' +
+                      options.triggerDefiner +
+                      '\n' +
+                      canonicalNativeHeadJson(metadata.policy),
+                  )
                   .digest('hex'),
               }),
               sourceOrderCount: total.count,
