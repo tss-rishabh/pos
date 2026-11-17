@@ -1,4 +1,5 @@
 import type { Config } from '../../config.js';
+import type { Databases } from '../../db/pools.js';
 import { AppError } from '../../domain/errors.js';
 import type { FinancialImportProfileHooks } from './financial-adapter-profiles.js';
 import type { LegacyImportFinancialOptions } from './financial-adapter-options.js';
@@ -7,6 +8,10 @@ import { importFinancialError } from './financial-adapter-crypto.js';
 import { readSourceOrderPreparationOptions } from './source-order-preparation-options.js';
 import { sourceOrderPreparation } from './source-order-preparation.js';
 import { couponHistoryRuntime } from './benefit-profile/history-generation-runtime.js';
+import {
+  couponGenerationDemands,
+  generationDemandContract,
+} from './benefit-profile/history-generation-demands.js';
 
 /** Pure installation. Invalid selected configuration blocks new work while
  * retaining the adapter/key needed to authenticate already committed results. */
@@ -15,6 +20,7 @@ export function configuredSourceOrderPreparation(
   financial: LegacyImportFinancialOptions,
   environment: NodeJS.ProcessEnv,
   dependencies: Parameters<typeof sourceOrderPreparation>[3] = {},
+  installation: { db?: Pick<Databases, 'get'> } = {},
 ): {
   readonly ready: boolean;
   readonly port?: FinancialOrderPreparationPort;
@@ -33,13 +39,43 @@ export function configuredSourceOrderPreparation(
           : undefined,
       couponHistoryReader =
         dependencies.couponHistoryReader ?? couponHistoryRuntime(environment, authority);
+    let couponHistoryDemand = dependencies.couponHistoryDemand;
+    if (!couponHistoryDemand && environment.CSV_COUPON_GENERATION_DEMAND_CONTRACT) {
+      const journalKey = environment.CSV_COUPON_GENERATION_JOURNAL_KEY,
+        otherKeys = [
+          financial.secret,
+          financial.sourceAuthKey,
+          financial.sourceProofKey,
+          options.couponHistoryKey,
+          options.couponPublicationKey,
+          options.couponGuardKey,
+          options.historyKey,
+          options.publicationKey,
+          options.membershipProofKey,
+        ];
+      if (
+        environment.CSV_COUPON_GENERATION_DEMAND_CONTRACT !== generationDemandContract ||
+        !journalKey ||
+        !/^[!-~]{32,4096}$/.test(journalKey) ||
+        otherKeys.includes(journalKey) ||
+        !authority ||
+        !couponHistoryReader ||
+        !installation.db
+      )
+        throw importFinancialError('ORDER_IMPORT_PREPARATION_CONFIGURATION', 503);
+      couponHistoryDemand = couponGenerationDemands(
+        installation.db,
+        { journalKey, sourceKey: authority.sourceKey },
+        dependencies.clock ?? financial.clock,
+      );
+    }
     return {
       ready: true,
       port: sourceOrderPreparation(
         config,
         financial,
         options,
-        { ...dependencies, couponHistoryReader },
+        { ...dependencies, couponHistoryReader, couponHistoryDemand },
       ),
     };
   } catch (error: unknown) {

@@ -48,6 +48,7 @@ export function configuredLegacyOrderImports(
       financial,
       environment,
       options.preparation,
+      { db },
     ),
     benefits = configuredCsvImportBenefits(financial, environment),
     approvals = legacyOrderImportFinancialApprovals(config, db, financial),

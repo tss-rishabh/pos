@@ -17,6 +17,14 @@ screening counter and public membership/gift composition remain implementation
 work in parallel agents. Changed-actor/contact settlement succession also remains
 unimplemented; immutable completed-result recovery already exists.
 
+The encrypted demand queue is now integrated from `b849ebc` as `56a1c11`.
+Application installation requires its explicit selector, independent journal key
+and configured reader. Only an authenticated incomplete-generation preview can
+enqueue the original scope/witness; it cannot publish or dispatch an order.
+The additive queue migration is registered and packaged. Generation intent and
+demand linkage commit atomically. The executable background command/config loader
+is the remaining publisher handoff. Validation remains deferred.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during

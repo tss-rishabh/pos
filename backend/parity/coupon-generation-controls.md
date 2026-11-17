@@ -68,9 +68,20 @@ the source preview and checking the original operation, plan, customer and keys,
 an incomplete-generation read can enqueue the exact history scope and witness.
 The queue performs no historical query or publication. Preparation retains its
 original failure and cannot dispatch an order; queue failure does not replace
-that result. The concrete encrypted demand queue and worker installation are a
-separate implementation handoff. The coupon publication key participates in
+that result. The concrete encrypted demand queue is installed by the application
+factory; its executable background worker remains a separate implementation
+handoff. The coupon publication key participates in
 the preparation boundary's complete key-separation check.
+
+The configured import factory selects the concrete encrypted queue with
+`CSV_COUPON_GENERATION_DEMAND_CONTRACT=pos-csv-coupon-generation-demands-v1`
+and `CSV_COUPON_GENERATION_JOURNAL_KEY`. The journal key must differ from every
+financial, membership and coupon authentication/proof key used by preparation.
+The selector also requires the configured warehouse reader and a writer-capable
+rewrite journal connection. Construction performs no I/O. The additive
+`coupon-generation-demand-migration.sql` creates only the encrypted operational
+queue and is registered in the deployment migration plan; the application does
+not create it on startup. Queue selection remains blank by default.
 
 The shared private runtime mounts the resource after source construction, while
 validating its selector/key before database bootstrap. The source manifest
