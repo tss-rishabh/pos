@@ -26,6 +26,13 @@ describe.skipIf(!template)('owned source screening lock/snapshot prelude', () =>
     const command = await journal.dispatch(input, 'order');
     const receipt = await fixture.createOrder(command.state, command.plan);
     await fixture.fixture.insert('stores', { id: '2', is_active: 1, type: 'STORE' });
+    await fixture.fixture.insert('users', {
+      id: '78',
+      email: 'other-source@example.test',
+      status: 1,
+      is_block: 0,
+      is_disabled: 0,
+    });
     await fixture.connection.execute('UPDATE order_stores SET store_id=2 WHERE order_id=?', [
       receipt.orderId,
     ]);
@@ -75,8 +82,10 @@ describe.skipIf(!template)('owned source screening lock/snapshot prelude', () =>
       'sticky-order-or-snapshot-rejected',
       'sticky-order-or-snapshot-rejected',
       'owned-current-and-private-wrapper',
+      'pooled-isolation-restored',
       'retained-archived-prefix',
       'cross-store-stale-hint-fresh-view',
+      'two-customers-empty-control-receipts',
     ]);
   });
 });

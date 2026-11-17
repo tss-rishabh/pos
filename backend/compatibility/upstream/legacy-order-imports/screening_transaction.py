@@ -73,9 +73,13 @@ def owned(session,cap):
     if session.in_transaction() or _ACTIVE.get() is not None:
         raise ImportReview('ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED')
     with session.begin():
-        connection=session.connection()
+        # New owned transaction only. SQLAlchemy restores the pooled native
+        # connection's prior isolation on release; no global SQL mode/isolation
+        # is changed. RC avoids absent receipt/proof next-key locks as well as
+        # stale views; a fresh RR snapshot alone would not avoid those gaps.
+        connection=session.connection(execution_options={'isolation_level':'READ COMMITTED'})
         isolation=connection.get_isolation_level()
-        if isolation not in ('REPEATABLE READ','READ COMMITTED'):
+        if isolation!='READ COMMITTED':
             raise ImportReview('ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED')
         witness=_Witness(session,cap,session.get_transaction(),isolation)
         token=_ACTIVE.set(witness)

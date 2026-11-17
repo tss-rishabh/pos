@@ -12,6 +12,7 @@ from protocol import verify_capability,ImportReview
 from native import lock_command,fresh_authority
 from screening_transaction import owned,mark_customer,current
 from transaction import private_session
+from receiver import prior,record
 
 value=json.loads(sys.stdin.read());url=make_url(value['url'])
 if (url.host not in ('127.0.0.1','localhost') or not url.database.startswith('pos_rewrite_import_runtime_') or len(url.database)!=len('pos_rewrite_import_runtime_')+12 or url.query):
@@ -21,6 +22,7 @@ engine=create_engine(url.set(drivername='mysql+pymysql'),echo=False,hide_paramet
 Session=sessionmaker(bind=engine,expire_on_commit=False)
 passed=[]
 try:
+    with engine.connect() as connection:original_isolation=connection.get_isolation_level()
     with Session() as session:
         session.execute(text('SELECT id FROM users WHERE id=:id'),{'id':cap['authority']['customerId']})
         try:
@@ -48,7 +50,10 @@ try:
             assert current(private,cap) is current(session,cap)
         session.execute(text('SELECT id FROM users WHERE id=:id'),{'id':cap['authority']['customerId']}).one()
         assert current(session,cap).customer_id==cap['authority']['customerId']
+        assert current(session,cap).isolation=='READ COMMITTED'
     passed.append('owned-current-and-private-wrapper')
+    with engine.connect() as connection:assert connection.get_isolation_level()==original_isolation
+    passed.append('pooled-isolation-restored')
     # An immutable service receipt still needs its original locks, not a live
     # actor. The fresh-authority path separately rejects new work after archive.
     with engine.begin() as connection:connection.execute(text('UPDATE pos_user SET is_active=0 WHERE id=:id'),{'id':cap['scope']['actorId']})
@@ -78,7 +83,26 @@ try:
             assert attempted.wait(5),'Source reader did not reach global customer wait'
         fresh=future.result(timeout=5)
     event.remove(engine,'before_cursor_execute',notice)
-    assert hint==0 and fresh==1,'A stale pre-customer RR snapshot escaped the source witness'
+    assert hint==0 and fresh==1,'A stale pre-customer state escaped the owned source transaction'
     passed.append('cross-store-stale-hint-fresh-view')
+    # Real missing-receipt lookup/insert functions, with both owned transactions
+    # past the absent control read before either can insert. Different customers
+    # and stores must not meet through an empty receipt index next-key gap.
+    barrier=threading.Barrier(2)
+    def independent_receipt(index):
+        scoped={**cap,'operationId':f'00000000-0000-4000-8000-{index:012d}',
+                'scope':{**cap['scope'],'operationId':f'00000000-0000-4000-8000-{index:012d}','storeId':str(index)},
+                'authority':{**cap['authority'],'customerId':str(76+index)}}
+        with Session() as session,owned(session,scoped):
+            session.execute(text('SELECT id FROM users WHERE id=:id FOR UPDATE'),{'id':scoped['authority']['customerId']}).one()
+            mark_customer(session,scoped,scoped['authority']['customerId'])
+            assert prior(session,scoped['operationId'],'order') is None
+            barrier.wait(timeout=5)
+            record(session,scoped['operationId'],'order',scoped['requestHash'],'rejected',
+                   {'fixture':'no-effects-control-insert'},value['proofKey'],value['now'])
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        futures=[pool.submit(independent_receipt,index) for index in (1,2)]
+        for future in futures:future.result(timeout=8)
+    passed.append('two-customers-empty-control-receipts')
     print(json.dumps({'passed':passed,'hint':hint,'current':fresh}))
 finally:engine.dispose()

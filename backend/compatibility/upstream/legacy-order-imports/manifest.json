@@ -30,7 +30,7 @@
     "contract": "pos-import-customer-first-snapshot-v1",
     "activated": false,
     "files": {
-      "screening_transaction.py": "be631d0ac6f4455b88282f3cd7dd7ef30a428eee9d75910f5288184287e04586",
+      "screening_transaction.py": "f05c13db2fb1ca65d6f0b073466c90b78e07ab56baa204868aeb5008235941b4",
       "receiver.py": "354228ca6a18f3f78b59ee246496644bfdc5a8d828065bc514c28de6543552f6"
     }
   },
