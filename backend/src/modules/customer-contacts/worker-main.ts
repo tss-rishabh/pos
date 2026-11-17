@@ -12,6 +12,7 @@ class PrivateWorkerLogController extends LogController {
     super({ disableRequestLogging: true });
   }
 }
+const workerRunId = randomUUID();
 const runtime = Fastify({
   logger: {
     base: null,
@@ -23,7 +24,7 @@ const runtime = Fastify({
       resource: 'customer-contact-worker',
       eventId: 'customer-contacts.customer-contact-worker.lifecycle',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
     }),
   },
@@ -66,7 +67,10 @@ try {
     db = createDatabases(config);
     const database = db,
       worker = customerContactOutbox(config, database, options, sender, Date.now, (event) =>
-        runtime.log.info(event, 'Customer contact delivery completed'),
+        runtime.log.info(
+          { ...event, requestId: event.requestId ?? workerRunId },
+          'Customer contact delivery completed',
+        ),
       );
     let lastPrune = 0;
     const tick = async () => {

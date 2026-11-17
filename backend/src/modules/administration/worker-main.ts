@@ -15,6 +15,7 @@ class PrivateWorkerLogController extends LogController {
     super({ disableRequestLogging: true });
   }
 }
+const workerRunId = randomUUID();
 const runtime = Fastify({
   logger: {
     base: null,
@@ -26,14 +27,14 @@ const runtime = Fastify({
       resource: 'inventory-synchronization-worker',
       eventId: 'administration.inventory-synchronization-worker.lifecycle',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
     }),
   },
   logController: new PrivateWorkerLogController(),
 });
 const log: AdministrationWorkerLogger = (level, event, message) =>
-  runtime.log[level](event, message);
+  runtime.log[level]({ ...event, requestId: event.requestId ?? workerRunId }, message);
 let databases: Databases | undefined;
 try {
   const options = readAdministrationWorkerOptions();
@@ -55,7 +56,7 @@ try {
         resource: 'inventory-synchronization-worker',
         eventId: 'administration.inventory-synchronization-worker.disabled',
         eventInstanceId: randomUUID(),
-        requestId: null,
+        requestId: workerRunId,
         userId: null,
       },
       'Inventory synchronization worker is disabled',
@@ -113,7 +114,7 @@ try {
       resource: 'inventory-synchronization-worker',
       eventId: 'administration.inventory-synchronization-worker.startup-failed',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
       errorCode:
         error instanceof AppError ? error.code : 'ADMINISTRATION_WORKER_CONFIGURATION_INVALID',

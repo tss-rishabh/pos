@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { setTimeout } from 'node:timers/promises';
 import { readConfig } from '../config.js';
 import { createDatabases, type Databases } from '../db/pools.js';
@@ -10,7 +11,11 @@ import {
   type SecurityWorkerEvent,
 } from './security-worker.js';
 
-const log = (event: SecurityWorkerEvent) => process.stdout.write(JSON.stringify(event) + '\n');
+const workerRunId = randomUUID();
+const log = (event: SecurityWorkerEvent) =>
+  process.stdout.write(
+    JSON.stringify({ ...event, requestId: event.requestId ?? workerRunId }) + '\n',
+  );
 const controller = new AbortController();
 let db: Databases | undefined,
   stopping = false,
@@ -69,7 +74,7 @@ try {
             resource: 'login-security-worker',
             eventId: 'identity.login-security-worker.batch.failed',
             eventInstanceId: crypto.randomUUID(),
-            requestId: null,
+            requestId: workerRunId,
             userId: null,
             errorCode: 'SECURITY_WORKER_UNAVAILABLE',
           });
@@ -88,7 +93,7 @@ try {
       resource: 'login-security-worker',
       eventId: 'identity.login-security-worker.disabled',
       eventInstanceId: crypto.randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
     });
 } catch (error) {
@@ -97,7 +102,7 @@ try {
     resource: 'login-security-worker',
     eventId: 'identity.login-security-worker.startup.failed',
     eventInstanceId: crypto.randomUUID(),
-    requestId: null,
+    requestId: workerRunId,
     userId: null,
     errorCode: error instanceof AppError ? error.code : 'SECURITY_WORKER_CONFIGURATION_INVALID',
   });

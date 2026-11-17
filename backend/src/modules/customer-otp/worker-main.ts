@@ -13,6 +13,7 @@ class PrivateOtpLogController extends LogController {
     super({ disableRequestLogging: true });
   }
 }
+const workerRunId = randomUUID();
 const runtime = Fastify({
   logger: {
     base: null,
@@ -24,7 +25,7 @@ const runtime = Fastify({
       resource: 'customer-otp-worker',
       eventId: 'customer-otp.customer-otp-worker.lifecycle',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
     }),
   },
@@ -66,7 +67,10 @@ try {
     db = createDatabases(config);
     const database = db,
       worker = customerOtpOutbox(config, database, options, sender, Date.now, (event) =>
-        runtime.log.info(event, 'Customer OTP delivery completed'),
+        runtime.log.info(
+          { ...event, requestId: event.requestId ?? workerRunId },
+          'Customer OTP delivery completed',
+        ),
       );
     let lastPrune = 0;
     const tick = async () => {

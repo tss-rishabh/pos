@@ -18,6 +18,7 @@ class SettingsLogController extends LogController {
     super({ disableRequestLogging: true });
   }
 }
+const workerRunId = randomUUID();
 const runtime = Fastify({
   logger: {
     base: null,
@@ -29,13 +30,14 @@ const runtime = Fastify({
       resource: 'settings-delivery-worker',
       eventId: 'administration.settings-delivery-worker.lifecycle',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
     }),
   },
   logController: new SettingsLogController(),
 });
-const log: SettingsWorkerLogger = (level, event, message) => runtime.log[level](event, message);
+const log: SettingsWorkerLogger = (level, event, message) =>
+  runtime.log[level]({ ...event, requestId: event.requestId ?? workerRunId }, message);
 let db: Databases | undefined, delivery: SettingsEffectDelivery | undefined;
 try {
   const options = readSettingsWorkerOptions(),
@@ -57,7 +59,7 @@ try {
         resource: 'settings-delivery-worker',
         eventId: 'administration.settings-delivery-worker.disabled',
         eventInstanceId: randomUUID(),
-        requestId: null,
+        requestId: workerRunId,
         userId: null,
       },
       'Settings delivery is disabled',
@@ -124,7 +126,7 @@ try {
       resource: 'settings-delivery-worker',
       eventId: 'administration.settings-delivery-worker.startup-failed',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
       errorCode: error instanceof AppError ? error.code : 'SETTINGS_WORKER_CONFIGURATION_INVALID',
     },

@@ -12,6 +12,7 @@ class PrivateWorkerLogController extends LogController {
     super({ disableRequestLogging: true });
   }
 }
+const workerRunId = randomUUID();
 const runtime = Fastify({
   logger: {
     base: null,
@@ -23,14 +24,14 @@ const runtime = Fastify({
       resource: 'generation-worker',
       eventId: 'gift-card-batches.generation-worker.lifecycle',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
     }),
   },
   logController: new PrivateWorkerLogController(),
 });
 const log: GiftCardBatchWorkerLogger = (level, event, message) =>
-  runtime.log[level](event, message);
+  runtime.log[level]({ ...event, requestId: event.requestId ?? workerRunId }, message);
 let db: Databases | undefined, service: ReturnType<typeof giftCardBatchService> | undefined;
 async function closeResources(stop?: () => Promise<void>) {
   let failed = false;
@@ -49,7 +50,7 @@ async function closeResources(stop?: () => Promise<void>) {
         resource: 'generation-worker',
         eventId: 'gift-card-batches.generation-worker.shutdown-failed',
         eventInstanceId: randomUUID(),
-        requestId: null,
+        requestId: workerRunId,
         userId: null,
         errorCode: 'GIFT_CARD_BATCH_SHUTDOWN_FAILED',
       },
@@ -105,7 +106,7 @@ try {
       resource: 'generation-worker',
       eventId: 'gift-card-batches.generation-worker.startup-failed',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
       errorCode:
         error instanceof AppError ? error.code : 'GIFT_CARD_BATCH_WORKER_CONFIGURATION_INVALID',

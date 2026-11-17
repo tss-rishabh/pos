@@ -16,6 +16,7 @@ class PrivateMediaLogController extends LogController {
     super({ disableRequestLogging: true });
   }
 }
+const workerRunId = randomUUID();
 const runtime = Fastify({
   logger: {
     base: null,
@@ -27,13 +28,14 @@ const runtime = Fastify({
       resource: 'documentation-media-worker',
       eventId: 'administration.documentation-media-worker.lifecycle',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
     }),
   },
   logController: new PrivateMediaLogController(),
 });
-const log: MediaWorkerLogger = (level, event, message) => runtime.log[level](event, message);
+const log: MediaWorkerLogger = (level, event, message) =>
+  runtime.log[level]({ ...event, requestId: event.requestId ?? workerRunId }, message);
 let db: Databases | undefined, media: DocumentationMediaStore | undefined;
 try {
   const options = readDocumentationMediaOptions(),
@@ -58,7 +60,7 @@ try {
         resource: 'documentation-media-worker',
         eventId: 'administration.documentation-media-worker.disabled',
         eventInstanceId: randomUUID(),
-        requestId: null,
+        requestId: workerRunId,
         userId: null,
       },
       'Guide media cleanup is disabled',
@@ -118,7 +120,7 @@ try {
       resource: 'documentation-media-worker',
       eventId: 'administration.documentation-media-worker.startup-failed',
       eventInstanceId: randomUUID(),
-      requestId: null,
+      requestId: workerRunId,
       userId: null,
       errorCode: error instanceof AppError ? error.code : 'MEDIA_WORKER_CONFIGURATION_INVALID',
     },
