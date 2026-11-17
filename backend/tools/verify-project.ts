@@ -543,6 +543,16 @@ const checks: Check[] = [
     ],
   },
   {
+    id: 'legacy-import-benefits-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-benefits/tsconfig.json',
+    ],
+  },
+  {
     id: 'legacy-import-membership-publication-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -1052,6 +1062,12 @@ if (flags.has('--mysql')) {
       directory: 'backend',
       command: 'sh',
       args: ['compatibility/upstream/legacy-order-imports/run-correction-tests.sh'],
+    },
+    {
+      id: 'legacy-import-benefits-native-tests',
+      directory: 'backend',
+      command: 'sh',
+      args: ['compatibility/upstream/legacy-order-imports/benefit-profile/run-native-tests.sh'],
     },
     {
       id: 'membership-native-producer-tests',

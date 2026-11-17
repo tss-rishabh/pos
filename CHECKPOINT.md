@@ -32,7 +32,7 @@ component test counts do not certify every original workflow.
 | Ecommerce inventory sync | Source threshold selection, writer-current system projection/checkpoints, authenticated complete catalog bridge and the actual settings recovery UI are wired into the existing queue/worker. Twenty-four merged backend checks (including 16 bridge subcases) and eight frontend checks pass, with strict checks. Actual stock/writer/catalog coordination and provider deployment acceptance remain required.                                                       |
 | Whole-order fulfillment  | Dedicated PACK/SHIP/DELIVER commands, full immutable order-line scope, source-pinned STORE worker, public resources and deferred Orders recovery UI are integrated. Atomic rejected-return obligations, bounded dispatch, manager recovery and shared public/private financial handover guards are integrated. The standalone private receiver has its own command, bind settings and container target. Production ingress/vendor/writer acceptance remains required. |
 
-## Fixed remaining code checklist
+## Remaining code and integration
 
 Recent focused checks cover CSV coordination, financial approval/settlement,
 whole-order recovery, private source/Go boundaries, API and trace isolation. The
@@ -81,12 +81,16 @@ worker; assertions and timeouts were unchanged. Later CSV/profile integrations
 still require their own consolidated and native runs. Signing and physical
 printer acceptance remain outstanding.
 
-The later native run on `77151ca` passed macOS and failed the Windows sign-in
-flow. Its retained browser trace showed the initial challenge-restoration reply
-clearing a newly entered OTP. The fix invalidates restoration when an explicit
-sign-in starts; three deterministic Chromium restoration cases pass locally.
-`backend/evidence/desktop-ci-77151ca.json` retains the failure. The fix still
-requires a fresh Windows/macOS run on the next published revision.
+The native run on `77151ca` passed macOS and failed the Windows sign-in flow.
+Its retained trace showed the initial challenge-restoration reply clearing a
+new OTP; three deterministic Chromium cases cover the fix. The next run on
+`3f5a269` passed the native Electron/offline step on both systems, then failed
+later browser recovery steps. The failed outcomes remain retained separately.
+Windows exposed two first-workflow 5-second deadline failures; cold Vite setup
+now finishes in fixture startup, with all 14 affected cases passing locally.
+macOS exposed a correction fixture checking its receipt before commit; the
+controlled-race fix passes all 8 cases. No deadlines or retries were increased.
+Another native run is required. See `backend/parity/native-browser-readiness.md`.
 
 Membership completion snapshots and actual application/worker recovery are now
 integrated. On `6ec6824`, 125 membership, runtime, repository and resumptions
@@ -99,12 +103,26 @@ payment, stock or publication dispatch, even when new-work configuration is
 disabled. See `backend/parity/import-app-recovery.md` and
 `backend/parity/csv-membership-core.md`.
 
-The project verifier now includes membership adapter/publication compiler
-checks, the isolated native publication database input, and the manager
-correction compiler/browser suite. Historical publication producers are
-implemented as review candidates. The private pre-dispatch history handoff,
-complete publication freshness and remaining profile composition still need
-implementation and qualification.
+The actual private transport now binds the prepared membership history document
+to its order capability. Source admission verifies/copies it before SQL, then
+the literal eligibility code uses memory only and retains its original execution
+second. Source short circuits still run without history. The latest affected
+regression passed 266 checks; its separately compiled original-Go case passed
+as well. Protocol/startup/tender checks and strict compilation passed. Async
+preparation selection, durable no-dispatch closure/resume and complete warehouse
+freshness remain code/integration work. See `backend/parity/csv-membership-handoff.md`.
+
+Automatic coupon and POS complementary profile candidates are merged, with
+71 focused checks passing on a disposable MySQL fixture. Original eligibility,
+per-HP refunds, exact counter/log/grant evidence and exhaustive line ownership
+are covered. Their source/core composition, original-Go consumption emitter,
+qualified coupon warehouse history and cooperating-writer cutover remain code
+work. Review-only legacy enum changes are not applied automatically.
+
+The project verifier includes membership, benefit and check-in fixture compiler
+checks, the isolated native publication database input, the dedicated benefit
+native runner and the manager correction compiler/browser suite. These focused
+results do not replace the pending consolidated project and full parity runs.
 
 - Finish the dormant offline/Shopify CSV order jobs: the validated parser,
   encrypted staging, native authorization/preflight, job API, recovery UI,

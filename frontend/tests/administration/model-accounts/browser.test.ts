@@ -7,6 +7,7 @@ import { chromium, expect as browserExpect, type Browser, type Page } from '@pla
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { z } from 'zod';
+import { prepareBrowserFixture } from '../../prepare-browser-fixture';
 
 describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
   'inherited account create/recovery components in isolated Chromium',
@@ -51,6 +52,13 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         throw new Error('Model account browser fixture did not bind.');
       origin = `http://127.0.0.1:${address.port}`;
       browser = await chromium.launch({ headless: true });
+      await prepareBrowserFixture(browser, async (page) => {
+        await fixture(page);
+        await browserExpect(
+          page.getByRole('button', { name: 'Create administrative account', exact: true }),
+        ).toBeVisible();
+        await server.waitForRequestsIdle();
+      });
     }, 20000);
     afterAll(async () => {
       await browser?.close();
