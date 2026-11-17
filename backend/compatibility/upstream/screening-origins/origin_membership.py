@@ -27,6 +27,10 @@ class MembershipScope:
         # This is the original function's first branch. Preserve it before
         # requesting any history; do not infer eligibility from plan prices.
         if instance.cart_value>2000:return original(instance)
+        # check_localcart already counted actual source items. With no ordinary
+        # item both literal criteria outcomes remove an existing free row; the
+        # false branch preserves that result without an unnecessary BQ read.
+        if instance.number_of_items==0:return False
         if self.prepared is None:
             if self.document is None:
                 source_point=datetime.fromtimestamp(self.value['issuedAt']/1000,ZoneInfo(self.owner.zone)).replace(tzinfo=None,microsecond=0) if self.preview else self.owner.point()

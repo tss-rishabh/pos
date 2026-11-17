@@ -121,7 +121,8 @@ done.addEventListener('click',()=>{controller.acknowledgeComplete();panel.hidden
     value=once(original,'{% endblock custom-script %}',mount+'{% endblock custom-script %}')
     changes[path]=(original,value)
     changes['static/pos-screening-origins/legacy-nonce.mjs']=('',(Path(__file__).parent/'legacy-nonce.mjs').read_text())
-    return changes
+    from legacy_cart_hooks import apply as cart_changes
+    return cart_changes(changes)
 
 
 def manifest(changes):
