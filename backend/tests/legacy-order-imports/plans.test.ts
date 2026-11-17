@@ -225,14 +225,14 @@ describe('cash-import ledger note representation', () => {
   it('preserves blank and full255-character CP1252 notes before staging', () => {
     for (const note of ['', 'x'.repeat(255), '€'.repeat(255), 'Quotation “approved” — café']) {
       const input = group();
-      input.details.order_message = note;
+      input.details = { ...input.details, order_message: note };
       expect(offlineOrderImportPlan(input).message).toBe(note);
     }
   });
   it('refuses overflow and unsupported note text with a static diagnostic', () => {
     for (const note of ['x'.repeat(256), 'private canary 😀', 'private canary 漢']) {
       const input = group();
-      input.details.order_message = note;
+      input.details = { ...input.details, order_message: note };
       try {
         offlineOrderImportPlan(input);
         throw new Error('Unsafe note was accepted.');

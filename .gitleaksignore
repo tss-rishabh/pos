@@ -201,3 +201,12 @@ dbbf120ca55f93341d30dbc0642a4e29905ed63e:backend/evidence/verification.json:gene
 7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:163
 7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:177
 7612459ff35c0a7448a3d13e0dba5d185b384cf1:backend/compatibility/upstream/ecommerce-full-sync/source-manifest.json:generic-api-key:256
+
+# verified exact committed patch SHA256; reviewed against exact committed blob.
+dc7ef99c97c63d06e157c04f050f8728109c3bef:backend/compatibility/upstream/legacy-order-imports/manifest.json:generic-api-key:18
+
+# verified immutable pinned source SHA256; reviewed against exact committed blob.
+dc7ef99c97c63d06e157c04f050f8728109c3bef:backend/compatibility/upstream/legacy-order-imports/manifest.json:generic-api-key:19
+
+# literal synthetic fixture-only key, no deployed value; reviewed against exact committed blob.
+dc7ef99c97c63d06e157c04f050f8728109c3bef:backend/compatibility/upstream/legacy-order-imports/test_protocol.py:generic-api-key:23
