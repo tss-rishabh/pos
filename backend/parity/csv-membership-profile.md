@@ -31,9 +31,11 @@ The Go import overlay checks both receipt signatures and original context before
 
 ## Cache effect
 
-The original setter invalidations are deferred rather than executed at nested flush. Only operation UUID and membership receipt hash enter a new static `membership-cache` intent in the existing AES-GCM encrypted source effects journal. The callback/session/cache key/email are never serialized. The private consumer reconstructs a scoped session, locks Order→customer→provenance→receipt, verifies retained identity/proofs, commits a once-only `member-cache` claim, then invokes original `cache.region_invalidate(get_exclusive_token, None, 'exclusive_user', session, userId, email)`. It records completed/uncertain separately; a previous processing/uncertain claim cannot resend automatically.
+The original setter invalidations are deferred rather than executed at nested flush. Only operation UUID and membership receipt hash enter a new static `membership-cache` intent in the existing AES-GCM encrypted source effects journal. The callback/session/cache key/email are never serialized. The private consumer reconstructs a scoped session, verifies retained identity/proofs under the shared customer-first import ordering, commits a once-only `member-cache` claim, then invokes original `cache.region_invalidate(get_exclusive_token, None, 'exclusive_user', session, userId, email)`. It records completed/uncertain separately; a previous processing/uncertain claim cannot resend automatically.
 
 Broker acceptance means durable queue acceptance. It is not proof of downstream invalidation or cache coherence: original Beaker session-key behavior, other clients and cache repopulation remain reasons to require the independently reviewed fresh-membership reader. No cache callback can roll a committed sale back. The dedicated consumer closes original logging and uses static errors without exception chains; it never logs cache keys, contacts or payloads.
+
+The [consumer ordering follow-up](membership-cache-locks.md) moves its verified immutable hint outside the owned transaction and takes shared original actor/epoch→Store→operation→customer→Order locks, matching private Go replay. Its native current operation/authority/receipt checks do not require the old operator/store to remain active. No membership value or expiry arithmetic changes.
 
 The runtime registers `pos_import_invalidate_membership`. Start a separate approved consumer with the same pinned source/runtime/TLS writer configuration:
 

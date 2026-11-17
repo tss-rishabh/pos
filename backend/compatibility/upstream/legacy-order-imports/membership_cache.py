@@ -12,31 +12,72 @@ from sqlalchemy import text
 from protocol import ImportReview, canonical, digest, uuid
 from native import one, rows, json_value
 from membership_profile import CONTRACT, producer
+from screening_transaction import owned,mark_customer
 
 TASK = 'pos_import_invalidate_membership'
 KIND = 'member-cache'
 
 
+def retained_hint(session_factory,key,operation_id,receipt_hash):
+    # No transaction/row lock from this immutable hint survives into owned().
+    # Its HMAC is checked before any IDs from the receipt become lock hints.
+    with session_factory() as session:
+        row=one(session,"SELECT proof,proof_hash,status,request_hash FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=:op AND kind='membership' AND OCTET_LENGTH(proof)<=262144",{'op':operation_id})
+        proof=json_value(row['proof'])
+        if (row['status']!='completed' or proof['contract']!=CONTRACT
+                or proof['operationId']!=operation_id or row['request_hash']!=proof['requestHash']
+                or not hmac.compare_digest(row['proof_hash'],receipt_hash)
+                or not hmac.compare_digest(receipt_hash,digest(key,'membership',proof))):
+            raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+        for name in ('actorId','customerId','storeId','counterId','orderId'):
+            if not isinstance(proof.get(name),str) or not re.fullmatch(r'[1-9][0-9]{0,18}',proof[name]) or int(proof[name])>9223372036854775807:
+                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+        for name in ('requestHash','planHash','authorityHash'):
+            if not isinstance(proof.get(name),str) or not re.fullmatch(r'[a-f0-9]{64}',proof[name]):
+                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+        if proof.get('namespace')!='pos-import-v1:'+operation_id:
+            raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+        return proof
+
+
+def retained_scope(proof):
+    # Internal lock witness only, derived from a verified immutable source
+    # receipt. It is not a new financial capability, approval or customer token.
+    return {'operationId':proof['operationId'],'requestHash':proof['requestHash'],'planHash':proof['planHash'],
+            'scope':{'operationId':proof['operationId'],'actorId':proof['actorId'],'storeId':proof['storeId'],'counterId':proof['counterId']},
+            'authority':{'customerId':proof['customerId']}}
+
+
+def lock_retained_operation(session,key,proof,scope):
+    original=one(session,'SELECT actor_id,store_id,counter_id,request_hash,plan_hash,namespace,state FROM pos_rewrite_import_financial_operations WHERE id=:id AND OCTET_LENGTH(state)<=16000 FOR UPDATE',{'id':proof['operationId']})
+    state=json_value(original['state'])
+    if (original['actor_id']!=proof['actorId'] or original['store_id']!=proof['storeId'] or original['counter_id']!=proof['counterId']
+            or original['request_hash']!=proof['requestHash'] or original['plan_hash']!=proof['planHash'] or original['namespace']!=proof['namespace']
+            or state['scope']!=scope['scope'] or state['authority']['customerId']!=proof['customerId']
+            or state['status'] not in ('running','unknown','completed')
+            or not hmac.compare_digest(proof['authorityHash'],digest(key,'membership-authority',state['authority']))):
+        raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
+
+
 def invalidate(session_factory, key, operation_id, receipt_hash, callback, clock=None):
     uuid(operation_id)
+    if not isinstance(receipt_hash,str) or not re.fullmatch(r'[a-f0-9]{64}',receipt_hash):
+        raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
     clock = clock or (lambda: int(time.time() * 1000))
     adapter = producer()
+    proof=retained_hint(session_factory,key,operation_id,receipt_hash)
+    scope=retained_scope(proof)
     with session_factory() as session:
-        with session.begin():
-            order_receipt = one(session, "SELECT proof,proof_hash,status,request_hash FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=:op AND kind='membership'", {'op': operation_id})
-            proof = json_value(order_receipt['proof'])
-            if (order_receipt['status'] != 'completed' or proof['contract'] != CONTRACT
-                    or proof['operationId'] != operation_id or order_receipt['request_hash'] != proof['requestHash']
-                    or not hmac.compare_digest(order_receipt['proof_hash'], receipt_hash)
-                    or not hmac.compare_digest(receipt_hash, digest(key, 'membership', proof))):
-                raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
-            # Resolve immutable IDs from a sealed nonlocking lookup, then take
-            # Order→customer→provenance locks before any receipt-row write.
-            # Re-read the original receipt as a current locking read below.
+        with owned(session,scope):
+            lock_retained_operation(session,key,proof,scope)
+            customer = one(session, 'SELECT id,email FROM users WHERE id=:id FOR UPDATE', {'id': proof['customerId']})
+            mark_customer(session,scope,str(customer['id']))
+            # Shared actor/Store→operation→global customer→Order, matching Go
+            # replay and Node source lifecycle. No foreign Order lock precedes
+            # this customer and no old hint/read view grants authority.
             order = one(session, 'SELECT user_id FROM orders WHERE id=:id FOR UPDATE', {'id': proof['orderId']})
             if str(order['user_id']) != proof['customerId']:
                 raise ImportReview('ORDER_IMPORT_MEMBERSHIP_CACHE_UNQUALIFIED')
-            customer = one(session, 'SELECT id,email FROM users WHERE id=:id FOR UPDATE', {'id': proof['customerId']})
             current = adapter._decode(one(session, 'SELECT * FROM pos_rewrite_cancellation_membership_provenance WHERE order_id=:id FOR UPDATE', {'id': proof['orderId']}))
             locked = one(session, "SELECT proof,proof_hash,status,request_hash FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=:op AND kind='membership' FOR UPDATE", {'op': operation_id})
             if (locked['status'] != 'completed' or locked['request_hash'] != proof['requestHash']

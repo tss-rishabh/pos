@@ -65,7 +65,7 @@
     "files": {
       "membership_profile.py": "16b6f9cba8b46068c8abeefcbcae1e85a1f23d3b4c18c072ceb826c971dc6b1a",
       "membership_history.py": "4801fb8352c59fa46c6af10c4be28342584904fd9597b6b977c217f45ac44bb2",
-      "membership_cache.py": "071d19eb10a059e149422bddd28ae8d07caed42d1e81c645babe1ccb5ae3afd8",
+      "membership_cache.py": "91393225e683e57c6b711d4ecc3d6124e3b8d0c3601ce40765c26fe4cf0bd87f",
       "membership_consumer.py": "f5aa3b57a44c5679a2cfdb1aaf15e7783d59d74024f87f58ed355965ebf42567",
       "source_runtime.py": "1ca27d5d434c7698152ecacace02ac13c7f8ecfbbdd482ccbe0c0045bc2abce4",
       "profiles.py": "fdb121fcd4d91f7064c2765e22fb1b92e63e89bf2cebdcb8a317e9dbfe5ed6af",
