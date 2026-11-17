@@ -56,6 +56,9 @@ EXPOSE 4422
 HEALTHCHECK --interval=30s --timeout=8s --start-period=30s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:4422/health/live',{signal:AbortSignal.timeout(6000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node","dist/modules/legacy-order-status/receiver-main.js"]
 
+FROM runtime-base AS coupon-history-worker
+CMD ["node","dist/modules/legacy-order-imports/benefit-profile/history-generation-worker-main.js"]
+
 FROM runtime-base AS runtime
 EXPOSE 4410
 HEALTHCHECK --interval=30s --timeout=8s --start-period=30s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:4410/health/ready',{signal:AbortSignal.timeout(6000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
