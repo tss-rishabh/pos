@@ -80,6 +80,7 @@ export async function reversalMysqlFixture(template: string) {
       'src/modules/checkout/cancellations/migration.sql',
       'src/modules/checkout/payment-reversals/migration.sql',
       'src/modules/checkout/payment-reversals/intent-migration.sql',
+      'src/modules/legacy-order-imports/financial-proof-migration.sql',
     ])
       for (const statement of splitMigration(readFileSync(path, 'utf8')))
         await connection.query(statement);

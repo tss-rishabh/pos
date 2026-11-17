@@ -65,6 +65,8 @@ import {
 import { registerCheckout } from './modules/checkout/index.js';
 import { registerLegacyOrderImports } from './modules/legacy-order-imports/index.js';
 import { configuredLegacyOrderImports } from './modules/legacy-order-imports/runtime.js';
+import { readLegacyOrderImportOptions } from './modules/legacy-order-imports/options.js';
+import { orderMutationGuards } from './modules/checkout/order-mutation-guards.js';
 import {
   readWholeOrderStatusOptions,
   registerWholeOrderStatus,
@@ -369,6 +371,12 @@ export async function buildApp(
     historyOptions: readParentStoreImportOptions(),
   });
   const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
+  const financialGuards = orderMutationGuards({
+    cashReturnProofKey: paymentCorrections.proofKey ?? '',
+    importProofKey:
+      readLegacyOrderImportOptions(config.DEMO_MODE ? {} : process.env)
+        .LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1 ?? '',
+  });
   await registerCheckout(app, config, db, {
     environment: checkoutRuntime,
     paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
@@ -384,13 +392,16 @@ export async function buildApp(
     ...paymentReversalOptions(),
     hashSecret: paymentCorrections.proofKey ?? '',
     projection: checkoutRuntime,
+    assertHandoverReady: financialGuards.assertCashReturnHandoverReady,
   });
   await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
   registerCustomerWebsiteHandoff(app, config, db, customerOtp);
   await registerFulfillment(app, config, db);
   registerShippingLabels(app, db);
   registerLegacyFulfillment(app, config, db);
-  await registerWholeOrderStatus(app, config, db, wholeOrderOptions);
+  await registerWholeOrderStatus(app, config, db, wholeOrderOptions, {
+    assertHandoverAvailable: financialGuards.assertHandoverAvailable,
+  });
   registerCustomerWorkspace(app, config, db);
   registerCustomerHistory(app, config, db);
   registerProductFeedback(app, config, db);
