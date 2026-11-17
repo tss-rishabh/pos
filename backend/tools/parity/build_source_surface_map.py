@@ -191,10 +191,10 @@ def define_families():
            gaps=['Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.'],
            external=['Accept actual shared stock semantics and approved downstream sync adapter without live source CALL assumptions.'])
     bind('ecommerce-inventory-sync', ['PosEcomSetting', 'AjaxEcomSettingUpdate'])
-    family('offline-scratch-invoice', ['src/modules/checkout/offline-cash'], ['src/pages/checkout/offline-cash'],
-           ['tests/checkout', 'frontend/tests/offline-cash.test.ts'], ['parity/offline-cash.md'], state='partial',
-           scope='Signed completed offline cash, cached stock and print/reprint are implemented.',
-           gaps=['The separate source offline_billing/biller.html manual-price/customer-label scratch invoice and invoice.csv export are not supplied by signed offline cash. Preserve this non-settling worksheet separately, or record an explicit approved semantic replacement; do not enable arbitrary prices in collected-cash receipts.'])
+    family('offline-scratch-invoice', ['src/modules/catalog.ts'], ['src/pages/offline-worksheet'],
+           ['frontend/tests/offline-worksheet'], ['parity/offline-invoice-worksheet.md'],
+           scope='Separate non-settling manual-price/customer-label invoice worksheet, exact-paise totals, source-format fourteen-column CSV and sandboxed printing; fourteen unit/oracle cases and two Chromium workflows. No payment, stock or customer write.',
+           external=['Accept physical Windows/macOS worksheet printer output and the actual downstream CSV consumer; signed collected-cash receipts retain their independent fixed-price contract.'])
     bind('offline-scratch-invoice', ['OfflineBillingView', 'GetProductsWithBarcodesFromDropDown'])
     family('dashboard-summary', ['src/modules/dashboard'], ['src/pages/dashboard'], ['tests/dashboard', 'frontend/tests/dashboard'],
            ['parity/dashboard.md'], scope='Source global active store/operator counts, exact distinct parent-associated product count, scoped association totals and source current/future-year monthly series; primary/current, DATA/today and immutable-publication BigQuery history.',
@@ -220,10 +220,10 @@ def define_families():
            external=['Deploy coordinated device consumer/shared atomic Redis contract.'],
            notes=['The source MPosLogin password-only fallback is intentionally not exposed as a public MFA-bypassing authentication oracle; ordinary password login uses the complete MFA/session flow. No mobile app build.'])
     bind('device-signin', ['MPosLogin', 'AuthQRGen', 'AjaxGenAuthQR'])
-    family('orders-read', ['src/modules/orders.ts', 'src/modules/checkout/returns.ts'], ['src/pages/operations.tsx'],
-           ['tests/checkout', 'frontend/tests'], ['parity/checkout.md'], state='partial', scope='Scoped store/online order lists/details, products and immutable context for follow-up actions.',
-           gaps=['Route public order list/detail facts older than one day to a source-matching BigQuery reader. Current orders.ts reads unrestricted historical facts from primary; this is a missing code path, distinct from writer-current financial/authorization probes.'],
-           external=['Accept historical warehouse publication and representative source data.'])
+    family('orders-read', ['src/modules/orders.ts', 'src/modules/order-history', 'src/modules/checkout/returns.ts'], ['src/pages/operations.tsx', 'src/pages/order-history'],
+           ['tests/order-history', 'frontend/tests/order-history', 'tests/checkout'], ['parity/order-history.md', 'parity/checkout.md'], state='partial', scope='Public eight-column list/detail projection with signed association-preserving cursors, PRIMARY interactive/DATA today reports/BigQuery older or mixed dates, bounded unknown-age classification, writer-current authority and post-read session revocation checks.',
+           gaps=['Finish original AjaxOrderListView ST/HL/HE/N/queue filters, explicit IDs, contact/payment/status filters, source search/sort and formatter/actions. Qualified historical routing of the simplified projection does not certify this complete datatable.'],
+           external=['Accept complete common-checkpoint historical warehouse publications, physical source collation/formatters and representative performance.'])
     bind('orders-read', ['OrdersView', 'OnlineOrdersView', 'AjaxOrderListView', 'ShowOrderDetailsView', 'ShowOnlineOrderDetailsView'])
     family('checkout-cart', ['src/modules/checkout/routes.ts', 'src/modules/checkout/service.ts', 'src/modules/checkout/customers'],
            ['src/pages/counter.tsx', 'src/pages/checkout/CheckoutReview.tsx', 'src/offline'], ['tests/checkout', 'frontend/tests', 'frontend/e2e/checkout'],
@@ -248,10 +248,9 @@ def define_families():
            ['parity/order-payments.md'], state='missing', scope='Visible mark-payment is implemented; arbitrary source paid/revert mutation is a distinct reachable API.',
            gaps=['Resolve/implement the retained AjaxPaymentStatusView status/tender reversal semantics with financial evidence. Source Revert buttons are commented; do not claim ordinary payment recovery implements this API or expose its unsafe overwrites.'])
     bind('legacy-paid-reversal', ['AjaxPaymentStatusView'])
-    family('pending-order-cancellation', ['src/modules/checkout/cancellations'], ['src/pages/checkout'], ['tests/checkout'],
-           ['parity/pending-order-cancellation.md'], scope='Atomic pending COC cancellation, grouped stock restoration, user-approved expiry/wallet/GV correction and immutable receipts.',
-           state='partial', gaps=['Finish the actual source API staging/Go activation membership provenance producers; typed capture/restore alone does not establish their before-state evidence.'],
-           external=['Accept shared external wallet/cancellation writer cutover, real provider state and independently proved old funding; no fabricated backfill.'])
+    family('pending-order-cancellation', ['src/modules/checkout/cancellations', 'compatibility/upstream/pending-cancellation', 'compatibility/upstream/ordinary'], ['src/pages/checkout'], ['tests/checkout'],
+           ['parity/pending-order-cancellation.md', 'compatibility/upstream/pending-cancellation/membership-producers.md'], scope='Atomic pending COC cancellation, grouped stock restoration, approved expiry/wallet/GV correction and immutable receipts; source-pinned Python staging to Go activation to Node cancellation provenance producers have native concurrency/rollback evidence.',
+           external=['Deploy and accept coordinated source membership producers/revision fences and shared wallet/stock writer cutover, real provider state and independently proved old funding. Reviewed compatibility patches and local source execution do not establish deployed acceptance; no fabricated historical backfill.'])
     bind('pending-order-cancellation', ['AjaxOrderCancelView'])
     family('returns-exchanges', ['src/modules/checkout/return-workflow', 'src/modules/checkout/returns.ts'],
            ['src/pages/returns'], ['tests/checkout', 'frontend/tests/customer-otp'], ['parity/checkout.md'],

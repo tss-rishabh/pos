@@ -17,10 +17,8 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 ## Concrete remaining code, by feature group
 
 - **ecommerce-inventory-sync (partial)**: Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.
-- **offline-scratch-invoice (partial)**: The separate source offline_billing/biller.html manual-price/customer-label scratch invoice and invoice.csv export are not supplied by signed offline cash. Preserve this non-settling worksheet separately, or record an explicit approved semantic replacement; do not enable arbitrary prices in collected-cash receipts.
-- **orders-read (partial)**: Route public order list/detail facts older than one day to a source-matching BigQuery reader. Current orders.ts reads unrestricted historical facts from primary; this is a missing code path, distinct from writer-current financial/authorization probes.
+- **orders-read (partial)**: Finish original AjaxOrderListView ST/HL/HE/N/queue filters, explicit IDs, contact/payment/status filters, source search/sort and formatter/actions. Qualified historical routing of the simplified projection does not certify this complete datatable.
 - **legacy-paid-reversal (missing)**: Resolve/implement the retained AjaxPaymentStatusView status/tender reversal semantics with financial evidence. Source Revert buttons are commented; do not claim ordinary payment recovery implements this API or expose its unsafe overwrites.
-- **pending-order-cancellation (partial)**: Finish the actual source API staging/Go activation membership provenance producers; typed capture/restore alone does not establish their before-state evidence.
 - **order-to-cart-copy (missing)**: Implement AjaxFetchTheProducts order-line copy into the currently owned connected-customer cart, including partial-add/sync/clear recovery. Existing draft imports are a different source.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
@@ -33,9 +31,9 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 12 | 2 | 173 |
+| routes | 68 | 9 | 2 | 176 |
 | jobs | 0 | 4 | 1 | 27 |
-| templates | 32 | 12 | 0 | 62 |
+| templates | 32 | 11 | 0 | 63 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 2 | 0 | 0 |
 
@@ -89,8 +87,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:89` | `ajax-update-delivery-slots/` | support | implementation_present |
 | `core/urls.py:90` | `catalogue/store/<int:store_id>/show` | catalog-read | external_acceptance |
 | `core/urls.py:91` | `ajax-catalogue/store/<int:store_id>/show` | catalog-read | external_acceptance |
-| `core/urls.py:92` | `offline-billing/store/<int:store_id>/` | offline-scratch-invoice | partial |
-| `core/urls.py:93` | `get-product-dropdown/<int:store_id>/` | offline-scratch-invoice | partial |
+| `core/urls.py:92` | `offline-billing/store/<int:store_id>/` | offline-scratch-invoice | external_acceptance |
+| `core/urls.py:93` | `get-product-dropdown/<int:store_id>/` | offline-scratch-invoice | external_acceptance |
 | `core/urls.py:94` | `settings/general/` | support | implementation_present |
 | `core/urls.py:95` | `ajax-threshold-update/` | support | implementation_present |
 | `core/urls.py:96` | `ajax-order-buffer-update/` | support | implementation_present |
@@ -167,7 +165,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:34` | `ajax-verify-otp/` | customer-verification | external_acceptance |
 | `order/urls.py:35` | `ajax-validate-process-order/` | checkout-cart | external_acceptance |
 | `order/urls.py:36` | `ajax-order/` | checkout-cart, order-messages | external_acceptance |
-| `order/urls.py:37` | `ajax-order-cancel/` | pending-order-cancellation | partial |
+| `order/urls.py:37` | `ajax-order-cancel/` | pending-order-cancellation | external_acceptance |
 | `order/urls.py:38` | `ajax-add-salesperson/` | checkout-cart | external_acceptance |
 | `order/urls.py:39` | `ajax-add-salesperson-per-product/` | checkout-cart | external_acceptance |
 | `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | missing |
@@ -364,7 +362,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/gift_card/index.html` | `core/templates/gift_card/index.html` | gift-card-batches | external_acceptance |
 | `core/templates/mpos_download/index.html` | `core/templates/mpos_download/index.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/mpos_download/thank_you.html` | `core/templates/mpos_download/thank_you.html` | staff-installer-handoff | external_acceptance |
-| `core/templates/offline_billing/biller.html` | `core/templates/offline_billing/biller.html` | offline-scratch-invoice | partial |
+| `core/templates/offline_billing/biller.html` | `core/templates/offline_billing/biller.html` | offline-scratch-invoice | external_acceptance |
 | `core/templates/order_punch/index.html` | `core/templates/order_punch/index.html` | legacy-order-imports | partial |
 | `core/templates/products/hold_stock/hold_inventory_logs.html` | `core/templates/products/hold_stock/hold_inventory_logs.html` | inventory-audit | external_acceptance |
 | `core/templates/products/hold_stock/index.html` | `core/templates/products/hold_stock/index.html` | inventory-audit | external_acceptance |
