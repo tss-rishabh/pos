@@ -103,6 +103,8 @@ const ignoredDirectories = new Set([
   '.git',
   '.venv',
   '.ruff_cache',
+  '.cache',
+  '.pytest_cache',
 ]);
 function inputChecksums() {
   const files = new Set<string>();

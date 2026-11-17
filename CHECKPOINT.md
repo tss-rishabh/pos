@@ -1,13 +1,12 @@
 # POS rewrite checkpoint
 
 The application is an implemented review build, not a certified production release.
-The last fully green shared checkpoint, recorded at `2026-11-16T22:29:31Z`, passed all 73
-checks: 1,211 backend tests, 195 frontend tests and 50 end-to-end browser scenarios.
-That is a historical tested snapshot. `backend/evidence/verification.json`
-records the most recent combined run, including unsuccessful or interrupted checks;
-later integrated features have focused checks listed below. The interrupted later
-run exposed checkout fixture and generated-cache lint failures; their affected
-82-check backend rerun and frontend lint passed after correction.
+`backend/evidence/verification.json` records the most recent combined run, its
+individual check outcomes, exact source checksums and any inputs changed during
+execution. Inspect its exit status and `changedInputs` before treating that run
+as a verified snapshot. Focused feature checks are listed below. Generated Vite
+caches are excluded from source checksums; a direct filesystem check verifies
+that regenerated cache files are ignored while actual source edits are detected.
 `backend/parity/release-coverage.json` remains the release authority;
 component test counts do not certify every original workflow.
 
