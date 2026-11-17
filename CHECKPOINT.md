@@ -74,6 +74,17 @@ opaque original-flow resume marker is the next narrow desktop implementation.
 Authority succession and other origin protocols remain active code work; Root
 registration/generator changes stay uncommitted until their dependencies arrive.
 
+Manager authority succession base is integrated from `a8c0bb1` as `cb4f9ac`,
+with canonical scope comparison from `ac19748` as `e6dfaa2`. Root API mounting,
+mandatory additive ledger migration, container SQL and generated source/Go
+payloads are integrated on `7eb69d7`. It includes standalone current-manager
+lookup, approval/continuation recovery and native current-session fencing while
+preserving original order/nonce/facts. Membership email/EAV reference-transfer
+proof remains an explicit protected code gap in the agent's follow-up. Desktop
+SSO current-cookie lookup is on `8060c67`; frontend durable original-flow resume
+is still assigned. Other writer-origin frames/callers remain in implementation.
+No tests, private command, broker, cloud job or financial action were run.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
