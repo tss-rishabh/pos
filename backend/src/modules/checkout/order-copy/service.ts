@@ -26,6 +26,13 @@ import {
 import { orderCopyCommands, orderCopyReviews } from './schema.js';
 import { copyCutoff } from './reader.js';
 import type { OrderCopyRepository } from './repository.js';
+import { orderCopyCancellations } from './schema.js';
+import {
+  copyCancellationInputSchema,
+  copyCancellationReceiptSchema,
+  type CopyCancellationInput,
+} from './cancellation-contracts.js';
+import { verifyCopyCancellation } from './cancellation-evidence.js';
 
 const conflict = () =>
   new AppError(
@@ -58,6 +65,20 @@ export function orderCopyService(
   const hash = (kind: string, value: unknown) =>
     operationHash('order-copy.' + kind + '.v1', value, secret);
   const reviewHash = (value: Omit<CopyReview, 'hash'>) => hash('review', value);
+  function stopped(
+    row: NonNullable<Awaited<ReturnType<OrderCopyRepository['cancellation']>>>,
+    state: CheckoutState,
+    user: Principal,
+  ) {
+    if (user.id !== state.operatorId) throw conflict();
+    return verifyCopyCancellation(row, state, secret);
+  }
+  async function cancellation(user: Principal, scope: CopyScope, id: string) {
+    return repository.ownerScope(user, scope, async (tx, state) => {
+      const row = await repository.cancellation(tx, id);
+      return row ? stopped(row, state, user) : null;
+    });
+  }
   function validReview(review: CopyReview) {
     const { hash: expected, ...body } = review;
     if (reviewHash(body) !== expected) throw conflict();
@@ -99,6 +120,7 @@ export function orderCopyService(
       throw conflict();
   }
   function view(command: CopyCommand, state: CheckoutState) {
+    if (command.status === 'cancelled-unsent') throw conflict();
     const uncertain =
       command.status === 'pending' &&
       command.steps.some((step) => step.status === 'dispatched') &&
@@ -123,22 +145,20 @@ export function orderCopyService(
     };
   }
   async function read(user: Principal, scope: CopyScope, id: string) {
-    return repository.scope(
-      user,
-      scope,
-      async (tx, state) => {
-        const command = await repository.command(tx, id);
-        if (!command) throw new AppError(404, 'ORDER_COPY_NOT_FOUND', 'Copy operation not found.');
-        bound(command, state, user);
-        await repository.source(tx, user, command.review.source, {
-          state,
-          kind: 'command',
-          authority: command.review.customerAuthority,
-        });
-        return view(command, state);
-      },
-      true,
-    );
+    return repository.ownerScope(user, scope, async (tx, owned) => {
+      const row = await repository.cancellation(tx, id);
+      if (row) return stopped(row, owned, user);
+      const state = await repository.activeState(tx, owned, true);
+      const command = await repository.command(tx, id);
+      if (!command) throw new AppError(404, 'ORDER_COPY_NOT_FOUND', 'Copy operation not found.');
+      bound(command, state, user);
+      await repository.source(tx, user, command.review.source, {
+        state,
+        kind: 'command',
+        authority: command.review.customerAuthority,
+      });
+      return view(command, state);
+    });
   }
   async function update(
     user: Principal,
@@ -332,7 +352,10 @@ export function orderCopyService(
           state: {
             ...state,
             phase: 'uncertain',
-            orderCopy: state.orderCopy ? { ...state.orderCopy, status: 'uncertain' } : null,
+            orderCopy:
+              state.orderCopy && state.orderCopy.status !== 'cancelled-unsent'
+                ? { ...state.orderCopy, status: 'uncertain' }
+                : state.orderCopy,
           },
         }));
       } catch {
@@ -343,6 +366,140 @@ export function orderCopyService(
   }
   return {
     read,
+    async cancelUnsent(user: Principal, scope: CopyScope, id: string, raw: CopyCancellationInput) {
+      const input = copyCancellationInputSchema.parse(raw);
+      if (input.original.operationId !== id) throw conflict();
+      return repository.ownerScope(user, scope, async (tx, state) => {
+        const requestHash = hash('request', input.original),
+          prior = await repository.cancellation(tx, id);
+        if (prior) {
+          const receipt = stopped(prior, state, user);
+          if (receipt.originalRequestHash !== requestHash) throw conflict();
+          return receipt;
+        }
+        const command = await repository.command(tx, id);
+        if (command) {
+          bound(command, state, user);
+          if (
+            command.requestHash !== requestHash ||
+            command.status !== 'pending' ||
+            command.result !== null ||
+            command.partial ||
+            command.errorCode !== null ||
+            command.steps.some((step) => step.status !== 'not-dispatched')
+          )
+            throw new AppError(
+              409,
+              'ORDER_COPY_ALREADY_DISPATCHED',
+              'This copy has dispatched or uncertain work. Reconcile its original outcome.',
+            );
+        }
+        if (
+          state.busyOperationId &&
+          (state.busyOperationId !== id || !command || state.orderCopy?.commandId !== id)
+        )
+          throw conflict();
+        if (
+          state.orderCopy &&
+          state.orderCopy.commandId !== id &&
+          state.orderCopy.status !== 'acknowledged'
+        )
+          throw conflict();
+        const review = await repository.review(tx, input.original.reviewId);
+        if (
+          review &&
+          (review.operatorId !== user.id ||
+            review.checkoutId !== state.id ||
+            review.storeId !== state.storeId ||
+            review.counterId !== state.counterId)
+        )
+          throw conflict();
+        const byReview = await repository.occupiedReview(tx, input.original.reviewId);
+        if (byReview && byReview.id !== id) throw conflict();
+        const bind =
+            !state.orderId &&
+            (['open', 'quoted'].includes(state.phase) ||
+              (state.phase === 'uncertain' &&
+                command !== null &&
+                state.orderCopy?.commandId === id)),
+          version = state.version + (bind ? 1 : 0);
+        const receipt = copyCancellationReceiptSchema.parse({
+          status: 'cancelled-unsent',
+          id,
+          reviewId: input.original.reviewId,
+          cancellationId: input.operationId,
+          checkoutId: state.id,
+          operatorId: user.id,
+          storeId: state.storeId,
+          counterId: state.counterId,
+          originalRequestHash: requestHash,
+          cancelledAt: clock(),
+          checkoutVersion: version,
+          requiresOnlineClear: true,
+          markerRequired: true,
+          source: null,
+          steps: [],
+          result: null,
+          resultHash: null,
+          originHash: null,
+          partial: false,
+          errorCode: null,
+          acknowledgementId: null,
+          canContinue: false,
+        });
+        await tx.insert(orderCopyCancellations).values({
+          copyId: id,
+          cancellationId: receipt.cancellationId,
+          checkoutId: state.id,
+          operatorId: user.id,
+          requestHash,
+          receiptHash: hash('cancellation', { receipt, originalCommand: command }),
+          receipt,
+          originalCommand: command,
+        });
+        if (command)
+          await repository.save(tx, {
+            ...command,
+            status: 'cancelled-unsent',
+            leaseId: crypto.randomUUID(),
+            leaseUntil: 0,
+          });
+        else
+          await tx.insert(orderCopyCommands).values({
+            id,
+            reviewId: input.original.reviewId,
+            checkoutId: state.id,
+            operatorId: user.id,
+            data: receipt,
+          });
+        if (bind)
+          await repository.state(tx, {
+            ...state,
+            version,
+            quote: null,
+            phase: 'open',
+            busyOperationId: state.busyOperationId === id ? null : state.busyOperationId,
+            orderCopy: {
+              status: 'cancelled-unsent',
+              commandId: id,
+              reviewId: receipt.reviewId,
+              cancellationId: receipt.cancellationId,
+            },
+            updatedAt: clock(),
+          });
+        return receipt;
+      });
+    },
+    async cancellation(user: Principal, scope: CopyScope, id: string, cancellationId: string) {
+      const receipt = await cancellation(user, scope, id);
+      if (!receipt || receipt.cancellationId !== cancellationId)
+        throw new AppError(
+          404,
+          'ORDER_COPY_CANCELLATION_NOT_FOUND',
+          'The original unsent cancellation was not found.',
+        );
+      return receipt;
+    },
     async review(user: Principal, scope: CopyScope, id: string) {
       return repository.scope(
         user,
@@ -373,23 +530,24 @@ export function orderCopyService(
       );
     },
     async current(user: Principal, scope: CopyScope) {
-      return repository.scope(
-        user,
-        scope,
-        async (tx, state) => {
-          if (!state.orderCopy) return null;
-          const command = await repository.command(tx, state.orderCopy.commandId);
-          if (!command) throw conflict();
-          bound(command, state, user);
-          await repository.source(tx, user, command.review.source, {
-            state,
-            kind: 'command',
-            authority: command.review.customerAuthority,
-          });
-          return view(command, state);
-        },
-        true,
-      );
+      return repository.ownerScope(user, scope, async (tx, owned) => {
+        if (owned.orderCopy?.status === 'cancelled-unsent') {
+          const row = await repository.cancellation(tx, owned.orderCopy.commandId);
+          if (!row || row.cancellationId !== owned.orderCopy.cancellationId) throw conflict();
+          return stopped(row, owned, user);
+        }
+        const state = await repository.activeState(tx, owned, true);
+        if (!state.orderCopy) return null;
+        const command = await repository.command(tx, state.orderCopy.commandId);
+        if (!command) throw conflict();
+        bound(command, state, user);
+        await repository.source(tx, user, command.review.source, {
+          state,
+          kind: 'command',
+          authority: command.review.customerAuthority,
+        });
+        return view(command, state);
+      });
     },
     async prepare(
       user: Principal,
@@ -500,7 +658,14 @@ export function orderCopyService(
         expectedVersion: number;
       },
     ) {
-      const reserved = await repository.scope(user, scope, async (tx, state) => {
+      const reserved = await repository.ownerScope(user, scope, async (tx, owned) => {
+        const prior = await repository.cancellation(tx, input.operationId);
+        if (prior) {
+          const receipt = stopped(prior, owned, user);
+          if (receipt.originalRequestHash !== hash('request', input)) throw conflict();
+          return { kind: 'cancelled' as const, cancellation: receipt };
+        }
+        const state = await repository.activeState(tx, owned);
         const existing = await repository.command(tx, input.operationId);
         const requestHash = hash('request', input);
         if (existing) {
@@ -511,7 +676,7 @@ export function orderCopyService(
             authority: existing.review.customerAuthority,
           });
           if (existing.requestHash !== requestHash) throw conflict();
-          return { command: existing, replay: true };
+          return { kind: 'reserved' as const, command: existing, replay: true };
         }
         editable(state);
         const review = await repository.review(tx, input.reviewId);
@@ -571,8 +736,9 @@ export function orderCopyService(
             resultHash: null,
           },
         });
-        return { command, replay: false };
+        return { kind: 'reserved' as const, command, replay: false };
       });
+      if (reserved.kind === 'cancelled') return reserved.cancellation;
       return reserved.replay
         ? read(user, scope, input.operationId)
         : execute(user, scope, input.operationId, reserved.command.leaseId);
@@ -583,6 +749,8 @@ export function orderCopyService(
       id: string,
       input: { operationId: string; expectedVersion: number },
     ) {
+      const cancelled = await cancellation(user, scope, id);
+      if (cancelled) return cancelled;
       const claimed = await repository.scope(user, scope, async (tx, state) => {
         const command = await repository.command(tx, id);
         if (!command) throw conflict();
@@ -619,6 +787,8 @@ export function orderCopyService(
       id: string,
       input: { operationId: string; expectedVersion: number; resultHash: string },
     ) {
+      const cancelled = await cancellation(user, scope, id);
+      if (cancelled) return cancelled;
       return repository.scope(user, scope, async (tx, state) => {
         const command = await repository.command(tx, id);
         if (!command) throw conflict();
@@ -642,6 +812,7 @@ export function orderCopyService(
           command.resultHash !== input.resultHash ||
           !command.result ||
           state.orderCopy?.commandId !== id ||
+          state.orderCopy.status !== 'review-required' ||
           state.orderCopy.resultHash !== input.resultHash ||
           state.busyOperationId !== id ||
           state.version !== input.expectedVersion

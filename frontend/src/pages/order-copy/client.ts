@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { request, post } from '../../api/client';
 const id = z.string().regex(/^[1-9]\d{0,19}$/);
-export const copyBindingSchema = z
+const activeCopyBindingSchema = z
   .object({
     commandId: z.uuid(),
     reviewId: z.uuid(),
@@ -13,6 +13,17 @@ export const copyBindingSchema = z
       .nullable(),
   })
   .strict();
+export const copyBindingSchema = z.discriminatedUnion('status', [
+  activeCopyBindingSchema,
+  z
+    .object({
+      status: z.literal('cancelled-unsent'),
+      commandId: z.uuid(),
+      reviewId: z.uuid(),
+      cancellationId: z.uuid(),
+    })
+    .strict(),
+]);
 export const copySourceSchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('store'), storeId: id, orderId: id }).strict(),
   z.object({ kind: z.literal('customer'), orderId: id }).strict(),
@@ -51,7 +62,7 @@ export const copyReviewSchema = z
   })
   .passthrough();
 export type CopyReview = z.infer<typeof copyReviewSchema>;
-export const copyCommandSchema = z
+const activeCopyCommandSchema = z
   .object({
     id: z.uuid(),
     reviewId: z.uuid(),
@@ -72,6 +83,37 @@ export const copyCommandSchema = z
   })
   .strict();
 export type CopyCommand = z.infer<typeof copyCommandSchema>;
+export const copyCancellationSchema = z
+  .object({
+    status: z.literal('cancelled-unsent'),
+    id: z.uuid(),
+    reviewId: z.uuid(),
+    cancellationId: z.uuid(),
+    checkoutId: z.uuid(),
+    operatorId: id,
+    storeId: id,
+    counterId: id,
+    originalRequestHash: z.string().regex(/^[a-f0-9]{64}$/),
+    cancelledAt: z.number().int().positive(),
+    checkoutVersion: z.number().int().nonnegative(),
+    requiresOnlineClear: z.literal(true),
+    markerRequired: z.literal(true),
+    source: z.null(),
+    steps: z.array(z.never()).length(0),
+    result: z.null(),
+    resultHash: z.null(),
+    originHash: z.null(),
+    partial: z.literal(false),
+    errorCode: z.null(),
+    acknowledgementId: z.null(),
+    canContinue: z.literal(false),
+  })
+  .strict();
+export type CopyCancellation = z.infer<typeof copyCancellationSchema>;
+export const copyCommandSchema = z.discriminatedUnion('status', [
+  activeCopyCommandSchema,
+  copyCancellationSchema,
+]);
 export interface OrderCopyScope {
   operatorId: string;
   storeId: string;
@@ -123,4 +165,32 @@ export const continueOrderCopy = (
     body,
     copyCommandSchema,
     scope.operatorId,
+  );
+export const cancelUnsentOrderCopy = (
+  scope: OrderCopyScope,
+  body: {
+    operationId: string;
+    original: {
+      operationId: string;
+      reviewId: string;
+      manifestHash: string;
+      expectedVersion: number;
+    };
+  },
+) =>
+  post(
+    base(scope) + '/order-copies/' + body.original.operationId + '/cancellations',
+    body,
+    copyCancellationSchema,
+    scope.operatorId,
+  );
+export const readOrderCopyCancellation = (
+  scope: OrderCopyScope,
+  copyId: string,
+  cancellationId: string,
+) =>
+  request(
+    base(scope) + '/order-copies/' + copyId + '/cancellations/' + cancellationId,
+    { operatorId: scope.operatorId },
+    copyCancellationSchema,
   );

@@ -10,6 +10,7 @@ import { orderCopyFacts } from './reader.js';
 import { orderCopyRepository } from './repository.js';
 import { orderCopyService } from './service.js';
 import type { CustomerVerificationClient } from '../customer-verification.js';
+import { copyCancellationInputSchema } from './cancellation-contracts.js';
 
 export interface OrderCopyOptions {
   customerOtp?: CustomerVerificationClient;
@@ -107,6 +108,31 @@ export function registerOrderCopy(
       service.start(authenticated(request), scope.parse(request.params), input),
     );
   });
+  app.post(
+    base + '/order-copies/:copyId/cancellations',
+    trace('order-copy-cancellation', 'create'),
+    async (request) => {
+      enabled();
+      const params = scope.extend({ copyId: z.uuid() }).parse(request.params),
+        input = copyCancellationInputSchema.parse(request.body);
+      return deliver(request, () =>
+        service.cancelUnsent(authenticated(request), params, params.copyId, input),
+      );
+    },
+  );
+  app.get(
+    base + '/order-copies/:copyId/cancellations/:cancellationId',
+    trace('order-copy-cancellation', 'read'),
+    async (request) => {
+      enabled();
+      const params = scope
+        .extend({ copyId: z.uuid(), cancellationId: z.uuid() })
+        .parse(request.params);
+      return deliver(request, () =>
+        service.cancellation(authenticated(request), params, params.copyId, params.cancellationId),
+      );
+    },
+  );
   app.post(
     base + '/order-copies/:copyId/continuations',
     trace('order-copy', 'continue'),

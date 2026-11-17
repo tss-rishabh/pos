@@ -44,7 +44,7 @@ export type CopyFacts = z.infer<typeof copyFactsSchema>;
 export interface CopyFactsPort {
   read(input: { source: CopySource; targetCustomerId: string; cutoff: string }): Promise<CopyFacts>;
 }
-export const copyBindingSchema = z
+const activeCopyBindingSchema = z
   .object({
     commandId: z.uuid(),
     reviewId: z.uuid(),
@@ -57,6 +57,18 @@ export const copyBindingSchema = z
   })
   .strict();
 export type CopyBinding = z.infer<typeof copyBindingSchema>;
+const cancelledCopyBindingSchema = z
+  .object({
+    status: z.literal('cancelled-unsent'),
+    commandId: z.uuid(),
+    reviewId: z.uuid(),
+    cancellationId: z.uuid(),
+  })
+  .strict();
+export const copyBindingSchema = z.discriminatedUnion('status', [
+  activeCopyBindingSchema,
+  cancelledCopyBindingSchema,
+]);
 export const manifestLineSchema = z
   .object({
     productId: identifier,
@@ -109,7 +121,7 @@ export const copyCommandSchema = z
     id: z.uuid(),
     review: copyReviewSchema,
     requestHash: z.string().regex(/^[a-f0-9]{64}$/),
-    status: z.enum(['pending', 'uncertain', 'review-required', 'acknowledged']),
+    status: z.enum(['pending', 'uncertain', 'review-required', 'acknowledged', 'cancelled-unsent']),
     steps: z.array(copyStepSchema).min(1).max(500),
     currentHash: z.string().regex(/^[a-f0-9]{64}$/),
     result: copyManifestSchema.nullable(),

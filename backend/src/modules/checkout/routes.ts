@@ -58,6 +58,7 @@ import { pendingCancellationOptions } from './cancellations/options.js';
 import type { PendingCancellationOptions } from './cancellations/options.js';
 import { registerOrderCopy, type OrderCopyOptions } from './order-copy/routes.js';
 import type { PaymentCorrectionPort } from './payment-reversals/evidence.js';
+import { copyCancellationClearVerifier } from './order-copy/cancellation-evidence.js';
 
 const storeScope = z.object({ storeId: identifier });
 const sessionScope = storeScope.extend({ checkoutId: z.uuid() });
@@ -107,6 +108,7 @@ export function registerCheckout(
     ((...args: Parameters<CheckoutServiceOptions['assertCheckIn']>) =>
       checkIns.assertCheckIn(...args));
   const service = checkoutService(repository, gateway, environment, {
+    verifyCopyCancellationClear: copyCancellationClearVerifier(config, db),
     orderCopyHashSecret: config.SESSION_SECRET,
     migrationV2: config.TSS_API_MIGRATION_V2,
     businessTimezone: config.BUSINESS_TIMEZONE,

@@ -1,6 +1,13 @@
 import { afterAll, beforeAll, beforeEach, describe, it, expect } from 'vitest';
 import Fastify from 'fastify';
 import { ZodError } from 'zod';
+import { eq } from 'drizzle-orm';
+import {
+  orderCopyCommands,
+  orderCopyCancellations,
+} from '../../src/modules/checkout/order-copy/schema.js';
+import { copyCommandSchema } from '../../src/modules/checkout/order-copy/contracts.js';
+import { copyCancellationClearVerifier } from '../../src/modules/checkout/order-copy/cancellation-evidence.js';
 import { AppError } from '../../src/domain/errors.js';
 import { checkoutStateSchema, type CheckoutState } from '../../src/modules/checkout/contracts.js';
 import { offlineCashReceipts } from '../../src/modules/checkout/offline-cash/schema.js';
@@ -119,6 +126,7 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
     afterAll(async () => native?.close());
     beforeEach(async () => {
       await native.connection.query('DELETE FROM pos_rewrite_offline_cash_receipts');
+      await native.connection.query('DELETE FROM pos_rewrite_order_copy_cancellations');
       await native.connection.query('DELETE FROM pos_rewrite_order_copy_commands');
       await native.connection.query('DELETE FROM pos_rewrite_order_copy_reviews');
       await native.connection.query('DELETE FROM pos_rewrite_checkout_operations');
@@ -135,6 +143,7 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
       gateway = new FixtureGateway();
       checkout = checkoutService(checkoutRepository(native.db), gateway, signingEnvironment, {
         orderCopyHashSecret: native.config.SESSION_SECRET,
+        verifyCopyCancellationClear: copyCancellationClearVerifier(native.config, native.db),
         migrationV2: true,
         now: () => time,
         assertCheckIn: (...args) => checkInService(native.db, native.config).assertCheckIn(...args),
@@ -254,6 +263,12 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
       };
       const result = await service.start(operator, scope(), input);
       expect(result.status).toBe('uncertain');
+      await expect(
+        service.cancelUnsent(operator, scope(), input.operationId, {
+          operationId: crypto.randomUUID(),
+          original: input,
+        }),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_ALREADY_DISPATCHED' });
       expect(result.result).toBeNull();
       expect(result.errorCode).toBe('ORDER_COPY_OUTCOME_UNCERTAIN');
       const before = gateway.calls.length;
@@ -631,6 +646,444 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
           resultHash: result.resultHash!,
         }),
       ).rejects.toMatchObject({ code: 'ORDER_COPY_OFFLINE_CASH_COLLECTED' });
+    });
+    it('serializes twenty unsent cancellations, claims the original nonce and makes delayed exact start read-only', async () => {
+      const r = await review(),
+        original = {
+          operationId: crypto.randomUUID(),
+          reviewId: r.id,
+          manifestHash: r.hash,
+          expectedVersion: state.version,
+        },
+        input = { operationId: crypto.randomUUID(), original },
+        before = structuredClone(state);
+      const receipts = await Promise.all(
+        Array.from({ length: 20 }, () =>
+          service.cancelUnsent(operator, scope(), original.operationId, input),
+        ),
+      );
+      for (const receipt of receipts) expect(receipt).toEqual(receipts[0]);
+      const receipt = receipts[0]!;
+      expect(receipt).toMatchObject({
+        status: 'cancelled-unsent',
+        source: null,
+        result: null,
+        originHash: null,
+        steps: [],
+        markerRequired: true,
+        requiresOnlineClear: true,
+      });
+      expect(await service.start(operator, scope(), original)).toEqual(receipt);
+      expect(await service.current(operator, scope())).toEqual(receipt);
+      expect(await service.read(operator, scope(), original.operationId)).toEqual(receipt);
+      expect(
+        await service.cancellation(operator, scope(), original.operationId, input.operationId),
+      ).toEqual(receipt);
+      expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(1);
+      const commands = await native.db.get('writer').select().from(orderCopyCommands);
+      expect(commands).toHaveLength(1);
+      expect(copyCommandSchema.safeParse(commands[0]!.data).success).toBe(false);
+      expect(cartCalls()).toHaveLength(0);
+      const saved = await persisted();
+      expect(saved.draftImport).toEqual(before.draftImport);
+      expect(saved.cart).toEqual(before.cart);
+      expect(saved.customerId).toBe(before.customerId);
+      expect(saved.orderCopy).toMatchObject({
+        status: 'cancelled-unsent',
+        commandId: original.operationId,
+        cancellationId: input.operationId,
+      });
+      await expect(
+        service.start(operator, scope(), {
+          ...original,
+          expectedVersion: original.expectedVersion + 1,
+        }),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_CONTEXT_CHANGED' });
+      await expect(
+        service.start(operator, scope(), { ...original, operationId: crypto.randomUUID() }),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_CONTEXT_CHANGED' });
+    });
+    it('fences a missing or expired review without inventing its source, products or customer snapshot', async () => {
+      const original = {
+        operationId: crypto.randomUUID(),
+        reviewId: crypto.randomUUID(),
+        manifestHash: 'f'.repeat(64),
+        expectedVersion: 0,
+      };
+      // No review has ever been persisted; the slot is a no-dispatch fence only.
+      const value = await service.cancelUnsent(operator, scope(), original.operationId, {
+        operationId: crypto.randomUUID(),
+        original,
+      });
+      expect(value.status).toBe('cancelled-unsent');
+      expect(await service.start(operator, scope(), original)).toEqual(value);
+      const [row] = await native.db.get('writer').select().from(orderCopyCancellations);
+      expect(row!.originalCommand).toBeNull();
+      expect(JSON.stringify(row!.receipt)).not.toContain('customer');
+      expect(gateway.calls).toHaveLength(0);
+    });
+    it('cancels a reserved command before its dispatch checkpoint and fences the paused worker', async () => {
+      let entered: () => void = () => undefined,
+        release: () => void = () => undefined,
+        block = false;
+      const waiting = new Promise<void>((resolve) => {
+          entered = resolve;
+        }),
+        hold = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      const port: CopyCartPort = {
+        ...checkout.orderCopyCart,
+        async read(value) {
+          if (block) {
+            block = false;
+            entered();
+            await hold;
+          }
+          return checkout.orderCopyCart.read(value);
+        },
+      };
+      const coordinated = orderCopyService(
+        native.config,
+        orderCopyRepository(native.config, native.db, () => time),
+        facts,
+        port,
+        () => time,
+      );
+      const r = await coordinated.prepare(operator, scope(), {
+        reviewId: crypto.randomUUID(),
+        expectedVersion: state.version,
+        source,
+      });
+      const original = {
+        operationId: crypto.randomUUID(),
+        reviewId: r.id,
+        manifestHash: r.hash,
+        expectedVersion: state.version,
+      };
+      block = true;
+      const started = coordinated.start(operator, scope(), original);
+      await waiting;
+      try {
+        const cancelled = await coordinated.cancelUnsent(operator, scope(), original.operationId, {
+          operationId: crypto.randomUUID(),
+          original,
+        });
+        expect(cancelled.status).toBe('cancelled-unsent');
+      } finally {
+        release();
+      }
+      expect((await started).status).toBe('cancelled-unsent');
+      expect(cartCalls()).toHaveLength(0);
+      const [row] = await native.db.get('writer').select().from(orderCopyCancellations);
+      expect(row!.originalCommand?.status).toBe('pending');
+      expect(row!.originalCommand?.steps.every((step) => step.status === 'not-dispatched')).toBe(
+        true,
+      );
+      expect((await persisted()).draftImport).toEqual(state.draftImport);
+    });
+    it('cannot cancel a dispatched mutation, its uncertain outcome, or a confirmed result', async () => {
+      let entered: () => void = () => undefined,
+        release: () => void = () => undefined;
+      const waiting = new Promise<void>((resolve) => {
+          entered = resolve;
+        }),
+        hold = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+      const port: CopyCartPort = {
+        ...checkout.orderCopyCart,
+        async setLine(...args) {
+          entered();
+          await hold;
+          return checkout.orderCopyCart.setLine(...args);
+        },
+      };
+      const coordinated = orderCopyService(
+        native.config,
+        orderCopyRepository(native.config, native.db, () => time),
+        facts,
+        port,
+        () => time,
+      );
+      const r = await coordinated.prepare(operator, scope(), {
+          reviewId: crypto.randomUUID(),
+          expectedVersion: state.version,
+          source,
+        }),
+        original = {
+          operationId: crypto.randomUUID(),
+          reviewId: r.id,
+          manifestHash: r.hash,
+          expectedVersion: state.version,
+        },
+        input = { operationId: crypto.randomUUID(), original };
+      const started = coordinated.start(operator, scope(), original);
+      await waiting;
+      try {
+        await expect(
+          coordinated.cancelUnsent(operator, scope(), original.operationId, input),
+        ).rejects.toMatchObject({ code: 'ORDER_COPY_ALREADY_DISPATCHED' });
+      } finally {
+        release();
+      }
+      const result = await started;
+      expect(result.status).toBe('review-required');
+      await expect(
+        coordinated.cancelUnsent(operator, scope(), original.operationId, input),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_ALREADY_DISPATCHED' });
+      expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(0);
+      expect(cartCalls()).toHaveLength(2);
+    });
+    it('retains late collected cash while fencing an otherwise invalid copy without requiring customer or lease renewal', async () => {
+      const original = {
+        operationId: crypto.randomUUID(),
+        reviewId: crypto.randomUUID(),
+        manifestHash: 'e'.repeat(64),
+        expectedVersion: state.version,
+      };
+      await native.db
+        .get('writer')
+        .insert(offlineCashReceipts)
+        .values({
+          id: crypto.randomUUID(),
+          authorizationId: crypto.randomUUID(),
+          deviceId: crypto.randomUUID(),
+          sequence: 1,
+          operatorId: operator.id,
+          storeId: '1',
+          counterId: '3',
+          draftId: state.draftId!,
+          businessDate: new Date(time).toISOString().slice(0, 10),
+          completedAt: time - 1000,
+          acceptedAt: time,
+          receiptNumber: 'LATE-' + crypto.randomUUID().slice(0, 16),
+          requestHash: 'd'.repeat(64),
+          envelope: '{"retained":"late-cash"}',
+          payableCents: 10000,
+          cashReceivedCents: 12000,
+          changeCents: 2000,
+          status: 'conflicted',
+          conflicts: '[]',
+          version: 1,
+          orderId: null,
+          requestId: 'fixture-late-cash',
+        });
+      const before = await native.db.get('writer').select().from(offlineCashReceipts);
+      await native.connection.query('UPDATE users SET is_disabled=1 WHERE id=1001');
+      await native.connection.query('DELETE FROM pos_rewrite_customer_cart_leases');
+      const receipt = await service.cancelUnsent(operator, scope(), original.operationId, {
+        operationId: crypto.randomUUID(),
+        original,
+      });
+      expect(receipt.status).toBe('cancelled-unsent');
+      expect(await service.read(operator, scope(), original.operationId)).toEqual(receipt);
+      expect(await native.db.get('writer').select().from(offlineCashReceipts)).toEqual(before);
+      expect(gateway.calls).toHaveLength(0);
+      expect((await persisted()).cart).toEqual(state.cart);
+      await expect(
+        checkout.clear(operator, '1', state.id, {
+          operationId: crypto.randomUUID(),
+          expectedVersion: receipt.checkoutVersion,
+        }),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_OFFLINE_CASH_COLLECTED' });
+      expect(await native.db.get('writer').select().from(offlineCashReceipts)).toEqual(before);
+      expect(gateway.calls).toHaveLength(0);
+    });
+    it('fences an expired original review with its original nonce, never a replacement start', async () => {
+      const r = await review(),
+        original = {
+          operationId: crypto.randomUUID(),
+          reviewId: r.id,
+          manifestHash: r.hash,
+          expectedVersion: state.version,
+        };
+      time += 301000;
+      await expect(service.start(operator, scope(), original)).rejects.toMatchObject({
+        code: 'ORDER_COPY_CONTEXT_CHANGED',
+      });
+      const cancelled = await service.cancelUnsent(operator, scope(), original.operationId, {
+        operationId: crypto.randomUUID(),
+        original,
+      });
+      expect(cancelled.status).toBe('cancelled-unsent');
+      expect(await service.start(operator, scope(), original)).toEqual(cancelled);
+      expect(cartCalls()).toHaveLength(0);
+    });
+    it('never releases an unrelated checkout operation even when the caller reuses its UUID', async () => {
+      const busy = crypto.randomUUID(),
+        original = {
+          operationId: busy,
+          reviewId: crypto.randomUUID(),
+          manifestHash: 'e'.repeat(64),
+          expectedVersion: state.version,
+        };
+      await native.connection.query(
+        "UPDATE pos_rewrite_checkout_sessions SET state=JSON_SET(state,'$.busyOperationId',?,'$.phase','uncertain') WHERE id=?",
+        [busy, state.id],
+      );
+      const before = await persisted();
+      await expect(
+        service.cancelUnsent(operator, scope(), busy, {
+          operationId: crypto.randomUUID(),
+          original,
+        }),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_CONTEXT_CHANGED' });
+      expect(await persisted()).toEqual(before);
+      expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(0);
+      expect(await native.db.get('writer').select().from(orderCopyCommands)).toHaveLength(0);
+    });
+    it('refuses inconsistent native checkout owner metadata before claiming a nonce', async () => {
+      const original = {
+        operationId: crypto.randomUUID(),
+        reviewId: crypto.randomUUID(),
+        manifestHash: 'e'.repeat(64),
+        expectedVersion: state.version,
+      };
+      await native.connection.query(
+        "UPDATE pos_rewrite_checkout_sessions SET state=JSON_SET(state,'$.operatorId','99') WHERE id=?",
+        [state.id],
+      );
+      await expect(
+        service.cancelUnsent(operator, scope(), original.operationId, {
+          operationId: crypto.randomUUID(),
+          original,
+        }),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_CONTEXT_CHANGED' });
+      expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(0);
+      expect(gateway.calls).toHaveLength(0);
+    });
+    it('withholds a cancellation response after session revocation without erasing its committed fence', async () => {
+      const app = Fastify({ logger: false });
+      app.decorateRequest('principal', null);
+      app.addHook('preHandler', async (request) => {
+        request.principal = operator;
+        let checks = 0;
+        request.authSessionValid = async () => ++checks === 1;
+      });
+      app.setErrorHandler((error, _request, reply) =>
+        reply
+          .code(error instanceof AppError ? error.status : 500)
+          .send({
+            error: {
+              code: error instanceof AppError ? error.code : 'FIXTURE_ERROR',
+              message: 'Fixture response withheld',
+            },
+          }),
+      );
+      registerOrderCopy(app, native.config, native.db, checkout.orderCopyCart, {
+        facts,
+        clock: () => time,
+      });
+      const original = {
+        operationId: crypto.randomUUID(),
+        reviewId: crypto.randomUUID(),
+        manifestHash: 'e'.repeat(64),
+        expectedVersion: state.version,
+      };
+      try {
+        const reply = await app.inject({
+          method: 'POST',
+          url: `/api/v1/stores/1/checkout-sessions/${state.id}/order-copies/${original.operationId}/cancellations`,
+          payload: { operationId: crypto.randomUUID(), original },
+        });
+        expect(reply.statusCode).toBe(401);
+        expect(reply.body).not.toContain('originalRequestHash');
+        expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(1);
+        expect((await persisted()).orderCopy?.status).toBe('cancelled-unsent');
+        expect(cartCalls()).toHaveLength(0);
+      } finally {
+        await app.close();
+      }
+    });
+    it('requires current native actor/store authority even for a no-send cancellation', async () => {
+      const original = {
+          operationId: crypto.randomUUID(),
+          reviewId: crypto.randomUUID(),
+          manifestHash: 'e'.repeat(64),
+          expectedVersion: state.version,
+        },
+        input = { operationId: crypto.randomUUID(), original };
+      await native.connection.query('UPDATE pos_user SET user_type=2,role=1 WHERE id=44');
+      await expect(
+        service.cancelUnsent(operator, scope(), original.operationId, input),
+      ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
+      expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(0);
+      expect(gateway.calls).toHaveLength(0);
+    });
+    it('rolls back the nonce, cancellation audit and checkout binding together on a late SQL failure', async () => {
+      const original = {
+          operationId: crypto.randomUUID(),
+          reviewId: crypto.randomUUID(),
+          manifestHash: 'e'.repeat(64),
+          expectedVersion: state.version,
+        },
+        before = await persisted();
+      await native.connection.query(
+        "CREATE TRIGGER fixture_cancel_rollback BEFORE UPDATE ON pos_rewrite_checkout_sessions FOR EACH ROW BEGIN IF JSON_UNQUOTE(JSON_EXTRACT(NEW.state,'$.orderCopy.status'))='cancelled-unsent' THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='private rollback canary'; END IF; END",
+      );
+      try {
+        await expect(
+          service.cancelUnsent(operator, scope(), original.operationId, {
+            operationId: crypto.randomUUID(),
+            original,
+          }),
+        ).rejects.toThrow();
+      } finally {
+        await native.connection.query('DROP TRIGGER fixture_cancel_rollback');
+      }
+      expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(0);
+      expect(await native.db.get('writer').select().from(orderCopyCommands)).toHaveLength(0);
+      expect(await persisted()).toEqual(before);
+      expect(gateway.calls).toHaveLength(0);
+    });
+    it('permits only an explicit clear with verified immutable cancellation evidence while quote stays fenced', async () => {
+      const original = {
+          operationId: crypto.randomUUID(),
+          reviewId: crypto.randomUUID(),
+          manifestHash: 'e'.repeat(64),
+          expectedVersion: state.version,
+        },
+        receipt = await service.cancelUnsent(operator, scope(), original.operationId, {
+          operationId: crypto.randomUUID(),
+          original,
+        });
+      await expect(
+        checkout.quote(operator, '1', state.id, {
+          operationId: crypto.randomUUID(),
+          expectedVersion: receipt.checkoutVersion,
+        }),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_REVIEW_REQUIRED' });
+      const [row] = await native.db.get('writer').select().from(orderCopyCancellations);
+      await native.db
+        .get('writer')
+        .update(orderCopyCancellations)
+        .set({ receiptHash: '0'.repeat(64) })
+        .where(eq(orderCopyCancellations.copyId, original.operationId));
+      await expect(
+        checkout.clear(operator, '1', state.id, {
+          operationId: crypto.randomUUID(),
+          expectedVersion: receipt.checkoutVersion,
+        }),
+      ).rejects.toMatchObject({ code: 'ORDER_COPY_CANCELLATION_UNCONFIRMED' });
+      expect(gateway.calls).toHaveLength(0);
+      await native.db
+        .get('writer')
+        .update(orderCopyCancellations)
+        .set({ receiptHash: row!.receiptHash })
+        .where(eq(orderCopyCancellations.copyId, original.operationId));
+      const cleared = await checkout.clear(operator, '1', state.id, {
+        operationId: crypto.randomUUID(),
+        expectedVersion: receipt.checkoutVersion,
+      });
+      expect(cleared.state.phase).toBe('cleared');
+      if (cleared.status !== 'succeeded') throw new Error('Fixture clear was not confirmed');
+      expect(cleared.result.cleared).toMatchObject({
+        draftId: state.draftId,
+        reason: 'cart-clear',
+      });
+      expect(await service.read(operator, scope(), original.operationId)).toEqual(receipt);
+      expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(1);
     });
     it('copies a gift product as a fresh unassigned cart instance using the existing v2 helper', async () => {
       const giftFacts: CopyFactsPort = {

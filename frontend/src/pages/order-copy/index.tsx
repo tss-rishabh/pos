@@ -9,6 +9,9 @@ import {
   readOrderCopy,
   readOrderCopyReview,
   startOrderCopy,
+  cancelUnsentOrderCopy,
+  readOrderCopyCancellation,
+  type CopyCancellation,
   type CopyCommand,
   type CopyReview,
   type CopySource,
@@ -36,6 +39,20 @@ const intentSchema = z
       })
       .strict()
       .optional(),
+    cancellation: z
+      .object({
+        operationId: z.uuid(),
+        original: z
+          .object({
+            operationId: z.uuid(),
+            reviewId: z.uuid(),
+            manifestHash: z.string().regex(/^[a-f0-9]{64}$/),
+            expectedVersion: z.number().int().nonnegative(),
+          })
+          .strict(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 type Intent = z.infer<typeof intentSchema>;
@@ -45,6 +62,7 @@ export interface OrderCopyPanelProps {
   online: boolean;
   disabled?: boolean;
   beforeDispatch?: () => Promise<void>;
+  onUnsentCancelled?: (proof: CopyCancellation) => Promise<void>;
   onPending: (value: boolean) => void;
   onSaved: () => Promise<void>;
 }
@@ -63,6 +81,7 @@ function CopyPanel({
   online,
   disabled = false,
   beforeDispatch,
+  onUnsentCancelled,
   onPending,
   onSaved,
 }: OrderCopyPanelProps) {
@@ -82,9 +101,11 @@ function CopyPanel({
   const alive = useRef(true),
     pendingCallback = useRef(onPending),
     savedCallback = useRef(onSaved),
+    cancelledCallback = useRef(onUnsentCancelled),
     intentRef = useRef<Intent>({});
   pendingCallback.current = onPending;
   savedCallback.current = onSaved;
+  cancelledCallback.current = onUnsentCancelled;
   function save(value: Intent) {
     // Persist opaque IDs/version/hash only, before dispatch. A storage failure
     // blocks new work; a confirmed action is never undone by optional cleanup.
@@ -104,6 +125,35 @@ function CopyPanel({
   async function adopted(value: CopyCommand, signal: AbortSignal) {
     signal.throwIfAborted();
     if (!alive.current) return;
+    if (value.status === 'cancelled-unsent') {
+      if (
+        value.checkoutId !== scope.checkoutId ||
+        value.operatorId !== scope.operatorId ||
+        value.storeId !== scope.storeId ||
+        (intentRef.current.copy &&
+          (value.id !== intentRef.current.copy.operationId ||
+            value.reviewId !== intentRef.current.copy.reviewId))
+      )
+        throw new Error('Cancellation scope mismatch');
+      setCommand(value);
+      setReview(null);
+      setMissing(false);
+      try {
+        markOrderCopyOrigin(scope.operatorId, scope.storeId, scope.checkoutId, value.id);
+      } catch {
+        setError('The unsent cancellation is saved. Stay online and keep its reference.');
+      }
+      try {
+        await cancelledCallback.current?.(value);
+        signal.throwIfAborted();
+      } catch {
+        if (alive.current && !signal.aborted)
+          setError(
+            'The unsent cancellation is saved. Refresh the checkout or reconcile its cash before clearing.',
+          );
+      }
+      return;
+    }
     markOrderCopyOrigin(scope.operatorId, scope.storeId, scope.checkoutId, value.id);
     setCommand(value);
     setReview(null);
@@ -125,6 +175,22 @@ function CopyPanel({
     setError(null);
     try {
       const pending = intentRef.current;
+      if (pending.cancellation) {
+        try {
+          await adopted(
+            await readOrderCopyCancellation(
+              scope,
+              pending.cancellation.original.operationId,
+              pending.cancellation.operationId,
+            ),
+            signal,
+          );
+          setLoaded(true);
+          return;
+        } catch (error) {
+          if (!(error instanceof ApiError && error.status === 404)) throw error;
+        }
+      }
       if (pending.copy) {
         try {
           await adopted(await readOrderCopy(scope, pending.copy.operationId), signal);
@@ -182,13 +248,13 @@ function CopyPanel({
       Boolean(command && command.status !== 'acknowledged');
     pendingCallback.current(active);
   }, [busy, intent.copy, command]);
-  async function act(action: (signal: AbortSignal) => Promise<void>) {
-    if (!online || disabled || busy) return;
+  async function act(action: (signal: AbortSignal) => Promise<void>, cancelOnly = false) {
+    if (!online || (disabled && !cancelOnly) || busy) return;
     const signal = captureOperatorScope(scope.operatorId);
     setBusy(true);
     setError(null);
     try {
-      await beforeDispatch?.();
+      if (!cancelOnly) await beforeDispatch?.();
       signal.throwIfAborted();
       await action(signal);
       signal.throwIfAborted();
@@ -266,9 +332,18 @@ function CopyPanel({
       );
     });
   }
+  async function cancelUnsent() {
+    const original = intentRef.current.copy;
+    if (!original) return;
+    await act(async (signal) => {
+      const body = intentRef.current.cancellation ?? { operationId: crypto.randomUUID(), original };
+      save({ ...intentRef.current, cancellation: body });
+      await adopted(await cancelUnsentOrderCopy(scope, body), signal);
+    }, true);
+  }
   const active =
     Boolean(command && command.status !== 'acknowledged') || Boolean(intent.copy && !command);
-  const controls = disabled || busy || !online || !loaded;
+  const controls = disabled || busy || !online || !loaded || Boolean(intent.cancellation);
   return (
     <section aria-label="Copy a previous order">
       <h3>Copy a previous order</h3>
@@ -349,6 +424,12 @@ function CopyPanel({
       {command && (
         <div>
           <p role="status">Copy status: {command.status}</p>
+          {command.status === 'cancelled-unsent' && (
+            <p>
+              The copy was cancelled before any dispatch. Its online-only marker stays until a
+              separately confirmed clear or paid outcome. No products or cash were reversed.
+            </p>
+          )}
           <p>
             Reference: <code>{command.id}</code>
           </p>
@@ -402,11 +483,22 @@ function CopyPanel({
           Refresh original copy
         </button>
       )}
-      {missing && intent.copy && (
+      {missing && intent.copy && !intent.cancellation && (
         <button type="button" disabled={controls} onClick={() => void retry()}>
           Retry exact saved copy
         </button>
       )}
+      {intent.copy &&
+        command?.status !== 'cancelled-unsent' &&
+        (!command ||
+          (command.status === 'pending' &&
+            command.steps.every((step) => step.status === 'not-dispatched'))) && (
+          <button type="button" disabled={!online || busy} onClick={() => void cancelUnsent()}>
+            {intent.cancellation
+              ? 'Retry original unsent cancellation'
+              : 'Cancel only if copy is unsent'}
+          </button>
+        )}
     </section>
   );
 }

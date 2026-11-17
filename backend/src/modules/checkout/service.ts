@@ -77,6 +77,7 @@ import {
 } from './payloads.js';
 
 export interface CheckoutServiceOptions {
+  verifyCopyCancellationClear?: (state: CheckoutState) => Promise<void>;
   orderCopyHashSecret?: string;
   assertCheckIn(userId: string, storeId: string, counterId?: string): Promise<void>;
   migrationV2: boolean;
@@ -309,12 +310,28 @@ export function checkoutService(
     requireStore(user, storeId);
     const initial = await get(user, storeId, id);
     await options.assertCheckIn(user.id, storeId, initial.counterId);
-    if (initial.orderCopy && initial.orderCopy.status !== 'acknowledged')
+    if (
+      initial.orderCopy &&
+      initial.orderCopy.status !== 'acknowledged' &&
+      !(
+        initial.orderCopy.status === 'cancelled-unsent' &&
+        ['cart.clear', 'customer.detach'].includes(kind)
+      )
+    )
       throw new AppError(
         409,
         'ORDER_COPY_REVIEW_REQUIRED',
         'Reconcile and acknowledge the copied cart before changing, quoting or submitting this sale.',
       );
+    if (initial.orderCopy?.status === 'cancelled-unsent') {
+      if (!options.verifyCopyCancellationClear)
+        throw new AppError(
+          409,
+          'ORDER_COPY_CANCELLATION_UNCONFIRMED',
+          'Refresh the original cancellation before clearing the saved sale.',
+        );
+      await options.verifyCopyCancellationClear(initial);
+    }
     if (initial.draftImport?.status === 'pending' && kind !== 'cart.draft.initialize')
       throw new AppError(
         409,

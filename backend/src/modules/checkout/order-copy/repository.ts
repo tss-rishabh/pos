@@ -13,7 +13,8 @@ import { checkoutStateSchema, type CheckoutState } from '../contracts.js';
 import { checkoutSessions, customerLeases } from '../schema.js';
 import type { CustomerVerificationClient } from '../customer-verification.js';
 import { authorizeCustomerCopy, type CopySourceAccess } from './customer-authority.js';
-import { orderCopyCommands, orderCopyReviews } from './schema.js';
+import { orderCopyCommands, orderCopyReviews, orderCopyCancellations } from './schema.js';
+import { copyCancellationReceiptSchema } from './cancellation-contracts.js';
 import {
   copyCommandSchema,
   copyReviewSchema,
@@ -36,14 +37,10 @@ export function orderCopyRepository(
   options: { customerOtp?: CustomerVerificationClient } = {},
 ) {
   const checkIns = checkInService(db, config);
-  async function scope<T>(
+  async function ownerScope<T>(
     user: Principal,
     scope: CopyScope,
-    action: (
-      tx: AdministrationTransaction,
-      state: CheckoutState & { customerId: string },
-    ) => Promise<T>,
-    readOnly = false,
+    action: (tx: AdministrationTransaction, state: CheckoutState) => Promise<T>,
   ): Promise<T> {
     requireStore(user, scope.storeId);
     const where = and(
@@ -59,64 +56,81 @@ export function orderCopyRepository(
       .limit(1);
     const preflight = checkoutStateSchema.safeParse(initial?.state);
     if (!preflight.success) throw changed();
-    // Only local database authority/journal work is retried; cart/facts calls stay outside.
     return retryTransaction(() =>
       db.get('writer').transaction(async (tx) => {
         await checkIns.assertCheckIn(user.id, scope.storeId, preflight.data.counterId, tx);
         await assertCurrentStoreAccess(tx, user.id, scope.storeId);
         const [row] = await tx.select().from(checkoutSessions).where(where).for('update');
         const parsed = checkoutStateSchema.safeParse(row?.state);
-        if (!parsed.success) throw changed();
-        const state = parsed.data;
         if (
-          !state.customerId ||
-          state.version !== row?.version ||
-          state.counterId !== preflight.data.counterId ||
-          state.orderId ||
-          !['open', 'quoted', 'uncertain'].includes(state.phase) ||
-          state.createdAt + 12 * 3600000 < clock()
+          !parsed.success ||
+          parsed.data.version !== row?.version ||
+          parsed.data.id !== scope.checkoutId ||
+          parsed.data.operatorId !== user.id ||
+          parsed.data.storeId !== scope.storeId ||
+          parsed.data.counterId !== preflight.data.counterId
         )
           throw changed();
-        await assertActiveCheckoutCustomer(tx, state.customerId);
-        // Every accepted receipt represents already-collected cash, including a
-        // conflicted/importing one. Absence cannot prove another offline device
-        // has no unreported receipt; those arrivals must still be retained.
-        if (!readOnly && state.draftId) {
-          const [cash] = await tx
-            .select({
-              id: offlineCashReceipts.id,
-              storeId: offlineCashReceipts.storeId,
-              counterId: offlineCashReceipts.counterId,
-            })
-            .from(offlineCashReceipts)
-            .where(
-              and(
-                eq(offlineCashReceipts.operatorId, state.operatorId),
-                eq(offlineCashReceipts.draftId, state.draftId),
-              ),
-            )
-            .limit(1)
-            .for('share');
-          if (cash)
-            throw new AppError(
-              409,
-              'ORDER_COPY_OFFLINE_CASH_COLLECTED',
-              'Cash was already received for this saved sale. Keep the receipt for reconciliation.',
-            );
-        }
-        const [lease] = await tx
-          .select()
-          .from(customerLeases)
-          .where(eq(customerLeases.customerId, state.customerId))
-          .for('update');
-        if (!lease || lease.checkoutId !== state.id || lease.expiresAt <= clock())
-          throw new AppError(
-            409,
-            'ORDER_COPY_CUSTOMER_LEASE_REQUIRED',
-            'Reconnect the customer cart before copying.',
-          );
-        return action(tx, { ...state, customerId: state.customerId });
+        return action(tx, parsed.data);
       }),
+    );
+  }
+  async function activeState(
+    tx: AdministrationTransaction,
+    state: CheckoutState,
+    readOnly = false,
+  ): Promise<CheckoutState & { customerId: string }> {
+    if (
+      !state.customerId ||
+      state.orderId ||
+      !['open', 'quoted', 'uncertain'].includes(state.phase) ||
+      state.createdAt + 12 * 3600000 < clock()
+    )
+      throw changed();
+    await assertActiveCheckoutCustomer(tx, state.customerId);
+    if (!readOnly && state.draftId) {
+      const [cash] = await tx
+        .select({ id: offlineCashReceipts.id })
+        .from(offlineCashReceipts)
+        .where(
+          and(
+            eq(offlineCashReceipts.operatorId, state.operatorId),
+            eq(offlineCashReceipts.draftId, state.draftId),
+          ),
+        )
+        .limit(1)
+        .for('share');
+      if (cash)
+        throw new AppError(
+          409,
+          'ORDER_COPY_OFFLINE_CASH_COLLECTED',
+          'Cash was already received for this saved sale. Keep the receipt for reconciliation.',
+        );
+    }
+    const [lease] = await tx
+      .select()
+      .from(customerLeases)
+      .where(eq(customerLeases.customerId, state.customerId))
+      .for('update');
+    if (!lease || lease.checkoutId !== state.id || lease.expiresAt <= clock())
+      throw new AppError(
+        409,
+        'ORDER_COPY_CUSTOMER_LEASE_REQUIRED',
+        'Reconnect the customer cart before copying.',
+      );
+    return { ...state, customerId: state.customerId };
+  }
+  async function scope<T>(
+    user: Principal,
+    scope: CopyScope,
+    action: (
+      tx: AdministrationTransaction,
+      state: CheckoutState & { customerId: string },
+    ) => Promise<T>,
+    readOnly = false,
+  ): Promise<T> {
+    return ownerScope(user, scope, async (tx, state) =>
+      action(tx, await activeState(tx, state, readOnly)),
     );
   }
   async function source(
@@ -168,7 +182,9 @@ export function orderCopyRepository(
       .where(eq(orderCopyCommands.id, id))
       .for('update');
     if (!row) return null;
+    if (copyCancellationReceiptSchema.safeParse(row.data).success) return null;
     const parsed = copyCommandSchema.parse(row.data);
+    if (parsed.status === 'cancelled-unsent') return null;
     if (
       parsed.id !== row.id ||
       parsed.review.id !== row.reviewId ||
@@ -179,13 +195,17 @@ export function orderCopyRepository(
     return parsed;
   }
   async function commandForReview(tx: AdministrationTransaction, reviewId: string) {
+    const row = await occupiedReview(tx, reviewId);
+    return row ? command(tx, row.id) : null;
+  }
+  async function occupiedReview(tx: AdministrationTransaction, reviewId: string) {
     const [row] = await tx
       .select({ id: orderCopyCommands.id })
       .from(orderCopyCommands)
       .where(eq(orderCopyCommands.reviewId, reviewId))
       .limit(1)
       .for('update');
-    return row ? command(tx, row.id) : null;
+    return row ?? null;
   }
   async function save(tx: AdministrationTransaction, value: CopyCommand) {
     await tx
@@ -215,6 +235,28 @@ export function orderCopyRepository(
       rows[0]!.stock >= BigInt(quantity)
     );
   }
-  return { scope, source, state, review, command, commandForReview, save, available };
+  async function cancellation(tx: AdministrationTransaction, id: string) {
+    const [row] = await tx
+      .select()
+      .from(orderCopyCancellations)
+      .where(eq(orderCopyCancellations.copyId, id))
+      .limit(1)
+      .for('update');
+    return row ?? null;
+  }
+  return {
+    scope,
+    ownerScope,
+    activeState,
+    source,
+    state,
+    review,
+    command,
+    commandForReview,
+    occupiedReview,
+    cancellation,
+    save,
+    available,
+  };
 }
 export type OrderCopyRepository = ReturnType<typeof orderCopyRepository>;
