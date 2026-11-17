@@ -1,0 +1,5 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "../..", "types": ["node", "@fastify/cookie"] },
+  "include": ["../../tests/legacy-import-screening-go/**/*.ts"]
+}

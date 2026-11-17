@@ -65,6 +65,8 @@ def outputs():
         'apiGuardBaseSha256':hashlib.sha256(public_main.encode()).hexdigest(),
         'sourceFiles':{path:hashlib.sha256((SOURCE/path).read_bytes()).hexdigest() for path in source_paths},
         'modelContract':'pos-import-source-model-v1',
+        'sourceTransaction':{'contract':'pos-import-customer-first-snapshot-v1','activated':False,
+            'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in ('screening_transaction.py','receiver.py')}},
         'membership':{'contract':'pos-legacy-import-membership-v1','activated':False,
             'stagedContract':'pos-cancellation-membership-staged-v2',
             'activatedContract':'pos-cancellation-membership-provenance-v2',

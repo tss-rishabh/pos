@@ -18,6 +18,7 @@ from native import lock_command,fresh_authority,native_order,rows,one,json_value
 from transaction import private_session
 from effects import CAPTURE,publish_once,prepared_calls
 from tracing import TRUSTED_ACTOR
+from screening_transaction import owned,mark_customer
 from membership_profile import additional_lines as member_additions, receipt as membership_receipt
 
 
@@ -110,13 +111,14 @@ class Receiver:
         failure=None
         with self.session_factory() as session:
             try:
-                with session.begin():
+                with owned(session,cap):
                     state=lock_command(session,cap,'order')
                     verify_capability(self.auth_key,body['capability'],operation_id,'order',plan,self.clock())
                     existing=prior(session,operation_id,'order')
                     if existing:
                         return {'recorded':True}
                     user=fresh_authority(session,cap)
+                    mark_customer(session,cap,str(user['id']))
                     assert_period(session,cap,plan,self.clock(),self.zone)
                     assert_source_customer(session,cap,plan)
                     # Retain each exact SKU row before source stock checks. No
@@ -170,7 +172,7 @@ class Receiver:
                 # receipt is written. It owns the same operation lock, so a
                 # delayed duplicate cannot later create a supposedly absent order.
                 failure=error.code if isinstance(error,ImportReview) else 'ORDER_IMPORT_SOURCE_REVIEW'
-            with session.begin():
+            with owned(session,cap):
                 lock_command(session,cap,'order')
                 if prior(session,operation_id,'order'):
                     return {'recorded':True}
@@ -191,7 +193,7 @@ class Receiver:
             raise ImportReview('ORDER_IMPORT_NATIVE_SCOPE_INVALID')
         self.assert_publisher()
         with self.session_factory() as session:
-            with session.begin():
+            with owned(session,cap):
                 lock_command(session,cap,'publication')
                 if prior(session,operation_id,'publication'):
                     return {'recorded':True}
@@ -218,7 +220,7 @@ class Receiver:
             with self.session_factory() as session, session.begin():
                 session.execute(text("UPDATE pos_rewrite_import_financial_source_effects SET status='uncertain',updated_at_ms=:now WHERE operation_id=:op"),{'now':self.clock(),'op':operation_id})
             raise ImportReview('ORDER_IMPORT_PUBLICATION_UNCONFIRMED') from None
-        with self.session_factory() as session, session.begin():
+        with self.session_factory() as session, owned(session,cap):
             lock_command(session,cap,'publication')
             proof={'contract':PUBLICATION_CONTRACT,'operationId':operation_id,'orderId':cap['orderId'],
                 'requestHash':cap['requestHash'],'sourceHash':effects['effects_hash'],'acceptedAt':self.clock(),
