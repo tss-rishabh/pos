@@ -40,6 +40,25 @@ journal and qualified configuration. Shutdown must allow the configured work
 deadline before forced termination. Preserve journal records across restarts;
 unacknowledged publication jobs recover through their original IDs.
 
+`CSV_COUPON_GENERATION_WORKER_ENABLED` controls the process. With it disabled,
+the command exits without opening pools or reading credentials.
+`CSV_COUPON_GENERATION_NEW_WORK_ENABLED` separately controls new capture and
+publication intent creation. Keep the process enabled and new work disabled to
+recover already recorded jobs with their retained configuration and keys.
+New work also requires `CSV_COUPON_GENERATION_WRITER_CONTRACT` to select
+`pos-csv-coupon-generation-writer-v1`, the demand contract above, the runtime
+contract, and the private controls contract
+`pos-csv-coupon-generation-controls-v1`. Configure the controls URL/key through
+the `CSV_COUPON_GENERATION_CONTROLS_*` variables. The corresponding source service
+uses its own `POS_COUPON_GENERATION_CONTROLS_*` variables.
+
+Use `CSV_COUPON_GENERATION_SOURCE_TLS_CA_FILE` for the reviewed source MySQL CA.
+The source connection reads from the explicitly identified writer origin with
+read-only credentials; it never substitutes an application reader after an
+identity mismatch. Configure the source UUID/schema explicitly. Never paste a
+credential-bearing connection URL into a deployment log, support ticket or
+command-line argument.
+
 For an installed backend build, the equivalent command is:
 
 ```sh

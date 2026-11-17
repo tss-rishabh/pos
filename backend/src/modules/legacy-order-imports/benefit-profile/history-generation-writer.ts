@@ -270,7 +270,10 @@ export function generationWarehouseWriter(options: {
   if (
     options.contract !== generationWriterContract ||
     !options.writerIdentity ||
-    options.writerIdentity === options.readerIdentity ||
+    !options.readerIdentity ||
+    options.writerIdentity.trim().toLowerCase() ===
+      'reports-bigquery-reader@tssgcp2025.iam.gserviceaccount.com' ||
+    options.writerIdentity.trim().toLowerCase() === options.readerIdentity.trim().toLowerCase() ||
     typeof options.clientFactory !== 'function' ||
     !Number.isSafeInteger(options.maxBytes) ||
     options.maxBytes < 1 ||
