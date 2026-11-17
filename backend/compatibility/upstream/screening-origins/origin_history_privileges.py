@@ -58,18 +58,21 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             or len(administrators)>32 or any(not isinstance(value,str) or not ADMIN.fullmatch(value) for value in administrators)
             or len(set(administrators))!=len(administrators) or audit in administrators or trigger_owner in administrators):refused()
     administrators=set(administrators)
-    caller=one(session,'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,@@GLOBAL.performance_schema AS performanceSchema,@@GLOBAL.skip_grant_tables AS skipGrants')
+    caller=one(session,'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,@@GLOBAL.performance_schema AS performanceSchema')
     current=account(caller['account'])
     publisher=os.environ.get('POS_SCREENING_COUNTER_PUBLISHER_GRANTEE','')
     if type(counter_publication) is not bool or counter_publication and (not publisher or current!=publisher):refused()
     if (caller['roles']!='NONE' or caller['proxyAccount'] is not None or caller['mandatoryRoles'] not in ('','NONE')
-            or caller['performanceSchema']!=1 or caller['skipGrants']!=0
+            or caller['performanceSchema']!=1
             or current in administrators or current in (audit,trigger_owner)):refused()
     schema=one(session,'SELECT DATABASE() AS db')['db']
     if not isinstance(schema,str) or not re.fullmatch(r'[A-Za-z0-9_]{1,64}',schema):refused()
     # SHOW GRANTS also denies a previously activated/implicit role and requires
     # the source application's own explicit, table-scoped writer privileges.
     grants=rows(session,'SHOW GRANTS FOR CURRENT_USER()',limit=65)
+    # skip-grant-tables is not a MySQL8 system variable. Only a genuine
+    # account with successful, nonempty native grant resolution qualifies.
+    if not grants:refused()
     for row in grants:
         value=str(next(iter(row.values())))
         match=re.fullmatch(r'GRANT (.+) ON (.+) TO .+',value)

@@ -111,6 +111,10 @@ describe('trusted financial membership runtime composition', () => {
       freshReaderContract: '',
       productIds: [],
       freeProductId: '',
+      referenceContract: undefined,
+      stagedReferenceContract: undefined,
+      contactSecret: undefined,
+      businessTimezone: 'Asia/Kolkata',
     });
     const profile = configuredFinancialImportProfiles({}, {});
     expect(profile.requiresCurrentReads).toBe(true);
@@ -120,7 +124,13 @@ describe('trusted financial membership runtime composition', () => {
       { sourceProofKey: adapterOptions.sourceProofKey },
       { ...selected(), POS_LEGACY_IMPORT_PROOF_KEY: 'ignored-wrong-alias' },
     );
-    expect(options).toEqual(adapterOptions);
+    expect(options).toEqual({
+      ...adapterOptions,
+      referenceContract: undefined,
+      stagedReferenceContract: undefined,
+      contactSecret: undefined,
+      businessTimezone: 'Asia/Kolkata',
+    });
     expect(() =>
       configuredFinancialImportProfiles(
         { sourceProofKey: adapterOptions.sourceProofKey },

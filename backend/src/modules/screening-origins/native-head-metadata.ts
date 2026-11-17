@@ -327,7 +327,7 @@ export async function readNativeHeadMetadata(
     return refuse();
   const caller = await one(
     tx,
-    'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,@@GLOBAL.performance_schema AS performanceSchema,@@GLOBAL.skip_grant_tables AS skipGrants',
+    'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,@@GLOBAL.performance_schema AS performanceSchema',
   );
   const current = account.safeParse(caller.account);
   if (
@@ -336,7 +336,6 @@ export async function readNativeHeadMetadata(
     caller.proxyAccount !== null ||
     !['', 'NONE'].includes(String(caller.mandatoryRoles)) ||
     caller.performanceSchema !== 1 ||
-    caller.skipGrants !== 0 ||
     administrators.has(current.data) ||
     [audit, origin].includes(current.data)
   )
@@ -353,7 +352,10 @@ export async function readNativeHeadMetadata(
     return refuse();
   const schema = schemaValue.db;
   const grants = await query(tx, 'SHOW GRANTS FOR CURRENT_USER()');
-  if (grants.length >= 65) return refuse();
+  // skip-grant-tables is a startup option, not a queryable MySQL8 system
+  // variable. Require a real authenticated account and successful nonempty
+  // server grant resolution; an unavailable grant table never qualifies.
+  if (!grants.length || grants.length >= 65) return refuse();
   for (const row of grants) {
     if (!row || typeof row !== 'object' || Array.isArray(row) || Object.keys(row).length !== 1)
       return refuse();
