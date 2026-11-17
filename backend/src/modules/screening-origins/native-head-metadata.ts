@@ -26,7 +26,8 @@ export interface NativeHeadPolicy {
 function refuse(): never {
   throw new Error('SCREENING_ORIGIN_HISTORY_UNQUALIFIED');
 }
-const accountPattern = /^[A-Za-z0-9_.$-]{1,64}@[A-Za-z0-9_.:%-]{1,255}$/;
+// Absolute end preserves Python fullmatch semantics for source account names.
+const accountPattern = /^[A-Za-z0-9_.$-]{1,64}@[A-Za-z0-9_.:%-]{1,255}(?![\s\S])/;
 const account = z.string().regex(accountPattern);
 export const nativeHeadMetadataOptionsSchema = z
   .object({
@@ -348,11 +349,11 @@ export async function readNativeHeadMetadata(
   )
     return refuse();
   const schemaValue = await one(tx, 'SELECT DATABASE() AS db');
-  if (typeof schemaValue.db !== 'string' || !/^[A-Za-z0-9_]{1,64}$/.test(schemaValue.db))
+  if (typeof schemaValue.db !== 'string' || !/^[A-Za-z0-9_]{1,64}(?![\s\S])/.test(schemaValue.db))
     return refuse();
   const schema = schemaValue.db;
   const grants = await query(tx, 'SHOW GRANTS FOR CURRENT_USER()');
-  if (grants.length > 65) return refuse();
+  if (grants.length >= 65) return refuse();
   for (const row of grants) {
     if (!row || typeof row !== 'object' || Array.isArray(row) || Object.keys(row).length !== 1)
       return refuse();
@@ -582,7 +583,9 @@ export async function readNativeHeadMetadata(
   }
   const auditGlobal = new Set<string>();
   for (const item of data.privileges) {
-    const match = /^'([A-Za-z0-9_.$-]{1,64})'@'([A-Za-z0-9_.:%-]{1,255})'$/.exec(item.grantee);
+    const match = /^'([A-Za-z0-9_.$-]{1,64})'@'([A-Za-z0-9_.:%-]{1,255})'(?![\s\S])/.exec(
+      item.grantee,
+    );
     if (!match) return refuse();
     const owner = match[1] + '@' + match[2];
     if (!accounts.has(owner)) return refuse();

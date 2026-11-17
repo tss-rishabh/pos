@@ -76,7 +76,7 @@ def principal_for(req, session, owner, system_owner, hint, details, now):
 
 
 def attempt(session, command, key):
-    found = rows(session, 'SELECT command_id,order_id,customer_id,phase,data,proof_hash FROM pos_rewrite_screening_origin_payment_attempts WHERE command_id=:id AND OCTET_LENGTH(data)<=16000 FOR UPDATE', {'id': command['id']}, 2)
+    found = rows(session, 'SELECT command_id,order_id,customer_id,phase,CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END AS data,proof_hash FROM pos_rewrite_screening_origin_payment_attempts WHERE command_id=:id FOR UPDATE', {'id': command['id']}, 2)
     if not found:
         return None
     row = found[0]
@@ -146,7 +146,7 @@ def native_stage(session, command, source):
 
 
 def stored(session, recovery_id, command, key):
-    found = rows(session, 'SELECT recovery_id,command_id,order_id,data,proof_hash FROM pos_rewrite_screening_origin_stage_recoveries WHERE recovery_id=:id AND OCTET_LENGTH(data)<=16000 FOR SHARE', {'id': recovery_id}, 2)
+    found = rows(session, 'SELECT recovery_id,command_id,order_id,CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END AS data,proof_hash FROM pos_rewrite_screening_origin_stage_recoveries WHERE recovery_id=:id FOR SHARE', {'id': recovery_id}, 2)
     if not found:
         return None
     row, value = found[0], json_value(found[0]['data'])
@@ -175,7 +175,7 @@ def same_attempt(session, proof, stage, attempt_hash, key):
         return True
     # Only a genuine accepted Go use may explain later observations of the
     # same immutable attempt. Never treat an arbitrary newer version as reuse.
-    found = rows(session, 'SELECT command_id,order_id,data,proof_hash FROM pos_rewrite_screening_origin_stage_recovery_uses WHERE recovery_id=:id AND OCTET_LENGTH(data)<=16000 FOR SHARE', {'id': value['recoveryId']}, 2)
+    found = rows(session, 'SELECT command_id,order_id,CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END AS data,proof_hash FROM pos_rewrite_screening_origin_stage_recovery_uses WHERE recovery_id=:id FOR SHARE', {'id': value['recoveryId']}, 2)
     if not found:
         return False
     row, use = found[0], json_value(found[0]['data'])
@@ -222,7 +222,7 @@ class StageRecoveryIssuer:
                 refused()
             # Nonlocking authenticated hint locates only the original scope;
             # actor/Store/customer authentication still precedes journal locks.
-            hints = rows(session, 'SELECT * FROM pos_rewrite_screening_origin_commands WHERE id=:id AND OCTET_LENGTH(data)<=16000', {'id': command_id}, 2)
+            hints = rows(session, 'SELECT id,origin,customer_id,actor_id,store_id,counter_id,phase,order_id,CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END AS data,proof_hash FROM pos_rewrite_screening_origin_commands WHERE id=:id', {'id': command_id}, 2)
             if not hints:
                 return {'commandId': command_id, 'status': 'NOT_FOUND', 'missing': True, 'noProviderStart': True}
             hint = checked(hints[0], self.owner.key)
@@ -231,6 +231,9 @@ class StageRecoveryIssuer:
                 refused()
             now = self.now()
             principal = principal_for(req, session, self.owner, self.system_owner, hint, details, now)
+            # Closed source event boundary receives only the genuinely
+            # authenticated actor, never a body/header-supplied identity.
+            req.context['screening_origin_event_actor_id'] = principal['actorId']
             command = read(session, command_id, principal['customerId'], self.owner.key)
             if command != hint or command['phase'] not in ('BOUND', 'COUNTED') or command['orderId'] is None:
                 refused()

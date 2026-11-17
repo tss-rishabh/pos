@@ -107,7 +107,7 @@ func originAttemptSave(ctx context.Context,tx *sql.Tx,v OriginAttempt,key string
 	_,e=tx.ExecContext(ctx,`UPDATE pos_rewrite_screening_origin_payment_attempts SET phase=?,data=?,proof_hash=?,response=COALESCE(?,response) WHERE command_id=?`,v.Phase,string(raw),seal,encrypted,v.CommandID);return e
 }
 func(e *OriginEngine)Start(ctx context.Context,cap OriginPaymentAuthorization,caller OriginCaller,input OriginPaymentInput,requestID string)(OriginPaymentView,error){
-	if e.ready(false)!=nil||input.Order!=originInt(cap.OrderID){return OriginPaymentView{},ErrReview}
+	if e.ready(false)!=nil||caller.StageRecovery!=""||input.Order!=originInt(cap.OrderID){return OriginPaymentView{},ErrReview}
 	requestHash,err:=OriginPaymentRequestHash(e.Key,input);if err!=nil||requestHash!=cap.PaymentRequestHash{return OriginPaymentView{},ErrReview}
 	u,err:=e.open(ctx,cap,caller,false,false);if err!=nil{return OriginPaymentView{},err};defer u.close()
 	if input.Method!=u.creation.Method||input.IsValid!=nil&&(!*input.IsValid||input.Name!="placed_order"){return e.rejectUnsent(ctx,u,cap,"NATIVE_INPUT_CHANGED")}
@@ -263,7 +263,7 @@ func OriginPaymentRequestHash(key string,input OriginPaymentInput)(string,error)
 // view only from the already source-HMACed command after real JWT validation.
 // It is never available for the external-system origin or a browser body.
 func(e *OriginEngine)NativeAuthorization(ctx context.Context,commandID string,caller OriginCaller,input OriginPaymentInput)(OriginPaymentAuthorization,error){
-	var cap OriginPaymentAuthorization;if caller.System||caller.Credential==""||e.ready(false)!=nil{return cap,ErrReview}
+	var cap OriginPaymentAuthorization;if caller.System||caller.StageRecovery!=""||caller.Credential==""||e.ready(false)!=nil{return cap,ErrReview}
 	tx,err:=e.DB.BeginTx(ctx,&sql.TxOptions{Isolation:sql.LevelReadCommitted});if err!=nil{return cap,err};defer tx.Rollback();c,err:=ReadOriginCommand(ctx,tx,commandID,caller.CustomerID,e.Key,false);if err!=nil{return cap,err}
 	caller.AuthorityClock=e.now
 	if c.Origin=="external-system"||c.OrderID==nil||c.CreationHash==nil||originInt(*c.OrderID)!=input.Order{return cap,ErrReview};if _,err=OriginAuthorize(ctx,tx,c,caller,e.Key,e.now());err!=nil{return cap,err};hash,err:=OriginPaymentRequestHash(e.Key,input);if err!=nil{return cap,err}
