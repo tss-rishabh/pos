@@ -279,3 +279,6 @@ b6fa814667e5acf32dbd484cf3a4c969285fedae:backend/src/modules/legacy-order-import
 
 # Native screening fixture's API-v2 source commit, verified as an immutable Git commit object.
 9db9d5282e1407362236a58cf98d0d5228f78bd1:backend/compatibility/upstream/legacy-order-imports/screening_native_test.go:generic-api-key:91
+
+# Benefit manifest API source commit, verified as the immutable API-v2 Git commit object.
+7ebb43b5a3edce220637f1230e8c60371fa57a86:backend/compatibility/upstream/legacy-order-imports/benefit-profile/source-manifest.json:generic-api-key:3
