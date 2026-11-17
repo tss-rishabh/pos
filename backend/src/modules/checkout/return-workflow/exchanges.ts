@@ -90,6 +90,7 @@ export function exchangeService(
         'EXCHANGE_CHILD_UNCONFIRMED',
         'The replacement order has not been confirmed.',
       );
+    await repository.assertExchangeFinalizationAvailable(user, operation.storeId, operation.id);
     const operator = await customers.operatorIdentity(user.id);
     if (!operator)
       throw new AppError(

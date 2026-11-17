@@ -68,6 +68,15 @@ export const paymentAttemptSchema = z.object({
   externalReference: z.string().nullable(),
   transactionId: z.string(),
   providerReference: z.string().nullable(),
+  /** Private factual response retained when an import hold prevents settlement. */
+  heldProviderDecision: z
+    .object({
+      status: z.enum(['pending', 'paid', 'failed', 'cancelled', 'uncertain']),
+      reference: z.string().nullable(),
+      code: z.string(),
+    })
+    .strict()
+    .optional(),
   status: z.enum([
     'dispatching',
     'pending',
@@ -137,6 +146,7 @@ export function publicPayment(attempt: PaymentAttempt) {
     busyOperationId: _busyOperationId,
     checkoutNote,
     legacySource,
+    heldProviderDecision: _heldProviderDecision,
     ...value
   } = attempt;
   return {

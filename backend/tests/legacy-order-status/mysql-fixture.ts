@@ -46,6 +46,7 @@ export async function wholeStatusFixture(template: string) {
       'src/modules/checkout/migrations/0004_returns.sql',
       'src/modules/legacy-order-status/migration.sql',
       'src/modules/legacy-order-status/repair-migration.sql',
+      'src/modules/legacy-order-imports/financial-proof-migration.sql',
     ])
       for (const statement of readFileSync(path, 'utf8')
         .replace(/^--.*$/gm, '')

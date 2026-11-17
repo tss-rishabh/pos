@@ -1,3 +1,4 @@
+import { splitMigration } from '../../src/db/migrations.js';
 import { readFileSync } from 'node:fs';
 import mysql, { type Connection, type RowDataPacket } from 'mysql2/promise';
 import { Decimal } from 'decimal.js';
@@ -259,6 +260,11 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
     await verifiedMysqlFixture(connection, [
       'evidence/mysql-pending-cancellation-benefits-schema.json',
     ]).create(['order_tss_money', 'order_tss_point', 'tss_money_history', 'tss_point_history']);
+    // Generic financial writers require the imported-order hold control tables.
+    for (const statement of splitMigration(
+      readFileSync('src/modules/legacy-order-imports/financial-proof-migration.sql', 'utf8'),
+    ))
+      await connection.query(statement);
     for (const migration of [
       '0002_checkout.sql',
       '0003_payments.sql',

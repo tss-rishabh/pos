@@ -1,4 +1,5 @@
-import { and, desc, eq, like, or, sql } from 'drizzle-orm';
+import { assertImportOrderMutationAvailable } from '../legacy-order-imports/financial-adapter-proof.js';
+import { and, asc, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -69,9 +70,31 @@ export function orderFinalizer(
         .from(Store)
         .where(eq(Store.id, BigInt(state.storeId)))
         .for('update');
+      // Read only a parent hint, then acquire both Orders in ID order. Taking
+      // the child lock first would invert the return writer's parent locks.
+      // The current locked parent is checked again before any mutation.
+      const [parentHint] =
+        orderKind === 'exchange'
+          ? await tx
+              .select({ id: Order.id, parentId: Order.parent_order_id })
+              .from(Order)
+              .where(eq(Order.id, BigInt(orderId)))
+              .limit(1)
+          : [];
+      const expectedParent = orderKind === 'exchange' ? (parentHint?.parentId ?? 0n) : 0n,
+        lockIds = [BigInt(orderId), ...(expectedParent > 0n ? [expectedParent] : [])].sort(
+          (a, b) => (a < b ? -1 : a > b ? 1 : 0),
+        );
+      await tx
+        .select({ id: Order.id })
+        .from(Order)
+        .where(inArray(Order.id, lockIds))
+        .orderBy(asc(Order.id))
+        .for('update');
       const [record] = await tx
         .select({
           id: OrderStore.id,
+          parentId: Order.parent_order_id,
           invoice: OrderStore.order_invoice,
           reference: Order.order_ref_no,
           date: Order.updated_at,
@@ -95,6 +118,15 @@ export function orderFinalizer(
           'CREATED_ORDER_SCOPE_MISMATCH',
           'The created order could not be confirmed in this store and counter.',
         );
+      if (orderKind === 'exchange' && record.parentId !== expectedParent)
+        throw new AppError(
+          409,
+          'EXCHANGE_PARENT_CHANGED',
+          'The replacement parent changed before finalization.',
+        );
+      await assertImportOrderMutationAvailable(tx, orderId);
+      if (orderKind === 'exchange' && expectedParent > 0n)
+        await assertImportOrderMutationAvailable(tx, String(expectedParent));
       const customerId = state.customerId || state.operatorCustomerId;
       if (String(record.userId) !== customerId)
         throw new AppError(
@@ -274,6 +306,7 @@ export function prepaidSettlementReader(db: Databases) {
         )
         .limit(1)
         .for('update');
+      if (row) await assertImportOrderMutationAvailable(tx, orderId);
       if (
         !row ||
         row.payment !== 4n ||

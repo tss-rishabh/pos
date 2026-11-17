@@ -1,3 +1,4 @@
+import { assertImportOrderMutationAvailable } from '../../legacy-order-imports/financial-adapter-proof.js';
 import {
   and,
   asc,
@@ -87,6 +88,8 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       ((user, store, counter, tx) => checkIns.assertCheckIn(user, store, counter, tx)),
     now = () => Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDateTime(),
     timestamp = () => now().toString({ smallestUnit: 'second' }).replace('T', ' ');
+  // Evidence mode is confined to preserving a remote response/failed attempt.
+  // Every effect/checkpoint authority retains the imported-order hold check.
   async function context(
     tx: AdministrationTransaction,
     user: Principal,
@@ -94,6 +97,8 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     orderId: string,
     lineId: string,
     counterId: string,
+    purpose: 'authority' | 'evidence' = 'authority',
+    relatedOrderIds: readonly string[] = [],
   ) {
     requireStore(user, storeId);
     await checkIn(user.id, storeId, counterId, tx);
@@ -101,6 +106,15 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       .select({ id: Store.id, locationCode: Store.location_code, name: Store.store_name })
       .from(Store)
       .where(eq(Store.id, BigInt(storeId)))
+      .for('update');
+    const lockIds = [...new Set([orderId, ...relatedOrderIds])]
+      .map(BigInt)
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    await tx
+      .select({ id: Order.id })
+      .from(Order)
+      .where(inArray(Order.id, lockIds))
+      .orderBy(asc(Order.id))
       .for('update');
     const [order] = await tx
       .select({
@@ -121,6 +135,8 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       .from(Order)
       .where(eq(Order.id, BigInt(orderId)))
       .for('update');
+    if (order && purpose === 'authority')
+      for (const id of lockIds) await assertImportOrderMutationAvailable(tx, String(id));
     const [line] = await tx
       .select()
       .from(HasProduct)
@@ -135,6 +151,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     user: Principal,
     storeId: string,
     id: string,
+    purpose: 'authority' | 'evidence' = 'authority',
   ) {
     const [first] = await tx
       .select({ state: returnOperations.state })
@@ -151,6 +168,8 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         initial.orderId,
         initial.lineId,
         initial.input.counterId,
+        purpose,
+        initial.exchange?.childOrderId ? [initial.exchange.childOrderId] : [],
       );
     const [locked] = await tx
       .select({ state: returnOperations.state })
@@ -159,7 +178,19 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       .for('update');
     if (!locked)
       throw new AppError(404, 'RETURN_OPERATION_NOT_FOUND', 'Return operation was not found.');
-    return { operation: returnOperationSchema.parse(locked.state), ...scope };
+    const operation = returnOperationSchema.parse(locked.state);
+    if (
+      operation.orderId !== initial.orderId ||
+      operation.lineId !== initial.lineId ||
+      operation.input.counterId !== initial.input.counterId ||
+      operation.exchange?.childOrderId !== initial.exchange?.childOrderId
+    )
+      throw new AppError(
+        409,
+        'RETURN_OPERATION_CHANGED',
+        'The return operation changed while its orders were being locked. Read its original status before continuing.',
+      );
+    return { operation, ...scope };
   }
   async function save(tx: AdministrationTransaction, operation: ReturnOperation) {
     const next = { ...operation, updatedAt: timestamp() };
@@ -1025,7 +1056,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     },
     async refundConfirmed(user: Principal, storeId: string, id: string, returnAmount: string) {
       return db.get('writer').transaction(async (tx) => {
-        const { operation } = await owned(tx, user, storeId, id);
+        const { operation } = await owned(tx, user, storeId, id, 'evidence');
         if (operation.phase !== 'refund-dispatching')
           throw new AppError(
             409,
@@ -1208,7 +1239,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     },
     async replacementConfirmed(user: Principal, storeId: string, id: string, childOrderId: string) {
       return db.get('writer').transaction(async (tx) => {
-        const { operation } = await owned(tx, user, storeId, id);
+        const { operation } = await owned(tx, user, storeId, id, 'evidence');
         if (
           operation.kind !== 'exchange' ||
           !operation.exchange ||
@@ -1282,6 +1313,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           .for('update');
         if (rows.length !== 1) return operation;
         const child = rows[0]!;
+        await assertImportOrderMutationAvailable(tx, String(child.childId));
         if (
           child.parentId !== BigInt(operation.orderId) ||
           String(child.customerId) !== operation.customerId ||
@@ -1356,7 +1388,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       errorCode: string,
     ) {
       return db.get('writer').transaction(async (tx) => {
-        const { operation } = await owned(tx, user, storeId, id);
+        const { operation } = await owned(tx, user, storeId, id, 'evidence');
         if (operation.kind !== 'exchange' || !operation.exchange)
           throw new AppError(409, 'EXCHANGE_NOT_FOUND', 'This operation is not an exchange.');
         if (
@@ -1379,6 +1411,20 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           uncertainStage: uncertain ? 'replacement' : null,
           errorCode,
         });
+      });
+    },
+    async assertExchangeFinalizationAvailable(user: Principal, storeId: string, id: string) {
+      return db.get('writer').transaction(async (tx) => {
+        const { operation } = await owned(tx, user, storeId, id);
+        const childId = operation.exchange?.childOrderId;
+        if (operation.kind !== 'exchange' || !childId)
+          throw new AppError(
+            409,
+            'EXCHANGE_CHILD_UNCONFIRMED',
+            'The replacement order has not been confirmed.',
+          );
+        // owned() already holds both orders in ID order and checks both holds.
+        // The actual finalizer repeats this boundary in its mutation transaction.
       });
     },
     async completeExchange(user: Principal, storeId: string, id: string) {
@@ -1435,6 +1481,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             .where(eq(HasProduct.order, BigInt(childId)))
             .orderBy(asc(HasProduct.id))
             .for('update');
+        if (child) await assertImportOrderMutationAvailable(tx, String(child.id));
         const replacement = childLines.find(
           (row) =>
             String(row.productId) === exchange.newProductId &&
@@ -1686,7 +1733,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             (operation.phase === 'rejected' && operation.errorCode !== 'RETURN_INBOUND_REJECTED')
           )
             return operation;
-        } else operation = (await owned(tx, user, storeId, id)).operation;
+        } else operation = (await owned(tx, user, storeId, id, 'evidence')).operation;
         if (
           [
             'completed',

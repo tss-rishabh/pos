@@ -22,7 +22,8 @@ export async function acceptInbound(
   signing: CheckoutEnvironment,
   timeZone: string,
 ) {
-  let dispatched = false;
+  let dispatched = false,
+    warehouseConfirmed = false;
   try {
     const customer = await customers.customer(operation.customerId);
     if (!customer)
@@ -57,18 +58,25 @@ export async function acceptInbound(
     const data = await repository.inboundData(user, operation.storeId, operation.id);
     dispatched = true;
     await gateway.inbound(data);
+    warehouseConfirmed = true;
     return await repository.accepted(user, operation.storeId, operation.id);
   } catch (error) {
     const uncertain =
         dispatched &&
-        (!(error instanceof AppError) ||
-          (error instanceof CheckoutGatewayError && error.uncertain)),
+        (warehouseConfirmed ||
+          !(error instanceof AppError) ||
+          (error instanceof CheckoutGatewayError && error.uncertain) ||
+          (error instanceof AppError && error.code.startsWith('ORDER_IMPORT_'))),
       code =
-        error instanceof AppError
-          ? error.code
-          : uncertain
-            ? 'RETURN_OUTCOME_UNCERTAIN'
-            : 'RETURN_PROCESSING_FAILED';
+        warehouseConfirmed && error instanceof AppError && error.code.startsWith('ORDER_IMPORT_')
+          ? 'RETURN_INBOUND_CONFIRMED_IMPORT_HELD'
+          : warehouseConfirmed
+            ? 'RETURN_INBOUND_CONFIRMED_NATIVE_UNCOMMITTED'
+            : error instanceof AppError
+              ? error.code
+              : uncertain
+                ? 'RETURN_OUTCOME_UNCERTAIN'
+                : 'RETURN_PROCESSING_FAILED';
     await repository.failure(user, operation.storeId, operation.id, 'inbound', uncertain, code);
     if (error instanceof AppError && !uncertain) throw error;
     throw new AppError(

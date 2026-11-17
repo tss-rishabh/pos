@@ -1,3 +1,4 @@
+import { splitMigration } from '../../src/db/migrations.js';
 import { execFileSync } from 'node:child_process';
 import { generateKeyPairSync, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -133,6 +134,11 @@ describe.skipIf(!integration)(
       await verifiedMysqlFixture(connection, ['evidence/mysql-global-benefits-schema.json']).create(
         legacyTables,
       );
+      // Generic financial writers require the imported-order hold control tables.
+      for (const statement of splitMigration(
+        readFileSync('src/modules/legacy-order-imports/financial-proof-migration.sql', 'utf8'),
+      ))
+        await connection.query(statement);
       for (const name of [
         '0009_checkout_projection_proof.sql',
         '0011_offline_cash.sql',

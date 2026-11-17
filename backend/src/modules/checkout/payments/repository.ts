@@ -1,3 +1,4 @@
+import { assertImportOrderMutationAvailable } from '../../legacy-order-imports/financial-adapter-proof.js';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Config } from '../../../config.js';
@@ -291,7 +292,15 @@ export function paymentRepository(
   const assertCheckIn =
     options.assertCheckIn ||
     ((userId, storeId, counterId, tx) => checkIns.assertCheckIn(userId, storeId, counterId, tx));
-  async function order(tx: PaymentTransaction, user: Principal, storeId: string, orderId: string) {
+  // Evidence mode is private to recording an already-dispatched provider reply.
+  // It never authorizes a charge, cancellation or native settlement.
+  async function order(
+    tx: PaymentTransaction,
+    user: Principal,
+    storeId: string,
+    orderId: string,
+    purpose: 'authority' | 'evidence' = 'authority',
+  ) {
     requireStore(user, storeId);
     // Check-in/current actor/store precede financial order locks, matching cancellation/day-close.
     // A nonlocking counter preflight here would establish an old REPEATABLE READ
@@ -326,6 +335,7 @@ export function paymentRepository(
       .where(and(eq(OrderStore.store, BigInt(storeId)), eq(OrderStore.order, BigInt(orderId))))
       .for('update');
     if (!record) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order was not found in this store.');
+    if (purpose === 'authority') await assertImportOrderMutationAvailable(tx, orderId);
     await assertCheckIn(user.id, storeId, String(record.counter), tx);
     return record;
   }
@@ -456,8 +466,9 @@ export function paymentRepository(
     storeId: string,
     orderId: string,
     id: string,
+    purpose: 'authority' | 'evidence' = 'authority',
   ) {
-    const mapping = await order(tx, user, storeId, orderId);
+    const mapping = await order(tx, user, storeId, orderId, purpose);
     const [row] = await tx
       .select()
       .from(paymentAttempts)
@@ -474,7 +485,7 @@ export function paymentRepository(
     const [attempt] = await effective(tx, [storedPaymentAttemptSchema.parse(row.state)]);
     if (!attempt)
       throw new AppError(404, 'PAYMENT_ATTEMPT_NOT_FOUND', 'Payment attempt was not found.');
-    if (attempt.legacySource) {
+    if (attempt.legacySource && purpose === 'authority') {
       await history(tx, orderId);
     }
     return { attempt, mapping };
@@ -1158,7 +1169,29 @@ export function paymentRepository(
       busyOperationId: string | null,
     ) {
       return transact(async (tx) => {
-        const { attempt, mapping } = await owned(tx, user, storeId, orderId, id);
+        const { attempt, mapping } = await owned(tx, user, storeId, orderId, id, 'evidence');
+        try {
+          await assertImportOrderMutationAvailable(tx, orderId);
+        } catch (error: unknown) {
+          // Preserve the factual response independently of financial completion.
+          // Even a missing control table is a block, never proof of no hold.
+          if (['paid', 'failed', 'cancelled', 'reversed'].includes(attempt.status)) throw error;
+          if (attempt.busyOperationId !== busyOperationId)
+            throw new AppError(
+              409,
+              'PAYMENT_OPERATION_CHANGED',
+              'A newer payment reconciliation superseded this provider response.',
+            );
+          return save(tx, {
+            ...attempt,
+            status: 'uncertain',
+            busyOperationId: null,
+            providerReference: decision.reference || attempt.providerReference,
+            heldProviderDecision: attempt.heldProviderDecision ?? { ...decision },
+            errorCode: 'ORDER_IMPORT_HELD_AFTER_DISPATCH',
+          });
+        }
+        if (attempt.legacySource) await history(tx, orderId);
         await assertPaid(tx, mapping, attempt);
         if (['paid', 'cancelled', 'failed', 'reversed'].includes(attempt.status)) return attempt;
         if (attempt.busyOperationId !== busyOperationId)
