@@ -65,9 +65,7 @@ def validate(value,expected,key,member_ids,now_ms):
                 or not isinstance(order['createdAt'],str)):
             review('ORDER_IMPORT_MEMBERSHIP_HISTORY_INVALID')
         try:
-            recorded=datetime.strptime(order['createdAt'],'%Y-%m-%d %H:%M:%S')
-            as_of=datetime.strptime(expected['asOf'],'%Y-%m-%d %H:%M:%S')
-            if recorded>as_of:raise ValueError()
+            datetime.strptime(order['createdAt'],'%Y-%m-%d %H:%M:%S')
         except (ValueError,TypeError):review('ORDER_IMPORT_MEMBERSHIP_HISTORY_INVALID')
         if not isinstance(order['lines'],list) or len(order['lines'])>10000:
             review('ORDER_IMPORT_MEMBERSHIP_HISTORY_INVALID')
@@ -86,7 +84,9 @@ def validate(value,expected,key,member_ids,now_ms):
         if len(flags)>1:review('ORDER_IMPORT_MEMBERSHIP_HISTORY_AMBIGUOUS')
     if len(canonical(body).encode())>1000000 or not hmac.compare_digest(value['signature'],signature(body,key)):
         review('ORDER_IMPORT_MEMBERSHIP_HISTORY_INVALID')
-    if len({order['id'] for order in recent})!=len(recent) or any(not expected['cutoff']<order['createdAt']<=expected['asOf'] for order in recent):
+    # Literal source has only a lower cutoff, including future-dated delivered
+    # records when present. Do not invent an upper timestamp predicate.
+    if len({order['id'] for order in recent})!=len(recent) or any(not expected['cutoff']<order['createdAt'] for order in recent):
         review('ORDER_IMPORT_MEMBERSHIP_HISTORY_INVALID')
     if any(first['createdAt']<=second['createdAt'] for first,second in zip(recent,recent[1:])):
         review('ORDER_IMPORT_MEMBERSHIP_HISTORY_AMBIGUOUS')

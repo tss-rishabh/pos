@@ -51,6 +51,36 @@ def instant(wall,zone):
     return point,int(aware.timestamp()*1000)
 
 
+def validate_selection(value,scope,member_ids):
+    if not isinstance(value,dict) or set(value)!={'lastDeliveredOrder','recentDeliveredOrders'}:raise ValueError()
+    recent,last=value['recentDeliveredOrders'],value['lastDeliveredOrder']
+    if not isinstance(recent,list) or len(recent)>5000:raise ValueError()
+    members={str(value) for value in member_ids}
+    count=0
+    for order in ([last] if last is not None else [])+recent:
+        if (not isinstance(order,dict) or set(order)!={'id','paymentMethod','createdAt','lines'}
+                or not re.fullmatch(r'[1-9][0-9]{0,18}',order['id'])
+                or type(order['paymentMethod']) is not int or not 0<=order['paymentMethod']<=32767
+                or not isinstance(order['lines'],list) or len(order['lines'])>10000):raise ValueError()
+        datetime.strptime(order['createdAt'],'%Y-%m-%d %H:%M:%S')
+        ids=set();flags=set()
+        for row in order['lines']:
+            if (not isinstance(row,dict) or set(row)!={'lineId','productId','isExclusiveOrder'}
+                    or any(not isinstance(row[name],str) or not re.fullmatch(r'[1-9][0-9]{0,18}',row[name]) for name in ('lineId','productId'))
+                    or type(row['isExclusiveOrder']) is not int or row['isExclusiveOrder'] not in (0,1)
+                    or row['lineId'] in ids):raise ValueError()
+            ids.add(row['lineId'])
+            if row['productId'] not in members:flags.add(row['isExclusiveOrder'])
+        count+=len(order['lines'])
+        if len(flags)>1 or count>20000:raise ValueError()
+    if (len({order['id'] for order in recent})!=len(recent)
+            or any(not scope['cutoff']<order['createdAt'] for order in recent)
+            or any(a['createdAt']<=b['createdAt'] for a,b in zip(recent,recent[1:]))
+            or recent and last!=recent[0]
+            or last is not None and last['createdAt']>scope['cutoff'] and not recent):raise ValueError()
+    return {'scope':copy.deepcopy(scope),**copy.deepcopy(value)}
+
+
 class PreparedPublicMembershipHistory:
     def __init__(self,supplied,cap,key,settings,clock):
         self.clock=clock;self.cap=copy.deepcopy(cap)
@@ -78,34 +108,7 @@ class PreparedPublicMembershipHistory:
         except Exception:fail('SCREENING_MEMBERSHIP_HISTORY_UNQUALIFIED')
 
     def _validate_selection(self,settings):
-        value=self._value['selection'];scope=self._value['scope']
-        if not isinstance(value,dict) or set(value)!={'lastDeliveredOrder','recentDeliveredOrders'}:raise ValueError()
-        recent,last=value['recentDeliveredOrders'],value['lastDeliveredOrder']
-        if not isinstance(recent,list) or len(recent)>5000:raise ValueError()
-        members={str(value) for value in settings.MEMBERSHIP_PROD_ID}
-        count=0
-        for order in ([last] if last is not None else [])+recent:
-            if (not isinstance(order,dict) or set(order)!={'id','paymentMethod','createdAt','lines'}
-                    or not re.fullmatch(r'[1-9][0-9]{0,18}',order['id'])
-                    or type(order['paymentMethod']) is not int or not 0<=order['paymentMethod']<=32767
-                    or not isinstance(order['lines'],list) or len(order['lines'])>10000):raise ValueError()
-            datetime.strptime(order['createdAt'],'%Y-%m-%d %H:%M:%S')
-            ids=set();flags=set()
-            for row in order['lines']:
-                if (not isinstance(row,dict) or set(row)!={'lineId','productId','isExclusiveOrder'}
-                        or any(not isinstance(row[name],str) or not re.fullmatch(r'[1-9][0-9]{0,18}',row[name]) for name in ('lineId','productId'))
-                        or type(row['isExclusiveOrder']) is not int or row['isExclusiveOrder'] not in (0,1)
-                        or row['lineId'] in ids):raise ValueError()
-                ids.add(row['lineId'])
-                if row['productId'] not in members:flags.add(row['isExclusiveOrder'])
-            count+=len(order['lines'])
-            if len(flags)>1 or count>20000:raise ValueError()
-        if (len({order['id'] for order in recent})!=len(recent)
-                or any(not scope['cutoff']<order['createdAt'] for order in recent)
-                or any(a['createdAt']<=b['createdAt'] for a,b in zip(recent,recent[1:]))
-                or recent and last!=recent[0]
-                or last is not None and last['createdAt']>scope['cutoff'] and not recent):raise ValueError()
-        return {'scope':copy.deepcopy(scope),**copy.deepcopy(value)}
+        return validate_selection(self._value['selection'],self._value['scope'],settings.MEMBERSHIP_PROD_ID)
 
     def assert_current(self,cap,late=False,session=None):
         if (any(cap[name]!=self.cap[name] for name in ('operationId','checkoutId','customerId','requestHash','cartHash'))
