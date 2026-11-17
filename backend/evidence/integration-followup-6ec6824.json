@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "scope": "focused-integration",
+  "validatedAt": "2026-11-17T11:16:23.510635+00:00",
+  "applicationAndTestCommit": "6ec68244aed70f199e6fb424b47c0bb021378d0e",
+  "fullProjectVerification": false,
+  "fullLegacyParityCertified": false,
+  "nodeVersion": "24.22.3",
+  "databaseScope": "Disposable loopback MySQL fixtures only; no live database rows or DDL.",
+  "checks": [
+    {
+      "id": "membership-app-recovery",
+      "status": "passed",
+      "files": 9,
+      "testsPassed": 125,
+      "maxWorkers": 1,
+      "filters": [
+        "tests/legacy-import-membership",
+        "tests/legacy-order-imports/runtime-options.test.ts",
+        "tests/legacy-order-imports/runtime.mysql.test.ts",
+        "tests/legacy-order-imports/repository.mysql.test.ts",
+        "tests/legacy-order-imports/resumptions.mysql.test.ts"
+      ]
+    },
+    {
+      "id": "membership-history-publication",
+      "status": "passed",
+      "files": 6,
+      "testsPassed": 99,
+      "maxWorkers": 1,
+      "filters": [
+        "tests/legacy-order-imports/membership-publication.mysql.test.ts",
+        "tests/legacy-order-imports/membership-publication.test.ts",
+        "tests/legacy-order-imports/membership-publication-transaction.test.ts",
+        "tests/legacy-order-imports/membership-bigquery.test.ts",
+        "tests/legacy-order-imports/membership-bigquery-source.test.ts",
+        "tests/legacy-order-imports/membership-bridge.test.ts"
+      ]
+    },
+    {
+      "id": "backend-typecheck",
+      "status": "passed",
+      "project": "backend/tsconfig.json"
+    },
+    {
+      "id": "membership-fixture-typecheck",
+      "status": "passed",
+      "project": "backend/tools/legacy-import-membership/tsconfig.json"
+    },
+    {
+      "id": "membership-publication-fixture-typecheck",
+      "status": "passed",
+      "project": "backend/tools/legacy-order-imports/membership-publication.tsconfig.json"
+    },
+    {
+      "id": "import-correction-browser-fixture-typecheck",
+      "status": "passed",
+      "project": "frontend/tests/import-corrections/tsconfig.json"
+    },
+    {
+      "id": "changed-backend-typescript-lint",
+      "status": "passed",
+      "baseCommit": "1fa0ea7",
+      "includesVerifierChanges": true
+    },
+    {
+      "id": "diff-whitespace",
+      "status": "passed"
+    }
+  ],
+  "limitations": [
+    "No complete original workflow certification.",
+    "No live source, provider, warehouse publication or OAuth tenant acceptance.",
+    "No new Windows/macOS native outcome; the prior Windows sign-in failure is retained separately.",
+    "Publication and benefit/screening composition still have code work."
+  ]
+}

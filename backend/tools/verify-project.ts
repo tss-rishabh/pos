@@ -74,6 +74,7 @@ if (flags.has('--mysql')) {
     CUSTOMER_WEBSITE_HANDOFF_MYSQL_TEST_URL: 'pos_rewrite_customer_website_handoff_test',
     GLOBAL_VOUCHERS_MYSQL_TEST_URL: 'pos_rewrite_global_vouchers_test',
     LEGACY_ORDER_IMPORT_MYSQL_TEST_URL: 'pos_rewrite_legacy_order_imports_test',
+    MEMBERSHIP_PUBLICATION_MYSQL_TEST_URL: 'pos_rewrite_membership_publication_test',
     INVENTORY_WORKBOOK_MYSQL_TEST_URL: 'pos_rewrite_inventory_workbooks_test',
     DASHBOARD_MYSQL_TEST_URL: 'pos_rewrite_dashboard_test',
     BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
@@ -518,6 +519,36 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tools/legacy-import-tender/tsconfig.json',
+    ],
+  },
+  {
+    id: 'legacy-import-membership-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-import-membership/tsconfig.json',
+    ],
+  },
+  {
+    id: 'legacy-import-membership-publication-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/legacy-order-imports/membership-publication.tsconfig.json',
+    ],
+  },
+  {
+    id: 'import-correction-browser-fixture-typecheck',
+    directory: 'frontend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tests/import-corrections/tsconfig.json',
     ],
   },
   {
@@ -1055,6 +1086,17 @@ if (flags.has('--browser')) {
         'run',
         '--config',
         'tests/order-imports/vitest.config.ts',
+      ],
+      environment: { ORDER_IMPORT_BROWSER_TESTS: 'true' },
+    },
+    {
+      id: 'import-correction-browser-tests',
+      directory: 'frontend',
+      args: [
+        'node_modules/vitest/vitest.mjs',
+        'run',
+        'tests/import-corrections/browser.test.ts',
+        '--maxWorkers=1',
       ],
       environment: { ORDER_IMPORT_BROWSER_TESTS: 'true' },
     },
