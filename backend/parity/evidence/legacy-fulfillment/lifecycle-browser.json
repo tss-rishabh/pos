@@ -1,7 +1,7 @@
 {
   "scope": "isolated-browser-http-fixtures",
   "workflows": 9,
-  "requests": 62,
+  "requests": 63,
   "pageErrors": 0,
   "unexpectedRequests": 0,
   "verified": [

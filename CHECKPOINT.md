@@ -20,7 +20,7 @@ component test counts do not certify every original workflow.
 | Benefits                 | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                                                                                                                                                                                                                                                      |
 | Administration           | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                                                                                                                                                                                                                                                             |
 | Reports and fulfillment  | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                                                                                                                                                                                                                                                                |
-| Web and desktop          | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. On `0f865c8`, macOS passed the full CI job; Windows passed the five payment-recovery cases and native Electron/offline checks, then failed the first customer-profile browser workflow at its existing five-second limit. Its cold-fixture preparation passes all 23 local cases and still needs a target-OS rerun. Signing and physical printing remain release gates.                                 |
+| Web and desktop | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both target-OS CI jobs pass completely on `1e129d6`, including unsigned packaging, packaged integrity, native restart, sandbox and offline profile. Signing and physical printers remain release gates. |
 | Cashier conveniences     | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass.                                                                                                                                                                                                                                      |
 | Dashboard and website    | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                                                                                                                                                                                                                                                       |
 | Barcode and country      | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.                                                                                                                                                                                                                                               |
@@ -37,9 +37,15 @@ component test counts do not certify every original workflow.
 Recent focused checks cover CSV coordination, financial approval/settlement,
 whole-order recovery, private source/Go boundaries, API and trace isolation. The
 approval/import UI passed 37 checks, including 23 Chromium workflows; the actual
-Orders page passed 16 Chromium cases. These are bounded feature results. A fresh
-consolidated run is still required for the latest composition, and no production
-provider or complete original workflow is certified by these counts.
+Orders page passed 16 Chromium cases. These are bounded feature results. The
+consolidated run on `1e129d6` now passes all 121 standard checks with unchanged
+inputs: 2,230 backend tests, 241 frontend unit tests, the configured native and
+recovery-browser phases, builds and all 52 main Playwright cases. Unit phases
+separately record 53 backend and 214 frontend skips; inspect each dedicated
+native/browser phase before assigning coverage. The release gate still fails
+for incomplete workflow certification and external acceptance. The immutable
+result is `backend/evidence/verification-1e129d6.json`; the current result remains
+`backend/evidence/verification.json`. These checks do not certify production parity.
 
 The combined local run on `6d8a4bc` passed 113 of 114 normal checks, with no
 input changes during execution. Its backend suite passed 2,058 cases, failed
@@ -52,7 +58,7 @@ across those eight files, with no skips, plus all 52 main Playwright cases.
 Fixture compiler/lint checks and the exchange patch generator also pass; patch
 bytes, original source commits and byte checks remain unchanged. The independent
 clean Git fixture checkout leaves the user's original checkout untouched.
-`backend/evidence/verification.json` retains the failed combined result, while
+`backend/evidence/verification-6d8a4bc.json` retains the failed combined result, while
 `backend/evidence/integration-followup-6d8a4bc.json` records the narrower recovery.
 These focused results do not establish a passing consolidated snapshot.
 Native source/candidate tests
@@ -80,43 +86,16 @@ private receiver container target build; its default command passes a
 network-disabled container smoke check. These do not certify real ingress or
 provider acceptance.
 
-Native CI on `cd589c5` passed both Windows and macOS, including unsigned
-packaging, packaged integrity, restart, sandbox and offline smoke checks
-(run `44032882645`). `backend/evidence/desktop-ci-cd589c5.json` records the exact
-commit and job/step outcomes. Earlier failed runs remain retained as evidence.
-Native CI bounds fixture concurrency to two unit workers and one recovery-browser
-worker; assertions and timeouts were unchanged. Later CSV/profile integrations
-still require their own consolidated and native runs. Signing and physical
-printer acceptance remain outstanding.
-
-The native run on `77151ca` passed macOS and failed the Windows sign-in flow.
-Its retained trace showed the initial challenge-restoration reply clearing a
-new OTP; three deterministic Chromium cases cover the fix. The next run on
-`3f5a269` passed the native Electron/offline step on both systems, then failed
-later browser recovery steps. The failed outcomes remain retained separately.
-Windows exposed two first-workflow 5-second deadline failures; cold Vite setup
-now finishes in fixture startup, with all 14 affected cases passing locally.
-macOS exposed a correction fixture checking its receipt before commit; the
-controlled-race fix passes all 8 cases. No deadlines or retries were increased.
-On the subsequent `6d8a4bc` run, macOS passed every step. Windows passed native
-Electron/offline checks, then failed five existing-order payment-recovery
-browser cases. Their original host connectivity value was not captured. A
-controlled offline-host reproduction exposes the same first-action timeout;
-the fixture correction and offline-to-online regression pass all 17 local cases
-without increased deadlines or retries. That correction is now integrated.
-`backend/evidence/desktop-ci-6d8a4bc.json` retains the failed
-Windows and successful macOS outcomes. See
-`backend/parity/native-browser-readiness.md`.
-
-The `0f865c8` follow-up passed all five formerly failing payment-recovery cases
-on Windows and the complete macOS job. Windows now has one failed first
-customer-profile browser case (105 passed in that step). Its original five-second
-workflow deadline included cold development-server compilation/rendering. The
-fixture now loads the same harness in its existing startup hook, uses a fresh
-temporary Vite cache and closes its throwaway browser context without any API
-request or retained state. All 23 local cases and the strict fixture check pass;
-Windows acceptance remains pending. No deadline, retry or product assertion changed.
-`backend/evidence/desktop-ci-0f865c8.json` retains the actual CI outcome.
+Native CI on `1e129d6` passes both Windows and macOS completely, including
+unsigned target-OS packaging, packaged integrity, native restart, sandbox and
+offline profile (run `44099436914`). Exact job/step results are retained in
+`backend/evidence/desktop-ci-1e129d6.json`. Earlier failed snapshots remain
+available, including the sign-in restoration race, fixture commit ordering,
+uncontrolled browser connectivity and cold fixture setup. Their fixes retain
+the original deadlines and assertions. See
+`backend/parity/native-browser-readiness.md`. New integrations still need their
+own affected checks; signing, real printers and full workflow certification
+remain required.
 
 Membership completion snapshots and actual application/worker recovery are now
 integrated. On `6ec6824`, 125 membership, runtime, repository and resumptions

@@ -1,5 +1,10 @@
 # Native browser fixture readiness
 
+Run `44099436914` at `1e129d6` passes both complete target-OS jobs, including
+unsigned packaging, packaged integrity, restart, sandbox and offline profile.
+`evidence/desktop-ci-1e129d6.json` is the authoritative successful snapshot.
+The earlier failures and their bounded corrections remain described below.
+
 Native run 44072806981 at `3f5a269` passed Electron/offline checks on Windows and
 macOS, then failed later recovery-browser steps. Its failed outcome is retained
 in `evidence/desktop-ci-3f5a269.json`; this document does not replace that result.
@@ -41,7 +46,7 @@ the same helper and a fresh temporary Vite cache. The throwaway page reaches
 the actual controls, makes no API requests and closes before each independent
 workflow context begins. All 23 local cases, including escaping, offline privacy,
 lost replies and authority changes, pass with their original deadlines. The
-strict fixture compiler check passes. Target Windows acceptance remains pending.
+strict fixture compiler check passes. The subsequent target Windows run on `1e129d6` passes this suite and every other step.
 
 These changes validate fixture ordering. They do not establish production
 latency, complete legacy parity, signing, hardware printing or a passing native
