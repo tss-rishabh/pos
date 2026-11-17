@@ -4,12 +4,38 @@ Run in a separate process behind a private mTLS ingress; never mount in the
 public application. Source debug/print/access/error channels are closed here.
 """
 import logging
+import json
 import os
 import re
 import sys
 from pathlib import Path
+from datetime import datetime, timezone
+from uuid import UUID, uuid4
 
 from protocol import ImportReview,SOURCE_CONTRACT
+
+
+def _public_cache_emitter(stream):
+    """Allow only fixed task events and opaque operator/request identifiers."""
+    def emit(value):
+        if not isinstance(value,dict): return
+        event_id=value.get('eventId')
+        if event_id not in ('public-screening.membership-cache.completed',
+                            'public-screening.membership-cache.review'): return
+        request=value.get('requestId')
+        try:
+            if str(UUID(request))!=request: raise ValueError()
+        except (TypeError,ValueError,AttributeError): request=str(uuid4())
+        actor=value.get('userId')
+        if not isinstance(actor,str) or not re.fullmatch(r'[1-9][0-9]{0,18}',actor): actor=None
+        event={'module':'public-screening','resource':'membership-cache','eventId':event_id,
+               'eventInstanceId':str(uuid4()),'timestamp':datetime.now(timezone.utc).isoformat(),
+               'requestId':request,'userId':actor}
+        try:
+            stream.write(json.dumps(event,separators=(',',':'))+'\n')
+            stream.flush()
+        except Exception: pass
+    return emit
 
 
 def _create_application():
@@ -76,6 +102,10 @@ def _create_application():
     if pipeline.membership:
         from membership_cache import register_task
         register_task(pipeline.tasks,factory,proof)
+    if os.environ.get('POS_PUBLIC_SCREENING_MEMBERSHIP_CACHE_QUEUE',''):
+        from public_benefit_cache import register_task as register_public_benefit_cache
+        register_public_benefit_cache(pipeline.tasks,factory,proof,os.environ,
+                                     _public_cache_emitter(emit_stream))
     receiver=Receiver(factory,pipeline,key,proof,zone=os.environ.get('BUSINESS_TIMEZONE','Asia/Kolkata'),
                       correction_contract=os.environ.get('POS_LEGACY_IMPORT_CORRECTION_CONTRACT'))
     from http_app import private_application
