@@ -36,7 +36,10 @@ export const couponHeadSchema = z
   .object({
     kind: z.enum(['controls', 'coupon', 'customer']),
     scopeId: benefitCount,
-    revision: benefitCount,
+    revision: z
+      .string()
+      .regex(/^(?:0|[1-9][0-9]{0,19})$/)
+      .refine((value) => BigInt(value) <= 18446744073709551615n),
   })
   .strict();
 export const couponSourceCaptureSchema = z

@@ -1,0 +1,76 @@
+{
+  "writersContract": "pos-csv-coupon-history-all-writers-v1",
+  "definitionHash": "7e86dfdcfe21028282e6aa0c23758a4e2687aaa7ed4c1435bb1735f21da82206",
+  "definitions": [
+    {
+      "name": "pos_rewrite_coupon_history_orders_insert",
+      "table": "orders",
+      "event": "INSERT",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'coupon' AS kind, NEW.coupon_used AS scope_id UNION SELECT 'customer' AS kind, NEW.user_id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_orders_update",
+      "table": "orders",
+      "event": "UPDATE",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'coupon' AS kind, OLD.coupon_used AS scope_id UNION SELECT 'customer' AS kind, OLD.user_id AS scope_id UNION SELECT 'coupon' AS kind, NEW.coupon_used AS scope_id UNION SELECT 'customer' AS kind, NEW.user_id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_orders_delete",
+      "table": "orders",
+      "event": "DELETE",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'coupon' AS kind, OLD.coupon_used AS scope_id UNION SELECT 'customer' AS kind, OLD.user_id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_order_coupon_log_insert",
+      "table": "order_coupon_log",
+      "event": "INSERT",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'customer' AS kind, NEW.user_id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_order_coupon_log_update",
+      "table": "order_coupon_log",
+      "event": "UPDATE",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'customer' AS kind, OLD.user_id AS scope_id UNION SELECT 'customer' AS kind, NEW.user_id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_order_coupon_log_delete",
+      "table": "order_coupon_log",
+      "event": "DELETE",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'customer' AS kind, OLD.user_id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_coupons_insert",
+      "table": "coupons",
+      "event": "INSERT",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'controls' AS kind, 0 AS scope_id UNION SELECT 'coupon' AS kind, NEW.id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_coupons_update",
+      "table": "coupons",
+      "event": "UPDATE",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'controls' AS kind, 0 AS scope_id UNION SELECT 'coupon' AS kind, OLD.id AS scope_id UNION SELECT 'coupon' AS kind, NEW.id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_coupons_delete",
+      "table": "coupons",
+      "event": "DELETE",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'controls' AS kind, 0 AS scope_id UNION SELECT 'coupon' AS kind, OLD.id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    },
+    {
+      "name": "pos_rewrite_coupon_history_users_insert",
+      "table": "users",
+      "event": "INSERT",
+      "timing": "AFTER",
+      "statement": "BEGIN IF @pos_rewrite_coupon_history_owner IS NOT NULL AND (OCTET_LENGTH(@pos_rewrite_coupon_history_owner)<>36 OR NOT REGEXP_LIKE(@pos_rewrite_coupon_history_owner,'^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$','c')) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Coupon history owner is invalid'; END IF; INSERT INTO pos_rewrite_coupon_history_heads(kind,scope_id,revision,last_owner_nonce,owner_start_revision) SELECT kind,CAST(scope_id AS CHAR),1,@pos_rewrite_coupon_history_owner, CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL ELSE 0 END FROM (SELECT 'customer' AS kind, NEW.id AS scope_id) AS affected WHERE scope_id IS NOT NULL AND (kind='controls' OR scope_id>0) ORDER BY kind,scope_id ON DUPLICATE KEY UPDATE owner_start_revision=CASE WHEN @pos_rewrite_coupon_history_owner IS NULL THEN NULL WHEN last_owner_nonce <=> @pos_rewrite_coupon_history_owner THEN owner_start_revision ELSE revision END, last_owner_nonce=@pos_rewrite_coupon_history_owner, revision=revision+1; END"
+    }
+  ]
+}

@@ -4,6 +4,8 @@ import {
   verifyCouponSourceCapture,
   sealCouponHistoryPublication,
   qualifyCouponPublishedFacts,
+  couponControlHeadHash,
+  couponSourceCaptureHash,
 } from '../../src/modules/legacy-order-imports/benefit-profile/history-publication.js';
 import {
   couponHistoryWritersDefinitionHash,
@@ -159,6 +161,22 @@ describe('independent complete coupon history publication', () => {
     f.capture.heads[1]!.revision = '9007199254740992';
     expect(() => verifyCouponSourceCapture(f.capture, f.authority.sourceKey, f.now)).toThrow();
   });
+  it.each(['18446744073709551615', '18446744073709551616'])(
+    'bounds unsigned native head revision %s even with an authentic seal',
+    (revision) => {
+      const f = publicationFixture();
+      f.capture.heads[1]!.revision = revision;
+      f.capture.controlHeadHash = couponControlHeadHash(f.capture, f.authority.sourceKey);
+      const { signature: _signature, ...body } = f.capture;
+      f.capture.signature = couponSourceCaptureHash(body, f.authority.sourceKey);
+      if (revision === '18446744073709551615')
+        expect(
+          verifyCouponSourceCapture(f.capture, f.authority.sourceKey, f.now).heads[1]?.revision,
+        ).toBe(revision);
+      else
+        expect(() => verifyCouponSourceCapture(f.capture, f.authority.sourceKey, f.now)).toThrow();
+    },
+  );
   it('qualifies installed mutation bodies rather than accepting a writer-contract flag', () => {
     const rows = couponHistoryWriterDefinitions.map((value) => ({ ...value }));
     expect(assertCouponHistoryWriterDefinitions(rows)).toBe(couponHistoryWritersDefinitionHash);

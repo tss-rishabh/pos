@@ -38,10 +38,37 @@ zero-result attestation and refusal of missing mutation coverage. Nineteen
 publication tests cover independent mismatches, scope/seal substitution, exact
 revisions above 2^53, stale/empty results and missing/changed writer definitions.
 
-Remaining code/integration includes the bounded BigQuery provider/candidate
-query, a signed generation publication workflow, application preparation port,
-legacy guard observation and final current-head validation accounting for the
-source transaction's own mutations. Pre-order head equality alone is not a
-transaction fence. Source birthday eligibility/guard and source-day expiry
-remain independent mandatory contracts. Nothing in this component selects the
-actual financial profile or certifies every source writer/deployment.
+`NativeCouponHistoryHeads` supplies a current native fence for the preloaded
+capsule. Its preview is read-only and checks all ten installed trigger bodies;
+it performs no historical eligibility queries. A final source invocation sets
+a connection-local owner to the authenticated original stage nonce before
+entering the source session. Every watched trigger records the revision before
+that owner's first mutation; repeated mutations retain that start. Ordinary
+writers continue to increment the same revision and clear the owner metadata.
+
+The late validator runs after actual native order verification. For an owned
+head its start must equal the published revision; for an unchanged head the
+revision must equal it. Shared late locks remain through commit, while the
+transaction already holds exclusive locks for its own head mutations. There
+are no head locks across Cart-to-Order calculation. This preserves the legacy
+Order-to-head lock order and allows unrelated transactions to share the global
+controls fence. An intervening order, log or coupon mutation rejects the whole
+source transaction. The final commit guard flushes pending ORM work and checks
+the held rows again, so a mutation after validation cannot escape the fence.
+Owner cleanup occurs after the private source context ends and before pooled
+connection reuse. Stale owners and failed cleanup invalidate the connection.
+
+Eleven new native Python/MySQL cases cover repeated owned writes, concurrent
+order/coupon/log changes, rollback, a waiting later writer, missing validation,
+mutation after validation, a changed witness, invalid owner and pooled-owner
+cleanup. All use exact 20-digit unsigned revisions. Source and warehouse
+attestations support the same unsigned bound and reject overflow even when
+the enclosing seal is authentic. Review SQL and the Python metadata manifest
+are checked against the shared TypeScript definition builder. These remain
+review-only installation artifacts; existing prototype head tables need the
+reviewed nullable owner columns before installing these trigger bodies.
+
+The bounded BigQuery provider/candidate, generation workflow and application
+preparation integration are separate work. Source birthday eligibility/guard
+and source-day expiry remain independent mandatory contracts. No helper here
+selects the financial profile or certifies every source writer/deployment.
