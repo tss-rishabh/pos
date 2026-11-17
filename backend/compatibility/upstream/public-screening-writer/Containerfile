@@ -13,6 +13,8 @@ COPY --chown=65532:65532 compatibility/upstream/public-screening-writer/*.py ./p
 COPY --chown=65532:65532 compatibility/upstream/public-screening-writer/*.json ./public-screening-writer/
 COPY --chown=65532:65532 compatibility/upstream/offline-cash-pricing/*.py ./offline-cash-pricing/
 COPY --chown=65532:65532 compatibility/upstream/offline-cash-pricing/patches/*.patch ./offline-cash-pricing/patches/
+COPY --chown=65532:65532 compatibility/upstream/pending-cancellation/membership_provenance.py ./pending-cancellation/
+COPY --chown=65532:65532 compatibility/upstream/pending-cancellation/membership_fence_contract.py ./pending-cancellation/
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \
     PYTHONPATH=/opt/pos-source-adapters/legacy-order-imports:/opt/pos-source-adapters/legacy-order-imports/benefit-profile:/opt/pos-source-adapters/public-screening-writer:/opt/pos-source-adapters/offline-cash-pricing \
     POS_LEGACY_IMPORT_SOURCE_ROOT=/opt/pos-original-source \

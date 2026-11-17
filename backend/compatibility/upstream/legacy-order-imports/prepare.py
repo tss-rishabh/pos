@@ -145,11 +145,14 @@ def outputs():
             'stagedContract':'pos-cancellation-membership-staged-v2',
             'activatedContract':'pos-cancellation-membership-provenance-v2',
             'historyContract':'pos-csv-membership-history-v1',
+            'contactReferenceContract':'pos-csv-membership-contact-reference-v1',
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
                 'membership_profile.py','membership_history.py','membership_handoff.py','membership_cache.py','membership_consumer.py',
+                'membership_reference.py',
                 'source_runtime.py','cart_preparation.py','order_preparation.py','profiles.py','native.py','receiver.py','effects.py','runtime.py','protocol.py','http_app.py')},
             'sourceFiles':__import__('membership_profile').PINS,
-            'ordinaryProducerSha256':hashlib.sha256((HERE.parent/'pending-cancellation/membership_provenance.py').read_bytes()).hexdigest()}}
+            'ordinaryProducerSha256':hashlib.sha256((HERE.parent/'pending-cancellation/membership_provenance.py').read_bytes()).hexdigest(),
+            'ordinaryProducerFenceSha256':hashlib.sha256((HERE.parent/'pending-cancellation/membership_fence_contract.py').read_bytes()).hexdigest()}}
     return {HERE/'payments-import-overlay.patch':patch,HERE/'api-import-guard.patch':public_patch,HERE/'manifest.json':json.dumps(manifest,indent=2)+'\n'}
 
 

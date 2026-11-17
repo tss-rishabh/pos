@@ -179,12 +179,14 @@
     "stagedContract": "pos-cancellation-membership-staged-v2",
     "activatedContract": "pos-cancellation-membership-provenance-v2",
     "historyContract": "pos-csv-membership-history-v1",
+    "contactReferenceContract": "pos-csv-membership-contact-reference-v1",
     "files": {
       "membership_profile.py": "61da338688d1c27394ea032acea79fa1b68eac944d2828aeccd5a8ca6435f6e6",
       "membership_history.py": "4801fb8352c59fa46c6af10c4be28342584904fd9597b6b977c217f45ac44bb2",
       "membership_handoff.py": "67cd6a982ac0599e5222f04353e340f0818b955075e367e72467fe74f2bba3ce",
-      "membership_cache.py": "91393225e683e57c6b711d4ecc3d6124e3b8d0c3601ce40765c26fe4cf0bd87f",
+      "membership_cache.py": "5a8767f9a8e0e6aac06c27b6093ea4d9bb690e5d753c93bef2e468a1af1a367c",
       "membership_consumer.py": "f5aa3b57a44c5679a2cfdb1aaf15e7783d59d74024f87f58ed355965ebf42567",
+      "membership_reference.py": "1691541df6ca59ef45367b05a8510db84b33fc8b89f978ba7524bd4a02eaee8f",
       "source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
       "cart_preparation.py": "23b2629665bf611bca59534b9000a5dc95772f7d18e1103dbb1c4400a8a6ea09",
       "order_preparation.py": "3f160d908b3f7fd26efe49deeaedc0ecb32cc2ee472bd16510269156761c762a",
@@ -201,6 +203,7 @@
       "controllers/user/userDal.py": "ad0135cb60aa2c8ffd8d5aa5bc6d8b343efb97227fd3394a1ff31989054141a8",
       "controllers/cart/Cart.py": "1f9eff0f1a4ea66f3cac8903d3c1cb9a5b39e2a3babd6dd6c8dcf192de7defd3"
     },
-    "ordinaryProducerSha256": "5517bfaefb324ca86ea9cf571c69359691f9c344674b1c893eb3c7670d57ee63"
+    "ordinaryProducerSha256": "5517bfaefb324ca86ea9cf571c69359691f9c344674b1c893eb3c7670d57ee63",
+    "ordinaryProducerFenceSha256": "81b66758074b5e75e02d783d93c9ee6b6f71caad0f9c37c28f468c71583d1a7a"
   }
 }
