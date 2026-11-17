@@ -16,6 +16,7 @@ from origin_coupon_cache import SnapshotCache
 from benefit_controls import CurrentConfigurationCache
 from benefit_receipts import current_coupon_control,current_coupon_assignments
 from benefit_source import compile_coupon
+from benefit_history import Rows
 from native import rows
 from preview_contracts import preview as qualify_preview
 
@@ -63,20 +64,79 @@ class PreviewCache:
         self.applied=True;return True
 
 
+class MissingCouponReader:
+    """Only the pinned original initial coupon SELECT, backed by real SQL.
+
+    A missing native code takes the original ValidationException branch. This
+    facade cannot answer a historical query or fabricate a coupon/control row.
+    """
+    SELECT="select id as coupon_id, voucher_type as type, disc_apply_items as min_quantity, min_order_amt as min_amount, voucher_code, voucher_val as discount, voucher_valid_for as valid_for, id, platform, voucher_percentage_max_val, for_new_user, user_specific, buyable_quantity, free_quantity, is_applicable_on_discounted_products, voucher_mxn_type, no_times_allowed, coupon_lot_no, message from coupons where is_deleted = 0 and voucher_type != 3 and (convert_tz(now(), 'utc', 'asia/kolkata') between start_date and end_date) and voucher_code = :coupon"
+    def __init__(self,session,code):self.session,self.code=session,code
+    def execute(self,query,parameters=None,*,params=None):
+        if params is not None:
+            if parameters is not None:unsafe()
+            parameters=params
+        if ' '.join(str(query).split()).lower()!=self.SELECT or parameters!={'coupon':self.code}:unsafe('SCREENING_ORIGIN_COUPON_CURRENT_QUERY_UNQUALIFIED')
+        values=rows(self.session,str(query).strip().rstrip(';')+' LIMIT 2 FOR SHARE',parameters,2)
+        if values:unsafe('SCREENING_ORIGIN_COUPON_SCOPE_CHANGED')
+        return Rows(values)
+    def fetch_one(self,*_args,**_kwargs):unsafe()
+    def fetch(self,*_args,**_kwargs):unsafe()
+
+
+def preview_document(coupons,preview,proof,selection,documents):
+    if not selection['requiresHistory']:return None
+    request={'preview':preview,'previewProof':proof,'selection':{name:selection[name] for name in
+        ('couponId','configurationHash','originConfigurationHash','couponInputHash','asOf','sourceTimeZone')},'witness':selection['witness']}
+    document=documents.get(digest(coupons.key,'coupon-preview-request',request))
+    if document is None:raise NeedCouponPreview(request)
+    return qualified(document,request,coupons.key,coupons.clock())
+
+
 class PreviewCouponScope(CouponScope):
-    def __init__(self,owner,session,preview,kind,selections,documents,snapshot):
+    def __init__(self,owner,session,preview,kind,selections,checked,snapshot,*,preview_proof,namespace,documents,at):
         self.owner,self.session,self.customer_id,self.kind=owner,session,preview['customerId'],kind
-        self.preview=preview;self.settings={'PREPAID_AMT_DEDUCTION':owner.prepaid}
+        self.preview,self.preview_proof,self.namespace,self.documents,self.at=preview,preview_proof,namespace,documents,at
+        self.snapshot=copy.deepcopy(snapshot);self.settings={'PREPAID_AMT_DEDUCTION':owner.prepaid}
         self.cache=PreviewCache(owner,session,preview,snapshot);self.entries={};self.active=None;self.validated=False;self.welcome_consent=None
+        for selection,document in zip(selections,checked):self._add(selection,document)
+    def _add(self,selection,document):
+        if selection['couponId'] in self.entries:return
+        if len(self.entries)>=4:unsafe('SCREENING_ORIGIN_COUPON_PREVIEW_LIMIT')
         from controllers.cart.Cart import ItemTypes
         from controllers.cart.cartutils import ValidationException
-        for selection,document in zip(selections,documents):
-            coupon=current_coupon_control(session,selection['couponId']);assignments=current_coupon_assignments(session,self.customer_id,selection['couponId'])
-            replay=OriginalCouponReplay({'scope':{'customerId':self.customer_id,'couponId':selection['couponId'],'asOf':selection['asOf']},
-                **(document['facts'] if document is not None else {})},session,coupon,assignments,requires_history=selection['requiresHistory'])
-            namespace=compile_coupon(owner.root,settings_namespace(owner.coupon_settings,datetime.strptime(selection['asOf'],'%Y-%m-%d %H:%M:%S'),
-                replay,self.cache,ValidationException,ItemTypes,self.consent))
-            self.entries[selection['couponId']]={'selection':selection,'document':document,'namespace':namespace,'replay':replay,'validated':False}
+        coupon=current_coupon_control(self.session,selection['couponId']);assignments=current_coupon_assignments(self.session,self.customer_id,selection['couponId'])
+        replay=OriginalCouponReplay({'scope':{'customerId':self.customer_id,'couponId':selection['couponId'],'asOf':selection['asOf']},
+            **(document['facts'] if document is not None else {})},self.session,coupon,assignments,requires_history=selection['requiresHistory'])
+        namespace=compile_coupon(self.owner.root,settings_namespace(self.owner.coupon_settings,self.at,
+            replay,self.cache,ValidationException,ItemTypes,self.consent))
+        self.entries[selection['couponId']]={'selection':selection,'document':document,'namespace':namespace,'replay':replay,'validated':False}
+    def choose(self,coupon_id):
+        coupon_id=str(coupon_id)
+        if coupon_id not in self.entries:
+            if len(self.entries)>=4:unsafe('SCREENING_ORIGIN_COUPON_PREVIEW_LIMIT')
+            current=current_coupon_control(self.session,coupon_id)
+            # Incoming mutation can select B after original hydration selected
+            # A. Resolve B from native controls at the same frozen preview time;
+            # no pending Order or command is invented to request its facts.
+            selected=self.owner.select(self.session,self.preview,self.kind,self.namespace,self.snapshot,
+                cart_meta={'items':[{'name':'coupon','coupon':current['voucher_code']}]},point_value=self.at)
+            if not any(item['couponId']==coupon_id for item in selected):unsafe('SCREENING_ORIGIN_COUPON_UNBOUND')
+            if len(set(self.entries)|{item['couponId'] for item in selected})>4:unsafe('SCREENING_ORIGIN_COUPON_PREVIEW_LIMIT')
+            for selection in selected:
+                if selection['couponId'] not in self.entries:
+                    document=preview_document(self.owner,self.preview,self.preview_proof,selection,self.documents)
+                    self._add(selection,document)
+        return super().choose(coupon_id)
+    def get_valid_coupon(self,_session,code,platform,user,db_fetch=True,is_pos=False):
+        if not db_fetch or not user or str(user['user_id'])!=self.customer_id or bool(is_pos)!=(self.kind=='pos'):unsafe()
+        matches=rows(self.session,'SELECT id,voucher_code FROM coupons WHERE voucher_code=:code LIMIT 2 FOR SHARE',{'code':code},2)
+        if matches:return super().get_valid_coupon(_session,code,platform,user,db_fetch=db_fetch,is_pos=is_pos)
+        from controllers.cart.Cart import ItemTypes
+        from controllers.cart.cartutils import ValidationException
+        reader=MissingCouponReader(self.session,code)
+        namespace=compile_coupon(self.owner.root,settings_namespace(self.owner.coupon_settings,self.at,reader,self.cache,ValidationException,ItemTypes,self.consent))
+        return namespace['get_valid_coupon'](reader,code,platform,user,db_fetch=True,is_pos=is_pos)
     def validate_after_native(self):unsafe('SCREENING_ORIGIN_COUPON_PREVIEW_ORDER_FORBIDDEN')
     def assert_current(self):
         if self.owner.clock()>=self.preview['expiresAt']:unsafe('SCREENING_ORIGIN_COUPON_PREVIEW_EXPIRED')
@@ -100,16 +160,10 @@ def coupon_preview_scope(coupons,session,preview,preview_proof,kind,namespace,sn
             or not hmac.compare_digest(preview_proof,digest(coupons.key,'preview-context',preview))):unsafe('SCREENING_ORIGIN_COUPON_PREVIEW_UNAUTHORIZED')
     coupons.check_snapshot(preview,snapshot)
     at=datetime.fromtimestamp(preview['issuedAt']/1000,ZoneInfo(coupons.zone)).replace(tzinfo=None,microsecond=0)
-    selections=coupons.select(session,preview,kind,namespace,snapshot,cart_meta=cart_meta,point_value=at);checked=[]
-    for selection in selections:
-        if not selection['requiresHistory']:checked.append(None);continue
-        request={'preview':preview,'previewProof':preview_proof,'selection':{name:selection[name] for name in
-            ('couponId','configurationHash','originConfigurationHash','couponInputHash','asOf','sourceTimeZone')},'witness':selection['witness']}
-        identity=digest(coupons.key,'coupon-preview-request',request)
-        document=documents.get(identity)
-        if document is None:raise NeedCouponPreview(request)
-        checked.append(qualified(document,request,coupons.key,coupons.clock()))
-    state=PreviewCouponScope(coupons,session,preview,kind,selections,checked,snapshot);token=ACTIVE.set(state)
+    selections=coupons.select(session,preview,kind,namespace,snapshot,cart_meta=cart_meta,point_value=at)
+    checked=[preview_document(coupons,preview,preview_proof,selection,documents) for selection in selections]
+    state=PreviewCouponScope(coupons,session,preview,kind,selections,checked,snapshot,
+        preview_proof=preview_proof,namespace=namespace,documents=documents,at=at);token=ACTIVE.set(state)
     try:
         yield state
         coupons.check_snapshot(preview,snapshot);state.assert_current()
