@@ -299,7 +299,7 @@ export interface MembershipWarehouseGenerationPort {
  * mutates a publication, and cannot borrow the source selection as its answer. */
 export function warehouseMembershipGenerationReader(
   options: CsvMembershipBigQueryOptions,
-  dependencies: { query?: CsvMembershipHistoryQueryPort } = {},
+  dependencies: { query?: CsvMembershipHistoryQueryPort; unmaterialized?: boolean } = {},
 ): MembershipWarehouseGenerationPort {
   return {
     async read(source, call) {
@@ -316,12 +316,15 @@ export function warehouseMembershipGenerationReader(
           )
         )
           throw publicMembershipHistoryError();
+        const sourceScope = dependencies.unmaterialized
+          ? 'source_schema=@sourceSchema AND source_server_uuid=@sourceServer'
+          : 'generation_id=@generation';
         const statement = {
           statement: `WITH delivered AS (SELECT * FROM \`${orders}\`
-WHERE scope_shard=@shard AND customer_id=@customer AND generation_id=@generation AND order_status=3),
+WHERE scope_shard=@shard AND customer_id=@customer AND ${sourceScope} AND order_status=3),
 selected AS (SELECT * FROM delivered WHERE created_at>@cutoff OR created_at=(SELECT MAX(created_at) FROM delivered)),
 bounded_orders AS (SELECT * FROM selected ORDER BY created_at DESC,SAFE_CAST(order_id AS INT64) DESC LIMIT @orders),
-selected_lines AS (SELECT * FROM \`${lines}\` WHERE scope_shard=@shard AND generation_id=@generation
+selected_lines AS (SELECT * FROM \`${lines}\` WHERE scope_shard=@shard AND ${sourceScope}
 AND order_id IN (SELECT order_id FROM bounded_orders))
 SELECT TO_JSON_STRING(STRUCT(
 CAST((SELECT COUNT(*) FROM delivered) AS STRING) AS orderCount,
@@ -343,7 +346,12 @@ ORDER BY SAFE_CAST(order_id AS INT64),SAFE_CAST(line_id AS INT64) LIMIT @lines) 
           params: {
             shard: Number(BigInt(source.customerId) % 1024n),
             customer: source.customerId,
-            generation: source.generationId,
+            ...(dependencies.unmaterialized
+              ? {
+                  sourceSchema: source.head.origin.schema,
+                  sourceServer: source.head.origin.serverUuid,
+                }
+              : { generation: source.generationId }),
             asOf: source.asOf,
             cutoff: source.cutoff,
             orders: options.CSV_MEMBERSHIP_MAX_ORDERS + 1,
@@ -352,7 +360,9 @@ ORDER BY SAFE_CAST(order_id AS INT64),SAFE_CAST(line_id AS INT64) LIMIT @lines) 
           types: {
             shard: 'INT64',
             customer: 'STRING',
-            generation: 'STRING',
+            ...(dependencies.unmaterialized
+              ? { sourceSchema: 'STRING', sourceServer: 'STRING' }
+              : { generation: 'STRING' }),
             asOf: 'DATETIME',
             cutoff: 'DATETIME',
             orders: 'INT64',

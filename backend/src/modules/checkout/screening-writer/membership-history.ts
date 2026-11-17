@@ -434,6 +434,12 @@ export function publicMembershipBigQueryHistory(
           .parse(decoded);
         // Duplicate eligible rows are an integrity error; never choose an
         // arbitrary first generation when its native witness is ambiguous.
+        if (!data.generations.length)
+          throw new AppError(
+            503,
+            'SCREENING_MEMBERSHIP_GENERATION_NOT_FOUND',
+            'A complete membership generation must be published before this sale can continue.',
+          );
         if (data.generations.length !== 1) throw publicMembershipHistoryError();
         const record = data.generations[0]!;
         const value = bindPublicMembershipGeneration({
@@ -449,7 +455,9 @@ export function publicMembershipBigQueryHistory(
         });
         if (value.generationId !== record.generationId) throw publicMembershipHistoryError();
         return value;
-      } catch {
+      } catch (error) {
+        if (error instanceof AppError && error.code === 'SCREENING_MEMBERSHIP_GENERATION_NOT_FOUND')
+          throw error;
         throw publicMembershipHistoryError();
       }
     },

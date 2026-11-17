@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { AppError } from '../../../domain/errors.js';
 import type { CheckoutEnvironment } from '../gateway.js';
 import type { PublicScreeningOptions } from './options.js';
+import type { PublicMembershipGenerationDemands } from './membership-generation.js';
 import { publicScreeningBenefitsContract } from './benefit-contracts.js';
 import {
   publicBenefitPreparation,
@@ -41,6 +42,7 @@ export function configuredPublicBenefitPreparation(
     history?: PublicMembershipHistoryPort;
     fetcher?: typeof fetch;
     clock?: () => number;
+    membershipDemands?: PublicMembershipGenerationDemands;
   } = {},
 ): PublicBenefitPreparationPort | undefined {
   if (publicOptions.benefitsContract !== publicScreeningBenefitsContract) return undefined;
@@ -52,17 +54,27 @@ export function configuredPublicBenefitPreparation(
       .max(100)
       .parse(ids);
     const history: PublicMembershipHistoryPort = dependencies.history ?? {
-      read(request, head, call) {
-        return publicMembershipBigQueryHistory(
-          readPublicMembershipBigQueryOptions(env),
-          {
-            sourceKey: publicOptions.proofKey ?? '',
-            publicationKey: options.PUBLIC_SCREENING_MEMBERSHIP_PUBLICATION_KEY ?? '',
-            historyKey: options.PUBLIC_SCREENING_MEMBERSHIP_HISTORY_KEY ?? '',
-            memberIds: members,
-          },
-          { clock: dependencies.clock },
-        ).read(request, head, call);
+      async read(request, head, call) {
+        try {
+          return await publicMembershipBigQueryHistory(
+            readPublicMembershipBigQueryOptions(env),
+            {
+              sourceKey: publicOptions.proofKey ?? '',
+              publicationKey: options.PUBLIC_SCREENING_MEMBERSHIP_PUBLICATION_KEY ?? '',
+              historyKey: options.PUBLIC_SCREENING_MEMBERSHIP_HISTORY_KEY ?? '',
+              memberIds: members,
+            },
+            { clock: dependencies.clock },
+          ).read(request, head, call);
+        } catch (error) {
+          if (
+            error instanceof AppError &&
+            error.code === 'SCREENING_MEMBERSHIP_GENERATION_NOT_FOUND' &&
+            dependencies.membershipDemands
+          )
+            await dependencies.membershipDemands.request(request, head, { signal: call.signal });
+          throw error;
+        }
       },
     };
     return publicBenefitPreparation(
