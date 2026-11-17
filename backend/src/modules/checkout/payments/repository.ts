@@ -16,6 +16,7 @@ import {
   PosTerminalPaymentModes,
   PosTransactionLog,
   StoreDayClose,
+  Store,
 } from '../../../db/legacy-schema.js';
 import type { Principal } from '../../../domain/access.js';
 import { requireStore } from '../../../domain/access.js';
@@ -24,7 +25,7 @@ import { amount, minorUnits } from '../../../domain/money.js';
 import { checkInService, type AdministrationTransaction } from '../../administration/checkins.js';
 import { operationHash } from '../crypto.js';
 import {
-  paymentAttemptSchema,
+  storedPaymentAttemptSchema,
   paymentMode,
   terminalPayment,
   type PaymentAttempt,
@@ -57,6 +58,9 @@ import { recordGiftCardIssuance } from '../gift-card-issuance.js';
 import { checkoutSessions } from '../schema.js';
 import { checkoutStateSchema } from '../contracts.js';
 import { pendingOrderCancellations } from '../cancellations/schema.js';
+import type { PaymentCorrectionPort } from '../payment-reversals/evidence.js';
+import { assertCurrentStoreAccess } from '../../administration/authorization.js';
+import { retryTransaction } from '../../../db/retry.js';
 
 export function validatePaymentSplit(input: PaymentInput, payable: string) {
   const online = minorUnits(input.onlineAmount),
@@ -107,6 +111,8 @@ export function validatePaymentSplit(input: PaymentInput, payable: string) {
 }
 export type PaymentTransaction = AdministrationTransaction;
 export interface PaymentRepositoryOptions {
+  corrections?: PaymentCorrectionPort;
+  clock?: () => Temporal.Instant;
   hashSecret: string;
   projection: CheckoutProjectionConfiguration & RefundAllocationConfiguration;
   assertCheckIn?: (
@@ -140,7 +146,7 @@ export async function readOrderPaymentEvidence(
     .orderBy(desc(paymentAttempts.createdAt), desc(paymentAttempts.id))
     .limit(101)
     .for('update');
-  const attempts = saved.map((row) => paymentAttemptSchema.parse(row.state));
+  const attempts = saved.map((row) => storedPaymentAttemptSchema.parse(row.state));
   const records: LegacyTerminalRecord[] = [];
   const common = {
     id: PosTerminalTransaction.id,
@@ -244,6 +250,9 @@ export function paymentRepository(
   config: Config,
   options: PaymentRepositoryOptions,
 ) {
+  // Only database work is retried here; all provider calls remain in the service outside these transactions.
+  const transact = <T>(work: (tx: PaymentTransaction) => Promise<T>) =>
+    retryTransaction(() => db.get('writer').transaction(work));
   async function rejectCancelledOrder(tx: PaymentTransaction, orderId: string) {
     const [cancelled] = await tx
       .select({ id: pendingOrderCancellations.id })
@@ -274,7 +283,8 @@ export function paymentRepository(
   }
   const checkIns = checkInService(db, config),
     now = () =>
-      Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE)
+      (options.clock?.() ?? Temporal.Now.instant())
+        .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
         .toPlainDateTime()
         .toString({ smallestUnit: 'second' })
         .replace('T', ' ');
@@ -287,6 +297,13 @@ export function paymentRepository(
     // A nonlocking counter preflight here would establish an old REPEATABLE READ
     // snapshot before waiting for another payment and could hide its new attempt.
     await assertCheckIn(user.id, storeId, undefined, tx);
+    await assertCurrentStoreAccess(tx, user.id, storeId);
+    // Same Store lock as correction/day-close, before order and payment locks.
+    await tx
+      .select({ id: Store.id })
+      .from(Store)
+      .where(eq(Store.id, BigInt(storeId)))
+      .for('update');
     const [record] = await tx
       .select({
         mappingId: OrderStore.id,
@@ -301,6 +318,8 @@ export function paymentRepository(
         cash: OrderStore.offline_payment,
         online: OrderStore.online_payment,
         other: OrderStore.online_other_payment,
+        transactionId: OrderStore.transaction_id,
+        cashReceived: OrderStore.offline_payment_recieved,
       })
       .from(OrderStore)
       .innerJoin(Order, eq(Order.id, OrderStore.order))
@@ -310,8 +329,12 @@ export function paymentRepository(
     await assertCheckIn(user.id, storeId, String(record.counter), tx);
     return record;
   }
-  const history = (tx: PaymentTransaction, orderId: string) =>
-    readOrderPaymentEvidence(tx, orderId, options.hashSecret);
+  const effective = (tx: PaymentTransaction, attempts: PaymentAttempt[]) =>
+    options.corrections ? options.corrections.effective(tx, attempts) : Promise.resolve(attempts);
+  const history = async (tx: PaymentTransaction, orderId: string) => {
+    const raw = await readOrderPaymentEvidence(tx, orderId, options.hashSecret);
+    return { ...raw, attempts: await effective(tx, raw.attempts) };
+  };
   function assertUnpaid(mapping: Awaited<ReturnType<typeof order>>) {
     if (
       mapping.method !== 14n ||
@@ -345,7 +368,14 @@ export function paymentRepository(
     attempt: PaymentAttempt,
   ) {
     if (attempt.status !== 'paid') return;
-    if (mapping.paymentStatus !== 4n || mapping.orderStatus !== 3n)
+    if (
+      mapping.paymentStatus !== 4n ||
+      mapping.orderStatus !== 3n ||
+      mapping.transactionId !== attempt.transactionId ||
+      minorUnits(mapping.cash) !== minorUnits(attempt.cashAmount) ||
+      minorUnits(mapping.cashReceived) !== minorUnits(attempt.cashReceived) ||
+      minorUnits(mapping.online) + minorUnits(mapping.other) !== minorUnits(attempt.onlineAmount)
+    )
       throw new AppError(
         409,
         'PAYMENT_COMPLETION_CHANGED',
@@ -441,14 +471,16 @@ export function paymentRepository(
       .for('update');
     if (!row)
       throw new AppError(404, 'PAYMENT_ATTEMPT_NOT_FOUND', 'Payment attempt was not found.');
-    const attempt = paymentAttemptSchema.parse(row.state);
+    const [attempt] = await effective(tx, [storedPaymentAttemptSchema.parse(row.state)]);
+    if (!attempt)
+      throw new AppError(404, 'PAYMENT_ATTEMPT_NOT_FOUND', 'Payment attempt was not found.');
     if (attempt.legacySource) {
       await history(tx, orderId);
     }
     return { attempt, mapping };
   }
-  async function save(tx: PaymentTransaction, attempt: PaymentAttempt) {
-    const next = { ...attempt, updatedAt: now() };
+  async function save(tx: PaymentTransaction, attempt: PaymentAttempt, timestamp = now()) {
+    const next = { ...attempt, updatedAt: timestamp };
     await tx
       .update(paymentAttempts)
       .set({ state: next, status: next.status, updatedAt: next.updatedAt })
@@ -538,6 +570,7 @@ export function paymentRepository(
       cash = minorUnits(attempt.cashAmount),
       online = minorUnits(attempt.onlineAmount),
       total = amount(cash + online);
+    const managedCorrection = await options.corrections?.recordSettlement(tx, attempt, timestamp);
     await tx
       .update(Order)
       .set({ payment_statuses: 4n, order_statuses: 3n })
@@ -594,23 +627,41 @@ export function paymentRepository(
       created_at: timestamp,
       updated_at: timestamp,
     });
-    await tx
-      .update(StoreDayClose)
-      .set({
-        status: 'STALE',
-        stale_at: timestamp,
-        stale_reason: 'PAYMENT',
-        stale_trigger_ref: attempt.orderId,
-        updated_at: timestamp,
-      })
-      .where(
-        and(
-          eq(StoreDayClose.store_id, Number(attempt.storeId)),
-          eq(StoreDayClose.close_date, mapping.createdAt.slice(0, 10)),
-          eq(StoreDayClose.status, 'CLOSED'),
-        ),
-      );
-    for (const kind of ['order-kinesis', 'order-engagement'])
+    if (!managedCorrection)
+      await tx
+        .update(StoreDayClose)
+        .set({
+          status: 'STALE',
+          stale_at: timestamp,
+          stale_reason: 'PAYMENT',
+          stale_trigger_ref: attempt.orderId,
+          updated_at: timestamp,
+        })
+        .where(
+          and(
+            eq(StoreDayClose.store_id, Number(attempt.storeId)),
+            eq(StoreDayClose.close_date, mapping.createdAt.slice(0, 10)),
+            eq(StoreDayClose.status, 'CLOSED'),
+          ),
+        );
+    for (const kind of ['order-kinesis', 'order-engagement']) {
+      if (managedCorrection) {
+        // Payment-only correction does not create a second sale. Retain the first
+        // confirmed downstream finalization; unknown deliveries cannot be corrected.
+        const [delivered] = await tx
+          .select({ id: paymentOutbox.id })
+          .from(paymentOutbox)
+          .where(
+            and(
+              eq(paymentOutbox.orderId, attempt.orderId),
+              eq(paymentOutbox.kind, kind),
+              eq(paymentOutbox.status, 'delivered'),
+            ),
+          )
+          .limit(1)
+          .for('update');
+        if (delivered) continue;
+      }
       await tx
         .insert(paymentOutbox)
         .values({
@@ -624,14 +675,16 @@ export function paymentRepository(
           createdAt: timestamp,
         })
         .onDuplicateKeyUpdate({ set: { id: sql`${paymentOutbox.id}` } });
+    }
+    return timestamp;
   }
   return {
     async paymentContext(user: Principal, storeId: string, orderId: string) {
-      return db.get('writer').transaction(async (tx) => {
+      return transact(async (tx) => {
         const mapping = await order(tx, user, storeId, orderId),
           evidence = await history(tx, orderId);
         const active = evidence.attempts.find(
-          (attempt) => !['failed', 'cancelled'].includes(attempt.status),
+          (attempt) => !['failed', 'cancelled', 'reversed'].includes(attempt.status),
         );
         let blocker: string | null = null;
         try {
@@ -663,7 +716,7 @@ export function paymentRepository(
       orderId: string,
       input: LegacyPaymentRecoveryInput,
     ) {
-      return db.get('writer').transaction(async (tx) => {
+      return transact(async (tx) => {
         const mapping = await order(tx, user, storeId, orderId),
           hash = operationHash(
             'payment.legacy.adopt',
@@ -676,7 +729,9 @@ export function paymentRepository(
           .where(eq(paymentAttempts.id, input.operationId))
           .for('update');
         if (existing) {
-          const attempt = paymentAttemptSchema.parse(existing.state);
+          const [attempt] = await effective(tx, [storedPaymentAttemptSchema.parse(existing.state)]);
+          if (!attempt)
+            throw new AppError(404, 'PAYMENT_ATTEMPT_NOT_FOUND', 'Payment attempt was not found.');
           if (
             attempt.operatorId !== user.id ||
             attempt.storeId !== storeId ||
@@ -810,7 +865,7 @@ export function paymentRepository(
       });
     },
     async begin(user: Principal, storeId: string, orderId: string, input: PaymentInput) {
-      return db.get('writer').transaction(async (tx) => {
+      return transact(async (tx) => {
         const mapping = await order(tx, user, storeId, orderId),
           hash = operationHash('payment.start', { storeId, orderId, input }, options.hashSecret);
         const [existing] = await tx
@@ -819,7 +874,9 @@ export function paymentRepository(
           .where(eq(paymentAttempts.id, input.operationId))
           .for('update');
         if (existing) {
-          const attempt = paymentAttemptSchema.parse(existing.state);
+          const [attempt] = await effective(tx, [storedPaymentAttemptSchema.parse(existing.state)]);
+          if (!attempt)
+            throw new AppError(404, 'PAYMENT_ATTEMPT_NOT_FOUND', 'Payment attempt was not found.');
           if (
             attempt.storeId !== storeId ||
             attempt.orderId !== orderId ||
@@ -837,6 +894,7 @@ export function paymentRepository(
         if (mapping.paymentStatus === 4n || mapping.orderStatus === 4n)
           throw new AppError(409, 'ORDER_NOT_PAYABLE', 'This order is already paid or cancelled.');
         await assertPayable(tx, mapping, storeId, orderId);
+        await options.corrections?.assertStart(tx, orderId, input.channel);
         validatePaymentSplit(input, String(mapping.payable));
         let checkoutNote: PaymentAttempt['checkoutNote'] = null;
         if (input.checkoutNote) {
@@ -897,29 +955,16 @@ export function paymentRepository(
               'This payment method is currently disabled.',
             );
         }
-        const [active] = await tx
-          .select({ id: paymentAttempts.id })
-          .from(paymentAttempts)
-          .where(
-            and(
-              eq(paymentAttempts.orderId, orderId),
-              inArray(paymentAttempts.status, [
-                'dispatching',
-                'pending',
-                'uncertain',
-                'cancelling',
-                'paid',
-              ]),
-            ),
-          )
-          .limit(1);
+        const legacy = await history(tx, orderId),
+          active = legacy.attempts.find(
+            (attempt) => !['failed', 'cancelled', 'reversed'].includes(attempt.status),
+          );
         if (active)
           throw new AppError(
             409,
             'PAYMENT_ALREADY_ACTIVE',
             'Reconcile the existing payment before taking another payment.',
           );
-        const legacy = await history(tx, orderId);
         if (legacy.completed || legacy.ambiguous || legacy.candidates.length)
           throw new AppError(
             409,
@@ -978,14 +1023,14 @@ export function paymentRepository(
       });
     },
     async get(user: Principal, storeId: string, orderId: string, id: string) {
-      return db.get('writer').transaction(async (tx) => {
+      return transact(async (tx) => {
         const { attempt, mapping } = await owned(tx, user, storeId, orderId, id);
         await assertPaid(tx, mapping, attempt);
         return attempt;
       });
     },
     async list(user: Principal, storeId: string, orderId: string) {
-      return db.get('writer').transaction(async (tx) => {
+      return transact(async (tx) => {
         const mapping = await order(tx, user, storeId, orderId);
         const rows = await tx
           .select({ state: paymentAttempts.state })
@@ -993,14 +1038,17 @@ export function paymentRepository(
           .where(and(eq(paymentAttempts.orderId, orderId), eq(paymentAttempts.storeId, storeId)))
           .orderBy(desc(paymentAttempts.createdAt), desc(paymentAttempts.id))
           .limit(20);
-        const attempts = rows.map((row) => paymentAttemptSchema.parse(row.state)),
+        const attempts = await effective(
+            tx,
+            rows.map((row) => storedPaymentAttemptSchema.parse(row.state)),
+          ),
           paid = attempts.find((attempt) => attempt.status === 'paid');
         if (paid) await assertPaid(tx, mapping, paid);
         return attempts;
       });
     },
     async options(user: Principal, storeId: string, orderId: string) {
-      return db.get('writer').transaction(async (tx) => {
+      return transact(async (tx) => {
         const mapping = await order(tx, user, storeId, orderId),
           modes = await tx
             .select({
@@ -1056,15 +1104,17 @@ export function paymentRepository(
         return {
           payable: String(mapping.payable),
           counterId: String(mapping.counter),
-          options: result,
+          options: (await options.corrections?.restrictedToCash(tx, orderId))
+            ? result.filter((option) => option.channel === 'cash')
+            : result,
         };
       });
     },
     async context(user: Principal, storeId: string, orderId: string, id: string, cancel = false) {
-      return db.get('writer').transaction(async (tx) => {
+      return transact(async (tx) => {
         const { attempt, mapping } = await owned(tx, user, storeId, orderId, id);
         await assertPaid(tx, mapping, attempt);
-        if (['paid', 'cancelled', 'failed'].includes(attempt.status))
+        if (['paid', 'cancelled', 'failed', 'reversed'].includes(attempt.status))
           return { attempt, machine: null };
         const age = Temporal.PlainDateTime.from(attempt.updatedAt.replace(' ', 'T'))
           .until(Temporal.PlainDateTime.from(now().replace(' ', 'T')))
@@ -1107,10 +1157,10 @@ export function paymentRepository(
       machine: Terminal | null,
       busyOperationId: string | null,
     ) {
-      return db.get('writer').transaction(async (tx) => {
+      return transact(async (tx) => {
         const { attempt, mapping } = await owned(tx, user, storeId, orderId, id);
         await assertPaid(tx, mapping, attempt);
-        if (['paid', 'cancelled', 'failed'].includes(attempt.status)) return attempt;
+        if (['paid', 'cancelled', 'failed', 'reversed'].includes(attempt.status)) return attempt;
         if (attempt.busyOperationId !== busyOperationId)
           throw new AppError(
             409,
@@ -1124,7 +1174,8 @@ export function paymentRepository(
           providerReference: decision.reference || attempt.providerReference,
           errorCode: decision.status === 'uncertain' ? decision.code : null,
         };
-        if (decision.status === 'paid') await complete(tx, user, next, mapping);
+        const completedAt =
+          decision.status === 'paid' ? await complete(tx, user, next, mapping) : undefined;
         if (decision.status === 'pending' && attempt.status === 'dispatching')
           await terminalAudit(tx, next, machine, 'txn_created', decision.code);
         if (['paid', 'cancelled', 'failed'].includes(decision.status)) {
@@ -1152,7 +1203,7 @@ export function paymentRepository(
                 ),
               );
         }
-        return save(tx, next);
+        return save(tx, next, completedAt);
       });
     },
   };

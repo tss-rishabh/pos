@@ -76,7 +76,10 @@ export const paymentAttemptSchema = z.object({
     'paid',
     'failed',
     'cancelled',
+    'reversed',
   ]),
+  /** Derived from a verified immutable compensation, never stored over the paid attempt. */
+  reversalId: z.uuid().optional(),
   requestHash: z.string().length(64),
   busyOperationId: z.uuid().nullable(),
   errorCode: z.string().nullable(),
@@ -84,6 +87,11 @@ export const paymentAttemptSchema = z.object({
   updatedAt: z.string(),
 });
 export type PaymentAttempt = z.infer<typeof paymentAttemptSchema>;
+/** Compensation is a read projection, never an editable/stored payment status. */
+export const storedPaymentAttemptSchema = paymentAttemptSchema.refine(
+  (value) => value.status !== 'reversed' && value.reversalId === undefined,
+  'Stored payment must retain its original settlement state.',
+);
 export type PaymentStatus = PaymentAttempt['status'];
 export interface PineTerminal extends PineMachine {
   provider: 'pine';

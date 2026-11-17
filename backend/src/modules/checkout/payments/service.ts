@@ -86,7 +86,8 @@ export function paymentService(repository: PaymentRepository, gateway: PaymentGa
     },
     async reconcile(user: Principal, storeId: string, orderId: string, id: string) {
       const { attempt, machine } = await repository.context(user, storeId, orderId, id);
-      if (['paid', 'failed', 'cancelled'].includes(attempt.status)) return publicPayment(attempt);
+      if (['paid', 'failed', 'cancelled', 'reversed'].includes(attempt.status))
+        return publicPayment(attempt);
       // Reconciliation may repeat a provider status enquiry. It never repeats the
       // original charge dispatch, including after a worker/process crash.
       try {
@@ -114,7 +115,8 @@ export function paymentService(repository: PaymentRepository, gateway: PaymentGa
     },
     async cancel(user: Principal, storeId: string, orderId: string, id: string) {
       const { attempt, machine } = await repository.context(user, storeId, orderId, id, true);
-      if (['failed', 'cancelled'].includes(attempt.status)) return publicPayment(attempt);
+      if (['failed', 'cancelled', 'reversed'].includes(attempt.status))
+        return publicPayment(attempt);
       if (attempt.status === 'paid' || !terminalPayment(attempt.channel) || !machine)
         throw new AppError(
           409,

@@ -44,6 +44,7 @@ export const paymentSchema = z
       'paid',
       'failed',
       'cancelled',
+      'reversed',
     ]),
     errorCode: z.string().nullable(),
   })
@@ -174,7 +175,7 @@ export function PaymentPanel({
       )
         .then((value) => {
           const existing = value.data.find(
-            (attempt) => !['failed', 'cancelled'].includes(attempt.status),
+            (attempt) => !['failed', 'cancelled', 'reversed'].includes(attempt.status),
           );
           if (active && existing) {
             savePaymentReference(storageKey, existing.id);
@@ -302,7 +303,9 @@ export function PaymentPanel({
                 ? 'The provider confirmed cancellation.'
                 : payment?.status === 'failed'
                   ? 'The provider confirmed payment failed.'
-                  : 'The payment outcome needs confirmation.'}
+                  : payment?.status === 'reversed'
+                    ? 'This recorded cash payment was corrected. Its original audit receipt is retained.'
+                    : 'The payment outcome needs confirmation.'}
           </p>
           <small>Payment reference: {pendingId}</small>
           {missing && recovery?.intent && (
@@ -329,7 +332,7 @@ export function PaymentPanel({
               Retry original payment request
             </button>
           )}
-          {['failed', 'cancelled'].includes(payment?.status || '') ? (
+          {['failed', 'cancelled', 'reversed'].includes(payment?.status || '') ? (
             <button
               className="button secondary full"
               disabled={busy || !online}

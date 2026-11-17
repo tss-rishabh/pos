@@ -57,6 +57,7 @@ import { registerPendingOrderCancellations } from './cancellations/routes.js';
 import { pendingCancellationOptions } from './cancellations/options.js';
 import type { PendingCancellationOptions } from './cancellations/options.js';
 import { registerOrderCopy, type OrderCopyOptions } from './order-copy/routes.js';
+import type { PaymentCorrectionPort } from './payment-reversals/evidence.js';
 
 const storeScope = z.object({ storeId: identifier });
 const sessionScope = storeScope.extend({ checkoutId: z.uuid() });
@@ -66,6 +67,7 @@ const trace = (resource: string, action: string) => ({
   config: { trace: { module: 'checkout', resource, action } },
 });
 export interface CheckoutRegistrationOptions {
+  paymentCorrections?: PaymentCorrectionPort;
   orderCopy?: OrderCopyOptions;
   repository?: CheckoutRepository;
   gateway?: CheckoutGateway;
@@ -694,6 +696,7 @@ export function registerCheckout(
     },
   );
   registerPayments(app, config, db, {
+    corrections: overrides.paymentCorrections,
     hashSecret: environment.hs256 || environment.hs512 || '',
     projection: environment,
     gateway: overrides.paymentGateway,
