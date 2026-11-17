@@ -13,6 +13,10 @@ import { financeFeedOptions, financeFeedService, type FinanceFeedOptions } from 
 import { secretMatches } from '../fulfillment/options.js';
 import { financeAlertOptions, financePendingAlerts } from './alerts.js';
 import { closeHistoryService, dayCloseCsv } from './history.js';
+import {
+  paymentCorrectionFinanceOptions,
+  type PaymentCorrectionFinanceOptions,
+} from './payment-corrections.js';
 
 const date = z
   .string()
@@ -29,6 +33,7 @@ const trace = (resource: string, action: string) => ({
   trace: { module: 'finance', resource, action },
 });
 interface RegistrationOptions {
+  paymentCorrections?: PaymentCorrectionFinanceOptions;
   service?: FinanceService;
   feed?: ReturnType<typeof financeFeedService>;
   feedOptions?: FinanceFeedOptions;
@@ -41,7 +46,8 @@ export async function registerFinance(
   db: Databases,
   options: RegistrationOptions = {},
 ) {
-  const service = options.service || financeService(config, db);
+  const corrections = options.paymentCorrections ?? paymentCorrectionFinanceOptions();
+  const service = options.service || financeService(config, db, undefined, undefined, corrections);
   const history = closeHistoryService(config, db);
   const historyInput = (query: unknown) => {
     const today = Temporal.Now.instant().toZonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDate();
@@ -133,7 +139,7 @@ export async function registerFinance(
       });
     },
   );
-  const ledger = cashLedgerService(config, db);
+  const ledger = cashLedgerService(config, db, undefined, undefined, undefined, corrections);
   app.get(
     '/api/v1/reports/store-cash-balances/stores',
     { config: trace('cash-ledger-store', 'list') },

@@ -15,6 +15,19 @@ import { parseStoreRollout, storeRolloutEnabled } from '../domain/rollout.js';
 import { aggregateOfflineCash, matchedImportedOfflineOrder } from './finance/offline-cash.js';
 import { addDailyOfflineCash, offlineDailyStoreTemplate } from './daily-report-offline.js';
 import type { DailyWarehouseOptions, DailyWarehousePublication } from './daily-report-warehouse.js';
+import {
+  matchedPaymentCorrectionOrder,
+  paymentCorrectionDailyStoreTemplate,
+  addDailyPaymentCorrections,
+  applyDailyPaymentCorrectionPartitions,
+} from './daily-report-corrections.js';
+import { readPaymentCorrectionCash } from './checkout/payment-reversals/cash-projection.js';
+import {
+  paymentCorrectionFinanceOptions,
+  type PaymentCorrectionFinanceOptions,
+} from './finance/payment-corrections.js';
+import { readPaymentCorrectionPartitions } from './finance/payment-correction-publication.js';
+import type { DailyWarehouseQuery } from './daily-report-warehouse.js';
 import { identifier } from '../domain/validation.js';
 
 const number = z.coerce.number().finite();
@@ -85,12 +98,22 @@ export function bindReportSql(
   start: string,
   end: string,
   offlineMatch?: SQL,
+  correctionMatch?: SQL,
 ): SQL {
   let dateIndex = 0;
   const dates = [start, end];
   const parts = template
-    .split(/(__STORES__|__EXCLUDED_PRODUCTS__|__OFFLINE_MATCH__|%s)/)
+    .split(/(__STORES__|__EXCLUDED_PRODUCTS__|__OFFLINE_MATCH__|__PAYMENT_CORRECTION_MATCH__|%s)/)
     .map((part) => {
+      if (part === '__PAYMENT_CORRECTION_MATCH__') {
+        if (!correctionMatch)
+          throw new AppError(
+            500,
+            'DAILY_REPORT_DEFINITION_CHANGED',
+            'The payment cash proof definition requires review.',
+          );
+        return correctionMatch;
+      }
       if (part === '__OFFLINE_MATCH__') {
         if (!offlineMatch)
           throw new AppError(
@@ -120,12 +143,15 @@ interface DailyReportDependencies {
   warehouse?: Pick<ReturnType<typeof warehouseService>, 'dailyRollups' | 'auxiliary'>;
   warehouseOptions?: DailyWarehouseOptions;
   clock?: () => Temporal.Instant;
+  paymentCorrections?: PaymentCorrectionFinanceOptions;
+  paymentCorrectionQuery?: DailyWarehouseQuery;
 }
 export function reportService(
   config: Config,
   db: Databases,
   dependencies: DailyReportDependencies = {},
 ) {
+  const corrections = dependencies.paymentCorrections ?? paymentCorrectionFinanceOptions();
   const clock = dependencies.clock || (() => Temporal.Now.instant()),
     warehouse =
       dependencies.warehouse || warehouseService(config, dependencies.warehouseOptions, clock);
@@ -176,8 +202,38 @@ export function reportService(
             'A daily report publication has invalid financial fields.',
           );
         const parsed = publicationRows.data;
+        if (!publication.sourcePosition)
+          throw new AppError(
+            503,
+            'PAYMENT_CORRECTION_PUBLICATION_INVALID',
+            'The payment report publication has no common source position.',
+          );
+        const paymentPublication = await readPaymentCorrectionPartitions(
+          { table: corrections.publicationTable, proofKey: corrections.proofKey },
+          dependencies.paymentCorrectionQuery ?? warehouseService(config).queryReport,
+          { kind: 'daily', storeIds, from: input.from, to: input.to },
+          config.BUSINESS_TIMEZONE,
+          clock(),
+          publication,
+        );
         storeRows = parsed.filter((r) => r.order_source === 'store_orders');
         onlineRows = parsed.filter((r) => r.order_source === 'online_orders');
+        const baselineHashes = new Map(
+          result.rows
+            .filter((row) => row.order_source === 'store_orders')
+            .map((row) => [
+              `${row.store_id}\0${row.order_date}`,
+              z
+                .string()
+                .regex(/^[a-f0-9]{64}$/)
+                .parse(row.row_hash),
+            ]),
+        );
+        storeRows = applyDailyPaymentCorrectionPartitions(
+          storeRows,
+          baselineHashes,
+          paymentPublication.partitions,
+        );
         const auxByPartition = new Map<string, string>();
         for (const row of parsed) {
           if (
@@ -244,10 +300,17 @@ export function reportService(
             const start = local(range.start),
               end = local(Temporal.Instant.from(range.end).subtract({ seconds: 1 }).toString());
             const offline = await aggregateOfflineCash(transaction, storeIds, input.from, input.to);
+            const paymentCash = await readPaymentCorrectionCash(
+              transaction,
+              { storeIds, from: input.from, to: input.to },
+              corrections.proofKey ?? '',
+            );
             const [walkIn, online] = await Promise.all([
               transaction.execute(
                 bindReportSql(
-                  offlineDailyStoreTemplate(legacyReportSql.storeOrders),
+                  paymentCorrectionDailyStoreTemplate(
+                    offlineDailyStoreTemplate(legacyReportSql.storeOrders),
+                  ),
                   storeIds,
                   exclusions,
                   start,
@@ -257,6 +320,7 @@ export function reportService(
                     storeId: sql.raw('oss.store_id'),
                     counterId: sql.raw('oss.counter_id'),
                   }),
+                  matchedPaymentCorrectionOrder(sql.raw('o.id'), paymentCash.managedOrderIds),
                 ),
               ),
               transaction.execute(
@@ -268,16 +332,17 @@ export function reportService(
               .array(rollupSchema)
               .parse(online[0])
               .map((row) => ({ ...row, pending_offline_orders: 0 }));
-            const dimensions = offline.length
-              ? await transaction
-                  .select({
-                    id: Store.id,
-                    name: Store.store_name,
-                    locationCode: Store.location_code,
-                  })
-                  .from(Store)
-                  .where(inArray(Store.id, storeIds.map(BigInt)))
-              : [];
+            const dimensions =
+              offline.length || paymentCash.rows.length
+                ? await transaction
+                    .select({
+                      id: Store.id,
+                      name: Store.store_name,
+                      locationCode: Store.location_code,
+                    })
+                    .from(Store)
+                    .where(inArray(Store.id, storeIds.map(BigInt)))
+                : [];
             const augmented = addDailyOfflineCash(
               storeRows,
               offline,
@@ -302,7 +367,15 @@ export function reportService(
                 ),
               );
             return {
-              storeRows: augmented,
+              storeRows: addDailyPaymentCorrections(
+                augmented,
+                paymentCash.rows,
+                dimensions.map((store) => ({
+                  id: String(store.id),
+                  name: store.name || String(store.id),
+                  locationCode: store.locationCode || '',
+                })),
+              ),
               onlineRows,
               banking: Object.fromEntries(
                 bankRows.map((row) => [`${row.storeId}\0${row.date}`, Number(row.amount)]),

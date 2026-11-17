@@ -15,7 +15,15 @@ import {
 import { collectionSnapshot, financeService } from '../../src/modules/finance/service.js';
 import { closeEntriesSchema } from '../../src/modules/finance/domain.js';
 import type { Principal } from '../../src/domain/access.js';
-import { cashLedgerService, ledgerOptions } from '../../src/modules/finance/ledger.js';
+import {
+  cashLedgerService,
+  ledgerOptions,
+  cashLedgerCorrectionBaselineHash,
+} from '../../src/modules/finance/ledger.js';
+import {
+  sealPaymentCorrectionPartition,
+  paymentCorrectionPublicationContract,
+} from '../../src/modules/finance/payment-correction-publication.js';
 import { financePendingAlerts } from '../../src/modules/finance/alerts.js';
 import { fulfillmentEffects } from '../../src/modules/fulfillment/schema.js';
 import { closeHistoryService, dayCloseCsv } from '../../src/modules/finance/history.js';
@@ -131,6 +139,14 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       .split(';')
       .filter((value) => value.trim()))
       await admin.query(query);
+    for (const path of [
+      'src/modules/checkout/migrations/0003_payments.sql',
+      'src/modules/checkout/payment-reversals/migration.sql',
+    ])
+      for (const statement of readFileSync(path, 'utf8')
+        .split(';')
+        .filter((value) => value.trim()))
+        await admin.query(statement);
     url.pathname = '/' + schema;
     database = createDatabases(
       readConfig({
@@ -254,6 +270,107 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       false,
     );
   });
+  it('the actual historical ledger conserves three-date funding/outflow/re-payment and rejects a missing zero/source partition', async () => {
+    const dates = ['2026-11-13', '2026-11-14', '2026-11-15'],
+      proofKey = 'fixture-corrected-history-financial-key-'.repeat(2),
+      anchors = [{ storeId: '1', date: dates[0]!, amount: '50.00' }],
+      closes = dates
+        .slice(0, 2)
+        .map((date, index) => ({
+          storeId: '1',
+          date,
+          version: 1,
+          status: 'CLOSED',
+          cashSystem: index === 0 ? '100.00' : '0.00',
+          cashRefund: index === 0 ? '0.00' : '100.00',
+          cashPunched: '0.00',
+          cashCreated: '0.00',
+          cashActual: index === 0 ? '100.00' : '0.00',
+          cashDifference: '0.00',
+          banking: '0.00',
+        })),
+      sales = [
+        {
+          storeId: '1',
+          date: dates[0]!,
+          cash: '100.00',
+          cashRefund: '0.00',
+          lateOfflineCash: '0.00',
+        },
+      ],
+      partitions = dates.map((date, index) =>
+        sealPaymentCorrectionPartition(
+          {
+            contract: paymentCorrectionPublicationContract,
+            kind: 'cash-ledger',
+            generationId: 'fixture_cash_conservation',
+            sourcePosition: 'mysql-bin.42:123',
+            cdcWatermark: '2026-11-16T17:29:30Z',
+            publishedAt: '2026-11-16T17:29:50Z',
+            businessTimezone: 'Asia/Kolkata',
+            storeId: '1',
+            businessDate: date,
+            payload: {
+              baselineHash: cashLedgerCorrectionBaselineHash('1', date, anchors, closes, [], sales),
+              cashAdjustment: index === 2 ? '100.00' : '0.00',
+              cashOut: index === 1 ? '100.00' : '0.00',
+            },
+          },
+          proofKey,
+        ),
+      ),
+      options = ledgerOptions({
+        BQ_FINANCE_OPENING_BALANCES: 'fixture-project.finance.anchors',
+        BQ_FINANCE_DAY_CLOSES: 'fixture-project.finance.closes',
+        BQ_FINANCE_DAY_BANKING: 'fixture-project.finance.banking',
+        BQ_FINANCE_CASH_COLLECTIONS: 'fixture-project.finance.collections',
+        BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-offline-cash-ledger-v1',
+      });
+    let missing = false;
+    const warehouse = {
+        async queryReport(statement: string): Promise<Record<string, unknown>[]> {
+          if (statement.includes('finance.payment_publications'))
+            return statement.includes('GROUP BY generation_id')
+              ? [{ generationId: 'fixture_cash_conservation' }]
+              : missing
+                ? partitions.slice(0, 2)
+                : partitions;
+          expect(statement).toContain('generation_id=@generation');
+          if (statement.includes('finance.anchors')) return anchors;
+          if (statement.includes('finance.closes')) return closes;
+          if (statement.includes('finance.collections'))
+            return sales.map((row) => ({
+              ...row,
+              cashProjectionContract: 'pos-offline-cash-ledger-v1',
+            }));
+          return [];
+        },
+      },
+      service = cashLedgerService(
+        readConfig({
+          NODE_ENV: 'test',
+          DEMO_MODE: 'true',
+          SESSION_SECRET: 'fixture-history-conservation-session-'.repeat(2),
+        }),
+        resources(),
+        options,
+        warehouse,
+        clock,
+        { proofKey, publicationTable: 'fixture-project.finance.payment_publications' },
+      );
+    const result = await service.read(user, ['1'], dates[0], dates[2]);
+    expect(
+      result.data.map((row) => [row.date, row.sales_cash, row.opening_cash, row.running_total]),
+    ).toEqual([
+      [dates[0], '100.00', '50.00', '150.00'],
+      [dates[1], '-100.00', '150.00', '50.00'],
+      [dates[2], '100.00', '50.00', '150.00'],
+    ]);
+    missing = true;
+    await expect(service.read(user, ['1'], dates[0], dates[2])).rejects.toMatchObject({
+      code: 'PAYMENT_CORRECTION_PUBLICATION_INVALID',
+    });
+  });
   it('routes historical chains only to explicit warehouse tables and never falls back to older MySQL rows', async () => {
     const readers: string[] = [],
       queries: string[] = [],
@@ -271,11 +388,50 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       BQ_FINANCE_CASH_COLLECTIONS: 'fixture-project.finance.collections',
       BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-offline-cash-ledger-v1',
     });
+    const proofKey = 'fixture-history-financial-proof-key-'.repeat(2),
+      anchor = { storeId: '1', date: '2026-11-15', amount: '100.00' },
+      cash = {
+        storeId: '1',
+        date: '2026-11-15',
+        cash: '20.00',
+        cashRefund: '2.00',
+        lateOfflineCash: '0.00',
+      },
+      publication = sealPaymentCorrectionPartition(
+        {
+          contract: paymentCorrectionPublicationContract,
+          kind: 'cash-ledger',
+          generationId: 'fixture_generation',
+          sourcePosition: 'mysql-bin.42:123',
+          cdcWatermark: '2026-11-16T17:29:30Z',
+          publishedAt: '2026-11-16T17:29:50Z',
+          businessTimezone: 'Asia/Kolkata',
+          storeId: '1',
+          businessDate: '2026-11-15',
+          payload: {
+            baselineHash: cashLedgerCorrectionBaselineHash(
+              '1',
+              '2026-11-15',
+              [anchor],
+              [],
+              [],
+              [cash],
+            ),
+            cashAdjustment: '0.00',
+            cashOut: '0.00',
+          },
+        },
+        proofKey,
+      ),
+      corrections = { proofKey, publicationTable: 'fixture-project.finance.payment_publications' };
     const warehouse = {
       queryReport: async (statement: string): Promise<Record<string, unknown>[]> => {
         queries.push(statement);
-        if (statement.includes('finance.anchors'))
-          return [{ storeId: '1', date: '2026-11-15', amount: '100.00' }];
+        if (statement.includes('finance.payment_publications'))
+          return statement.includes('GROUP BY generation_id')
+            ? [{ generationId: 'fixture_generation' }]
+            : [publication];
+        if (statement.includes('finance.anchors')) return [anchor];
         if (statement.includes('finance.collections'))
           return [
             {
@@ -295,12 +451,14 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         DEMO_MODE: 'true',
         SESSION_SECRET: 'cash-ledger-history-fixture-'.repeat(3),
       }),
-      service = cashLedgerService(cfg, database, options, warehouse, clock);
+      service = cashLedgerService(cfg, database, options, warehouse, clock, corrections);
     const historical = await service.read(user, ['1'], '2026-11-15', '2026-11-15');
     expect(historical.reader).toBe('bigquery');
     expect(historical.data[0]?.running_total).toBe('118.00');
     expect(readers).toEqual(['primary']);
-    expect(queries).toHaveLength(4);
+    expect(queries).toHaveLength(6);
+    for (const query of queries.filter((value) => !value.includes('GROUP BY generation_id')))
+      expect(query).toContain('generation_id=@generation');
     queries.length = 0;
     await expect(
       cashLedgerService(

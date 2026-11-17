@@ -104,6 +104,8 @@ describe.skipIf(!integration)('offline cash finance projections on isolated veri
     ]);
     for (const path of [
       'src/modules/finance/migration.sql',
+      'src/modules/checkout/migrations/0003_payments.sql',
+      'src/modules/checkout/payment-reversals/migration.sql',
       'src/modules/checkout/migrations/0011_offline_cash.sql',
       'src/modules/checkout/migrations/0012_offline_cash_receipt_identity.sql',
       'src/modules/checkout/migrations/0013_offline_cash_import_proof.sql',

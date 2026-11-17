@@ -60,26 +60,7 @@ export function addDailyOfflineCash(
           'DAILY_REPORT_STORE_RECONCILIATION_REQUIRED',
           'A cash receipt store dimension requires reconciliation.',
         );
-      row = {
-        store_id: id,
-        store_name: store.name,
-        location_code: store.locationCode,
-        order_date: cash.date,
-        order_count: 0,
-        qty: 0,
-        revenue: 0,
-        membership_purchase_orders: 0,
-        membership_orders_total: 0,
-        membership_revenue: 0,
-        tss_money_used_total: 0,
-        tss_points_used_total: 0,
-        pg_discount_total: 0,
-        gift_voucher_total: 0,
-        district_total: 0,
-        cash_total: 0,
-        total_online: 0,
-        pending_offline_orders: 0,
-      };
+      row = emptyDailyStoreRow(store, cash.date);
       rows.push(row);
       byDay.set(key, row);
     }
@@ -98,4 +79,37 @@ export function addDailyOfflineCash(
       );
   }
   return rows;
+}
+
+export function emptyDailyStoreRow(
+  store: OfflineDailyStore,
+  date: string,
+): Rollup & { pending_offline_orders: number } {
+  const id = Number(store.id);
+  if (!Number.isSafeInteger(id))
+    throw new AppError(
+      503,
+      'DAILY_REPORT_STORE_RECONCILIATION_REQUIRED',
+      'A cash movement store dimension requires reconciliation.',
+    );
+  return {
+    store_id: id,
+    store_name: store.name,
+    location_code: store.locationCode,
+    order_date: date,
+    order_count: 0,
+    qty: 0,
+    revenue: 0,
+    membership_purchase_orders: 0,
+    membership_orders_total: 0,
+    membership_revenue: 0,
+    tss_money_used_total: 0,
+    tss_points_used_total: 0,
+    pg_discount_total: 0,
+    gift_voucher_total: 0,
+    district_total: 0,
+    cash_total: 0,
+    total_online: 0,
+    pending_offline_orders: 0,
+  };
 }

@@ -19,6 +19,7 @@ export interface Rollup {
   cash_total: number;
   total_online: number;
   pending_offline_orders?: number;
+  payment_correction_cash_out?: number;
 }
 type Metric = number | string | null;
 export type DailyRow = Record<string, Metric>;
@@ -92,6 +93,14 @@ export function mergeDailyRows(store: Rollup[], online: Rollup[], aux: ReportAux
       total_online: numeric(s?.total_online),
       banking: numeric(aux.banking[`${r.store_id}\u0000${r.order_date}`]),
       membership_revenue: memberRevenue,
+      ...(s?.payment_correction_cash_out === undefined
+        ? {}
+        : {
+            payment_correction_cash_out: numeric(s.payment_correction_cash_out),
+            cash_after_payment_corrections: round(
+              numeric(s.cash_total) - numeric(s.payment_correction_cash_out),
+            ),
+          }),
       ...((s?.pending_offline_orders ?? o?.pending_offline_orders) === undefined
         ? {}
         : {
@@ -131,6 +140,14 @@ export function dailyTotals(rows: DailyRow[]): DailyRow {
     totals[key] = values.length
       ? round(values.reduce<number>((sum, v) => sum + Number(v), 0))
       : null;
+  }
+  if (rows.some((row) => row.payment_correction_cash_out !== undefined)) {
+    totals.payment_correction_cash_out = round(
+      rows.reduce((sum, row) => sum + numeric(row.payment_correction_cash_out), 0),
+    );
+    totals.cash_after_payment_corrections = round(
+      Number(totals.cash || 0) - Number(totals.payment_correction_cash_out),
+    );
   }
   if (rows.some((row) => row.pending_offline_orders !== undefined))
     totals.pending_offline_orders = rows.reduce(

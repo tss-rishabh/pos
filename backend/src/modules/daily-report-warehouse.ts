@@ -86,6 +86,7 @@ export interface DailyWarehousePublication {
   generationId: string;
   publishedAt: string;
   cdcWatermark: string;
+  sourcePosition?: string;
 }
 export interface DailyWarehouseResult {
   rows: Record<string, unknown>[];
@@ -280,6 +281,7 @@ export async function readDailyWarehouseRollups(
       generationId: selected.data.generation_id,
       publishedAt: selected.data.published_at.toString(),
       cdcWatermark: watermark.toString(),
+      sourcePosition: position,
     },
   };
 }

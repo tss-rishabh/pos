@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "../..", "types": ["node", "@fastify/cookie"] },
+  "include": [
+    "../../src/modules/finance/**/*.ts",
+    "../../src/modules/daily-report*.ts",
+    "../../src/modules/reports.ts",
+    "../../src/modules/checkout/payment-reversals/**/*.ts",
+    "../../tests/finance/**/*.ts",
+    "../../tests/reports/warehouse-publication.test.ts",
+    "../../tests/reports/warehouse-adapter.test.ts",
+    "../../tests/checkout-payment-reversals/**/*.ts"
+  ]
+}

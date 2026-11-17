@@ -17,6 +17,15 @@ import {
 import { requireStore, type Principal } from '../../domain/access.js';
 import { AppError, unavailable } from '../../domain/errors.js';
 import { warehouseService } from '../warehouse.js';
+import {
+  currentPaymentCorrectionCash,
+  paymentCorrectionFinanceOptions,
+  type PaymentCorrectionFinanceOptions,
+} from './payment-corrections.js';
+import {
+  readPaymentCorrectionPartitions,
+  paymentCorrectionBaselineHash,
+} from './payment-correction-publication.js';
 import { money } from './domain.js';
 import {
   aggregateOfflineCash,
@@ -91,6 +100,48 @@ export type LedgerAnchor = z.infer<typeof anchorSchema>;
 export type LedgerClose = z.infer<typeof closeSchema>;
 export type LedgerBanking = z.infer<typeof bankingSchema>;
 export type LedgerSales = z.infer<typeof salesSchema>;
+export function cashLedgerCorrectionBaselineHash(
+  storeId: string,
+  date: string,
+  anchors: readonly LedgerAnchor[],
+  closes: readonly LedgerClose[],
+  banking: readonly LedgerBanking[],
+  sales: readonly LedgerSales[],
+) {
+  const selectedSales = sales.filter((row) => row.storeId === storeId && row.date === date);
+  if (selectedSales.length > 1)
+    throw new AppError(
+      503,
+      'PAYMENT_CORRECTION_PUBLICATION_INVALID',
+      'A source cash ledger partition is duplicated.',
+    );
+  const row = selectedSales[0];
+  return paymentCorrectionBaselineHash('cash-ledger', {
+    storeId,
+    date,
+    anchors: anchors
+      .filter((row) => row.storeId === storeId && row.date === date)
+      .map((row) => ({ storeId: row.storeId, date: row.date, amount: row.amount }))
+      .sort((a, b) => a.amount.localeCompare(b.amount)),
+    closes: closes
+      .filter((row) => row.storeId === storeId && row.date === date)
+      .map((row) => ({ ...row }))
+      .sort((a, b) => a.version - b.version),
+    banking: banking
+      .filter((row) => row.storeId === storeId && row.date === date)
+      .map((row) => ({ storeId: row.storeId, date: row.date, amount: row.amount }))
+      .sort((a, b) => a.amount.localeCompare(b.amount)),
+    sales: row
+      ? {
+          storeId,
+          date,
+          cash: row.cash,
+          cashRefund: row.cashRefund,
+          lateOfflineCash: row.lateOfflineCash ?? '0.00',
+        }
+      : null,
+  });
+}
 export interface LedgerStore {
   id: string;
   name: string;
@@ -232,10 +283,12 @@ async function currentCash(
   db: Pick<ReturnType<Databases['get']>, 'select' | 'selectDistinct'>,
   storeIds: string[],
   date: string,
+  corrections: PaymentCorrectionFinanceOptions,
 ): Promise<LedgerSales[]> {
   const start = date + ' 00:00:00',
     end = Temporal.PlainDate.from(date).add({ days: 1 }).toString() + ' 00:00:00';
   const offline = await aggregateOfflineCash(db, storeIds, date, date);
+  const correction = await currentPaymentCorrectionCash(db, storeIds, date, date, corrections);
   const lateOffline = await lateOfflineCashForLatestClose(db, storeIds, date, date);
   const collections = await db
     .select({
@@ -292,6 +345,16 @@ async function currentCash(
     cashRefund = new Map(refunds.map((row) => [String(row.storeId), money(row.cashRefund)]));
   for (const row of offline)
     cash.set(row.storeId, money(new Decimal(cash.get(row.storeId) || '0').plus(row.cash)));
+  for (const row of correction) {
+    cash.set(
+      row.storeId,
+      money(new Decimal(cash.get(row.storeId) || '0').plus(row.cashAdjustment)),
+    );
+    cashRefund.set(
+      row.storeId,
+      money(new Decimal(cashRefund.get(row.storeId) || '0').plus(row.cashOut)),
+    );
+  }
   return storeIds.map((storeId) => ({
     storeId,
     date,
@@ -306,6 +369,7 @@ export function cashLedgerService(
   options: LedgerOptions = ledgerOptions(),
   warehouse: Pick<ReturnType<typeof warehouseService>, 'queryReport'> = warehouseService(config),
   clock = () => Temporal.Now.instant(),
+  corrections: PaymentCorrectionFinanceOptions = paymentCorrectionFinanceOptions(),
 ) {
   const queryReport = (
     statement: string,
@@ -402,13 +466,31 @@ export function cashLedgerService(
             return unavailable(`BigQuery ${name.replace('BQ_FINANCE_', '').toLowerCase()} table`);
           return '`' + value + '`';
         };
-        const params = { stores: storeIds, end: bounds.to },
-          types = { stores: ['STRING'], end: 'DATE' };
+        const publicationOptions = {
+          table: corrections.publicationTable,
+          proofKey: corrections.proofKey,
+        };
+        const first = await readPaymentCorrectionPartitions(
+          publicationOptions,
+          warehouse.queryReport,
+          { kind: 'cash-ledger', storeIds, from: bounds.from, to: bounds.to },
+          config.BUSINESS_TIMEZONE,
+          clock(),
+        );
+        const reference = first.partitions.values().next().value;
+        if (!reference)
+          throw new AppError(
+            503,
+            'PAYMENT_CORRECTION_PUBLICATION_INVALID',
+            'The cash ledger publication is missing.',
+          );
+        const params = { stores: storeIds, end: bounds.to, generation: first.generationId },
+          types = { stores: ['STRING'], end: 'DATE', generation: 'STRING' };
         anchors = z
           .array(anchorSchema)
           .parse(
             await queryReport(
-              `SELECT CAST(store_id AS STRING) AS storeId,CAST(balance_date AS STRING) AS date,CAST(amount AS STRING) AS amount FROM ${tableName('BQ_FINANCE_OPENING_BALANCES')} WHERE CAST(store_id AS STRING) IN UNNEST(@stores) AND balance_date<=@end`,
+              `SELECT CAST(store_id AS STRING) AS storeId,CAST(balance_date AS STRING) AS date,CAST(amount AS STRING) AS amount FROM ${tableName('BQ_FINANCE_OPENING_BALANCES')} WHERE generation_id=@generation AND CAST(store_id AS STRING) IN UNNEST(@stores) AND balance_date<=@end`,
               params,
               types,
             ),
@@ -423,89 +505,154 @@ export function cashLedgerService(
           chainTypes = { ...types, start: 'DATE' };
         const [closeRows, bankingRows, salesRows] = await Promise.all([
           queryReport(
-            `SELECT CAST(store_id AS STRING) AS storeId,CAST(close_date AS STRING) AS date,version,status,CAST(cash_system AS STRING) AS cashSystem,CAST(cash_refund_system AS STRING) AS cashRefund,CAST(cash_manual_punched AS STRING) AS cashPunched,CAST(cash_manual_created AS STRING) AS cashCreated,CAST(cash_actual AS STRING) AS cashActual,CAST(cash_difference AS STRING) AS cashDifference,CAST(banking_amount AS STRING) AS banking FROM ${tableName('BQ_FINANCE_DAY_CLOSES')} WHERE CAST(store_id AS STRING) IN UNNEST(@stores) AND close_date BETWEEN @start AND @end QUALIFY ROW_NUMBER() OVER(PARTITION BY store_id,close_date ORDER BY version DESC)=1`,
+            `SELECT CAST(store_id AS STRING) AS storeId,CAST(close_date AS STRING) AS date,version,status,CAST(cash_system AS STRING) AS cashSystem,CAST(cash_refund_system AS STRING) AS cashRefund,CAST(cash_manual_punched AS STRING) AS cashPunched,CAST(cash_manual_created AS STRING) AS cashCreated,CAST(cash_actual AS STRING) AS cashActual,CAST(cash_difference AS STRING) AS cashDifference,CAST(banking_amount AS STRING) AS banking FROM ${tableName('BQ_FINANCE_DAY_CLOSES')} WHERE generation_id=@generation AND CAST(store_id AS STRING) IN UNNEST(@stores) AND close_date BETWEEN @start AND @end QUALIFY ROW_NUMBER() OVER(PARTITION BY store_id,close_date ORDER BY version DESC)=1`,
             chainParams,
             chainTypes,
           ),
           queryReport(
-            `SELECT CAST(store_id AS STRING) AS storeId,CAST(banking_date AS STRING) AS date,CAST(amount AS STRING) AS amount FROM ${tableName('BQ_FINANCE_DAY_BANKING')} WHERE CAST(store_id AS STRING) IN UNNEST(@stores) AND banking_date BETWEEN @start AND @end`,
+            `SELECT CAST(store_id AS STRING) AS storeId,CAST(banking_date AS STRING) AS date,CAST(amount AS STRING) AS amount FROM ${tableName('BQ_FINANCE_DAY_BANKING')} WHERE generation_id=@generation AND CAST(store_id AS STRING) IN UNNEST(@stores) AND banking_date BETWEEN @start AND @end`,
             chainParams,
             chainTypes,
           ),
           queryReport(
-            `SELECT CAST(store_id AS STRING) AS storeId,CAST(business_date AS STRING) AS date,CAST(cash AS STRING) AS cash,CAST(cash_refund AS STRING) AS cashRefund,CAST(late_offline_cash AS STRING) AS lateOfflineCash,offline_cash_projection_contract AS cashProjectionContract FROM ${tableName('BQ_FINANCE_CASH_COLLECTIONS')} WHERE CAST(store_id AS STRING) IN UNNEST(@stores) AND business_date BETWEEN @start AND @end`,
-            { ...params, start: bounds.from },
-            { ...types, start: 'DATE' },
+            `SELECT CAST(store_id AS STRING) AS storeId,CAST(business_date AS STRING) AS date,CAST(cash AS STRING) AS cash,CAST(cash_refund AS STRING) AS cashRefund,CAST(late_offline_cash AS STRING) AS lateOfflineCash,offline_cash_projection_contract AS cashProjectionContract FROM ${tableName('BQ_FINANCE_CASH_COLLECTIONS')} WHERE generation_id=@generation AND CAST(store_id AS STRING) IN UNNEST(@stores) AND business_date BETWEEN @start AND @end`,
+            chainParams,
+            chainTypes,
           ),
         ]);
         closes = z.array(closeSchema).parse(closeRows);
         banking = z.array(bankingSchema).parse(bankingRows);
-        const rows = z.array(warehouseSalesSchema).parse(salesRows);
-        // Sparse rollups represent zero sales, while an unconfigured view fails above.
-        const byDay = new Map(rows.map((row) => [`${row.storeId}:${row.date}`, row]));
-        for (const storeId of storeIds)
-          for (
-            let date = bounds.from;
-            date <= bounds.to;
-            date = Temporal.PlainDate.from(date).add({ days: 1 }).toString()
-          )
-            sales.push(
-              byDay.get(`${storeId}:${date}`) || {
-                storeId,
-                date,
-                cash: '0.00',
-                cashRefund: '0.00',
-              },
-            );
-      } else {
-        const database = db.get('data'),
-          condition = and(
-            inArray(StoreDayClose.store_id, storeIds.map(Number)),
-            gte(StoreDayClose.close_date, bounds.from),
-            lte(StoreDayClose.close_date, bounds.to),
+        const sourceSales = z.array(warehouseSalesSchema).parse(salesRows);
+        const complete =
+          start === bounds.from
+            ? first
+            : await readPaymentCorrectionPartitions(
+                publicationOptions,
+                warehouse.queryReport,
+                { kind: 'cash-ledger', storeIds, from: start, to: bounds.to },
+                config.BUSINESS_TIMEZONE,
+                clock(),
+                reference,
+              );
+        const sourceByDay = new Map(sourceSales.map((row) => [`${row.storeId}\0${row.date}`, row]));
+        if (sourceByDay.size !== sourceSales.length)
+          throw new AppError(
+            503,
+            'PAYMENT_CORRECTION_PUBLICATION_INVALID',
+            'A source cash ledger partition is duplicated.',
           );
-        closes = z.array(closeSchema).parse(
-          await database
-            .select({
-              storeId: StoreDayClose.store_id,
-              date: StoreDayClose.close_date,
-              version: StoreDayClose.version,
-              status: StoreDayClose.status,
-              cashSystem: StoreDayClose.cash_system,
-              cashRefund: StoreDayClose.cash_refund_system,
-              cashPunched: StoreDayClose.cash_manual_punched,
-              cashCreated: StoreDayClose.cash_manual_created,
-              cashActual: StoreDayClose.cash_actual,
-              cashDifference: StoreDayClose.cash_difference,
-              banking: StoreDayClose.banking_amount,
-            })
-            .from(StoreDayClose)
-            .where(condition),
-        );
-        banking = z.array(bankingSchema).parse(
-          await database
-            .select({
-              storeId: StoreDayBanking.store_id,
-              date: StoreDayBanking.banking_date,
-              amount: StoreDayBanking.amount,
-            })
-            .from(StoreDayBanking)
-            .where(
-              and(
-                inArray(StoreDayBanking.store_id, storeIds.map(Number)),
-                gte(StoreDayBanking.banking_date, bounds.from),
-                lte(StoreDayBanking.banking_date, bounds.to),
-              ),
-            ),
-        );
-        sales = await database.transaction(
-          (transaction) => currentCash(transaction, storeIds, bounds.today),
-          {
-            isolationLevel: 'repeatable read',
-            accessMode: 'read only',
+        for (const [key, partition] of complete.partitions) {
+          if (
+            partition.kind !== 'cash-ledger' ||
+            partition.payload.baselineHash !==
+              cashLedgerCorrectionBaselineHash(
+                partition.storeId,
+                partition.businessDate,
+                anchors,
+                closes,
+                banking,
+                sourceSales,
+              )
+          )
+            throw new AppError(
+              503,
+              'PAYMENT_CORRECTION_PUBLICATION_INVALID',
+              'The source cash ledger publication changed.',
+            );
+          const original = sourceByDay.get(key),
+            cash = money(new Decimal(original?.cash ?? '0').plus(partition.payload.cashAdjustment)),
+            cashRefund = money(
+              new Decimal(original?.cashRefund ?? '0').plus(partition.payload.cashOut),
+            );
+          if (new Decimal(cash).lt(0) || new Decimal(cashRefund).lt(0))
+            throw new AppError(
+              503,
+              'PAYMENT_CORRECTION_PUBLICATION_INVALID',
+              'The published cash ledger amount is invalid.',
+            );
+          sales.push({
+            storeId: partition.storeId,
+            date: partition.businessDate,
+            cash,
+            cashRefund,
+            lateOfflineCash: original?.lateOfflineCash ?? '0.00',
+          });
+        }
+      } else {
+        const database = db.get('data');
+        const current = await database.transaction(
+          async (transaction) => {
+            const anchors = z.array(anchorSchema).parse(
+              await transaction
+                .select({
+                  storeId: StoreCashOpeningBalance.store_id,
+                  date: StoreCashOpeningBalance.balance_date,
+                  amount: StoreCashOpeningBalance.amount,
+                })
+                .from(StoreCashOpeningBalance)
+                .where(
+                  and(
+                    inArray(StoreCashOpeningBalance.store_id, storeIds.map(Number)),
+                    eq(StoreCashOpeningBalance.balance_date, bounds.today),
+                  ),
+                ),
+            );
+            if (!storeIds.every((storeId) => anchors.some((anchor) => anchor.storeId === storeId)))
+              throw new AppError(
+                503,
+                'LEDGER_SNAPSHOT_MISSING',
+                'The current cash anchor changed. Refresh the ledger.',
+              );
+            const condition = and(
+              inArray(StoreDayClose.store_id, storeIds.map(Number)),
+              gte(StoreDayClose.close_date, bounds.from),
+              lte(StoreDayClose.close_date, bounds.to),
+            );
+            const closes = z.array(closeSchema).parse(
+              await transaction
+                .select({
+                  storeId: StoreDayClose.store_id,
+                  date: StoreDayClose.close_date,
+                  version: StoreDayClose.version,
+                  status: StoreDayClose.status,
+                  cashSystem: StoreDayClose.cash_system,
+                  cashRefund: StoreDayClose.cash_refund_system,
+                  cashPunched: StoreDayClose.cash_manual_punched,
+                  cashCreated: StoreDayClose.cash_manual_created,
+                  cashActual: StoreDayClose.cash_actual,
+                  cashDifference: StoreDayClose.cash_difference,
+                  banking: StoreDayClose.banking_amount,
+                })
+                .from(StoreDayClose)
+                .where(condition),
+            );
+            const banking = z.array(bankingSchema).parse(
+              await transaction
+                .select({
+                  storeId: StoreDayBanking.store_id,
+                  date: StoreDayBanking.banking_date,
+                  amount: StoreDayBanking.amount,
+                })
+                .from(StoreDayBanking)
+                .where(
+                  and(
+                    inArray(StoreDayBanking.store_id, storeIds.map(Number)),
+                    gte(StoreDayBanking.banking_date, bounds.from),
+                    lte(StoreDayBanking.banking_date, bounds.to),
+                  ),
+                ),
+            );
+            const sales = await currentCash(transaction, storeIds, bounds.today, corrections);
+            return { anchors, closes, banking, sales };
           },
+          { isolationLevel: 'repeatable read', accessMode: 'read only' },
         );
+        anchors = current.anchors;
+        closes = current.closes;
+        banking = current.banking;
+        sales = current.sales;
       }
+
       return {
         reader,
         range: bounds,

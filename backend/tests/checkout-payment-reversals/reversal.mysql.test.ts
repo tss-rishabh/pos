@@ -3,6 +3,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import Fastify from 'fastify';
 import { ZodError } from 'zod';
 import type { RowDataPacket } from 'mysql2/promise';
+import { collectionSnapshot } from '../../src/modules/finance/service.js';
+import { cashLedgerService, ledgerOptions } from '../../src/modules/finance/ledger.js';
+import { reportService } from '../../src/modules/reports.js';
 import { AppError } from '../../src/domain/errors.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
 import { paymentService } from '../../src/modules/checkout/payments/service.js';
@@ -116,6 +119,8 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
       await native.fixture.insert('pos_user', { id: 44, role: 2, user_type: 1, is_active: 1 });
       await native.fixture.insert('stores', {
         id: 1,
+        store_name: 'Fixture store',
+        location_code: 'FIX',
         is_active: 1,
         type: 'STORE',
         category: 'IN_HOUSE',
@@ -156,6 +161,8 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
         is_del: 0,
       });
       await native.fixture.insert('order_status', { id: 3, order_status: 'DELIVERED' });
+      await native.fixture.insert('payment_status', { id: 1, payment_status: 'Pending' });
+      await native.fixture.insert('payment_status', { id: 4, payment_status: 'Paid' });
       await checkInService(native.db, native.config).set(manager, '1', '3');
     }, 30000);
     afterAll(async () => native?.close());
@@ -177,6 +184,8 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
         'comments',
         'pos_transaction_logs',
         'store_day_close',
+        'store_cash_opening_balance',
+        'store_day_banking',
         'gift_vouchers',
         'amount_to_be_refunded_log',
         'has_products',
@@ -320,6 +329,216 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
           orderCountAdjustment: 0,
         },
       ]);
+    });
+    it('actual collection snapshots replace the mutable source baseline once and retain each new cash-in/cash-out', async () => {
+      const finance = { proofKey: native.config.SESSION_SECRET },
+        snapshot = () => collectionSnapshot(native.db.get('writer'), '1', today, finance);
+      expect(await snapshot()).toMatchObject({
+        order_count: 1,
+        cash: '100.00',
+        cash_refund: '0.00',
+      });
+      await reversals.create(manager, '1', orderId, await input());
+      expect(await snapshot()).toMatchObject({
+        order_count: 1,
+        cash: '100.00',
+        cash_refund: '100.00',
+        total_online: '0.00',
+      });
+      await payments.start(manager, '1', orderId, paymentInput());
+      expect(await snapshot()).toMatchObject({
+        order_count: 1,
+        cash: '200.00',
+        cash_refund: '100.00',
+      });
+      await reversals.create(manager, '1', orderId, await input());
+      expect(await snapshot()).toMatchObject({
+        order_count: 1,
+        cash: '200.00',
+        cash_refund: '200.00',
+      });
+      await payments.start(manager, '1', orderId, paymentInput());
+      expect(await snapshot()).toMatchObject({
+        order_count: 1,
+        cash: '300.00',
+        cash_refund: '200.00',
+      });
+    });
+    it('attributes collection and physical cash-out to actual distinct business dates while retaining one original-date order', async () => {
+      const finance = { proofKey: native.config.SESSION_SECRET },
+        next = Temporal.PlainDate.from(today).add({ days: 1 }).toString(),
+        last = Temporal.PlainDate.from(today).add({ days: 2 }).toString();
+      time = Temporal.PlainDateTime.from(`${next}T12:00:00`)
+        .toZonedDateTime('Asia/Kolkata')
+        .toInstant();
+      await reversals.create(manager, '1', orderId, await input());
+      time = Temporal.PlainDateTime.from(`${last}T12:00:00`)
+        .toZonedDateTime('Asia/Kolkata')
+        .toInstant();
+      await payments.start(manager, '1', orderId, paymentInput());
+      expect(await collectionSnapshot(native.db.get('writer'), '1', today, finance)).toMatchObject({
+        order_count: 1,
+        cash: '100.00',
+        cash_refund: '0.00',
+      });
+      expect(await collectionSnapshot(native.db.get('writer'), '1', next, finance)).toMatchObject({
+        order_count: 0,
+        cash: '0.00',
+        cash_refund: '100.00',
+      });
+      expect(await collectionSnapshot(native.db.get('writer'), '1', last, finance)).toMatchObject({
+        order_count: 0,
+        cash: '100.00',
+        cash_refund: '0.00',
+      });
+    });
+    it('the actual current cash ledger shows net physical cash without fake product-return rows', async () => {
+      await reversals.create(manager, '1', orderId, await input());
+      await native.fixture.insert('store_cash_opening_balance', {
+        store_id: 1,
+        balance_date: today,
+        amount: 50,
+      });
+      const result = await cashLedgerService(
+        native.config,
+        native.db,
+        ledgerOptions({}),
+        undefined,
+        () => time,
+        { proofKey: native.config.SESSION_SECRET },
+      ).read(manager, ['1'], today, today);
+      expect(result.reader).toBe('data');
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]).toMatchObject({
+        sales_cash: '0.00',
+        opening_cash: '50.00',
+        running_total: '50.00',
+        status: 'NOT_CLOSED',
+      });
+      expect(await rows('SELECT id FROM return_orders')).toHaveLength(0);
+      expect(
+        (await rows('SELECT is_refunded FROM amount_to_be_refunded_log'))[0]!.is_refunded,
+      ).toBeNull();
+    });
+    it('actual DSR retains source revenue/quantities and one order while preventing fake online residual cash', async () => {
+      await native.connection.query("UPDATE orders SET country_id='India' WHERE id=?", [orderId]);
+      const service = reportService(native.config, native.db, {
+        clock: () => time,
+        paymentCorrections: { proofKey: native.config.SESSION_SECRET },
+        warehouse: {
+          async dailyRollups() {
+            throw new Error('No historical MySQL fallback');
+          },
+          async auxiliary() {
+            return { footfall: {}, target: {} };
+          },
+        },
+      });
+      const before = await service.daily(manager, { storeIds: ['1'], from: today, to: today });
+      expect(before.data).toHaveLength(1);
+      await reversals.create(manager, '1', orderId, await input());
+      const reversed = await service.daily(manager, { storeIds: ['1'], from: today, to: today });
+      expect(reversed.data[0]).toMatchObject({
+        store_orders: 1,
+        cash: 100,
+        total_online: 0,
+        payment_correction_cash_out: 100,
+        cash_after_payment_corrections: 0,
+      });
+      expect(reversed.totals.total_qty).toBe(before.totals.total_qty);
+      expect(reversed.totals.total_revenue).toBe(before.totals.total_revenue);
+      await payments.start(manager, '1', orderId, paymentInput());
+      const repaid = await service.daily(manager, { storeIds: ['1'], from: today, to: today });
+      expect(repaid.data[0]).toMatchObject({
+        store_orders: 1,
+        cash: 200,
+        total_online: 0,
+        payment_correction_cash_out: 100,
+        cash_after_payment_corrections: 100,
+      });
+      expect(repaid.totals.total_qty).toBe(before.totals.total_qty);
+      expect(repaid.totals.total_revenue).toBe(before.totals.total_revenue);
+    });
+    it('day snapshots stay consistent when a correction commits between repeated reads in the same native transaction', async () => {
+      const finance = { proofKey: native.config.SESSION_SECRET };
+      await native.db.get('data').transaction(
+        async (tx) => {
+          expect(await collectionSnapshot(tx, '1', today, finance)).toMatchObject({
+            cash: '100.00',
+            cash_refund: '0.00',
+            order_count: 1,
+          });
+          await reversals.create(manager, '1', orderId, await input());
+          expect(await collectionSnapshot(tx, '1', today, finance)).toMatchObject({
+            cash: '100.00',
+            cash_refund: '0.00',
+            order_count: 1,
+          });
+        },
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      );
+      expect(await collectionSnapshot(native.db.get('writer'), '1', today, finance)).toMatchObject({
+        cash: '100.00',
+        cash_refund: '100.00',
+        order_count: 1,
+      });
+    });
+    it('retains immutable corrections through later refunds/status/archive changes and refuses missing or changed financial proofs', async () => {
+      const finance = { proofKey: native.config.SESSION_SECRET };
+      await reversals.create(manager, '1', orderId, await input());
+      await native.connection.query('UPDATE pos_user SET is_active=0 WHERE id=44');
+      await native.connection.query(
+        'UPDATE orders SET order_status=0,payment_status=7 WHERE id=?',
+        [orderId],
+      );
+      await native.fixture.insert('return_orders', {
+        order_id: orderId,
+        has_product_id: '9007199254740994',
+        store_id: 1,
+        created_at: `${today} 15:00:00`,
+      });
+      await native.connection.query(
+        "UPDATE amount_to_be_refunded_log SET is_refunded=1,refund_mode='cash',refunded_amt=25 WHERE order_id=?",
+        [orderId],
+      );
+      expect(await collectionSnapshot(native.db.get('writer'), '1', today, finance)).toMatchObject({
+        cash: '100.00',
+        cash_refund: '125.00',
+        order_count: 1,
+      });
+      await expect(
+        collectionSnapshot(native.db.get('writer'), '1', today, {}),
+      ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_EVIDENCE_INVALID' });
+      await native.connection.query(
+        "UPDATE pos_rewrite_payment_correction_cash SET amount=amount+0.01 WHERE direction='out'",
+      );
+      await expect(
+        collectionSnapshot(native.db.get('writer'), '1', today, finance),
+      ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_EVIDENCE_INVALID' });
+    });
+    it('does not treat a missing later incoming cash movement as zero after a corrected order is paid again', async () => {
+      await reversals.create(manager, '1', orderId, await input());
+      const paid = await payments.start(manager, '1', orderId, paymentInput());
+      await native.connection.query('DELETE FROM pos_rewrite_payment_correction_cash WHERE id=?', [
+        `${paid.id}:in`,
+      ]);
+      await expect(
+        collectionSnapshot(native.db.get('writer'), '1', today, {
+          proofKey: native.config.SESSION_SECRET,
+        }),
+      ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_EVIDENCE_INVALID' });
+    });
+    it('rejects oversized native funding JSON before loading financial bodies', async () => {
+      await reversals.create(manager, '1', orderId, await input());
+      await native.connection.query(
+        "UPDATE pos_rewrite_payment_attempts SET state=JSON_SET(state,'$.unsupportedLargePayload',REPEAT('x',2100000)) WHERE id=?",
+        [original.id],
+      );
+      await expect(
+        collectionSnapshot(native.db.get('writer'), '1', today, {
+          proofKey: native.config.SESSION_SECRET,
+        }),
+      ).rejects.toMatchObject({ code: 'PAYMENT_CORRECTION_EVIDENCE_INVALID' });
     });
     it('original payment create replay is effectively reversed and cannot trigger another paid completion', async () => {
       const raw = await rows('SELECT state FROM pos_rewrite_payment_attempts WHERE id=?', [
@@ -735,6 +954,22 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
       expect(plan[0]?.key).toBe('ix_payment_outbox_order_state');
       expect(plan[0]?.type).toBe('ref');
       await reversals.create(manager, '1', orderId, await input());
+      // A one-row table may correctly choose a covering index scan. Establish
+      // selective out-of-scope data before assessing this range access path.
+      await native.connection.query(
+        'INSERT INTO pos_rewrite_payment_correction_orders(order_id,store_id,counter_id,order_date,first_payment_id,input_hash) VALUES ?',
+        [
+          Array.from({ length: 1000 }, (_, index) => [
+            (10000000000000000n + BigInt(index)).toString(),
+            '999',
+            '3',
+            today,
+            crypto.randomUUID(),
+            '0'.repeat(64),
+          ]),
+        ],
+      );
+      await native.connection.query('ANALYZE TABLE pos_rewrite_payment_correction_orders');
       const dayPlan = await rows(
         'EXPLAIN SELECT order_id FROM pos_rewrite_payment_correction_orders FORCE INDEX(payment_correction_order_day) WHERE store_id=? AND order_date BETWEEN ? AND ?',
         ['1', today, today],

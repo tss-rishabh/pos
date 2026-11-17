@@ -22,6 +22,11 @@ import { financeCommands } from './schema.js';
 import { checkInService } from '../administration/checkins.js';
 import { storeRolloutEnabled } from '../../domain/rollout.js';
 import { assertCurrentOperatorRole } from '../administration/authorization.js';
+import {
+  currentPaymentCorrectionCash,
+  paymentCorrectionFinanceOptions,
+  type PaymentCorrectionFinanceOptions,
+} from './payment-corrections.js';
 import { aggregateOfflineCash, matchedImportedOfflineOrder } from './offline-cash.js';
 import {
   canClose,
@@ -75,10 +80,12 @@ export async function collectionSnapshot(
   db: FinanceExecutor,
   storeId: string,
   date: string,
+  corrections: PaymentCorrectionFinanceOptions = paymentCorrectionFinanceOptions(),
 ): Promise<CollectionSnapshot> {
   const start = `${date} 00:00:00`,
     end = `${Temporal.PlainDate.from(date).add({ days: 1 })} 00:00:00`;
   const [offline] = await aggregateOfflineCash(db, [storeId], date, date);
+  const [correction] = await currentPaymentCorrectionCash(db, [storeId], date, date, corrections);
   // Exact source predicates; do not add order-status exclusions to cash collection.
   const district = and(
     sql`${OrderStore.district_transaction_id} is not null`,
@@ -124,17 +131,24 @@ export async function collectionSnapshot(
         exists(refundedLine),
       ),
     );
-  const cash = money(new Decimal(collection?.cash || '0').plus(offline?.cash || '0')),
+  const cash = money(
+      new Decimal(collection?.cash || '0')
+        .plus(offline?.cash || '0')
+        .plus(correction?.cashAdjustment || '0'),
+    ),
     card = money(collection?.card),
     onlineOther = money(collection?.onlineOther);
   return {
-    order_count: Number(collection?.orderCount || 0) + (offline?.orderCount || 0),
+    order_count:
+      Number(collection?.orderCount || 0) +
+      (offline?.orderCount || 0) +
+      (correction?.orderCountAdjustment || 0),
     cash,
     card_upi: card,
     district: money(collection?.district),
     online_other: onlineOther,
     total_online: money(new Decimal(card).plus(onlineOther)),
-    cash_refund: money(refund?.cashRefund),
+    cash_refund: money(new Decimal(refund?.cashRefund || '0').plus(correction?.cashOut || '0')),
   };
 }
 export function financeService(
@@ -145,6 +159,7 @@ export function financeService(
     databases,
     config,
   ),
+  corrections: PaymentCorrectionFinanceOptions = paymentCorrectionFinanceOptions(),
 ) {
   const nowSql = () => localTimestamp(clock(), config.BUSINESS_TIMEZONE);
   async function enabled(user: Principal, storeId: string, db: FinanceExecutor) {
@@ -167,7 +182,7 @@ export function financeService(
       const db = databases.get('writer');
       const { snapshot, close: observedClose } = await db.transaction(
         async (transaction) => ({
-          snapshot: await collectionSnapshot(transaction, storeId, selected),
+          snapshot: await collectionSnapshot(transaction, storeId, selected, corrections),
           close: await activeClose(transaction, storeId, selected),
         }),
         {
@@ -298,7 +313,7 @@ export function financeService(
           );
           if (!permission.allowed)
             throw new AppError(409, 'DAY_CLOSE_NOT_ALLOWED', permission.message);
-          const snapshot = await collectionSnapshot(tx, storeId, date),
+          const snapshot = await collectionSnapshot(tx, storeId, date, corrections),
             errors = discrepancyErrors(snapshot, entries, config.DAY_CLOSE_TOLERANCE);
           if (errors.length) throw new AppError(400, 'DAY_CLOSE_EXPLANATION_REQUIRED', errors[0]!);
           const version = expectedVersion + 1;

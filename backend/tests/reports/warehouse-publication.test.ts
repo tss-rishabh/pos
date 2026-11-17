@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import type { Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
+import {
+  sealPaymentCorrectionPartition,
+  paymentCorrectionPublicationContract,
+} from '../../src/modules/finance/payment-correction-publication.js';
 import { reportService } from '../../src/modules/reports.js';
 import {
   dailyOfflineWarehouseContract,
@@ -112,6 +116,7 @@ describe('daily warehouse publication and offline projection boundaries', () => 
       generationId: 'fixture_generation_42',
       publishedAt: '2026-11-16T07:59:50Z',
       cdcWatermark: '2026-11-16T07:59:30Z',
+      sourcePosition: 'mysql-bin.000042:123456',
     });
     expect(f.calls).toHaveLength(3);
     for (const call of f.calls) {
@@ -271,7 +276,44 @@ describe('daily warehouse publication and offline projection boundaries', () => 
         readDailyWarehouseRollups(config, options, f.query, stores, from, to, now),
       auxiliary,
     };
-    const result = await reportService(config, db, { warehouse, clock: () => now }).daily(user, {
+    const proofKey = 'daily-correction-fixture-proof-key-'.repeat(2),
+      paymentCorrections = {
+        proofKey,
+        publicationTable: 'fixture-project.pos.payment_publications',
+      };
+    const queryFor = (baselineHash: string | null) => async () => [
+      sealPaymentCorrectionPartition(
+        {
+          contract: paymentCorrectionPublicationContract,
+          kind: 'daily',
+          generationId: 'fixture_generation_42',
+          sourcePosition: 'mysql-bin.000042:123456',
+          cdcWatermark: '2026-11-16T07:59:30Z',
+          publishedAt: '2026-11-16T07:59:50Z',
+          businessTimezone: 'Asia/Kolkata',
+          storeId: '1',
+          businessDate: '2026-11-15',
+          payload: {
+            storeName: 'Fixture 1',
+            locationCode: 'FIX-1',
+            baselineHash,
+            sourceCashRemoval: '0.00',
+            sourceOnlineRemoval: '0.00',
+            sourceOrderCountRemoval: 0,
+            cashIn: '0.00',
+            cashOut: '0.00',
+            logicalOrderCount: 0,
+          },
+        },
+        proofKey,
+      ),
+    ];
+    const result = await reportService(config, db, {
+      warehouse,
+      clock: () => now,
+      paymentCorrections,
+      paymentCorrectionQuery: queryFor('a'.repeat(64)),
+    }).daily(user, {
       storeIds: ['1'],
       from: '2026-11-15',
       to: '2026-11-15',
@@ -300,6 +342,8 @@ describe('daily warehouse publication and offline projection boundaries', () => 
               readDailyWarehouseRollups(config, options, empty.query, stores, from, to, now),
           },
           clock: () => now,
+          paymentCorrections,
+          paymentCorrectionQuery: queryFor(null),
         }).daily(user, { storeIds: ['1'], from: '2026-11-15', to: '2026-11-15' })
       ).data,
     ).toEqual([]);
