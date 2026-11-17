@@ -20,7 +20,7 @@ component test counts do not certify every original workflow.
 | Benefits                 | Money/Points adjustments, exact-paise vouchers/conversion and approved cancellation expiry restoration, with native concurrency/rollback checks. Unproved legacy funding and membership provenance remain gated.                                                                                                                                                                                                                                                      |
 | Administration           | Store/operator/counter administration, reversible archives, stock imports, approvals, gift-card batches, access controls and history. See the administration feature map.                                                                                                                                                                                                                                                                                             |
 | Reports and fulfillment  | Daily/historical reader separation, financial/reporting screens, fulfillment, scoped invoice variants and queued CSV/XLSX exports. Warehouse publication and real provider acceptance remain required.                                                                                                                                                                                                                                                                |
-| Web and desktop | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both target-OS CI jobs pass completely on `1e129d6`, including unsigned packaging, packaged integrity, native restart, sandbox and offline profile. Signing and physical printers remain release gates. |
+| Web and desktop | React web build, Electron Windows/macOS targets, renderer isolation and offline shell. Both target-OS CI jobs pass completely on `a9bf480`, including unsigned packaging, packaged integrity, native restart, sandbox and offline profile. Signing and physical printers remain release gates. |
 | Cashier conveniences     | Scoped letter shortcuts, help/off switch and source staff quotes with asynchronous refresh. Ten shortcut unit cases, eight combined shortcut/cash browser cases, quote source/HTTP checks and quote/desktop browser checks pass.                                                                                                                                                                                                                                      |
 | Dashboard and website    | Dashboard reader separation and the one-use, verified-customer website handoff are integrated. Source/native/browser checks pass; warehouse publication and actual website receiver acceptance remain required.                                                                                                                                                                                                                                                       |
 | Barcode and country      | Atomic barcode assignment/audit/recovery, secondary-country search and the franchise store-picker fix are integrated. Twenty-four backend and twelve frontend checks pass, including native races and browser recovery.                                                                                                                                                                                                                                               |
@@ -44,10 +44,18 @@ the owned financial transaction; 20 real session-backed contenders conserve one
 settlement. Rewrite-owned shared/source ledgers and provider evidence are in the
 explicit migration plan and container copies. No constructor executes DDL.
 
-These focused checks extend the frozen `1e129d6` consolidated/native baseline;
+The immutable benefit-contract/capsule core and late native coupon-head fence
+are now merged. Their combined check on `20d7380` passes 103 cases across seven
+files, including 11 Python/MySQL race, rollback, owner cleanup and final commit
+checks. Twenty-digit unsigned head revisions remain exact. The fixture compiler
+passes; `backend/evidence/coupon-head-and-bindings-20d7380.json` binds the focused
+result. Source-runtime wiring for this validator and the bounded BigQuery history
+provider remain separately assigned integration work.
+
+These focused checks extend the frozen `1e129d6` complete-project baseline;
 they do not replace it with a new complete-project result. Historical coupon
-publication, final current-head validation and source benefit preparation remain
-code work. Public ticket/membership/gift combinations, other writer origins and
+publication and source benefit preparation remain code work.
+Public ticket/membership/gift combinations, other writer origins and
 benefit-aware abandonment also remain unqualified code paths. See
 `backend/parity/public-screening-api.md`, `source-private-runtime.md`,
 `csv-consumed-benefit-recovery.md` and `csv-coupon-history-publication.md`.
@@ -104,16 +112,24 @@ private receiver container target build; its default command passes a
 network-disabled container smoke check. These do not certify real ingress or
 provider acceptance.
 
-Native CI on `1e129d6` passes both Windows and macOS completely, including
+Native CI on `a9bf480` passes both Windows and macOS completely, including
 unsigned target-OS packaging, packaged integrity, native restart, sandbox and
-offline profile (run `44099436914`). Exact job/step results are retained in
-`backend/evidence/desktop-ci-1e129d6.json`. Earlier failed snapshots remain
+offline profile (run `44118917035`). Exact job/step results are retained in
+`backend/evidence/desktop-ci-a9bf480.json`; the earlier complete `1e129d6` result
+is preserved separately. Earlier failed snapshots remain
 available, including the sign-in restoration race, fixture commit ordering,
 uncontrolled browser connectivity and cold fixture setup. Their fixes retain
 the original deadlines and assertions. See
 `backend/parity/native-browser-readiness.md`. New integrations still need their
 own affected checks; signing, real printers and full workflow certification
 remain required.
+
+The route collector ran directly under Node on `112b7b6` and records 444
+registered API method/path resources, excluding HEAD and OPTIONS, with commit
+and input provenance in `backend/evidence/routes.json`. This is the isolated
+review configuration's registration count. It does not certify 444 completed
+workflows. `backend/parity/rewrite-status.md` separates the implementation map
+from the still-empty source-surface certification ledger and release requirements.
 
 Membership completion snapshots and actual application/worker recovery are now
 integrated. On `6ec6824`, 125 membership, runtime, repository and resumptions

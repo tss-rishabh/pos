@@ -1,21 +1,33 @@
 {
-  "apiRoutes": 282,
+  "apiRoutes": 444,
   "byModule": {
-    "administration": 107,
+    "administration": 146,
     "administration-history": 2,
     "application-links": 7,
     "catalog": 1,
     "catalog-details": 14,
-    "checkout": 73,
+    "checkout": 120,
+    "checkout-performance": 3,
+    "customer-contacts": 9,
+    "customer-history": 2,
+    "customer-website-handoff": 4,
+    "customer-workspace": 5,
+    "dashboard": 3,
     "finance": 12,
     "fulfillment": 18,
-    "identity": 20,
+    "gift-card-batches": 10,
+    "global-vouchers": 7,
+    "identity": 26,
+    "legacy-fulfillment": 14,
     "notifications": 3,
     "operational-reports": 18,
-    "orders": 2,
+    "orders": 4,
+    "product-feedback": 3,
     "reports": 1,
     "special-permission-history": 2,
-    "stores": 2
+    "stores": 2,
+    "whole-order-status": 7,
+    "workspace": 1
   },
   "routes": [
     {
@@ -84,18 +96,66 @@
     },
     {
       "module": "identity",
-      "resource": "sso-session",
-      "action": "authorize",
+      "resource": "sso-authorization",
+      "action": "create",
       "method": "GET",
       "path": "/api/v1/auth/sso/login",
       "authentication": "session"
     },
     {
       "module": "identity",
-      "resource": "sso-session",
-      "action": "complete",
+      "resource": "sso-callback",
+      "action": "verify",
       "method": "GET",
       "path": "/api/v1/auth/sso/callback",
+      "authentication": "session"
+    },
+    {
+      "module": "identity",
+      "resource": "desktop-sso-session",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/auth/desktop-sso-sessions",
+      "authentication": "session"
+    },
+    {
+      "module": "identity",
+      "resource": "desktop-sso-session",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/auth/desktop-sso-sessions/:id",
+      "authentication": "session"
+    },
+    {
+      "module": "identity",
+      "resource": "desktop-sso-consumption",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/auth/desktop-sso-sessions/:id/consumptions",
+      "authentication": "session"
+    },
+    {
+      "module": "identity",
+      "resource": "desktop-sso-cancellation",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/auth/desktop-sso-sessions/:id/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "identity",
+      "resource": "desktop-sso-approval",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/auth/desktop-sso/approval",
+      "authentication": "session"
+    },
+    {
+      "module": "identity",
+      "resource": "desktop-sso-approval",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/auth/desktop-sso/approval",
       "authentication": "session"
     },
     {
@@ -280,6 +340,22 @@
       "action": "delete",
       "method": "DELETE",
       "path": "/api/v1/admin/access/groups/:groupId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "model-administration-group-selection",
+      "action": "preview",
+      "method": "POST",
+      "path": "/api/v1/admin/access/group-deletion-previews",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "model-administration-group-selection",
+      "action": "delete",
+      "method": "POST",
+      "path": "/api/v1/admin/access/group-deletions",
       "authentication": "session"
     },
     {
@@ -1035,6 +1111,334 @@
       "authentication": "session"
     },
     {
+      "module": "administration",
+      "resource": "ecommerce-settings-operation",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/admin/stores/:storeId/ecommerce-settings/operations/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "ecommerce-inventory-sync",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/admin/stores/:storeId/ecommerce-inventory-syncs/:syncId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "ecommerce-inventory-sync",
+      "action": "retry",
+      "method": "POST",
+      "path": "/api/v1/admin/stores/:storeId/ecommerce-inventory-syncs/:syncId/retries",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "ecommerce-settings-operation",
+      "action": "cancel",
+      "method": "POST",
+      "path": "/api/v1/admin/stores/:storeId/ecommerce-settings/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "ecommerce-inventory-sync-record",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/admin/stores/:storeId/ecommerce-inventory-syncs/:syncId/records",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "barcode-assignment",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/admin/barcode-assignments",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "barcode-assignment",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/admin/barcode-assignments/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "operator-model-account",
+      "action": "capabilities",
+      "method": "GET",
+      "path": "/api/v1/admin/operator-model-accounts/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "operator-model-account",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/admin/operator-model-accounts",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "operator-model-account",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/admin/operator-model-accounts/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "order-import-correction",
+      "action": "review",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/:jobId/orders/:operationId/corrections",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "order-import-correction",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/admin/order-imports/:jobId/orders/:operationId/corrections",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "order-import-correction",
+      "action": "recovery",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/:jobId/orders/:operationId/corrections/:correctionId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "capabilities",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "template",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/templates/:kind",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "preview",
+      "method": "POST",
+      "path": "/api/v1/admin/order-imports/previews",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/admin/order-imports",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/:jobId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "results",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/:jobId/results",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "cancel",
+      "method": "POST",
+      "path": "/api/v1/admin/order-imports/:jobId/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "resume",
+      "method": "POST",
+      "path": "/api/v1/admin/order-imports/:jobId/resumptions",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "resume-read",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/:jobId/resumptions/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "approval-read",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/:jobId/orders/:operationId/approvals",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "approval-recovery",
+      "method": "GET",
+      "path": "/api/v1/admin/order-imports/:jobId/orders/:operationId/approvals/:commandId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "historical-order-import",
+      "action": "approval-create",
+      "method": "POST",
+      "path": "/api/v1/admin/order-imports/:jobId/orders/:operationId/approvals",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "secondary-country",
+      "action": "search",
+      "method": "POST",
+      "path": "/api/v1/countries/secondary/search",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "capabilities",
+      "method": "GET",
+      "path": "/api/v1/admin/parent-store-imports/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "template",
+      "method": "GET",
+      "path": "/api/v1/admin/parent-store-imports/template",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "preview",
+      "method": "POST",
+      "path": "/api/v1/admin/parent-store-imports/preview",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/admin/parent-store-imports",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "list",
+      "method": "GET",
+      "path": "/api/v1/admin/parent-store-imports",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "history",
+      "method": "GET",
+      "path": "/api/v1/admin/parent-store-imports/history",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/admin/parent-store-imports/:importId",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "records",
+      "method": "GET",
+      "path": "/api/v1/admin/parent-store-imports/:importId/rows",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "failures",
+      "method": "GET",
+      "path": "/api/v1/admin/parent-store-imports/:importId/failures.csv",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "resume",
+      "method": "POST",
+      "path": "/api/v1/admin/parent-store-imports/:importId/resume",
+      "authentication": "session"
+    },
+    {
+      "module": "administration",
+      "resource": "parent-store-import",
+      "action": "cancel",
+      "method": "POST",
+      "path": "/api/v1/admin/parent-store-imports/:importId/cancel",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "screening-admission",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/screening-admissions/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "screening-admission",
+      "action": "reconcile",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/screening-admissions/:operationId/reconciliations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "screening-admission",
+      "action": "close-unsent",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/screening-admissions/:operationId/closures",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "screening-admission",
+      "action": "abandon",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/screening-admissions/:operationId/abandonments",
+      "authentication": "session"
+    },
+    {
       "module": "checkout",
       "resource": "checkout-session",
       "action": "create",
@@ -1292,6 +1696,22 @@
     },
     {
       "module": "checkout",
+      "resource": "checkout-settlement-note",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/settlement-note",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "checkout-settlement-note",
+      "action": "update",
+      "method": "PUT",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/settlement-note",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
       "resource": "customer-verification",
       "action": "send",
       "method": "POST",
@@ -1304,6 +1724,14 @@
       "action": "confirm",
       "method": "POST",
       "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-verification/confirmations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "customer-verification",
+      "action": "reconcile",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-verification/reconciliations",
       "authentication": "session"
     },
     {
@@ -1380,6 +1808,22 @@
     },
     {
       "module": "checkout",
+      "resource": "order-payment-context",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/payment-context",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "legacy-payment-recovery",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/legacy-payment-recoveries",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
       "resource": "payment-option",
       "action": "list",
       "method": "GET",
@@ -1428,6 +1872,30 @@
     },
     {
       "module": "checkout",
+      "resource": "pending-order-cancellation",
+      "action": "list",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "pending-order-cancellation",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "pending-order-cancellation",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cancellations/:cancellationId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
       "resource": "return-verification",
       "action": "create",
       "method": "POST",
@@ -1456,6 +1924,14 @@
       "action": "confirm",
       "method": "POST",
       "path": "/api/v1/stores/:storeId/return-verifications/:verificationId/confirmations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "return-verification",
+      "action": "reconcile",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/return-verifications/:verificationId/reconciliations",
       "authentication": "session"
     },
     {
@@ -1540,6 +2016,110 @@
     },
     {
       "module": "checkout",
+      "resource": "order-copy-review",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copy-reviews",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "order-copy-review",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copy-reviews/:reviewId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "order-copy",
+      "action": "read-current",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copies/current",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "order-copy",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copies/:copyId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "order-copy",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copies",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "order-copy-cancellation",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copies/:copyId/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "order-copy-cancellation",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copies/:copyId/cancellations/:cancellationId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "order-copy",
+      "action": "continue",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copies/:copyId/continuations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "order-copy",
+      "action": "acknowledge",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/order-copies/:copyId/acknowledgements",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "wallet-adjustment-capability",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/wallet-adjustment-capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "benefit-customer-lookup",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/benefit-customer-lookups",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "wallet-adjustment",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/wallet-adjustments",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "wallet-adjustment",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/wallet-adjustments/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
       "resource": "offline-cash-device",
       "action": "register",
       "method": "POST",
@@ -1601,6 +2181,214 @@
       "method": "POST",
       "path": "/api/v1/stores/:storeId/offline-cash-receipts/:receiptId/manager-reviews",
       "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "payment-reversal",
+      "action": "list",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/payment-reversals",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "payment-reversal",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/payment-reversals/:reversalId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "payment-reversal",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/payment-reversals",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-intent",
+      "action": "prepare",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-intents",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-intent",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-intents/:intentId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-command",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-intents/:intentId/operations/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-intent",
+      "action": "arm",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-intents/:intentId/armings",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-intent",
+      "action": "attest",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-intents/:intentId/attestations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-intent",
+      "action": "cancel",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-intents/:intentId/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-intent",
+      "action": "resolve",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-intents/:intentId/reconciliations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-queue",
+      "action": "list",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/cash-return-intents",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-claim",
+      "action": "retain",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-claims",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-claim",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-claims/:claimId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-claim",
+      "action": "resolve",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/cash-return-claims/:claimId/reconciliations",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "cash-return-claim-queue",
+      "action": "list",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/cash-return-claims",
+      "authentication": "session"
+    },
+    {
+      "module": "global-vouchers",
+      "resource": "gift-voucher-capability",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/gift-vouchers/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "global-vouchers",
+      "resource": "gift-voucher-customer-lookup",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/gift-voucher-customer-lookups",
+      "authentication": "session"
+    },
+    {
+      "module": "global-vouchers",
+      "resource": "gift-voucher-issuance",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/gift-voucher-issuances",
+      "authentication": "session"
+    },
+    {
+      "module": "global-vouchers",
+      "resource": "gift-voucher-operation",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/gift-voucher-operations/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "global-vouchers",
+      "resource": "gift-voucher-operation-cancellation",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/gift-voucher-operations/:operationId/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "global-vouchers",
+      "resource": "gift-voucher-conversion",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/voucher-conversions",
+      "authentication": "session"
+    },
+    {
+      "module": "global-vouchers",
+      "resource": "gift-voucher-conversion-capability",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/voucher-conversions/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-website-handoff",
+      "resource": "website-handoff",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-website-handoffs/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-website-handoff",
+      "resource": "website-handoff",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-website-handoffs",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-website-handoff",
+      "resource": "website-handoff",
+      "action": "revoke",
+      "method": "DELETE",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-website-handoffs/:grantId",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-website-handoff",
+      "resource": "website-handoff-redemption",
+      "action": "consume",
+      "method": "POST",
+      "path": "/api/v1/auth/customer-website-handoffs/redemptions",
+      "authentication": "service"
     },
     {
       "module": "fulfillment",
@@ -1768,6 +2556,382 @@
       "action": "preview",
       "method": "GET",
       "path": "/api/v1/stores/:storeId/fulfillment/orders/:orderId/shipping-label/preview",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "delivery-workflow",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/local-deliveries/orders/:orderId/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "delivery-command-history",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/local-deliveries/orders/:orderId/commands",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "courier-request",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/local-deliveries/orders/:orderId/courier-requests",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "delivery-transfer",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/local-deliveries/orders/:orderId/transfers",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "online-conversion",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/local-deliveries/orders/:orderId/online-conversions",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "delivery-cancellation",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/local-deliveries/orders/:orderId/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "delivery-command",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/local-delivery-commands/:commandId",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "delivery-reconciliation",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/local-delivery-commands/:commandId/reconciliations",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "legacy-order",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/legacy-fulfillment/orders/:orderId",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "legacy-packing",
+      "action": "create",
+      "method": "PUT",
+      "path": "/api/v1/stores/:storeId/legacy-fulfillment/orders/:orderId/packing",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "legacy-rto-receipt",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/legacy-fulfillment/orders/:orderId/rto-receipts",
+      "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "legacy-fulfillment-command",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/legacy-fulfillment/commands/:commandId",
+      "authentication": "session"
+    },
+    {
+      "module": "whole-order-status",
+      "resource": "whole-order-status",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/fulfillment-status",
+      "authentication": "session"
+    },
+    {
+      "module": "whole-order-status",
+      "resource": "whole-order-status-command",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/status-requests",
+      "authentication": "session"
+    },
+    {
+      "module": "whole-order-status",
+      "resource": "whole-order-status-command",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/status-requests/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "whole-order-status",
+      "resource": "whole-order-return-status-repair",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/status-repairs",
+      "authentication": "session"
+    },
+    {
+      "module": "whole-order-status",
+      "resource": "return-repair-obligation",
+      "action": "list",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/status-repair-obligations",
+      "authentication": "session"
+    },
+    {
+      "module": "whole-order-status",
+      "resource": "return-repair-obligation",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/status-repair-obligations/:returnId",
+      "authentication": "session"
+    },
+    {
+      "module": "whole-order-status",
+      "resource": "return-repair-obligation",
+      "action": "recover",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/status-repair-obligations/:returnId/recoveries",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-workspace",
+      "resource": "customer-profile",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-profile",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-workspace",
+      "resource": "customer-benefit",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-benefits",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-workspace",
+      "resource": "customer-insight",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-insights",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-workspace",
+      "resource": "customer-profile-adjustment",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-profile-adjustments",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-workspace",
+      "resource": "customer-profile-adjustment",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-profile-adjustments/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-history",
+      "resource": "customer-history",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-history",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-history",
+      "resource": "customer-order-lines",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-orders/:orderId/lines",
+      "authentication": "session"
+    },
+    {
+      "module": "product-feedback",
+      "resource": "product-feedback",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customers/:customerId/orders/:orderId/product-feedback",
+      "authentication": "session"
+    },
+    {
+      "module": "product-feedback",
+      "resource": "product-feedback",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customers/:customerId/orders/:orderId/product-feedback",
+      "authentication": "session"
+    },
+    {
+      "module": "product-feedback",
+      "resource": "product-feedback-submission",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customers/:customerId/orders/:orderId/product-feedback/submissions/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout-performance",
+      "resource": "checkout-performance",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/performance",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout-performance",
+      "resource": "checkout-performance",
+      "action": "record",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/performance",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout-performance",
+      "resource": "checkout-performance-submission",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/performance/submissions/:operationId",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "invoice-preview",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/operators/:operatorId/stores/:storeId/orders/:orderId/invoices/:kind/preview",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "online-tax-invoice",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/invoices/online",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "online-tax-invoice",
+      "action": "preview",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/invoices/online/preview",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "invoice-capabilities",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/invoices/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "same-day-tax-invoice",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/invoices/same-day",
+      "authentication": "session"
+    },
+    {
+      "module": "checkout",
+      "resource": "express-tax-invoice",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/orders/:orderId/invoices/express",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "read-workspace",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contacts",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contact-challenges",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contact-challenges/:challengeId",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "verify",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contact-challenges/:challengeId/verifications",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "resend",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contact-challenges/:challengeId/resends",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "commit",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contact-challenges/:challengeId/commits",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "cancel",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contact-challenges/:challengeId/cancellations",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "recover-sync",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contact-challenges/:challengeId/synchronization-retries",
+      "authentication": "session"
+    },
+    {
+      "module": "customer-contacts",
+      "resource": "customer-contact-challenge",
+      "action": "read-operation",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-contact-challenges/:challengeId/operations/:operationId",
       "authentication": "session"
     },
     {
@@ -2195,6 +3359,118 @@
       "authentication": "service"
     },
     {
+      "module": "workspace",
+      "resource": "motivational-quote",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/motivational-quotes/random",
+      "authentication": "session"
+    },
+    {
+      "module": "dashboard",
+      "resource": "current-summary",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/dashboard/overview",
+      "authentication": "session"
+    },
+    {
+      "module": "dashboard",
+      "resource": "daily-orders",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/dashboard/orders/today",
+      "authentication": "session"
+    },
+    {
+      "module": "dashboard",
+      "resource": "order-history",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/dashboard/orders/history",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "generation-job",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/gift-card-batches/current-jobs",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch",
+      "action": "capabilities",
+      "method": "GET",
+      "path": "/api/v1/gift-card-batches/capabilities",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch-history",
+      "action": "search",
+      "method": "POST",
+      "path": "/api/v1/gift-card-batches/search",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch",
+      "action": "create",
+      "method": "POST",
+      "path": "/api/v1/gift-card-batches",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/gift-card-batches/:batchId",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch-print-status",
+      "action": "update",
+      "method": "PUT",
+      "path": "/api/v1/gift-card-batches/:batchId/print-status",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch-block-status",
+      "action": "update",
+      "method": "PUT",
+      "path": "/api/v1/gift-card-batches/:batchId/block-status",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch-delivery",
+      "action": "retry",
+      "method": "POST",
+      "path": "/api/v1/gift-card-batches/:batchId/retries",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch-archive-password",
+      "action": "read",
+      "method": "POST",
+      "path": "/api/v1/gift-card-batches/:batchId/artifact-access",
+      "authentication": "session"
+    },
+    {
+      "module": "gift-card-batches",
+      "resource": "batch-archive",
+      "action": "download",
+      "method": "GET",
+      "path": "/api/v1/gift-card-batches/:batchId/archive",
+      "authentication": "session"
+    },
+    {
       "module": "administration-history",
       "resource": "model-history",
       "action": "read",
@@ -2259,6 +3535,22 @@
       "authentication": "session"
     },
     {
+      "module": "orders",
+      "resource": "order-search",
+      "action": "read",
+      "method": "POST",
+      "path": "/api/v1/stores/:storeId/orders/searches",
+      "authentication": "session"
+    },
+    {
+      "module": "orders",
+      "resource": "order-search-options",
+      "action": "read",
+      "method": "GET",
+      "path": "/api/v1/stores/:storeId/order-search-options",
+      "authentication": "session"
+    },
+    {
       "module": "checkout",
       "resource": "cart-draft",
       "action": "list",
@@ -2273,6 +3565,46 @@
       "method": "PUT",
       "path": "/api/v1/stores/:storeId/cart-drafts/:draftId",
       "authentication": "session"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "delivery-arrival",
+      "action": "receive",
+      "method": "POST",
+      "path": "/api/v1/integrations/local-deliveries/arrivals",
+      "authentication": "service"
+    },
+    {
+      "module": "legacy-fulfillment",
+      "resource": "delivery-observer-cancellation",
+      "action": "receive",
+      "method": "POST",
+      "path": "/api/v1/integrations/local-deliveries/cancellations",
+      "authentication": "service"
+    }
+  ],
+  "recordedAt": "2026-11-17T16:16:37.915221Z",
+  "rewriteCommit": "112b7b6b5ecd8c557a034d3e6d8eb7258480c062",
+  "command": "node@24.22.3 --import tsx tools/routes.ts",
+  "exitCode": 0,
+  "scope": "Registered /api/v1 method/path resources in isolated DEMO_MODE; excludes HEAD/OPTIONS. Registration is not full workflow parity or production acceptance.",
+  "productionReady": false,
+  "files": [
+    {
+      "path": "backend/tools/routes.ts",
+      "sha256": "d08ede48d8c43d31eb0d8e5bdaf896067528108857f4cb2986678ddc52202536"
+    },
+    {
+      "path": "backend/src/app.ts",
+      "sha256": "ed8a941c5d3064d2de90efc4a99c75a27f53eb4c0cd0e2affb6808719c56828a"
+    },
+    {
+      "path": "backend/src/observability/events.ts",
+      "sha256": "425f115c69689905268715f00dd9919cc13ef13db4f6455c91a812ff27aee38e"
+    },
+    {
+      "path": "backend/package-lock.json",
+      "sha256": "f9720784789d7ca8b2780a671fe592776303701569f8d9f0f0e270e94a5a9e69"
     }
   ]
 }

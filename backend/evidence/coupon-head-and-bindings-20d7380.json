@@ -1,0 +1,167 @@
+{
+  "recordedAt": "2026-11-17T16:15:24.895087Z",
+  "testedCommit": "20d73804d2f6fbf13f69836f819e3b760499d2ea",
+  "legacySourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "apiSourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "fullProjectVerification": false,
+  "productionReady": false,
+  "scope": "Immutable benefit-contract/capsule recovery and late native coupon-head fencing. Local disposable MySQL only; no live DDL/DML, cloud writes or providers.",
+  "checks": [
+    {
+      "command": "CHECKOUT_MYSQL_TEST_URL=[guarded localhost fixture] POS_LEGACY_IMPORT_SOURCE_ROOT=[immutable source] SCREENING_SOURCE_ROOT=[immutable source] node@24.22.3 vitest run tests/legacy-import-coupon-history tests/legacy-import-benefits/bridge.test.ts tests/legacy-import-preparation/benefit-bindings.test.ts tests/legacy-import-preparation/adapter.mysql.test.ts tests/legacy-import-benefits/completion.test.ts --maxWorkers=1",
+      "exitCode": 0,
+      "testFiles": 7,
+      "passed": 103
+    },
+    {
+      "command": "node@24.22.3 typescript -p tools/legacy-import-coupon-history/tsconfig.json",
+      "exitCode": 0
+    },
+    {
+      "command": "node@24.22.3 typescript --noEmit -p tsconfig.json",
+      "exitCode": 0,
+      "testedCommit": "45e30d40c648cecd60b6449f8731c85bb03c7283"
+    },
+    {
+      "command": "node@24.22.3 eslint [changed head/publication TS files]",
+      "exitCode": 0,
+      "testedCommit": "4f622dc (isolated source-equivalent head-fence worktree)"
+    }
+  ],
+  "cases": [
+    "Repeated owned writes preserve eligibility",
+    "Foreign order/coupon/log changes reject and roll back",
+    "Later foreign writers wait for the late fence",
+    "Pooled stale owner is discarded",
+    "Missing validation and mutations after validation cannot commit",
+    "20-digit unsigned revisions remain exact and overflow fails",
+    "Prepared immutable markers and combined encrypted history artifacts survive recovery"
+  ],
+  "limitations": [
+    "Runtime source/BQ preparation integration remains separately assigned",
+    "Cooperating writers and warehouse generations are not production-qualified",
+    "This is focused evidence, not an end-to-end source surface certificate"
+  ],
+  "files": [
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_history_heads.py",
+      "sha256": "4960f35234fd0d9330b42c8536c62aa229fe1a3d3b9f02260c3dc76fe582bc21"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/coupon-history-writers.review.json",
+      "sha256": "4221426d0def19fc05b16d33d5531fad681a48187342b925ec783d0c339eabb7"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/coupon-history-writers.review.sql",
+      "sha256": "5c9ed214a67add48a45d95b746162c93f0b2663c02f6f4c9a1d5f7edb53d9805"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/benefit-profile/history_heads_driver.py",
+      "sha256": "7143a41cde1dfeecf0b346bddfc0435f8e02cc2deb23fd25210e1ae4579c7374"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/screening_transaction.py",
+      "sha256": "f05c13db2fb1ca65d6f0b073466c90b78e07ab56baa204868aeb5008235941b4"
+    },
+    {
+      "path": "backend/compatibility/upstream/legacy-order-imports/transaction.py",
+      "sha256": "f62781477b97b0a5c18ae4c488a64168af50a25f0e789ff0695f45e564f6474e"
+    },
+    {
+      "path": "backend/package-lock.json",
+      "sha256": "f9720784789d7ca8b2780a671fe592776303701569f8d9f0f0e270e94a5a9e69"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/benefit-profile/completion.ts",
+      "sha256": "f02b20eed149c0f0818be81e48e31ae7eee0427c33b769df0ba59c393c584961"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/benefit-profile/history-publication.ts",
+      "sha256": "34efb27a53e9df96f2626aefef7110ae0d3936556d742649c5e1bef2eef8483c"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/benefit-profile/history-writers.ts",
+      "sha256": "f26155d71735c21c85f0fb0b7a774fecabd4b716da6ef0551acbafda7a58bed1"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-contracts.ts",
+      "sha256": "f9352b249f0251b2563a85659f785b32b07b1b507c23b29c94a500dca20c36c7"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-crypto.ts",
+      "sha256": "a48e91a352e80747055110d90ee69bd8c4b8386b408aa795580805d338fe4d6b"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-journal.ts",
+      "sha256": "cbcb8acd0f9acf5e843704cac1ae54eeb50f1b25e324c94a78acdc5e2e7caaee"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-preparation-contracts.ts",
+      "sha256": "6b0d14c6f3471f6c16d58fe3ca1cc66280fb8a0d76574d7362999823770dba15"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-preparation-ledger.ts",
+      "sha256": "59471e50604e5fd804b0d586dc61fe34d7808d9c759c05f7ced6b17910deb953"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-preparation.ts",
+      "sha256": "4974aad677faf964476e3f5449c967871ba41ea1895497781c548e48b1794363"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-profiles.ts",
+      "sha256": "4a27276f5889d0a2d239c833f531bab586e7360d851e15515e324e8d85b88bdb"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-proof.ts",
+      "sha256": "45ba47e152ded8f4b695f224f20309af4847c1da62d476610bff1cc45fd567fc"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter-record.ts",
+      "sha256": "56a221824365b15b1f9fc9b721e7697048ab16f2853b772c255b913480db9c95"
+    },
+    {
+      "path": "backend/src/modules/legacy-order-imports/financial-adapter.ts",
+      "sha256": "bf0e807658fb5d3b95e29015e70eced2dd4c7c4d657be1f6ba232cf820e8c98d"
+    },
+    {
+      "path": "backend/tests/legacy-import-benefits/completion.test.ts",
+      "sha256": "ba1de705f729c16698142981b1cc8f89c6ba8d879405187b99af9ca31a191095"
+    },
+    {
+      "path": "backend/tests/legacy-import-coupon-history/heads.mysql.test.ts",
+      "sha256": "cd18b4efbf5403492e8037ec0de2ddce5b8e7757b645498b67c8d987349003f4"
+    },
+    {
+      "path": "backend/tests/legacy-import-coupon-history/publication.test.ts",
+      "sha256": "23a041224c82dc1680ae9b88add31db0896ed808fd88726b6fde151eb983d9b7"
+    },
+    {
+      "path": "backend/tests/legacy-import-financial/correction-integration.mysql.test.ts",
+      "sha256": "b4ae68bba01e57a43b257e653b94b29d76d6224c17822b9832074c86c6b11ff7"
+    },
+    {
+      "path": "backend/tests/legacy-import-financial/fixture.ts",
+      "sha256": "fc704b2e3aab23dfe100020a150a75c5bc579359cbd4aa12f9c7c7d88c70a964"
+    },
+    {
+      "path": "backend/tests/legacy-import-preparation/adapter.mysql.test.ts",
+      "sha256": "c0c19a1096883fe266580c1bb144a4fd828734b61a03ffaeafdb04c38b130d0d"
+    },
+    {
+      "path": "backend/tests/legacy-import-preparation/benefit-bindings.test.ts",
+      "sha256": "0cbf68785bc60ebbf6cae68c7b898bcf75dfa57f189cbff14a2549bf41c45fb2"
+    },
+    {
+      "path": "backend/tests/legacy-import-preparation/coupon-artifact-fixtures.ts",
+      "sha256": "380d1dff322379a6a908a871c28d5aab34d0ae8bfe04c43cafb0f9275cf78af3"
+    },
+    {
+      "path": "backend/tests/legacy-order-imports/runtime-fixture.ts",
+      "sha256": "fdcd30d7a6e0146d0393ef38e995076d70d96f76b17b8e6a0db1b24e71f8e636"
+    },
+    {
+      "path": "frontend/package-lock.json",
+      "sha256": "58672f2fc8fb9740e70b8cc935ffd42efd2ebcc866da42f0d43fec6f96b44ef9"
+    }
+  ]
+}

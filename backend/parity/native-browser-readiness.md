@@ -1,8 +1,9 @@
 # Native browser fixture readiness
 
-Run `44099436914` at `1e129d6` passes both complete target-OS jobs, including
+Run `44118917035` at `a9bf480` passes both complete target-OS jobs, including
 unsigned packaging, packaged integrity, restart, sandbox and offline profile.
-`evidence/desktop-ci-1e129d6.json` is the authoritative successful snapshot.
+`evidence/desktop-ci-a9bf480.json` retains its successful snapshot. The earlier
+complete success at `1e129d6` remains in `evidence/desktop-ci-1e129d6.json`.
 The earlier failures and their bounded corrections remain described below.
 
 Native run 44072806981 at `3f5a269` passed Electron/offline checks on Windows and
