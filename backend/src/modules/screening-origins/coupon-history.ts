@@ -29,15 +29,19 @@ export interface OriginCouponDemandPort {
 }
 /** Shared generic publication proof, independently rebound to a REAL origin
  * command. No CSV operation/plan or Node operator/checkout is manufactured. */
-export function verifyOriginCouponGeneration(
+export function verifyOriginCouponPublication(
   value: GenerationFacts,
-  request: OriginCouponHistoryRequest,
+  request: {
+    customerId: string;
+    selection: OriginCouponHistoryRequest['selection'];
+    witness: OriginCouponHistoryRequest['witness'];
+  },
   authority: { sourceKey: string; publicationKey: string },
   fingerprint: string,
   now: number,
 ) {
   const scope = generationScopeSchema.parse({
-      customerId: request.command.customerId,
+      customerId: request.customerId,
       couponId: request.selection.couponId,
       configurationHash: request.selection.configurationHash,
       sourceTimeZone: request.selection.sourceTimeZone,
@@ -83,6 +87,25 @@ export function verifyOriginCouponGeneration(
   )
     throw originError('SCREENING_ORIGIN_COUPON_PUBLICATION_INVALID');
   return { ...actual, publication };
+}
+export function verifyOriginCouponGeneration(
+  value: GenerationFacts,
+  request: OriginCouponHistoryRequest,
+  authority: { sourceKey: string; publicationKey: string },
+  fingerprint: string,
+  now: number,
+) {
+  return verifyOriginCouponPublication(
+    value,
+    {
+      customerId: request.command.customerId,
+      selection: request.selection,
+      witness: request.witness,
+    },
+    authority,
+    fingerprint,
+    now,
+  );
 }
 export function originCouponHistory(
   options: GenerationOptions,
@@ -147,7 +170,11 @@ export function originCouponHistory(
       signal.throwIfAborted();
       const checked = verifyOriginCouponGeneration(
           facts,
-          request,
+          {
+            customerId: command.customerId,
+            selection: request.selection,
+            witness: request.witness,
+          },
           authority,
           selected.comparisonFingerprint!,
           runner.clock(),

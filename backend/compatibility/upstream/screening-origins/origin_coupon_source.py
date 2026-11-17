@@ -142,11 +142,14 @@ class SourceCoupons:
         return point_value
     def prepare(self,session,value,kind,namespace,snapshot,*,cart_meta=None):
         check_command(session,value,self.key,('PREPARED',));self.check_snapshot(value,snapshot)
+        return self.select(session,value,kind,namespace,snapshot,cart_meta=cart_meta)
+    def select(self,session,value,kind,namespace,snapshot,*,cart_meta=None,point_value=None):
         if kind not in ('customer','pos'):unsafe()
         from controllers.cart.Cart import ItemTypes
         from controllers.cart.cartutils import ValidationException
         cache=CurrentConfigurationCache(SnapshotCache(snapshot['config']));reader=Probe(session,value['customerId'])
-        point_value=self._point();ns=compile_coupon(self.root,settings_namespace(self.coupon_settings,point_value,reader,cache,ValidationException,ItemTypes,lambda *_a:False))
+        point_value=self._point() if point_value is None else point_value
+        ns=compile_coupon(self.root,settings_namespace(self.coupon_settings,point_value,reader,cache,ValidationException,ItemTypes,lambda *_a:False))
         # Traverse both original current cache controls in the same order used
         # by the generic publisher. Fallback writes remain in this invocation.
         auto=ns['get_auto_apply_coupon'](reader);birthday,birthday_name,status=ns['get_birthday_coupon_details'](reader)
@@ -268,7 +271,7 @@ class OriginalCouponReplay(CouponHistoryReplay):
 
 class CouponScope:
     def __init__(self,owner,frame,selections,documents,snapshot,heads):
-        self.owner,self.frame,self.heads=owner,frame,heads;self.settings={'PREPAID_AMT_DEDUCTION':owner.prepaid}
+        self.owner,self.frame,self.heads=owner,frame,heads;self.session,self.customer_id,self.kind=frame.session,frame.value['customerId'],frame.kind;self.settings={'PREPAID_AMT_DEDUCTION':owner.prepaid}
         self.cache=OriginCouponCache(owner,frame.session,frame.value,snapshot);self.entries={};self.active=None;self.validated=False;self.welcome_consent=None
         from controllers.cart.Cart import ItemTypes
         from controllers.cart.cartutils import ValidationException
@@ -293,8 +296,8 @@ class CouponScope:
         if found is None:unsafe('SCREENING_ORIGIN_COUPON_UNBOUND')
         self.active=found;return found
     def get_valid_coupon(self,_session,code,platform,user,db_fetch=True,is_pos=False):
-        if not db_fetch or not user or str(user['user_id'])!=self.frame.value['customerId'] or bool(is_pos)!=(self.frame.kind=='pos'):unsafe()
-        matches=rows(self.frame.session,'SELECT id,voucher_code FROM coupons WHERE voucher_code=:code LIMIT 2 FOR SHARE',{'code':code},2)
+        if not db_fetch or not user or str(user['user_id'])!=self.customer_id or bool(is_pos)!=(self.kind=='pos'):unsafe()
+        matches=rows(self.session,'SELECT id,voucher_code FROM coupons WHERE voucher_code=:code LIMIT 2 FOR SHARE',{'code':code},2)
         if len(matches)!=1:unsafe('SCREENING_ORIGIN_COUPON_CODE_AMBIGUOUS')
         entry=self.choose(matches[0]['id'])
         result=entry['namespace']['get_valid_coupon'](entry['replay'],matches[0]['voucher_code'],platform,user,db_fetch=True,is_pos=is_pos)
@@ -312,7 +315,7 @@ class CouponScope:
         if self.entries:
             entry=next(iter(self.entries.values()))
             return entry['namespace']['get_auto_apply_coupon'](entry['replay'])
-        reader=Probe(self.frame.session,self.frame.value['customerId'])
+        reader=Probe(self.session,self.customer_id)
         from controllers.cart.Cart import ItemTypes
         from controllers.cart.cartutils import ValidationException
         ns=compile_coupon(self.owner.root,settings_namespace(self.owner.coupon_settings,self.owner._point(),reader,self.cache,ValidationException,ItemTypes,self.consent))
@@ -321,13 +324,13 @@ class CouponScope:
         if self.entries:
             entry=next(iter(self.entries.values()))
             return entry['namespace']['get_birthday_coupon_details'](entry['replay'])
-        reader=Probe(self.frame.session,self.frame.value['customerId'])
+        reader=Probe(self.session,self.customer_id)
         from controllers.cart.Cart import ItemTypes
         from controllers.cart.cartutils import ValidationException
         ns=compile_coupon(self.owner.root,settings_namespace(self.owner.coupon_settings,self.owner._point(),reader,self.cache,ValidationException,ItemTypes,self.consent))
         return ns['get_birthday_coupon_details'](reader)
     def automatic(self,_session,user,cart,platform):
-        if not user or str(user['user_id'])!=self.frame.value['customerId']:unsafe()
+        if not user or str(user['user_id'])!=self.customer_id:unsafe()
         for entry in self.entries.values():
             birthday=entry['namespace']['get_birthday_coupon_details'](entry['replay'])
             if birthday[0] and str(birthday[0])==entry['selection']['couponId']:
@@ -335,25 +338,25 @@ class CouponScope:
                 return entry['namespace']['auto_apply_birthday_coupon'](entry['replay'],user,cart,platform)
         # Literal non-birthday/disabled paths still run their current controls;
         # no fake zero historical facts are supplied to a missing candidate.
-        reader=Probe(self.frame.session,self.frame.value['customerId'])
+        reader=Probe(self.session,self.customer_id)
         from controllers.cart.Cart import ItemTypes
         from controllers.cart.cartutils import ValidationException
         ns=compile_coupon(self.owner.root,settings_namespace(self.owner.coupon_settings,self.owner._point(),reader,self.cache,ValidationException,ItemTypes,self.consent))
         return ns['auto_apply_birthday_coupon'](reader,user,cart,platform)
     def consent(self,_session,customer_id):
-        if str(customer_id)!=self.frame.value['customerId']:unsafe()
-        indices=rows(self.frame.session,"SELECT INDEX_NAME AS name FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='welcome_offer' AND SEQ_IN_INDEX=1 AND COLUMN_NAME='email_id' AND SUB_PART IS NULL AND IS_VISIBLE='YES' LIMIT 2",{},2)
+        if str(customer_id)!=self.customer_id:unsafe()
+        indices=rows(self.session,"SELECT INDEX_NAME AS name FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='welcome_offer' AND SEQ_IN_INDEX=1 AND COLUMN_NAME='email_id' AND SUB_PART IS NULL AND IS_VISIBLE='YES' LIMIT 2",{},2)
         if not indices or not re.fullmatch(r'[A-Za-z0-9_]{1,64}',indices[0]['name']):unsafe('SCREENING_ORIGIN_COUPON_WELCOME_INDEX_REQUIRED')
-        columns=rows(self.frame.session,"SELECT TABLE_NAME AS name,COLLATION_NAME AS collationName FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND ((TABLE_NAME='users' AND COLUMN_NAME='email') OR (TABLE_NAME='welcome_offer' AND COLUMN_NAME='email_id')) LIMIT 3",{},3)
+        columns=rows(self.session,"SELECT TABLE_NAME AS name,COLLATION_NAME AS collationName FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND ((TABLE_NAME='users' AND COLUMN_NAME='email') OR (TABLE_NAME='welcome_offer' AND COLUMN_NAME='email_id')) LIMIT 3",{},3)
         if len(columns)!=2 or len({row['collationName'] for row in columns})!=1 or columns[0]['collationName'] is None:unsafe('SCREENING_ORIGIN_COUPON_WELCOME_INDEX_REQUIRED')
         # Exactly the original native join/equality; current User is already
         # locked by genuine authority. No date, user_id or coupon filter added.
         welcome_hash="LOWER(SHA2(CAST(JSON_OBJECT('id',wo.id,'email',wo.email_id) AS CHAR CHARACTER SET utf8mb4),256))"
         user_hash="LOWER(SHA2(CAST(JSON_OBJECT('id',u.id,'email',u.email) AS CHAR CHARACTER SET utf8mb4),256))"
-        found=rows(self.frame.session,'SELECT wo.id,'+welcome_hash+' AS hash FROM users u STRAIGHT_JOIN welcome_offer wo FORCE INDEX(`'+indices[0]['name']+'`) ON wo.email_id=u.email WHERE u.id=:customer ORDER BY wo.id LIMIT 1001 FOR SHARE',{'customer':self.frame.value['customerId']},1001)
+        found=rows(self.session,'SELECT wo.id,'+welcome_hash+' AS hash FROM users u STRAIGHT_JOIN welcome_offer wo FORCE INDEX(`'+indices[0]['name']+'`) ON wo.email_id=u.email WHERE u.id=:customer ORDER BY wo.id LIMIT 1001 FOR SHARE',{'customer':self.customer_id},1001)
         if len(found)>1000:unsafe('SCREENING_ORIGIN_COUPON_WELCOME_LIMIT')
-        native=one(self.frame.session,'SELECT '+user_hash+' AS hash FROM users u WHERE u.id=:customer FOR SHARE',{'customer':self.frame.value['customerId']})
-        proof={'contract':'pos-screening-origin-welcome-consent-v1','customerId':self.frame.value['customerId'],'customerInputHash':native['hash'],
+        native=one(self.session,'SELECT '+user_hash+' AS hash FROM users u WHERE u.id=:customer FOR SHARE',{'customer':self.customer_id})
+        proof={'contract':'pos-screening-origin-welcome-consent-v1','customerId':self.customer_id,'customerInputHash':native['hash'],
             'eligible':bool(found),'rows':[{'id':str(row['id']),'inputHash':row['hash']} for row in found]}
         if self.welcome_consent is not None and self.welcome_consent!=proof:unsafe('SCREENING_ORIGIN_COUPON_WELCOME_CHANGED')
         self.welcome_consent=proof

@@ -14,6 +14,15 @@ import type {
   GenerationJournalRecord,
   GenerationJournalTransaction,
 } from '../legacy-order-imports/benefit-profile/history-generation-journal.js';
+import {
+  originCouponPreviewRequestSchema,
+  type OriginCouponPreviewRequest,
+} from './coupon-preview-contracts.js';
+const demandRequestSchema = z.union([
+  originCouponHistoryRequestSchema,
+  originCouponPreviewRequestSchema,
+]);
+type DemandRequest = OriginCouponHistoryRequest | OriginCouponPreviewRequest;
 export const originCouponDemandContract = 'pos-screening-origin-coupon-demands-v1';
 export const originCouponDemandTable = mysqlTable(
   'pos_rewrite_origin_coupon_generation_demands',
@@ -34,7 +43,7 @@ const recordSchema = z
     id: originHashSchema,
     version: z.string().regex(/^[1-9][0-9]{0,19}$/),
     phase,
-    request: originCouponHistoryRequestSchema,
+    request: demandRequestSchema,
     generationId: originHashSchema.nullable(),
     lease: z.uuid().nullable(),
     dueAt: point,
@@ -42,9 +51,9 @@ const recordSchema = z
   })
   .strict();
 export type OriginCouponDemand = z.infer<typeof recordSchema>;
-function generic(request: OriginCouponHistoryRequest) {
+function generic(request: DemandRequest) {
   return generationScopeSchema.parse({
-    customerId: request.command.customerId,
+    customerId: 'command' in request ? request.command.customerId : request.preview.customerId,
     couponId: request.selection.couponId,
     configurationHash: request.selection.configurationHash,
     sourceTimeZone: request.selection.sourceTimeZone,
@@ -116,7 +125,7 @@ export function originCouponDemandJournal(
       throw originError('SCREENING_ORIGIN_COUPON_DEMAND_INVALID');
     }
   }
-  const identity = (request: OriginCouponHistoryRequest) =>
+  const identity = (request: DemandRequest) =>
     originDigest(authority.journalKey, 'coupon-demand', {
       scope: generic(request),
       witness: request.witness,
@@ -148,19 +157,26 @@ export function originCouponDemandJournal(
     return next;
   }
   return {
-    async enqueue(input: OriginCouponHistoryRequest, signal: AbortSignal) {
+    async enqueue(input: DemandRequest, signal: AbortSignal) {
       signal.throwIfAborted();
-      const request = originCouponHistoryRequestSchema.parse(input),
+      const request = demandRequestSchema.parse(input),
         key = authority.originKey,
         now = clock();
-      if (
-        !key ||
-        request.command.phase !== 'PREPARED' ||
-        request.command.orderId !== null ||
-        request.expiresAt <= now ||
-        request.issuedAt > now ||
-        request.expiresAt > Math.min(request.command.expiresAt, request.issuedAt + 30000) ||
-        !sameOriginHash(request.commandProof, originDigest(key, 'command', request.command))
+      if (!key) throw originError('SCREENING_ORIGIN_COUPON_DEMAND_UNAUTHORIZED');
+      if ('command' in request) {
+        if (
+          request.command.phase !== 'PREPARED' ||
+          request.command.orderId !== null ||
+          request.expiresAt <= now ||
+          request.issuedAt > now ||
+          request.expiresAt > Math.min(request.command.expiresAt, request.issuedAt + 30000) ||
+          !sameOriginHash(request.commandProof, originDigest(key, 'command', request.command))
+        )
+          throw originError('SCREENING_ORIGIN_COUPON_DEMAND_UNAUTHORIZED');
+      } else if (
+        request.preview.issuedAt > now ||
+        request.preview.expiresAt <= now ||
+        !sameOriginHash(request.previewProof, originDigest(key, 'preview-context', request.preview))
       )
         throw originError('SCREENING_ORIGIN_COUPON_DEMAND_UNAUTHORIZED');
       const value: OriginCouponDemand = {
