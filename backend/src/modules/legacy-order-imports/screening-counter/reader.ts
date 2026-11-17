@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
@@ -12,16 +13,24 @@ import {
   type CounterPublication,
 } from './contracts.js';
 import {
-  assertCounterDefinitions,
+  counterTriggers,
+  counterProcedure,
   counterDefinitionHash,
   assertCounterIndexes,
   counterIndexSql,
 } from './writers.js';
 import { assertCounterRuntimePrivileges } from './privileges.js';
+import {
+  readNativeHeadMetadata,
+  readNativeHeadMetadataOptions,
+  canonicalNativeHeadJson,
+  type NativeHeadMetadataOptions,
+} from '../../screening-origins/native-head-metadata.js';
 
 export interface ScreeningCounterOptions {
   contract?: typeof counterContract;
   publicationKey?: string;
+  headMetadata?: NativeHeadMetadataOptions;
 }
 export function readScreeningCounterOptions(
   env: NodeJS.ProcessEnv = process.env,
@@ -33,12 +42,23 @@ export function readScreeningCounterOptions(
   return {
     ...(contract === counterContract ? { contract } : {}),
     ...(publicationKey ? { publicationKey } : {}),
+    ...(contract === counterContract ? { headMetadata: readNativeHeadMetadataOptions(env) } : {}),
   };
 }
-const qualified = new WeakMap<AdministrationTransaction, { hash: string; owner: string }>();
-export async function qualifyCounterWriterDefinitions(tx: AdministrationTransaction) {
+const qualified = new WeakMap<
+  AdministrationTransaction,
+  { hash: string; owner: string; configuration: string }
+>();
+export async function qualifyCounterWriterDefinitions(
+  tx: AdministrationTransaction,
+  options: NativeHeadMetadataOptions = readNativeHeadMetadataOptions(),
+) {
+  const configuration = canonicalNativeHeadJson(options);
   const prior = qualified.get(tx);
-  if (prior) return prior;
+  if (prior) {
+    if (prior.configuration !== configuration) throw counterError('WRITERS_UNQUALIFIED');
+    return prior;
+  }
   // No source rows: hold metadata locks until this transaction ends.
   await tx.execute(
     sql.raw(
@@ -47,17 +67,33 @@ export async function qualifyCounterWriterDefinitions(tx: AdministrationTransact
   );
   const [indexes] = await tx.execute(sql.raw(counterIndexSql));
   assertCounterIndexes(indexes);
-  const [triggers] = await tx.execute(
-    sql.raw(
-      "SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS `table`,EVENT_MANIPULATION AS event,ACTION_TIMING AS timing,ACTION_STATEMENT AS statement,DEFINER AS owner FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_screening_%' ORDER BY TRIGGER_NAME",
-    ),
-  );
-  const [procedures] = await tx.execute(
-    sql.raw(
-      "SELECT ROUTINE_NAME AS name,ROUTINE_TYPE AS type,SECURITY_TYPE AS security,ROUTINE_DEFINITION AS statement,DEFINER AS owner FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'",
-    ),
-  );
-  const hash = assertCounterDefinitions(triggers, procedures);
+  const metadata = await readNativeHeadMetadata(tx, options);
+  const normalizedHash = (body: string) =>
+    createHash('sha256').update(body.trim().split(/\s+/).join(' ')).digest('hex');
+  if (metadata.counterTriggers.length !== 9 || metadata.counterProcedures.length !== 1)
+    throw counterError('WRITERS_UNQUALIFIED');
+  for (const expected of counterTriggers) {
+    const actual = metadata.counterTriggers.filter((value) => value.name === expected.name);
+    if (
+      actual.length !== 1 ||
+      actual[0]!.tableName !== expected.table ||
+      actual[0]!.event !== expected.event ||
+      actual[0]!.timing !== expected.timing ||
+      actual[0]!.hash !== normalizedHash(expected.statement)
+    )
+      throw counterError('WRITERS_UNQUALIFIED');
+  }
+  const procedure = metadata.counterProcedures[0]!;
+  if (
+    procedure.name !== counterProcedure.name ||
+    procedure.kind !== counterProcedure.type ||
+    procedure.security !== counterProcedure.security ||
+    procedure.hash !== normalizedHash(counterProcedure.statement) ||
+    procedure.definer !== options.counterDefiner ||
+    metadata.counterTriggers.some((value) => value.definer !== procedure.definer)
+  )
+    throw counterError('WRITERS_UNQUALIFIED');
+  const hash = { hash: counterDefinitionHash, owner: procedure.definer, configuration };
   qualified.set(tx, hash);
   return hash;
 }
@@ -83,7 +119,10 @@ export async function readCurrentScreeningCounter(
   assertScreeningCustomer(tx, customerId);
   if (options.contract !== counterContract || !options.publicationKey)
     throw counterError('QUALIFICATION_REQUIRED');
-  const definition = await qualifyCounterWriterDefinitions(tx);
+  const definition = await qualifyCounterWriterDefinitions(
+    tx,
+    options.headMetadata ?? readNativeHeadMetadataOptions(),
+  );
   const [raw] =
     await tx.execute(sql`SELECT CAST(c.customer_id AS CHAR) AS customerId,CAST(c.sku AS CHAR) AS sku,
     @@server_uuid AS serverUuid,DATABASE() AS sourceSchema,
