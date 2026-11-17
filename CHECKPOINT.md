@@ -28,9 +28,19 @@ payment source assembly contains 101 files; the common/API/legacy source
 manifests were regenerated on `d8eec33`. These are source artifacts, not builds
 or validation evidence.
 
+The same-attempt source recovery issuer/resource is integrated on `b301e0e`;
+`d91bf1a` adds intrinsic no-new-provider guards, oversized-evidence refusal and
+static metadata boundary fixes. The runnable quota publisher is integrated on
+`405d2cc`, with command/container/environment/migration packaging on `8c14a10`.
+The private bridge now records authenticated actor IDs on eligibility failures
+and distinguishes coupon-preview resources (`ebbed67`). These remain untested
+implementation checkpoints.
+
 Remaining implementation: genuine source cart/early CSK preview rollback and
-replay, membership consumer/bootstrap wiring, same-order source stage-recovery
-issuer, and runnable quota projection publisher. Then regenerate
+replay, membership consumer/bootstrap wiring and recovery resource mounting,
+genuine legacy staff grant forwarding for cart/sync calls, and automatic new
+customer quota discovery/admission in the background publisher. The publisher's
+manual prepare/drain path alone does not complete automatic coverage. Then regenerate
 the composed source artifacts, reconcile every remaining requirement, and only
 after implementation is complete begin consolidated validation. No new tests,
 typechecks, lint, application builds, live writes or deployments were run.
