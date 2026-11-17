@@ -58,12 +58,12 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             or len(administrators)>32 or any(not isinstance(value,str) or not ADMIN.fullmatch(value) for value in administrators)
             or len(set(administrators))!=len(administrators) or audit in administrators or trigger_owner in administrators):refused()
     administrators=set(administrators)
-    caller=one(session,'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,@@GLOBAL.performance_schema AS performanceSchema')
+    caller=one(session,'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,CAST(@@GLOBAL.performance_schema AS CHAR) AS performanceSchema')
     current=account(caller['account'])
     publisher=os.environ.get('POS_SCREENING_COUNTER_PUBLISHER_GRANTEE','')
     if type(counter_publication) is not bool or counter_publication and (not publisher or current!=publisher):refused()
     if (caller['roles']!='NONE' or caller['proxyAccount'] is not None or caller['mandatoryRoles'] not in ('','NONE')
-            or caller['performanceSchema']!=1
+            or caller['performanceSchema']!='1'
             or current in administrators or current in (audit,trigger_owner)):refused()
     schema=one(session,'SELECT DATABASE() AS db')['db']
     if not isinstance(schema,str) or not re.fullmatch(r'[A-Za-z0-9_]{1,64}',schema):refused()

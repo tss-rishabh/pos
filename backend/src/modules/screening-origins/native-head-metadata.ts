@@ -327,7 +327,7 @@ export async function readNativeHeadMetadata(
     return refuse();
   const caller = await one(
     tx,
-    'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,@@GLOBAL.performance_schema AS performanceSchema',
+    'SELECT CURRENT_USER() AS account,CURRENT_ROLE() AS roles,@@SESSION.proxy_user AS proxyAccount,@@GLOBAL.mandatory_roles AS mandatoryRoles,CAST(@@GLOBAL.performance_schema AS CHAR) AS performanceSchema',
   );
   const current = account.safeParse(caller.account);
   if (
@@ -335,7 +335,7 @@ export async function readNativeHeadMetadata(
     caller.roles !== 'NONE' ||
     caller.proxyAccount !== null ||
     !['', 'NONE'].includes(String(caller.mandatoryRoles)) ||
-    caller.performanceSchema !== 1 ||
+    caller.performanceSchema !== '1' ||
     administrators.has(current.data) ||
     [audit, origin].includes(current.data)
   )
