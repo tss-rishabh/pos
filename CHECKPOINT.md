@@ -17,6 +17,16 @@ Remaining parallel code: the independent first-order history publisher; genuine
 customer/legacy/MPos/CSK caller and effects integration; non-POS Go callbacks,
 cron and original allocation composition. Final validation remains deferred.
 
+Source-history qualification is integrated from `a463353` as `d9d3916`;
+`cadd5a0` registers/packages immutable history versions, always saves explicitly
+reauthorized PREPARED history, and regenerates pinned API/legacy source artifact
+manifests. Head trigger/security/grant SQL remains review-only, never constructor
+DDL. The actual application caller/trigger/audit-owner privilege checks and
+physical-commit head fence are implemented. Bridge concurrency is bounded on
+`3d07e3c` / `3f3e295`. No tests, builds, parity checks, DB/cloud query or service
+startup were run. Independent publisher and genuine source integration remain
+active implementation work.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only
