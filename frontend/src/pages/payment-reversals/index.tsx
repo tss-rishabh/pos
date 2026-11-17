@@ -17,15 +17,37 @@ interface Props {
   storeId: string;
   orderId: string;
   online: boolean;
+  deferUntilOpened?: boolean;
   /** Refresh order/payment/invoice detail only. This is never a cart completion. */
   onCorrected?: (receipt: CorrectionReceipt) => Promise<void>;
 }
 export function PaymentReversalPanel(props: Props) {
   return (
-    <ScopedPaymentReversalPanel
-      key={`${props.user.id}:${props.storeId}:${props.orderId}`}
-      {...props}
-    />
+    <PaymentReversalEntry key={`${props.user.id}:${props.storeId}:${props.orderId}`} {...props} />
+  );
+}
+function PaymentReversalEntry(props: Props) {
+  const [open, setOpen] = useState(() => {
+    if (!props.deferUntilOpened) return true;
+    try {
+      return Boolean(
+        correctionIntent({
+          ownerId: props.user.id,
+          storeId: props.storeId,
+          orderId: props.orderId,
+        }),
+      );
+    } catch {
+      // Unreadable recovery must remain visible to the original operator.
+      return true;
+    }
+  });
+  if (!props.deferUntilOpened) return <ScopedPaymentReversalPanel {...props} />;
+  return (
+    <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>Correct recorded cash payment</summary>
+      {open && <ScopedPaymentReversalPanel {...props} />}
+    </details>
   );
 }
 function ScopedPaymentReversalPanel({ user, storeId, orderId, online, onCorrected }: Props) {

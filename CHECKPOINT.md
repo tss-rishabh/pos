@@ -28,6 +28,7 @@ component test counts do not certify every original workflow.
 | Parent/store CSV        | Three-column product-family assignment import, atomic reset/delete/recreate, audit, shared durable worker and separate historical profile are wired. Twenty-nine merged database/source/parser checks and seven import browser workflows pass. Actual stock/sync/publication acceptance remains required. |
 | Historical order reads  | Public date selections reach PRIMARY/DATA/BigQuery readers, with scoped cursors and post-read session revocation checks. Full source filters/sorting/queues/formatter are integrated: 43 pinned-Django vectors, 12 browser workflows and existing qualified detail/copy readers. Warehouse generations and workload acceptance remain required. |
 | Order copying           | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Native OTP/contact/session fences, serialized unsent cancellation and dedicated validated terminal clear are integrated. Fifty-three affected backend and 21 scoped frontend checks pass, including five actual Counter/Review Chromium flows and lost-clear recovery without another POST. |
+| Cash payment corrections | Native cash reversals and subsequent cash receipts now compose with current collections, ledger, DSR and sealed historical deltas. The actual Orders page includes a deferred manager action; reports expose cash returned and net cash. Ninety-five focused finance checks and 15 affected browser workflows pass; durable pending-return manager reconciliation remains in progress and production contracts stay unselected. |
 
 ## Fixed remaining code checklist
 
@@ -39,8 +40,10 @@ component test counts do not certify every original workflow.
   candidates. Actual Python staging → Go activation → Node cancellation passes
   native concurrency/rollback checks. Their deployment remains external; no
   historical provenance is fabricated.
-- Integrate the implemented payment-status reversal slice into financial
-  collections, ledger, DSR and historical publications before enabling it.
+- Finish durable preparation/attestation and the manager queue for unknown
+  physical cash returns across operators/devices, with final-finance guards.
+  Current collection/ledger/DSR and sealed historical correction deltas are
+  integrated; actual publisher/source-barrier acceptance remains external.
 - Qualify the source order-search historical publication/contact-key generation
   and representative queue workload; the complete UI/API/source-filter code is integrated.
 - Finish ecommerce inventory synchronization and whole-order Vinculum status

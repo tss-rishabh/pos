@@ -133,12 +133,13 @@
     "backend/parity/order-payments.md": "546228744d2ac60b40d4974348f2ca2c3d0cec900af0073d3c757e19aa89f299",
     "backend/parity/order-search.md": "d79f98f07f282da5d410233ab5d5a42622aab1e2dc762e7ae0ada95749098cf1",
     "backend/parity/parent-store-imports.md": "d7092221dfcf118e66ba9652b4319001d76dc5e0a871667d0ebf34bfc8f7e200",
-    "backend/parity/payment-reversals.md": "79155486c697691e2469b0af96bd4b4ad4ecc74c589e1ccc9b9a51d3de9e95a7",
+    "backend/parity/payment-correction-finance.md": "0cd11b50799488509d648290a40c3350d33314389b6973b04d4262cd99f2d769",
+    "backend/parity/payment-reversals.md": "b65312bf59f7235c81f4c2f8999ffd68751047864e1cc7f2e825f504fccf05ef",
     "backend/parity/pending-order-cancellation.md": "920296a9c5e99460d0030d6d21e18789d93659e2bbe40d5ec8575d64f67614c1",
     "backend/parity/report-exports.md": "fc6e51d06dc0656132102a3ad32f67781700deaab87915fd89a0ef9e2d98b47f",
     "backend/parity/scheduled-reports.md": "309be1084c4e01a3fbafd868e1bb830cf136ec26c0fe22c4b77a804d42191504",
     "backend/parity/wallet-adjustments.md": "ab1929b2ac1af5bad8d3a2992b76bb659c5cad867fb7a414d968a8c6d2004bb0",
-    "backend/src/app.ts": "cbd28ec746eef553b8e9debd9dc36b591f379b1037580dbafa975e7ceb5c9f02",
+    "backend/src/app.ts": "eb5028d317d9ccf8428ab115f2fde2d59da34e4db01379c338cc4398a2ab0382",
     "backend/src/auth/delivery.ts": "b813640dcda4f8fe910d29cd8d471d03fe2d452ab931c3f45c19cdb342a43d63",
     "backend/src/auth/device-handoff-routes.ts": "ad454f2c02ed3af385118b68fada5eb654f1888fb741e2cd29c3afb601fa0001",
     "backend/src/auth/device-handoff-store.ts": "7b0c168f550954a66a257bb514eeed9f805d6733e76807f138aedac9d3a2f76d",
@@ -180,7 +181,7 @@
     "backend/src/modules/administration/import-schema.ts": "2cae25a8927a8ee58485b5229a5f45f162d00166a57259f1cdec9de307862432",
     "backend/src/modules/administration/imports.ts": "3ce797b2f5856d53db1f6757f435fae7a93a283d6b31c5f851a37679e82dcdea",
     "backend/src/modules/administration/index.ts": "6ff08395a05f3e3c4d691738f2bf14a406e95a5742334cdc2de080277bb99a72",
-    "backend/src/modules/administration/inventory-synchronization.ts": "427142715b6cf31f3d99d7cd283b82eb8eab5a4fa5c29d02a1239640817edac3",
+    "backend/src/modules/administration/inventory-synchronization.ts": "f55707812c84755566782efe080e2e1d612a1a2e6915006d10b7f7058fcda5a2",
     "backend/src/modules/administration/inventory.ts": "f66a2dd03886c109ec508bedb4838953b5aaac0375a9c2c4c299b0ec174641c9",
     "backend/src/modules/administration/location-schema.ts": "ed1c17292af020edd75de409ef8f6ed9731f45d844db6938bbe1786a82ed78cb",
     "backend/src/modules/administration/location-title.ts": "e7634ad78f2f254db4cc933227235c48171e20d24f507ba0afe491524e3ec652",
@@ -365,13 +366,13 @@
     "backend/src/modules/checkout/order-messages/policy.ts": "d7a759954437439300655ac3019d8abdcd45e06055e99eceef746266833453b5",
     "backend/src/modules/checkout/order-messages/service.ts": "b7acd6862a629b247d8972e0ab7867d86ada3babe2742b6db1f79aed83da1686",
     "backend/src/modules/checkout/payloads.ts": "a6a8383602255d27a19769bf28c12123468fd2c602addc47e9d0f78d3fae37c4",
-    "backend/src/modules/checkout/payment-reversals/cash-projection.ts": "8c667c7a5cad733767dd0ac3df84cb1d8dffbf1c825035a178d5a46c926c5cc8",
+    "backend/src/modules/checkout/payment-reversals/cash-projection.ts": "d1c690dc3a489cfb273c4bfa031e0f4cfad973db665ee72aa8e3789c8504d121",
     "backend/src/modules/checkout/payment-reversals/contracts.ts": "2f6e42b72ebaba2c2bd02e11a0ff1af05900149514857f36ec803ff4da4d82b0",
     "backend/src/modules/checkout/payment-reversals/evidence.ts": "3b9faa8d32c53188d7be5abda8f15c832c3ef8b18a14d23e479a4633e5ebb3a8",
     "backend/src/modules/checkout/payment-reversals/index.ts": "95ea0ba05de0a921c6d526be766217b225a4b5c6a49af6706e91535beb7c4768",
     "backend/src/modules/checkout/payment-reversals/migration.sql": "a945f20f1a1441f711f78528d029b0e73d6c3c09bcf97ddd95938992c723f70f",
     "backend/src/modules/checkout/payment-reversals/repository.ts": "15587deb9750cdde22c4b97a98b1398c6541b7e09273ea8bbecc841bac974281",
-    "backend/src/modules/checkout/payment-reversals/routes.ts": "16bca46d1fbd787f53e00d21b3119564d05c2c4f353098dcc18938f18cc56db3",
+    "backend/src/modules/checkout/payment-reversals/routes.ts": "7f428375b239f7dda8470b4265e2ed9726e3bbdbd46b4d2b5683c5014dfd50fb",
     "backend/src/modules/checkout/payment-reversals/schema.ts": "16440ae1ca98d2c7d8cbe9372d42cda35c57afa47f521c299b0b02c6edb6a152",
     "backend/src/modules/checkout/payments/contracts.ts": "c9d6ebf214d7896d1cd3413746a062a55ed4c340fad05489b0ee2abfb7919026",
     "backend/src/modules/checkout/payments/gateway.ts": "e884d918122d0e54329a8cd862a9a7b026f3c225b0bf2145e04eeda5e35e94ab",
@@ -464,8 +465,9 @@
     "backend/src/modules/customer-website-handoff/options.ts": "d44fc75b53f0464c0ebc67a771244a91032ef53af5c2f03cfaf52a88ae6e520a",
     "backend/src/modules/customer-website-handoff/schema.ts": "7d2270c40c920c637f7cd5b8df6771f51ebd14c1673a059018191c563afd3019",
     "backend/src/modules/customer-website-handoff/service.ts": "4b7917570cc5e8e37e0de4f2ca07c069efe17043cb9ced9db0b314027a88bb22",
-    "backend/src/modules/daily-report-offline.ts": "75dfabbd7035e24c4ed484959e182f28ce86c0c3a1a5607f9d28ef7188958466",
-    "backend/src/modules/daily-report-warehouse.ts": "08f92f76401415ff274e3580ee8fe4c516696ab4d0d4594674fb37dc0db7b580",
+    "backend/src/modules/daily-report-corrections.ts": "0cae94357b5e2caf9e60cbdb3c6b7d72859f145f501adda46554931e8017c9ae",
+    "backend/src/modules/daily-report-offline.ts": "caab83439faca482b9d9635bc7a10034062c6078724f9014caba64d1c547f238",
+    "backend/src/modules/daily-report-warehouse.ts": "45b3b050769caf71ca1bb2fa52f7d99bd3568931b47d2c30a5db2b1a18f89e84",
     "backend/src/modules/dashboard/authority.ts": "2cb9c8c50d130c18c6e91908ff8a2c2e757ff183ae4f79d347001ba40d506fae",
     "backend/src/modules/dashboard/domain.ts": "3f32857c03f7959a0ac2ea2e9f33b3833261598557d3fceb1ad1908bf8a84437",
     "backend/src/modules/dashboard/index.ts": "3dd5cb033fe8177671bd417e92f4bc0203fc9cd5a5c8b1627a8d7be55bc253fa",
@@ -479,12 +481,14 @@
     "backend/src/modules/finance/feed-sql.ts": "5117e1e145a03cf4e9b0a048c36e633f24e2b12707d915a37c18692fc05fe84a",
     "backend/src/modules/finance/feed.ts": "72fdd3fca797912547aaaa5ee581e33a1f375f52f69d778464a8f19144a4b8ef",
     "backend/src/modules/finance/history.ts": "a2f7ced872cedb249a94398857e59d8343e68c99d0529768223ed5e73d98b022",
-    "backend/src/modules/finance/index.ts": "2b80e7a6636eb26179952957f30d161f9fbd32a02fce3ccf65dea581c6ce3674",
-    "backend/src/modules/finance/ledger.ts": "cbd02eaaef74e2b4207c4e3142190ceb348dd757d6b673a06ce1857564bc69a2",
+    "backend/src/modules/finance/index.ts": "36a935af167f810926cc5a3338294fec43bcf85b5d59d40f9ca66c69dc93e088",
+    "backend/src/modules/finance/ledger.ts": "a850ef1e3b9fa2c74f210116caf51e025471a0a87c3778d0c9246a6ca8a52298",
     "backend/src/modules/finance/migration.sql": "4a26e5d1864ffdeabc710ce58fe09271d1d3f3fd68e3a9fc220744a89a683f10",
     "backend/src/modules/finance/offline-cash.ts": "4acb0e954d7cbf0ef5fe7b7552a377904d55da93249c458d83b97465c24d3835",
+    "backend/src/modules/finance/payment-correction-publication.ts": "0f74a337973e8efeb29a6df7d43ebd1959ac017c47ed2a688bfe28bf25a204bf",
+    "backend/src/modules/finance/payment-corrections.ts": "2fa1890f18e67a6e43800a03ae854fb4312acab1d2247697171f3cdc37ad8958",
     "backend/src/modules/finance/schema.ts": "efe5411a988a5909ba959f0542140ae3e02eda1c185ca513bd349fac4bd0c192",
-    "backend/src/modules/finance/service.ts": "d223c28afbd3c70c74f8f17920d781bb105a4e51fccdeda75044f00169c8452c",
+    "backend/src/modules/finance/service.ts": "f9d05f295ffb11a3b937151b8e694e2057d9d538b2f38a9dd396c73343120a47",
     "backend/src/modules/fulfillment/domain.ts": "1addb1100798d36704d85cecd158483dc06d4914dfb22b02f25780078f204bba",
     "backend/src/modules/fulfillment/index.ts": "5736218f5d6e65d6498f258f260e61bc32e0e43f19625696fd18f2f8b6ba7887",
     "backend/src/modules/fulfillment/integrations.ts": "c04edf09466e10931f203b7ee3a2e16bb1678bef2b17f4d969b932a7a66dd52e",
@@ -664,7 +668,7 @@
     "backend/src/modules/product-feedback/index.ts": "bba4bacf927eb75b5cdf2b27d3decbbf91da979be7ae87240270240c79a449e2",
     "backend/src/modules/product-feedback/schema.ts": "58a6787fca12d3113e5b98867d55ae339866c3d6dcb83b390a1697c2a7fa5ef5",
     "backend/src/modules/product-feedback/service.ts": "5137b76f930e1060a78b2858bf18b6c05df48f2c13fb381449624552fa056153",
-    "backend/src/modules/reports.ts": "581804bff2b00505372b62d3f751c0b537488de1605c63eea54216c47b212aeb",
+    "backend/src/modules/reports.ts": "9e94c1d465f6296812f708ffe07d30002a691e8a14e16db812041ce2666c035b",
     "backend/src/modules/special-permission-history/domain.ts": "f1d9c6a2e45a633c2180e83aa4845be92582e693e80bcd5ef095fb5b3e225e59",
     "backend/src/modules/special-permission-history/index.ts": "97349cc1993c0b6da4955014b5f9b15dbd0ad5f4c358b653e77ec5844989ec96",
     "backend/src/modules/special-permission-history/service.ts": "5132531879093f1ee8f1a068af5ae4bc8b5ec0ca5a8037fbcfd4452ba23fbfb6",
@@ -705,8 +709,8 @@
     "backend/tests/checkout-order-copy/mysql-fixture.ts": "5add0f39582053c47adaecf7400fbe81903d2700f084b4d07a4a19ed60427012",
     "backend/tests/checkout-order-copy/service.mysql.test.ts": "28260732411ed73def1fa1174341257d4e820286025552407cac82ac86c62058",
     "backend/tests/checkout-order-copy/source.test.ts": "c5831220813bbcb639623f0afcb99c875cb933a41fc582b40c0468d3318b43ec",
-    "backend/tests/checkout-payment-reversals/mysql-fixture.ts": "fec8b6f80622e200d912839e6abcc7be54a2efc5d935d81be824947a0bdb7dd7",
-    "backend/tests/checkout-payment-reversals/reversal.mysql.test.ts": "0143d7adcf589165c41873427fd4426336ae8e8cb2857a52377abd2be08ddaaf",
+    "backend/tests/checkout-payment-reversals/mysql-fixture.ts": "503b8f94eac0cbc8b9d43fdbfdd7b672b1593d8f8ffbe373dd141cdf4dd6c4b7",
+    "backend/tests/checkout-payment-reversals/reversal.mysql.test.ts": "9bbbc15707da875122d80ce2ab4dc82c1a619a1ef525bbef16c87e453dbca6ad",
     "backend/tests/checkout-payment-reversals/source.test.ts": "6f39236cc37b6a310de1606176fab4b4da692e96e672f1565d48d2e5fcba9933",
     "backend/tests/checkout-performance/contracts.test.ts": "b35ed372002455962572e8643204f9fdaf606492acae29baec056e4462b54819",
     "backend/tests/checkout-performance/http.test.ts": "8a1e41e243505e3a375fa945890a556127a9f20ba8fb991c49f1a08dacfa6dba",
@@ -779,8 +783,9 @@
     "backend/tests/finance/feed-routing.test.ts": "76997caadb2c269a3bf27ec681bf8e2e41d76fd55af88152bf363f14b29f8d5d",
     "backend/tests/finance/feed-security.test.ts": "1f42f2a2fa64d54a6983e133882545025b0412c5e01e3961a71abd702748815a",
     "backend/tests/finance/ledger.test.ts": "babd7f1cf0ec13e2cf2afbf0c8333a6f366e387c643363193e4421b0e446f875",
-    "backend/tests/finance/mysql.integration.test.ts": "56e70f377aae398308e78993716bf17977494b7bd5e91409a8bcc6eb878a544b",
-    "backend/tests/finance/offline-cash.mysql.integration.test.ts": "97480b828d22f9a88b5cc4eb43001ea7f5be966e5cc32ce8ed503c3ebdba4bd5",
+    "backend/tests/finance/mysql.integration.test.ts": "8201fc57732d8b1861a39efbd53b410f45f708348875ecaeb0b6d92609f8c7dc",
+    "backend/tests/finance/offline-cash.mysql.integration.test.ts": "4b4b85107b8b281bb324ba431f0a020fc3ca83a29cf20181aedbea19e144b112",
+    "backend/tests/finance/payment-correction-publication.test.ts": "b946ed86950545bc163ffcddda3f1f40bfe2d27a116c32be7bbf1e11fbeb6810",
     "backend/tests/fulfillment/domain.test.ts": "6c267307b435cd95ae5dfe8cf9b506b29a3a5a2110d38d69f68eb16e46d63f61",
     "backend/tests/fulfillment/integrations.test.ts": "1bdc2e1ca187b7837fd5b48c6dcf3818f6c84f13e4e7794fd9a38e586297326b",
     "backend/tests/fulfillment/monitoring.test.ts": "463a55b5f9eb24c92e16fe48cf35bd2445fa432838758f9fe1634eaa1e05dca8",
@@ -1072,7 +1077,7 @@
     "frontend/src/pages/operational-reports/report-view.tsx": "7f8919a070858fd529c7984c3a994a9e944443b15849375bb75ee3e8151b1060",
     "frontend/src/pages/operational-reports/returned-orders.tsx": "fa8e17c577e3462dd083559f6c79982c85bb591b301a9ec4a94df3fa90d1fa23",
     "frontend/src/pages/operational-reports/style.css": "28334af838dad80297f85b3bc042734f772e2902801ffd0bf3d77e778d101210",
-    "frontend/src/pages/operations.tsx": "fbf261b9733f23094f6f18eee2d461dfca6da32aff60f172d09d8730b5ba06b1",
+    "frontend/src/pages/operations.tsx": "9fcf5f9b02c0aa43360be50ca80946e0b699f3d86f252febaaaec280aeca6267",
     "frontend/src/pages/order-copy/client.ts": "0a979a8870cf6d7748c44a3ae21d08a0a8136de5eaf5de10035d701cdf74fe5f",
     "frontend/src/pages/order-copy/index.tsx": "bc0ebf6be1f3e9b3b62d09dd949f6c017357264a744dfd06f8662ac2bb1ebdff",
     "frontend/src/pages/order-copy/marker.ts": "3ae37435c7da14a69bcbce1ec158e14ca168b6733b5c22527d2835c81bcbc2d9",
@@ -1081,7 +1086,7 @@
     "frontend/src/pages/order-history/order-search.css": "9a36776bb40d132c7833bef9c38f320899ecea2c78d652284c50958395d1f1cf",
     "frontend/src/pages/order-history/search-client.ts": "c096ae8c2eecec0512c5a701f3320bee54fc896c7e9a02b14222d164ce83283c",
     "frontend/src/pages/payment-reversals/client.ts": "9f743c3ebb40403bfae623c7b09377db9f0eb2f6aec7b698f8179be251bce6d4",
-    "frontend/src/pages/payment-reversals/index.tsx": "b8f0c344a1c095b7bcd4cdea1588a029d5308b7d6a8723277e89bb378e805078",
+    "frontend/src/pages/payment-reversals/index.tsx": "6b5789334098f0d4f972339e5f0210bdf10ea4b1aa41d49b26b4050caf23ae3a",
     "frontend/src/pages/product-feedback/client.ts": "e4265117a2bf3e4a7883c2f96028c437e5a6c998bcf7b6194a7934944c32e61c",
     "frontend/src/pages/product-feedback/index.tsx": "25cf2ad85ad26bbbbd9ec32d8c4b08a4dacbc0864de42ed4cff55d08911f0a48",
     "frontend/src/pages/product-feedback/style.css": "be1ac5a70650ecb8ad82d2a8d0df92ffb20fd92b08d61aa49a0e53daa7dce695",
@@ -1089,7 +1094,7 @@
     "frontend/src/pages/profile/images.tsx": "c95aad6a15e5378af62a58e0b1f3d670c207e2c574302b5cd6492f75ce62ed1a",
     "frontend/src/pages/profile/index.tsx": "91585acb2eb641080b07d018275abdfea31e03d7f8755b9fa2ab21cafe28a2d6",
     "frontend/src/pages/profile/style.css": "ba534afe87ab8d5ac9052015923b1b5bbaf5fc1df239c10bf762012085b60154",
-    "frontend/src/pages/reports.tsx": "0b8190178a13bccf07d1e6c3997caceca0c54da6b0c973af81114407f7da1ccf",
+    "frontend/src/pages/reports.tsx": "24595f76a90145d19add888e431e2668951f4a2cf919c6766e822e3589eff2e2",
     "frontend/src/pages/returns/SalespersonSelect.tsx": "41e64ea8ef25219eb9967299af3fb67f427e3317483559149a68c08183542924",
     "frontend/src/pages/returns/client.ts": "d9aba9122e136e6e11352411c4ffe1cd9b6cc6c32cf1d53396e4bfd4bb334d65",
     "frontend/src/pages/returns/index.tsx": "136ba68677d49b4485f400e0771785ad49f7248fb149ef0a022d9c955a7f21eb",
@@ -3981,25 +3986,31 @@
       "implementation_status": "partial",
       "backend": [
         "backend/src/modules/checkout/payment-reversals",
-        "backend/src/modules/checkout/payments"
+        "backend/src/modules/checkout/payments",
+        "backend/src/modules/finance",
+        "backend/src/modules/daily-report-corrections.ts"
       ],
       "frontend": [
         "frontend/src/pages/payment-reversals",
-        "frontend/src/pages/checkout/PaymentPanel.tsx"
+        "frontend/src/pages/operations.tsx",
+        "frontend/src/pages/reports.tsx"
       ],
       "tests": [
         "backend/tests/checkout-payment-reversals",
-        "frontend/tests/payment-reversals"
+        "backend/tests/finance",
+        "frontend/tests/payment-reversals",
+        "frontend/tests/order-payments"
       ],
       "parity_documents": [
-        "backend/parity/payment-reversals.md"
+        "backend/parity/payment-reversals.md",
+        "backend/parity/payment-correction-finance.md"
       ],
-      "implemented_scope": "Audited ordinary-cash correction, immutable original paid/comments history, exact cash-out/new repayment movements and latest-close invalidation are implemented with native races and child browser recovery; derived reversed status never completes a local sale.",
+      "implemented_scope": "Audited ordinary-cash correction and deferred manager action are integrated with retained versioned proof-key reads, immutable original paid/comments history, current collection/ledger/DSR and sealed common-generation historical deltas. Original/new cash-ins use their actual dates, physical cash-out its correction date and logical order its original date; no fabricated online residual, duplicate source baseline or product-return row. Derived reversed status never completes a local sale.",
       "remaining_code": [
-        "Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow."
+        "Finish durable prepare/attestation and the manager queue for unknown physical cash-return intents across authorized operators/devices, including final-finance guards. The existing device journal and order action retain original references but are not a complete centralized reconciliation workflow."
       ],
       "external_acceptance": [
-        "Accept physical net cash-return attestations and supported current source funding/projection contracts; provider/split/offline/historical-unproved/handed-over cases remain explicit separate reconciliation, never an invented refund."
+        "Accept the actual immutable historical publisher/source barrier, physical net cash-return attestations and supported current source funding/projection contracts before selecting the finance contract. Provider/split/offline/historical-unproved/handed-over cases require separate reconciliation, never an invented refund."
       ],
       "code_task_required": true,
       "notes": [],
@@ -4009,6 +4020,16 @@
       "test_files": [
         "backend/tests/checkout-payment-reversals/reversal.mysql.test.ts",
         "backend/tests/checkout-payment-reversals/source.test.ts",
+        "backend/tests/finance/domain.test.ts",
+        "backend/tests/finance/feed-domain.test.ts",
+        "backend/tests/finance/feed-mysql.integration.test.ts",
+        "backend/tests/finance/feed-routing.test.ts",
+        "backend/tests/finance/feed-security.test.ts",
+        "backend/tests/finance/ledger.test.ts",
+        "backend/tests/finance/mysql.integration.test.ts",
+        "backend/tests/finance/offline-cash.mysql.integration.test.ts",
+        "backend/tests/finance/payment-correction-publication.test.ts",
+        "frontend/tests/order-payments/order-payments.browser.test.ts",
         "frontend/tests/payment-reversals/browser.test.ts"
       ]
     },
@@ -4769,6 +4790,7 @@
         "backend/tests/finance/ledger.test.ts",
         "backend/tests/finance/mysql.integration.test.ts",
         "backend/tests/finance/offline-cash.mysql.integration.test.ts",
+        "backend/tests/finance/payment-correction-publication.test.ts",
         "frontend/tests/finance/commands.test.ts",
         "frontend/tests/finance/download.test.ts",
         "frontend/tests/finance/ledger-rows.test.ts"
@@ -4811,6 +4833,7 @@
         "backend/tests/finance/ledger.test.ts",
         "backend/tests/finance/mysql.integration.test.ts",
         "backend/tests/finance/offline-cash.mysql.integration.test.ts",
+        "backend/tests/finance/payment-correction-publication.test.ts",
         "backend/tests/mysql.integration.test.ts"
       ]
     },
@@ -5317,7 +5340,7 @@
       "family": "legacy-paid-reversal",
       "state": "partial",
       "tasks": [
-        "Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow."
+        "Finish durable prepare/attestation and the manager queue for unknown physical cash-return intents across authorized operators/devices, including final-finance guards. The existing device journal and order action retain original references but are not a complete centralized reconciliation workflow."
       ]
     },
     {

@@ -19,6 +19,7 @@ import { orderLink, orderLinkState } from './checkout/order-link';
 import { OrderPaymentActions } from './checkout/OrderPaymentActions';
 import { OrderCancellationActions } from './checkout/cancellations/OrderCancellationActions';
 import { SourceOrderList } from './order-history/SourceOrderList';
+import { PaymentReversalPanel } from './payment-reversals';
 
 export function InventoryPage({ user, storeId }: { user: Principal; storeId: string }) {
   const [search, setSearch] = useState('');
@@ -132,6 +133,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
     link = orderLink(searchParams, location.state as unknown, scope),
     selected = link.needsBinding ? '' : link.id;
   const [refreshToken, setRefreshToken] = useState(0),
+    [paymentRevision, setPaymentRevision] = useState(0),
     [dateDraft, setDateDraft] = useState({ from: dates.from, to: dates.to });
   const orders = { refetch: () => setRefreshToken((value) => value + 1) };
   useEffect(
@@ -318,7 +320,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                   online={online}
                 />
                 <OrderPaymentActions
-                  key={`${user.id}:${storeId}:${selected}`}
+                  key={`${user.id}:${storeId}:${selected}:${paymentRevision}`}
                   ownerId={user.id}
                   storeId={storeId}
                   orderId={selected}
@@ -335,6 +337,21 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                     void orders.refetch();
                   }}
                 />
+                {[1, 2, 3].includes(user.role) && (
+                  <PaymentReversalPanel
+                    deferUntilOpened
+                    user={user}
+                    storeId={storeId}
+                    orderId={selected}
+                    online={online}
+                    onCorrected={async () => {
+                      setAutomaticInvoice(null);
+                      setPaymentRevision((value) => value + 1);
+                      await detail.refetch();
+                      orders.refetch();
+                    }}
+                  />
+                )}
                 <OrderCancellationActions
                   key={`cancel:${user.id}:${storeId}:${selected}`}
                   ownerId={user.id}

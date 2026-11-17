@@ -7,6 +7,7 @@ import { collectionSnapshot } from '../../src/modules/finance/service.js';
 import { cashLedgerService, ledgerOptions } from '../../src/modules/finance/ledger.js';
 import { reportService } from '../../src/modules/reports.js';
 import { AppError } from '../../src/domain/errors.js';
+import { registerEventCatalog, resourceRoutes } from '../../src/observability/events.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
 import { paymentService } from '../../src/modules/checkout/payments/service.js';
 import { paymentRepository } from '../../src/modules/checkout/payments/repository.js';
@@ -979,8 +980,14 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
     });
     it('three traced resources validate strict runtime input and return original receipts by GET only', async () => {
       const app = Fastify();
+      registerEventCatalog(app);
       app.addHook('preHandler', async (request) => {
         request.principal = manager;
+        let checks = 0;
+        request.authSessionValid =
+          request.headers['x-test-missing-validator'] === 'true'
+            ? null
+            : async () => request.headers['x-test-late-revocation'] !== 'true' || ++checks === 1;
       });
       app.setErrorHandler((error, _request, reply) => {
         if (error instanceof ZodError)
@@ -1001,6 +1008,19 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
       const recovered = await app.inject({ method: 'GET', url: base + '/' + body.operationId });
       expect(recovered.statusCode).toBe(200);
       expect(recovered.json()).toEqual(created.json());
+      expect(recovered.headers['cache-control']).toBe('private, no-store');
+      expect(resourceRoutes(app)).toHaveLength(3);
+      for (const headers of [
+        { 'x-test-missing-validator': 'true' },
+        { 'x-test-late-revocation': 'true' },
+      ])
+        expect(
+          (await app.inject({ method: 'GET', url: base + '/' + body.operationId, headers }))
+            .statusCode,
+        ).toBe(401);
+      expect(
+        (await app.inject({ method: 'GET', url: base + '/' + body.operationId })).json(),
+      ).toEqual(created.json());
       await app.close();
     });
   },

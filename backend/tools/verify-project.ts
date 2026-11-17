@@ -810,6 +810,16 @@ const checks: Check[] = [
     ],
   },
   {
+    id: 'payment-correction-finance-fixture-typecheck',
+    directory: 'backend',
+    args: [
+      'node_modules/typescript/bin/tsc',
+      '--noEmit',
+      '-p',
+      'tools/payment-correction-finance/tsconfig.json',
+    ],
+  },
+  {
     id: 'model-accounts-fixture-typecheck',
     directory: 'backend',
     args: [

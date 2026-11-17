@@ -17,7 +17,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 ## Concrete remaining code, by feature group
 
 - **ecommerce-inventory-sync (partial)**: Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.
-- **legacy-paid-reversal (partial)**: Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow.
+- **legacy-paid-reversal (partial)**: Finish durable prepare/attestation and the manager queue for unknown physical cash-return intents across authorized operators/devices, including final-finance guards. The existing device journal and order action retain original references but are not a complete centralized reconciliation workflow.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
 

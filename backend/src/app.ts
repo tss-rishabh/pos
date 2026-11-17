@@ -58,6 +58,12 @@ import {
   readSlackOAuthOptions,
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
+import { checkoutEnvironment } from './modules/checkout/gateway.js';
+import {
+  paymentCorrectionEvidence,
+  paymentReversalOptions,
+  registerPaymentReversals,
+} from './modules/checkout/payment-reversals/index.js';
 import { registerFulfillment } from './modules/fulfillment/index.js';
 import { registerShippingLabels } from './modules/fulfillment/shipping-label/index.js';
 import { registerLegacyFulfillment } from './modules/legacy-fulfillment/index.js';
@@ -79,6 +85,7 @@ import {
   createCustomerOtpDelivery,
 } from './modules/customer-otp/index.js';
 import { registerFinance } from './modules/finance/index.js';
+import { paymentCorrectionFinanceOptions } from './modules/finance/payment-corrections.js';
 import { registerOperationalReports } from './modules/operational-reports/index.js';
 import { registerCatalogDetails } from './modules/catalog-details/index.js';
 import {
@@ -153,7 +160,9 @@ export async function buildApp(
   await app.register(rateLimit, { max: 240, timeWindow: '1 minute' });
   const db = createDatabases(config),
     identity = identityService(config, db);
-  const reports = reportService(config, db),
+  const paymentCorrections = paymentCorrectionFinanceOptions(),
+    checkoutRuntime = checkoutEnvironment(),
+    reports = reportService(config, db, { paymentCorrections }),
     orderHistory = publicOrderHistory(config);
   const services = config.DEMO_MODE
     ? demoServices()
@@ -331,11 +340,18 @@ export async function buildApp(
     historyOptions: readParentStoreImportOptions(),
   });
   await registerCheckout(app, config, db, {
+    environment: checkoutRuntime,
+    paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
     customerOtp,
     orderCopy: { history: historicalOrderCopyFacts(orderHistory) },
     ...(stockProjection
       ? { inventoryProcedureVerified: true, stockProcedure: stockProjection }
       : {}),
+  });
+  registerPaymentReversals(app, config, db, {
+    ...paymentReversalOptions(),
+    hashSecret: paymentCorrections.proofKey ?? '',
+    projection: checkoutRuntime,
   });
   await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
   registerCustomerWebsiteHandoff(app, config, db, customerOtp);
@@ -348,7 +364,7 @@ export async function buildApp(
   registerCheckoutPerformance(app, config, db);
   registerInvoiceDocuments(app, config, db);
   registerCustomerContacts(app, config, db, readCustomerContactOptions());
-  await registerFinance(app, config, db);
+  await registerFinance(app, config, db, { paymentCorrections });
   await registerOperationalReports(app, config, db);
   await registerCatalogDetails(app, config, db);
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
