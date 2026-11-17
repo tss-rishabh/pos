@@ -12,8 +12,8 @@ from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 warehouse reader, and its encrypted publication journal has an additive registered
 migration packaged by the existing Docker SQL glob. Configuration examples keep
 selectors blank. This code is pending final validation; no new parity or test run
-was performed for this integration. The executable publisher/demand-queue handoff,
-screening counter and public membership/gift composition remain implementation
+was performed for this integration. Screening counter and public membership/gift
+composition remain implementation
 work in parallel agents. Changed-actor/contact settlement succession also remains
 unimplemented; immutable completed-result recovery already exists.
 
@@ -23,7 +23,14 @@ and configured reader. Only an authenticated incomplete-generation preview can
 enqueue the original scope/witness; it cannot publish or dispatch an order.
 The additive queue migration is registered and packaged. Generation intent and
 demand linkage commit atomically. The executable background command/config loader
-is the remaining publisher handoff. Validation remains deferred.
+is integrated as `f395a18` from `5a7e521`, with npm/Docker packaging on `9647cfa`
+and deployment configuration on `1f69ca9`. It separates reader/writer credentials,
+uses the explicit read-only source origin, bounds cycles and credential reads,
+and cleans pools on shutdown and startup failure. No worker command, native
+capture or publication was run. Source controls additionally reject financial
+and membership key reuse on `d38b046`; the manifest was regenerated against the
+immutable API source. Validation remains deferred. The next checkout assignment
+is the manager/source authority succession workflow before new settlement.
 
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
