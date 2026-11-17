@@ -210,8 +210,10 @@ export function legacyOrderImportFinancialApprovals(
     async read(
       scope: ImportFinancialScope,
       planHash: string,
+      commandId?: string,
     ): Promise<FinancialImportApprovalView | null> {
       financialImportScopeSchema.parse(scope);
+      if (commandId !== undefined) z.uuid().parse(commandId);
       return db.get('writer').transaction(async (tx) => {
         const [row] = await tx
           .select()
@@ -220,6 +222,9 @@ export function legacyOrderImportFinancialApprovals(
             and(
               eq(financialImportApprovals.operationId, scope.operationId),
               eq(financialImportApprovals.planHash, planHash),
+              commandId === undefined
+                ? undefined
+                : eq(financialImportApprovals.commandId, commandId),
             ),
           )
           .orderBy(desc(financialImportApprovals.createdAt), desc(financialImportApprovals.id))
