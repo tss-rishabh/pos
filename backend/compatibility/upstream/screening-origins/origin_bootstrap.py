@@ -98,6 +98,17 @@ class OriginBootstrap:
             history_provider=History(self.environment['POS_SCREENING_ORIGIN_HISTORY_BRIDGE_URL'],self.options['key'],lambda:int(time.time()*1000))
         self.runtime=OriginRuntime(public_bootstrap.sessions,self.options['key'],self.environment.get('POS_LEGACY_IMPORT_PROOF_KEY',''),
                                    bool(namespace['settings'].IS_LINE_ITEM_ENABLED),lambda:int(time.time()*1000),history_provider)
+        from origin_membership import OriginMembership,install as install_member
+        member_source=importlib.import_module('controllers.cart.Cart')
+        member_settings=dict(vars(namespace['settings']));member_settings['MEMBERSHIP_PROD_ID']=tuple(member_source.MEMBERSHIP_PROD_ID)
+        self.runtime.membership=OriginMembership(SimpleNamespace(**member_settings),self.options['key'],self.runtime.clock,
+            member_source.datetime.now,self.environment.get('BUSINESS_TIMEZONE','Asia/Kolkata'))
+        install_member(public_bootstrap.base)
+        member_contract=self.environment.get('POS_SCREENING_ORIGIN_MEMBERSHIP_HISTORY_CONTRACT')
+        if member_contract:
+            if member_contract!='pos-screening-origin-membership-history-v1':fail('SCREENING_ORIGIN_MEMBERSHIP_CONFIGURATION')
+            from origin_membership_http import MembershipHistory
+            self.runtime.membership_history_provider=MembershipHistory(self.environment.get('POS_SCREENING_ORIGIN_MEMBERSHIP_HISTORY_URL',''),self.options['key'],self.runtime.clock)
         if self.options['key'] in (namespace['settings'].SECRET_KEY,getattr(namespace['settings'],'SECRET_KEY_512',None)):fail('SCREENING_ORIGIN_KEY_REQUIRED')
         for name in ('EXCLUSIVE_PRODUCT','EXCLUSIVE_UPGRADE_PRODUCT'):
             configured=getattr(namespace['settings'],name,{})
@@ -128,7 +139,13 @@ class OriginBootstrap:
                     'POS_PUBLIC_SCREENING_PUBLICATION_KEY','POS_SCREENING_ORIGIN_HISTORY_CAPTURE_KEY','POS_SCREENING_ORIGIN_HISTORY_PUBLICATION_KEY') if self.environment.get(name)),clock=self.runtime.clock)
             self.coupon_composition['install']()
             self.runtime.coupons=self.coupon_composition['coupons'];self.runtime.coupon_history_provider=self.coupon_composition['history_provider']
+            from origin_preview import CouponPreviewHistory
+            self.runtime.coupon_preview_provider=CouponPreviewHistory(
+                self.environment['POS_SCREENING_ORIGIN_COUPON_HISTORY_URL'].removesuffix('coupon-history')+'coupon-preview',
+                self.options['key'],self.runtime.clock,self.environment.get('POS_SCREENING_ORIGIN_COUPON_HISTORY_CA_FILE') or None)
         install(self.runtime);patch_public_routes()
+        from origin_preview import install_middleware
+        install_middleware(self.runtime)
         from origin_delivery import OriginEffectRegistry,install_capture
         install_capture(public_bootstrap.root,tuple(sys.modules.values()))
         self.registry=OriginEffectRegistry(self.runtime,namespace)
@@ -217,17 +234,35 @@ class OriginBootstrap:
     def dispatch_effects(self,command_id):
         if self.runtime is None or self.registry is None:fail('SCREENING_ORIGIN_EFFECT_UNQUALIFIED')
         if not isinstance(command_id,str) or not __import__('origin_contracts').UUID.fullmatch(command_id):fail()
+        from native import rows
+        from origin_preview import TABLE,dispatch as dispatch_preview
+        with self.runtime.sessions() as session:
+            is_preview=rows(session,'SELECT preview_id FROM '+TABLE+' WHERE preview_id=:id',{'id':command_id},1)
+            if is_preview and rows(session,'SELECT id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':command_id},1):fail('SCREENING_ORIGIN_EFFECT_SCOPE_CONFLICT')
+        if is_preview:return dispatch_preview(self.runtime,command_id,self.registry)
         from origin_effects import dispatch
         result=dispatch(self.runtime.sessions,command_id,self.runtime.key,self.registry,self.runtime.clock)
         return result
     def coupon_control_application(self,fallback,emit_stream):
         if self.coupon_composition is None or self.coupon_composition['mount_controls'] is None:return fallback
         return self.coupon_composition['mount_controls'](emit_stream,fallback)
+    def process_resource(self,req,resp,resource,params):
+        if self.runtime is None or req.context.get('_origin_deferred_cart') is not True:return
+        # Financial responders enter their separate real command frame. Cart
+        # responders are invoked once here, after every original middleware.
+        settings=importlib.import_module('settings')
+        if req.path.rstrip('/') in (settings.API_PREFIX+'/order',settings.API_PREFIX+'/pos/order'):return
+        method=getattr(resource,'on_'+req.method.lower(),None)
+        if not callable(method):return
+        try:self.runtime.cart(req,resp,lambda:method(req,resp,**params))
+        except OriginReview as error:static_error(error)
+        except BaseException:static_error(OriginReview('SCREENING_ORIGIN_PREVIEW_REQUIRED'))
+        resp.complete=True
     def effect_candidates(self,limit=25):
         if type(limit) is not int or not 1<=limit<=100 or self.runtime is None or self.registry is None:fail()
         from native import rows
         with self.runtime.sessions() as session:
-            result=rows(session,"SELECT command_id FROM pos_rewrite_screening_origin_effects WHERE phase='PENDING' OR (phase='SENDING' AND updated_at_ms<:cutoff) ORDER BY updated_at_ms,command_id LIMIT :limit",{'cutoff':self.runtime.clock()-120000,'limit':limit},limit+1)
+            result=rows(session,"SELECT command_id,updated_at_ms FROM pos_rewrite_screening_origin_effects WHERE phase='PENDING' OR (phase='SENDING' AND updated_at_ms<:cutoff) UNION ALL SELECT preview_id AS command_id,updated_at_ms FROM pos_rewrite_screening_origin_cart_previews WHERE phase='PENDING' OR (phase='SENDING' AND updated_at_ms<:cutoff) ORDER BY updated_at_ms,command_id LIMIT :limit",{'cutoff':self.runtime.clock()-120000,'limit':limit},limit+1)
         return [row['command_id'] for row in result]
     def effect_summary(self,command_id):
         from origin_effects import load
@@ -257,6 +292,9 @@ class OriginBootstrap:
             app.add_route(system_path+'/{command_id}/resume',OriginBoundary(SystemResume(self.system),('on_post',)))
             app.add_route(system_path+'/{command_id}/successors',OriginBoundary(SystemSuccessor(self.system),('on_post',)))
             app.add_route(system_path+'/{command_id}/successors/{successor_id}',OriginBoundary(SystemSuccessor(self.system),('on_get',)))
+        from origin_stage_recovery_resource import StageRecoveryResource
+        app.add_route(settings.API_PREFIX+'/screening-origins/{command_id}/stage-recovery',
+            OriginStageBoundary(StageRecoveryResource(self.runtime,self.system),('on_get','on_post')))
 
 
 class OriginBoundary:
@@ -272,6 +310,27 @@ class OriginBoundary:
         except BaseException:static_error(OriginReview())
     def on_get(self,req,resp,*args,**kwargs):return self.invoke('on_get',req,resp,*args,**kwargs)
     def on_post(self,req,resp,*args,**kwargs):return self.invoke('on_post',req,resp,*args,**kwargs)
+
+
+class OriginStageBoundary(OriginBoundary):
+    def invoke(self,method,req,resp,*args,**kwargs):
+        from datetime import datetime,timezone
+        from uuid import uuid4
+        import json
+        command_id=kwargs.get('command_id')
+        outcome='completed'
+        try:return super().invoke(method,req,resp,*args,**kwargs)
+        except BaseException:
+            outcome='refused';raise
+        finally:
+            if isinstance(command_id,str) and __import__('origin_contracts').UUID.fullmatch(command_id):
+                actor=req.context.get('screening_origin_event_actor_id')
+                if actor is not None and (not isinstance(actor,str) or not re.fullmatch(r'[1-9][0-9]{0,18}',actor)):actor=None
+                event={'module':'screening-origins','resource':'stage-recovery','eventId':'screening-origins.stage-recovery.'+outcome,
+                    'eventInstanceId':str(uuid4()),'requestId':command_id,'userId':actor,
+                    'timestamp':datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00','Z')}
+                try:sys.stdout.write(json.dumps(event,separators=(',',':'))+'\n');sys.stdout.flush()
+                except BaseException:pass
 
 
 def static_error(error):

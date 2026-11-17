@@ -98,10 +98,25 @@ def compile_placement(path,expected_hash,namespace,context):
                 node.values[literals['key']]=ast.Call(func=ast.Name(id='_origin_service_reference',ctx=ast.Load()),args=[],keywords=[])
             return self.generic_visit(node)
     function=Hooks().visit(function)
+    start=next((index for index,node in enumerate(function.body) if isinstance(node,ast.Expr) and isinstance(node.value,ast.Call) and ast.unparse(node.value.func)=='cart.update'),None)
+    end=next((index for index,node in enumerate(function.body) if isinstance(node,ast.Expr) and isinstance(node.value,ast.Call) and ast.unparse(node.value.func)=='_origin_create'),None)
+    if start is None or end is None or end-start!=6:fail('SCREENING_ORIGIN_SOURCE_UNVERIFIED')
+    segment=function.body[start:end]
+    first=segment[0].value.args[0]
+    if not isinstance(first,ast.Dict):fail('SCREENING_ORIGIN_SOURCE_UNVERIFIED')
+    address_index=next((index for index,key in enumerate(first.keys) if isinstance(key,ast.Constant) and key.value=='data'),None)
+    if address_index is None or ast.unparse(first.values[address_index].func)!='make_or_update_address':fail('SCREENING_ORIGIN_SOURCE_UNVERIFIED')
+    original_address=first.values[address_index];first.values[address_index]=ast.Name(id='address_data',ctx=ast.Load())
+    builder=ast.FunctionDef(name='_source_cart_builder',args=ast.arguments(posonlyargs=[],args=[ast.arg(arg=name) for name in ('request','cart','products','address_data','payload')],kwonlyargs=[],kw_defaults=[],defaults=[]),body=segment,decorator_list=[])
+    function.body[start:end]=[
+        ast.Assign(targets=[ast.Name(id='_origin_address_data',ctx=ast.Store())],value=original_address),
+        ast.Expr(value=ast.Call(func=ast.Name(id='_origin_build_cart',ctx=ast.Load()),args=[ast.Name(id=name,ctx=ast.Load()) for name in ('cart','products','_origin_address_data')],keywords=[]))]
     if (token_blocks,creation_calls,payment_calls,secret_references)!=(1,1,1,1):fail('SCREENING_ORIGIN_SOURCE_UNVERIFIED')
     values=dict(namespace)
-    values.update(_origin_create=context.create,_origin_payment=context.submit_payment,_origin_service_reference=lambda:context.reference_hash)
-    exec(compile(ast.fix_missing_locations(ast.Module(body=[function],type_ignores=[])),'<pinned-origin-system-placement>','exec'),values)
+    values.update(_origin_create=context.create,_origin_payment=context.submit_payment,_origin_service_reference=lambda:context.reference_hash,
+                  _origin_build_cart=context.build_cart)
+    exec(compile(ast.fix_missing_locations(ast.Module(body=[builder,function],type_ignores=[])),'<pinned-origin-system-placement>','exec'),values)
+    context.builder=values['_source_cart_builder']
     return values['place_order']
 
 
@@ -124,6 +139,10 @@ class Context:
                 'status':native['status'],'isBlock':native['is_block'],'isDisabled':native['is_disabled'],'isTwoFa':native['is_two_fa']})}
         return native,principal,None
     def namespace(self):return 'external:csk:'+self.reference_hash
+    def build_cart(self,cart,products,address):
+        from origin_system_preview import freeze,build
+        prefix=freeze(self,cart,products,address)
+        build(self,self.builder,prefix)
     def cart_hash(self):
         from system_preparation import copied
         return portable_hash(copied(self.cart.simple_obj(apply_wrappers_flag=False)))
@@ -206,7 +225,7 @@ class Context:
                 if authority_hash(key,principal)!=value['authorityHash'] or read(session,value['id'],value['customerId'],key)!=value:fail()
                 assert_attempt(session,self)
                 selections=coupons.prepare(session,value,'customer',self.namespace(),coupon_snapshot,cart_meta=meta)
-            documents=[self.owner.runtime.coupon_history_provider.read(coupons.request(value,item)) for item in selections]
+            documents=coupons.fetch(value,selections,self.owner.runtime.coupon_history_provider)
         if self.owner.runtime.history_provider is None:fail('SCREENING_ORIGIN_HISTORY_REQUIRED')
         document=self.owner.runtime.history_provider.read(value,witness)
         with self.owner.runtime.sessions() as session,session.begin():
@@ -330,7 +349,15 @@ class SystemOrders:
         method=compile_placement(self.source_file,self.source_hash,self.namespace,invocation)
         token=ACTIVE.set(invocation)
         try:
-            if frozen is None:method(request,response,copy.deepcopy(payload),details)
+            if frozen is None:
+                from origin_system_preview import saved,build
+                with self.runtime.sessions() as session:prefix_snapshot=saved(session,command_id,self.runtime.key)
+                if prefix_snapshot is None:method(request,response,copy.deepcopy(payload),details)
+                else:
+                    prefix.close()
+                    build(invocation,invocation.builder,prefix_snapshot)
+                    invocation.create(request,response)
+                    invocation.submit_payment(json.loads(response.body),context['user'])
             else:
                 _metadata,snapshot=frozen
                 context['user']=copy.deepcopy(snapshot['user']);context['data']=copy.deepcopy(snapshot['requestData'])
@@ -345,7 +372,12 @@ class SystemOrders:
             prefix.rollback()
             pause(self,command_id,details,state['attemptId'])
             return self.read(command_id,details)
-        finally:ACTIVE.reset(token);prefix.close()
+        finally:
+            ACTIVE.reset(token);prefix.close()
+            current_session=request.context.get('session')
+            if current_session is not None:
+                try:current_session.close()
+                except Exception:pass
     def worker_candidates(self,limit=25):
         if type(limit) is not int or not 1<=limit<=100:fail('SCREENING_ORIGIN_REQUEST_INVALID')
         with self.runtime.sessions() as session:
@@ -417,10 +449,11 @@ class SystemOrders:
         with self.runtime.sessions() as session,session.begin():
             session.connection(execution_options={'isolation_level':'READ COMMITTED'})
             current_service(session,key,details)
-            hints=rows(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':command_id},2)
+            from origin_system_preview import customer_hint
+            customer=customer_hint(session,command_id,key)
             value=None
-            if hints:
-                customer=str(hints[0]['customer_id']);one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':customer})
+            if customer is not None:
+                one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':customer})
                 value=read(session,command_id,customer,key)
             row=one(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id FOR UPDATE',{'id':command_id})
             state=json_value(row['data'])

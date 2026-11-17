@@ -78,10 +78,11 @@ def successor(owner,parent,details,input):
         hint=one(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id',{'id':parent})
         hint_value=json_value(hint['data'])
         if hint_value.get('commandId')!=parent or digest(key,'system-job',hint_value)!=hint['proof_hash']:fail()
-        hints=rows(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':parent},2)
+        from origin_system_preview import customer_hint,saved as saved_cart_prefix,TABLE as CART_PREFIX_TABLE
+        customer=customer_hint(session,parent,key)
         old=None
-        if hints:
-            customer=identifier(hints[0]['customer_id']);one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':customer})
+        if customer is not None:
+            one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':customer})
             # Consistent ID order when a same-customer successor races another
             # genuine command writer. There is no child-to-parent Order lock.
             for command in sorted((parent,input['successorId'])):
@@ -96,6 +97,7 @@ def successor(owner,parent,details,input):
         assert_absent(session,parent)
         if rows(session,'SELECT command_id FROM pos_rewrite_screening_origin_system_jobs WHERE command_id=:id FOR UPDATE',{'id':input['successorId']},2):fail('SCREENING_ORIGIN_SUCCESSOR_CONFLICT')
         prior=frozen(session,parent,key)
+        prefix=saved_cart_prefix(session,parent,key)
         if state.get('attemptId') is not None:
             closed=one(session,'SELECT phase,data,proof_hash FROM pos_rewrite_screening_origin_system_attempts WHERE id=:id FOR SHARE',{'id':state['attemptId']})
             attempt=json_value(closed['data'])
@@ -107,7 +109,7 @@ def successor(owner,parent,details,input):
                     or state.get('noDispatchHash')!=receipt['proof_hash']
                     or any(negative.get(name)!=state.get(name) for name in ('requestHash','referenceHash','serviceHash'))
                     or negative.get('authorityHash')!=(None if old is None else old['authorityHash'])):fail('SCREENING_ORIGIN_NO_DISPATCH_PROOF_REQUIRED')
-            if old is None or prior is None:fail('SCREENING_ORIGIN_ORIGINAL_CUSTOMER_UNQUALIFIED')
+            if (old is None or prior is None) and prefix is None:fail('SCREENING_ORIGIN_ORIGINAL_CUSTOMER_UNQUALIFIED')
         principal=None
         if old is not None:
             if prior is None:fail('SCREENING_ORIGIN_ORIGINAL_CUSTOMER_UNQUALIFIED')
@@ -117,10 +119,18 @@ def successor(owner,parent,details,input):
             token=ACTIVE.set(context)
             try:_native,principal,_grant=context.authorize(session,request)
             finally:ACTIVE.reset(token)
+        elif prefix is not None:
+            _metadata,snapshot=prefix
+            request=Request(SimpleNamespace(access_route=snapshot['accessRoute']),{'user':snapshot['user']})
+            context=Context(owner,parent,reference,{},details,request,Response(),state.get('attemptId'))
+            token=ACTIVE.set(context)
+            try:_native,principal,_grant=context.authorize(session,request)
+            finally:ACTIVE.reset(token)
+            if principal['customerId']!=prefix[0]['customerId']:fail('SCREENING_ORIGIN_ORIGINAL_CUSTOMER_UNQUALIFIED')
         new_authority=None if principal is None else authority_hash(key,principal)
         record={'contract':CONTRACT,'successorId':input['successorId'],'parentCommandId':parent,'referenceHash':reference,
-                'requestHash':state['requestHash'],'customerId':None if old is None else old['customerId'],
-                'originalAuthorityHash':None if old is None else old['authorityHash'],'newAuthorityHash':new_authority,
+                'requestHash':state['requestHash'],'customerId':customer,
+                'originalAuthorityHash':old['authorityHash'] if old is not None else (prefix[0]['authorityHash'] if prefix is not None else None),'newAuthorityHash':new_authority,
                 'originalServiceHash':state.get('serviceHash'),'newServiceHash':digest(key,'system-service',service),
                 'expectedHeadVersion':input['expectedHeadVersion'],'headVersion':current['version']+1,'reason':input['reason'],
                 'noFinancialEffects':True,'createdAt':now}
@@ -145,9 +155,16 @@ def successor(owner,parent,details,input):
             session.execute(text('INSERT INTO pos_rewrite_screening_origin_system_preparations(command_id,customer_id,data,proof_hash,payload,payload_hash) VALUES(:id,:customer,:data,:proof,:payload,:hash)'),
                 {'id':value['id'],'customer':value['customerId'],'data':canonical(metadata),'proof':digest(key,'system-preparation',metadata),
                  'payload':seal_effects(key,'system-preparation:'+value['id'],payload),'hash':payload_hash})
+        if prefix is not None:
+            metadata={**prefix[0],'commandId':input['successorId'],'authorityHash':new_authority,'createdAt':now}
+            payload=[copy.deepcopy(prefix[1])]
+            if hashlib.sha256(canonical(payload).encode()).hexdigest()!=metadata['payloadHash']:fail()
+            session.execute(text('INSERT INTO '+CART_PREFIX_TABLE+'(command_id,customer_id,data,proof_hash,payload,payload_hash) VALUES(:id,:customer,:data,:proof,:payload,:hash)'),
+                {'id':input['successorId'],'customer':customer,'data':canonical(metadata),'proof':digest(key,'system-cart-prefix',metadata),
+                 'payload':seal_effects(key,'system-cart-prefix:'+input['successorId'],payload),'hash':metadata['payloadHash']})
         original_payload=open_effects(key,'system-job:'+parent,row['payload'],row['payload_hash'])
         new_job={'contract':'pos-screening-system-job-v1','commandId':input['successorId'],'serviceId':'csk','referenceHash':reference,
-            'requestHash':state['requestHash'],'serviceHash':record['newServiceHash'],'state':'SOURCE_READY' if old is not None else 'PREPARED',
+            'requestHash':state['requestHash'],'serviceHash':record['newServiceHash'],'state':'SOURCE_READY' if customer is not None else 'PREPARED',
             'orderId':None,'parentCommandId':parent,'successionHash':proof,'updatedAt':now}
         session.execute(text('INSERT INTO pos_rewrite_screening_origin_system_jobs(command_id,data,proof_hash,payload,payload_hash) VALUES(:id,:data,:proof,:payload,:hash)'),
             {'id':input['successorId'],'data':canonical(new_job),'proof':digest(key,'system-job',new_job),

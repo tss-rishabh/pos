@@ -65,10 +65,11 @@ def claim(owner,command,details):
         hinted=json_value(hint['data'])
         if hinted.get('commandId')!=command or digest(key,'system-job',hinted)!=hint['proof_hash']:fail()
         if hinted.get('state') not in ('PREPARED','SOURCE_READY'):return None
-        hints=rows(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':command},2)
-        if hints:
-            one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':hints[0]['customer_id']})
-            value=read(session,command,str(hints[0]['customer_id']),key)
+        from origin_system_preview import customer_hint
+        customer=customer_hint(session,command,key)
+        if customer is not None:
+            one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':customer})
+            value=read(session,command,customer,key)
         else:value=None
         from system_successor import assert_active
         assert_active(session,hinted['referenceHash'],command,key)
@@ -114,11 +115,12 @@ def pause(owner,command,details,attempt_id,expired_only=False):
     with owner.runtime.sessions() as session,session.begin():
         session.connection(execution_options={'isolation_level':'READ COMMITTED'})
         current_service(session,key,details)
-        hints=rows(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':command},2)
+        from origin_system_preview import customer_hint
+        customer=customer_hint(session,command,key)
         value=None
-        if hints:
-            one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':hints[0]['customer_id']})
-            value=read(session,command,str(hints[0]['customer_id']),key)
+        if customer is not None:
+            one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':customer})
+            value=read(session,command,customer,key)
         _row,state=job(session,command,key)
         if state.get('attemptId')!=attempt_id or state.get('state')!='SOURCE_RUNNING':return False
         if expired_only and state.get('attemptExpiresAt',0)>owner.clock():return False
@@ -147,11 +149,12 @@ def resume(owner,command,details):
     with owner.runtime.sessions() as session,session.begin():
         session.connection(execution_options={'isolation_level':'READ COMMITTED'})
         service=current_service(session,key,details)
-        hints=rows(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':command},2)
+        from origin_system_preview import customer_hint,saved as cart_prefix
+        customer=customer_hint(session,command,key)
         value=None
-        if hints:
-            one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':hints[0]['customer_id']})
-            value=read(session,command,str(hints[0]['customer_id']),key)
+        if customer is not None:
+            one(session,'SELECT id FROM users WHERE id=:id FOR UPDATE',{'id':customer})
+            value=read(session,command,customer,key)
         _row,state=job(session,command,key)
         if state['state']=='SOURCE_READY':return {'commandId':command,'phase':'SOURCE_READY','orderId':None}
         if state['state']!='PREPARATION_PAUSED' or not no_dispatch(session,value):fail('SCREENING_ORIGIN_CANNOT_RESUME')
@@ -168,6 +171,16 @@ def resume(owner,command,details):
         if original['phase']!='CLOSED_NO_DISPATCH' or closed.get('phase')!='CLOSED_NO_DISPATCH' or digest(key,'system-attempt',closed)!=original['proof_hash']:fail()
         assert_absent(session,command)
         prior=frozen(session,command,key)
+        prefix=cart_prefix(session,command,key)
+        if value is None and prefix is not None:
+            metadata,payload=prefix
+            request=Request(SimpleNamespace(access_route=payload['accessRoute']),{'user':payload['user']})
+            context=Context(owner,command,state['referenceHash'],{},details,request,Response(),state['attemptId'])
+            from origin_system import ACTIVE
+            token=ACTIVE.set(context)
+            try:_native,principal,_grant=context.authorize(session,request)
+            finally:ACTIVE.reset(token)
+            if authority_hash(key,principal)!=metadata['authorityHash']:fail('SCREENING_ORIGIN_AUTHORITY_SUCCESSOR_REQUIRED')
         if value is not None:
             if prior is None:fail()
             _metadata,payload=prior

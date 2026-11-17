@@ -140,6 +140,20 @@ def load(session,command,key):
     return row,effects,deliveries
 
 
+def deliver(registry,effect,effect_id):
+    if effect['kind'] in ('task','chain'):receipt=registry.publish(effect,effect_id)
+    elif effect['kind']=='direct-task':receipt=registry.direct(effect,effect_id)
+    elif effect['kind']=='cache':receipt=registry.cache(effect,effect_id)
+    elif effect['kind'] in ('cart','active-cart'):receipt=registry.cart(effect,effect_id)
+    elif effect['kind']=='membership-cache':receipt=registry.membership_cache(effect,effect_id)
+    elif effect['kind']=='cart-tracking':receipt=registry.cart_tracking(effect,effect_id)
+    elif effect['kind']=='cache-acquisition':receipt={'id':effect_id,'accepted':True}
+    else:fail('SCREENING_ORIGIN_EFFECT_UNQUALIFIED')
+    if (not isinstance(receipt,dict) or set(receipt)!={'id','accepted'} or receipt['accepted'] is not True
+            or not isinstance(receipt['id'],str) or not 1<=len(receipt['id'])<=128):fail()
+    return receipt
+
+
 def dispatch(sessions,command_id,key,registry,clock):
     """Executable postcommit worker. Registry resolves actual original tasks.
 
@@ -171,15 +185,7 @@ def dispatch(sessions,command_id,key,registry,clock):
             session.execute(text("UPDATE pos_rewrite_screening_origin_effects SET phase='SENDING',updated_at_ms=:now WHERE command_id=:id"),{'now':clock(),'id':command_id})
         # The durable SENDING fence precedes the external call, with no SQL lock.
         try:
-            if effect['kind'] in ('task','chain'):receipt=registry.publish(effect,effect_id)
-            elif effect['kind']=='direct-task':receipt=registry.direct(effect,effect_id)
-            elif effect['kind']=='cache':receipt=registry.cache(effect,effect_id)
-            elif effect['kind']=='cart':receipt=registry.cart(effect,effect_id)
-            elif effect['kind']=='membership-cache':receipt=registry.membership_cache(effect,effect_id)
-            elif effect['kind']=='cart-tracking':receipt=registry.cart_tracking(effect,effect_id)
-            elif effect['kind']=='cache-acquisition':receipt={'id':effect_id,'accepted':True}
-            else:fail('SCREENING_ORIGIN_EFFECT_UNQUALIFIED')
-            if not isinstance(receipt,dict) or set(receipt)!={'id','accepted'} or receipt['accepted'] is not True or not isinstance(receipt['id'],str) or not 1<=len(receipt['id'])<=128:fail()
+            receipt=deliver(registry,effect,effect_id)
         except Exception:
             with sessions() as session,session.begin():
                 session.execute(text("UPDATE pos_rewrite_screening_origin_effects SET phase='UNCERTAIN',updated_at_ms=:now WHERE command_id=:id AND phase='SENDING'"),{'now':clock(),'id':command_id})

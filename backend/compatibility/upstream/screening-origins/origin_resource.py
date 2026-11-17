@@ -82,7 +82,7 @@ class OriginCommands:
             # No SQL connection/lock is retained while reading BigQuery.
             documents=[]
             if self.owner.coupons is not None:
-                documents=[self.owner.coupon_history_provider.read(self.owner.coupons.request(value,selection)) for selection in selections]
+                documents=self.owner.coupons.fetch(value,selections,self.owner.coupon_history_provider)
             document=None
             if body['kind']=='customer':
                 if self.owner.history_provider is None:fail('SCREENING_ORIGIN_HISTORY_REQUIRED')

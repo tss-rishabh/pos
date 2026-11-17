@@ -18,6 +18,9 @@ def save(session,value,key,now):
 
 def insert(session,value,key):
     value=command(value)
+    # A caller-chosen financial command cannot adopt a server-issued cart
+    # preview UUID and redirect its independently authenticated worker scope.
+    if rows(session,'SELECT preview_id FROM pos_rewrite_screening_origin_cart_previews WHERE preview_id=:id FOR SHARE',{'id':value['id']},1):fail('SCREENING_ORIGIN_COMMAND_CONFLICT')
     session.execute(text('INSERT INTO pos_rewrite_screening_origin_commands(id,origin,customer_id,actor_id,store_id,counter_id,phase,order_id,data,proof_hash) VALUES(:id,:origin,:customer,:actor,:store,:counter,:phase,NULL,:data,:proof)'),
         {'id':value['id'],'origin':value['origin'],'customer':value['customerId'],'actor':value['actorId'],'store':value['storeId'],'counter':value['counterId'],
          'phase':value['phase'],'data':canonical(value),'proof':digest(key,'command',value)})

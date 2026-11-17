@@ -39,15 +39,33 @@ def install(bootstrap):
             if (not isinstance(envelope,dict) or set(envelope)!={'data','proofHash'} or not isinstance(envelope['data'],dict)
                     or not hmac.compare_digest(digest(owner.key,'effect-call-authorization',envelope['data']),envelope['proofHash'])):raise Ignore()
             scope=envelope['data']
-            if set(scope)!={'contract','effectId','commandId','ordinal','name','callHash','callsHash'} or scope['contract']!='pos-screening-origin-effects-v1':raise Ignore()
+            fields={'contract','effectId','commandId','ordinal','name','callHash','callsHash'}
+            if (not fields.issubset(scope) or set(scope)-fields-{'scopeKind','derived'} or scope['contract']!='pos-screening-origin-effects-v1'
+                    or ('scopeKind' in scope and scope['scopeKind']!='cart-preview') or ('derived' in scope and scope['derived']!='cart-tracking')):raise Ignore()
             with owner.sessions() as session,session.begin():
-                hint=one(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':scope['commandId']})
-                from origin_ledger import read
-                command=read(session,scope['commandId'],str(hint['customer_id']),owner.key)
-                row,effects,_deliveries=load(session,command,owner.key)
-                matches=[effect for index,effect in enumerate(effects) if digest(owner.key,'effect-id',{'commandId':command['id'],'index':index,'effect':effect})==scope['effectId']]
+                if scope.get('scopeKind')=='cart-preview':
+                    from origin_preview import load as preview_load
+                    row,receipt,effects,_deliveries=preview_load(session,scope['commandId'],owner.key)
+                    command={'id':receipt['preview']['previewId'],'actorId':receipt['preview']['actorId']}
+                    matches=[effect for index,effect in enumerate(effects) if digest(owner.key,'cart-preview-effect-id',{'previewId':command['id'],'index':index,'effect':effect})==scope['effectId']]
+                else:
+                    hint=one(session,'SELECT customer_id FROM pos_rewrite_screening_origin_commands WHERE id=:id',{'id':scope['commandId']})
+                    from origin_ledger import read
+                    command=read(session,scope['commandId'],str(hint['customer_id']),owner.key)
+                    row,effects,_deliveries=load(session,command,owner.key)
+                    matches=[effect for index,effect in enumerate(effects) if digest(owner.key,'effect-id',{'commandId':command['id'],'index':index,'effect':effect})==scope['effectId']]
                 if len(matches)!=1:raise Ignore()
-                effect=matches[0];calls=[effect['call']] if effect['kind'] in ('task','direct-task') else effect.get('calls')
+                effect=matches[0]
+                if scope.get('derived')=='cart-tracking':
+                    derived=one(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_cart_tracking_calls WHERE effect_id=:id FOR SHARE',{'id':scope['effectId']})
+                    data=json_value(derived['data'])
+                    if (effect['kind']!='cart-tracking' or scope['ordinal']!=0 or scope['name']!='process_abandon_cart_data'
+                            or not isinstance(data,dict) or set(data)!={'contract','scope','parentHash','options'}
+                            or data['contract']!='pos-screening-origin-cart-tracking-call-v1' or data['scope']!=scope
+                            or digest(owner.key,'cart-tracking-parent',effect)!=data['parentHash']
+                            or not hmac.compare_digest(digest(owner.key,'cart-tracking-call',data),derived['proof_hash'])):raise Ignore()
+                    calls=[{'name':scope['name'],'args':list(args),'kwargs':kwargs,'options':data['options']}]
+                else:calls=[effect['call']] if effect['kind'] in ('task','direct-task') else effect.get('calls')
                 if not isinstance(calls,list) or type(scope['ordinal']) is not int or not 0<=scope['ordinal']<len(calls):raise Ignore()
                 call=calls[scope['ordinal']]
                 if (call['name']!=scope['name'] or registry.task(scope['name']) is not task or digest(owner.key,'effect-call',call)!=scope['callHash']

@@ -22,8 +22,13 @@ def api_changes(changes):
         'from pos_screening_origins import prepare as _prepare_origins\n_prepare_origins(__file__)\nfrom pos_node_screening import install')
     main=once(main,'_node_screening.activate(vars(OrderController))',
         '_node_screening.activate(vars(OrderController))\nfrom pos_screening_origins import install as _install_origins\n_screening_origins = _install_origins().activate(_node_screening, vars(OrderController))')
+    main=once(main,'middleware = [_node_screening, DatabaseManager(',
+        'middleware = [_node_screening, _screening_origins, DatabaseManager(')
     marker="app.add_route(settings.API_PREFIX + '/order', OrderController.Order())"
     main=once(main,marker,'_screening_origins.register(app, settings)\n'+marker)
+    # Mount the qualified WSGI resource only after all actual source routes.
+    # The existing Falcon app remains the fallback and original source server.
+    main+='\nimport sys as _origin_event_stream\napp = _screening_origins.coupon_control_application(app, _origin_event_stream.stdout)\n'
     changes['main.py']=(original,main)
     entry='''"""Purpose-specific original customer/staff/system writer installation."""\nimport os\nimport sys\nfrom pathlib import Path\n_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()\nfor name in ('legacy-order-imports','offline-cash-pricing','public-screening-writer','screening-origins'):sys.path.insert(0,str(_root/name))\ndef prepare(main_file):\n    if not os.environ.get('POS_SCREENING_ORIGIN_CONTRACT'):return\n    from origin_delivery import prepare as early\n    early(main_file)\ndef install():\n    from origin_bootstrap import OriginBootstrap\n    return OriginBootstrap()\n'''
     changes['pos_screening_origins.py']=('',entry)

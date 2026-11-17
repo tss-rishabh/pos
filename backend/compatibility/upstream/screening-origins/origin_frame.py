@@ -83,6 +83,7 @@ def tickets(cart):
 
 
 def selected(req):
+    if req.context.get('_origin_deferred_cart') is True:return True
     cart=req.context.get('cart')
     if cart is not None and tickets(cart):return True
     data=req.context.get('data') or {}
@@ -138,11 +139,12 @@ def after_original_auth(kind):
 
 
 class Frame:
-    def __init__(self,owner,req,kind,coupon_snapshot=None):
+    def __init__(self,owner,req,kind,coupon_snapshot=None,membership_document=None):
         self.owner,self.req,self.kind=owner,req,kind
         self.session=owner.sessions();self.contexts=ExitStack();self.order_id=None;self.admitted=False
-        self.effects=[];self.original_context=dict(req.context);self.cart_persist=None
+        self.effects=[];self.original_context=dict(req.context);self.original_context['data']=copy.deepcopy(req.context.get('data'));self.cart_persist=None;self.active_persist=None
         self.coupon_snapshot=coupon_snapshot
+        self.membership_document=membership_document
     def open(self):
         self.transaction=self.session.begin()
         self.connection=self.session.connection(execution_options={'isolation_level':'READ COMMITTED'})
@@ -190,6 +192,7 @@ class Frame:
             replay=self.contexts.enter_context(origin_history.scope(replay,self.value,self.owner.key,self.owner.clock()))
             self.history=replay
         if self.owner.coupons is not None:self.contexts.enter_context(self.owner.coupons.before(self,self.coupon_snapshot))
+        if self.owner.membership is not None:self.member_history=self.contexts.enter_context(self.owner.membership.before(self.session,self.value,self.membership_document))
         replay=CounterReplay(replay,snapshot)
         self.source=self.contexts.enter_context(private_session(replay))
         self.contexts.enter_context(origin_history.guard_source(self.session,self))
@@ -204,6 +207,9 @@ class Frame:
         # Rehydrate the original current namespace using source serializers.
         # Every source persist is captured and can never COMMIT cart/order rows.
         from middleware.CartMiddleware import CartFactory,PosCartFactory
+        from controllers.priceList.PricelistManager import PricelistManager
+        self.req.context['pricelist_manager']=PricelistManager(self.req.context)
+        if self.system is not None:self.req.context['pricelist_manager'].set_strict_pricelist([self.system.owner.namespace['settings'].CSK_PRICELIST])
         factory=PosCartFactory if self.kind=='pos' else CartFactory
         if self.system is not None:cart=self.system.cart;cart.context=self.req.context
         elif self.kind=='pos':
@@ -213,6 +219,13 @@ class Frame:
                 is_split_order=bool(data.get('is_split_order')),is_express=bool(data.get('is_express')))
         self.cart=cart;self.req.context['cart']=cart
         if self.system is None or cart.persist_handler is not None:cart.persist_handler=self.capture_cart
+        if self.system is None:
+            from middleware.ActiveCartMiddleware import CartFactory as ActiveCartFactory
+            self.active_namespace='active_cart_'+self.value['customerId']
+            self.active_cart_hash=cart_native_hash(self.session,self.active_namespace)
+            active_cart=ActiveCartFactory.instantiate(None,self.user,self.req.context)
+            active_cart.persist_handler=self.capture_active_cart
+            self.req.context['active_cart']=active_cart
         if self.owner.assets is not None:
             # Capture original native member state and physical collection locks
             # under the already-owned customer, before any original Order row.
@@ -224,6 +237,10 @@ class Frame:
         copied=json.loads(canonical(value))
         if len(canonical(copied).encode())>500000:fail('SCREENING_ORIGIN_CART_TOO_LARGE')
         self.cart_persist=copied
+    def capture_active_cart(self,value):
+        copied=json.loads(canonical(value))
+        if len(canonical(copied).encode())>500000:fail('SCREENING_ORIGIN_CART_TOO_LARGE')
+        self.active_persist=copied
     def admit(self,req):
         if req is not self.req or self.admitted or tickets(req.context['cart'])!=self.value['quantity']:fail('SCREENING_ORIGIN_SCOPE_CHANGED')
         if self.grant is not None:
@@ -263,6 +280,8 @@ class Frame:
         if len(markers)!=self.value['markerRows'] or any(str(row['user_id'])!=self.value['customerId'] for row in markers):fail()
         if self.cart_persist is not None:effect({'kind':'cart','namespace':self.namespace,'customerId':self.value['customerId'],
                                               'expectedHash':self.value['cartHash'],'value':self.cart_persist})
+        if self.active_persist is not None:effect({'kind':'active-cart','namespace':self.active_namespace,'customerId':self.value['customerId'],
+                                                'expectedHash':self.active_cart_hash,'value':self.active_persist})
         effects_hash=persist_effects(self.session,self.value,self.owner.key,self.effects,now)
         proof={'contract':CREATION,'commandId':self.value['id'],'origin':self.value['origin'],'customerId':self.value['customerId'],
             'actorId':self.value['actorId'],'storeId':self.value['storeId'],'counterId':self.value['counterId'],
@@ -287,10 +306,12 @@ class Frame:
         return result
     def reject(self,error):
         if (not isinstance(error,OriginReview) or error.code not in NEGATIVE or not hasattr(self,'savepoint')
-                or not self.savepoint.is_active or not self.transaction.is_active or VIOLATION.get()):return False
+                or self.order_id is not None or not self.savepoint.is_active or not self.transaction.is_active or VIOLATION.get()):return False
         self.close_source(error);self.savepoint.rollback()
         value=read(self.session,self.command_id,self.principal['customerId'],self.owner.key)
         if value is None or value['phase']!='PREPARED' or value['orderId'] is not None:fail()
+        self.value=value
+        if self.owner.coupons is not None and hasattr(self,'coupon_state'):self.owner.coupons.abort_after_rollback(self)
         for table,column in (('pos_rewrite_screening_origin_creations','command_id'),('pos_rewrite_screening_origin_payments','command_id'),('pos_rewrite_screening_origin_effects','command_id')):
             if rows(self.session,'SELECT '+column+' FROM '+table+' WHERE '+column+'=:id FOR SHARE',{'id':value['id']},2):fail()
         now=self.owner.clock()
@@ -324,9 +345,13 @@ class OriginRuntime:
         self.member_product_ids=set()
         self.assets=None
         self.coupons=None;self.coupon_history_provider=None
-    def order(self,req,resp,kind,call,coupon_snapshot=None):
-        frame=Frame(self,req,kind,coupon_snapshot)
-        failure=None;coupon_customer=None
+        self.coupon_preview_provider=None;self.membership=None;self.membership_history_provider=None
+        self.cart_hydrate=None
+    def order(self,req,resp,kind,call,coupon_snapshot=None,membership_document=None,_round=0):
+        if _round>3:fail('SCREENING_ORIGIN_PREPARATION_REQUIRED')
+        from origin_membership_history import NeedOriginMembershipHistory
+        frame=Frame(self,req,kind,coupon_snapshot,membership_document)
+        failure=None;coupon_customer=None;member_needed=None
         try:
             if frame.open():
                 # The original ValidateCheckout still runs in the original body.
@@ -340,6 +365,8 @@ class OriginRuntime:
             return None
         except CouponSnapshotRequired as needed:
             failure=needed;coupon_customer=needed.customer
+        except NeedOriginMembershipHistory as needed:
+            failure=needed;member_needed=needed
         except BaseException as error:
             failure=error
             if isinstance(error,OriginReview):frame.reject(error)
@@ -350,35 +377,15 @@ class OriginRuntime:
             # observations occur outside SQL and the second pass freshly checks
             # every original principal/command/cart row before source work.
             snapshot=self.coupons.snapshot(coupon_customer)
-            return self.order(req,resp,kind,call,snapshot)
+            return self.order(req,resp,kind,call,snapshot,membership_document,_round+1)
+        if member_needed is not None:
+            if self.membership_history_provider is None:fail('SCREENING_ORIGIN_MEMBERSHIP_REQUIRED')
+            document=self.membership_history_provider.read(frame.value,member_needed.scope,member_needed.head)
+            return self.order(req,resp,kind,call,coupon_snapshot,document,_round+1)
     def cart(self,req,resp,call):
-        # Add/set screening checks use the same projection; no reservation,
-        # order or financial receipt is created by a cart mutation.
-        original=dict(req.context);cart=req.context.get('cart');cart_context=None if cart is None else dict(cart.context)
-        with self.sessions() as session,session.begin():
-            session.connection(execution_options={'isolation_level':'READ COMMITTED'})
-            native,principal,_grant=source_origin(req,session,self.key,self.clock(),req.get_header('X-TSS-Screening-Origin') or 'customer')
-            snapshot=read_current(session,principal['customerId'])
-            from origin_ledger import all_pending
-            pending=all_pending(session,principal['customerId'],self.legacy_key,self.key)
-            captured=snapshot.count+pending;customer=principal['customerId'];expires=self.clock()+5000
-        # Cart limits are informational. Release the native authority locks
-        # before the original Cart persistence/producer lifecycle; final Order
-        # creation always acquires a NEW owned current projection/admission.
-        def guard():
-            if self.clock()>=expires or str(req.context.get('user',{}).get('user_id'))!=customer:fail('SCREENING_ORIGIN_CART_SCOPE_CHANGED')
-        copy_snapshot=SimpleNamespace(customer=customer,count=captured,guard=guard)
-        proxy=CounterReplay(original['session'],copy_snapshot)
-        frame=SimpleNamespace(source=proxy,order_id=None)
-        token=CURRENT_ORIGIN.set(frame)
-        req.context['session']=proxy
-        if cart is not None:cart.context['session']=proxy
-        try:
-            with origin_history.guard_source(original['session'],frame):return call()
-        finally:
-            CURRENT_ORIGIN.reset(token)
-            req.context.clear();req.context.update(original)
-            if cart is not None:cart.context.clear();cart.context.update(cart_context)
+        from origin_preview import cart
+        if self.cart_hydrate is None:fail('SCREENING_ORIGIN_PREVIEW_REQUIRED')
+        return cart(self,req,resp,call,self.cart_hydrate)
 
 
 def install(runtime):

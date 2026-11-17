@@ -118,6 +118,7 @@ class OriginEffectRegistry:
             if any(name in options for name in ('headers','task_id','link','link_error','retry','producer','connection')):fail()
             scope={'contract':CONTRACT,'effectId':effect_id,'commandId':effect['commandId'],'ordinal':index,
                    'name':call['name'],'callHash':digest(self.owner.key,'effect-call',call),'callsHash':digest(self.owner.key,'effect-calls',calls)}
+            if effect.get('scopeKind')=='cart-preview':scope['scopeKind']='cart-preview'
             headers={'screening-origin-effect':{'data':scope,'proofHash':digest(self.owner.key,'effect-call-authorization',scope)}}
             options=self.tasks.route(task,{**options,'task_id':effect_id+('.'+str(index) if len(calls)>1 else ''),'headers':headers},call['args'],call['kwargs'])
             prepared.append((task,call,options))
@@ -151,7 +152,21 @@ class OriginEffectRegistry:
                 def apply_async(self,args=None,kwargs=None,**options):
                     try:
                         task=registry.fast_queue.process_abandon_cart_data
-                        routed=registry.tasks.route(task,{**options,'task_id':effect_id,'headers':{'screening-origin-cart-event':effect_id}},args or [],kwargs or {})
+                        call={'name':'process_abandon_cart_data','args':list(args or []),'kwargs':kwargs or {},'options':dict(options)}
+                        scope={'contract':CONTRACT,'effectId':effect_id,'commandId':effect['commandId'],'ordinal':0,
+                               'name':call['name'],'callHash':digest(registry.owner.key,'effect-call',call),'callsHash':digest(registry.owner.key,'effect-calls',[call]),'derived':'cart-tracking'}
+                        if effect.get('scopeKind')=='cart-preview':scope['scopeKind']='cart-preview'
+                        proof={'contract':'pos-screening-origin-cart-tracking-call-v1','scope':scope,
+                               'parentHash':digest(registry.owner.key,'cart-tracking-parent',{key:value for key,value in effect.items() if key not in ('commandId','ordinal','scopeKind')}),
+                               'options':dict(options)}
+                        with registry.owner.sessions() as session,session.begin():
+                            existing=rows(session,'SELECT data,proof_hash FROM pos_rewrite_screening_origin_cart_tracking_calls WHERE effect_id=:id FOR UPDATE',{'id':effect_id},2)
+                            if existing:
+                                if len(existing)!=1 or json_value(existing[0]['data'])!=proof or existing[0]['proof_hash']!=digest(registry.owner.key,'cart-tracking-call',proof):fail()
+                            else:session.execute(text('INSERT INTO pos_rewrite_screening_origin_cart_tracking_calls(effect_id,command_id,data,proof_hash) VALUES(:id,:command,:data,:proof)'),
+                                {'id':effect_id,'command':effect['commandId'],'data':canonical(proof),'proof':digest(registry.owner.key,'cart-tracking-call',proof)})
+                        headers={'screening-origin-effect':{'data':scope,'proofHash':digest(registry.owner.key,'effect-call-authorization',scope)}}
+                        routed=registry.tasks.route(task,{**options,'task_id':effect_id,'headers':headers},args or [],kwargs or {})
                         result=task.apply_async(args=args or [],kwargs=kwargs or {},**routed)
                         if not isinstance(getattr(result,'id',None),str):fail()
                         observations.append(result.id);return result
@@ -199,8 +214,13 @@ class OriginEffectRegistry:
             if cart_native_hash(FlushOnly(session),effect['namespace'])==effect['expectedHash']:
                 from controllers.cart.cart_serializer import CartSerializer
                 helper=MySQLCart(FlushOnly(session))
-                helper.save_cart_items(effect['namespace'],int(effect['customerId']),CartSerializer.products_to_db_payload(effect['value']))
-                helper.save_cart_meta(effect['namespace'],effect['value']);session.flush();disposition='original-cart-persisted'
+                if effect['kind']=='active-cart':
+                    if effect['namespace']!='active_cart_'+effect['customerId']:fail()
+                    helper.save_active_cart(effect['namespace'],effect['value'])
+                else:
+                    helper.save_cart_items(effect['namespace'],int(effect['customerId']),CartSerializer.products_to_db_payload(effect['value']))
+                    helper.save_cart_meta(effect['namespace'],effect['value'])
+                session.flush();disposition='original-cart-persisted'
             record={'contract':CONTRACT,'commandId':effect['commandId'],'effectId':effect_id,'kind':'cart','disposition':disposition,'createdAt':self.owner.clock()}
             session.execute(text('INSERT INTO pos_rewrite_screening_origin_local_effects(effect_id,command_id,data,proof_hash) VALUES(:id,:command,:data,:hash)'),
                             {'id':effect_id,'command':effect['commandId'],'data':canonical(record),'hash':digest(self.owner.key,'local-effect',record)})
