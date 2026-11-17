@@ -39,6 +39,6 @@ certificate. The separate existing and origin effects commands are build inputs,
 not processes started by assembly.
 
 Migration, trigger, grant, provider and key rollout remains a separate controlled
-deployment step. The source tree does not supply credentials or select production
-contracts. CLI events contain fixed module/resource/event IDs and per-invocation
+deployment step. The assembler injects no credentials or production contract
+selectors. CLI events contain fixed module/resource/event IDs and per-invocation
 request IDs; raw source/parser/compiler diagnostics and paths are not emitted.

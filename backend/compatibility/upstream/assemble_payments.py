@@ -7,6 +7,7 @@ execution is the owned standard-library AST source producer.
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 import hashlib
 import importlib.util
 import json
@@ -29,8 +30,14 @@ def fail():
 
 
 def run(arguments, cwd):
+    # An output nested under a different Git repository must not cause apply
+    # to silently skip paths or inherit another checkout's Git environment.
+    environment = {name: value for name, value in os.environ.items()
+                   if not name.startswith('GIT_')}
+    environment.update({'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': os.devnull,
+                        'GIT_CEILING_DIRECTORIES': str(Path(cwd).parent)})
     return subprocess.run(arguments, cwd=cwd, check=True, capture_output=True,
-                          timeout=120).stdout
+                          env=environment, timeout=120).stdout
 
 
 def document(path):
@@ -158,7 +165,7 @@ def main():
         return {'module': 'source-assembly', 'resource': 'payments',
                 'eventId': 'source-assembly.payments.' + action,
                 'eventInstanceId': str(uuid4()), 'requestId': request_id,
-                'userId': None, **fields}
+                'userId': None, 'timestamp': datetime.now(timezone.utc).isoformat(), **fields}
 
     try:
         parser = Arguments(description=__doc__)
