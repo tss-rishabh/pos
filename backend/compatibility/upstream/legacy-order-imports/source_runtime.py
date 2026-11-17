@@ -11,7 +11,7 @@ import importlib
 import json
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import SimpleNamespace,ModuleType
 
 from effects import CAPTURE, Tasks
 from protocol import ImportReview, source_custom_data
@@ -22,6 +22,8 @@ from profiles import assert_plain_profile
 from membership_profile import MembershipProfile, selected as membership_selected, compile_writers, compile_order, compile_free_membership
 
 UNSAFE_HTTP=ContextVar('pos_import_unsafe_http',default=False)
+SOURCE_REDIS_ALIASES=('redis_object','redis_pos_object','redis_catalogue_object','cms_redis_object',
+                      'user_redis_object','blacklist_redis_object','redis_buffer_object','payment_redis_object')
 
 
 def prohibit_source_http(*_args,**_kwargs):
@@ -29,6 +31,9 @@ def prohibit_source_http(*_args,**_kwargs):
     raise ImportReview('ORDER_IMPORT_HTTP_EFFECT_UNQUALIFIED')
 
 PINS={
+ 'database/__init__.py':'9b066628cd3e7e28e9337f9daa883b3e8d763292be2d47b1d8b869d06cd03fe3',
+ 'database/database.py':'328a8519f8a7d37f2374e57ead0ea7dbe074ef6a056f981ca51befb2ba9348f0',
+ 'database/WriteDbConn.py':'e5da9b24e91a4eaf202d73a4c069b796b4e387eedeae1cab057497a7ca4625d1',
  'controllers/OrderController.py':'821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad',
  'middleware/CartMiddleware.py':'e7db74af2d1e2c3582fd0d56b6eac0e95cd4f78e7987950a9fd91c10162aa6ed',
  'controllers/CartController.py':'22604e22405c778f9fd756fb277f8bd0d026ccbd29d4eca84363427f48403072',
@@ -65,6 +70,84 @@ def checked_source(root,path):
     return value.decode('utf-8')
 
 
+class PrivateSourceEngine:
+    """Original engine aliases must never create an independent connection."""
+    def __getattr__(self,_name):
+        raise ImportReview('ORDER_IMPORT_PRIVATE_SCOPE_REQUIRED') from None
+
+
+def bind_source_sessions(root,proxy):
+    """Bootstrap actual pinned database exports before controller imports.
+
+    The source has no database.ReadDbConn module. Importing its real database
+    modules first would also construct legacy engines and leave captured aliases
+    behind. Only their SQL constructors are substituted; no URI expression or
+    original SQLAlchemy engine/session factory is evaluated.
+    """
+    root=Path(root).resolve()
+    definitions=(
+        ('database','database/__init__.py',{'create_engine':2,'sessionmaker':2,'scoped_session':2},()),
+        ('database.database','database/database.py',{'create_engine':3,'sessionmaker':4,'scoped_session':4},
+         ('Session','SessionR','SessionC','SessionReadCMS')),
+        ('database.WriteDbConn','database/WriteDbConn.py',{'create_engine':1,'sessionmaker':1,'scoped_session':1},('Session',)),
+    )
+    trees=[]
+    for name,path,counts,exports in definitions:
+        tree=ast.parse(checked_source(root,path))
+        found={key:sum(isinstance(node,ast.Call) and isinstance(node.func,ast.Name) and node.func.id==key for node in ast.walk(tree)) for key in counts}
+        class Controlled(ast.NodeTransformer):
+            def visit_ImportFrom(self,node):
+                if node.module=='sqlalchemy':
+                    node.names=[alias for alias in node.names if alias.name!='create_engine']
+                elif node.module=='sqlalchemy.orm':
+                    node.names=[alias for alias in node.names if alias.name not in ('sessionmaker','scoped_session')]
+                return node if node.names else None
+            def visit_Call(self,node):
+                if isinstance(node.func,ast.Name) and node.func.id in counts:
+                    # Drop the arguments too: original credential-bearing URI
+                    # formatting is not needed for the owned writer Session.
+                    return ast.copy_location(ast.Call(func=ast.Name(id='_private_'+node.func.id,ctx=ast.Load()),args=[],keywords=[]),node)
+                return self.generic_visit(node)
+        tree=Controlled().visit(tree)
+        if found!=counts:
+            raise ImportReview('ORDER_IMPORT_SOURCE_REVISION_UNVERIFIED')
+        existing=sys.modules.get(name)
+        if existing is not None and getattr(existing,'__pos_private_source_sessions__',None)!=str(root):
+            # Already-imported controller aliases cannot be made safe merely
+            # by overwriting the originating module's attributes afterward.
+            raise ImportReview('ORDER_IMPORT_PRIVATE_SCOPE_REQUIRED')
+        trees.append((name,path,ast.fix_missing_locations(tree),exports))
+    engine=PrivateSourceEngine()
+    def factory(*_args,**_kwargs):return proxy.current()
+    for name,path,tree,exports in trees:
+        existing=sys.modules.get(name)
+        if existing is not None:
+            for alias in exports:setattr(existing,alias,proxy)
+            continue
+        module=ModuleType(name)
+        module.__file__=str(root/path)
+        module.__package__=name if name=='database' else 'database'
+        if name=='database':module.__path__=[str(root/'database')]
+        module.__pos_private_source_sessions__=str(root)
+        module.__dict__.update(_private_create_engine=lambda:engine,
+                               _private_sessionmaker=lambda:factory,
+                               _private_scoped_session=lambda:proxy)
+        # Publish safe aliases before source settings/import cycles can see
+        # this module. Only the reviewed source declarations may replace them.
+        for alias in exports:setattr(module,alias,proxy)
+        sys.modules[name]=module
+        if name!='database':setattr(sys.modules['database'],name.rsplit('.',1)[1],module)
+        try:
+            exec(compile(tree,str(root/path),'exec'),module.__dict__)
+            if any(getattr(module,alias,None) is not proxy for alias in exports):
+                raise ImportReview('ORDER_IMPORT_PRIVATE_SCOPE_REQUIRED')
+        except Exception:
+            sys.modules.pop(name,None)
+            if name!='database' and 'database' in sys.modules:
+                sys.modules['database'].__dict__.pop(name.rsplit('.',1)[1],None)
+            raise ImportReview('ORDER_IMPORT_SOURCE_UNAVAILABLE') from None
+
+
 def compile_class(root,path,name,namespace):
     tree=ast.parse(checked_source(root,path))
     target=next(node for node in tree.body if isinstance(node,ast.ClassDef) and node.name==name)
@@ -90,11 +173,7 @@ class SourceRuntime:
         import requests
         requests.sessions.Session.request=prohibit_source_http
         proxy=PrivateSessionProxy()
-        for name in ('database.database','database.WriteDbConn','database.ReadDbConn'):
-            module=importlib.import_module(name)
-            for attr in ('Session','SessionR','SessionC','SessionReadCMS'):
-                if hasattr(module,attr):
-                    setattr(module,attr,proxy)
+        bind_source_sessions(source_root,proxy)
         modules={name:importlib.import_module(name) for name in (
             'controllers.OrderController','controllers.CheckoutController','controllers.CartController',
             'controllers.CatalogController','middleware.CartMiddleware','controllers.KinesisProducer')}
@@ -119,7 +198,7 @@ class SourceRuntime:
                 module.logger=SilentLogger()
             if hasattr(module,'tasks'):
                 module.tasks=Tasks()
-            for attr in ('redis_object','redis_pos_object','redis_catalogue_object','cms_redis_object','user_redis_object'):
+            for attr in SOURCE_REDIS_ALIASES:
                 if hasattr(module,attr):
                     setattr(module,attr,ReadOnlyCache(getattr(module,attr)))
             if hasattr(module,'push_cart_event'):
