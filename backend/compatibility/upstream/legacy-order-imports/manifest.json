@@ -9,15 +9,18 @@
     "internal/poscheckout/effects.go": "030d126e70372eb7a0d7213a6991125bdc948993689cd1c14bc5f141455863be"
   },
   "candidate": {
-    "internal/poscheckout/confirmation.go": "10e2ad18c230da3e49cafc1474793a92c49d265c8a7943eb378dbf17c5932080",
+    "internal/poscheckout/confirmation.go": "dd9f1ef218ceaaf1cf8d2d24419d69eecc37de05da50fd1e2b27ff3ab656a240",
     "internal/poscheckout/privacy.go": "322dd6eae7955f2c7f4bcd35b8737dddd3f28116022097334e814e4d132a0c38",
     "internal/poscheckout/effects.go": "62b26ebc1a75b0cfc98b8691176a952c682cc0b14fae9af973f616a53c41233a",
     "internal/poscheckout/legacy_import.go": "58dfc80377398fd0ef217a8f16f3c0b0a13aa280eb6ddf30ea4c777f4a916d66",
-    "internal/poscheckout/screening.go": "cf505326d881e37118c8baacf4b4889874c98c16c153056a02b8bfff0dbb7d19",
-    "internal/poscheckout/public_screening.go": "80d3bbce01a9adb4e36bd4b06c3ef9c97f3bb0604e912dd929c845b069d1032e",
+    "internal/poscheckout/screening.go": "764e83c662d6c9d9bd3011d7da2f66185c95d20c727a476ea7feb5465c0c0f3f",
+    "internal/poscheckout/screening_counter.go": "b6f1752bffb23a6459f4def6b076512903dac604acf634959b40ad7e0a639f93",
+    "internal/poscheckout/screening_counter_definition.go": "c595071549546f8b3338c1ef29ce97dc18e19b69b80883ab848405ff06097591",
+    "internal/poscheckout/public_screening.go": "1f8b38699166b93e41f201979e30df9c60ce0f7d1d49d409ed6d41d6bb96b4f5",
+    "internal/poscheckout/public_screening_benefits.go": "f125547c3854c5116b724f45efd368b47c656fb7e11bfa382843e4212a11e93e",
     "internal/poscheckout/coupon_consumption.go": "400cc5ee1e19920a89adaba41ad8c34d5071738813db5d1e4614e4c7cf3c2368"
   },
-  "patchSha256": "d71649caea429419cc65d00906d1b4f4f0ffa5a3809d6562506dadb9e4592eb8",
+  "patchSha256": "21851d985a13b5122fa0f958a6a51a88fc05071525fc20456baf3c432ae1b5bc",
   "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
   "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
   "sourceFiles": {
@@ -122,9 +125,32 @@
     "schema": "pos-screening-schema-v1",
     "writers": "pos-screening-all-writers-v1",
     "activated": false,
-    "count": "marker-first nonlocking under owned read-committed customer witness",
+    "count": "qualified current operational projection; exact literal helper replay only",
     "physicalMetadataCommit": "34b2c65",
-    "goSha256": "cf505326d881e37118c8baacf4b4889874c98c16c153056a02b8bfff0dbb7d19"
+    "goSha256": "764e83c662d6c9d9bd3011d7da2f66185c95d20c727a476ea7feb5465c0c0f3f"
+  },
+  "screeningCurrentCounter": {
+    "contract": "pos-screening-current-counter-v1",
+    "activated": false,
+    "historicalRouting": "independently qualified BQ baseline; current atomic contributions only",
+    "files": {
+      "screening_counter.py": "4c8c4842cbe59c0e8d5832658fc5c785c990bb641e3d2b86cac78a842317199c",
+      "screening_preparation.py": "99a9bbc48f1eafa10d68ebfeb266b7cc262f7d86323884e8f4f1b9257c032762",
+      "screening_profile.py": "a28b59a00001e67b5493b514d2b15e72cc107f083c8d6f2027457b4d8b8ff4ce",
+      "screening_counter.go": "b6f1752bffb23a6459f4def6b076512903dac604acf634959b40ad7e0a639f93",
+      "screening_counter_definition.go": "c595071549546f8b3338c1ef29ce97dc18e19b69b80883ab848405ff06097591",
+      "screening-counter-definition.json": "e865eee795ed04746d1a63fbcfa016bfa8f3c2595f6454ea13105d117cb6c84b",
+      "screening-counter.review.sql": "5d9605fc9a6870cc2cbac14ec1039942c8316dcadc3582c3ce241ae8e8124a57",
+      "screening-counter-writers.review.sql": "d5109fa2c2ec514cf5c556971e4a2e2f53c4df3dfa8b03b300bd4ad10c88ef7b",
+      "screening-counter-bigquery.review.sql": "8a579c405a63ae0078d1771cda1f00e5b0cd0ee8065613a2111fba52ef8cac3c",
+      "screening-counter-grants.review.sql": "5921f4cec11a27236595e595ec7b07c4daaf639de2b12ab2420318b3023a5d08"
+    }
+  },
+  "publicBenefitBindingAbi": {
+    "contract": "pos-node-screening-benefits-v1",
+    "activated": false,
+    "scope": "optional immutable source descriptor/intent binding only; native asset/funding gates retained",
+    "goSha256": "f125547c3854c5116b724f45efd368b47c656fb7e11bfa382843e4212a11e93e"
   },
   "couponConsumption": {
     "contract": "pos-csv-coupon-consumption-v1",

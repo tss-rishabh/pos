@@ -14,14 +14,14 @@
     "pos_node_screening.py": "a199bb17fa41d72824ef8a371e4ee614def6271f97e75eb37c97e8912aa723a5"
   },
   "files": {
-    "writer_protocol.py": "47a7d97a80131325cd5f4105262e9c0c42edc652bfa7174c085d23106f5d3a18",
+    "writer_protocol.py": "48d4ad25cb610164af043e43c398060c764634482b277cbcbbd692430d98507d",
     "native_authority.py": "6735ea187883428567ecf2a112aea5282106d08daf474219554eeee1bffac3ea",
-    "creation.py": "63c06c958bf9ba51bc8e34b30959bd8ec25f9fd5f66813df69bef4da7d14e2dd",
-    "source_frame.py": "70e2f09a3372b6b27a0280750343b04c6b50c19dfcc9ea0e09694e0c680ed5b3",
-    "bootstrap.py": "f0764433b29d72cff0b366d868e5b28b69291782315600fe4e23d4ae3b33f631",
+    "creation.py": "8ecbec16066728e3bc496fc7aeecfa9af7741b915eda16fdcfb4a524a7f8bb9a",
+    "source_frame.py": "1cf58c2929907adfd0361774543ea92768151a52bb7db4fd29f5825aea916b7e",
+    "bootstrap.py": "f2d84f7d4896e75f529582bc27f5e614c27546e62776ce0c36d0d05084f063b9",
     "public_effects.py": "34dce2502289593c5e89afa284be33b0091edbaa066b0b385a4c7dfd18cfcfa9",
-    "publication_resource.py": "be6e008bc6bb70e0b2600d7a6016cf901121bedfd4f75a1e74082670b44ab679",
-    "negative.py": "c3676b6c0c8fe4cadab4825bffcd55d8b7c92f44175dcafb7195af27193755f3",
+    "publication_resource.py": "1325d04c8264f3fee0a3b96771df1c0b660e1d127e40c711c371766bf4c67049",
+    "negative.py": "9c465693c75a6e91263b9f496153b1d10657d4203433376ef81416605d4a7add",
     "negative_resource.py": "65d94cf6dfad6b53b97652ebff8e84625a61d1668290ac6b6cfbed994142af6e",
     "migration.review.sql": "d3a9eec934e329f470476ae257f15d32e7ec29f01374e50e9be799e919d0ce16"
   },
@@ -31,6 +31,34 @@
     "files": {
       "model_compat.py": "3492926c4c12afba4094a016befb6b6b48d47afdc80b237204a4dd7d6174af65",
       "transaction.py": "00f4487027742a96fc1f330187a065504e96a48bfe2dc9df110745cabb07658b"
+    }
+  },
+  "screeningCurrentCounter": {
+    "contract": "pos-screening-current-counter-v1",
+    "activated": false,
+    "historicalRouting": "complete independently qualified BQ baseline plus atomic current contributions",
+    "files": {
+      "screening_counter.py": "4c8c4842cbe59c0e8d5832658fc5c785c990bb641e3d2b86cac78a842317199c",
+      "screening_preparation.py": "99a9bbc48f1eafa10d68ebfeb266b7cc262f7d86323884e8f4f1b9257c032762",
+      "screening-counter-definition.json": "e865eee795ed04746d1a63fbcfa016bfa8f3c2595f6454ea13105d117cb6c84b",
+      "screening-counter.review.sql": "5d9605fc9a6870cc2cbac14ec1039942c8316dcadc3582c3ce241ae8e8124a57"
+    }
+  },
+  "benefits": {
+    "contract": "pos-node-screening-benefits-v1",
+    "activated": false,
+    "files": {
+      "benefit_preparation.py": "e462a824af865a5e3dc9bd564bd709c14b8ae30ad2079ab4dcf0cb53cf31a79b",
+      "membership_history_heads.py": "a21ccdc05cc51d4e742b83827f56189c7e958a133c3b6bb7dba421208ebe2cfd",
+      "public_benefit_cache.py": "b2f77f05edff08fd36f4db7364c60e791f7b165fd93dd1496e7617ac439b13a2",
+      "public_benefits.py": "117983169d23a45b9d492a0da58c5dcae84df0cc00c311f5e9529857a7415617",
+      "public_gifts.py": "572dc6306ef022a076d461dab217239409783d6d8c50834fcaf593a6d8526a2a",
+      "public_membership.py": "79de985a7e69397f287d9d518d01c9757335877221f48f5675afb77d0a811efd",
+      "public_membership_history.py": "e34ddbe88eda6000e6a2f7475c343567eda8438acfc6355cfab244644ea07ce3",
+      "public_membership_worker.py": "a6260e4756446958092aef4910271c5e7242c5fabf75b4569d7ddc6d398570ac",
+      "public_tracking.py": "f5d8d53ee53e493b76c1d1697e3b9b2cb17b6544b949ced586d68b63c7517cfd",
+      "membership-history-writers.review.json": "6c4a523bbf70737f9ca50b00417cb6db4c2a8afb72639469f72a07f875bf832a",
+      "membership-history-writers.review.sql": "f21fd440ef9f3704e807e53d1b714939336d40964300ee0c26b16befb8367c93"
     }
   },
   "patchSha256": "a5bcffa29ab257ef3eab26173a58575d141f020426195b5eeb359b1d1a0dc3f6"

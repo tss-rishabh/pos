@@ -1,15 +1,24 @@
 --- a/internal/poscheckout/confirmation.go
 +++ b/internal/poscheckout/confirmation.go
-@@ -43,7 +43,7 @@
+@@ -43,11 +43,13 @@
  	if orderID < 1 || apply == nil || hashes.HeaderSQL == "" || hashes.LineSQL == "" {
  		return Confirmation{}, ErrReview
  	}
 -	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelRepeatableRead})
+-	if err != nil {
+-		return Confirmation{}, err
+-	}
 +	tx, importPrelude, err := beginImportConfirmation(ctx, db, orderID)
- 	if err != nil {
- 		return Confirmation{}, err
- 	}
-@@ -89,6 +89,10 @@
++	if err != nil {
++		return Confirmation{}, err
++	}
++	defer closeScreeningCounterConnection(importPrelude)
+ 	defer tx.Rollback()
++	defer releaseScreeningCounter(context.Background(),tx,importPrelude)
+ 	var userID, method, paid, status, voucherID, parentID, originalID, hlParentID, locationID, couponID int64
+ 	var cashback, money, points float32
+ 	var voucherAmount, payable float64
+@@ -89,6 +91,10 @@
  	if duplicate || storeID < 1 || counterID < 1 {
  		return Confirmation{}, ErrReview
  	}
@@ -20,15 +29,16 @@
  	items, err := tx.QueryContext(ctx, `SELECT has_products.id,has_products.prod_id,has_products.qty,`+hashes.LineSQL+`,has_products.status FROM has_products WHERE has_products.order_id=? ORDER BY has_products.id FOR UPDATE`, orderID)
  	if err != nil {
  		return Confirmation{}, err
-@@ -162,6 +166,7 @@
+@@ -162,6 +168,8 @@
  		if err != nil {
  			return Confirmation{}, err
  		}
 +		if err = verifyLegacyImportCouponReplay(ctx,tx,legacyImport,orderID); err != nil { return Confirmation{}, err }
++		if err = releaseScreeningCounter(ctx,tx,importPrelude); err != nil { return Confirmation{}, err }
  		if err = tx.Commit(); err != nil {
  			return Confirmation{}, err
  		}
-@@ -241,6 +246,9 @@
+@@ -241,6 +249,9 @@
  			return Confirmation{}, ErrReview
  		}
  	}
@@ -38,12 +48,13 @@
  	if err = applySafely(tx, apply); err != nil {
  		return Confirmation{}, err
  	}
-@@ -285,6 +293,8 @@
+@@ -285,6 +296,9 @@
  	if _, err = tx.ExecContext(ctx, `INSERT INTO pos_rewrite_checkout_projections(order_id,store_id,counter_id,user_id,input_hash,line_count,contract_version,confirmed_at) VALUES(?,?,?,?,?,?,?,CURRENT_TIMESTAMP)`, orderID, storeID, counterID, userID, header, len(lines), Contract); err != nil {
  		return Confirmation{}, fmt.Errorf("checkout projection proof: %w", err)
  	}
 +	if err = checkScreeningConfirmation(ctx, tx, importPrelude, legacyImport, orderID); err != nil { return Confirmation{}, err }
 +	if err = recordLegacyImportConfirmation(ctx, tx, legacyImport, orderID, legacyCoupon); err != nil { return Confirmation{}, err }
++	if err = releaseScreeningCounter(ctx,tx,importPrelude); err != nil { return Confirmation{}, err }
  	if err = tx.Commit(); err != nil {
  		return Confirmation{}, err
  	}
@@ -668,7 +679,7 @@
 +const LegacyImportLineSQL = "LOWER(SHA2(CAST(JSON_OBJECT('id',has_products.id,'product_id',has_products.prod_id,'sub_product_id',has_products.sub_prod_id,'quantity',has_products.qty,'price',has_products.price,'gst',has_products.gst,'pre_gst_amt',has_products.pre_gst_amt,'disc',has_products.disc,'wallet_disc',has_products.wallet_disc,'voucher_disc',has_products.voucher_disc,'points',has_products.hp_tss_points_used,'refundable',has_products.amount_to_be_refunded,'fraction_value',has_products.fraction_value) AS CHAR CHARACTER SET utf8mb4),256))"
 --- /dev/null
 +++ b/internal/poscheckout/screening.go
-@@ -0,0 +1,597 @@
+@@ -0,0 +1,617 @@
 +// Private import and screening confirmation lock boundary. Not installed in a
 +// source repository. Selection requires the reviewed all-writer capability.
 +package poscheckout
@@ -702,6 +713,9 @@
 +	publicOperation           string
 +	ticket, customerLocked    bool
 +	projection                *screeningProjection
++	counterLocks              []string
++	counterConnection         *sql.Conn
++	counterPoisoned           bool
 +}
 +
 +// The only consistent hint is outside the owned transaction. It grants no
@@ -774,11 +788,25 @@
 +	if p.ticket || p.operation != "" {
 +		isolation = sql.LevelReadCommitted
 +	}
-+	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: isolation})
++	var tx *sql.Tx
++	if p.ticket {
++		p.counterConnection, err = db.Conn(ctx)
++		if err == nil {
++			tx, err = p.counterConnection.BeginTx(ctx, &sql.TxOptions{Isolation: isolation})
++		}
++	} else {
++		tx, err = db.BeginTx(ctx, &sql.TxOptions{Isolation: isolation})
++	}
 +	if err != nil {
++		closeScreeningCounterConnection(p)
 +		return nil, nil, err
 +	}
-+	fail := func(err error) (*sql.Tx, *importConfirmationPrelude, error) { tx.Rollback(); return nil, nil, err }
++	fail := func(err error) (*sql.Tx, *importConfirmationPrelude, error) {
++		releaseScreeningCounter(ctx, tx, p)
++		tx.Rollback()
++		closeScreeningCounterConnection(p)
++		return nil, nil, err
++	}
 +	if !p.ticket && p.operation == "" {
 +		return tx, p, nil
 +	}
@@ -809,6 +837,9 @@
 +		return fail(err)
 +	}
 +	p.customerLocked = true
++	if err = enterScreeningCounter(ctx, tx, p, orderID); err != nil {
++		return fail(err)
++	}
 +	return tx, p, nil
 +}
 +
@@ -1126,8 +1157,8 @@
 +	if p.projection != nil && !sameScreeningProjection(p.projection, own) {
 +		return ErrReview
 +	}
-+	var bought uint64
-+	if err = tx.QueryRowContext(ctx, ScreeningCountSQL, p.user).Scan(&bought); err != nil {
++	bought, err := readCurrentScreeningCount(ctx, tx, p.user)
++	if err != nil {
 +		return err
 +	}
 +	rows, err := tx.QueryContext(ctx, `SELECT operation_id,customer_id,sku,order_id,CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_import_screening_reservations FORCE INDEX (ix_import_screening_customer) WHERE customer_id=? AND sku='390238' ORDER BY operation_id LIMIT 1001`, strconv.FormatInt(p.user, 10))
@@ -1267,8 +1298,429 @@
 +	return nil
 +}
 --- /dev/null
++++ b/internal/poscheckout/screening_counter.go
+@@ -0,0 +1,411 @@
++// Current operational screening projection. The independent baseline is BQ
++// qualified; interactive confirmation never scans old raw Order/HP markers.
++package poscheckout
++
++import (
++	"bytes"
++	"context"
++	"crypto/hmac"
++	"database/sql"
++	"database/sql/driver"
++	"encoding/json"
++	"io"
++	"os"
++	"regexp"
++	"sort"
++	"strconv"
++	"strings"
++	"time"
++)
++
++const ScreeningCounterContract = "pos-screening-current-counter-v1"
++
++var screeningCounterHash = regexp.MustCompile(`^[a-f0-9]{64}$`)
++
++type screeningCounterDefinition struct {
++	Contract, PublicationContract, WritersContract, SourceCommit, SKU, DefinitionHash string
++	PrivilegeSQL                                                                      string
++	IndexSQL                                                                          string
++	RequiredPrefixes                                                                  map[string][]string
++	Procedure                                                                         struct{ Name, Type, Security, Statement string }
++	Triggers                                                                          []struct{ Name, Table, Event, Timing, Statement string }
++}
++
++func counterDefinition() (screeningCounterDefinition, error) {
++	var d screeningCounterDefinition
++	if json.Unmarshal([]byte(screeningCounterDefinitionJSON), &d) != nil || d.Contract != ScreeningCounterContract || len(d.Triggers) != 9 || !screeningCounterHash.MatchString(d.DefinitionHash) {
++		return d, ErrReview
++	}
++	return d, nil
++}
++func counterNormalize(value string) string { return strings.Join(strings.Fields(value), " ") }
++func qualifyScreeningCounter(ctx context.Context, tx *sql.Tx) error {
++	var isolation string
++	if tx.QueryRowContext(ctx, `SELECT @@transaction_isolation`).Scan(&isolation) != nil || isolation != "READ-COMMITTED" {
++		return ErrReview
++	}
++	d, err := counterDefinition()
++	if err != nil {
++		return err
++	}
++	rows, err := tx.QueryContext(ctx, `SELECT 1 FROM orders o,has_products hp,spiderman_screening_orders s,pos_rewrite_screening_counter_heads h,pos_rewrite_screening_counters c,pos_rewrite_screening_contributions x WHERE FALSE`)
++	if err != nil {
++		return err
++	}
++	rows.Close()
++	rows, err = tx.QueryContext(ctx, d.IndexSQL)
++	if err != nil {
++		return err
++	}
++	prefixes := map[string]map[string]bool{}
++	primary := map[string]string{}
++	indexCount := 0
++	for rows.Next() {
++		var table, name, position, kind, unique string
++		var column sql.NullString
++		if rows.Scan(&table, &name, &column, &position, &kind, &unique) != nil {
++			rows.Close()
++			return ErrReview
++		}
++		indexCount++
++		if column.Valid && position == "1" && kind == "BTREE" {
++			if prefixes[table] == nil {
++				prefixes[table] = map[string]bool{}
++			}
++			prefixes[table][column.String] = true
++		}
++		if name == "PRIMARY" {
++			if primary[table] != "" || !column.Valid || position != "1" || unique != "0" {
++				rows.Close()
++				return ErrReview
++			}
++			primary[table] = column.String
++		}
++	}
++	err = rows.Err()
++	rows.Close()
++	if err != nil || indexCount > 2000 {
++		return ErrReview
++	}
++	for table, columns := range d.RequiredPrefixes {
++		if len(columns) == 0 || primary[table] != columns[0] {
++			return ErrReview
++		}
++		for _, column := range columns {
++			if !prefixes[table][column] {
++				return ErrReview
++			}
++		}
++	}
++	rows, err = tx.QueryContext(ctx, `SELECT TRIGGER_NAME,EVENT_OBJECT_TABLE,EVENT_MANIPULATION,ACTION_TIMING,ACTION_STATEMENT,DEFINER FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_screening_%'`)
++	if err != nil {
++		return err
++	}
++	seen := map[string]bool{}
++	owner := ""
++	for rows.Next() {
++		var name, table, event, timing, body, definer string
++		if rows.Scan(&name, &table, &event, &timing, &body, &definer) != nil {
++			rows.Close()
++			return ErrReview
++		}
++		matched := false
++		for _, expected := range d.Triggers {
++			if expected.Name == name && expected.Table == table && expected.Event == event && expected.Timing == timing && counterNormalize(expected.Statement) == counterNormalize(body) {
++				matched = true
++			}
++		}
++		if owner == "" {
++			owner = definer
++		}
++		if !matched || seen[name] || owner != definer {
++			rows.Close()
++			return ErrReview
++		}
++		seen[name] = true
++	}
++	err = rows.Err()
++	rows.Close()
++	if err != nil || len(seen) != 9 {
++		return ErrReview
++	}
++	var name, kind, security, body, definer string
++	if tx.QueryRowContext(ctx, `SELECT ROUTINE_NAME,ROUTINE_TYPE,SECURITY_TYPE,ROUTINE_DEFINITION,DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'`).Scan(&name, &kind, &security, &body, &definer) != nil || name != d.Procedure.Name || kind != "PROCEDURE" || security != "DEFINER" || definer != owner || counterNormalize(body) != counterNormalize(d.Procedure.Statement) {
++		return ErrReview
++	}
++	return nil
++}
++func counterUint(value interface{}) (uint64, bool) {
++	text, ok := value.(string)
++	if !ok {
++		return 0, false
++	}
++	number, err := strconv.ParseUint(text, 10, 64)
++	return number, err == nil && strconv.FormatUint(number, 10) == text
++}
++func counterPoint(value interface{}) (int64, bool) {
++	number, ok := value.(json.Number)
++	if !ok {
++		return 0, false
++	}
++	point, err := number.Int64()
++	return point, err == nil && point > 0 && point <= 9007199254740991
++}
++func readCurrentScreeningCount(ctx context.Context, tx *sql.Tx, customer int64) (uint64, error) {
++	key := os.Getenv("POS_SCREENING_COUNTER_PUBLICATION_KEY")
++	if os.Getenv("POS_SCREENING_COUNTER_CONTRACT") != ScreeningCounterContract || !ProjectionKeyValid(key, key) {
++		return 0, ErrReview
++	}
++	d, err := counterDefinition()
++	if err != nil {
++		return 0, err
++	}
++	var nativeCustomer, sku, count, revision, head, server, schema, seal string
++	var raw []byte
++	if tx.QueryRowContext(ctx, `SELECT CAST(c.customer_id AS CHAR),CAST(c.sku AS CHAR),CAST(c.bought AS CHAR),CAST(c.revision AS CHAR),CAST(h.revision AS CHAR),@@server_uuid,DATABASE(),CASE WHEN OCTET_LENGTH(c.baseline)<=12000 THEN c.baseline ELSE NULL END,c.baseline_hash FROM pos_rewrite_screening_counters c JOIN pos_rewrite_screening_counter_heads h ON h.customer_id=c.customer_id WHERE c.customer_id=? FOR SHARE`, customer).Scan(&nativeCustomer, &sku, &count, &revision, &head, &server, &schema, &raw, &seal) != nil {
++		return 0, ErrReview
++	}
++	decoder := json.NewDecoder(bytes.NewReader(raw))
++	decoder.UseNumber()
++	var proof map[string]interface{}
++	if decoder.Decode(&proof) != nil || len(proof) != 21 {
++		return 0, ErrReview
++	}
++	var extra interface{}
++	if decoder.Decode(&extra) != io.EOF {
++		return 0, ErrReview
++	}
++	signature, ok := proof["signature"].(string)
++	if !ok || !hmac.Equal([]byte(signature), []byte(seal)) {
++		return 0, ErrReview
++	}
++	delete(proof, "signature")
++	signed, e := importMAC(key, "screening-counter.publication.v1", proof)
++	if e != nil || !hmac.Equal([]byte(signed), []byte(signature)) {
++		return 0, ErrReview
++	}
++	scope, ok := proof["scope"].(map[string]interface{})
++	if !ok || len(scope) != 2 || scope["customerId"] != strconv.FormatInt(customer, 10) || scope["sku"] != "390238" {
++		return 0, ErrReview
++	}
++	baselineRev, ok := counterUint(proof["headRevision"])
++	if !ok {
++		return 0, ErrReview
++	}
++	nativeRev, e := strconv.ParseUint(revision, 10, 64)
++	if e != nil || nativeRev < baselineRev || head != revision {
++		return 0, ErrReview
++	}
++	if proof["contract"] != d.PublicationContract || proof["sourceCommit"] != d.SourceCommit || proof["writersContract"] != d.WritersContract || proof["writersDefinitionHash"] != d.DefinitionHash || proof["serverUuid"] != server || proof["sourceSchema"] != schema || proof["complete"] != true || nativeCustomer != strconv.FormatInt(customer, 10) || sku != "390238" {
++		return 0, ErrReview
++	}
++	var owner string
++	if tx.QueryRowContext(ctx, `SELECT DEFINER FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'`).Scan(&owner) != nil || proof["writersOwner"] != owner {
++		return 0, ErrReview
++	}
++	if err = counterRuntimePrivileges(ctx, tx, d, owner); err != nil {
++		return 0, err
++	}
++	for _, name := range []string{"generationId", "rowsHash", "sourceCaptureHash"} {
++		text, ok := proof[name].(string)
++		if !ok || !screeningCounterHash.MatchString(text) {
++			return 0, ErrReview
++		}
++	}
++	for _, name := range []string{"snapshotId", "serverUuid"} {
++		text, ok := proof[name].(string)
++		if !ok || !importUUID.MatchString(text) {
++			return 0, ErrReview
++		}
++	}
++	markerRows, ok := counterUint(proof["rows"])
++	if !ok {
++		return 0, ErrReview
++	}
++	includedRows, ok := counterUint(proof["count"])
++	if !ok || includedRows > markerRows {
++		return 0, ErrReview
++	}
++	var previous int64
++	for _, name := range []string{"sourceCapturedAt", "sourceFinishedAt", "sourceCdcThrough", "publishedAt"} {
++		point, ok := counterPoint(proof[name])
++		if !ok || point < previous {
++			return 0, ErrReview
++		}
++		previous = point
++	}
++	bought, e := strconv.ParseUint(count, 10, 64)
++	if e != nil {
++		return 0, ErrReview
++	}
++	var actual string
++	var actualRows uint64
++	if tx.QueryRowContext(ctx, `SELECT CAST(COALESCE(SUM(included),0) AS CHAR),COUNT(*) FROM (SELECT included FROM pos_rewrite_screening_contributions WHERE customer_id=? LIMIT 10001) current_rows`, customer).Scan(&actual, &actualRows) != nil || actual != count || actualRows > 10000 {
++		return 0, ErrReview
++	}
++	return bought, nil
++}
++func counterRuntimePrivileges(ctx context.Context, tx *sql.Tx, d screeningCounterDefinition, owner string) error {
++	var actor, roles string
++	if tx.QueryRowContext(ctx, `SELECT CURRENT_USER(),CURRENT_ROLE()`).Scan(&actor, &roles) != nil || actor == owner || roles != "NONE" {
++		return ErrReview
++	}
++	rows, err := tx.QueryContext(ctx, d.PrivilegeSQL)
++	if err != nil {
++		return err
++	}
++	count := 0
++	for rows.Next() {
++		var scope, privilege, object, grantable string
++		if rows.Scan(&scope, &privilege, &object, &grantable) != nil || privilege != "SELECT" && privilege != "USAGE" && privilege != "SHOW_ROUTINE" || grantable != "NO" {
++			rows.Close()
++			return ErrReview
++		}
++		count++
++	}
++	err = rows.Err()
++	rows.Close()
++	if err != nil || count > 1000 {
++		return ErrReview
++	}
++	rows, err = tx.QueryContext(ctx, `SHOW GRANTS FOR CURRENT_USER`)
++	if err != nil {
++		return err
++	}
++	count = 0
++	for rows.Next() {
++		var grant string
++		if rows.Scan(&grant) != nil || regexp.MustCompile(`(?i)\b(EXECUTE|PROXY)\b|\bWITH GRANT OPTION\b`).MatchString(grant) {
++			rows.Close()
++			return ErrReview
++		}
++		count++
++	}
++	err = rows.Err()
++	rows.Close()
++	if err != nil || count > 1000 {
++		return ErrReview
++	}
++	return nil
++}
++func acquireCounterName(ctx context.Context, tx *sql.Tx, p *importConfirmationPrelude, kind string, id int64) error {
++	var name string
++	if tx.QueryRowContext(ctx, `SELECT CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':',?,':',?)`, kind, strconv.FormatInt(id, 10)).Scan(&name) != nil {
++		return ErrReview
++	}
++	for _, owned := range p.counterLocks {
++		if owned == name {
++			return nil
++		}
++	}
++	var acquired sql.NullInt64
++	if tx.QueryRowContext(ctx, `SELECT GET_LOCK(?,0)`, name).Scan(&acquired) != nil || !acquired.Valid || acquired.Int64 != 1 {
++		return ErrReview
++	}
++	p.counterLocks = append(p.counterLocks, name)
++	return nil
++}
++func releaseScreeningCounter(ctx context.Context, tx *sql.Tx, p *importConfirmationPrelude) error {
++	if p == nil || len(p.counterLocks) == 0 {
++		return nil
++	}
++	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
++	defer cancel()
++	var first error
++	for i := len(p.counterLocks) - 1; i >= 0; i-- {
++		var released sql.NullInt64
++		err := tx.QueryRowContext(ctx, `SELECT RELEASE_LOCK(?)`, p.counterLocks[i]).Scan(&released)
++		if err != nil || !released.Valid || released.Int64 != 1 {
++			first = ErrReview
++		}
++	}
++	p.counterLocks = nil
++	if first != nil {
++		p.counterPoisoned = true
++	}
++	return first
++}
++func closeScreeningCounterConnection(p *importConfirmationPrelude) {
++	if p == nil || p.counterConnection == nil {
++		return
++	}
++	if p.counterPoisoned {
++		p.counterConnection.Raw(func(_ interface{}) error { return driver.ErrBadConn })
++	}
++	p.counterConnection.Close()
++	p.counterConnection = nil
++}
++func enterScreeningCounter(ctx context.Context, tx *sql.Tx, p *importConfirmationPrelude, orderID int64) error {
++	if p == nil || !p.ticket {
++		return nil
++	}
++	if !p.customerLocked {
++		return ErrReview
++	}
++	if err := qualifyScreeningCounter(ctx, tx); err != nil {
++		return err
++	}
++	if err := acquireCounterName(ctx, tx, p, "u", p.user); err != nil {
++		return err
++	}
++	var found int64
++	if err := tx.QueryRowContext(ctx, `SELECT id FROM orders WHERE id=? FOR UPDATE`, orderID).Scan(&found); err != nil {
++		return err
++	}
++	rows, err := tx.QueryContext(ctx, `SELECT id FROM has_products WHERE order_id=? ORDER BY id LIMIT 1001`, orderID)
++	if err != nil {
++		return err
++	}
++	var ids []int64
++	for rows.Next() {
++		var id int64
++		if rows.Scan(&id) != nil {
++			rows.Close()
++			return ErrReview
++		}
++		ids = append(ids, id)
++	}
++	err = rows.Err()
++	rows.Close()
++	if err != nil || len(ids) > 1000 {
++		return ErrReview
++	}
++	known := map[int64]bool{}
++	for _, id := range ids {
++		known[id] = true
++	}
++	// Scope recheck before taking any child lock. A cross-order marker anomaly
++	// needs the multi-parent maintenance entry, never widened financial scope.
++	rows, err = tx.QueryContext(ctx, `SELECT user_id,has_product_id FROM spiderman_screening_orders WHERE order_id=? ORDER BY id LIMIT 10001`, orderID)
++	if err != nil {
++		return err
++	}
++	count := 0
++	for rows.Next() {
++		var user, line int64
++		if rows.Scan(&user, &line) != nil || user != p.user || !known[line] {
++			rows.Close()
++			return ErrReview
++		}
++		count++
++	}
++	err = rows.Err()
++	rows.Close()
++	if err != nil || count > 10000 {
++		return ErrReview
++	}
++	if err = acquireCounterName(ctx, tx, p, "o", orderID); err != nil {
++		return err
++	}
++	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
++	for _, id := range ids {
++		if err = tx.QueryRowContext(ctx, `SELECT id FROM has_products WHERE id=? FOR UPDATE`, id).Scan(&found); err != nil {
++			return err
++		}
++		if err = acquireCounterName(ctx, tx, p, "p", id); err != nil {
++			return err
++		}
++	}
++	_, err = readCurrentScreeningCount(ctx, tx, p.user)
++	return err
++}
+--- /dev/null
++++ b/internal/poscheckout/screening_counter_definition.go
+@@ -0,0 +1,4 @@
++// Generated by tools/screening-counter/generate.ts; review only.
++package poscheckout
++
++const screeningCounterDefinitionJSON = "{\"contract\":\"pos-screening-current-counter-v1\",\"publicationContract\":\"pos-screening-counter-publication-v1\",\"writersContract\":\"pos-screening-counter-writers-v1\",\"sourceCommit\":\"2960acbea10c4eaf16b6d99e15ff6e03ef7724c5\",\"sku\":\"390238\",\"definitionHash\":\"c7fafc39fdff2e7447147094c802d038b9835a7ad8a13ed8527b61d0edc36836\",\"procedure\":{\"name\":\"pos_screening_sync_marker\",\"type\":\"PROCEDURE\",\"security\":\"DEFINER\",\"statement\":\"BEGIN\\nDECLARE previous_customer BIGINT DEFAULT NULL;\\nDECLARE previous_order BIGINT DEFAULT NULL;\\nDECLARE previous_line BIGINT DEFAULT NULL;\\nDECLARE previous_included TINYINT DEFAULT 0;\\nDECLARE current_customer BIGINT DEFAULT NULL;\\nDECLARE current_order BIGINT DEFAULT NULL;\\nDECLARE current_line BIGINT DEFAULT NULL;\\nDECLARE current_included TINYINT DEFAULT 0;\\nDECLARE first_customer BIGINT DEFAULT NULL;\\nDECLARE second_customer BIGINT DEFAULT NULL;\\nDECLARE current_revision BIGINT UNSIGNED;\\nDECLARE available BIGINT UNSIGNED;\\nDECLARE found_previous TINYINT DEFAULT 1;\\nDECLARE found_current TINYINT DEFAULT 1;\\nDECLARE ready_count INT;\\nIF @@transaction_isolation<>'READ-COMMITTED' THEN\\n SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter writer requires current reads';\\nEND IF;\\nBEGIN\\n DECLARE CONTINUE HANDLER FOR NOT FOUND SET found_previous=0;\\n SELECT customer_id,order_id,line_id,included INTO previous_customer,previous_order,previous_line,previous_included\\n FROM pos_rewrite_screening_contributions WHERE marker_id=target_marker;\\nEND;\\nBEGIN\\n DECLARE CONTINUE HANDLER FOR NOT FOUND SET found_current=0;\\n SELECT s.user_id,s.order_id,s.has_product_id,IF(hp.prod_id=390238 AND o.order_status NOT IN(0,17),1,0)\\n INTO current_customer,current_order,current_line,current_included\\n FROM spiderman_screening_orders s LEFT JOIN orders o ON o.id=s.order_id\\n LEFT JOIN has_products hp ON hp.id=s.has_product_id WHERE s.id=target_marker;\\nEND;\\nIF old_exists=0 AND found_previous=1 THEN\\n SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening contribution identity is invalid';\\nEND IF;\\nIF old_exists=1 AND old_customer>0 THEN\\n SELECT COUNT(*) INTO ready_count FROM pos_rewrite_screening_counters WHERE customer_id=old_customer;\\n IF ready_count=1 AND (found_previous=0 OR previous_customer<>old_customer OR previous_order<>old_order OR previous_line<>old_line) THEN\\n  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening contribution reconciliation required';\\n END IF;\\nEND IF;\\nSET first_customer=IF(old_exists=1 AND old_customer>0,old_customer,NULL);\\nIF found_current=1 AND current_customer>0 THEN\\n IF first_customer IS NULL THEN SET first_customer=current_customer;\\n ELSEIF first_customer<>current_customer THEN\\n  SET second_customer=GREATEST(first_customer,current_customer);\\n  SET first_customer=LEAST(first_customer,current_customer);\\n END IF;\\nEND IF;\\nWHILE first_customer IS NOT NULL DO\\n IF NOT (IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':u:',first_customer))<=>CONNECTION_ID()) THEN\\n  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter writer entry required';\\n END IF;\\n IF old_exists=1 AND old_customer=first_customer AND (\\n  NOT(IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':o:',old_order))<=>CONNECTION_ID()) OR\\n  NOT(IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':p:',old_line))<=>CONNECTION_ID())) THEN\\n  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent entry required';\\n END IF;\\n IF found_current=1 AND current_customer=first_customer AND (\\n  NOT(IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':o:',current_order))<=>CONNECTION_ID()) OR\\n  NOT(IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':p:',current_line))<=>CONNECTION_ID())) THEN\\n  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent entry required';\\n END IF;\\n INSERT INTO pos_rewrite_screening_counter_heads(customer_id,revision) VALUES(first_customer,1)\\n ON DUPLICATE KEY UPDATE revision=revision+1;\\n SELECT revision INTO current_revision FROM pos_rewrite_screening_counter_heads WHERE customer_id=first_customer;\\n SELECT COUNT(*) INTO ready_count FROM pos_rewrite_screening_counters WHERE customer_id=first_customer;\\n IF ready_count=1 THEN\\n  SET available=NULL;\\n  BEGIN\\n   DECLARE CONTINUE HANDLER FOR NOT FOUND SET available=NULL;\\n   SELECT bought INTO available FROM pos_rewrite_screening_counters WHERE customer_id=first_customer AND revision=current_revision-1 FOR UPDATE;\\n  END;\\n  IF available IS NULL OR (found_previous=1 AND previous_customer=first_customer AND previous_included>available) THEN\\n   SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter revision is invalid';\\n  END IF;\\n  UPDATE pos_rewrite_screening_counters SET\\n   bought=available-IF(found_previous=1 AND previous_customer=first_customer,previous_included,0)+IF(found_current=1 AND current_customer=first_customer,current_included,0),\\n   revision=current_revision WHERE customer_id=first_customer;\\n END IF;\\n SET first_customer=second_customer;SET second_customer=NULL;\\nEND WHILE;\\nDELETE FROM pos_rewrite_screening_contributions WHERE marker_id=target_marker;\\nIF found_current=1 AND current_customer>0 AND EXISTS(SELECT 1 FROM pos_rewrite_screening_counters WHERE customer_id=current_customer) THEN\\n INSERT INTO pos_rewrite_screening_contributions(marker_id,customer_id,order_id,line_id,included)\\n VALUES(target_marker,current_customer,current_order,current_line,current_included);\\nEND IF;\\nEND\"},\"triggers\":[{\"name\":\"pos_screening_orders_insert\",\"table\":\"orders\",\"event\":\"INSERT\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE order_id=NEW.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF TRUE THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_has_products_insert\",\"table\":\"has_products\",\"event\":\"INSERT\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE has_product_id=NEW.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF TRUE THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_markers_insert\",\"table\":\"spiderman_screening_orders\",\"event\":\"INSERT\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nCALL pos_screening_sync_marker(NEW.id,0,NULL,NULL,NULL);\\nEND\"},{\"name\":\"pos_screening_orders_update\",\"table\":\"orders\",\"event\":\"UPDATE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE order_id=OLD.id OR order_id=NEW.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF NOT(OLD.id<=>NEW.id) OR IF(OLD.order_status NOT IN(0,17),1,0)<>IF(NEW.order_status NOT IN(0,17),1,0) THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_has_products_update\",\"table\":\"has_products\",\"event\":\"UPDATE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE has_product_id=OLD.id OR has_product_id=NEW.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF NOT(OLD.id<=>NEW.id) OR IF(OLD.prod_id=390238,1,0)<>IF(NEW.prod_id=390238,1,0) THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_markers_update\",\"table\":\"spiderman_screening_orders\",\"event\":\"UPDATE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nIF NOT(OLD.id<=>NEW.id) THEN\\n CALL pos_screening_sync_marker(OLD.id,1,OLD.user_id,OLD.order_id,OLD.has_product_id);\\n CALL pos_screening_sync_marker(NEW.id,0,NULL,NULL,NULL);\\nELSEIF NOT(OLD.user_id<=>NEW.user_id) OR NOT(OLD.order_id<=>NEW.order_id) OR NOT(OLD.has_product_id<=>NEW.has_product_id) THEN\\n CALL pos_screening_sync_marker(NEW.id,1,OLD.user_id,OLD.order_id,OLD.has_product_id);\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_orders_delete\",\"table\":\"orders\",\"event\":\"DELETE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE order_id=OLD.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF TRUE THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_has_products_delete\",\"table\":\"has_products\",\"event\":\"DELETE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nDECLARE finished INT DEFAULT 0;\\nDECLARE visited INT DEFAULT 0;\\nDECLARE marker INT;DECLARE customer BIGINT;DECLARE parent BIGINT;DECLARE line BIGINT;\\nDECLARE affected CURSOR FOR SELECT id,user_id,order_id,has_product_id FROM spiderman_screening_orders WHERE has_product_id=OLD.id ORDER BY user_id,id LIMIT 10001;\\nDECLARE CONTINUE HANDLER FOR NOT FOUND SET finished=1;\\nIF TRUE THEN\\n OPEN affected;\\n scan_markers: LOOP\\n  FETCH affected INTO marker,customer,parent,line;\\n  IF finished=1 THEN LEAVE scan_markers;END IF;\\n  SET visited=visited+1;\\n  IF visited>10000 THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter parent is too large';END IF;\\n  CALL pos_screening_sync_marker(marker,1,customer,parent,line);\\n END LOOP;\\n CLOSE affected;\\nEND IF;\\nEND\"},{\"name\":\"pos_screening_markers_delete\",\"table\":\"spiderman_screening_orders\",\"event\":\"DELETE\",\"timing\":\"AFTER\",\"statement\":\"BEGIN\\nCALL pos_screening_sync_marker(OLD.id,1,OLD.user_id,OLD.order_id,OLD.has_product_id);\\nEND\"}],\"privilegeSql\":\"SELECT 'global' AS scope,PRIVILEGE_TYPE AS privilegeName,'' AS objectName,IS_GRANTABLE AS grantable FROM information_schema.USER_PRIVILEGES WHERE GRANTEE=CONCAT(\\\"'\\\",REPLACE(CURRENT_USER(),'@',\\\"'@'\\\"),\\\"'\\\")\\nUNION ALL SELECT 'schema',PRIVILEGE_TYPE,'',IS_GRANTABLE FROM information_schema.SCHEMA_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE() AND GRANTEE=CONCAT(\\\"'\\\",REPLACE(CURRENT_USER(),'@',\\\"'@'\\\"),\\\"'\\\")\\nUNION ALL SELECT 'table',PRIVILEGE_TYPE,TABLE_NAME,IS_GRANTABLE FROM information_schema.TABLE_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN('pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions') AND GRANTEE=CONCAT(\\\"'\\\",REPLACE(CURRENT_USER(),'@',\\\"'@'\\\"),\\\"'\\\")\\nUNION ALL SELECT 'column',PRIVILEGE_TYPE,TABLE_NAME,IS_GRANTABLE FROM information_schema.COLUMN_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN('pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions') AND GRANTEE=CONCAT(\\\"'\\\",REPLACE(CURRENT_USER(),'@',\\\"'@'\\\"),\\\"'\\\")\",\"requiredPrefixes\":{\"orders\":[\"id\"],\"has_products\":[\"id\",\"order_id\"],\"spiderman_screening_orders\":[\"id\",\"user_id\",\"order_id\",\"has_product_id\"],\"pos_rewrite_screening_counter_heads\":[\"customer_id\"],\"pos_rewrite_screening_counters\":[\"customer_id\"],\"pos_rewrite_screening_contributions\":[\"marker_id\",\"customer_id\",\"order_id\",\"line_id\"]},\"indexSql\":\"SELECT TABLE_NAME AS sourceTable,INDEX_NAME AS indexName,COLUMN_NAME AS columnName,CAST(SEQ_IN_INDEX AS CHAR) AS position,INDEX_TYPE AS indexType,CAST(NON_UNIQUE AS CHAR) AS nonUnique FROM information_schema.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN('orders','has_products','spiderman_screening_orders','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions')\"}"
+--- /dev/null
 +++ b/internal/poscheckout/public_screening.go
-@@ -0,0 +1,121 @@
+@@ -0,0 +1,138 @@
 +// Ordinary Node POS origin proof. This is not a CSV financial operation.
 +package poscheckout
 +
@@ -1305,6 +1757,7 @@
 +	Markers              []screeningMarker `json:"markers"`
 +	EffectsHash          string            `json:"effectsHash"`
 +	CreatedAt            int64             `json:"createdAt"`
++	BenefitsHash         *string           `json:"benefitsHash,omitempty"`
 +}
 +
 +func verifyPublicScreeningCreation(ctx context.Context, tx *sql.Tx, state screeningState, key string) error {
@@ -1329,7 +1782,11 @@
 +	var original map[string]interface{}
 +	decoder = json.NewDecoder(bytes.NewReader(raw))
 +	decoder.UseNumber()
-+	if decoder.Decode(&original) != nil || len(original) != 22 {
++	if decoder.Decode(&original) != nil || len(original) != 22 && len(original) != 23 {
++		return ErrReview
++	}
++	_, hasBenefits := original["benefitsHash"]
++	if hasBenefits != (value.BenefitsHash != nil) || len(original) != 22+boolCount(hasBenefits) || hasBenefits && !consentDigest.MatchString(*value.BenefitsHash) {
 +		return ErrReview
 +	}
 +	expected, err := importMAC(key, "legacy-order-imports.source.public-screening-creation.v1", original)
@@ -1380,7 +1837,19 @@
 +	if abandoned != 0 {
 +		return ErrReview
 +	}
++	if value.BenefitsHash != nil {
++		if err = verifyPublicBenefitBinding(ctx, tx, value, key); err != nil {
++			return err
++		}
++	}
 +	return nil
++}
++
++func boolCount(value bool) int {
++	if value {
++		return 1
++	}
++	return 0
 +}
 +
 +func validPublicRevision(value string) bool {
@@ -1389,6 +1858,254 @@
 +	}
 +	_, err := strconv.ParseUint(value, 10, 64)
 +	return err == nil
++}
+--- /dev/null
++++ b/internal/poscheckout/public_screening_benefits.go
+@@ -0,0 +1,245 @@
++// Narrow immutable public-benefit ABI. Source/native membership, gift,
++// consent and funding verification remain independent confirmation gates.
++package poscheckout
++
++import (
++	"bytes"
++	"context"
++	"crypto/hmac"
++	"database/sql"
++	"encoding/json"
++	"io"
++	"regexp"
++)
++
++type publicBenefitState struct {
++	Attribute string  `json:"attribute"`
++	Value     *string `json:"value"`
++	Active    int     `json:"active"`
++	CreatedAt string  `json:"createdAt"`
++	UpdatedAt string  `json:"updatedAt"`
++	Hash      string  `json:"hash"`
++}
++type publicBenefitProvenance struct {
++	OrderID      string               `json:"orderId"`
++	CustomerID   string               `json:"customerId"`
++	Revision     string               `json:"revision"`
++	HeaderHash   string               `json:"headerHash"`
++	Before       []publicBenefitState `json:"before"`
++	Confirmed    []publicBenefitState `json:"confirmed"`
++	Contract     string               `json:"contract"`
++	OperationID  string               `json:"operationId"`
++	CreatedAt    string               `json:"createdAt"`
++	EntityDigest string               `json:"entityDigest"`
++	ProofHash    string               `json:"proofHash"`
++}
++type publicBenefitMembership struct {
++	Kind               string                  `json:"kind"`
++	ProductID          string                  `json:"productId"`
++	LineID             string                  `json:"lineId"`
++	Eligibility        string                  `json:"eligibility"`
++	Provenance         publicBenefitProvenance `json:"provenance"`
++	CacheInvalidations int                     `json:"cacheInvalidations"`
++	HistoryEvidence    *struct {
++		GenerationID string `json:"generationId"`
++		FetchedAt    int64  `json:"fetchedAt"`
++		Signature    string `json:"signature"`
++		AsOf         string `json:"asOf"`
++		Cutoff       string `json:"cutoff"`
++	} `json:"historyEvidence"`
++	Replacement *struct {
++		SourceAction         string `json:"sourceAction"`
++		OriginalProductID    string `json:"originalProductId"`
++		ReplacementProductID string `json:"replacementProductId"`
++	} `json:"replacement,omitempty"`
++}
++type publicBenefitGift struct {
++	ProductID     string `json:"productId"`
++	Serial        string `json:"serial"`
++	CollectionID  string `json:"collectionId"`
++	InitialAmount string `json:"initialAmount"`
++	VoucherID     string `json:"voucherId"`
++	LineID        string `json:"lineId"`
++	InputHash     string `json:"inputHash"`
++}
++type publicBenefitDescriptor struct {
++	Contract    string                   `json:"contract"`
++	OperationID string                   `json:"operationId"`
++	CheckoutID  string                   `json:"checkoutId"`
++	ActorID     string                   `json:"actorId"`
++	CustomerID  string                   `json:"customerId"`
++	StoreID     string                   `json:"storeId"`
++	CounterID   string                   `json:"counterId"`
++	RequestHash string                   `json:"requestHash"`
++	CartHash    string                   `json:"cartHash"`
++	OrderID     string                   `json:"orderId"`
++	Membership  *publicBenefitMembership `json:"membership"`
++	Gifts       []publicBenefitGift      `json:"gifts"`
++	CreatedAt   int64                    `json:"createdAt"`
++}
++type publicBenefitIntent struct {
++	V                     int            `json:"v"`
++	Contract              string         `json:"contract"`
++	OperationID           string         `json:"operationId"`
++	CheckoutID            string         `json:"checkoutId"`
++	CheckoutVersion       int64          `json:"checkoutVersion"`
++	ActorID               string         `json:"actorId"`
++	ActorVersion          string         `json:"actorVersion"`
++	ActorEpoch            string         `json:"actorEpoch"`
++	CustomerID            string         `json:"customerId"`
++	Contact               ContactBinding `json:"contact"`
++	StoreID               string         `json:"storeId"`
++	CounterID             string         `json:"counterId"`
++	CartHash              string         `json:"cartHash"`
++	RequestHash           string         `json:"requestHash"`
++	IssuedAt              int64          `json:"issuedAt"`
++	ExpiresAt             int64          `json:"expiresAt"`
++	BenefitsContract      *string        `json:"benefitsContract,omitempty"`
++	MembershipHistoryHash *string        `json:"membershipHistoryHash,omitempty"`
++}
++
++func publicBenefitDocument(raw []byte, limit int, kind, key, seal string, target interface{}) (map[string]interface{}, error) {
++	if len(raw) < 2 || len(raw) > limit {
++		return nil, ErrReview
++	}
++	decoder := json.NewDecoder(bytes.NewReader(raw))
++	decoder.DisallowUnknownFields()
++	if decoder.Decode(target) != nil {
++		return nil, ErrReview
++	}
++	var extra interface{}
++	if decoder.Decode(&extra) != io.EOF {
++		return nil, ErrReview
++	}
++	decoder = json.NewDecoder(bytes.NewReader(raw))
++	decoder.UseNumber()
++	var value map[string]interface{}
++	if decoder.Decode(&value) != nil {
++		return nil, ErrReview
++	}
++	signed, err := importMAC(key, "legacy-order-imports.source."+kind+".v1", value)
++	if err != nil || !hmac.Equal([]byte(signed), []byte(seal)) {
++		return nil, ErrReview
++	}
++	return value, nil
++}
++func publicBenefitKeys(value interface{}, required []string, optional ...string) bool {
++	object, ok := value.(map[string]interface{})
++	if !ok {
++		return false
++	}
++	allowed := map[string]bool{}
++	for _, name := range required {
++		allowed[name] = true
++		if _, present := object[name]; !present {
++			return false
++		}
++	}
++	for _, name := range optional {
++		allowed[name] = true
++	}
++	for name := range object {
++		if !allowed[name] {
++			return false
++		}
++	}
++	return true
++}
++func publicBenefitShape(value map[string]interface{}) bool {
++	if !publicBenefitKeys(value, []string{"contract", "operationId", "checkoutId", "actorId", "customerId", "storeId", "counterId", "requestHash", "cartHash", "orderId", "membership", "gifts", "createdAt"}) {
++		return false
++	}
++	if value["membership"] != nil {
++		if !publicBenefitKeys(value["membership"], []string{"kind", "productId", "lineId", "eligibility", "provenance", "cacheInvalidations", "historyEvidence"}, "replacement") {
++			return false
++		}
++		member := value["membership"].(map[string]interface{})
++		if !publicBenefitKeys(member["provenance"], []string{"orderId", "customerId", "revision", "headerHash", "before", "confirmed", "contract", "operationId", "createdAt", "entityDigest", "proofHash"}) {
++			return false
++		}
++		proof := member["provenance"].(map[string]interface{})
++		for _, name := range []string{"before", "confirmed"} {
++			states, ok := proof[name].([]interface{})
++			if !ok || len(states) > 2 || name == "confirmed" && len(states) != 2 || name == "before" && len(states) != 0 && len(states) != 2 {
++				return false
++			}
++			for _, state := range states {
++				if !publicBenefitKeys(state, []string{"attribute", "value", "active", "createdAt", "updatedAt", "hash"}) {
++					return false
++				}
++			}
++		}
++		if member["historyEvidence"] != nil && !publicBenefitKeys(member["historyEvidence"], []string{"generationId", "fetchedAt", "signature", "asOf", "cutoff"}) {
++			return false
++		}
++		if replacement, present := member["replacement"]; present && (replacement == nil || !publicBenefitKeys(replacement, []string{"sourceAction", "originalProductId", "replacementProductId"})) {
++			return false
++		}
++	}
++	gifts, ok := value["gifts"].([]interface{})
++	if !ok || len(gifts) > 100 {
++		return false
++	}
++	for _, gift := range gifts {
++		if !publicBenefitKeys(gift, []string{"productId", "serial", "collectionId", "initialAmount", "voucherId", "lineId", "inputHash"}) {
++			return false
++		}
++	}
++	return true
++}
++func verifyPublicBenefitBinding(ctx context.Context, tx *sql.Tx, creation publicScreeningCreation, key string) error {
++	if creation.BenefitsHash == nil {
++		return nil
++	}
++	var raw []byte
++	var order, seal string
++	if err := tx.QueryRowContext(ctx, `SELECT order_id,CASE WHEN OCTET_LENGTH(data)<=64000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_public_screening_benefits WHERE operation_id=? FOR SHARE`, creation.OperationID).Scan(&order, &raw, &seal); err != nil {
++		return err
++	}
++	if order != creation.OrderID || seal != *creation.BenefitsHash {
++		return ErrReview
++	}
++	var descriptor publicBenefitDescriptor
++	value, err := publicBenefitDocument(raw, 64000, "public-screening-benefits", key, seal, &descriptor)
++	if err != nil || !publicBenefitShape(value) {
++		return ErrReview
++	}
++	if descriptor.Contract != "pos-node-screening-benefits-v1" || descriptor.OperationID != creation.OperationID || descriptor.CheckoutID != creation.CheckoutID || descriptor.ActorID != creation.ActorID || descriptor.CustomerID != creation.CustomerID || descriptor.StoreID != creation.StoreID || descriptor.CounterID != creation.CounterID || descriptor.RequestHash != creation.RequestHash || descriptor.CartHash != creation.CartHash || descriptor.OrderID != creation.OrderID || descriptor.CreatedAt < 1 || descriptor.CreatedAt > 9007199254740991 || descriptor.Gifts == nil || len(descriptor.Gifts) > 100 {
++		return ErrReview
++	}
++	for _, gift := range descriptor.Gifts {
++		if !consentIdentifier(gift.ProductID) || !consentIdentifier(gift.Serial) || !consentIdentifier(gift.CollectionID) || !consentIdentifier(gift.VoucherID) || !consentIdentifier(gift.LineID) || !consentDigest.MatchString(gift.InputHash) || !regexp.MustCompile(`^(0|[1-9][0-9]{0,9})\.[0-9]{2}$`).MatchString(gift.InitialAmount) {
++			return ErrReview
++		}
++	}
++	if member := descriptor.Membership; member != nil {
++		if (member.Kind != "new" && member.Kind != "upgrade" && member.Kind != "auto-free") || !consentIdentifier(member.ProductID) || !consentIdentifier(member.LineID) || member.CacheInvalidations < 0 || member.CacheInvalidations > 100 || member.Provenance.OrderID != creation.OrderID || member.Provenance.CustomerID != creation.CustomerID || member.Provenance.OperationID != creation.OperationID {
++			return ErrReview
++		}
++		if member.Eligibility != "not-added" && member.Eligibility != "source-cart-over-2000" && member.Eligibility != "source-qualified-history" && member.Eligibility != "no-ordinary-items" {
++			return ErrReview
++		}
++		if member.Replacement != nil && (member.Replacement.SourceAction != "AddFreeMembership.remove_exclusive_membership" || !consentIdentifier(member.Replacement.OriginalProductID) || member.Replacement.ReplacementProductID != member.ProductID) {
++			return ErrReview
++		}
++	}
++	if err = tx.QueryRowContext(ctx, `SELECT CASE WHEN OCTET_LENGTH(data)<=16000 THEN data ELSE NULL END,proof_hash FROM pos_rewrite_public_screening_work WHERE operation_id=? FOR SHARE`, creation.OperationID).Scan(&raw, &seal); err != nil {
++		return err
++	}
++	var intent publicBenefitIntent
++	saved, err := publicBenefitDocument(raw, 16000, "public-screening-intent", key, seal, &intent)
++	if err != nil {
++		return err
++	}
++	_, contractPresent := saved["benefitsContract"]
++	_, historyPresent := saved["membershipHistoryHash"]
++	if len(saved) != 16+boolCount(contractPresent)+boolCount(historyPresent) || !contractPresent || intent.BenefitsContract == nil || *intent.BenefitsContract != "pos-node-screening-benefits-v1" || historyPresent != (intent.MembershipHistoryHash != nil) || intent.MembershipHistoryHash != nil && !consentDigest.MatchString(*intent.MembershipHistoryHash) {
++		return ErrReview
++	}
++	if intent.V != 1 || intent.Contract != "pos-node-screening-writer-v1" || intent.OperationID != creation.OperationID || intent.CheckoutID != creation.CheckoutID || intent.CheckoutVersion != creation.CheckoutVersion || intent.ActorID != creation.ActorID || intent.ActorVersion != creation.ActorVersion || intent.ActorEpoch != creation.ActorEpoch || intent.CustomerID != creation.CustomerID || intent.Contact != creation.Contact || intent.StoreID != creation.StoreID || intent.CounterID != creation.CounterID || intent.CartHash != creation.CartHash || intent.RequestHash != creation.RequestHash || intent.IssuedAt < 1 || intent.ExpiresAt <= intent.IssuedAt || intent.ExpiresAt-intent.IssuedAt > 60000 {
++		return ErrReview
++	}
++	// No current contact, flags or entitlement/history query: retained intent and
++	// descriptor are immutable ABI bindings, never a renewed grant or payment.
++	return nil
 +}
 --- /dev/null
 +++ b/internal/poscheckout/coupon_consumption.go

@@ -42,6 +42,17 @@ work with the administration agent; callable capture/seal helpers alone do not
 complete that publisher. The source/Go counter and authority succession are also
 still assigned implementation work. Existing release evidence is unchanged.
 
+The current screening counter is integrated from `f9e2ced` as `a17d88a`.
+Node/source/Go interactive consumers use the qualified operational projection;
+its independent two-phase publisher and review cutover SQL are present. Root
+registered the three-table additive control migration, packaged its SQL and
+regenerated common/public overlays against the immutable API source. Generator
+execution is artifact production, not parity certification. No tests or native
+publication were run. The next counter-agent assignment is actual remaining
+website/customer/system/legacy/non-POS writer entry, with original auth/nonce
+semantics. Public membership publisher and authority succession remain active
+parallel code work. Release evidence and acceptance status remain unchanged.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
