@@ -1098,6 +1098,113 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       input: { operationId: crypto.randomUUID(), snapshotHash: context.snapshotHash! },
     };
   }
+  it('rejects screening cancellation before projection, wallet or stock work without an inverse customer lock wait', async () => {
+    for (const [orderNumber, money] of [
+      [907101, 0],
+      [907102, 10],
+    ] as const) {
+      const { id, service, productId } = await cancellationFixture(orderNumber);
+      await connection.execute('UPDATE has_products SET prod_id=390238 WHERE order_id=?', [id]);
+      await connection.execute('UPDATE orders SET tss_money_used=? WHERE id=?', [money, id]);
+      // Stale projection/audit deliberately proves denial precedes those reads.
+      expect(await service.context(operator, '1', id)).toMatchObject({
+        eligible: false,
+        blocker: 'CANCELLATION_SCREENING_UNSUPPORTED',
+        receipt: null,
+      });
+      await expect(
+        service.create(operator, '1', id, {
+          operationId: crypto.randomUUID(),
+          snapshotHash: 'a'.repeat(64),
+        }),
+      ).rejects.toMatchObject({ code: 'CANCELLATION_SCREENING_UNSUPPORTED' });
+      await expect(service.context({ ...operator, storeIds: [] }, '1', id)).rejects.toMatchObject({
+        code: 'STORE_ACCESS_DENIED',
+      });
+      const config = readConfig({
+        NODE_ENV: 'test',
+        DEMO_MODE: 'true',
+        SESSION_SECRET: 'screening-cancellation-secret-'.repeat(3),
+      });
+      let userReady: () => void = () => {},
+        orderReady: () => void = () => {},
+        readReady: () => void = () => {};
+      const userHeld = new Promise<void>((resolve) => {
+          userReady = resolve;
+        }),
+        orderHeld = new Promise<void>((resolve) => {
+          orderReady = resolve;
+        }),
+        readStarted = new Promise<void>((resolve) => {
+          readReady = resolve;
+        });
+      let orderLocks = 0;
+      const guarded = pendingCancellationRepository(db, config, {
+        hashSecret: signingEnvironment.hs256,
+        projection: signingEnvironment,
+        contract: pendingCancellationContract,
+        membershipProductIds: [],
+        stockProcedure: availableStockProjection('Asia/Kolkata'),
+        assertCheckIn: async (_actor, _store, counter) => {
+          if (counter !== undefined) {
+            orderLocks++;
+            orderReady();
+            await readStarted;
+          }
+        },
+      });
+      const holder = db.get('writer').transaction(async (tx) => {
+        await tx.execute(sql`SELECT id FROM users WHERE id=777 FOR UPDATE`);
+        userReady();
+        await orderHeld;
+        const read = tx.execute(sql`SELECT id FROM orders WHERE id=${BigInt(id)} FOR SHARE`);
+        readReady();
+        await read;
+      });
+      await userHeld;
+      try {
+        const [context] = await Promise.all([guarded.context(operator, '1', id), holder]);
+        expect(context.blocker).toBe('CANCELLATION_SCREENING_UNSUPPORTED');
+        expect(orderLocks).toBe(1); // No DB retry may conceal an inversion.
+      } finally {
+        orderReady();
+        readReady();
+        await holder.catch(() => {});
+      }
+      const [orders] = await connection.query<RowDataPacket[]>(
+        'SELECT order_status,payment_status,tss_money_used FROM orders WHERE id=?',
+        [id],
+      );
+      expect(orders[0]).toMatchObject({
+        order_status: 1,
+        payment_status: 1,
+        tss_money_used: money,
+      });
+      const [stock] = await connection.query<RowDataPacket[]>(
+        'SELECT stock FROM product_store WHERE product_id=?',
+        [productId],
+      );
+      expect(stock[0]?.stock).toBe(10);
+      const [commands] = await connection.query<RowDataPacket[]>(
+        'SELECT id FROM pos_rewrite_pending_order_cancellations WHERE order_id=?',
+        [id],
+      );
+      expect(commands).toHaveLength(0);
+    }
+  });
+  it('keeps an original cancellation receipt readable after screening classification changes without another effect', async () => {
+    const { id, service, input } = await cancellationFixture(907103);
+    const original = await service.create(operator, '1', id, input);
+    await connection.execute('UPDATE has_products SET prod_id=390238 WHERE order_id=?', [id]);
+    expect((await service.context(operator, '1', id)).receipt).toEqual(original);
+    expect(await service.get(operator, '1', id, input.operationId)).toEqual(original);
+    expect(await service.create(operator, '1', id, input)).toEqual(original);
+    const [logs] = await connection.query<RowDataPacket[]>(
+      'SELECT id FROM pos_transaction_logs WHERE order_id=?',
+      [id],
+    );
+    expect(logs).toHaveLength(1);
+  });
   it('cancels one pending zero-benefit order atomically across twenty retries with source stock projection and immutable replay', async () => {
     const { id, productId, service, input } = await cancellationFixture(906001);
     await seed(StoreDayClose, {

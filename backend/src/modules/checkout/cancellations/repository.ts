@@ -177,6 +177,18 @@ export function pendingCancellationRepository(
     orderId: string,
     order: Awaited<ReturnType<typeof scope>>,
   ) {
+    // Pinned API-v2 OrderController.py:5482 marks this SKU non-cancellable
+    // for every status. Enforce that intent before projection/benefit reads:
+    // an Order holder must not wait for the screening counter's customer lock.
+    // Existing immutable receipts bypass evaluate() and remain readable.
+    const [screening] = await tx
+      .select({ id: HasProduct.id })
+      .from(HasProduct)
+      .where(and(eq(HasProduct.order, BigInt(orderId)), eq(HasProduct.product, 390238n)))
+      .limit(1)
+      .for('share');
+    if (screening)
+      throw refused('CANCELLATION_SCREENING_UNSUPPORTED', 'Screening tickets cannot be cancelled.');
     if (
       options.contract !== pendingCancellationContract ||
       !options.membershipProductIds ||

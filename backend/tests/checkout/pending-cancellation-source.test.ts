@@ -54,6 +54,28 @@ describe('pinned pending cash-on-counter cancellation boundaries', () => {
       parsed.cases.find((row) => row.name === 'missing-stock-source-success')?.stockCalls,
     ).toEqual([]);
   });
+  it('retains the literal source screening non-cancellation predicate without claiming its old writer enforced it', () => {
+    const result = z
+      .object({
+        sourceCommit: z.literal('2960acbea10c4eaf16b6d99e15ff6e03ef7724c5'),
+        cases: z.array(
+          z.object({
+            productId: z.union([z.number(), z.string(), z.null()]),
+            blocked: z.boolean(),
+            message: z.string(),
+          }),
+        ),
+      })
+      .parse(
+        JSON.parse(
+          execFileSync('python3', ['tools/checkout/screening_cancellation_oracle.py'], {
+            encoding: 'utf8',
+          }),
+        ) as unknown,
+      );
+    expect(result.cases.map((row) => row.blocked)).toEqual([true, true, false, false]);
+    expect(result.cases[0]?.message).toBe("Screening tickets can't be cancelled.");
+  });
   it('requires explicit source contract and membership configuration without assuming an empty list', () => {
     expect(pendingCancellationOptions({})).toEqual({
       contract: undefined,

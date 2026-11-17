@@ -248,6 +248,8 @@ export function OrderCancellationActions({ ownerId, storeId, orderId, onCancelle
             </button>
           )}
         </>
+      ) : context?.blocker === 'CANCELLATION_SCREENING_UNSUPPORTED' ? (
+        <p>Screening tickets cannot be cancelled.</p>
       ) : context?.blocker && context.blocker !== 'ORDER_NOT_CANCELLABLE' ? (
         <p>Cancellation requires review: {context.blocker}</p>
       ) : null}
