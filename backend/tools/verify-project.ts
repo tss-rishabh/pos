@@ -1215,6 +1215,7 @@ if (flags.has('--browser')) {
       'tests/administration/barcodes/browser.test.ts',
       'tests/administration/parent-store-imports/browser.test.ts',
       'tests/administration/model-accounts/browser.test.ts',
+      '--maxWorkers=1',
     ],
     environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
   });
