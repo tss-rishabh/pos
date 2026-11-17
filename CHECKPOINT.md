@@ -32,6 +32,16 @@ and membership key reuse on `d38b046`; the manifest was regenerated against the
 immutable API source. Validation remains deferred. The next checkout assignment
 is the manager/source authority succession workflow before new settlement.
 
+Public membership/gift composition is integrated from `6fda0e9` as `1650f23`;
+actual HTTP/financial-worker preparation, additive migration registration and
+worker logging are wired on `a37bb65`. The private cache task registration is on
+`4daaded`. No new tests or live actions were run. Source manifest regeneration
+awaits the counter generator handoff. Dedicated public warehouse view settings
+and an actual durable public membership history publisher command remain code
+work with the administration agent; callable capture/seal helpers alone do not
+complete that publisher. The source/Go counter and authority succession are also
+still assigned implementation work. Existing release evidence is unchanged.
+
 The application is an implemented review build, not a certified production release.
 `backend/evidence/verification.json` records the most recent combined run, its
 individual check outcomes, exact source checksums and any inputs changed during
