@@ -54,12 +54,49 @@ and the four-trigger owner must be distinct locked accounts with no roles. The
 function is bounded and returns only trigger/account/grant metadata, no customer
 or credential records. The source checks its actual owner/body/security mode,
 actual four trigger bodies/owners/strict mode, physical integer columns/PKs,
-source customer-prefix index, current no-role application grants and all direct
-control-write grants. Applications cannot directly mutate heads/logs or replace
-triggers/routines; the trigger owner has only its narrowly required rights.
-Trusted DBA exceptions are explicitly enumerated, never inferred from caller.
-`history-grants.review.sql` is a concrete reviewed grant plan. All legacy DDL,
-definers, roles and bootstrap/cutover remain manual; none are run by constructors.
+source customer-prefix index and current no-role/no-proxy application grants.
+The metadata function checks all static/dynamic global grants, routine grants,
+roles/proxies and indirect control/grant-table view aliases. Dangerous database
+patterns are classified with native LIKE plus literal equality, conservatively
+including pattern interpretations when partial revokes treat them literally.
+No JavaScript/Python case folding stands in for native permission matching.
+Unrelated table permissions remain unchanged; this code never grants or revokes.
+
+Non-DBA principals cannot have global escalation/definer/applier powers, indirect
+routine EXECUTE, direct control writes, source-table DDL or mysql grant-table
+writes. The source caller cannot be a configured DBA exception. Trusted DBA roles
+cannot escape to another principal; caller/definer roles and proxies are refused
+at both endpoints. The locked trigger owner owns only its exact four reviewed
+triggers and minimal table grants. The locked audit owner owns only its exact
+metadata function and explicit metadata visibility grants. ACCOUNT LOCK alone
+would still permit definer execution and proxy use, so it is not the whole proof.
+
+Other implicit triggers/events owned by a powerful DBA and DBA-definer views that
+invoke stored functions are unqualified: they could expose that DBA's otherwise
+inaccessible routines to an ordinary writer. Direct routine grants to source
+callers permit only the fixed readonly metadata function. Such participants need
+reviewed table-limited definers/rights before selection; the audit does not guess
+that an unknown stored program is harmless. Unknown SQL bodies are not returned.
+Each metadata array has a 1001 sentinel, with >1000 or >500KB refused rather than
+silently treated as complete. These are explicit installation capacity limits.
+
+The actual protected objects must be InnoDB base tables and SHOW CREATE must name
+the non-temporary object this session would access. Cascading FKs that can alter
+Order identity/predicates, delete Orders or mutate heads/logs are refused because
+MySQL cascades do not invoke triggers. Incoming replication applier channels are
+likewise unqualified without an all-origin head protocol. This avoids claiming
+that checking a local writer UUID alone covers row-based replication.
+
+Trusted DBA exceptions are explicitly enumerated, never inferred from caller or
+an account's locked/system status. Unrestricted administrators and installed
+server extensions remain a reviewed trust boundary; the code does not purport to
+defend against a hostile DBA/server. Privilege/DDL installation or maintenance
+requires a coordinated source write fence, connection drain and requalification;
+old temporary tables/authority cannot survive the cutover. The exact metadata
+function and qualifier hashes join the writer policy hash. Existing generations
+cannot mask a changed policy. `history-grants.review.sql` contains the concrete
+grant/cutover plan. All legacy DDL, definers, roles and bootstrap/cutover remain
+manual; none are run by constructors.
 
 Source env requires POS_SCREENING_ORIGIN_HISTORY_DEFINER,
 POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER and a reviewed explicit JSON list
@@ -119,11 +156,22 @@ plan; only its winner can consume the exact in-memory preflight witness once.
 Budget/estimate failure leaves the original prepared/qualified state available.
 After a checkpoint, missing jobs and interrupted dispatch still remain GET-only.
 
-The global privilege-escalation/DDL-participant refusal audit remains a CODE
-follow-up in this intermediate checkpoint (beyond direct head DML/current caller).
-The new-work selector stays unqualified until completed. Tests/checks/builds remain
-deferred. Final acceptance must cover native/independent BQ empty/orphan/NULL/future
+The bounded privilege/indirect-writer refusal audit is implemented. No new tests,
+parity checks, typechecks, builds or live I/O have run under the code-first order.
+No remaining publisher/runtime connection is deferred as a deployment task. Source
+installation/grants/all-writer cutover, separate publisher-origin/warehouse writer
+credentials, reviewed table/view deployment, capacity and performance acceptance
+remain unqualified; selectors must not imply production readiness.
+Final acceptance must cover native/independent BQ empty/orphan/NULL/future
 rows, proxies/roles/definers, cross-writer races, timeout/budget/privacy, original-job
 recovery, immutable default-byte behavior and deployment performance. Exact hot-head
 matching can legitimately starve a constantly changing customer; no head relaxation
 or native request-time fallback hides that pending measured acceptance.
+
+The native security assumptions above follow MySQL's documented privilege and
+stored-object behavior: [global/dynamic privileges](https://dev.mysql.com/doc/refman/8.0/en/privileges-provided.html),
+[proxy accounts](https://dev.mysql.com/doc/refman/8.0/en/proxy-users.html),
+[temporary-table shadowing](https://dev.mysql.com/doc/refman/8.0/en/create-temporary-table.html),
+and [FK actions that do not activate triggers](https://dev.mysql.com/doc/refman/8.0/en/create-table-foreign-keys.html).
+These references support the qualification conditions, not evidence that any
+live deployment already meets them.

@@ -1,8 +1,10 @@
 -- REVIEW ONLY. No automatic legacy DDL or account changes.
--- Dedicated trigger and audit definers MUST be ACCOUNT LOCK and have no roles.
--- Application accounts get SELECT(heads/changes), EXECUTE(this function), and
--- SHOW_ROUTINE metadata visibility; never direct control DML or trigger/routine
--- DDL. Grant source-table writes individually, not database-wide UPDATE/INSERT.
+-- Dedicated trigger and audit definers MUST be ACCOUNT LOCK and have no roles
+-- or proxy exposure. The audit definer exposes only this fixed readonly body.
+-- Every array has a 1001 sentinel; the consumer rejects >1000, never truncates
+-- an over-capacity installation into an apparently complete privilege proof.
+-- Only the four reviewed trigger bodies are returned. Other object metadata
+-- contains identities/security types, never SQL bodies, credentials or rows.
 -- Use the explicit configured audit definer; replace this owner only during
 -- reviewed installation. The function body itself remains byte-identical.
 DELIMITER $$
@@ -13,7 +15,7 @@ SQL SECURITY DEFINER
 RETURN JSON_OBJECT(
  'triggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',name,'action',action,'sourceTable',sourceTable,'body',body,'owner',owner,'sqlMode',sqlMode)) FROM (
   SELECT TRIGGER_NAME AS name,EVENT_MANIPULATION AS action,EVENT_OBJECT_TABLE AS sourceTable,ACTION_STATEMENT AS body,DEFINER AS owner,SQL_MODE AS sqlMode
-  FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE()
+  FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_origin_history_user_i','pos_rewrite_origin_history_order_i','pos_rewrite_origin_history_order_d','pos_rewrite_origin_history_order_u')
   ORDER BY TRIGGER_NAME LIMIT 1001
  ) trigger_rows),JSON_ARRAY()),
  'accounts',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'locked',account_locked)) FROM (
@@ -22,19 +24,51 @@ RETURN JSON_OBJECT(
  'roles',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(TO_USER,'@',TO_HOST),'role',CONCAT(FROM_USER,'@',FROM_HOST))) FROM (
   SELECT TO_USER,TO_HOST,FROM_USER,FROM_HOST FROM mysql.role_edges ORDER BY TO_USER,TO_HOST,FROM_USER,FROM_HOST LIMIT 1001
  ) role_rows),JSON_ARRAY()),
- 'proxies',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'target',CONCAT(Proxied_user,'@',Proxied_host))) FROM (
-  SELECT User,Host,Proxied_user,Proxied_host FROM mysql.proxies_priv ORDER BY User,Host,Proxied_user,Proxied_host LIMIT 1001
+ 'proxies',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'target',CONCAT(Proxied_user,'@',Proxied_host),'grantable',With_grant)) FROM (
+  SELECT User,Host,Proxied_user,Proxied_host,With_grant FROM mysql.proxies_priv ORDER BY User,Host,Proxied_user,Proxied_host LIMIT 1001
  ) proxy_rows),JSON_ARRAY()),
- 'privileges',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('grantee',grantee,'scope',scope,'schema',schemaName,'table',tableName,'privilege',privilegeName,'grantable',grantable)) FROM (
+ 'privileges',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('grantee',grantee,'scope',scope,'schema',schemaName,'table',tableName,'privilege',privilegeName,'grantable',grantable,
+ 'target',CASE WHEN scope='global' THEN 'global'
+  WHEN scope='schema' AND (schemaName=DATABASE() OR schemaName='mysql' OR DATABASE() LIKE schemaName ESCAPE X'5C' OR 'mysql' LIKE schemaName ESCAPE X'5C') THEN 'protected-schema'
+  WHEN scope IN ('table','column') AND schemaName='mysql' THEN 'grants'
+  WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes') THEN 'control'
+  WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('orders','users') THEN 'watched'
+  ELSE 'other' END)) FROM (
   SELECT GRANTEE AS grantee,'global' AS scope,'' AS schemaName,'' AS tableName,PRIVILEGE_TYPE AS privilegeName,IS_GRANTABLE AS grantable FROM INFORMATION_SCHEMA.USER_PRIVILEGES
-  UNION ALL SELECT GRANTEE,'schema',TABLE_SCHEMA,'',PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.SCHEMA_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE()
-  UNION ALL SELECT GRANTEE,'table',TABLE_SCHEMA,TABLE_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.TABLE_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE()
-  UNION ALL SELECT GRANTEE,'column',TABLE_SCHEMA,TABLE_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.COLUMN_PRIVILEGES WHERE TABLE_SCHEMA=DATABASE()
+  UNION ALL SELECT GRANTEE,'schema',TABLE_SCHEMA,'',PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.SCHEMA_PRIVILEGES
+  UNION ALL SELECT GRANTEE,'table',TABLE_SCHEMA,TABLE_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.TABLE_PRIVILEGES
+  UNION ALL SELECT GRANTEE,'column',TABLE_SCHEMA,TABLE_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.COLUMN_PRIVILEGES
   LIMIT 1001
  ) privilege_rows),JSON_ARRAY()),
- 'ownedRoutines',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('owner',DEFINER,'name',ROUTINE_NAME)) FROM (
-  SELECT DEFINER,ROUTINE_NAME FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() ORDER BY DEFINER,ROUTINE_NAME LIMIT 1001
- ) routine_rows),JSON_ARRAY())
+ 'routineGrants',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'schema',Db,'routine',Routine_name,'kind',Routine_type,'privileges',CAST(Proc_priv AS CHAR))) FROM (
+  SELECT User,Host,Db,Routine_name,Routine_type,Proc_priv FROM mysql.procs_priv ORDER BY User,Host,Db,Routine_name,Routine_type LIMIT 1001
+ ) routine_grant_rows),JSON_ARRAY()),
+ 'objects',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('schema',schemaName,'name',name,'kind',kind,'owner',owner,'security',security,'usesRoutines',usesRoutines)) FROM (
+  SELECT ROUTINE_SCHEMA AS schemaName,ROUTINE_NAME AS name,ROUTINE_TYPE AS kind,DEFINER AS owner,SECURITY_TYPE AS security,0 AS usesRoutines FROM INFORMATION_SCHEMA.ROUTINES
+  UNION ALL SELECT v.TABLE_SCHEMA,v.TABLE_NAME,'VIEW',v.DEFINER,v.SECURITY_TYPE,EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.VIEW_ROUTINE_USAGE r WHERE r.TABLE_SCHEMA=v.TABLE_SCHEMA AND r.TABLE_NAME=v.TABLE_NAME) FROM INFORMATION_SCHEMA.VIEWS v
+  UNION ALL SELECT TRIGGER_SCHEMA,TRIGGER_NAME,'TRIGGER',DEFINER,'DEFINER',0 FROM INFORMATION_SCHEMA.TRIGGERS
+  UNION ALL SELECT EVENT_SCHEMA,EVENT_NAME,'EVENT',DEFINER,'DEFINER',0 FROM INFORMATION_SCHEMA.EVENTS
+  LIMIT 1001
+ ) object_rows),JSON_ARRAY()),
+ 'aliases',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('schema',VIEW_SCHEMA,'name',VIEW_NAME,'sourceSchema',TABLE_SCHEMA,'sourceTable',TABLE_NAME)) FROM (
+  SELECT VIEW_SCHEMA,VIEW_NAME,TABLE_SCHEMA,TABLE_NAME FROM INFORMATION_SCHEMA.VIEW_TABLE_USAGE
+  WHERE (TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes'))
+   OR (TABLE_SCHEMA='mysql' AND TABLE_NAME IN ('user','db','tables_priv','columns_priv','procs_priv','proxies_priv','global_grants','role_edges','default_roles','password_history','func'))
+  ORDER BY VIEW_SCHEMA,VIEW_NAME,TABLE_SCHEMA,TABLE_NAME LIMIT 1001
+ ) alias_rows),JSON_ARRAY()),
+ 'tables',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',TABLE_NAME,'kind',TABLE_TYPE,'engine',ENGINE)) FROM (
+  SELECT TABLE_NAME,TABLE_TYPE,ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('orders','users','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes')
+  ORDER BY TABLE_NAME LIMIT 1001
+ ) table_rows),JSON_ARRAY()),
+ 'foreignKeys',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('table',TABLE_NAME,'column',COLUMN_NAME,'update',UPDATE_RULE,'delete',DELETE_RULE)) FROM (
+  SELECT k.TABLE_NAME,k.COLUMN_NAME,r.UPDATE_RULE,r.DELETE_RULE FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE k
+  JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME AND r.TABLE_NAME=k.TABLE_NAME
+  WHERE k.TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IS NOT NULL AND k.TABLE_NAME IN ('orders','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes')
+  ORDER BY k.TABLE_NAME,k.CONSTRAINT_NAME,k.ORDINAL_POSITION LIMIT 1001
+ ) foreign_key_rows),JSON_ARRAY()),
+ 'replicationChannels',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CHANNEL_NAME,'state',SERVICE_STATE)) FROM (
+  SELECT CHANNEL_NAME,SERVICE_STATE FROM performance_schema.replication_applier_status ORDER BY CHANNEL_NAME LIMIT 1001
+ ) replication_rows),JSON_ARRAY())
 )
 $$
 DELIMITER ;

@@ -9,8 +9,11 @@ GRANT SELECT,INSERT,UPDATE ON SOURCE_SCHEMA.pos_rewrite_screening_origin_history
 GRANT INSERT ON SOURCE_SCHEMA.pos_rewrite_screening_origin_history_changes TO 'pos_origin_history_trigger'@'%';
 -- The audit definer cannot log in. Its only caller-visible operation is the
 -- literal READS SQL DATA JSON function, whose owner/body are verified natively.
-GRANT SELECT ON mysql.* TO 'pos_origin_history_audit'@'%';
-GRANT TRIGGER ON SOURCE_SCHEMA.* TO 'pos_origin_history_audit'@'%';
+-- Global metadata visibility is required to detect cross-schema aliases and
+-- DBA-definer implicit executables. These rights belong ONLY to this isolated
+-- locked account; no other object may use its definer and no PROXY/role may
+-- expose it. The fixed function never returns credentials or unknown SQL bodies.
+GRANT SELECT,SHOW VIEW,SHOW_ROUTINE,TRIGGER,EVENT ON *.* TO 'pos_origin_history_audit'@'%';
 -- Grant these individually to each participating app/readonly-origin account:
 -- GRANT SHOW_ROUTINE ON *.* TO 'ACTUAL_APP'@'ACTUAL_HOST';
 -- GRANT EXECUTE ON FUNCTION SOURCE_SCHEMA.pos_rewrite_origin_history_metadata TO 'ACTUAL_APP'@'ACTUAL_HOST';
@@ -19,3 +22,20 @@ GRANT TRIGGER ON SOURCE_SCHEMA.* TO 'pos_origin_history_audit'@'%';
 -- No app roles, direct head/log DML, trigger/routine DDL or blanket schema DML.
 -- Explicitly enumerate trusted DBA exceptions in the signed writer policy via
 -- POS_SCREENING_ORIGIN_HISTORY_ADMIN_GRANTEES; never auto-whitelist the caller.
+
+-- Review all non-DBA global powers, mysql grant-table writes, database pattern
+-- grants, indirect routine EXECUTE and privileged trigger/event/view exposure.
+-- Default/system accounts with administrative powers must be explicitly reviewed
+-- in ADMIN_GRANTEES too; locked accounts are not automatically trusted roles.
+-- Qualified source callers/definers cannot be entries in that DBA exception list.
+-- No mandatory roles, caller/definer role edges, current proxy sessions or proxy
+-- routes into these accounts are accepted. Do not expose the audit owner as a
+-- role: ACCOUNT LOCK alone does not prohibit definer execution or proxy use.
+-- No updatable aliases to the control/grant tables, cascading foreign keys that
+-- bypass the watched Order triggers, or incoming replication channels qualify.
+-- A trusted DBA must coordinate a source write fence and drain existing sessions
+-- before installing/changing these controls/grants. Previously created temporary
+-- tables/session authority must not survive privilege cutover. Native source
+-- admissions also check the actual protected objects with SHOW CREATE TABLE.
+-- DBA maintenance/failover/plugins/replication need reviewed requalification;
+-- this function cannot defend against a malicious unrestricted administrator.
