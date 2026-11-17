@@ -276,3 +276,6 @@ e3e056fa3385fa99946dfe303d19828764c78771:backend/evidence/verification.json:gene
 # Exact screening source-commit metadata verified against the immutable API-v2 commit object.
 b6fa814667e5acf32dbd484cf3a4c969285fedae:backend/compatibility/upstream/legacy-order-imports/screening_profile.py:generic-api-key:24
 b6fa814667e5acf32dbd484cf3a4c969285fedae:backend/src/modules/legacy-order-imports/screening-profile.ts:generic-api-key:44
+
+# Native screening fixture's API-v2 source commit, verified as an immutable Git commit object.
+9db9d5282e1407362236a58cf98d0d5228f78bd1:backend/compatibility/upstream/legacy-order-imports/screening_native_test.go:generic-api-key:91
