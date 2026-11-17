@@ -40,6 +40,7 @@ const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default:
 const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
 const DashboardPage = lazy(() => import('./pages/dashboard'));
 const BarcodeAssignmentsPage = lazy(() => import('./pages/administration/barcodes'));
+const ParentStoreImportsPage = lazy(() => import('./pages/administration/parent-store-imports'));
 const SecondaryCountrySearchPage = lazy(() => import('./pages/administration/secondary-countries'));
 const InventoryPage = lazy(() =>
   import('./pages/operations').then((m) => ({ default: m.InventoryPage })),
@@ -218,6 +219,11 @@ const links = [
     internalOnly: true,
   },
   { to: '/countries', name: 'Country lookup', icon: Building2, roles: [1, 2, 3] },
+  {
+    to: '/administration/parent-store-imports',
+    name: 'Product/store assignments',
+    icon: Building2,
+  },
   { to: '/documentation', name: 'Help & documents', icon: BookOpen },
   { to: '/application-links', name: 'Application links', icon: QrCode },
   { to: '/sync', name: 'Sync center', icon: RefreshCw },
@@ -455,6 +461,10 @@ function Workspace({ user }: { user: Principal }) {
                   element={<BarcodeAssignmentsPage user={user} />}
                 />
                 <Route path="/countries" element={<SecondaryCountrySearchPage user={user} />} />
+                <Route
+                  path="/administration/parent-store-imports"
+                  element={<ParentStoreImportsPage user={user} online={sync.online} />}
+                />
                 <Route path="/dashboard" element={<DashboardPage key={user.id} user={user} />} />
                 <Route
                   path="/offline-worksheet"

@@ -39,6 +39,10 @@ import { createStoreImageStore } from './modules/administration/store-images.js'
 import { registerAdministration } from './modules/administration/index.js';
 import { registerBarcodeAssignments } from './modules/administration/barcodes/index.js';
 import { registerSecondaryCountrySearch } from './modules/administration/country-search.js';
+import {
+  registerParentStoreImports,
+  readParentStoreImportOptions,
+} from './modules/administration/parent-store-imports/index.js';
 import { registerApplicationLinks } from './modules/application-links/index.js';
 import { registerMotivationalQuotes } from './modules/motivational-quotes/index.js';
 import { registerDashboard } from './modules/dashboard/index.js';
@@ -309,6 +313,12 @@ export async function buildApp(
     );
   registerBarcodeAssignments(app, config, db);
   registerSecondaryCountrySearch(app, db);
+  registerParentStoreImports(app, config, db, {
+    stockProcedure: stockProjection,
+    procedureVerified: Boolean(stockProjection),
+    syncProducts: productSync || undefined,
+    historyOptions: readParentStoreImportOptions(),
+  });
   await registerCheckout(app, config, db, {
     customerOtp,
     orderCopy: { history: historicalOrderCopyFacts(orderHistory) },

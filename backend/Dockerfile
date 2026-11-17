@@ -16,6 +16,7 @@ COPY migrations ./migrations
 COPY resources ./resources
 COPY src/modules/administration/*.sql ./src/modules/administration/
 COPY src/modules/administration/barcodes/*.sql ./src/modules/administration/barcodes/
+COPY src/modules/administration/parent-store-imports/*.sql ./src/modules/administration/parent-store-imports/
 COPY src/modules/application-links/*.sql ./src/modules/application-links/
 COPY src/modules/gift-card-batches/*.sql ./src/modules/gift-card-batches/
 COPY src/modules/customer-insights/*.sql ./src/modules/customer-insights/
