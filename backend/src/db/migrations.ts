@@ -91,6 +91,7 @@ export const migrationPaths = [
   'src/modules/checkout/screening-writer/benefit-migration.sql',
   'src/modules/legacy-order-imports/screening-counter/migration.sql',
   'src/modules/checkout/screening-writer/membership-generation-migration.sql',
+  'src/modules/legacy-order-imports/authority-succession/migration.sql',
 ] as const;
 export class MigrationError extends Error {
   constructor(readonly code: string) {

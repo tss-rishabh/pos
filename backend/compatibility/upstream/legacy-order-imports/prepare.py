@@ -74,6 +74,7 @@ def outputs():
     changes['internal/poscheckout/screening_counter_definition.go']=('',(HERE/'screening_counter_definition.go').read_text())
     changes['internal/poscheckout/public_screening.go']=('',(HERE/'public_screening.go').read_text())
     changes['internal/poscheckout/public_screening_benefits.go']=('',(HERE/'public_screening_benefits.go').read_text())
+    changes['internal/poscheckout/legacy_import_succession.go']=('',(HERE/'legacy_import_succession.go').read_text())
     changes['internal/poscheckout/coupon_consumption.go']=('',(HERE/'coupon_consumption.go').read_text())
     patch=''.join(''.join(difflib.unified_diff(old.splitlines(True),new.splitlines(True),fromfile='a/'+path if old else '/dev/null',tofile='b/'+path)) for path,(old,new) in changes.items())
     public_changes=api_guard_changes()
@@ -89,6 +90,11 @@ def outputs():
         'apiGuardBaseSha256':hashlib.sha256(public_main.encode()).hexdigest(),
         'sourceFiles':{path:hashlib.sha256((SOURCE/path).read_bytes()).hexdigest() for path in source_paths},
         'modelContract':'pos-import-source-model-v1',
+        'authoritySuccession':{'contract':'pos-import-authority-succession-v1','activated':False,
+            'purpose':'explicit manager approval for future stages; original scope and order preserved',
+            'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
+                'authority_succession.py','legacy_import_succession.go','native.py','protocol.py',
+                'receiver.py','http_app.py','screening_transaction.py')}},
         'privateRuntime':{'contract':'pos-import-owned-celery-v1','activated':False,
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
                 'private_celery.py','private_cache.py','cart_tracking.py','source_runtime.py',

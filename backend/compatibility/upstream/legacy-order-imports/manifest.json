@@ -12,15 +12,16 @@
     "internal/poscheckout/confirmation.go": "dd9f1ef218ceaaf1cf8d2d24419d69eecc37de05da50fd1e2b27ff3ab656a240",
     "internal/poscheckout/privacy.go": "322dd6eae7955f2c7f4bcd35b8737dddd3f28116022097334e814e4d132a0c38",
     "internal/poscheckout/effects.go": "62b26ebc1a75b0cfc98b8691176a952c682cc0b14fae9af973f616a53c41233a",
-    "internal/poscheckout/legacy_import.go": "58dfc80377398fd0ef217a8f16f3c0b0a13aa280eb6ddf30ea4c777f4a916d66",
-    "internal/poscheckout/screening.go": "764e83c662d6c9d9bd3011d7da2f66185c95d20c727a476ea7feb5465c0c0f3f",
+    "internal/poscheckout/legacy_import.go": "4c8f1e9e5b045ecf8f36f1998b4e0c8a520b52eeb2bb57635cd075b0e4631417",
+    "internal/poscheckout/screening.go": "e8f46630a87b5ddfc2721df96fd623862246e24def235aeb09376a65684993d3",
     "internal/poscheckout/screening_counter.go": "b6f1752bffb23a6459f4def6b076512903dac604acf634959b40ad7e0a639f93",
     "internal/poscheckout/screening_counter_definition.go": "c595071549546f8b3338c1ef29ce97dc18e19b69b80883ab848405ff06097591",
     "internal/poscheckout/public_screening.go": "1f8b38699166b93e41f201979e30df9c60ce0f7d1d49d409ed6d41d6bb96b4f5",
     "internal/poscheckout/public_screening_benefits.go": "f125547c3854c5116b724f45efd368b47c656fb7e11bfa382843e4212a11e93e",
+    "internal/poscheckout/legacy_import_succession.go": "692bf0fd6cd4112bcc01433106cd33f2eaeb81833b684b2a0441938a22111610",
     "internal/poscheckout/coupon_consumption.go": "400cc5ee1e19920a89adaba41ad8c34d5071738813db5d1e4614e4c7cf3c2368"
   },
-  "patchSha256": "21851d985a13b5122fa0f958a6a51a88fc05071525fc20456baf3c432ae1b5bc",
+  "patchSha256": "287acbc4a05e2136409b7a36a6afe6366a215e0c280372c252fab5c633312a0f",
   "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
   "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
   "sourceFiles": {
@@ -32,6 +33,20 @@
     "main.py": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7"
   },
   "modelContract": "pos-import-source-model-v1",
+  "authoritySuccession": {
+    "contract": "pos-import-authority-succession-v1",
+    "activated": false,
+    "purpose": "explicit manager approval for future stages; original scope and order preserved",
+    "files": {
+      "authority_succession.py": "50765de5184b6bfe5c5eec42b16eb3d332be6b29ee106b2de854041bdc32b324",
+      "legacy_import_succession.go": "692bf0fd6cd4112bcc01433106cd33f2eaeb81833b684b2a0441938a22111610",
+      "native.py": "9ee9d380c9197236e61f3fb3b0483b4ac932edf4b8fd1472d9eecd26caa6f9be",
+      "protocol.py": "b3df5b3dcf9ad7d964b4aceb213b743346ffac2aa62c4dc929686bb31abfdd80",
+      "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
+      "http_app.py": "611fa16d06398ebc4c47cff74c986bc2d234e2a8c1eef8714952416593ac9500",
+      "screening_transaction.py": "819fc74d0755b31cb5cfac0464553bb4cdcbb74db42699fffd9479830bf00122"
+    }
+  },
   "privateRuntime": {
     "contract": "pos-import-owned-celery-v1",
     "activated": false,
@@ -41,7 +56,7 @@
       "cart_tracking.py": "e9d02a51fffc4b6d8973401dca21068eaa40be81ea6ab0e4ea37279487c4061a",
       "source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
       "runtime.py": "df3318372d13bb8ef25e2dda95081c6f91c67268601834eb50a19d252cac310f",
-      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
+      "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
       "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac",
       "transaction.py": "00f4487027742a96fc1f330187a065504e96a48bfe2dc9df110745cabb07658b",
       "model_compat.py": "3492926c4c12afba4094a016befb6b6b48d47afdc80b237204a4dd7d6174af65"
@@ -95,17 +110,17 @@
       "order_preparation.py": "3f160d908b3f7fd26efe49deeaedc0ecb32cc2ee472bd16510269156761c762a",
       "cart_preparation.py": "23b2629665bf611bca59534b9000a5dc95772f7d18e1103dbb1c4400a8a6ea09",
       "source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
-      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
-      "protocol.py": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea",
-      "http_app.py": "b3b1905c59795de0ab953f172a95b8cb6f7752df459d6e61a685f5c4407b1b7a"
+      "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
+      "protocol.py": "b3df5b3dcf9ad7d964b4aceb213b743346ffac2aa62c4dc929686bb31abfdd80",
+      "http_app.py": "611fa16d06398ebc4c47cff74c986bc2d234e2a8c1eef8714952416593ac9500"
     }
   },
   "sourceTransaction": {
     "contract": "pos-import-customer-first-snapshot-v1",
     "activated": false,
     "files": {
-      "screening_transaction.py": "f05c13db2fb1ca65d6f0b073466c90b78e07ab56baa204868aeb5008235941b4",
-      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89"
+      "screening_transaction.py": "819fc74d0755b31cb5cfac0464553bb4cdcbb74db42699fffd9479830bf00122",
+      "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871"
     }
   },
   "correction": {
@@ -114,9 +129,9 @@
     "files": {
       "correction_profile.py": "80f4c4d0fdb5a61ab4c4d5745743a46491376f34a31f1f6ae40d10e3a958f01c",
       "profiles.py": "a39be566a97ec67c071e5643cc89a847645a32f5a6e66ca351a45ac68ceb4fd8",
-      "native.py": "e980393f1949980d2c62f55e9c709d3151f0262b649a1d8647d642c53a2b3a77",
-      "protocol.py": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea",
-      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
+      "native.py": "9ee9d380c9197236e61f3fb3b0483b4ac932edf4b8fd1472d9eecd26caa6f9be",
+      "protocol.py": "b3df5b3dcf9ad7d964b4aceb213b743346ffac2aa62c4dc929686bb31abfdd80",
+      "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
       "runtime.py": "df3318372d13bb8ef25e2dda95081c6f91c67268601834eb50a19d252cac310f"
     }
   },
@@ -127,7 +142,7 @@
     "activated": false,
     "count": "qualified current operational projection; exact literal helper replay only",
     "physicalMetadataCommit": "34b2c65",
-    "goSha256": "764e83c662d6c9d9bd3011d7da2f66185c95d20c727a476ea7feb5465c0c0f3f"
+    "goSha256": "e8f46630a87b5ddfc2721df96fd623862246e24def235aeb09376a65684993d3"
   },
   "screeningCurrentCounter": {
     "contract": "pos-screening-current-counter-v1",
@@ -174,12 +189,12 @@
       "cart_preparation.py": "23b2629665bf611bca59534b9000a5dc95772f7d18e1103dbb1c4400a8a6ea09",
       "order_preparation.py": "3f160d908b3f7fd26efe49deeaedc0ecb32cc2ee472bd16510269156761c762a",
       "profiles.py": "a39be566a97ec67c071e5643cc89a847645a32f5a6e66ca351a45ac68ceb4fd8",
-      "native.py": "e980393f1949980d2c62f55e9c709d3151f0262b649a1d8647d642c53a2b3a77",
-      "receiver.py": "02284139ef6e67cb2ba02c953e71fcef47366881fa7edcf0e0da328cd571ed89",
+      "native.py": "9ee9d380c9197236e61f3fb3b0483b4ac932edf4b8fd1472d9eecd26caa6f9be",
+      "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
       "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac",
       "runtime.py": "df3318372d13bb8ef25e2dda95081c6f91c67268601834eb50a19d252cac310f",
-      "protocol.py": "458d8730bcce7ff2d91f21623c3597b85aa4b0586e8130af9c516ad59a03aaea",
-      "http_app.py": "b3b1905c59795de0ab953f172a95b8cb6f7752df459d6e61a685f5c4407b1b7a"
+      "protocol.py": "b3df5b3dcf9ad7d964b4aceb213b743346ffac2aa62c4dc929686bb31abfdd80",
+      "http_app.py": "611fa16d06398ebc4c47cff74c986bc2d234e2a8c1eef8714952416593ac9500"
     },
     "sourceFiles": {
       "controllers/OrderController.py": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad",

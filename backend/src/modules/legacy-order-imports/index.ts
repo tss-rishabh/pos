@@ -12,6 +12,7 @@ import {
 } from './domain.js';
 import { legacyImportInputSchema } from './preparation.js';
 import { registerLegacyOrderImportCorrections } from './correction-routes.js';
+import { registerLegacyImportAuthoritySuccession } from './authority-succession/routes.js';
 import { legacyOrderImportService, type LegacyOrderImportRegistrationOptions } from './service.js';
 export { legacyOrderImportService, type LegacyOrderImportRegistrationOptions } from './service.js';
 export { readLegacyOrderImportOptions } from './options.js';
@@ -22,6 +23,7 @@ export function registerLegacyOrderImports(
   db: Databases,
   options: LegacyOrderImportRegistrationOptions = {},
 ) {
+  registerLegacyImportAuthoritySuccession(app, { service: options.adapter?.authoritySuccession });
   registerLegacyOrderImportCorrections(app, config, db, {
     runtime: {
       LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: options.runtime?.LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1,

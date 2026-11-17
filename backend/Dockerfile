@@ -37,6 +37,7 @@ COPY src/modules/checkout/screening-writer/*.sql ./src/modules/checkout/screenin
 COPY src/modules/checkout/cancellations/*.sql ./src/modules/checkout/cancellations/
 COPY src/modules/legacy-order-imports/*.sql ./src/modules/legacy-order-imports/
 COPY src/modules/legacy-order-imports/screening-counter/*.sql ./src/modules/legacy-order-imports/screening-counter/
+COPY src/modules/legacy-order-imports/authority-succession/*.sql ./src/modules/legacy-order-imports/authority-succession/
 COPY compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql ./compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql
 COPY compatibility/upstream/ordinary/migration.sql ./compatibility/upstream/ordinary/migration.sql
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
