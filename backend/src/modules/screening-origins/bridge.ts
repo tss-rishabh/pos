@@ -46,6 +46,7 @@ export async function createOriginHistoryBridge(options: {
       'SCREENING_ORIGIN_HISTORY_CONFIGURATION',
       'History service unavailable.',
     );
+  const maxConcurrentRequests = concurrency.data;
   let activeRequests = 0;
   const errors = new WeakMap<FastifyRequest, string>();
   const app = Fastify({
@@ -133,7 +134,7 @@ export async function createOriginHistoryBridge(options: {
     options.sourceKey,
     {
       async read(...args: Parameters<typeof options.history.read>) {
-        if (activeRequests >= concurrency.data)
+        if (activeRequests >= maxConcurrentRequests)
           throw new AppError(
             429,
             'SCREENING_ORIGIN_HISTORY_BUSY',
