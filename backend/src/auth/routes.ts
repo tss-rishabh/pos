@@ -96,7 +96,7 @@ export function registerAuth(
     }
     if (!(await sessions.valid(parsed.id, parsed))) return;
     request.authSessionId = parsed.sessionId;
-    request.authSessionValid = () => sessions.valid(parsed.id, parsed);
+    request.authSessionValid = (transaction) => sessions.valid(parsed.id, parsed, transaction);
     request.principal =
       config.DEMO_MODE && parsed.id === demoUser.id ? demoUser : await identity.get(parsed.id);
     request.sessionExpiresAt = parsed.expires;

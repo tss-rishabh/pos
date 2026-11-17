@@ -1,5 +1,6 @@
 import type {} from '@fastify/cookie';
 import type { Principal } from './domain/access.js';
+import type { SessionTransaction } from './auth/sessions.js';
 
 export interface ResourceTrace {
   module: string;
@@ -18,7 +19,7 @@ declare module 'fastify' {
     principal: Principal | null;
     sessionExpiresAt: number | null;
     authSessionId: string | null;
-    authSessionValid: (() => Promise<boolean>) | null;
+    authSessionValid: ((transaction?: SessionTransaction) => Promise<boolean>) | null;
     auditUserId: string | null;
   }
 }
