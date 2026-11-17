@@ -36,6 +36,16 @@ The first-order query replacement and its review-only database plans are now
 recorded in `improve-query.md` on `5345121`, without claiming new parity or
 performance evidence. No tests/checks/builds or live actions were run.
 
+Worker packaging: `8c0ae67` adds the distinct legacy POS effects image and
+source manifest copies, with the actual worker entry still in Hyper's upcoming
+handoff. `4731fd5` wires the stable independent history publisher npm entry,
+environment and dedicated Node+reviewed-Python image; `2cf6a96` retains the
+image's real Python/virtualenv selection through an exec launcher. CPP's
+publisher source commit is still pending; Root did not start a missing entry or
+claim these images built. Root flagged child PYTHONPATH and deadline consistency
+for CPP, and legacy effect log/stream bounds/uncertain queue/shutdown handling
+for Hyper. Final testing remains deferred while these implementations continue.
+
 Implementation update: generic coupon generation runtime/publisher is integrated
 from `833d115` as `3978c5a`, alongside the private current-control descriptor on
 `39e9be7`. The application preparation factory now installs the selected read-only
