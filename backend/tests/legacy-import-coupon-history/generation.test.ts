@@ -39,7 +39,13 @@ describe('prepublished operation-agnostic coupon generation', () => {
     expect(a.publication.seal).toBe(f.publication.seal);
     expect(b.publication.seal).toBe(f.publication.seal);
     expect(a.generationId).toBe(b.generationId);
-    expect(a.fetchedAt).toBe(f.capture.capturedAt);
+    // Controls were observed before capture: all evidence expires from its
+    // oldest required source input, never a later read/binding clock.
+    expect(a.fetchedAt).toBe(Math.min(f.capture.capturedAt, f.capture.control.data.observedAt));
+    expect(a.fetchedAt).toBeLessThan(f.capture.capturedAt);
+    expect(() =>
+      assertQualifiedCouponHistory(a, f.operation, f.authority.historyKey, a.fetchedAt + 60001),
+    ).toThrow();
     expect(() =>
       assertQualifiedCouponHistory(a, f.operation, f.authority.historyKey, f.now),
     ).not.toThrow();
