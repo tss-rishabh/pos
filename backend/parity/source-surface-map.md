@@ -18,7 +18,6 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 - **ecommerce-inventory-sync (partial)**: Implement and wire synchronizeEcommerce: source threshold-selected store stock refresh plus full downstream ecommerce product sync. Root currently supplies no concrete callback; configuration alone cannot activate it.
 - **legacy-paid-reversal (partial)**: Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow.
-- **order-to-cart-copy (partial)**: Finish serialized cancellation/tombstones for rejected or never-dispatched copy intents so an expired review cannot permanently fence the checkout. A404 or failed HTTP response alone cannot release an in-flight command.
 - **legacy-vinculum-status (partial)**: AjaxUpdateStatusVincView and push_vinc_order_for_all accept any whole-order line set/platform independently of Express. Provide a current-authority whole-order status command/caller mapping rather than infer generic endpoint coverage from Express PACK/SHIP.
 - **legacy-order-imports (partial)**: Complete the real offline/Shopify financial adapter, authenticated API/UI/worker and historical >24h result reader integration. Source grouping tests and synthetic financial adapters do not execute imports.
 
@@ -28,9 +27,9 @@ These are code gaps, distinct from configured provider acceptance. Parent/store 
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 6 | 0 | 181 |
+| routes | 68 | 4 | 0 | 183 |
 | jobs | 0 | 4 | 1 | 27 |
-| templates | 32 | 6 | 2 | 66 |
+| templates | 32 | 5 | 2 | 67 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 1 | 0 | 1 |
 
@@ -148,7 +147,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:20` | `ajax-get-exchange-sizes/` | returns-exchanges | external_acceptance |
 | `order/urls.py:21` | `ajax-get-exchange-reasons/` | returns-exchanges | external_acceptance |
 | `order/urls.py:22` | `tab/` | motivational-quotes, checkout-cart | external_acceptance |
-| `order/urls.py:23` | `create-order/<int:store_id>/<int:counter_id>/<int:tab_id>/` | motivational-quotes, checkout-cart, cashier-shortcuts, order-to-cart-copy, customer-website-handoff | partial |
+| `order/urls.py:23` | `create-order/<int:store_id>/<int:counter_id>/<int:tab_id>/` | motivational-quotes, checkout-cart, cashier-shortcuts, order-to-cart-copy, customer-website-handoff | external_acceptance |
 | `order/urls.py:24` | `ajax-cart/` | checkout-cart | external_acceptance |
 | `order/urls.py:25` | `ajax-sync-cart/` | checkout-cart | external_acceptance |
 | `order/urls.py:26` | `ajax-wallet/` | checkout-cart | external_acceptance |
@@ -189,7 +188,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:69` | `ajax-pass-order/` | local-deliveries | external_acceptance |
 | `order/urls.py:72` | `webhook-cancelled-order/` | local-deliveries | external_acceptance |
 | `order/urls.py:75` | `ajax-check-order-status/` | local-deliveries | external_acceptance |
-| `order/urls.py:78` | `ajax-fetch-the-products/` | order-to-cart-copy | partial |
+| `order/urls.py:78` | `ajax-fetch-the-products/` | order-to-cart-copy | external_acceptance |
 | `order/urls.py:80` | `ajax-update-status-vinc/` | legacy-vinculum-status | partial |
 | `order/urls.py:82` | `ajax-online-order/` | customer-website-handoff | external_acceptance |
 | `order/urls.py:85` | `ajax-gift-voucher-check/` | global-vouchers | external_acceptance |
@@ -387,7 +386,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/_hl_banner.html` | `order/templates/order/_hl_banner.html` | express-fulfillment, notifications | external_acceptance |
 | `order/templates/order/add_order_feedback.html` | `order/templates/order/add_order_feedback.html` | product-feedback | implementation_present |
 | `order/templates/order/basic_error.html` | `order/templates/order/basic_error.html` | system-health | implementation_present |
-| `order/templates/order/create_order.html` | `order/templates/order/create_order.html` | checkout-cart, customer-workspace, customer-contacts, customer-verification, payments, fast-cash, cashier-shortcuts, order-to-cart-copy, customer-website-handoff, motivational-quotes | partial |
+| `order/templates/order/create_order.html` | `order/templates/order/create_order.html` | checkout-cart, customer-workspace, customer-contacts, customer-verification, payments, fast-cash, cashier-shortcuts, order-to-cart-copy, customer-website-handoff, motivational-quotes | external_acceptance |
 | `order/templates/order/hyperlocal/_all_stores_order_cards.html` | `order/templates/order/hyperlocal/_all_stores_order_cards.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/_hl_image_preview.html` | `order/templates/order/hyperlocal/_hl_image_preview.html` | express-fulfillment | external_acceptance |

@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { checkoutSchema } from '../../src/pages/checkout/client';
 import {
   copyCommandSchema,
+  copyCancellationSchema,
   copyReviewSchema,
   type CopyCommand,
   type CopyReview,
@@ -87,6 +88,8 @@ describe.skipIf(process.env.ORDER_COPY_BROWSER_TESTS !== 'true')(
         posts: [] as string[],
         genericReads: 0,
         dropReply: false,
+        rejectBeforeStart: false,
+        dropClearBeforeCommit: false,
         errors: [] as string[],
       };
       page.on('pageerror', (error) => state.errors.push(error.message));
@@ -147,7 +150,12 @@ describe.skipIf(process.env.ORDER_COPY_BROWSER_TESTS !== 'true')(
           return route.fulfill({ json: state.review });
         }
         if (path.endsWith('/order-copies') && state.review) {
-          state.command = copyCommandSchema.parse({
+          if (state.rejectBeforeStart)
+            return route.fulfill({
+              status: 503,
+              json: { error: { code: 'FIXTURE_START_UNAVAILABLE', message: 'Start unavailable.' } },
+            });
+          const command = copyCommandSchema.parse({
             id: body.operationId,
             reviewId: state.review.id,
             source: state.review.source,
@@ -176,6 +184,9 @@ describe.skipIf(process.env.ORDER_COPY_BROWSER_TESTS !== 'true')(
             acknowledgementId: null,
             canContinue: false,
           });
+          if (command.status === 'cancelled-unsent')
+            throw new Error('The fixture start must return an active command.');
+          state.command = command;
           state.checkout = {
             ...state.checkout,
             version: 3,
@@ -184,9 +195,9 @@ describe.skipIf(process.env.ORDER_COPY_BROWSER_TESTS !== 'true')(
             orderCopy: {
               commandId: state.command.id,
               reviewId: state.command.reviewId,
-              status: state.command.status,
-              originHash: state.command.originHash,
-              resultHash: state.command.resultHash,
+              status: command.status,
+              originHash: command.originHash,
+              resultHash: command.resultHash,
             },
           };
           if (state.dropReply) return route.abort();
@@ -195,7 +206,11 @@ describe.skipIf(process.env.ORDER_COPY_BROWSER_TESTS !== 'true')(
           };
           return route.fulfill({ json: state.command });
         }
-        if (path.endsWith('/acknowledgements') && state.command) {
+        if (
+          path.endsWith('/acknowledgements') &&
+          state.command &&
+          state.command.status !== 'cancelled-unsent'
+        ) {
           state.command = {
             ...state.command,
             status: 'acknowledged',
@@ -206,16 +221,71 @@ describe.skipIf(process.env.ORDER_COPY_BROWSER_TESTS !== 'true')(
             ...state.checkout,
             version: 4,
             busyOperationId: null,
-            orderCopy: { ...state.checkout.orderCopy!, status: 'acknowledged' },
+            orderCopy: {
+              commandId: state.command.id,
+              reviewId: state.command.reviewId,
+              status: 'acknowledged',
+              originHash: state.command.originHash,
+              resultHash: state.command.resultHash,
+            },
+          };
+          return route.fulfill({ json: state.command });
+        }
+        if (path.endsWith('/cancellations') && state.rejectBeforeStart && state.review) {
+          const original = z
+            .object({
+              operationId: z.uuid(),
+              reviewId: z.uuid(),
+              manifestHash: z.string(),
+              expectedVersion: z.number(),
+            })
+            .strict()
+            .parse(body.original);
+          state.command = copyCancellationSchema.parse({
+            status: 'cancelled-unsent',
+            id: original.operationId,
+            reviewId: original.reviewId,
+            cancellationId: body.operationId,
+            checkoutId: state.checkout.id,
+            operatorId: '44',
+            storeId: '1',
+            counterId: '2',
+            originalRequestHash: 'd'.repeat(64),
+            cancelledAt: Date.now(),
+            checkoutVersion: state.checkout.version + 1,
+            requiresOnlineClear: true,
+            markerRequired: true,
+            source: null,
+            steps: [],
+            result: null,
+            resultHash: null,
+            originHash: null,
+            partial: false,
+            errorCode: null,
+            acknowledgementId: null,
+            canContinue: false,
+          });
+          state.checkout = {
+            ...state.checkout,
+            version: state.command.checkoutVersion,
+            busyOperationId: null,
+            orderCopy: {
+              status: 'cancelled-unsent',
+              commandId: state.command.id,
+              reviewId: state.command.reviewId,
+              cancellationId: state.command.cancellationId,
+            },
           };
           return route.fulfill({ json: state.command });
         }
         if (path.endsWith('/clear')) {
           const operationId = z.uuid().parse(body.operationId);
+          if (state.dropClearBeforeCommit) return route.abort();
           state.checkout = {
             ...state.checkout,
             version: state.checkout.version + 1,
             phase: 'cleared',
+            orderCopy: null,
             cart: { products: { items: [] } },
             quote: null,
             busyOperationId: null,
@@ -357,6 +427,99 @@ describe.skipIf(process.env.ORDER_COPY_BROWSER_TESTS !== 'true')(
         );
         expect(marker).toBeNull();
         expect(state.checkout.phase).toBe('cleared');
+        expect(state.errors).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    });
+    it('keeps a rejected copy fenced until durable cancellation and an explicit validated clear', async () => {
+      const context = await browser.newContext(),
+        page = await context.newPage();
+      try {
+        const state = await fixture(page);
+        state.rejectBeforeStart = true;
+        await open(page);
+        await begin(page);
+        await browserExpect(page.getByText(/action reply is unconfirmed/i)).toBeVisible();
+        expect(state.command).toBeNull();
+        await page
+          .getByRole('button', { name: 'Cancel only if copy is unsent', exact: true })
+          .click();
+        await browserExpect(
+          page.getByText('Copy status: cancelled-unsent', { exact: true }),
+        ).toBeVisible();
+        const clear = page.getByRole('button', {
+          name: 'Clear cancelled copy and start a new sale',
+          exact: true,
+        });
+        await browserExpect(clear).toBeEnabled();
+        await browserExpect(
+          page.getByRole('button', { name: 'Get final quote', exact: true }),
+        ).toHaveCount(0);
+        expect(state.posts.filter((path) => path.endsWith('/clear'))).toHaveLength(0);
+        const markerKey =
+          'pos-order-copy-origin:' +
+          JSON.stringify(['44', '1', '11111111-1111-4111-8111-111111111111']);
+        expect(await page.evaluate((key) => localStorage.getItem(key), markerKey)).not.toBeNull();
+        await page.getByRole('button', { name: 'Inspect original snapshot', exact: true }).click();
+        await browserExpect(page.getByTestId('original-quantity')).toHaveText('1');
+        await clear.click();
+        await browserExpect(page.getByRole('dialog', { name: 'Confirm the sale' })).toHaveCount(0);
+        expect(await page.evaluate((key) => localStorage.getItem(key), markerKey)).toBeNull();
+        expect(state.checkout.phase).toBe('cleared');
+        expect(state.posts.filter((path) => path.endsWith('/clear'))).toHaveLength(1);
+        expect(state.posts.some((path) => /quotes|payments|order-submissions/.test(path))).toBe(false);
+        expect(state.genericReads).toBe(0);
+        expect(state.errors).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    });
+    it('retains an unknown terminal-clear reference across copy refresh and reload without another POST', async () => {
+      const context = await browser.newContext(),
+        page = await context.newPage();
+      try {
+        const state = await fixture(page);
+        state.rejectBeforeStart = true;
+        state.dropClearBeforeCommit = true;
+        await open(page);
+        await begin(page);
+        await browserExpect(page.getByText(/action reply is unconfirmed/i)).toBeVisible();
+        await page
+          .getByRole('button', { name: 'Cancel only if copy is unsent', exact: true })
+          .click();
+        await page
+          .getByRole('button', { name: 'Clear cancelled copy and start a new sale', exact: true })
+          .click();
+        await browserExpect(
+          page.getByRole('button', { name: 'Check clear status', exact: true }),
+        ).toBeEnabled();
+        const count = state.posts.length;
+        await page.reload();
+        await page.getByRole('button', { name: 'Review sale', exact: true }).click();
+        await browserExpect(
+          page.getByText('Copy status: cancelled-unsent', { exact: true }),
+        ).toBeVisible();
+        await page.getByRole('button', { name: 'Refresh original copy', exact: true }).click();
+        const recover = page.getByRole('button', { name: 'Check clear status', exact: true });
+        await browserExpect(recover).toBeEnabled();
+        await recover.click();
+        await browserExpect(recover).toBeEnabled();
+        expect(state.genericReads).toBe(1);
+        expect(state.posts).toHaveLength(count);
+        expect(state.posts.filter((path) => path.endsWith('/clear'))).toHaveLength(1);
+        expect(state.checkout.phase).toBe('open');
+        expect(
+          await page.evaluate(() =>
+            localStorage.getItem(
+              'pos-order-copy-origin:' +
+                JSON.stringify(['44', '1', '11111111-1111-4111-8111-111111111111']),
+            ),
+          ),
+        ).not.toBeNull();
+        await browserExpect(
+          page.getByRole('button', { name: 'Get final quote', exact: true }),
+        ).toHaveCount(0);
         expect(state.errors).toEqual([]);
       } finally {
         await context.close();

@@ -242,12 +242,37 @@ export function CheckoutReview({
     });
     setPendingId(genericReference);
   };
-  const act = async (task: () => Promise<void>) => {
+  function canClearCancelledCopy(state: Checkout | null) {
+    const recovering = Boolean(pendingId && pendingId !== state?.orderCopy?.commandId);
+    return Boolean(
+      state?.orderCopy?.status === 'cancelled-unsent' &&
+      !state.orderId &&
+      !state.settlement &&
+      state.draftImport?.status === 'complete' &&
+      (recovering || ['open', 'quoted'].includes(state.phase)) &&
+      (!state.busyOperationId || (recovering && state.busyOperationId === pendingId)) &&
+      online &&
+      !recoveryError &&
+      !profilePending &&
+      !contactPending &&
+      !conversionPending &&
+      !fastCashBusy &&
+      !fastCashPending,
+    );
+  }
+  const act = async (
+    task: () => Promise<void>,
+    purpose: 'ordinary' | 'cancelled-copy-clear' = 'ordinary',
+  ) => {
+    const clearingCancelledCopy =
+      purpose === 'cancelled-copy-clear' && canClearCancelledCopy(current.current);
     if (
       locked.current ||
       fastCashActive.current ||
-      copyActive.current ||
-      (current.current?.orderCopy && current.current.orderCopy.status !== 'acknowledged')
+      (purpose === 'cancelled-copy-clear' && !clearingCancelledCopy) ||
+      (!clearingCancelledCopy &&
+        (copyActive.current ||
+          (current.current?.orderCopy && current.current.orderCopy.status !== 'acknowledged')))
     )
       return;
     locked.current = true;
@@ -390,7 +415,7 @@ export function CheckoutReview({
       'This saved sale has no confirmed line manifest. Keep its checkout reference and review it before continuing.',
     );
   }
-  async function recover() {
+  async function recover(reconcileVerification = true) {
     const state = current.current;
     if (!state || !pendingId) return;
     if (pendingId === state.orderCopy?.commandId) {
@@ -399,6 +424,7 @@ export function CheckoutReview({
     }
     let result = await readOperation(state, pendingId);
     if (
+      reconcileVerification &&
       ['inflight', 'uncertain'].includes(result.status) &&
       [
         state.verificationChallenge?.requestOperationId,
@@ -859,7 +885,56 @@ export function CheckoutReview({
                     'Review the copied cart and get a fresh quote before completing this sale.',
                   );
                 }}
+                onUnsentCancelled={async (proof) => {
+                  const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                  if (
+                    latest.id !== proof.checkoutId ||
+                    latest.orderCopy?.status !== 'cancelled-unsent' ||
+                    latest.orderCopy.commandId !== proof.id ||
+                    latest.orderCopy.reviewId !== proof.reviewId ||
+                    latest.orderCopy.cancellationId !== proof.cancellationId
+                  )
+                    throw new Error(
+                      'The checkout does not confirm this cancellation. Keep its reference and refresh.',
+                    );
+                  await adopt(latest);
+                  store(
+                    latest,
+                    latest.busyOperationId ||
+                      recoveryFor(draft.ownerId, draft.id)?.pendingOperationId ||
+                      null,
+                  );
+                  setNotice(
+                    'The copy was stopped before dispatch. Clear this checkout online before starting a new sale.',
+                  );
+                }}
               />
+            )}
+            {checkout.orderCopy?.status === 'cancelled-unsent' && (
+              <div>
+                <p role="status">
+                  The unsent copy is cancelled. Your saved draft and cash records are retained
+                  until this checkout is explicitly cleared.
+                </p>
+                <button
+                  className="button secondary full"
+                  disabled={busy || !canClearCancelledCopy(checkout)}
+                  onClick={() =>
+                    void act(async () => {
+                      if (pendingId) {
+                        await recover(false);
+                        return;
+                      }
+                      const state = current.current;
+                      if (!state) return;
+                      await bindReviewedCheckout(draft, state.id);
+                      await mutate('clear', 'POST');
+                    }, 'cancelled-copy-clear')
+                  }
+                >
+                  {pendingId ? 'Check clear status' : 'Clear cancelled copy and start a new sale'}
+                </button>
+              </div>
             )}
             {checkout.customerId && (
               <CustomerWebsiteHandoffAction

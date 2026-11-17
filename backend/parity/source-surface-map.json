@@ -18,16 +18,16 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 276,
+      "external_acceptance": 279,
       "implementation_present": 100,
-      "partial": 17,
+      "partial": 14,
       "missing": 3
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 181,
+        "external_acceptance": 183,
         "implementation_present": 68,
-        "partial": 6
+        "partial": 4
       },
       "jobs": {
         "external_acceptance": 27,
@@ -36,8 +36,8 @@
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 66,
-        "partial": 6,
+        "external_acceptance": 67,
+        "partial": 5,
         "missing": 2
       },
       "websockets": {
@@ -49,7 +49,7 @@
       }
     },
     "families": 75,
-    "code_task_groups": 5,
+    "code_task_groups": 4,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -127,7 +127,7 @@
     "backend/parity/local-delivery-lifecycle.md": "7ab62faecfcf5e6f32af8105d596581880f489d90141219ecb7c4ffc866829e0",
     "backend/parity/offline-invoice-worksheet.md": "019677536db53a0cea5a1dc775c992cceeb6e36c5dcd93e1804e27403684a4a3",
     "backend/parity/operational-reports.md": "33a48500a6deed2c82b224da52be819cf85ba0cf36ff03048312f549012e5de4",
-    "backend/parity/order-copy.md": "fea210474ab84430f9ce2e2b03d3d139a8f158e3490103fb13dbacb9694953fa",
+    "backend/parity/order-copy.md": "0ec6a6d7c4de5a957e44f8e6f611f6d4c83b986174d0e23d56c0812703be0a74",
     "backend/parity/order-history.md": "5a85cece3be6b198c7bac24d65afdac2fc19ca238d68ba38af84244c3f83af04",
     "backend/parity/order-messages.md": "b82295d5aebabea8b3d4d196d46e9443b978d018d62b9ef68ead98bac04badc6",
     "backend/parity/order-payments.md": "546228744d2ac60b40d4974348f2ca2c3d0cec900af0073d3c757e19aa89f299",
@@ -347,15 +347,18 @@
     "backend/src/modules/checkout/offline-cash/source-ledger.ts": "3d1d9a7a71f6bc19f7f75173d3bb7888e9b47dc2d6542e9530b296e77b0ad347",
     "backend/src/modules/checkout/offline-cash/template.ts": "f105427b99fe2b2c9c73a8d1fdf22f88a8428c49a641950d0da9dc9da3983e80",
     "backend/src/modules/checkout/offline-cash/writer.ts": "4ee8021e327cde6c089835ffdf8dda18c06238d4655d95a7ff532f72985390ef",
-    "backend/src/modules/checkout/order-copy/contracts.ts": "e15a80c235a375d7c641428b8bf0edff9ad35731c6b66795641ec7f5ce0de876",
+    "backend/src/modules/checkout/order-copy/cancellation-contracts.ts": "babcd6f694a18a43fa8d28297cc7af59c30435391765d6ea6a99de21c16a9e53",
+    "backend/src/modules/checkout/order-copy/cancellation-evidence.ts": "ef9845838d3525529093fdc60d69918fea67a4c12df6798a38000016c7f5b122",
+    "backend/src/modules/checkout/order-copy/cancellation-migration.sql": "25394aa84d1fd09ac3f4b1a0ef18f38d0498201f56d17bc7b0130ae8302fab5d",
+    "backend/src/modules/checkout/order-copy/contracts.ts": "d12476e47b2835d3561e61fbcbbd784b0a93bb59fa90be21f0f1f855ccb95be7",
     "backend/src/modules/checkout/order-copy/customer-authority.ts": "b28d21a8e6e943fd48a9cd7edd5bfa95fc0323e3a8764aa2356c6cac72a5c48d",
     "backend/src/modules/checkout/order-copy/domain.ts": "76c3f7a9f799c058660d7ac5f46702f774db8243ab047120762ac0e0ef1fa696",
     "backend/src/modules/checkout/order-copy/migration.sql": "903f0a2fbefbb94d5a73d29985cf9c6953b5207dcb21241fda94afd406cad976",
     "backend/src/modules/checkout/order-copy/reader.ts": "39ce4d8b804173ce7312536a3a6f08746a68fe2fc5a2d0119e84d0e49d9038d1",
-    "backend/src/modules/checkout/order-copy/repository.ts": "4143f8e61be95bfd4d9ce0cfbe6b9c81c7a45ce18a3ff65aaafd1279ebd0a3b6",
-    "backend/src/modules/checkout/order-copy/routes.ts": "a406f94aa7751bb3a4b1c554b8e9713a2ddd52f2af1c8f0e508d369ffc7fd984",
-    "backend/src/modules/checkout/order-copy/schema.ts": "5a66c523a9ade96b56fcc62f170779497ea901eea9fa898bb7de9a4a734bf5e2",
-    "backend/src/modules/checkout/order-copy/service.ts": "90318af8a6ac69d566d344cc229a8c592c488b769c2a9c9e7f87b2e1d34c9f36",
+    "backend/src/modules/checkout/order-copy/repository.ts": "c6226d4625cf66479f5a3c0370409f0de0f3cdc5bb2c978cb066b6ce71aac436",
+    "backend/src/modules/checkout/order-copy/routes.ts": "1ba903e2378a1ba2acc34bede3a2ede689bd2c22205d5f4874e6228c35170845",
+    "backend/src/modules/checkout/order-copy/schema.ts": "d13663f99c2e56766e7fddc37c454b18733d904560fa7484b11cc7939dddfbaf",
+    "backend/src/modules/checkout/order-copy/service.ts": "0cf7be828bda2cdf5a8eaf4d483a493185ce1e437aa78e1f1f3f4e0d978e9b24",
     "backend/src/modules/checkout/order-message-proof.ts": "b315d435b679b316633383ba3fd6a699bb88d882b9fa3805a37215dacc5e45da",
     "backend/src/modules/checkout/order-messages/migration.sql": "d2745a6bc9dba234f88d2114658fbdcaeb9347d227d5fb7e7f577375cb9b47f6",
     "backend/src/modules/checkout/order-messages/options.ts": "e270e410b209702db557e56ee714902b8ec00990ff7762ac343e93803b8b7f20",
@@ -397,9 +400,9 @@
     "backend/src/modules/checkout/return-workflow/verification-state.ts": "8d5e93dda25f0c04e6730d7775ec4e0ebf4c6d5130f0e6541595ba7da59472cd",
     "backend/src/modules/checkout/return-workflow/verification.ts": "ac588f52b286be29ae6969aada95a93a6dd5ef17654780c4310ccebc5326940b",
     "backend/src/modules/checkout/returns.ts": "e3da3e19e1f0e430760981428b0cadbf9f16fd33e85831b0bbac269dc3505120",
-    "backend/src/modules/checkout/routes.ts": "447b87b5885635431e9d652fd245737a196470732b7dca6a96de01aa2e41ec0a",
+    "backend/src/modules/checkout/routes.ts": "50c097c29d4a88c454d9d8e45d7f30801691f2ffb18c8918618922b097273ea7",
     "backend/src/modules/checkout/schema.ts": "1e94c4723c1f04095610b5febe19e74f0ff38ac9c8a394c30cfbc53cc7190cda",
-    "backend/src/modules/checkout/service.ts": "e3f5415a90d64d620f11d16facb7bdaf7fa35c333b35bbcbf30645f1872c22b9",
+    "backend/src/modules/checkout/service.ts": "276442869d2c09b70b4d9a82738f7a215dd0adf5243527fb88b03fc8ba33c8f7",
     "backend/src/modules/checkout/settlement-note.ts": "b2a3a6f130ec67fce76707ae01e37b207cd4d4a8bef2721c176e83184e40430a",
     "backend/src/modules/checkout/worker.ts": "91f770a3fa010641bf523751dc2f1f08454dd95fa92f347852f9d9b0f0fdea24",
     "backend/src/modules/customer-contacts/authority.ts": "75aadc4a21b5f17a0d2d5be42571ae778a33ab82477bd68ae95faff05ca470eb",
@@ -699,8 +702,8 @@
     "backend/tests/catalog-details/routing-security.test.ts": "489b6aa8dd70ad4652ab94e23c067bf4878cc4ed7b2cd24886f44db5e9ee30a3",
     "backend/tests/checkout-order-copy/customer-authority.mysql.test.ts": "7079051e34935ec8b25a13f7b087ea5073201ca8fdfece33b8819078f1cc085a",
     "backend/tests/checkout-order-copy/domain.test.ts": "1d1b9d7e5ce1a81df9646d6f9d44561183bd69d29a07893ebf9dda11dace9a00",
-    "backend/tests/checkout-order-copy/mysql-fixture.ts": "08038e0deeab06edf8a6051ff6d0b075cccd4f7d2a7d5f3ca43e3252e8ca70a9",
-    "backend/tests/checkout-order-copy/service.mysql.test.ts": "578fefe9a7489dc4a1be3875be84ea31bcba90057419572a81d3b1bf9436f0e9",
+    "backend/tests/checkout-order-copy/mysql-fixture.ts": "5add0f39582053c47adaecf7400fbe81903d2700f084b4d07a4a19ed60427012",
+    "backend/tests/checkout-order-copy/service.mysql.test.ts": "28260732411ed73def1fa1174341257d4e820286025552407cac82ac86c62058",
     "backend/tests/checkout-order-copy/source.test.ts": "c5831220813bbcb639623f0afcb99c875cb933a41fc582b40c0468d3318b43ec",
     "backend/tests/checkout-payment-reversals/mysql-fixture.ts": "fec8b6f80622e200d912839e6abcc7be54a2efc5d935d81be824947a0bdb7dd7",
     "backend/tests/checkout-payment-reversals/reversal.mysql.test.ts": "0143d7adcf589165c41873427fd4426336ae8e8cb2857a52377abd2be08ddaaf",
@@ -745,7 +748,7 @@
     "backend/tests/checkout/pending-cancellation-source.test.ts": "44b82086c96d70022a417656500245f6c5a4a5d6149c11dd7d59f224fb4085eb",
     "backend/tests/checkout/projection.test.ts": "8c05ee123ae1e43cb47731a39f44817acffc98f4f9a8fcfe2c89122e01a35fe1",
     "backend/tests/checkout/returns-parity.test.ts": "da1762743e6bf7c05a4b1b84126e4970352f5be433b3774cc031cc1e176fc19b",
-    "backend/tests/checkout/routes.test.ts": "7fb81a1bcc2197656c2312ac276ac83313675a799ab60e9939429e68e4c69723",
+    "backend/tests/checkout/routes.test.ts": "761cedd0f472b887ba1fd42a018c03306f155bd75611074f65aee8f6e03a099a",
     "backend/tests/checkout/service.test.ts": "d7026539a6d9b329ddca41984090ae6910cea8c08f93b31bd296d2075f0d2d31",
     "backend/tests/customer-benefits.test.ts": "81f971a3aac9dae6d7f902baddea49632a8d903688394227fba92d90bc6db78f",
     "backend/tests/customer-contacts/crypto.test.ts": "a82dd1d22204a6a406b869eed828ddb1f72103d5802eeb31f22af037ba76748a",
@@ -973,7 +976,7 @@
     "frontend/src/pages/catalog/table.tsx": "4f61d12bf8ff39eb933d5a61030981cb561250c8d1b95b94d597371dcc75c628",
     "frontend/src/pages/catalog/workbook.ts": "9a405873b6cc174f3f9ac9c3ad14a3f90cd1e465c1bb82a55e298c976f8b8738",
     "frontend/src/pages/checkout/CheckoutReview.css": "f46abb3429221377496da3989964f420d308204267d3b644a930f41fefc6deb5",
-    "frontend/src/pages/checkout/CheckoutReview.tsx": "e9c8f57f34d29f5a48a46fc445485ab8255f0b5e311f63b8d4360dae20f24090",
+    "frontend/src/pages/checkout/CheckoutReview.tsx": "867f65d97d691e1ceb5493df53de459f59bd413b2de32b1a2c24f743e8f3599f",
     "frontend/src/pages/checkout/CustomerRegistration.tsx": "16beeabe1b6e69085d0c477246fe1e28a52dfa228231bff2c860301ca745e926",
     "frontend/src/pages/checkout/DiscountApproval.tsx": "21bd482636b9350b03ab1f9b54f0a0c0d904b5ae1a31f2f860940c5d3e98b9b5",
     "frontend/src/pages/checkout/FastCashCheckout.tsx": "4146b1a35ec6240d4e79c8bc44f8585d856bc8a9a1c3cb2be15ef56774c738b2",
@@ -1070,8 +1073,8 @@
     "frontend/src/pages/operational-reports/returned-orders.tsx": "fa8e17c577e3462dd083559f6c79982c85bb591b301a9ec4a94df3fa90d1fa23",
     "frontend/src/pages/operational-reports/style.css": "28334af838dad80297f85b3bc042734f772e2902801ffd0bf3d77e778d101210",
     "frontend/src/pages/operations.tsx": "fbf261b9733f23094f6f18eee2d461dfca6da32aff60f172d09d8730b5ba06b1",
-    "frontend/src/pages/order-copy/client.ts": "0635e0f41bf253c6b995e359f5c9bbbd8700f6acd2f99c2057d8474886a93e3e",
-    "frontend/src/pages/order-copy/index.tsx": "3d7f18cc32a1edaa6edd309b1c8ad200971a257ab5c3e0ca28fb95d67f7da6e8",
+    "frontend/src/pages/order-copy/client.ts": "0a979a8870cf6d7748c44a3ae21d08a0a8136de5eaf5de10035d701cdf74fe5f",
+    "frontend/src/pages/order-copy/index.tsx": "bc0ebf6be1f3e9b3b62d09dd949f6c017357264a744dfd06f8662ac2bb1ebdff",
     "frontend/src/pages/order-copy/marker.ts": "3ae37435c7da14a69bcbce1ec158e14ca168b6733b5c22527d2835c81bcbc2d9",
     "frontend/src/pages/order-history/SourceOrderList.tsx": "61b4da27e346b9ffb34b1406c9594eeef472529968163e08fc292f73cd36e11f",
     "frontend/src/pages/order-history/client.ts": "0bc307eb08a8b4099e8020599eedcd1c9146b35c8f35c71ab59be78126e3edcd",
@@ -1174,12 +1177,12 @@
     "frontend/tests/offline.test.ts": "ff8f02dbf59b306cf3a5fc15ca6ea9fd9030f49b6e2340b0d3cb0c9d03e7a2b7",
     "frontend/tests/operational-reports/export-commands.test.ts": "72474b792be5b54d1e2cea482859c000e2645b876d3481518f52ad90c13f388c",
     "frontend/tests/operator-binding.test.ts": "ee87b8be05341d7de7a9900ed1a1a139d3486b3ebddc3307878718d2259e509c",
-    "frontend/tests/order-copy/browser.test.ts": "36d8c9d7efe98d20e15b16f17c5bf073dc1977e26c03af856d048a9f7c0ca5bb",
+    "frontend/tests/order-copy/browser.test.ts": "b282a692acb68c9f7172f424b594356b5440394fa3551321af11c7ab6b53b7c0",
     "frontend/tests/order-copy/checkout-harness.tsx": "8402f579d4b9df1fc200a49d3927d55eb4992cb223d51d00bdddf49aca35ae4a",
-    "frontend/tests/order-copy/checkout.browser.test.ts": "0d535aa69b2f50a27a4d7c0df907c1ef37a496ae6930c18dc38284759913c884",
-    "frontend/tests/order-copy/harness.tsx": "1acd7bd38763efc8553413b7102075e6d2b2d8b33471264527e4193a4b4e4d22",
+    "frontend/tests/order-copy/checkout.browser.test.ts": "3c2e04fc066ea7fdb448117df82148a206b01eeb8a3ce4cf3fef01281fee68b0",
+    "frontend/tests/order-copy/harness.tsx": "466f976f9f6bb478a6bf902ca395dd630f279c7adc16edfc1e428b493fe780ee",
     "frontend/tests/order-copy/marker.test.ts": "7c7eb80ba211e1e624141b06749d083020635643c4b4ef6b8f68a605596f5dd9",
-    "frontend/tests/order-copy/operation-reference.test.ts": "e73d9bf2b6a22a792c8d46710911202e995f62569405e269310754d83eaaa157",
+    "frontend/tests/order-copy/operation-reference.test.ts": "f610a703cd5e992cff757103fcc69c12c17b8cf197986826fa8934de8df6b26d",
     "frontend/tests/order-copy/tsconfig.json": "fa424617bd5e067711f78621f15c6329fb39b755499280740ea2a944dc904c99",
     "frontend/tests/order-history/client.test.ts": "5902ce9f898b2c0d07c0eb6400d5a19abeab6fcb71a84c30297c5363464e1dfe",
     "frontend/tests/order-history/fixture.html": "8d3a37f11ec80e65b249e0af08225f3ecc88a5e505fe1125c84c0ffffc5a7127",
@@ -4313,7 +4316,7 @@
     },
     {
       "id": "order-to-cart-copy",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/checkout/order-copy",
         "backend/src/modules/order-history/copy-adapter.ts"
@@ -4332,10 +4335,8 @@
       "parity_documents": [
         "backend/parity/order-copy.md"
       ],
-      "implemented_scope": "One unit per original HP row into the current owned cart, immutable original draft, partial/result acknowledgement, native customer OTP/contact/actor authority, qualified historical facts, dedicated GET recovery and durable offline-cash origin fences are integrated.",
-      "remaining_code": [
-        "Finish serialized cancellation/tombstones for rejected or never-dispatched copy intents so an expired review cannot permanently fence the checkout. A404 or failed HTTP response alone cannot release an in-flight command."
-      ],
+      "implemented_scope": "One unit per original HP row into the current owned cart, immutable original draft, partial/result acknowledgement, native customer OTP/contact/actor authority, qualified historical facts, dedicated GET recovery and durable offline-cash origin fences. Serialized unsent cancellation claims the original command nonce; independently refreshed writer proof permits only explicit terminal clear, with GET-only lost-clear recovery and retained cash/origin markers until validated completion.",
+      "remaining_code": [],
       "external_acceptance": [
         "Accept actual source cart/stock/gift-card contracts and complete historical publications. A dispatched uncertain step requires causal upstream evidence; equal cart quantities are insufficient, and collected cash is retained for manager reconciliation."
       ],
@@ -5317,13 +5318,6 @@
       "state": "partial",
       "tasks": [
         "Wire current collection/ledger/DSR and complete historical correction publications before selecting the finance contract and exposing the manager action. Include retained unknown physical cash-return intents in manager reconciliation; an environment flag or child panel alone does not complete this workflow."
-      ]
-    },
-    {
-      "family": "order-to-cart-copy",
-      "state": "partial",
-      "tasks": [
-        "Finish serialized cancellation/tombstones for rejected or never-dispatched copy intents so an expired review cannot permanently fence the checkout. A404 or failed HTTP response alone cannot release an in-flight command."
       ]
     },
     {
@@ -8584,7 +8578,7 @@
         "order-to-cart-copy",
         "customer-website-handoff"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -9863,7 +9857,7 @@
       "families": [
         "order-to-cart-copy"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14850,7 +14844,7 @@
         "customer-website-handoff",
         "motivational-quotes"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

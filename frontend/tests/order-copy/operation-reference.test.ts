@@ -17,7 +17,10 @@ describe('checkout recovery protocol selection', () => {
     ).toBeNull();
     expect(
       checkoutOperationReference(
-        { busyOperationId: null, orderCopy: { ...copy, status: 'acknowledged' } },
+        {
+          busyOperationId: null,
+          orderCopy: copyBindingSchema.parse({ ...copy, status: 'acknowledged' }),
+        },
         copy.commandId,
       ),
     ).toBeNull();
@@ -30,5 +33,17 @@ describe('checkout recovery protocol selection', () => {
       generic,
     );
     expect(checkoutOperationReference({ busyOperationId: generic })).toBe(generic);
+  });
+  it('preserves an unknown clear reference while excluding a cancelled copy nonce', () => {
+    const orderCopy = copyBindingSchema.parse({
+      status: 'cancelled-unsent',
+      commandId: copy.commandId,
+      reviewId: copy.reviewId,
+      cancellationId: '44444444-4444-4444-8444-444444444444',
+    });
+    expect(checkoutOperationReference({ busyOperationId: null, orderCopy }, generic)).toBe(generic);
+    expect(
+      checkoutOperationReference({ busyOperationId: null, orderCopy }, copy.commandId),
+    ).toBeNull();
   });
 });

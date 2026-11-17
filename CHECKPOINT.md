@@ -1,11 +1,14 @@
 # POS rewrite checkpoint
 
 The application is an implemented review build, not a certified production release.
-The last shared checkpoint, recorded at `2026-11-16T22:29:31Z`, passes all 73
+The last fully green shared checkpoint, recorded at `2026-11-16T22:29:31Z`, passed all 73
 checks: 1,211 backend tests, 195 frontend tests and 50 end-to-end browser scenarios.
-`backend/evidence/verification.json` binds that tested input snapshot; no input
-changed during the run. Later integrated features have focused checks and are
-listed below. `backend/parity/release-coverage.json` remains the release authority;
+That is a historical tested snapshot. `backend/evidence/verification.json`
+records the most recent combined run, including unsuccessful or interrupted checks;
+later integrated features have focused checks listed below. The interrupted later
+run exposed checkout fixture and generated-cache lint failures; their affected
+82-check backend rerun and frontend lint passed after correction.
+`backend/parity/release-coverage.json` remains the release authority;
 component test counts do not certify every original workflow.
 
 ## Implemented feature groups
@@ -25,7 +28,7 @@ component test counts do not certify every original workflow.
 | Invoice worksheet       | Manual prices, customer labels, exact totals, source-format CSV export and sandboxed printing. Fourteen focused checks and two Chromium workflows pass. This worksheet records no payment.                                       |
 | Parent/store CSV        | Three-column product-family assignment import, atomic reset/delete/recreate, audit, shared durable worker and separate historical profile are wired. Twenty-nine merged database/source/parser checks and seven import browser workflows pass. Actual stock/sync/publication acceptance remains required. |
 | Historical order reads  | Public date selections reach PRIMARY/DATA/BigQuery readers, with scoped cursors and post-read session revocation checks. Full source filters/sorting/queues/formatter are integrated: 43 pinned-Django vectors, 12 browser workflows and existing qualified detail/copy readers. Warehouse generations and workload acceptance remain required. |
-| Order copying           | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Thirty-one backend checks, three integrated Chromium and 33 existing offline/fast-cash checks pass. Native customer OTP/contact/session fences are integrated; safe unsent cancellation remains in progress. |
+| Order copying           | Actual Counter/Review integration preserves the original draft, separates copy recovery IDs and fences offline cash until a proved online terminal outcome. Native OTP/contact/session fences, serialized unsent cancellation and dedicated validated terminal clear are integrated. Fifty-three affected backend and 21 scoped frontend checks pass, including five actual Counter/Review Chromium flows and lost-clear recovery without another POST. |
 
 ## Fixed remaining code checklist
 
@@ -39,8 +42,6 @@ component test counts do not certify every original workflow.
   historical provenance is fabricated.
 - Integrate the implemented payment-status reversal slice into financial
   collections, ledger, DSR and historical publications before enabling it.
-- Finish unsent-operation cancellation for order copying; native customer proof,
-  shared readers, UI recovery and offline-cash guards are already wired.
 - Qualify the source order-search historical publication/contact-key generation
   and representative queue workload; the complete UI/API/source-filter code is integrated.
 - Finish ecommerce inventory synchronization and whole-order Vinculum status
