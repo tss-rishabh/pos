@@ -36,6 +36,7 @@ import { recordPerformancePhase } from '../offline/performance/storage';
 import { captureOperatorScope } from '../api/client';
 import { addProduct, commitScannedProduct, resolveBarcode } from './counter-catalog/barcode';
 import './counter-catalog/style.css';
+import { DraftQuantity, commitDraftQuantity } from './counter-catalog/quantity';
 import { productDetailPath, useCartProductLinks } from './counter-catalog/detail-links';
 import {
   AutomaticInvoicePreview,
@@ -725,7 +726,22 @@ export function CounterPage({
                       >
                         <Minus size={13} />
                       </button>
-                      <span>{line.quantity}</span>
+                      <DraftQuantity
+                        key={scanIdentity + ':' + line.productId}
+                        name={line.name}
+                        quantity={line.quantity}
+                        onCommit={async (quantity) => {
+                          if (!draftId) return;
+                          const identity = scanIdentity;
+                          await commitDraftQuantity(
+                            { ownerId: user.id, storeId, counterId, draftId },
+                            line.productId,
+                            quantity,
+                            captureOperatorScope(user.id),
+                            () => currentScanIdentity.current === identity,
+                          );
+                        }}
+                      />
                       <button
                         aria-label={`Increase ${line.name}`}
                         disabled={line.quantity >= 999}

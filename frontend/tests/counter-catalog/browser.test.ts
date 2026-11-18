@@ -225,4 +225,62 @@ describe.skipIf(process.env.COUNTER_BARCODE_BROWSER_TESTS !== 'true')('counter s
       await context.close();
     }
   });
+  it('direct quantity buffers blanks, validates integers, preserves buttons and removes only explicit zero', async () => {
+    const context = await browser.newContext({ serviceWorkers: 'block' });
+    const page = await context.newPage();
+    try {
+      await page.route('**/api/v1/**', (route) =>
+        route.fulfill({
+          json: {
+            data: [
+              {
+                id: '31',
+                parentId: '9',
+                name: 'Quantity product',
+                erpName: '',
+                barcode: '111',
+                type: '1',
+                price: '25',
+                specialPrice: '25',
+                exclusivePrice: null,
+                stock: 100,
+                gst: 5,
+                image: null,
+              },
+            ],
+            nextCursor: null,
+          },
+        }),
+      );
+      await page.goto(origin + '/__counter_scan__');
+      await page.getByRole('button', { name: 'Add Quantity product to sale', exact: true }).click();
+      const quantity = page.getByRole('textbox', {
+        name: 'Quantity Quantity product',
+        exact: true,
+      });
+      await browserExpect(quantity).toHaveValue('1');
+      await quantity.fill('');
+      await quantity.press('Tab');
+      await browserExpect(quantity).toHaveValue('1');
+      await quantity.fill('1.5');
+      await quantity.press('Enter');
+      await browserExpect(
+        page.getByText('Enter a whole quantity from 0 to 999.', { exact: true }),
+      ).toBeVisible();
+      expect(
+        (await page.evaluate(() => window.counterScanFixtureLines())).flat()[0]?.quantity,
+      ).toBe(1);
+      await quantity.fill('25');
+      await quantity.press('Enter');
+      await browserExpect(quantity).toHaveValue('25');
+      await page.getByRole('button', { name: 'Increase Quantity product', exact: true }).click();
+      await browserExpect(quantity).toHaveValue('26');
+      await quantity.fill('0');
+      await quantity.press('Enter');
+      await browserExpect(quantity).toHaveCount(0);
+      expect((await page.evaluate(() => window.counterScanFixtureLines())).flat()).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
 });
