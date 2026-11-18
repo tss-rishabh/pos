@@ -1,5 +1,36 @@
 # Joined administration create/update workflows
 
+## Preserved execution status at handoff
+
+Commit `5a0da2ea8409d8269f3a498cdf8afa44b4dda8b0` preserves this unfinished
+proof for continuation. No complete 24-case successful execution exists.
+
+- r1 stopped at the first store case after 11 operator cases completed. r2
+  isolated the same store failure: source POST302 and candidate POST201 succeeded,
+  but native `stores.slack_group_url` differed (empty string versus SQL NULL).
+  Both failures remain preserved.
+- The bounded create-default fix is commit `d586c7cff920c3250cfbe2de1b28e0153f5c3069`.
+  The subsequent r3 diagnostic passed **one case only**,
+  `store-create-country-postal`, through actual pinned source, routed App/native
+  cookie and exact physical persistence comparison. Its successful receipt is
+  diagnostic-only and predates the final receipt-strengthening/NULL-edit vector.
+- r4 included 23 ordinary cases plus one explicit NULL-edit retention exception.
+  It was deliberately interrupted for the requested handoff after 11 operator
+  completion events. Exit status1 is an interrupted run, not a test failure
+  diagnosis or a successful full proof. No r4 final receipt was produced.
+- Strict checks and frontend build completed before r4 interruption; scoped
+  harness lint, Python syntax and shell syntax also passed. No new tests were
+  run to add this status note. Exact owned container cleanup with volumes and
+  zero anonymous volumes was recorded for all four attempts.
+
+Private evidence remains under
+`/tmp/pos-forms-workflow-evidence-20261118` (`r1`–`r4` logs/cleanup and the r3
+one-case receipt); these local files are not portable committed release evidence.
+The full four-route joined proof remains pending and no release ledger is
+promoted. The remaining sections describe the intended executable target, not a
+claim that all its cases have passed.
+
+
 This disposable target compares four declarations at pinned source commit
 `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`: `users/urls.py:17,18`
 and `stores/urls.py:11,14`. Country and postal routes are dependencies, not
