@@ -3,7 +3,6 @@ import { bigint, index, json, mysqlTable, varchar } from 'drizzle-orm/mysql-core
 import { z } from 'zod';
 import type { Databases } from '../../../db/pools.js';
 import { PosUser, Store, Order } from '../../../db/legacy-schema.js';
-import { operatorAuthEpochs } from '../../../auth/revocation.js';
 import { AppError } from '../../../domain/errors.js';
 import {
   storedPaymentAttemptSchema,
@@ -116,12 +115,6 @@ export async function retainPaymentProviderFact(
         .select({ id: PosUser.id })
         .from(PosUser)
         .where(eq(PosUser.id, BigInt(frame.actorId)))
-        .limit(1)
-        .for('share');
-      await tx
-        .select({ epoch: operatorAuthEpochs.epoch })
-        .from(operatorAuthEpochs)
-        .where(eq(operatorAuthEpochs.userId, frame.actorId))
         .limit(1)
         .for('share');
       const [store] = await tx

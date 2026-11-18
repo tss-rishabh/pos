@@ -143,7 +143,6 @@ describe.skipIf(!template)('customer OTP proofs on real isolated MySQL', () => {
       'src/modules/checkout/migrations/0002_checkout.sql',
       'src/modules/checkout/migrations/0004_returns.sql',
       'src/modules/checkout/migrations/0008_checkout_draft_binding.sql',
-      'migrations/0006_operator_auth_epochs.sql',
       'src/modules/customer-otp/migration.sql',
     ])
       await migrate(path);

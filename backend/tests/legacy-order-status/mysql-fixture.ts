@@ -41,7 +41,6 @@ export async function wholeStatusFixture(template: string) {
       'vinculum_auto_delivered_logs',
     ]);
     for (const path of [
-      'migrations/0006_operator_auth_epochs.sql',
       'src/modules/administration/migration.sql',
       'src/modules/checkout/migrations/0004_returns.sql',
       'src/modules/legacy-order-status/migration.sql',

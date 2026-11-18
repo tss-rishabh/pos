@@ -2,7 +2,8 @@ import { randomUUID } from 'node:crypto';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Principal } from '../../src/domain/access.js';
-import { mysqlSessions, type SessionCredential } from '../../src/auth/sessions.js';
+import type { SessionCredential } from '../../src/auth/sessions.js';
+import { testSessions } from '../helpers/auth-sessions.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
 import { checkoutStateSchema, type CheckoutState } from '../../src/modules/checkout/contracts.js';
 import { checkoutSessions } from '../../src/modules/checkout/schema.js';
@@ -122,7 +123,7 @@ describe.skipIf(!template)('purpose-bound website handoff on isolated MySQL', ()
       is_disabled: 0,
     });
     await checkInService(native.db, native.config).set(actor, '1', '1');
-    session = await mysqlSessions(native.db).create(actor.id, now + 1200000);
+    session = await testSessions(native.config, native.db).create(actor.id, now + 1200000);
     const contact = await native.db
       .get('writer')
       .transaction((tx) => readCustomerContactBinding(tx, '7'));
@@ -202,6 +203,7 @@ describe.skipIf(!template)('purpose-bound website handoff on isolated MySQL', ()
       options,
       verification,
       () => now,
+      testSessions(native.config, native.db).alive,
     );
   });
   afterAll(async () => {
@@ -293,7 +295,7 @@ describe.skipIf(!template)('purpose-bound website handoff on isolated MySQL', ()
   });
   it('requires the exact original POS session and invalidates an outstanding capability on logout', async () => {
     const link = await issue();
-    const other = await mysqlSessions(native.db).create(actor.id, now + 1200000);
+    const other = await testSessions(native.config, native.db).create(actor.id, now + 1200000);
     await expect(
       service.issue(
         actor,
@@ -302,7 +304,7 @@ describe.skipIf(!template)('purpose-bound website handoff on isolated MySQL', ()
         { id: other.sessionId, expiresAt: other.expires },
       ),
     ).rejects.toMatchObject({ code: 'CUSTOMER_WEBSITE_OPERATION_CONFLICT' });
-    await mysqlSessions(native.db).revoke(session.sessionId);
+    await testSessions(native.config, native.db).revoke(session.sessionId);
     await expect(service.redeem(redemption(link.url))).rejects.toMatchObject({ status: 410 });
   });
   it.each([

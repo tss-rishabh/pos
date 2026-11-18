@@ -1,5 +1,4 @@
 import { pbkdf2Sync, randomBytes } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql, { type Connection } from 'mysql2/promise';
 import { createClient } from 'redis';
 import { Secret } from 'otpauth';
@@ -12,7 +11,6 @@ import { PosUser } from '../src/db/legacy-schema.js';
 import type { Principal } from '../src/domain/access.js';
 import { AppError } from '../src/domain/errors.js';
 import { eq } from 'drizzle-orm';
-import { invalidateOperatorAuthentication } from '../src/auth/revocation.js';
 import {
   deviceHandoffOptions,
   deviceHandoffService,
@@ -23,6 +21,8 @@ import {
   type DeviceHandoffStore,
 } from '../src/auth/device-handoff-store.js';
 import { registerDeviceHandoffs } from '../src/auth/device-handoff-routes.js';
+import { connectRedisPort } from '../src/redis/node-client.js';
+import type { RedisPort } from '../src/redis/port.js';
 import { registerEventCatalog, requestEvent } from '../src/observability/events.js';
 import { privateRedisFixture } from './helpers/private-redis.js';
 import {
@@ -36,6 +36,7 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
     connection: Connection,
     config: Config,
     store: DeviceHandoffStore,
+    port: RedisPort | undefined,
     options: DeviceHandoffOptions,
     cache: ReturnType<typeof createClient>,
     redis: Awaited<ReturnType<typeof privateRedisFixture>>,
@@ -73,18 +74,6 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
     created = true;
     await connection.changeUser({ database: schema });
     await connection.query(legacyFixtureTableSql(PosUser));
-    for (const statement of [
-      'migrations/0002_auth_sessions.sql',
-      'migrations/0003_login_challenges.sql',
-      'migrations/0006_operator_auth_epochs.sql',
-      'src/modules/administration/mfa-migration.sql',
-    ]
-      .map((file) => readFileSync(file, 'utf8'))
-      .join('\n')
-      .replace(/^--.*$/gm, '')
-      .split(';')
-      .filter((value) => value.trim()))
-      await connection.query(statement);
     url.pathname = '/' + schema;
     config = readConfig({
       NODE_ENV: 'test',
@@ -98,9 +87,9 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
     cache = createClient({ url: redis.url });
     cache.on('error', () => {});
     await cache.connect();
-    store = redisDeviceHandoffStore(config, redis.url);
+    port = connectRedisPort(redis.url, 'test');
+    store = redisDeviceHandoffStore(port);
     options = deviceHandoffOptions({
-      POS_DEVICE_HANDOFF_REDIS_URL: redis.url,
       POS_DEVICE_HANDOFF_SERVICE_KEY: 'handoff-fixture-service-key-'.repeat(3),
       UPSTREAM_POS_DEVICE_HANDOFF_CONTRACT: 'pos-auth-qr-v1',
     });
@@ -132,7 +121,7 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
     await seed(103, { is_active: false });
   });
   afterAll(async () => {
-    await store?.close();
+    await port?.close();
     if (cache?.isOpen) await cache.close();
     await redis?.close();
     await db?.close();
@@ -142,7 +131,14 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
     }
   });
   const service = (overrides: Partial<DeviceHandoffOptions> = {}) =>
-    deviceHandoffService(config, db, { ...options, ...overrides }, store, () => clock);
+    deviceHandoffService(
+      config,
+      db,
+      { ...options, ...overrides },
+      store,
+      { authenticate: async () => null },
+      () => clock,
+    );
   it('reuses one source-compatible secret and permits exactly one concurrent consumption', async () => {
     const auth = service(),
       issued = await auth.issue(principal),
@@ -185,13 +181,16 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
     );
     expect(results.filter(Boolean)).toHaveLength(1);
   });
-  it('rejects revoked credentials, inactive/internal-type changes and ambiguous source email matches', async () => {
+  it('rejects password changes, inactive/internal-type changes and ambiguous source email matches', async () => {
     for (const query of [
-      "UPDATE pos_user SET phone='2000000000' WHERE id=101",
+      "UPDATE pos_user SET password='pbkdf2_sha256$1$changed$hash' WHERE id=101",
       'UPDATE pos_user SET is_active=0 WHERE id=101',
       'UPDATE pos_user SET user_type=2 WHERE id=101',
     ]) {
-      await connection.execute("UPDATE pos_user SET phone='',is_active=1,user_type=1 WHERE id=101");
+      await connection.execute(
+        'UPDATE pos_user SET password=?,is_active=1,user_type=1 WHERE id=101',
+        [encoded],
+      );
       const auth = service(),
         issued = await auth.issue(principal);
       await connection.execute(query);
@@ -246,7 +245,7 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
       false,
     );
     await connection.execute(
-      "UPDATE pos_user SET contact_email='new-fixture@example.test' WHERE id=101",
+      "UPDATE pos_user SET password='pbkdf2_sha256$1$rotated$hash' WHERE id=101",
     );
     const next = await auth.issue(principal),
       secret = await cache.get('auth_qr_101');
@@ -259,14 +258,13 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
     await auth.revoke(principal, next.revision);
     expect(await cache.get('auth_qr_101')).toBe(null);
   });
-  it('never revives an old QR when the original contact is restored', async () => {
+  it('never revives an old QR after the password changes again', async () => {
     const auth = service(),
       issued = await auth.issue(principal);
-    for (const phone of ['2000000001', ''])
+    for (const password of ['pbkdf2_sha256$1$first$hash', 'pbkdf2_sha256$1$second$hash'])
       await db.get('writer').transaction(async (tx) => {
         await tx.select({ id: PosUser.id }).from(PosUser).where(eq(PosUser.id, 101n)).for('update');
-        await tx.update(PosUser).set({ phone }).where(eq(PosUser.id, 101n));
-        await invalidateOperatorAuthentication(tx, '101');
+        await tx.update(PosUser).set({ password }).where(eq(PosUser.id, 101n));
       });
     expect((await auth.verify({ email: principal.email, code: issued.code })).isAuthenticated).toBe(
       false,

@@ -17,7 +17,7 @@ import {
   websiteHandoffScope,
   websiteHandoffSession,
 } from './contracts.js';
-import type { WebsiteVerification } from './authority.js';
+import type { WebsiteSessionProbe, WebsiteVerification } from './authority.js';
 export { readCustomerWebsiteHandoffOptions } from './options.js';
 export { customerWebsiteHandoffService } from './service.js';
 export function registerCustomerWebsiteHandoff(
@@ -26,8 +26,16 @@ export function registerCustomerWebsiteHandoff(
   db: Databases,
   verification: WebsiteVerification | undefined,
   options: CustomerWebsiteHandoffOptions = readCustomerWebsiteHandoffOptions(),
+  sessionAlive?: WebsiteSessionProbe,
 ) {
-  const service = customerWebsiteHandoffService(config, db, options, verification),
+  const service = customerWebsiteHandoffService(
+      config,
+      db,
+      options,
+      verification,
+      Date.now,
+      sessionAlive,
+    ),
     base = '/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customer-website-handoffs',
     empty = (value: unknown) =>
       z

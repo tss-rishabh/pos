@@ -47,6 +47,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       DEMO_MODE: flag(false),
       CASHBACK_CREDIT_MESSAGE: z.string().max(2000).default(sourceCashbackCreditMessage),
       SESSION_SECRET: z.string().min(32),
+      // Secure session cookies; false only for local http development, refused in production.
+      SESSION_COOKIE_SECURE: flag(true),
       LOGIN_MFA_PENDING_TTL: z.coerce.number().int().min(60).max(900).default(300),
       LOGIN_OTP_EXPIRY: z.coerce.number().int().min(30).max(600).default(180),
       LOGIN_OTP_MAX_ATTEMPTS: z.coerce.number().int().min(1).max(10).default(3),
@@ -123,6 +125,10 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       throw new Error('Production application endpoints must use HTTPS.');
     if (config.SESSION_SECRET === 'replace-with-at-least-32-random-characters')
       throw new Error('Replace the example session secret before production.');
+    if (!config.SESSION_COOKIE_SECURE)
+      throw new Error('Production session cookies must be Secure.');
+    if (!config.REDIS_URL)
+      throw new Error('Production requires REDIS_URL for sessions and login OTP state.');
   }
   const webOrigin = new URL(config.WEB_ORIGIN);
   if (

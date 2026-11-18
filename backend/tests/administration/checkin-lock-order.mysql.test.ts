@@ -8,7 +8,7 @@ import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import { splitMigration } from '../../src/db/migrations.js';
 import { PosUser, Store, StoreCounter, UserStore } from '../../src/db/legacy-schema.js';
-import { operatorAuthEpochs } from '../../src/auth/revocation.js';
+import { operatorAuthEpochs } from '../helpers/retired-auth.js';
 import type { Principal } from '../../src/domain/access.js';
 import {
   checkInService,
@@ -71,10 +71,7 @@ describe.skipIf(!template)('native check-in authority lock ordering', () => {
     await connection.changeUser({ database: schema });
     fixture = verifiedMysqlFixture(connection);
     await fixture.create(sourceTables);
-    for (const path of [
-      'src/modules/administration/migration.sql',
-      'migrations/0006_operator_auth_epochs.sql',
-    ])
+    for (const path of ['src/modules/administration/migration.sql'])
       for (const statement of splitMigration(readFileSync(path, 'utf8')))
         await connection.query(statement);
     await connection.query(

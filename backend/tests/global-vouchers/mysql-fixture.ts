@@ -56,7 +56,6 @@ export async function globalVoucherFixture(template: string) {
       'src/modules/checkout/migrations/0002_checkout.sql',
       'src/modules/checkout/migrations/0008_checkout_draft_binding.sql',
       'src/modules/checkout/migrations/0015_gift_card_issuance.sql',
-      'migrations/0006_operator_auth_epochs.sql',
       'src/modules/global-vouchers/migration.sql',
       'src/modules/customer-otp/migration.sql',
     ]) {

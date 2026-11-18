@@ -2,23 +2,27 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type {} from '../fastify-extensions.js';
 import { z } from 'zod';
 import type { Config } from '../config.js';
-import type { IdentityService } from './identity.js';
 import type { Principal } from '../domain/access.js';
 import { AppError } from '../domain/errors.js';
 import { seal, unseal } from './crypto.js';
-import type { SessionService } from './sessions.js';
-import type { LoginChallengeService } from './mfa.js';
-import { identifier } from '../domain/validation.js';
-import { Temporal } from '@js-temporal/polyfill';
+import type { IdentityService } from './identity.js';
+import type { LoginCheckIns } from './checkin.js';
+import type { AuthEventLogger } from './events.js';
+import {
+  expiredLogin,
+  verificationInput,
+  type LoginChallengeService,
+  type PendingLogin,
+} from './mfa.js';
+import { endOfDaySeconds, type SessionService } from './sessions.js';
 import {
   authCookieOptions,
+  pendingCookieName,
+  readSessionToken,
   sessionCookieName,
-  sessionTokenSchema,
   writeSessionCookie,
 } from './session-cookies.js';
 
-const cookieName = sessionCookieName;
-const pendingCookieName = 'pos_pending_login';
 const pendingSchema = z
   .object({
     id: z.uuid(),
@@ -26,41 +30,76 @@ const pendingSchema = z
     expires: z.number().int().positive(),
   })
   .strict();
-const tokenSchema = sessionTokenSchema;
-export function registerAuth(
-  app: FastifyInstance,
-  config: Config,
-  identity: IdentityService,
-  demoUser: Principal,
-  sessions: SessionService,
-  challenges: LoginChallengeService,
-) {
+const noParams = z.object({}).strict();
+const noQuery = z.object({}).strict();
+/** Only the headers auth routes read; values are bounded and never logged. */
+const authHeaders = z
+  .object({
+    cookie: z.string().max(16384).optional(),
+    origin: z.string().max(2048).optional(),
+    'content-type': z.string().max(256).optional(),
+  })
+  .passthrough();
+const passwordStep = z
+  .object({
+    // AuthenticationForm: username max_length = pos_user.username (150); password not stripped.
+    username: z.string().max(254),
+    password: z.string().max(4096),
+  })
+  .strict()
+  .superRefine((input, context) => {
+    if (!input.username.trim())
+      context.addIssue({
+        code: 'custom',
+        path: ['username'],
+        message: 'Enter your username or email.',
+      });
+    if (!input.password)
+      context.addIssue({ code: 'custom', path: ['password'], message: 'Enter your password.' });
+  });
+function validate(request: FastifyRequest, body?: z.ZodType) {
+  noParams.parse(request.params ?? {});
+  noQuery.parse(request.query ?? {});
+  authHeaders.parse(request.headers);
+  return body ? body.parse(request.body ?? {}) : undefined;
+}
+export interface AuthRouteOptions {
+  config: Config;
+  identity: IdentityService;
+  sessions: SessionService;
+  challenges: LoginChallengeService;
+  checkIns: LoginCheckIns;
+  log: AuthEventLogger;
+  /** Interim bridge to the administration check-in record until it reads the legacy keys. */
+  mirrorCheckIn?: (user: Principal, storeId: string) => Promise<unknown>;
+  /** Isolated demo workspace only (DEMO_MODE, refused in production). */
+  demoUser?: Principal;
+}
+export function registerAuth(app: FastifyInstance, options: AuthRouteOptions) {
+  const { config, identity, sessions, challenges, checkIns, log } = options;
   const cookieOptions = authCookieOptions(config);
-  async function session(
+  const pendingCookie = { ...cookieOptions, path: '/api/v1/auth' };
+  const demoUser = config.DEMO_MODE ? options.demoUser : undefined;
+  async function startSession(
     request: FastifyRequest,
     reply: FastifyReply,
     user: Principal,
-    authVersion?: string,
-    recordLogin = false,
-  ) {
-    const expires = Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE)
-      .startOfDay()
-      .add({ days: 1 })
-      .toInstant()
-      .subtract({ seconds: 1 }).epochMilliseconds;
+  ): Promise<number> {
     const credential = await sessions.create(
       user.id,
-      expires,
-      authVersion,
-      recordLogin
-        ? Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE)
-            .toPlainDateTime()
-            .toString({ smallestUnit: 'second' })
-            .replace('T', ' ')
-        : undefined,
+      Date.now() + endOfDaySeconds(config.BUSINESS_TIMEZONE) * 1000,
     );
     await writeSessionCookie(config, sessions, request, reply, user.id, credential);
     return credential.expires;
+  }
+  function pendingCredential(request: FastifyRequest): PendingLogin {
+    try {
+      return pendingSchema.parse(
+        unseal(request.cookies[pendingCookieName] || '', config.SESSION_SECRET),
+      );
+    } catch {
+      throw expiredLogin();
+    }
   }
   app.decorateRequest('principal', null);
   app.decorateRequest('sessionExpiresAt', null);
@@ -69,134 +108,152 @@ export function registerAuth(
   app.decorateRequest('auditUserId', null);
   app.addHook('preHandler', async (request) => {
     if (request.routeOptions.config.authentication === 'service') return;
-    const token = request.cookies[cookieName];
+    const token = readSessionToken(request, config);
     if (!token) return;
-    let parsed;
-    try {
-      parsed = tokenSchema.parse(unseal(token, config.SESSION_SECRET));
-    } catch {
-      return;
-    }
-    if (!(await sessions.valid(parsed.id, parsed))) return;
-    request.authSessionId = parsed.sessionId;
-    request.authSessionValid = (transaction) => sessions.valid(parsed.id, parsed, transaction);
-    request.principal =
-      config.DEMO_MODE && parsed.id === demoUser.id ? demoUser : await identity.get(parsed.id);
-    request.sessionExpiresAt = parsed.expires;
+    // Legacy AuthenticationMiddleware: the user row is re-read on every request and the
+    // session ends when the user is inactive or the password hash changed.
+    const account = await sessions.resolve(token.id, token);
+    if (!account) return;
+    const principal =
+      demoUser && token.id === demoUser.id ? demoUser : await identity.principal(account);
+    if (!principal) return;
+    request.authSessionId = token.sessionId;
+    request.authSessionValid = (transaction) => sessions.valid(token.id, token, transaction);
+    request.principal = principal;
+    request.sessionExpiresAt = token.expires;
   });
-  app.get('/api/v1/auth/capabilities', async () => ({
-    password: !config.DEMO_MODE,
-    demo: config.DEMO_MODE,
-  }));
-  app.post(
-    '/api/v1/auth/sessions',
-    { config: { rateLimit: { max: 8, timeWindow: '1 minute' } } },
-    async (request, reply) => {
-      reply.clearCookie(pendingCookieName, { ...cookieOptions, path: '/api/v1/auth' });
-      const body = z
-        .object({ username: z.string().min(1).max(254), password: z.string().min(1).max(512) })
-        .strict()
-        .parse(request.body);
-      const account = await identity.login(body.username, body.password);
-      request.auditUserId = account.user.id;
-      const pending = await challenges.begin(account);
-      reply.setCookie(pendingCookieName, seal(pending.credential, config.SESSION_SECRET), {
-        ...cookieOptions,
-        path: '/api/v1/auth',
-        maxAge: config.LOGIN_MFA_PENDING_TTL,
-      });
-      return reply.code(202).send(pending.view);
-    },
-  );
-  function pendingCredential(request: FastifyRequest) {
-    try {
-      return pendingSchema.parse(
-        unseal(request.cookies[pendingCookieName] || '', config.SESSION_SECRET),
+  const trace = (resource: string, action: string) => ({
+    config: { trace: { module: 'identity', resource, action } },
+  });
+  app.get('/api/v1/auth/capabilities', async (request) => {
+    validate(request);
+    return { password: !demoUser, demo: Boolean(demoUser) };
+  });
+  /** Password step (legacy CustomLoginView.post). */
+  app.post('/api/v1/auth/sessions', async (request, reply) => {
+    const body = validate(request, passwordStep) as z.infer<typeof passwordStep>;
+    const previous = request.cookies[pendingCookieName];
+    reply.clearCookie(pendingCookieName, pendingCookie);
+    if (previous)
+      try {
+        await challenges.discard(pendingSchema.parse(unseal(previous, config.SESSION_SECRET)));
+      } catch {
+        /* An unreadable cookie identifies no pending login. */
+      }
+    if (demoUser)
+      throw new AppError(
+        404,
+        'NOT_FOUND',
+        'Password sign-in is unavailable in the demo workspace.',
       );
-    } catch {
-      throw new AppError(401, 'LOGIN_CHALLENGE_EXPIRED', 'Sign in with your password again.');
-    }
-  }
-  const challengeTrace = (action: string) => ({
-    config: {
-      trace: { module: 'identity', resource: 'login-challenge', action },
-      rateLimit: { max: 20, timeWindow: '1 minute' },
-    },
+    const account = await identity.authenticate(body.username, body.password);
+    if (!account)
+      throw new AppError(
+        401,
+        'INVALID_CREDENTIALS',
+        'The username or email and password do not match an active account. Both fields may be case-sensitive.',
+      );
+    request.auditUserId = String(account.id);
+    if (!(await identity.principal(account)))
+      throw new AppError(
+        403,
+        'ACCOUNT_ROLE_UNSUPPORTED',
+        'This account has a role or user type the POS cannot use. Ask an administrator to correct it.',
+      );
+    const pending = await challenges.begin(account);
+    reply.setCookie(pendingCookieName, seal(pending.credential, config.SESSION_SECRET), {
+      ...pendingCookie,
+      maxAge: config.LOGIN_MFA_PENDING_TTL,
+    });
+    return reply.code(202).send(pending.view);
   });
-  app.get('/api/v1/auth/challenges/current', challengeTrace('read'), async (request) =>
-    challenges.describe(pendingCredential(request), 'existing', (userId) => {
-      request.auditUserId = userId;
-    }),
-  );
-  app.post('/api/v1/auth/challenges/current/resends', challengeTrace('resend'), async (request) => {
-    z.object({})
-      .strict()
-      .parse(request.body ?? {});
-    return challenges.resend(pendingCredential(request), (userId) => {
+  app.get('/api/v1/auth/challenges/current', trace('login-challenge', 'read'), async (request) => {
+    validate(request);
+    return challenges.describe(pendingCredential(request), (userId) => {
       request.auditUserId = userId;
     });
   });
+  /** legacy AjaxSendLoginOtpView. */
+  app.post(
+    '/api/v1/auth/challenges/current/resends',
+    trace('login-challenge', 'resend'),
+    async (request) => {
+      validate(request, z.object({}).strict());
+      const credential = pendingCredential(request);
+      const sent = await challenges.resend(credential, (userId) => {
+        request.auditUserId = userId;
+      });
+      return { ...(await challenges.describe(credential)), message: sent.otpMethodMessage };
+    },
+  );
+  /** legacy AjaxMfaLoginView: verify, check in, sign in. */
   app.post(
     '/api/v1/auth/challenges/current/verifications',
-    challengeTrace('verify'),
+    trace('login-challenge', 'verify'),
     async (request, reply) => {
-      const input = z
-        .object({
-          code: z.string().regex(/^\d{6}$/),
-          factor: z.enum(['otp', 'totp']),
-          storeId: identifier,
-        })
-        .strict()
-        .parse(request.body);
-      const { user, authVersion } = await challenges.verify(
-        pendingCredential(request),
-        input.code,
-        input.factor,
-        input.storeId,
-        (userId) => {
-          request.auditUserId = userId;
-        },
-      );
+      const input = validate(request, verificationInput) as z.infer<typeof verificationInput>;
+      const credential = pendingCredential(request);
+      const { row, storeId } = await challenges.verify(credential, input, (userId) => {
+        request.auditUserId = userId;
+      });
+      const user = await identity.principal(row);
+      if (!user) throw expiredLogin();
+      const sessionExpiresAt = await startSession(request, reply, user);
+      reply.clearCookie(pendingCookieName, pendingCookie);
       request.principal = user;
-      const sessionExpiresAt = await session(request, reply, user, authVersion, true);
-      reply.clearCookie(pendingCookieName, { ...cookieOptions, path: '/api/v1/auth' });
-      return { user, sessionExpiresAt };
+      await identity.recordLogin(user.id);
+      const eod = Math.max(1, Math.floor((sessionExpiresAt - Date.now()) / 1000));
+      await checkIns.record(user.id, storeId, eod);
+      if (options.mirrorCheckIn)
+        try {
+          await options.mirrorCheckIn(user, storeId);
+        } catch {
+          log({ eventId: 'identity.check-in.mirror-failed', userId: user.id, level: 'warn' });
+        }
+      return { user, sessionExpiresAt, checkInStoreId: storeId };
     },
   );
   app.post('/api/v1/auth/demo-sessions', async (request, reply) => {
-    if (!config.DEMO_MODE) throw new AppError(404, 'NOT_FOUND', 'Not found.');
+    validate(request);
+    if (!demoUser) throw new AppError(404, 'NOT_FOUND', 'Not found.');
     request.principal = demoUser;
-    const sessionExpiresAt = await session(request, reply, demoUser);
+    const sessionExpiresAt = await startSession(request, reply, demoUser);
     return { user: demoUser, sessionExpiresAt };
   });
-  app.get('/api/v1/auth/sessions/current', async (request) => ({
-    user: authenticated(request),
-    sessionExpiresAt: request.sessionExpiresAt,
-  }));
-  app.delete('/api/v1/auth/sessions/current', async (request, reply) => {
-    const token = request.cookies[cookieName];
-    let parsed: z.infer<typeof tokenSchema> | undefined;
-    try {
-      if (token) parsed = tokenSchema.parse(unseal(token, config.SESSION_SECRET));
-    } catch {
-      /* Invalid cookies cannot identify a server session. */
-    }
-    if (parsed) await sessions.revoke(parsed.sessionId);
-    let pending: z.infer<typeof pendingSchema> | undefined;
-    try {
-      if (request.cookies[pendingCookieName])
-        pending = pendingSchema.parse(
-          unseal(request.cookies[pendingCookieName]!, config.SESSION_SECRET),
-        );
-    } catch {
-      /* Invalid cookies cannot identify a login proof. */
-    }
-    if (pending && !config.DEMO_MODE) await challenges.discard(pending);
-    reply.clearCookie(cookieName, cookieOptions);
-    reply.clearCookie(pendingCookieName, { ...cookieOptions, path: '/api/v1/auth' });
-    reply.code(204).send();
+  app.get('/api/v1/auth/sessions/current', async (request) => {
+    validate(request);
+    return { user: authenticated(request), sessionExpiresAt: request.sessionExpiresAt };
   });
-  return { rotateSession: session };
+  /** legacy CustomLogoutView. */
+  app.delete('/api/v1/auth/sessions/current', async (request, reply) => {
+    validate(request);
+    const token = readSessionToken(request, config);
+    if (token) {
+      const account = await sessions.resolve(token.id, token);
+      await sessions.revoke(token.sessionId);
+      if (account && !demoUser)
+        try {
+          await checkIns.leaveLists(token.id);
+        } catch {
+          log({
+            eventId: 'identity.session.logout-check-in-cleanup-failed',
+            userId: token.id,
+            level: 'warn',
+          });
+        }
+    }
+    const pending = request.cookies[pendingCookieName];
+    if (pending)
+      try {
+        await challenges.discard(pendingSchema.parse(unseal(pending, config.SESSION_SECRET)));
+      } catch {
+        /* An unreadable cookie identifies no pending login. */
+      }
+    reply.clearCookie(sessionCookieName, cookieOptions);
+    reply.clearCookie(pendingCookieName, pendingCookie);
+    return reply.code(204).send();
+  });
+  return { sessions };
 }
 export function authenticated(request: FastifyRequest): Principal {
   if (!request.principal) throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');

@@ -10,7 +10,7 @@ import {
   deviceHandoffVerification,
   handoffTotp,
 } from '../src/auth/device-handoff.js';
-import { redisDeviceHandoffStore } from '../src/auth/device-handoff-store.js';
+import { assertRedisUrl } from '../src/redis/node-client.js';
 import { demoUser } from '../src/modules/demo.js';
 import { goldenStdout } from './golden/load.js';
 
@@ -61,7 +61,9 @@ it('requires a trusted service key and verified contract, and rejects plaintext 
       SESSION_SECRET: 'handoff-private-test-secret-'.repeat(3),
     }),
     db = createDatabases(config),
-    service = deviceHandoffService(config, db, deviceHandoffOptions({}), undefined);
+    service = deviceHandoffService(config, db, deviceHandoffOptions({}), undefined, {
+      authenticate: async () => null,
+    });
   expect(service.capabilities(demoUser).available).toBe(false);
   for (const key of [undefined, [], {}, 'invalid'])
     expect(() => service.authorizeService(key)).toThrow('Service authentication');
@@ -74,10 +76,12 @@ it('requires a trusted service key and verified contract, and rejects plaintext 
     'rediss://remote.example.test/0?db=1',
     'rediss://remote.example.test/0#fragment',
   ])
-    expect(() => redisDeviceHandoffStore(config, url)).toThrow('verified POS authentication cache');
-  expect(() =>
+    expect(() => assertRedisUrl(url, 'test')).toThrow('POS authentication Redis');
+  // legacy MPosLogin also accepts email + password without a code.
+  expect(
     deviceHandoffVerification.parse({ email: 'fixture@example.test', password: 'password-only' }),
-  ).toThrow();
+  ).toMatchObject({ password: 'password-only' });
+  expect(() => deviceHandoffVerification.parse({ email: 'fixture@example.test' })).toThrow();
   expect(() =>
     deviceHandoffVerification.parse({
       email: 'fixture@example.test',

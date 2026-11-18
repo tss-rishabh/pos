@@ -1,67 +1,84 @@
 import { it, expect } from 'vitest';
-import { otpDelivery, phoneOtpDelivery } from '../src/auth/delivery.js';
-import type { PasswordIdentity } from '../src/auth/identity.js';
+import {
+  liveLoginOtpTransport,
+  loginDeliveryOptions,
+  loginOtpDelivery,
+  phoneOtpDelivery,
+} from '../src/auth/delivery.js';
+import type { AuthEvent } from '../src/auth/events.js';
 
-const account: PasswordIdentity = {
-  user: {
-    id: '1',
-    name: 'Fixture',
-    email: 'fixture@example.test',
-    role: 5,
-    userType: 1,
-    storeIds: ['1'],
-  },
-  authVersion: 'a'.repeat(64),
-  useTotp: false,
-  totpSecret: null,
+const recipient = {
+  userId: '1',
   phone: '1000000000',
   contactEmail: 'fixture@example.test',
   firstName: '<img src=x onerror=canary()>',
-  otpMethod: 'sms',
+  otpMethod: 1,
 };
-it('keeps SMS credentials and OTP out of URLs and requires an explicit provider acknowledgement', async () => {
-  const requests: { url: string; init: RequestInit | undefined }[] = [];
-  let reply = 'success | 1000000000 | fixture-id';
+const env = {
+  GUPSHUP_SMS_USER_ID: 'fixture-user',
+  GUPSHUP_SMS_PASSWORD: 'fixture-provider-secret',
+  GUPSHUP_WHATSAPP_USER_ID: 'fixture-wa',
+  GUPSHUP_WHATSAPP_PASSWORD: 'fixture-wa-secret',
+  NETCORE_EMAIL_URL: 'https://fixture.invalid/mail/send',
+  NETCORE_API_KEY: 'fixture-api-key',
+  LOGIN_SECURITY_SLACK_WEBHOOK: 'https://hooks.slack.com/services/fixture',
+  LOGIN_OTP_DELIVERY: 'live',
+};
+it('keeps provider credentials and OTP out of URLs (S11) and swallows provider failures as legacy does', async () => {
+  const requests: { url: string; init: RequestInit | undefined }[] = [],
+    events: AuthEvent[] = [];
+  let fail = false;
   const fetcher: typeof fetch = async (input, init) => {
     requests.push({ url: String(input), init });
-    return new Response(reply);
+    if (fail) throw new Error('network');
+    return new Response('success | 1000000000 | fixture-id');
   };
-  const delivery = otpDelivery(
-    { GUPSHUP_SMS_USER_ID: 'fixture-user', GUPSHUP_SMS_PASSWORD: 'fixture-provider-secret' },
-    fetcher,
+  const delivery = loginOtpDelivery(
+    liveLoginOtpTransport(loginDeliveryOptions(env, 'test'), fetcher),
+    (event) => events.push(event),
   );
-  await delivery.send(account, '908172', false);
-  expect(new URL(requests[0]!.url).search).toBe('');
-  expect(requests[0]!.init?.method).toBe('POST');
-  const body = requests[0]!.init?.body;
-  expect(body).toBeInstanceOf(URLSearchParams);
-  expect(String(body)).toContain('fixture-provider-secret');
-  reply = 'unsuccessful request';
-  await expect(delivery.send(account, '908172', false)).rejects.toMatchObject({
-    code: 'OTP_DELIVERY_UNCERTAIN',
-  });
-  reply = 'x'.repeat(64001);
-  await expect(delivery.send(account, '908172', false)).rejects.toMatchObject({
-    code: 'OTP_DELIVERY_UNCERTAIN',
-  });
+  await delivery.deliver(recipient, '908172', true);
+  await delivery.drain();
+  expect(requests.map((call) => new URL(call.url).search)).toEqual(['', '']);
+  expect(requests.map((call) => call.init?.method)).toEqual(['POST', 'POST']);
+  expect(new URL(requests[0]!.url).hostname).toBe('enterprise.smsgupshup.com');
+  expect(new URL(requests[1]!.url).hostname).toBe('mediaapi.smsgupshup.com');
+  const sms = requests[0]!.init?.body;
+  expect(sms).toBeInstanceOf(URLSearchParams);
+  expect(String(sms)).toContain('fixture-provider-secret');
+  fail = true;
+  await expect(delivery.deliver(recipient, '908172', false)).resolves.toBeUndefined();
+  expect(events.map((event) => event.eventId)).toEqual(['identity.login-otp.sms-failed']);
+  expect(JSON.stringify(events)).not.toContain('908172');
 });
-it('escapes dynamic email HTML and rejects an HTTP-200 provider failure payload', async () => {
-  let responseStatus = 'success',
-    payload = '';
-  const delivery = otpDelivery(
-    { NETCORE_EMAIL_URL: 'https://fixture.invalid/mail/send', NETCORE_API_KEY: 'fixture-api-key' },
+it('escapes the email name (S12), refuses non-Slack webhooks and is never sandboxed in production', async () => {
+  let payload = '';
+  const transport = liveLoginOtpTransport(
+    loginDeliveryOptions(env, 'test'),
     async (_input, init) => {
       payload = String(init?.body);
-      return Response.json({ status: responseStatus });
+      return Response.json({ status: 'success' });
     },
   );
-  await delivery.send({ ...account, otpMethod: 'email' }, '908172', false);
+  await loginOtpDelivery(transport, () => {}).deliver(
+    { ...recipient, otpMethod: 2 },
+    '908172',
+    false,
+  );
   expect(payload).toContain('&lt;img');
   expect(payload).not.toContain('<img');
-  responseStatus = 'error';
-  await expect(
-    delivery.send({ ...account, otpMethod: 'email' }, '908172', false),
-  ).rejects.toMatchObject({ code: 'OTP_DELIVERY_UNCERTAIN' });
+  expect(JSON.parse(payload)).toMatchObject({ subject: 'POS login OTP' });
+  const notSlack = liveLoginOtpTransport(
+    loginDeliveryOptions(
+      { ...env, LOGIN_SECURITY_SLACK_WEBHOOK: 'https://evil.example/hook' },
+      'test',
+    ),
+    async () => new Response('ok'),
+  );
+  await expect(notSlack.slack('login-security', 'x')).rejects.toThrow();
+  expect(loginDeliveryOptions({}, 'test').mode).toBe('sandbox');
+  expect(loginDeliveryOptions({}, 'production').mode).toBe('live');
+  expect(() => loginDeliveryOptions({ LOGIN_OTP_DELIVERY: 'sandbox' }, 'production')).toThrow();
 });
 it('shares source phone templates without requiring a fabricated operator account', async () => {
   const requests: { url: string; body: URLSearchParams }[] = [],

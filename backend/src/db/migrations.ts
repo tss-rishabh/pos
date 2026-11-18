@@ -9,11 +9,6 @@ import type { Config } from '../config.js';
 
 export const migrationPaths = [
   'migrations/0001_rewrite_state.sql',
-  'migrations/0002_auth_sessions.sql',
-  'migrations/0003_login_challenges.sql',
-  'migrations/0004_auth_security_alerts.sql',
-  'migrations/0005_profile_media.sql',
-  'migrations/0006_operator_auth_epochs.sql',
   'src/modules/administration/migration.sql',
   'src/modules/gift-card-batches/migration.sql',
   'src/modules/administration/media-migration.sql',

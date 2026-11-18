@@ -39,11 +39,8 @@ import {
   UserStore,
 } from '../../src/db/legacy-schema.js';
 import { AppError } from '../../src/domain/errors.js';
-import { mysqlSessions } from '../../src/auth/sessions.js';
 import { verifyDjangoPassword } from '../../src/auth/crypto.js';
 import { profileMediaService } from '../../src/auth/profile-media.js';
-import { profileMediaCleanup } from '../../src/auth/profile-media-worker.js';
-import { profileUploads } from '../../src/auth/profile-media-schema.js';
 import type { Principal } from '../../src/domain/access.js';
 import { registerAdministration } from '../../src/modules/administration/index.js';
 import {
@@ -105,7 +102,15 @@ import {
 } from '../../src/modules/administration/store-image-schema.js';
 import { storeImageUploadInput } from '../../src/modules/administration/store-images.js';
 import type { ImageCleanupEvent } from '../../src/modules/administration/image-lifecycle/cleanup.js';
-import { operatorAuthEpochs, invalidateOperatorAuthentication } from '../../src/auth/revocation.js';
+import { invalidateOperatorAuthentication } from '../../src/auth/revocation.js';
+import {
+  loginChallenges,
+  loginSecurity,
+  mysqlSessions,
+  operatorAuthEpochs,
+  profileMediaCleanup,
+  profileUploads,
+} from '../helpers/retired-auth.js';
 import {
   deliverablePincodes,
   locationZones,
@@ -116,7 +121,6 @@ import {
   slackConnectionService,
 } from '../../src/modules/administration/slack-connections.js';
 import type { SlackOAuthProvider } from '../../src/modules/administration/slack-provider.js';
-import { loginChallenges, loginSecurity } from '../../src/auth/mfa-schema.js';
 import { reconcileAdministrationAccess } from '../../src/modules/administration/access-reconciliation.js';
 import {
   administrationAccessReconciliation,
@@ -360,10 +364,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       'ALTER TABLE pos_user MODIFY last_login DATETIME(6) NULL, MODIFY date_joined DATETIME(6) NOT NULL',
     );
     for (const file of [
-      'migrations/0002_auth_sessions.sql',
-      'migrations/0003_login_challenges.sql',
-      'migrations/0005_profile_media.sql',
-      'migrations/0006_operator_auth_epochs.sql',
       'src/modules/administration/migration.sql',
       'src/modules/administration/media-migration.sql',
       'src/modules/administration/settings-migration.sql',
