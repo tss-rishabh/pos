@@ -1,0 +1,1332 @@
+{
+  "source_commit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "scope": "Static DataTables action candidates in inventoried templates only.",
+  "limitations": [
+    "Requires manual reachability, active-control and replacement review.",
+    "Dynamic actions and non-table controls are not enumerated.",
+    "No implementation status or parity certification is inferred."
+  ],
+  "counts": {
+    "column-visibility": 39,
+    "csv": 42,
+    "excel": 3,
+    "page-length": 41
+  },
+  "templates": [
+    {
+      "path": "core/templates/500.html",
+      "sha256": "53f1f94a3b90ca6ce5f3c9f839b9527f85df2b09bad9dcab39b5e932ef419b3a",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/catalogue/index.html",
+      "sha256": "2b7fcc18d9dfdf01e14b38125534f6fe3598512c65231a08c85b60de2c4369e9",
+      "candidates": [
+        {
+          "line": 102,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 104,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 111,
+          "action": "excel",
+          "extension": "excel",
+          "syntax": "extend"
+        },
+        {
+          "line": 117,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/delivery_timing/_form.html",
+      "sha256": "47c9a55798c2b0a68b8b6b374c1f2c2498ffde6d4a2f1277adbe879fbed45768",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/delivery_timing/create.html",
+      "sha256": "0d6935ec22e8da16e32cb7fb7eca8067dcc4b088c04466ec0c5ce41c310340dc",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/delivery_timing/edit.html",
+      "sha256": "feb1b9a18cd0fcc3d3664470ea915a248931c9f9718ef17d703623bd9357261e",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/delivery_timing/edit_form.html",
+      "sha256": "d8b94e4f36525430ca1733bbc414bd84c4f0f9c3d8ff4a1e4ee57704f9ac359c",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/delivery_timing/index.html",
+      "sha256": "9932fdaf9ec7cb782bc25edb5a6b90dace663986b8e293f95de31e09322950fb",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/documentation/_detail.html",
+      "sha256": "cd18bf5de8fa193e54dab8ebab8b9b5f0760f9601ed7ab046f7d63b152cd7f8a",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/documentation/_form.html",
+      "sha256": "abbbcc55fc8146ead0ddbb4d1bfc859653f2a1b6ca9cfc603b10c18aafe03db1",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/documentation/create.html",
+      "sha256": "5bef22ba334110e8328833c22b880892d648104a3e9e784a307485481c18fcfd",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/documentation/documentation_lists.html",
+      "sha256": "ad939ad0a948210a192c5bca71043e7636f4ed9f4b5e23d47b8def964cdb2c64",
+      "candidates": [
+        {
+          "line": 101,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 103,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 108,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 210,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 212,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 217,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/documentation/index.html",
+      "sha256": "6a19eb7c601dbc594830cb546b4ff05b28138aea52d4612ea5a33c7e696c6438",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/documentation/show.html",
+      "sha256": "012a355982b9f64acd97a6f36de672e8fdbb40b3667e14e13c11e51b9c2a7b03",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/ecom_delivery/index.html",
+      "sha256": "8c9857a665eaab5f6b4f740394125d17c048b47cd428a5b03877160c2140bb73",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/edc_edit/edc_detail_and_edit.html",
+      "sha256": "26bdb46f533522b6771d4c4175d81c1b328d1de030a00ac2dbd5b62dbc5509ab",
+      "candidates": [
+        {
+          "line": 306,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 308,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 315,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 322,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/gift_card/index.html",
+      "sha256": "a122557d48953d2ab9c067eaed7ec1c67a63242b8a150593cde18f4e157ddb2f",
+      "candidates": [
+        {
+          "line": 110,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 112,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 117,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/mpos_download/index.html",
+      "sha256": "528b95d98a62902fc84cf35d31f2f5f9fa1e191e3c8f2c7d0717f9c873bf5b91",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/mpos_download/thank_you.html",
+      "sha256": "d9f4ccc284d076f7f39df6f556a01250e6334d261eb2bd0fe41893f534631196",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/offline_billing/biller.html",
+      "sha256": "127a5eac3a416bd214462ae3827493fecce15a78695fb11049f00b8e2efd9168",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/order_punch/index.html",
+      "sha256": "67b9f53c1ad4970ffb3f97e409366cde687b8fd9a4ecb046ee80e95069911f24",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/products/hold_stock/hold_inventory_logs.html",
+      "sha256": "4c687f6fe6a0084d72dd18f960310aa80ebea90a8ce2d6dbe43efd536388523f",
+      "candidates": [
+        {
+          "line": 101,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 103,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 108,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/hold_stock/index.html",
+      "sha256": "247c533c306a685f5365586425918d1cbc37e170e0862f395b020f1403036ed7",
+      "candidates": [
+        {
+          "line": 320,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 322,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 327,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/index.html",
+      "sha256": "6fd2805f9e8957f32e8749bd55e076c990436d3820c861ad4eb32a88723d353a",
+      "candidates": [
+        {
+          "line": 101,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 103,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 108,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/inventory_logs.html",
+      "sha256": "b90ff6e1f233793382934ec698b54e79c21e671e4a75e2db6c7f9bf3af2bee18",
+      "candidates": [
+        {
+          "line": 103,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 105,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 110,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/stock/index.html",
+      "sha256": "195567e815e781cb344e8e77328636b3654d8db7547a8950620684f575537ffd",
+      "candidates": [
+        {
+          "line": 179,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 180,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/stock/index_bak.html",
+      "sha256": "19e8e583c6cadb5675703641ce166e2f8cc9d05d0ee535ffd86e7f02bed102c2",
+      "candidates": [
+        {
+          "line": 169,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 171,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 176,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/stock/inventory-sync.html",
+      "sha256": "fc65fb72ec654614a4872f25fe265a4f5d88a7c712a84db0887a8860895f16bc",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/products/storage_stock/index.html",
+      "sha256": "81874828d1ecebe5a0f4de9091702e4f52c64bb6c5957ac74037c9cfdf9537cc",
+      "candidates": [
+        {
+          "line": 339,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 341,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 346,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/storage_stock/storage_inventory_logs.html",
+      "sha256": "71d8b9f3b0caebd6e32274989a4ccb4fbfdcdc6c29344797b81165fce52c41c0",
+      "candidates": [
+        {
+          "line": 103,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 105,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 110,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/store/index.html",
+      "sha256": "3516e91ee9e3d2de1f7fed80c873aa5c4b407af1866567b3f480317ef58fd622",
+      "candidates": [
+        {
+          "line": 168,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 170,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 175,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/products/store/show.html",
+      "sha256": "45bd0eabf6f18c58872b22d5fadd8c8c872cbb63f09ce56b3f641f7235cd4348",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/salespersons/_form.html",
+      "sha256": "5fc773b0ef2836fdb79208442eee084e61951ce9ccbd2bb77bebaa9ae5fad96f",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/salespersons/create.html",
+      "sha256": "e9b6d01177e9cabc068fd0dbadb2943979bb4f02e9895750ee23484293286ad2",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/salespersons/edit.html",
+      "sha256": "0f8b364f30bdb183b150060dbd73bb767782559ce80d65f69fa3be6d5dd039d2",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/salespersons/index.html",
+      "sha256": "74ef947ef6b10970791a712779057b4dc2c0c03c269b723999893be7bec3ccd8",
+      "candidates": [
+        {
+          "line": 104,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 106,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 111,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 277,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 279,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 284,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/settings/index.html",
+      "sha256": "6a5edec0fd9922eff1a8a1936d32b6cc747f0a792071b100c05df3abd353525f",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/shopify_order_punch/index.html",
+      "sha256": "eed015e9c7be9853593e0b03320709ac4d995d9a4ec4294ac95159257f753d04",
+      "candidates": []
+    },
+    {
+      "path": "core/templates/special_permission/index.html",
+      "sha256": "f394a9e142baf9367b0e10aad624ab1b593c5485c6be35e9036d1535d2344102",
+      "candidates": [
+        {
+          "line": 437,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 439,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 444,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/upload_logs/index.html",
+      "sha256": "829d1027396fa7fa9820d3e5c7ce67581d570a77e6daa002d2b1f2afe7eb9168",
+      "candidates": [
+        {
+          "line": 68,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 70,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 75,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "core/templates/user_to_app/index.html",
+      "sha256": "b238cac192b519a4af71b1d15bd08326583916059b4450b2ae711a5a008d3aec",
+      "candidates": []
+    },
+    {
+      "path": "dashboard/templates/dashboard/dashboard.html",
+      "sha256": "772d0bf8d839c5f9324156985f00457b2a5eb8a0dec2819e6daf84ce1a0c9af3",
+      "candidates": []
+    },
+    {
+      "path": "dashboard/templates/dashboard/main_dashboard.html",
+      "sha256": "36ddff00293e10113ecaca58f7d998676b2adaf130948491cb5218aa6a4b001d",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/_exchange_js.html",
+      "sha256": "0b52aab7b1cfb5a294d50acd6475feb7d35fd99563cd6add2e7828896be13066",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/_hl_banner.html",
+      "sha256": "20b2b6fdb11e74cd65cb476870d6c87b29e694ad818a63393cd4de51149e9be4",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/add_order_feedback.html",
+      "sha256": "a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/basic_error.html",
+      "sha256": "08acb6a9fec72eb93b52a08482b260703dd3505bb15cf19809a025fcfe57bb47",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/create_order.html",
+      "sha256": "3ddf48d6ac77c12953369459cc247b889be99b0915602fdd23d68d63d27bd5f7",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/hyperlocal/_all_stores_order_cards.html",
+      "sha256": "67be6c6f91d7bb0aabd38f625a075cc57dd1a5d3a1c75e05e171f0e7cc684a6a",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/hyperlocal/_hl_eli_status_badge.html",
+      "sha256": "02907b5fb0b1a44fcb5c00110986aebb2f6cc4bd7f3abc6b63be33e88e88564f",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/hyperlocal/_hl_image_preview.html",
+      "sha256": "280db670228c2c9e0ca8a2944104e8c0155a4c537462a807df42d95eed2cfacb",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/hyperlocal/_hl_line_items_table.html",
+      "sha256": "8ed1a986a2c8c22c594a1d0825cb8f859dce96c67a9f462d797a572ac85cb6c6",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/hyperlocal/_order_cards.html",
+      "sha256": "d9f9d25c35b8e95980a34e5b00c8a467f06709e7eb48355a5ac29487dc272581",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/hyperlocal/_progress_content.html",
+      "sha256": "6c610569cbc1833993ef06f9a548f16e0183dba2a5966707aad79458f5841004",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/hyperlocal/all_stores_dashboard.html",
+      "sha256": "29a6052b7efa3d8cd7d278572d4434c067cab76a98b6de049d653ab7f75decf8",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/hyperlocal/progress.html",
+      "sha256": "16c9ace3255a3c9a89af9d4845e3d29dd60159602066162234cc7e50b99572cc",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/index.html",
+      "sha256": "cf59e63984df4e6d1db6b020d41077ee95b0dfdace3145d7ec5d31e38aba4826",
+      "candidates": [
+        {
+          "line": 458,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 460,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 465,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "order/templates/order/invoice.html",
+      "sha256": "384aa57f21f624c5373733563634ef71a66ea662d32dbae643d51376b6ed8c56",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/online/_return_exchange_cells.html",
+      "sha256": "ed7656ebc12ebb471183b51ff7ab8db7a2e78dae283868f65b0d285135265d42",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/online/show.html",
+      "sha256": "1a53f8881eac24a09c8d8197a42ae8f7fb35618d0174b05522108b9d1cd514ee",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/shipping.html",
+      "sha256": "acaf781b4166b3d9227188249a3594d05694c937cde9007830aa0faa2c02004d",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/shortcuts.html",
+      "sha256": "8204b5456e893a76abebfb20216fe68a491d29dcb6bddbed5a0d519ac8111dbe",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/show.html",
+      "sha256": "a644bc1bc3fbd472af6449a93ce40c7f4f5c1d110601e70f9e588976af48072b",
+      "candidates": []
+    },
+    {
+      "path": "order/templates/order/tab.html",
+      "sha256": "6a3ce66e7552f62f9a2e8f322036f1c85d9a01de43725798d40d471bbb567ca1",
+      "candidates": []
+    },
+    {
+      "path": "report/templates/bd_report/daily_report_matric_report_datatable.html",
+      "sha256": "078abfea76f93aef10bb2d3a0dbd4dff66eeed53e41e8ab2ffe7f9399eb2b806",
+      "candidates": [
+        {
+          "line": 195,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 197,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 203,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 210,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/bd_report/daily_report_matric_upload.html",
+      "sha256": "d3561050e5bc4cf546034d8a6e116188bb85646d7d34bd3bf8c8ff1beb22b6e9",
+      "candidates": []
+    },
+    {
+      "path": "report/templates/daily_store_report/index.html",
+      "sha256": "f204a90b54cf0a6adba865d957f903eb01cfd136761581f14fe72d12a6795a69",
+      "candidates": [
+        {
+          "line": 303,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 305,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 310,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/day_close/cash_balance.html",
+      "sha256": "bb9f3a4f1d016a5551e3d757b4dbdfae77dd9fb6e07e66a35c0141a1fc5e1694",
+      "candidates": [
+        {
+          "line": 114,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 114,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/day_close/index.html",
+      "sha256": "2557a8668eeb4dbbaeaccc0183ea1b1f9cc5e0262f5b814bde3759e4cac4ca57",
+      "candidates": []
+    },
+    {
+      "path": "report/templates/day_close/logs.html",
+      "sha256": "053432e451871eb40f5e72c2382899ae576933ce15526bbd16b89fae0e819cf4",
+      "candidates": [
+        {
+          "line": 138,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 138,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/export/index.html",
+      "sha256": "1453aa1a143a08b33e5cc4be2272d553e3c05eac89f735bde84c623bebc2b4eb",
+      "candidates": [
+        {
+          "line": 87,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 89,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 94,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/orders/daily_tracker.html",
+      "sha256": "0987824b644d78dc08250aa7d63c330066660761c5383adb6bcce0e7003473c0",
+      "candidates": []
+    },
+    {
+      "path": "report/templates/orders/hyperlocal_daily_report.html",
+      "sha256": "61ec39a3623ebae36cd90a1b640b7fe53f2050321be207ddf53e4ee57bc8aaa6",
+      "candidates": []
+    },
+    {
+      "path": "report/templates/orders/hyperlocal_data.html",
+      "sha256": "9ca627c5082a25bfde833988605ff967754f33a6d66b743a5c69a0468a120d60",
+      "candidates": [
+        {
+          "line": 183,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 185,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 192,
+          "action": "excel",
+          "extension": "excel",
+          "syntax": "extend"
+        },
+        {
+          "line": 198,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/orders/hyperlocal_order_accept_report.html",
+      "sha256": "27ef744ca847b86542d46505ab86a735453cb9487b6be8eaa315ae617b95d09a",
+      "candidates": [
+        {
+          "line": 135,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 137,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 142,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/orders/nps_data.html",
+      "sha256": "807f8ff004cff2ed86a117fde4dd0a4ad9562170ddeaf46df18356711972058f",
+      "candidates": [
+        {
+          "line": 186,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 188,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 195,
+          "action": "excel",
+          "extension": "excel",
+          "syntax": "extend"
+        },
+        {
+          "line": 201,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/orders/orders_data.html",
+      "sha256": "d0ffc961b905f2872ef95f66f10fff8c1dbd0b2bc8b1e7de3a600c87453270da",
+      "candidates": [
+        {
+          "line": 395,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 397,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 403,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/orders/return_orders.html",
+      "sha256": "33e33ae5fabc5e1e2bcd070205a7c143071eaff632efce74cc26d6dbc9fc9964",
+      "candidates": [
+        {
+          "line": 152,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 154,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 159,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/performance_report/cashier_performance.html",
+      "sha256": "811895a4d5664312decdea31e8521a919be1d2ffcc17b0a5b9ab7a4cb5213a9f",
+      "candidates": [
+        {
+          "line": 132,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 134,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 139,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/performance_report/salesperson_performance.html",
+      "sha256": "0e9b67865f0d1f9fce3b6cb634ffd26c8ecba38b4ebfe6cb14ac5e7ec543018a",
+      "candidates": [
+        {
+          "line": 132,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 134,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 139,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/product/product_inventory.html",
+      "sha256": "12e40e23ccb543ab0def7fe89ae1b21e2081b77dd63db924f522c6b757366684",
+      "candidates": [
+        {
+          "line": 156,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 158,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 164,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "report/templates/sales/index.html",
+      "sha256": "431c305e12fcdaced8804016c49f60085ac2546983661a95449f5418ab26ff6d",
+      "candidates": [
+        {
+          "line": 182,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 184,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 189,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "stores/templates/counters/index.html",
+      "sha256": "fa17b507a731e1242d09749959f4cdf84c35cacc44234aca0c01d48f4e05d76e",
+      "candidates": [
+        {
+          "line": 103,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 105,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 110,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 185,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 187,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 192,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "stores/templates/stores/_form.html",
+      "sha256": "f292aeaec1a1b4ebbf726f6802d9a187ab2bb1496bc3158f594598bd0589f7a9",
+      "candidates": []
+    },
+    {
+      "path": "stores/templates/stores/create.html",
+      "sha256": "98b20945ec8a5b81c7d90d5f5cddeec347cef0b19db73902f4953120d9f76f80",
+      "candidates": []
+    },
+    {
+      "path": "stores/templates/stores/edit.html",
+      "sha256": "d3a9f3be165eaf2b7b51ac01e56fd79c9890f21d3a1de90d744f4a448054fa58",
+      "candidates": []
+    },
+    {
+      "path": "stores/templates/stores/index.html",
+      "sha256": "fe924e602de44f09f99c501dbfe31024309dd0809559ffd3d55fffee28a2baf7",
+      "candidates": [
+        {
+          "line": 116,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 118,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 123,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 224,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 226,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 231,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "stores/templates/stores/show.html",
+      "sha256": "1860f0397e7e17d3b064217c9049a0dd5f985176c67b19c50b877bba6b64a10e",
+      "candidates": []
+    },
+    {
+      "path": "stores/templates/stores/slack_callback.html",
+      "sha256": "5a954d7149d382b36373412a1631b2b52d2167b317d36c1204bed02b625d7520",
+      "candidates": []
+    },
+    {
+      "path": "stores/templates/stores/storage/create.html",
+      "sha256": "aa3def2734e78041aee9e9faad3f02d4048f7e39912fc1f437831e01d392ec1b",
+      "candidates": []
+    },
+    {
+      "path": "stores/templates/stores/storage/edit.html",
+      "sha256": "95df2d141a00d3f2a314aac282d71a934f7030b6983dbaea0a5be94f4c4e4bd5",
+      "candidates": []
+    },
+    {
+      "path": "stores/templates/stores/storage/index.html",
+      "sha256": "d614ade67c4468dd396472b99d937f1e095626e012e2a3adf75289e38115e365",
+      "candidates": [
+        {
+          "line": 103,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 105,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 110,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 185,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 187,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 192,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "stores/templates/stores/storage/show.html",
+      "sha256": "1326e5c018c5f7fa2d731f70cbb374328834de704de7e0a7321ab7a433dd8b8f",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/admin/includes/footer.html",
+      "sha256": "ad4f8145b82edc0207485737560d2a6627fbd9a22517a4f223244953a87485a3",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/admin/includes/header.html",
+      "sha256": "b02e70730b0ed2d449dbfc89c6de12d5c3a2670eb93cde7f26e0425b7ad9864c",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/admin/includes/navbar.html",
+      "sha256": "036bef4cd25924956e5392e1ebda54c9539aa4f815bd433d53c2e44a5ac177a9",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/admin/includes/sidebar.html",
+      "sha256": "3ea170f66876401156f71c12ccbf71fd1342fad9f26ea47ed078736e5c017b7d",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/admin/includes/whatsnew.html",
+      "sha256": "18653125399abee36f2d36cd0022f17fdd51d21ca21851f99982e26f760ac95a",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/admin/layouts/base.html",
+      "sha256": "024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/admin/layouts/base_create_order.html",
+      "sha256": "ecb5e090a76f326da1471ab3c802d3af644a06dc2de490e23d6883170efd0337",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/admin/layouts/base_no_sidebar_navbar.html",
+      "sha256": "61170b15ed87e1f272a8c439986a4c94e352ec9edbdd736e57be5a4069849c36",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/auth/auth_qr.html",
+      "sha256": "c935e7677a7614160031982fc409983f4348baf9f18933161444342d30f6fe78",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/auth/create.html",
+      "sha256": "b8b69138f89fc0243e07e4784451aeb4a29167f927058e67464d4d196e13ab61",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/auth/edit.html",
+      "sha256": "04b055042ec9d238e055d93e684a6b8d873d98f2da2c4328ebed98ff680010e6",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/auth/index.html",
+      "sha256": "60a6ce3d1660e11b47b5d6a8b598a58b854500395757247ab4a7e1931a031bb7",
+      "candidates": [
+        {
+          "line": 110,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 112,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 117,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 290,
+          "action": "page-length",
+          "extension": "pageLength",
+          "syntax": "buttons-array"
+        },
+        {
+          "line": 292,
+          "action": "csv",
+          "extension": "csv",
+          "syntax": "extend"
+        },
+        {
+          "line": 297,
+          "action": "column-visibility",
+          "extension": "colvis",
+          "syntax": "buttons-array"
+        }
+      ]
+    },
+    {
+      "path": "users/templates/auth/login.html",
+      "sha256": "365bc162f0037c3ff3d7c3db7e3bfe88729c4d06249414f877c2fcc83aafc403",
+      "candidates": []
+    },
+    {
+      "path": "users/templates/auth/profile.html",
+      "sha256": "50fa16737b056ffdf24c7be64813326d8934f5abd27a5ee6b0de2a8e931fb4be",
+      "candidates": []
+    }
+  ]
+}
