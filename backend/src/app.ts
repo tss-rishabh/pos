@@ -115,6 +115,7 @@ import { demoOrderSearch } from './modules/order-history/search/demo.js';
 import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { demoServices, demoUser } from './modules/demo.js';
 import { registerEventCatalog, requestEvent } from './observability/events.js';
+import { createModuleRuntime } from './jobs/module-runtime.js';
 import { registerRequestTrace } from './observability/context.js';
 import { identifier, cursor } from './domain/validation.js';
 import { reportService, dailyReportRange } from './modules/reports.js';
@@ -181,9 +182,12 @@ export async function buildApp(
         orders: ordersService(db, config, orderHistory),
         drafts: draftService(db),
       };
+  /** Job producer + ephemeral Redis state for the W8 modules (src/jobs). */
+  const moduleRuntime = createModuleRuntime(config);
   app.addHook('onClose', async () => {
     await identity.close();
     await db.close();
+    await moduleRuntime.close();
   });
   app.addHook('onRequest', async (request, reply) => {
     reply.header('Cache-Control', 'no-store');

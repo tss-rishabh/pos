@@ -12,6 +12,7 @@
     "start": "node dist/server.js",
     "migrate:plan": "node dist/db/migrate.js",
     "migrate:apply": "node --env-file-if-exists=.env dist/db/migrate.js --apply",
+    "worker:jobs": "node --env-file-if-exists=.env dist/jobs/worker-main.js",
     "worker:financial-outbox": "node --env-file-if-exists=.env dist/modules/checkout/worker.js",
     "worker:administration": "node --env-file-if-exists=.env dist/modules/administration/worker-main.js",
     "worker:gift-card-batches": "node --env-file-if-exists=.env dist/modules/gift-card-batches/worker-main.js",
