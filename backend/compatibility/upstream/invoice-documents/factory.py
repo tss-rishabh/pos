@@ -4,6 +4,7 @@ import hmac
 from pathlib import Path
 
 BASE_FACTORY_SHA256 = "@@BASE_FACTORY_SHA256@@"
+GLOBAL_SHA256 = "@@GLOBAL_SHA256@@"
 RESOURCE_SHA256 = "@@RESOURCE_SHA256@@"
 HISTORY_SHA256 = "@@HISTORY_SHA256@@"
 NATIVE_SHA256 = "@@NATIVE_SHA256@@"
@@ -18,6 +19,7 @@ def verify_inputs(root):
     for path, expected in {
         "pos_invoice_factory.py": BASE_FACTORY_SHA256,
         "pos_invoice_documents.py": RESOURCE_SHA256,
+        "pos_invoice_documents_global.py": GLOBAL_SHA256,
         "pos_invoice_documents_history.py": HISTORY_SHA256,
         "pos_invoice_documents_native.py": NATIVE_SHA256,
         "pos_invoice_documents_scoped.py": SCOPED_SHA256,

@@ -5,11 +5,16 @@ export const invoiceIdentifier = identifier.refine(
   (value) => BigInt(value) <= 9223372036854775807n,
 );
 export const invoiceDocumentScope = z
-  .object({ storeId: invoiceIdentifier, orderId: invoiceIdentifier })
+  .object({
+    storeId: invoiceIdentifier,
+    orderId: invoiceIdentifier,
+    access: z.literal('global-online').optional(),
+  })
   .strict();
 export type InvoiceDocumentScope = z.infer<typeof invoiceDocumentScope>;
 export const onlineInvoiceDocument = z
   .object({
+    access: z.literal('global-online').optional(),
     kind: z.literal('online'),
     storeId: invoiceIdentifier,
     orderId: invoiceIdentifier,
@@ -80,6 +85,7 @@ export const additionalInvoiceKind = z.enum(['online', 'same-day', 'express']);
 export type AdditionalInvoiceKind = z.infer<typeof additionalInvoiceKind>;
 export const scopedInvoiceDocument = z
   .object({
+    access: z.literal('global-online').optional(),
     kind: z.enum(['same-day', 'express']),
     storeId: invoiceIdentifier,
     orderId: invoiceIdentifier,

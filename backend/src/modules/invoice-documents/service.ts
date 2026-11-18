@@ -12,6 +12,12 @@ import {
   invoiceSecurityContract,
   type InvoiceProofScope,
 } from '../checkout/invoice-security.js';
+import {
+  globalOnlineInvoiceContract,
+  issueGlobalOnlineInvoiceProof,
+  assertGlobalOnlineInvoiceResponse,
+  sameInvoiceAuthority,
+} from './global-proof.js';
 import { invoiceDocumentAuthority } from './authority.js';
 import {
   invoiceDocumentScope,
@@ -38,6 +44,7 @@ export function onlineInvoiceService(
     const scope = invoiceDocumentScope.parse(raw),
       original = await authority(user, scope);
     if (
+      (original.globalOnline && options.globalOnlineContract !== globalOnlineInvoiceContract) ||
       !options.onlineUrl ||
       !options.serviceKey ||
       !/^[!-~]{32,4096}$/.test(options.serviceKey) ||
@@ -68,7 +75,7 @@ export function onlineInvoiceService(
     url.searchParams.set('order_id', scope.orderId);
     const history = await readHistory(scope, original),
       beforeRender = await authority(user, scope);
-    if (beforeRender.binding !== original.binding)
+    if (!sameInvoiceAuthority(beforeRender, original))
       throw new AppError(
         409,
         'INVOICE_SCOPE_CHANGED',
@@ -88,10 +95,26 @@ export function onlineInvoiceService(
       history,
       options.serviceKey,
     );
+    const globalProof = original.globalOnline
+      ? issueGlobalOnlineInvoiceProof(
+          'online',
+          proofScope,
+          scope.storeId,
+          original,
+          historyProof,
+          options.serviceKey,
+        )
+      : null;
     let response: Response;
     try {
       response = await fetcher(url, {
         headers: {
+          ...(globalProof
+            ? {
+                'X-POS-Global-Invoice': globalProof,
+                'X-POS-Global-Invoice-Contract': globalOnlineInvoiceContract,
+              }
+            : {}),
           Accept: 'text/html',
           'X-POS-Invoice-Key': options.serviceKey,
           'X-POS-Invoice-Contract': invoiceSecurityContract,
@@ -116,6 +139,8 @@ export function onlineInvoiceService(
     const source = await boundedText(response);
     assertInvoiceResponseProof(response, proofScope, source, options.serviceKey);
     assertInvoiceHistoryResponse(response, historyProof, source, options.serviceKey);
+    if (globalProof)
+      assertGlobalOnlineInvoiceResponse(response, globalProof, source, options.serviceKey);
     if (!/<(?:html|body|table|div|p)\b/i.test(source))
       throw new AppError(
         502,
@@ -123,7 +148,7 @@ export function onlineInvoiceService(
         'The online invoice service returned an unsupported document.',
       );
     const current = await authority(user, scope);
-    if (current.binding !== original.binding)
+    if (!sameInvoiceAuthority(current, original))
       throw new AppError(
         409,
         'INVOICE_SCOPE_CHANGED',
@@ -131,7 +156,9 @@ export function onlineInvoiceService(
       );
     return onlineInvoiceDocument.parse({
       kind: 'online',
-      ...scope,
+      storeId: scope.storeId,
+      orderId: scope.orderId,
+      ...(scope.access ? { access: scope.access } : {}),
       number: current.number,
       filename: `online-tax-invoice-${scope.orderId}.html`,
       html: sanitizeInvoiceHtml(source),

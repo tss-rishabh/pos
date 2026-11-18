@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
+import { invoiceAccessQuery, type InvoiceAccess } from './client';
 import { InvoiceDocumentAction } from './document';
 import { currentInvoiceSession, invoiceActorSignal, invoiceIdentity } from './session';
 
@@ -11,6 +12,7 @@ const identifier = z
   .refine((value) => BigInt(value) <= 9223372036854775807n);
 const capability = z
   .object({
+    access: z.literal('global-online').optional(),
     storeId: identifier,
     orderId: identifier,
     actions: z
@@ -27,13 +29,15 @@ export function OrderInvoiceActions({
   storeId,
   orderId,
   online,
+  access,
 }: {
   user: Principal;
   storeId: string;
   orderId: string;
   online: boolean;
+  access?: InvoiceAccess;
 }) {
-  const scope = [invoiceIdentity(user), storeId, orderId].join(':'),
+  const scope = [invoiceIdentity(user), storeId, orderId, access || 'owned-store'].join(':'),
     [loaded, setLoaded] = useState<{ scope: string; value: z.infer<typeof capability> } | null>(
       null,
     ),
@@ -47,13 +51,14 @@ export function OrderInvoiceActions({
         const signal = invoiceActorSignal(user, controller.signal);
         await currentInvoiceSession(user, storeId, signal);
         const value = await request(
-          `/api/v1/stores/${identifier.parse(storeId)}/orders/${identifier.parse(orderId)}/invoices/capabilities`,
+          `/api/v1/stores/${identifier.parse(storeId)}/orders/${identifier.parse(orderId)}/invoices/capabilities${invoiceAccessQuery(access)}`,
           { operatorId: user.id, signal, cache: 'no-store' },
           capability,
         );
         await currentInvoiceSession(user, storeId, signal);
         signal.throwIfAborted();
         if (
+          value.access !== access ||
           value.storeId !== storeId ||
           value.orderId !== orderId ||
           new Set(value.actions.map((action) => action.kind)).size !== value.actions.length
@@ -81,6 +86,7 @@ export function OrderInvoiceActions({
       {loaded.value.actions.map((action) => (
         <InvoiceDocumentAction
           key={scope + ':' + action.kind}
+          access={access}
           user={user}
           storeId={storeId}
           orderId={orderId}

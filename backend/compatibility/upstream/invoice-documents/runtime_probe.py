@@ -1,6 +1,7 @@
 """Local-only native scope/reader qualification; renderer is an explicit test seam."""
 import hashlib
 import json
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -84,7 +85,7 @@ def run(value):
                 @event.listens_for(engine, "before_cursor_execute")
                 def guard_history(_connection, _cursor, statement, _parameters, _context, _many):
                     query = " ".join(statement.lower().split())
-                    if "count(" in query and "from orders" in query:
+                    if re.match(r"^select\s+count\s*\(", query) and "from orders" in query:
                         observed["historyFallbacks"] += 1
                         raise AssertionError("Unexpected MySQL lifetime history")
 
@@ -113,6 +114,7 @@ def run(value):
                     if str(order_id) != value["orderId"] or skip_auth is not True:
                         raise AssertionError("Unexpected renderer scope")
                     observed["renderCalls"] += 1
+                    observed["boughtVoucherInitialValues"] = [str(row["voucher_initial_value"]) for row in InvoiceController.get_bought_gift_vouchers(order_id)]
                     result = InvoiceController.SessionR.execute(text(history.COUNT_SQL), {"user_id": int(value["customerId"])}).mappings().first()
                     return "<!doctype html><html><body><h1>Fixture tax invoice</h1><p>Orders: " + str(result["count"]) + "</p></body></html>"
 
@@ -120,6 +122,8 @@ def run(value):
                 headers = {"X-POS-Invoice-Key": value["key"], "X-POS-Invoice-Contract": "pos-invoice-security-v1",
                     "X-POS-Feedback-Contract": "pos-feedback-proof-v1", "X-POS-Invoice-Nonce": value["nonce"],
                     "X-POS-Operator-ID": value["operatorId"], "X-Request-ID": value["requestId"], "X-POS-Invoice-History": value["capability"]}
+                if value.get("globalCapability"):
+                    headers.update({"X-POS-Global-Invoice": value["globalCapability"], "X-POS-Global-Invoice-Contract": "pos-global-online-invoice-v1"})
                 result = client.simulate_get("/internal/pos/invoices/online", params={"order_id": value["orderId"]}, headers=headers)
                 missing = client.simulate_get("/internal/pos/invoices/online", params={"order_id": value["orderId"]}, headers={key: item for key, item in headers.items() if key != "X-POS-Invoice-History"})
                 return {"snapshot": snapshot, "writeRejected": write_rejected, "rows": rows, "isolation": isolation, "sqlModeUnchanged": previous_mode == current_mode,

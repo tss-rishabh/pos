@@ -1,3 +1,10 @@
+import {
+  globalOnlineInvoiceContract,
+  globalOnlineInvoiceCapability,
+  issueGlobalOnlineInvoiceProof,
+  globalOnlineInvoiceResponseProof,
+  assertGlobalOnlineInvoiceResponse,
+} from '../../src/modules/invoice-documents/global-proof.js';
 import Fastify from 'fastify';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
@@ -236,12 +243,16 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
         'user_stores',
         'orders',
         'order_stores',
+        'order_addons',
         'has_products',
         'express_line_item',
         'gift_vouchers',
         'order_point_cashback',
         'has_addresses',
       ]);
+      await connection.query(
+        'CREATE TABLE pos_rewrite_operator_auth_epochs(operator_id VARCHAR(32) PRIMARY KEY,epoch BIGINT UNSIGNED NOT NULL DEFAULT 0)',
+      );
       await connection.query(
         'CREATE TABLE invoice_read_guard(id BIGINT PRIMARY KEY,marker VARCHAR(32) NOT NULL)',
       );
@@ -269,6 +280,8 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
     }, 30000);
     beforeEach(async () => {
       for (const table of [
+        'order_addons',
+        'pos_rewrite_operator_auth_epochs',
         'has_addresses',
         'order_point_cashback',
         'gift_vouchers',
@@ -313,6 +326,293 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
         await connection.end();
       }
     });
+    const globalScope = { ...scope, access: 'global-online' as const };
+    const globalOptions = {
+      ...options,
+      globalOnlineContract: globalOnlineInvoiceContract,
+      historyPublicationContract: 'pos-invoice-orders-publication-v1',
+      historyOrdersView: 'fixture-project.reports.orders',
+      historyCustomersView: 'fixture-project.reports.customers',
+      historyPublicationsView: 'fixture-project.reports.publications',
+      historyMaxLagSeconds: 600,
+    };
+    async function genuineOnline() {
+      await connection.query('DELETE FROM order_stores');
+      await connection.query("UPDATE orders SET location_id=NULL,location_type='' WHERE id=?", [
+        orderId,
+      ]);
+      await connection.query('UPDATE has_products SET order_platform_id=1 WHERE order_id=?', [
+        orderId,
+      ]);
+    }
+    function globalRenderer(
+      kind: 'online' | 'same-day' = 'online',
+      mutate?: () => Promise<void>,
+      tamper = false,
+    ) {
+      return vi.fn<typeof fetch>(async (input, init) => {
+        const url = new URL(String(input)),
+          headers = new Headers(init?.headers),
+          proof = headers.get('X-POS-Global-Invoice')!,
+          historyProof = headers.get('X-POS-Invoice-History')!;
+        const value = globalOnlineInvoiceCapability.parse(
+          JSON.parse(Buffer.from(proof.split('.')[1]!, 'base64url').toString('utf8')) as unknown,
+        );
+        expect(value).toMatchObject({
+          kind,
+          orderId,
+          customerId: '777',
+          ownerStoreId: null,
+          userType: 1,
+          issuerPolicy: kind === 'online' ? 'pinned-online-renderer' : 'source-sdd-renderer',
+          selection: kind === 'online' ? 'full-order' : 'source-is-sdd-shipment-0',
+        });
+        expect(value.contextStoreId).toMatch(/^[12]$/);
+        expect([...url.searchParams]).toEqual(
+          kind === 'online'
+            ? [['order_id', orderId]]
+            : [
+                ['order_id', orderId],
+                ['is_sdd_shipment', '0'],
+              ],
+        );
+        const proofScope: InvoiceProofScope = {
+          kind,
+          orderId,
+          operatorId: user.id,
+          nonce: headers.get('X-POS-Invoice-Nonce')!,
+          requestId: headers.get('X-Request-ID')!,
+        };
+        if (mutate) await mutate();
+        return new Response(html, {
+          headers: {
+            'Content-Type': 'text/html',
+            'X-POS-Invoice-Contract': invoiceSecurityContract,
+            'X-POS-Feedback-Contract': feedbackProofContract,
+            'X-POS-Invoice-Nonce': proofScope.nonce,
+            'X-POS-Invoice-Proof': invoiceResponseProof(proofScope, html, key),
+            'X-POS-Invoice-History-Contract': invoiceHistoryContract,
+            'X-POS-Invoice-History-Proof': invoiceHistoryResponseProof(historyProof, html, key),
+            'X-POS-Global-Invoice-Contract': globalOnlineInvoiceContract,
+            'X-POS-Global-Invoice-Proof': globalOnlineInvoiceResponseProof(
+              tamper ? proof + 'wrong' : proof,
+              html,
+              key,
+            ),
+            ...(kind === 'same-day'
+              ? {
+                  'X-POS-Invoice-Scope-Contract': scopedInvoiceContract,
+                  'X-POS-Invoice-Scope-Proof': scopedInvoiceResponseProof(
+                    headers.get('X-POS-Invoice-Scope')!,
+                    html,
+                    key,
+                  ),
+                }
+              : {}),
+          },
+        });
+      });
+    }
+    it('allows all five genuine internal global-reader roles only with explicit N access, never inventing ownership', async () => {
+      await genuineOnline();
+      for (const role of [1, 2, 3, 4, 5] as const) {
+        await connection.query('UPDATE pos_user SET role=?', [role]);
+        const actor = { ...user, role };
+        await expect(invoiceDocumentAuthority(db)(actor, scope)).rejects.toMatchObject({
+          code: 'INVOICE_SCOPE_UNCONFIRMED',
+        });
+        const fetcher = globalRenderer();
+        const result = await onlineInvoiceService(
+          db,
+          config,
+          globalOptions,
+          fetcher,
+          history,
+        )(actor, globalScope);
+        expect(result).toMatchObject({ access: 'global-online', orderId, number: null });
+        expect(fetcher).toHaveBeenCalledTimes(1);
+        const capabilities = await invoiceCapabilities(db, globalOptions)(actor, globalScope);
+        expect(capabilities).toMatchObject({
+          access: 'global-online',
+          actions: [{ kind: 'online', available: true }],
+        });
+      }
+      const [rows] = await connection.query<mysql.RowDataPacket[]>(
+        'SELECT COUNT(*) AS total FROM order_stores',
+      );
+      expect(rows[0]!.total).toBe('0');
+    });
+    it('treats authorized context stores as context only and rejects franchise or unqualified provider contracts', async () => {
+      await genuineOnline();
+      await fixture.insert('user_stores', { django_user_id: 7, store_id: 2 });
+      const actor = { ...user, storeIds: ['1', '2'] };
+      const fetcher = globalRenderer();
+      const service = onlineInvoiceService(db, config, globalOptions, fetcher, history);
+      const first = await service(actor, globalScope),
+        second = await service(actor, { ...globalScope, storeId: '2' });
+      expect(first.html).toBe(second.html);
+      expect(first.number).toBeNull();
+      expect(second.number).toBeNull();
+      const unavailable = globalRenderer();
+      await expect(
+        onlineInvoiceService(db, config, options, unavailable, history)(actor, globalScope),
+      ).rejects.toMatchObject({ code: 'INVOICE_SECURITY_UNCONFIRMED' });
+      expect(unavailable).not.toHaveBeenCalled();
+      await connection.query('UPDATE stores SET category="FRANCHISE"');
+      await connection.query('UPDATE pos_user SET role=1,user_type=2');
+      await expect(service({ ...actor, role: 1, userType: 2 }, globalScope)).rejects.toMatchObject({
+        code: 'INVOICE_SCOPE_UNCONFIRMED',
+      });
+    });
+    for (const [name, statement] of [
+      [
+        'mapping',
+        "INSERT INTO order_stores(id,order_id,store_id,counter_id,order_invoice) SELECT 1,id,1,3,'FIXTURE' FROM orders",
+      ],
+      ['location', 'UPDATE orders SET location_id=1'],
+      ['inactive-actor', 'UPDATE pos_user SET is_active=0'],
+      ['inactive-store', 'UPDATE stores SET is_active=0'],
+      ['customer', 'UPDATE orders SET user_id=778'],
+      ['line', 'UPDATE has_products SET qty=qty+1'],
+      ['address', "UPDATE orders SET address1='changed-fixture'"],
+      ['assignment', 'DELETE FROM user_stores'],
+      ['type', 'UPDATE pos_user SET user_type=2'],
+      ['role', 'UPDATE pos_user SET role=5'],
+      [
+        'authentication',
+        "INSERT INTO pos_rewrite_operator_auth_epochs(operator_id,epoch) VALUES('7',1)",
+      ],
+    ] as const)
+      it('withholds global HTML after current ' + name + ' changes during rendering', async () => {
+        await genuineOnline();
+        const fetcher = globalRenderer('online', async () => {
+          await connection.query(statement);
+        });
+        await expect(
+          onlineInvoiceService(db, config, globalOptions, fetcher, history)(user, globalScope),
+        ).rejects.toBeDefined();
+        expect(fetcher).toHaveBeenCalledTimes(1);
+      });
+    it('rejects a foreign customer address before any global renderer or historical read', async () => {
+      await genuineOnline();
+      await fixture.insert('has_addresses', { id: 55, user_id: 778 });
+      await connection.query('UPDATE orders SET has_address_id=55');
+      const fetcher = globalRenderer(),
+        read = vi.fn(history);
+      await expect(
+        onlineInvoiceService(db, config, globalOptions, fetcher, read)(user, globalScope),
+      ).rejects.toMatchObject({ code: 'INVOICE_SCOPE_UNCONFIRMED' });
+      expect(fetcher).not.toHaveBeenCalled();
+      expect(read).not.toHaveBeenCalled();
+    });
+    it('refuses unavailable history before rendering and requires exact global HTML acknowledgement', async () => {
+      await genuineOnline();
+      const fetcher = globalRenderer();
+      await expect(
+        onlineInvoiceService(db, config, globalOptions, fetcher, async () => {
+          throw new Error('Unqualified fixture history');
+        })(user, globalScope),
+      ).rejects.toThrow('Unqualified fixture history');
+      expect(fetcher).not.toHaveBeenCalled();
+      await expect(
+        onlineInvoiceService(
+          db,
+          config,
+          globalOptions,
+          globalRenderer('online', undefined, true),
+          history,
+        )(user, globalScope),
+      ).rejects.toMatchObject({ code: 'INVOICE_GLOBAL_PROOF_UNCONFIRMED' });
+    });
+    it('preserves source mixed-shipment SDD zero selection with global and historical proof, never Express scope', async () => {
+      await genuineOnline();
+      await connection.query('UPDATE orders SET is_split_order=1');
+      await fixture.insert('has_products', {
+        id: '9007199254740997',
+        order_id: orderId,
+        prod_id: 66,
+        qty: 1,
+        price: 0,
+        order_platform_id: 3,
+      });
+      const fetcher = globalRenderer('same-day');
+      expect(
+        await scopedInvoiceService(
+          db,
+          config,
+          globalOptions,
+          fetcher,
+          history,
+        )(user, globalScope, 'same-day'),
+      ).toMatchObject({ kind: 'same-day', access: 'global-online', number: null });
+      await expect(
+        scopedInvoiceService(
+          db,
+          config,
+          globalOptions,
+          globalRenderer('same-day'),
+          history,
+        )(user, globalScope, 'express'),
+      ).rejects.toMatchObject({ code: 'INVOICE_SCOPE_UNCONFIRMED' });
+    });
+    for (const mode of [
+      'selected-fee',
+      'parent-fee',
+      'selected-insert',
+      'parent-reference',
+      'reference',
+      'voucher-value',
+      'voucher-link',
+    ] as const)
+      it(
+        'binds actual source ' + mode + ' financial inputs before and after rendering',
+        async () => {
+          await genuineOnline();
+          await fixture.insert('order_addons', {
+            order_id: mode === 'selected-fee' ? orderId : '55',
+            platform_fee: '7.89',
+          });
+          await connection.query('UPDATE orders SET parent_order_id=55');
+          await fixture.insert('gift_vouchers', {
+            id: 66,
+            order_id: orderId,
+            voucher_initial_value: '12.34',
+          });
+          if (mode === 'voucher-link')
+            for (const id of [77, 78])
+              await fixture.insert('has_products', {
+                id,
+                order_id: '9999',
+                prod_id: 66,
+                qty: 1,
+                price: 0,
+                gift_voucher_id: 0,
+              });
+          const mutate = async () => {
+            if (mode === 'selected-fee' || mode === 'parent-fee')
+              await connection.query('UPDATE order_addons SET platform_fee=platform_fee+1');
+            else if (mode === 'selected-insert')
+              await fixture.insert('order_addons', { order_id: orderId, platform_fee: '0' });
+            else if (mode === 'parent-reference')
+              await connection.query('UPDATE orders SET parent_order_id=56');
+            else if (mode === 'reference')
+              await connection.query("UPDATE orders SET order_ref_no='changed-fixture-reference'");
+            else if (mode === 'voucher-value')
+              await connection.query(
+                'UPDATE gift_vouchers SET voucher_initial_value=voucher_initial_value+1 WHERE id=66',
+              );
+            else
+              await connection.query(
+                'UPDATE has_products SET gift_voucher_id=66 WHERE id IN (77,78)',
+              );
+          };
+          const fetcher = globalRenderer('online', mutate);
+          await expect(
+            onlineInvoiceService(db, config, globalOptions, fetcher, history)(user, globalScope),
+          ).rejects.toMatchObject({ code: 'INVOICE_SCOPE_CHANGED' });
+          expect(fetcher).toHaveBeenCalledTimes(1);
+        },
+      );
     it('renders the exact current fullwidth order once, sanitizes active content and performs no financial writes', async () => {
       const fetcher = renderer(),
         service = invoice(fetcher),
@@ -476,86 +776,129 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
       expect(fetcher).not.toHaveBeenCalled();
     });
-    it('matches actual Python/MySQL native scope and intercepts history without any writer binding', async () => {
-      await connection.query('UPDATE order_stores SET order_invoice=?', ['FIXTURE/INV/café']);
-      for (const id of ['2', '10'])
-        await fixture.insert('has_products', {
-          id,
-          order_id: orderId,
-          prod_id: 66,
-          qty: 1,
-          price: 0.125,
-          order_platform_id: 2,
-          gst: 5,
-          pre_gst_amt: 0.12,
-        });
-      const authority = await invoiceDocumentAuthority(db)(user, scope),
-        proofScope: InvoiceProofScope = {
-          kind: 'online',
-          orderId,
-          operatorId: user.id,
-          requestId: 'native-invoice-' + randomUUID(),
-          nonce: 'a'.repeat(32),
-        },
-        evidence = await history(scope, authority),
-        capability = issueInvoiceHistoryProof(proofScope, scope.storeId, authority, evidence, key);
-      const raw = JSON.parse(
-        execFileSync(
-          'uv',
-          [
-            'run',
-            '--frozen',
-            '--project',
-            resolve('compatibility/upstream/invoice-security/runtime'),
-            'python',
-            resolve('compatibility/upstream/invoice-documents/runtime_probe.py'),
-          ],
-          {
-            input: JSON.stringify({
-              url: config.MYSQL_WRITER_URL,
+    for (const global of [false, true])
+      it(
+        'matches actual Python/MySQL ' +
+          (global ? 'explicit global N' : 'owned') +
+          ' native scope and intercepts history without any writer binding',
+        async () => {
+          if (global) await genuineOnline();
+          await fixture.insert('order_addons', { order_id: orderId, platform_fee: '7.89' });
+          await fixture.insert('gift_vouchers', {
+            id: 66,
+            order_id: orderId,
+            voucher_initial_value: '12.34',
+          });
+          await connection.query('UPDATE has_products SET gift_voucher_id=66 WHERE id=?', [lineId]);
+          const selectedScope = global ? globalScope : scope;
+          await connection.query('UPDATE order_stores SET order_invoice=?', ['FIXTURE/INV/café']);
+          for (const id of ['2', '10'])
+            await fixture.insert('has_products', {
+              id,
+              order_id: orderId,
+              prod_id: 66,
+              qty: 1,
+              price: 0.125,
+              order_platform_id: 2,
+              gst: 5,
+              pre_gst_amt: 0.12,
+            });
+          await connection.query('UPDATE has_products SET gift_voucher_id=66 WHERE order_id=?', [
+            orderId,
+          ]);
+          const authority = await invoiceDocumentAuthority(db)(user, selectedScope),
+            proofScope: InvoiceProofScope = {
+              kind: 'online',
               orderId,
-              storeId: scope.storeId,
-              customerId: authority.customerId,
               operatorId: user.id,
-              nonce: proofScope.nonce,
-              requestId: proofScope.requestId,
+              requestId: 'native-invoice-' + randomUUID(),
+              nonce: 'a'.repeat(32),
+            },
+            evidence = await history(selectedScope, authority),
+            capability = issueInvoiceHistoryProof(
+              proofScope,
+              scope.storeId,
+              authority,
+              evidence,
               key,
-              capability,
-            }),
-            encoding: 'utf8',
-            timeout: 20000,
-            maxBuffer: 128 * 1024,
-            env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' },
-            stdio: ['pipe', 'pipe', 'pipe'],
-          },
-        ),
-      ) as unknown;
-      const result = z
-        .object({
-          snapshot: z.object({ binding: z.string(), customerId: z.string() }),
-          writeRejected: z.literal(true),
-          rows: z.literal(1),
-          sqlModeUnchanged: z.literal(true),
-          isolation: z.literal('REPEATABLE READ'),
-          status: z.literal(200),
-          missingHistoryStatus: z.literal(503),
-          html: z.string(),
-          headers: z.record(z.string(), z.string()),
-          historyFallbacks: z.literal(0),
-          renderCalls: z.literal(1),
-          writerBindingsAbsent: z.literal(true),
-          redisWriterAbsent: z.literal(true),
-        })
-        .parse(raw);
-      expect(result.snapshot).toEqual({
-        binding: authority.binding,
-        customerId: authority.customerId,
-      });
-      expect(result.html).toContain('Orders: 2');
-      const response = new Response(result.html, { headers: result.headers });
-      assertInvoiceResponseProof(response, proofScope, result.html, key);
-      assertInvoiceHistoryResponse(response, capability, result.html, key);
-    }, 30000);
+            );
+          const globalCapability = global
+            ? issueGlobalOnlineInvoiceProof(
+                'online',
+                proofScope,
+                scope.storeId,
+                authority,
+                capability,
+                key,
+              )
+            : undefined;
+          const raw = JSON.parse(
+            execFileSync(
+              'uv',
+              [
+                'run',
+                '--frozen',
+                '--project',
+                resolve('compatibility/upstream/invoice-security/runtime'),
+                'python',
+                resolve('compatibility/upstream/invoice-documents/runtime_probe.py'),
+              ],
+              {
+                input: JSON.stringify({
+                  url: config.MYSQL_WRITER_URL,
+                  orderId,
+                  storeId: scope.storeId,
+                  customerId: authority.customerId,
+                  operatorId: user.id,
+                  nonce: proofScope.nonce,
+                  requestId: proofScope.requestId,
+                  key,
+                  capability,
+                  ...(global ? { globalCapability } : {}),
+                }),
+                encoding: 'utf8',
+                timeout: 20000,
+                maxBuffer: 128 * 1024,
+                env: {
+                  PATH: process.env.PATH,
+                  HOME: process.env.HOME,
+                  PYTHONDONTWRITEBYTECODE: '1',
+                },
+                stdio: ['pipe', 'pipe', 'pipe'],
+              },
+            ),
+          ) as unknown;
+          const result = z
+            .object({
+              snapshot: z.object({ binding: z.string(), customerId: z.string() }),
+              writeRejected: z.literal(true),
+              rows: z.literal(1),
+              sqlModeUnchanged: z.literal(true),
+              isolation: z.literal('REPEATABLE READ'),
+              status: z.literal(200),
+              missingHistoryStatus: z.literal(503),
+              html: z.string(),
+              headers: z.record(z.string(), z.string()),
+              boughtVoucherInitialValues: z.array(z.literal('12.34')).length(3),
+              historyFallbacks: z.literal(0),
+              renderCalls: z.literal(1),
+              writerBindingsAbsent: z.literal(true),
+              redisWriterAbsent: z.literal(true),
+            })
+            .parse(raw);
+          expect(result.snapshot).toEqual({
+            binding: authority.binding,
+            customerId: authority.customerId,
+          });
+          expect(result.html).toContain('Orders: 2');
+          const response = new Response(result.html, { headers: result.headers });
+          if (global)
+            assertGlobalOnlineInvoiceResponse(response, globalCapability!, result.html, key);
+          assertInvoiceResponseProof(response, proofScope, result.html, key);
+          assertInvoiceHistoryResponse(response, capability, result.html, key);
+        },
+        30000,
+      );
     it('executes the exact source SDD shipment-zero request only for a current full mixed shipment', async () => {
       await connection.query('UPDATE orders SET is_split_order=1');
       await connection.query('UPDATE has_products SET order_platform_id=3');
@@ -703,7 +1046,13 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
             encoding: 'utf8',
             timeout: 20000,
             maxBuffer: 128 * 1024,
-            env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' },
+            env: {
+              PATH: process.env.PATH,
+              HOME: process.env.HOME,
+              PYTHONDONTWRITEBYTECODE: '1',
+              UV_CACHE_DIR: process.env.UV_CACHE_DIR,
+              UV_OFFLINE: 'true',
+            },
             stdio: ['pipe', 'pipe', 'pipe'],
           },
         ),

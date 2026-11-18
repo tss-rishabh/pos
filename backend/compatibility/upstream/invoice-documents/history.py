@@ -37,7 +37,7 @@ def _identifier(value, zero=False):
     return isinstance(value, str) and bool(re.fullmatch(r"(?:0|[1-9][0-9]{0,18})" if zero else r"[1-9][0-9]{0,18}", value)) and int(value) <= 9223372036854775807
 
 
-def require_history(req, invoice_scope, reader):
+def require_history(req, invoice_scope, reader, kind="online"):
     _active.set(None)
     capability = req.get_header("X-POS-Invoice-History") or ""
     try:
@@ -73,10 +73,12 @@ def require_history(req, invoice_scope, reader):
         times = [value.timestamp() for value in dates]
         if any(stamp > now + 5 for stamp in times) or min(times[1:]) < times[0] or times[2] + 5 < times[1] or now - times[0] > 3605:
             raise ValueError()
-        snapshot = native_snapshot(reader, value)
+        snapshot = native_snapshot(reader, value, include_parts=True)
         if snapshot["customerId"] != value["customerId"] or not hmac.compare_digest(snapshot["binding"], value["nativeSnapshot"]):
             raise ValueError()
         value["capability"] = capability
+        from pos_invoice_documents_global import require_global
+        value["global_capability"] = require_global(req, invoice_scope, value, snapshot, kind=kind)
         _active.set(value)
         return value
     except (ValueError, TypeError, KeyError, AttributeError, OverflowError):

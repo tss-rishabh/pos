@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { invoiceEnvironment, type InvoiceEnvironment } from '../checkout/invoices.js';
 
 export interface InvoiceDocumentOptions extends InvoiceEnvironment {
+  globalOnlineContract?: string;
   onlineUrl?: string;
   sameDayUrl?: string;
   expressUrl?: string;
@@ -18,6 +19,7 @@ export function invoiceDocumentOptions(
 ): InvoiceDocumentOptions {
   const value = z
     .object({
+      UPSTREAM_POS_GLOBAL_ONLINE_INVOICE_CONTRACT: z.string().optional(),
       TSS_SDD_INVOICE_URL: z.url().optional(),
       TSS_EXPRESS_INVOICE_URL: z.url().optional(),
       UPSTREAM_POS_SCOPED_INVOICE_CONTRACT: z.string().optional(),
@@ -32,6 +34,7 @@ export function invoiceDocumentOptions(
     .parse(Object.fromEntries(Object.entries(env).filter(([, value]) => value !== '')));
   return {
     ...invoiceEnvironment(env),
+    globalOnlineContract: value.UPSTREAM_POS_GLOBAL_ONLINE_INVOICE_CONTRACT,
     onlineUrl: value.TSS_ONLINE_INVOICE_URL,
     sameDayUrl: value.TSS_SDD_INVOICE_URL,
     expressUrl: value.TSS_EXPRESS_INVOICE_URL,

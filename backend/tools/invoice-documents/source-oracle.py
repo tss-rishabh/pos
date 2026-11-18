@@ -144,6 +144,7 @@ def run():
     tree = ast.parse(original)
     templates = {"Invoicer/" + name: source("templates/Invoicer/" + name) for name in ("index-shop.html", "old-index.html", "new-index.html")}
     cases = []
+    issuer_contexts = []
     build_path = Path(__file__).resolve().parents[2] / "compatibility/upstream/invoice-documents/prepare.py"
     spec = importlib.util.spec_from_file_location("reviewed_invoice_document_build", build_path)
     build = importlib.util.module_from_spec(spec)
@@ -196,6 +197,20 @@ def run():
             history._active.reset(token)
         if candidate_html != html or reader.history_reads != before_reads:
             raise AssertionError("Frozen warehouse count changed the literal source output")
+        if name in ("old-maharashtra", "new-maharashtra"):
+            hashes = []
+            for context_store_id in ("1", "2"):
+                token = history._active.set({"orderId":str(order["id"]), "customerId":str(order["user_id"]), "orderCount":str(reader.order_count), "storeId":context_store_id})
+                try:
+                    rendered = namespace["generate_invoice"](order["id"],skip_auth=True)
+                finally:
+                    history._active.reset(token)
+                if rendered != html:
+                    raise AssertionError("A context store changed the pinned global invoice issuer/output")
+                hashes.append(hashlib.sha256(rendered.encode()).hexdigest())
+            if any("from stores" in query.lower() or "join stores" in query.lower() for query in reader.statements):
+                raise AssertionError("Context store issuer must not be read")
+            issuer_contexts.append({"template":renderer.name,"contextStoreIds":["1","2"],"htmlSha256":hashes,"sourceIssuerRetained": all(label in html for label in ("GSTIN Number:","PAN:","CIN:"))})
         cases.append({"name": name, "template": renderer.name, "calculation": calculation,
                       "additional": context["additional"], "lines": context["has_products"],
                       "html": html, "htmlSha256": hashlib.sha256(html.encode()).hexdigest(),
@@ -208,7 +223,7 @@ def run():
     return {"sourceCommit": PIN, "controllerSha256": hashlib.sha256(original.encode()).hexdigest(),
             "templateSha256": {name: hashlib.sha256(value.encode()).hexdigest() for name, value in templates.items()},
             "scope": "literal source reducers/templates on controlled SELECT results; not native join/provider qualification",
-            "cases": cases, "splitSelectionHazard": {"requestedHpIds": [201], "sourceQuantity": selected[0]["qty"], "sourcePrice": selected[0]["price"], "selectedRawQuantity": 1, "selectedRawPrice": 50}}
+            "cases": cases, "issuerContexts":issuer_contexts, "splitSelectionHazard": {"requestedHpIds": [201], "sourceQuantity": selected[0]["qty"], "sourcePrice": selected[0]["price"], "selectedRawQuantity": 1, "selectedRawPrice": 50}}
 
 
 if __name__ == "__main__":

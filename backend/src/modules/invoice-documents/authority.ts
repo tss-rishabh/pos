@@ -1,9 +1,18 @@
 import { asc, eq, sql } from 'drizzle-orm';
 import type { Databases } from '../../db/pools.js';
-import { ExpressLineItem, HasProduct, Order, OrderStore, Store } from '../../db/legacy-schema.js';
+import {
+  ExpressLineItem,
+  HasProduct,
+  Order,
+  OrderStore,
+  Store,
+  PosUser,
+} from '../../db/legacy-schema.js';
 import { requireStore, type Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import { assertCurrentStoreAccess } from '../administration/authorization.js';
+import { currentAuthenticationVersion } from '../../auth/revocation.js';
+import { createHash } from 'node:crypto';
 import { invoiceHeaderNativeSql, invoiceLineNativeSql, invoiceNativeBinding } from './native.js';
 import {
   fullInvoiceOwnership,
@@ -19,6 +28,7 @@ export interface InvoiceAuthority {
   customerId: string;
   orderStatus: string;
   updatedAt: string;
+  globalOnline?: { actorBinding: string; role: number };
 }
 export interface InvoiceSnapshot extends InvoiceAuthority {
   ownership: InvoiceOwnership;
@@ -55,6 +65,8 @@ export function invoiceScopeSnapshot(db: Databases) {
         .limit(1)
         .for('share');
       if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found in this store.');
+      if (typeof order.nativeHash !== 'string' || !/^[a-f0-9]{64}$/.test(order.nativeHash))
+        throw invoiceScopeUnavailable();
       const mappings = await tx
         .select({
           id: OrderStore.id,
@@ -112,7 +124,50 @@ export function invoiceScopeSnapshot(db: Databases) {
           storeId: row.storeId === null ? null : String(row.storeId),
         })),
       };
-      if (!fullInvoiceOwnership(normalized) && selectedExpressIds(normalized) === null)
+      let globalOnline: InvoiceAuthority['globalOnline'];
+      if (scope.access === 'global-online') {
+        const lineIds = new Set(normalized.lines.map((line) => line.id));
+        if (
+          order.customerId <= 0n ||
+          order.customerId > 9223372036854775807n ||
+          normalized.mappings.length ||
+          normalized.locationId !== null ||
+          !normalized.lines.length ||
+          normalized.lines.length > maxInvoiceLines ||
+          lineIds.size !== normalized.lines.length ||
+          normalized.express.length > maxInvoiceLines ||
+          normalized.express.some((row) => !lineIds.has(row.lineId))
+        )
+          throw invoiceScopeUnavailable();
+        const [actor] = await tx
+          .select()
+          .from(PosUser)
+          .where(eq(PosUser.id, BigInt(user.id)))
+          .limit(1)
+          .for('share');
+        if (
+          !actor?.is_active ||
+          actor.user_type !== 1 ||
+          user.userType !== 1 ||
+          actor.role !== user.role ||
+          ![1, 2, 3, 4, 5].includes(actor.role)
+        )
+          throw invoiceScopeUnavailable();
+        globalOnline = {
+          role: actor.role,
+          actorBinding: createHash('sha256')
+            .update(
+              JSON.stringify([
+                user.id,
+                scope.storeId,
+                actor.role,
+                actor.user_type,
+                await currentAuthenticationVersion(tx, actor),
+              ]),
+            )
+            .digest('hex'),
+        };
+      } else if (!fullInvoiceOwnership(normalized) && selectedExpressIds(normalized) === null)
         throw invoiceScopeUnavailable();
       if (order.addressOwned !== '1') throw invoiceScopeUnavailable();
       if (order.payment !== 4n)
@@ -123,6 +178,7 @@ export function invoiceScopeSnapshot(db: Databases) {
         );
       return {
         ownership: normalized,
+        ...(globalOnline ? { globalOnline } : {}),
         binding: invoiceNativeBinding([
           scope.storeId,
           scope.orderId,
@@ -149,9 +205,11 @@ export function invoiceDocumentAuthority(db: Databases) {
   const capture = invoiceScopeSnapshot(db);
   return async (user: Principal, scope: InvoiceDocumentScope): Promise<InvoiceAuthority> => {
     const snapshot = await capture(user, scope);
-    if (!fullInvoiceOwnership(snapshot.ownership)) throw invoiceScopeUnavailable();
+    if (!snapshot.globalOnline && !fullInvoiceOwnership(snapshot.ownership))
+      throw invoiceScopeUnavailable();
     return {
       binding: snapshot.binding,
+      ...(snapshot.globalOnline ? { globalOnline: snapshot.globalOnline } : {}),
       number: snapshot.number,
       customerId: snapshot.customerId,
       orderStatus: snapshot.orderStatus,

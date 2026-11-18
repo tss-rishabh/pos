@@ -64,8 +64,11 @@ class Documents(unittest.TestCase):
         self.addCleanup(self.environment.stop)
         additions = prepare.generated_files()
         native = ModuleType("pos_invoice_documents_native")
-        native.native_snapshot = lambda _reader, _scope: {"binding": "a" * 64, "customerId": "777"}
-        native_modules = patch.dict(sys.modules, {"pos_invoice_documents_native": native})
+        native.native_snapshot = lambda _reader, _scope, **_kwargs: {"binding": "a" * 64, "customerId": "777", "parts": ["1", "9007199254740993", "777", None, "a"*64, "", None, False, [["1", "1", "1", "FIXTURE"]], [["1", "1", "a"*64]], []]}
+        global_scope = ModuleType("pos_invoice_documents_global")
+        exec(compile(additions["pos_invoice_documents_global.py"], "reviewed-global-scope", "exec"), global_scope.__dict__)
+        self.global_scope = global_scope
+        native_modules = patch.dict(sys.modules, {"pos_invoice_documents_native": native, "pos_invoice_documents_global": global_scope})
         native_modules.start()
         self.addCleanup(native_modules.stop)
         self.history = ModuleType("pos_invoice_documents_history")
@@ -106,6 +109,27 @@ class Documents(unittest.TestCase):
         self.assertIsNone(self.security._scope.get())
         self.assertIsNone(self.history._active.get())
         self.assertEqual(result.headers["x-pos-invoice-history-contract"], self.history.CONTRACT)
+
+    def test_global_context_never_becomes_owner_and_requires_exact_source_purpose(self):
+        native = sys.modules["pos_invoice_documents_native"]
+        self.history.native_snapshot = lambda *_args, **_kwargs: {"binding":"a"*64,"customerId":"777","parts":["1","9007199254740993","777",None,"a"*64,"",None,True,[],[["1","1","b"*64],["2","3","c"*64]],[]]}
+        self.assertEqual(self.client.simulate_get("/internal/pos/invoices/online",params={"order_id":"9007199254740993"},headers=self.headers).status_code,503)
+        self.assertEqual(self.calls,[])
+        now=int(time.time())
+        value={"v":1,"purpose":"global-online-invoice","contract":self.global_scope.CONTRACT,"kind":"online","orderId":"9007199254740993","operatorId":"7","contextStoreId":"1","ownerStoreId":None,"customerId":"777","role":4,"userType":1,"issuerPolicy":"pinned-online-renderer","selection":"full-order","nativeSnapshot":"a"*64,"actorSnapshot":"b"*64,"historyProofHash":hashlib.sha256(self.headers["X-POS-Invoice-History"].encode()).hexdigest(),"nonce":"a"*32,"requestId":"fixture-online-invoice","issuedAt":now,"expiresAt":now+30}
+        def sign(value):
+            body=base64.urlsafe_b64encode(json.dumps(value,separators=(",",":")).encode()).decode().rstrip("=")
+            message=self.global_scope.CONTRACT+"."+body
+            signature=base64.urlsafe_b64encode(hmac.new(self.env["POS_INVOICE_SERVICE_KEY"].encode(),message.encode(),hashlib.sha256).digest()).decode().rstrip("=")
+            return message+"."+signature
+        def headers(value):return {**self.headers,"X-POS-Global-Invoice":sign(value),"X-POS-Global-Invoice-Contract":self.global_scope.CONTRACT}
+        result=self.client.simulate_get("/internal/pos/invoices/online",params={"order_id":"9007199254740993"},headers=headers(value))
+        self.assertEqual(result.status_code,200)
+        self.assertEqual(result.headers["x-pos-global-invoice-contract"],self.global_scope.CONTRACT)
+        for change in ({"ownerStoreId":"1"},{"contextStoreId":"2"},{"userType":2},{"role":6},{"role":True},{"issuerPolicy":"store-issuer"},{"selection":"source-is-sdd-shipment-0"},{"historyProofHash":"f"*64},{"customerId":"778"},{"kind":"same-day"},{"actorSnapshot":"invalid"},{"nonce":"c"*32},{"expiresAt":now-1}):
+            self.calls.clear()
+            self.assertEqual(self.client.simulate_get("/internal/pos/invoices/online",params={"order_id":"9007199254740993"},headers=headers({**value,**change})).status_code,503)
+            self.assertEqual(self.calls,[])
 
     def test_wrong_key_missing_key_and_query_secret_do_no_render(self):
         for headers, parameters in [({}, {"order_id": "1"}), ({**self.headers, "X-POS-Invoice-Key": "wrong"}, {"order_id": "1"}), (self.headers, {"order_id": "1", "pos_token": "CANARY"})]:

@@ -18,7 +18,12 @@ const browser = await chromium.launch({
   unexpected = [],
   pageErrors = [];
 try {
-  async function fixture({ mismatch = false, hold = false, available = true } = {}) {
+  async function fixture({
+    mismatch = false,
+    hold = false,
+    available = true,
+    global = false,
+  } = {}) {
     const context = await browser.newContext({ serviceWorkers: 'block' }),
       page = await context.newPage();
     let deny = false,
@@ -53,12 +58,15 @@ try {
           }
         }
         return json({
+          ...(url.searchParams.get('access') === 'global-online'
+            ? { access: 'global-online' }
+            : {}),
           storeId: capability[1],
           orderId: mismatch ? '999' : capability[2],
           actions: [
             { kind: 'online', available: true },
             { kind: 'same-day', available: true },
-            { kind: 'express', available },
+            ...(url.searchParams.has('access') ? [] : [{ kind: 'express', available }]),
           ],
         });
       }
@@ -68,7 +76,7 @@ try {
         );
       if (preview) {
         expect(request.method()).toBe('GET');
-        expect([...url.searchParams]).toEqual([]);
+        expect([...url.searchParams]).toEqual(global ? [['access', 'global-online']] : []);
         if (deny) {
           deny = false;
           return json(
@@ -83,13 +91,29 @@ try {
             'Content-Security-Policy':
               "default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; form-action 'none'; base-uri 'none'; frame-ancestors 'self'; sandbox allow-same-origin allow-modals",
           },
-          body: `<!doctype html><html><head><meta name="pos-invoice" content="sanitized"><meta name="pos-invoice-scope" content="${preview[1]}:${preview[2]}:${preview[3]}:${preview[4]}"><meta name="pos-invoice-number" content="FIXTURE/INV/1"><style>body{font-size:12px}</style></head><body><h1>Selected fixture invoice</h1><p>STORE1_SELECTED</p></body></html>`,
+          body: `<!doctype html><html><head><meta name="pos-invoice" content="sanitized"><meta name="pos-invoice-scope" content="${preview[1]}:${preview[2]}:${preview[3]}:${preview[4]}${global ? ':global-online' : ''}"><meta name="pos-invoice-number" content="FIXTURE/INV/1"><style>body{font-size:12px}</style></head><body><h1>Selected fixture invoice</h1><p>STORE1_SELECTED</p></body></html>`,
+        });
+      }
+      const document =
+        /^\/api\/v1\/stores\/(\d+)\/orders\/(\d+)\/invoices\/(online|same-day)$/.exec(path);
+      if (document && global) {
+        expect([...url.searchParams]).toEqual([['access', 'global-online']]);
+        return json({
+          access: 'global-online',
+          kind: document[3],
+          storeId: document[1],
+          orderId: document[2],
+          number: null,
+          filename: `${document[3]}-tax-invoice-${document[2]}.html`,
+          html: '<html><head><meta name="pos-invoice" content="sanitized"></head><body>GLOBAL_CONTEXT_ONLY</body></html>',
         });
       }
       unexpected.push({ method: request.method(), path });
       return route.abort('blockedbyclient');
     });
-    await page.goto(new URL('/tests/invoice-documents/harness.html', base).href);
+    await page.goto(
+      new URL('/tests/invoice-documents/harness.html' + (global ? '?global=1' : ''), base).href,
+    );
     await expect(page.getByRole('heading', { name: 'Invoice options fixture' })).toBeVisible();
     return {
       context,
@@ -173,13 +197,32 @@ try {
     checks.push('unassigned-store-clears-old-actions');
     await f.context.close();
   }
+  {
+    const f = await fixture({ global: true });
+    await f.page.getByRole('button', { name: 'Online tax invoice', exact: true }).click();
+    const dialog = f.page.getByRole('dialog');
+    await expect(dialog.frameLocator('iframe').getByText('STORE1_SELECTED')).toBeVisible();
+    await expect(dialog.locator('iframe')).toHaveAttribute('src', /access=global-online$/);
+    const download = f.page.waitForEvent('download');
+    await dialog.getByRole('button', { name: 'Download invoice', exact: true }).click();
+    expect((await download).suggestedFilename()).toBe('online-tax-invoice-12345.html');
+    checks.push('explicit-global-context-preview-and-fresh-download-access-identity');
+    await f.page.evaluate(() =>
+      Array.from(document.querySelectorAll('button'))
+        .find((button) => button.textContent === 'Change invoice access')
+        .click(),
+    );
+    await expect(f.page.locator('iframe')).toHaveCount(0);
+    checks.push('scope-switch-cannot-retain-or-reinterpret-global-frame');
+    await f.context.close();
+  }
   expect(unexpected).toEqual([]);
   expect(pageErrors).toEqual([]);
   expect(requests.every((request) => request.method === 'GET')).toBe(true);
   const directory = new URL('../../../backend/parity/evidence/invoice-documents/', import.meta.url);
   await mkdir(directory, { recursive: true });
   await writeFile(
-    new URL('browser.json.tmp', directory),
+    new URL('global-browser.json.tmp', directory),
     JSON.stringify(
       {
         scope:
@@ -193,7 +236,10 @@ try {
       2,
     ) + '\n',
   );
-  await rename(new URL('browser.json.tmp', directory), new URL('browser.json', directory));
+  await rename(
+    new URL('global-browser.json.tmp', directory),
+    new URL('global-browser.json', directory),
+  );
   console.log(JSON.stringify({ checks: checks.length, unexpected: 0, pageErrors: 0 }));
 } finally {
   await browser.close();

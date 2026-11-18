@@ -3,7 +3,12 @@ import { liveQuery } from 'dexie';
 import { Download, FileText, Printer, X } from 'lucide-react';
 import type { Principal } from '../../api/types';
 import { currentInvoiceSession, invoiceActorSignal, invoiceIdentity } from './session';
-import { readInvoiceDocument, invoicePreviewPath, type InvoiceKind } from './client';
+import {
+  readInvoiceDocument,
+  invoicePreviewPath,
+  type InvoiceKind,
+  type InvoiceAccess,
+} from './client';
 import {
   claimAutomaticInvoicePrint,
   currentAutomaticInvoice,
@@ -20,6 +25,7 @@ const invoiceLabel = (kind: InvoiceKind) =>
         : 'Tax invoice';
 export interface InvoiceDocumentProps {
   user: Principal;
+  access?: InvoiceAccess;
   storeId: string;
   orderId: string;
   kind?: InvoiceKind;
@@ -39,6 +45,7 @@ export function InvoiceDocumentDialog({
   storeId,
   orderId,
   kind = 'store',
+  access,
   online,
   onClose,
   automatic,
@@ -55,7 +62,7 @@ export function InvoiceDocumentDialog({
     [problem, setProblem] = useState(''),
     [authorized, setAuthorized] = useState(false);
   const identity = invoiceIdentity(user);
-  const scopeKey = [user.id, storeId, orderId, kind].join(':'),
+  const scopeKey = [user.id, storeId, orderId, kind, ...(access ? [access] : [])].join(':'),
     currentScope = useRef(scopeKey);
   currentScope.current = scopeKey;
   const load = useCallback(
@@ -73,7 +80,7 @@ export function InvoiceDocumentDialog({
         signal.throwIfAborted();
         if (version !== generation.current || currentScope.current !== scopeKey) return;
         const next = {
-          path: invoicePreviewPath(user.id, storeId, orderId, kind),
+          path: invoicePreviewPath(user.id, storeId, orderId, kind, access),
           scopeKey,
           number: null,
           revision: crypto.randomUUID(),
@@ -99,7 +106,7 @@ export function InvoiceDocumentDialog({
         }
       }
     },
-    [identity, storeId, orderId, kind, online, scopeKey],
+    [identity, storeId, orderId, kind, access, online, scopeKey],
   );
   useEffect(() => {
     const current = new AbortController();
@@ -172,7 +179,8 @@ export function InvoiceDocumentDialog({
         content?.querySelector('meta[name="pos-invoice-scope"]')?.getAttribute('content') !==
           value.scopeKey ||
         actualUrl?.origin !== window.location.origin ||
-        actualUrl?.pathname !== value.path ||
+        (actualUrl?.pathname ?? '') + (actualUrl?.search ?? '') !== value.path ||
+        actualUrl?.hash !== '' ||
         rendered.current?.revision !== value.revision ||
         currentScope.current !== value.scopeKey
       ) {
@@ -240,7 +248,7 @@ export function InvoiceDocumentDialog({
       if (!online || !controller.current) throw new Error('Connect to download a current invoice.');
       const signal = invoiceActorSignal(user, controller.current.signal);
       await currentInvoiceSession(user, storeId, signal);
-      const value = await readInvoiceDocument(user.id, storeId, orderId, kind, signal);
+      const value = await readInvoiceDocument(user.id, storeId, orderId, kind, signal, access);
       await currentInvoiceSession(user, storeId, signal);
       signal.throwIfAborted();
       const url = URL.createObjectURL(new Blob([value.html], { type: 'text/html;charset=utf-8' })),
@@ -348,7 +356,9 @@ export function InvoiceDocumentAction(props: InvoiceDocumentProps) {
             ':' +
             props.orderId +
             ':' +
-            props.kind
+            props.kind +
+            ':' +
+            (props.access || 'owned-store')
           }
           {...props}
           onClose={() => setOpen(false)}

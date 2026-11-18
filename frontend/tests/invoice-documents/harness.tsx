@@ -19,7 +19,10 @@ function Harness() {
   const [user, setUser] = useState(initial),
     [storeId, setStore] = useState('1'),
     [orderId, setOrder] = useState('12345'),
-    [online, setOnline] = useState(true);
+    [online, setOnline] = useState(true),
+    [access, setAccess] = useState<'global-online' | undefined>(
+      new URLSearchParams(location.search).has('global') ? 'global-online' : undefined,
+    );
   async function actor() {
     const next = { ...initial, id: '55' };
     setRequestOperator(next.id);
@@ -33,8 +36,17 @@ function Harness() {
       <button onClick={() => setStore('2')}>Change store</button>
       <button onClick={() => setOrder('12346')}>Change order</button>
       <button onClick={() => void actor()}>Change operator</button>
+      <button onClick={() => setAccess((value) => (value ? undefined : 'global-online'))}>
+        Change invoice access
+      </button>
       <p>Current operator {user.id}</p>
-      <OrderInvoiceActions user={user} storeId={storeId} orderId={orderId} online={online} />
+      <OrderInvoiceActions
+        access={access}
+        user={user}
+        storeId={storeId}
+        orderId={orderId}
+        online={online}
+      />
     </main>
   );
 }

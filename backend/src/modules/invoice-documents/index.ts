@@ -19,6 +19,12 @@ export function registerInvoiceDocuments(
   options: InvoiceDocumentOptions = invoiceDocumentOptions(),
   fetcher: typeof fetch = fetch,
 ) {
+  const accessQuery = z.object({ access: z.literal('global-online').optional() }).strict();
+  const selection = (request: FastifyRequest) =>
+    invoiceDocumentScope.parse({
+      ...invoiceDocumentScope.parse(request.params),
+      ...accessQuery.parse(request.query),
+    });
   async function assertCurrentSession(request: FastifyRequest) {
     if (!request.authSessionValid && config.DEMO_MODE) return;
     if (!request.authSessionValid || !(await request.authSessionValid()))
@@ -32,7 +38,10 @@ export function registerInvoiceDocuments(
     '/api/v1/operators/:operatorId/stores/:storeId/orders/:orderId/invoices/:kind/preview',
     { config: { trace: { module: 'checkout', resource: 'invoice-preview', action: 'read' } } },
     async (request, reply) => {
-      const scope = invoicePreviewScope.parse(request.params),
+      const scope = invoicePreviewScope.parse({
+          ...invoicePreviewScope.parse(request.params),
+          ...accessQuery.parse(request.query),
+        }),
         user = authenticated(request);
       // Browser frame navigations cannot set custom headers. The captured actor
       // is asserted by the path and MUST match the fresh revocable cookie identity.
@@ -46,7 +55,8 @@ export function registerInvoiceDocuments(
           'OPERATOR_CHANGED',
           'The signed-in operator changed. Refresh this workspace.',
         );
-      z.object({}).strict().parse(request.query);
+      if (scope.access && !['online', 'same-day'].includes(scope.kind))
+        throw new AppError(400, 'INVALID_REQUEST', 'Choose a supported global invoice.');
       reply
         .header('Cache-Control', 'no-store')
         .header('Pragma', 'no-cache')
@@ -56,10 +66,18 @@ export function registerInvoiceDocuments(
         scope.kind === 'store'
           ? await readStore(user, scope.storeId, scope.orderId)
           : scope.kind === 'online'
-            ? await read(user, { storeId: scope.storeId, orderId: scope.orderId })
+            ? await read(user, {
+                storeId: scope.storeId,
+                orderId: scope.orderId,
+                ...(scope.access ? { access: scope.access } : {}),
+              })
             : await readScoped(
                 user,
-                { storeId: scope.storeId, orderId: scope.orderId },
+                {
+                  storeId: scope.storeId,
+                  orderId: scope.orderId,
+                  ...(scope.access ? { access: scope.access } : {}),
+                },
                 scope.kind,
               );
       await assertCurrentSession(request);
@@ -88,8 +106,7 @@ export function registerInvoiceDocuments(
             'OPERATOR_CHANGED',
             'The signed-in operator changed. Refresh this workspace.',
           );
-        z.object({}).strict().parse(request.query);
-        const document = await read(user, invoiceDocumentScope.parse(request.params));
+        const document = await read(user, selection(request));
         await assertCurrentSession(request);
         reply
           .header('Cache-Control', 'no-store')
@@ -116,9 +133,8 @@ export function registerInvoiceDocuments(
           'OPERATOR_CHANGED',
           'The signed-in operator changed. Refresh this workspace.',
         );
-      z.object({}).strict().parse(request.query);
       reply.header('Cache-Control', 'no-store');
-      const result = await capabilities(user, invoiceDocumentScope.parse(request.params));
+      const result = await capabilities(user, selection(request));
       await assertCurrentSession(request);
       return result;
     },
@@ -143,9 +159,8 @@ export function registerInvoiceDocuments(
             'OPERATOR_CHANGED',
             'The signed-in operator changed. Refresh this workspace.',
           );
-        z.object({}).strict().parse(request.query);
         reply.header('Cache-Control', 'no-store').header('Referrer-Policy', 'no-referrer');
-        const result = await readScoped(user, invoiceDocumentScope.parse(request.params), kind);
+        const result = await readScoped(user, selection(request), kind);
         await assertCurrentSession(request);
         return result;
       },

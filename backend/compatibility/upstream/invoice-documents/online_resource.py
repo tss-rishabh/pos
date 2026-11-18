@@ -5,6 +5,7 @@ from controllers.PosInvoiceSecurity import (
     require_invoice_scope, stamp_invoice_response, clear_invoice_scope,
     safe_invoice_logger,
 )
+from pos_invoice_documents_global import stamp_global
 from pos_invoice_documents_history import require_history, clear_history, stamp_history
 
 
@@ -20,6 +21,8 @@ class OnlineInvoiceResource:
             resp.content_type = "text/html; charset=utf-8"
             stamp_invoice_response(resp, html, scope)
             stamp_history(resp, html, history, scope["service_key"])
+            if history.get("global_capability"):
+                stamp_global(resp, html, history["global_capability"], scope["service_key"])
         except Exception as error:
             # Log only static identifiers while the validated correlation is
             # still present; never pass the source exception or HTML to logs.

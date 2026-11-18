@@ -1,3 +1,15 @@
+import { invoiceHistoryReader, type InvoiceHistoryReader } from './history.js';
+import {
+  issueInvoiceHistoryProof,
+  assertInvoiceHistoryResponse,
+  invoiceHistoryContract,
+} from './history-proof.js';
+import {
+  globalOnlineInvoiceContract,
+  issueGlobalOnlineInvoiceProof,
+  assertGlobalOnlineInvoiceResponse,
+  sameInvoiceAuthority,
+} from './global-proof.js';
 import { randomBytes, randomUUID } from 'node:crypto';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -36,6 +48,7 @@ export function scopedInvoiceService(
   config: Config,
   options: InvoiceDocumentOptions,
   fetcher: typeof fetch = fetch,
+  readHistory: InvoiceHistoryReader = invoiceHistoryReader(config, options),
 ) {
   const capture = invoiceScopeSnapshot(db);
   return async (user: Principal, raw: InvoiceDocumentScope, kind: 'same-day' | 'express') => {
@@ -43,13 +56,18 @@ export function scopedInvoiceService(
       original = await capture(user, scope),
       selected = kind === 'express' ? selectedExpressIds(original.ownership) : [];
     if (
+      (original.globalOnline && kind === 'express') ||
       selected === null ||
       (kind === 'same-day' &&
-        (!fullInvoiceOwnership(original.ownership) || !hasSourceSameDayInvoice(original.ownership)))
+        (!(original.globalOnline || fullInvoiceOwnership(original.ownership)) ||
+          !hasSourceSameDayInvoice(original.ownership)))
     )
       throw invoiceScopeUnavailable();
     const endpoint = kind === 'express' ? options.expressUrl : options.sameDayUrl;
     if (
+      (original.globalOnline &&
+        (options.globalOnlineContract !== globalOnlineInvoiceContract ||
+          options.historyContract !== invoiceHistoryContract)) ||
       !endpoint ||
       !options.serviceKey ||
       !/^[!-~]{32,4096}$/.test(options.serviceKey) ||
@@ -100,10 +118,44 @@ export function scopedInvoiceService(
       selected,
       options.serviceKey,
     );
+    let historyProof: string | null = null;
+    let globalProof: string | null = null;
+    if (original.globalOnline) {
+      const history = await readHistory(scope, original);
+      const beforeRender = await capture(user, scope);
+      if (!sameInvoiceAuthority(beforeRender, original))
+        throw new AppError(
+          409,
+          'INVOICE_SCOPE_CHANGED',
+          'The invoice changed while it was loading. Refresh its current details.',
+        );
+      historyProof = issueInvoiceHistoryProof(
+        proofScope,
+        scope.storeId,
+        original,
+        history,
+        options.serviceKey,
+      );
+      globalProof = issueGlobalOnlineInvoiceProof(
+        'same-day',
+        proofScope,
+        scope.storeId,
+        original,
+        historyProof,
+        options.serviceKey,
+      );
+    }
     let response: Response;
     try {
       response = await fetcher(url, {
         headers: {
+          ...(globalProof && historyProof
+            ? {
+                'X-POS-Global-Invoice': globalProof,
+                'X-POS-Global-Invoice-Contract': globalOnlineInvoiceContract,
+                'X-POS-Invoice-History': historyProof,
+              }
+            : {}),
           Accept: 'text/html',
           'X-POS-Invoice-Key': options.serviceKey,
           'X-POS-Invoice-Contract': invoiceSecurityContract,
@@ -128,6 +180,10 @@ export function scopedInvoiceService(
     const html = await boundedText(response);
     assertInvoiceResponseProof(response, proofScope, html, options.serviceKey);
     assertScopedInvoiceResponse(response, capability, html, options.serviceKey);
+    if (globalProof && historyProof) {
+      assertGlobalOnlineInvoiceResponse(response, globalProof, html, options.serviceKey);
+      assertInvoiceHistoryResponse(response, historyProof, html, options.serviceKey);
+    }
     if (!/<(?:html|body|table|div|p)\b/i.test(html))
       throw new AppError(
         502,
@@ -135,7 +191,7 @@ export function scopedInvoiceService(
         'The invoice service returned an unsupported document.',
       );
     const current = await capture(user, scope);
-    if (current.binding !== original.binding)
+    if (!sameInvoiceAuthority(current, original))
       throw new AppError(
         409,
         'INVOICE_SCOPE_CHANGED',
@@ -143,7 +199,9 @@ export function scopedInvoiceService(
       );
     return scopedInvoiceDocument.parse({
       kind,
-      ...scope,
+      storeId: scope.storeId,
+      orderId: scope.orderId,
+      ...(scope.access ? { access: scope.access } : {}),
       number:
         kind === 'express'
           ? current.ownership.mappings.find((row) => row.storeId === scope.storeId)?.number || null

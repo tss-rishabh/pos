@@ -3,6 +3,7 @@ import { AppError } from '../../domain/errors.js';
 import { invoiceIdentifier } from './contracts.js';
 export const invoicePreviewScope = z
   .object({
+    access: z.literal('global-online').optional(),
     operatorId: invoiceIdentifier,
     storeId: invoiceIdentifier,
     orderId: invoiceIdentifier,
@@ -26,7 +27,13 @@ export function invoicePreviewHtml(html: string, raw: InvoicePreviewScope, numbe
       'INVOICE_RESPONSE_INVALID',
       'The invoice service returned an unsupported document.',
     );
-  const identity = [scope.operatorId, scope.storeId, scope.orderId, scope.kind].join(':');
+  const identity = [
+    scope.operatorId,
+    scope.storeId,
+    scope.orderId,
+    scope.kind,
+    ...(scope.access ? [scope.access] : []),
+  ].join(':');
   return html.replace(
     marker,
     marker +

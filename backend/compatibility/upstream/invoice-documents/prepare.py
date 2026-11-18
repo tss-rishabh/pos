@@ -30,6 +30,7 @@ def build(source_root=None, write=False):
         value = subprocess.check_output(["git", "show", f"{COMMIT}:{path}"], cwd=repository)
         templates[path] = hashlib.sha256(value).hexdigest()
     resource = (ROOT / "online_resource.py").read_text()
+    global_scope = (ROOT / "global_scope.py").read_text()
     native_source = (ROOT.parents[2] / "src/modules/invoice-documents/native.ts").read_text()
     native = (ROOT / "native.py").read_text()
     for identifier, placeholder in (("invoiceHeaderNativeSql", "HEADER_SQL"), ("invoiceLineNativeSql", "LINE_SQL")):
@@ -76,6 +77,7 @@ def build(source_root=None, write=False):
     express_resource = (ROOT / "express_resource.py").read_text()
     factory = ((ROOT / "factory.py").read_text()
                .replace("@@BASE_FACTORY_SHA256@@", base["factorySha256"])
+               .replace("@@GLOBAL_SHA256@@", hashlib.sha256(global_scope.encode()).hexdigest())
                .replace("@@RESOURCE_SHA256@@", hashlib.sha256(resource.encode()).hexdigest())
                .replace("@@HISTORY_SHA256@@", hashlib.sha256(history.encode()).hexdigest())
                .replace("@@NATIVE_SHA256@@", hashlib.sha256(native.encode()).hexdigest())
@@ -88,6 +90,7 @@ def build(source_root=None, write=False):
         'wsgi_app = "pos_invoice_documents_factory:create_app()"')
     additions = {"pos_invoice_documents.py": resource,
                  "pos_invoice_documents_history.py": history,
+                 "pos_invoice_documents_global.py": global_scope,
                  "pos_invoice_documents_native.py": native,
                  "pos_invoice_documents_scoped.py": scoped,
                  "pos_invoice_documents_express.py": express_resource,

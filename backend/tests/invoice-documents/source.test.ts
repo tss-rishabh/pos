@@ -28,6 +28,16 @@ it('executes8 pinned original online grouping/calculation/template cases without
           readOnlySelectCount: z.number(),
         }),
       ),
+      issuerContexts: z
+        .array(
+          z.object({
+            template: z.string(),
+            contextStoreIds: z.array(z.string()),
+            htmlSha256: z.array(z.string()),
+            sourceIssuerRetained: z.literal(true),
+          }),
+        )
+        .length(2),
       splitSelectionHazard: z.object({
         requestedHpIds: z.array(z.number()),
         sourceQuantity: z.number(),
@@ -52,13 +62,24 @@ it('executes8 pinned original online grouping/calculation/template cases without
             encoding: 'utf8',
             timeout: 20000,
             maxBuffer: 1024 * 1024,
-            env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' },
+            env: {
+              PATH: process.env.PATH,
+              HOME: process.env.HOME,
+              PYTHONDONTWRITEBYTECODE: '1',
+              UV_CACHE_DIR: process.env.UV_CACHE_DIR,
+              UV_OFFLINE: 'true',
+            },
             stdio: ['pipe', 'pipe', 'pipe'],
           },
         ),
       ) as unknown,
     );
   expect(result.cases).toHaveLength(8);
+  for (const proof of result.issuerContexts) {
+    expect(proof.contextStoreIds).toEqual(['1', '2']);
+    expect(proof.htmlSha256).toHaveLength(2);
+    expect(proof.htmlSha256[0]).toBe(proof.htmlSha256[1]);
+  }
   const byName = new Map(result.cases.map((value) => [value.name, value]));
   expect(byName.get('old-maharashtra')!.additional).toMatchObject({
     total_taxable: 95,
@@ -140,9 +161,9 @@ it('executes8 pinned original online grouping/calculation/template cases without
   });
   const directory = resolve('parity/evidence/invoice-documents');
   await mkdir(directory, { recursive: true });
-  const temporary = resolve(directory, 'source-oracle.json.tmp');
+  const temporary = resolve(directory, 'global-source-oracle.json.tmp');
   await writeFile(temporary, JSON.stringify({ ...result, cases: evidence }, null, 2) + '\n');
-  await rename(temporary, resolve(directory, 'source-oracle.json'));
+  await rename(temporary, resolve(directory, 'global-source-oracle.json'));
 }, 30000);
 
 it('executes the private online wrapper/credential/stamp and additive startup artifact checks', () => {
@@ -166,7 +187,13 @@ it('executes the private online wrapper/credential/stamp and additive startup ar
       encoding: 'utf8',
       timeout: 20000,
       maxBuffer: 128 * 1024,
-      env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' },
+      env: {
+        PATH: process.env.PATH,
+        HOME: process.env.HOME,
+        PYTHONDONTWRITEBYTECODE: '1',
+        UV_CACHE_DIR: process.env.UV_CACHE_DIR,
+        UV_OFFLINE: 'true',
+      },
       stdio: ['pipe', 'pipe', 'pipe'],
     },
   );

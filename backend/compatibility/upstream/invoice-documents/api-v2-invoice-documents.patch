@@ -1,6 +1,6 @@
 --- /dev/null
 +++ b/pos_invoice_documents.py
-@@ -0,0 +1,32 @@
+@@ -0,0 +1,35 @@
 +"""Only mounted by the digest-checked isolated read-only invoice factory."""
 +from controllers import InvoiceController
 +import falcon
@@ -8,6 +8,7 @@
 +    require_invoice_scope, stamp_invoice_response, clear_invoice_scope,
 +    safe_invoice_logger,
 +)
++from pos_invoice_documents_global import stamp_global
 +from pos_invoice_documents_history import require_history, clear_history, stamp_history
 +
 +
@@ -23,6 +24,8 @@
 +            resp.content_type = "text/html; charset=utf-8"
 +            stamp_invoice_response(resp, html, scope)
 +            stamp_history(resp, html, history, scope["service_key"])
++            if history.get("global_capability"):
++                stamp_global(resp, html, history["global_capability"], scope["service_key"])
 +        except Exception as error:
 +            # Log only static identifiers while the validated correlation is
 +            # still present; never pass the source exception or HTML to logs.
@@ -35,7 +38,7 @@
 +            clear_invoice_scope()
 --- /dev/null
 +++ b/pos_invoice_documents_history.py
-@@ -0,0 +1,134 @@
+@@ -0,0 +1,136 @@
 +"""Purpose-bound warehouse history; never execute a lifetime MySQL fallback."""
 +import base64
 +import contextvars
@@ -75,7 +78,7 @@
 +    return isinstance(value, str) and bool(re.fullmatch(r"(?:0|[1-9][0-9]{0,18})" if zero else r"[1-9][0-9]{0,18}", value)) and int(value) <= 9223372036854775807
 +
 +
-+def require_history(req, invoice_scope, reader):
++def require_history(req, invoice_scope, reader, kind="online"):
 +    _active.set(None)
 +    capability = req.get_header("X-POS-Invoice-History") or ""
 +    try:
@@ -111,10 +114,12 @@
 +        times = [value.timestamp() for value in dates]
 +        if any(stamp > now + 5 for stamp in times) or min(times[1:]) < times[0] or times[2] + 5 < times[1] or now - times[0] > 3605:
 +            raise ValueError()
-+        snapshot = native_snapshot(reader, value)
++        snapshot = native_snapshot(reader, value, include_parts=True)
 +        if snapshot["customerId"] != value["customerId"] or not hmac.compare_digest(snapshot["binding"], value["nativeSnapshot"]):
 +            raise ValueError()
 +        value["capability"] = capability
++        from pos_invoice_documents_global import require_global
++        value["global_capability"] = require_global(req, invoice_scope, value, snapshot, kind=kind)
 +        _active.set(value)
 +        return value
 +    except (ValueError, TypeError, KeyError, AttributeError, OverflowError):
@@ -171,21 +176,97 @@
 +    def expunge(self, value):
 +        return self.reader.expunge(value)
 --- /dev/null
++++ b/pos_invoice_documents_global.py
+@@ -0,0 +1,72 @@
++"""Explicit global-online authority: a context store is never a legal issuer or order owner."""
++import base64
++import hashlib
++import hmac
++import json
++import re
++import time
++
++CONTRACT = 'pos-global-online-invoice-v1'
++
++
++def unique(pairs):
++    value = {}
++    for key, item in pairs:
++        if key in value:
++            raise ValueError('Duplicate global invoice field')
++        value[key] = item
++    return value
++
++
++def require_global(req, invoice_scope, history, snapshot, kind='online'):
++    parts = snapshot['parts']
++    token = req.get_header('X-POS-Global-Invoice') or ''
++    genuine = not parts[8] and parts[6] is None
++    ids = {row[0] for row in parts[9]}
++    owned_express = bool(parts[10]) and all(row[2] == history['storeId'] and row[1] in ids for row in parts[10]) and {row[1] for row in parts[10]} == ids
++    owned_mapping = len(parts[8]) == 1 and parts[8][0][1] == history['storeId']
++    owned_local = parts[5] == 'SW' and parts[6] == history['storeId'] and not parts[7] and all(row[1] == '4' for row in parts[9])
++    if not token and (owned_mapping or owned_express or owned_local):
++        return None
++    if not genuine or len(token) > 8192 or req.get_header('X-POS-Global-Invoice-Contract') != CONTRACT:
++        raise ValueError('Global invoice scope unavailable')
++    contract, body, signature = token.split('.')
++    if contract != CONTRACT or not re.fullmatch(r'[A-Za-z0-9_-]{1,4096}', body) or not re.fullmatch(r'[A-Za-z0-9_-]{43}', signature):
++        raise ValueError('Global invoice scope unavailable')
++    key = invoice_scope['service_key'].encode()
++    if not hmac.compare_digest(base64.urlsafe_b64decode(signature+'='), hmac.new(key,(contract+'.'+body).encode(),hashlib.sha256).digest()):
++        raise ValueError('Global invoice signature unavailable')
++    value = json.loads(base64.urlsafe_b64decode(body+'='*(-len(body)%4)),object_pairs_hook=unique)
++    if set(value) != {'v','purpose','contract','kind','orderId','operatorId','contextStoreId','ownerStoreId','customerId','role','userType','issuerPolicy','selection','nativeSnapshot','actorSnapshot','historyProofHash','nonce','requestId','issuedAt','expiresAt'}:
++        raise ValueError('Global invoice fields unavailable')
++    if type(value['v']) is not int or value['v'] != 1 or value['purpose'] != 'global-online-invoice' or value['contract'] != CONTRACT or value['kind'] != kind or kind not in ('online','same-day'):
++        raise ValueError('Global invoice purpose unavailable')
++    for name in ('orderId','operatorId','contextStoreId','customerId'):
++        if not isinstance(value[name],str) or not re.fullmatch(r'[1-9][0-9]{0,18}',value[name]) or int(value[name]) > 9223372036854775807:
++            raise ValueError('Global invoice identity unavailable')
++    if value['ownerStoreId'] is not None or type(value['role']) is not int or value['role'] not in (1,2,3,4,5) or type(value['userType']) is not int or value['userType'] != 1:
++        raise ValueError('Global invoice reader unavailable')
++    if value['issuerPolicy'] != ('pinned-online-renderer' if kind=='online' else 'source-sdd-renderer') or value['selection'] != ('full-order' if kind=='online' else 'source-is-sdd-shipment-0'):
++        raise ValueError('Global invoice issuer policy unavailable')
++    for name in ('nativeSnapshot','actorSnapshot','historyProofHash'):
++        if not isinstance(value[name],str) or not re.fullmatch(r'[a-f0-9]{64}',value[name]):
++            raise ValueError('Global invoice binding unavailable')
++    if any(value[name] != history[name] for name in ('orderId','operatorId','customerId','nonce','requestId')) or value['contextStoreId'] != history['storeId'] or value['nativeSnapshot'] != snapshot['binding'] or value['historyProofHash'] != hashlib.sha256(history['capability'].encode()).hexdigest():
++        raise ValueError('Global invoice binding changed')
++    if value['orderId'] != invoice_scope['order_id'] or value['operatorId'] != invoice_scope['operator_id'] or value['nonce'] != invoice_scope['nonce'] or value['requestId'] != invoice_scope['request_id']:
++        raise ValueError('Global invoice request changed')
++    now=int(time.time())
++    if type(value['issuedAt']) is not int or type(value['expiresAt']) is not int or not 0 < value['expiresAt']-value['issuedAt'] <= 30 or value['issuedAt'] > now+5 or value['expiresAt'] <= now:
++        raise ValueError('Global invoice expired')
++    ids={row[0] for row in parts[9]}
++    if not ids or len(ids) != len(parts[9]) or any(row[1] not in ids for row in parts[10]):
++        raise ValueError('Global invoice lines unavailable')
++    if kind=='same-day' and not (parts[7] and any(row[1] in ('3','4') for row in parts[9]) and any(row[1] not in ('3','4') for row in parts[9])):
++        raise ValueError('Global SDD selection unavailable')
++    return token
++
++
++def stamp_global(resp, html, token, key):
++    message='\n'.join((CONTRACT,hashlib.sha256(token.encode()).hexdigest(),hashlib.sha256(html.encode()).hexdigest()))
++    resp.set_header('X-POS-Global-Invoice-Contract',CONTRACT)
++    resp.set_header('X-POS-Global-Invoice-Proof',hmac.new(key.encode(),message.encode(),hashlib.sha256).hexdigest())
+--- /dev/null
 +++ b/pos_invoice_documents_native.py
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,29 @@
 +"""Identical native MySQL fingerprint as the Node writer-side scope capture."""
 +import hashlib
 +import json
++import re
 +from sqlalchemy import text
 +
-+HEADER_SQL = "LOWER(SHA2(CAST(JSON_OBJECT('id',orders.id,'customer',orders.user_id,'payment_method',orders.payment_method,'payment_status',orders.payment_status,'order_status',orders.order_status,'order_amt',orders.order_amt,'pay_amt',orders.pay_amt,'cashback_used',orders.cashback_used,'tss_money_used',orders.tss_money_used,'tss_points_used',orders.tss_points_used,'voucher_used',orders.voucher_used,'voucher_amt_used',orders.voucher_amt_used,'coupon_used',orders.coupon_used,'coupon_amt_used',orders.coupon_amt_used,'calculation',orders.is_new_calculation,'store_disc_pg',orders.store_disc_pg,'fraction_value',orders.fraction_value,'cod_charges',orders.cod_charges,'gifting_charges',orders.gifting_charges,'shipping_amt',orders.shipping_amt,'hl_charges',orders.hl_charges,'express_charges',orders.express_charges,'ref_flag',orders.ref_flag,'address_id',orders.has_address_id,'resolved_address',(SELECT JSON_OBJECT('id',has_addresses.id,'user_id',has_addresses.user_id,'firstname',has_addresses.firstname,'lastname',has_addresses.lastname,'address',has_addresses.address,'address1',has_addresses.address1,'address2',has_addresses.address2,'address3',has_addresses.address3,'address4',has_addresses.address4,'flat',has_addresses.flat,'city',has_addresses.city,'postcode',has_addresses.postcode,'country_id',has_addresses.country_id,'country_code',has_addresses.country_code,'zone_id',has_addresses.zone_id,'phone_no',has_addresses.phone_no,'is_active',has_addresses.is_active,'updated_at',CAST(has_addresses.updated_at AS CHAR)) FROM has_addresses WHERE has_addresses.id=orders.has_address_id AND has_addresses.user_id=orders.user_id LIMIT 1),'first_name',orders.first_name,'last_name',orders.last_name,'address1',orders.address1,'address2',orders.address2,'address3',orders.address3,'city',orders.city,'postal_code',orders.postal_code,'phone_no',orders.phone_no,'zone_id',orders.zone_id,'country_id',orders.country_id,'courier',orders.courier,'created_at',CAST(orders.created_at AS CHAR),'updated_at',CAST(orders.updated_at AS CHAR)) AS CHAR CHARACTER SET utf8mb4),256))"
++HEADER_SQL = "CASE WHEN (SELECT COUNT(*) FROM gift_vouchers gv LEFT JOIN has_products ghp ON ghp.gift_voucher_id=gv.id WHERE gv.order_id=orders.id)>10000 THEN NULL ELSE LOWER(SHA2(CAST(JSON_OBJECT('id',orders.id,'customer',orders.user_id,'payment_method',orders.payment_method,'payment_status',orders.payment_status,'order_status',orders.order_status,'order_amt',orders.order_amt,'pay_amt',orders.pay_amt,'cashback_used',orders.cashback_used,'tss_money_used',orders.tss_money_used,'tss_points_used',orders.tss_points_used,'voucher_used',orders.voucher_used,'voucher_amt_used',orders.voucher_amt_used,'coupon_used',orders.coupon_used,'coupon_amt_used',orders.coupon_amt_used,'calculation',orders.is_new_calculation,'store_disc_pg',orders.store_disc_pg,'fraction_value',orders.fraction_value,'cod_charges',orders.cod_charges,'gifting_charges',orders.gifting_charges,'shipping_amt',orders.shipping_amt,'hl_charges',orders.hl_charges,'express_charges',orders.express_charges,'ref_flag',orders.ref_flag,'address_id',orders.has_address_id,'resolved_address',(SELECT JSON_OBJECT('id',has_addresses.id,'user_id',has_addresses.user_id,'firstname',has_addresses.firstname,'lastname',has_addresses.lastname,'address',has_addresses.address,'address1',has_addresses.address1,'address2',has_addresses.address2,'address3',has_addresses.address3,'address4',has_addresses.address4,'flat',has_addresses.flat,'city',has_addresses.city,'postcode',has_addresses.postcode,'country_id',has_addresses.country_id,'country_code',has_addresses.country_code,'zone_id',has_addresses.zone_id,'phone_no',has_addresses.phone_no,'is_active',has_addresses.is_active,'updated_at',CAST(has_addresses.updated_at AS CHAR)) FROM has_addresses WHERE has_addresses.id=orders.has_address_id AND has_addresses.user_id=orders.user_id LIMIT 1),'order_ref_no',orders.order_ref_no,'parent_order_id',orders.parent_order_id,'addon_current',(SELECT JSON_OBJECT('id',ia.id,'order',ia.order_id,'platform_fee',ia.platform_fee) FROM order_addons ia WHERE ia.order_id=orders.id LIMIT 1),'addon_parent',CASE WHEN NOT EXISTS(SELECT 1 FROM order_addons ia WHERE ia.order_id=orders.id) AND COALESCE(orders.parent_order_id,0)<>0 THEN (SELECT JSON_OBJECT('id',pa.id,'order',pa.order_id,'platform_fee',pa.platform_fee) FROM order_addons pa WHERE pa.order_id=orders.parent_order_id LIMIT 1) ELSE NULL END,'bought_vouchers',(SELECT JSON_ARRAYAGG(JSON_OBJECT('id',gv.id,'order',gv.order_id,'initial_value',gv.voucher_initial_value,'hp_id',ghp.id,'hp_order',ghp.order_id,'platform',ghp.order_platform_id)) OVER (ORDER BY gv.id,ghp.id ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) FROM gift_vouchers gv LEFT JOIN has_products ghp ON ghp.gift_voucher_id=gv.id WHERE gv.order_id=orders.id LIMIT 1),'first_name',orders.first_name,'last_name',orders.last_name,'address1',orders.address1,'address2',orders.address2,'address3',orders.address3,'city',orders.city,'postal_code',orders.postal_code,'phone_no',orders.phone_no,'zone_id',orders.zone_id,'country_id',orders.country_id,'courier',orders.courier,'created_at',CAST(orders.created_at AS CHAR),'updated_at',CAST(orders.updated_at AS CHAR)) AS CHAR CHARACTER SET utf8mb4),256)) END"
 +LINE_SQL = "LOWER(SHA2(CAST(JSON_OBJECT('id',has_products.id,'order',has_products.order_id,'product',has_products.prod_id,'variant',has_products.sub_prod_id,'quantity',has_products.qty,'price',has_products.price,'gst',has_products.gst,'prod_gst',has_products.prod_gst,'pre_gst_amt',has_products.pre_gst_amt,'disc',has_products.disc,'hp_tss_points_used',has_products.hp_tss_points_used,'store_disc_pg',has_products.store_disc_pg,'wallet_disc',has_products.wallet_disc,'voucher_disc',has_products.voucher_disc,'normal_price',has_products.normal_price,'special_price',has_products.special_price,'exclusive_price',has_products.exclusive_price,'is_exclusive_order',has_products.is_exclusive_order,'exclusive_saving',has_products.exclusive_saving,'gift_voucher_id',has_products.gift_voucher_id,'status',has_products.status) AS CHAR CHARACTER SET utf8mb4),256))"
 +
 +
 +def native_snapshot(reader, scope, include_parts=False):
 +    order_id, store_id = scope["orderId"], scope["storeId"]
 +    order = reader.execute(text("SELECT CAST(id AS CHAR) AS id,CAST(user_id AS CHAR) AS customer_id,location_type,CAST(location_id AS CHAR) AS location_id,is_split_order,CAST(has_address_id AS CHAR) AS address_id," + HEADER_SQL + " AS native_hash FROM orders WHERE id=:order_id LIMIT 1"), {"order_id": order_id}).mappings().first()
-+    if not order:
++    if not order or not isinstance(order["native_hash"], str) or not re.fullmatch(r"[a-f0-9]{64}", order["native_hash"]):
 +        raise ValueError("Invoice snapshot unavailable")
 +    mappings = list(reader.execute(text("SELECT CAST(id AS CHAR) AS id,CAST(store_id AS CHAR) AS store_id,CAST(counter_id AS CHAR) AS counter_id,order_invoice FROM order_stores WHERE order_id=:order_id ORDER BY order_stores.id LIMIT 2"), {"order_id": order_id}).mappings())
 +    lines = list(reader.execute(text("SELECT CAST(id AS CHAR) AS id,CAST(order_platform_id AS CHAR) AS platform_id," + LINE_SQL + " AS native_hash FROM has_products WHERE order_id=:order_id ORDER BY has_products.id LIMIT 10001"), {"order_id": order_id}).mappings())
@@ -1694,16 +1775,17 @@
 +        return template_env.get_template("Invoicer/new-index.html")
 --- /dev/null
 +++ b/pos_invoice_documents_factory.py
-@@ -0,0 +1,56 @@
+@@ -0,0 +1,58 @@
 +"""Extension of the already reviewed isolated invoice worker, never API-v2 main."""
 +import hashlib
 +import hmac
 +from pathlib import Path
 +
 +BASE_FACTORY_SHA256 = "87dfe08369554b251fdd740aca08665eb8e3ffe980c0a68e587b34fb415959ab"
-+RESOURCE_SHA256 = "67950f2611793784eed92e9f87058c1d17148fbbc28a68ffc9888a39ff44aeed"
-+HISTORY_SHA256 = "6f879f010e9a3ad40cae733a4a49201333790cd33316a3e3d6d46e811a83844c"
-+NATIVE_SHA256 = "5995b1fc5b6ff6c5da67fda4b92d91eeb4d7515373f039029811bbc03b084200"
++GLOBAL_SHA256 = "9dc4158b9e28f771a9ec0ef9331765cc012c811e8a962a580243883cf88b05d9"
++RESOURCE_SHA256 = "90ee65846a0d4cb9d94883464b75eed2e5f9a323a578ea27726fb6ff7a354104"
++HISTORY_SHA256 = "4e5c1a2641896a99f1a7f1e188020f3d613087b1181319b28469741ee1e4609b"
++NATIVE_SHA256 = "0985e5074c933448fd92dad3b88452b4f509535ecc588a8fff6c649ac2366a9c"
 +SCOPED_SHA256 = "a00f505b9b1e9003f60b97c44aa2324a5e1bdec4df63ef93d2513f806eea6410"
 +EXPRESS_RESOURCE_SHA256 = "8d95ecd64891e9b47e1fe960ed2084923f9d71abbbf2d8a9ae0bfb93b4a5ff24"
 +EXPRESS_CONTROLLER_SHA256 = "bce4454f995d567a8593875383866ae357f099977e3ee36fee02c93f1917a152"
@@ -1715,6 +1797,7 @@
 +    for path, expected in {
 +        "pos_invoice_factory.py": BASE_FACTORY_SHA256,
 +        "pos_invoice_documents.py": RESOURCE_SHA256,
++        "pos_invoice_documents_global.py": GLOBAL_SHA256,
 +        "pos_invoice_documents_history.py": HISTORY_SHA256,
 +        "pos_invoice_documents_native.py": NATIVE_SHA256,
 +        "pos_invoice_documents_scoped.py": SCOPED_SHA256,
