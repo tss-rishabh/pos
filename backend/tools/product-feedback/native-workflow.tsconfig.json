@@ -1,0 +1,8 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "../..", "types": ["node", "@fastify/cookie"] },
+  "include": [
+    "./native-workflow-fixture.ts",
+    "../../src/modules/checkout/payments/paytmchecksum.d.ts"
+  ]
+}

@@ -80,3 +80,59 @@ privacy. A production-browser test verifies the mounted route, exact order IDs,
 escaped comments, store transitions and malformed ID rejection before requests.
 Dedicated strict TypeScript checks cover both test sets. These proofs
 do not certify all source HTTP routes or production mixed-writer deployment.
+
+## Joined native source, API and built-page workflow
+
+`tools/product-feedback/run-native-workflow.sh` runs five joined workflows on an
+owned disposable MySQL 8.0.39 container. It checks both selected dependency
+artifacts before tool execution, restricts database access to localhost and its
+explicit fixture schema, and removes the container and temporary environment
+afterward. Node 24, Docker with the pinned image cached, `uv`/Python 3.12 and
+the two projects' mitigated npm installs are prerequisites. From the repository
+root, run:
+
+```sh
+PRODUCT_FEEDBACK_SOURCE_ROOT=/path/to/backend-pos-web sh backend/tools/product-feedback/run-native-workflow.sh
+```
+
+An optional `PRODUCT_FEEDBACK_SOURCE_PYTHON` may select an already provisioned
+isolated interpreter with the exact `native-workflow-requirements.txt` packages.
+Otherwise the runner provisions a private temporary environment and cache. It
+never changes the original source environment or a shared npm installation.
+
+The source oracle now also executes the immutable handler bodies on genuine
+Django QuerySets against the same physical fixtures used by the rewrite.
+Unused Order/User/Product/HP model fields are projected away; used field and
+relationship declarations, Meta, display methods and the complete rating model
+come from the pinned source AST. Original URL bindings and LoginRequiredMixin
+presence are checked. The exact feedback template main block is rendered by
+Django; the surrounding shell, unused mathfilters import and CDN/legacy AJAX
+execution are outside this receipt.
+
+The browser loads a production-built `ProductFeedbackPage` at its real route
+shape and talks to `buildApp` through an HTTP proxy. Normal response bodies come from the real server; no API data is fabricated. Native session credentials are created by the
+fixture; production cookie validation, identity reload, current authority,
+request validation, routes and ORM writes run normally. This proves current
+session use, not password/MFA/Google sign-in. One fault-injection case delivers
+the committed POST headers and truncates its JSON body; the UI recovers through
+the actual receipt GET with one POST and four rows.
+
+The joined checks compare all frontend-visible source order/product/rating
+values, duplicate SKU occurrences and known form constraints; four actual source
+inserts match the rewrite's native business fields and defaults. Generated
+rating IDs/timestamps are not compared for equality across separate writes;
+they are not source feedback display values. Partial/null/unknown-option/mobile
+data remains readonly, all five numeric roles are exercised, and wrong
+store/customer/order/product/version and archived-session requests are refused.
+The built page keeps comments out of console and durable browser state and
+renders HTML-like source text safely.
+
+Transport envelopes, stronger current checkout/customer/store authority,
+atomic four-row writes and UUID receipt recovery are intentional adaptations
+already described above. These tests do not assert identical legacy behavior
+for every invalid, partially committed or competing independent-writer request.
+They do not certify the shared application shell, source ASGI/auth middleware,
+NPS, financial checkout, other rating writers, production deployment or complete
+project parity. The scoped checksum-bound receipt is
+`evidence/product-feedback-native-workflow.json`; no release ledger entry is
+promoted automatically.
