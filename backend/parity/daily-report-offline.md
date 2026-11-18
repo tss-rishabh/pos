@@ -22,3 +22,23 @@ Banking, footfall and target are in the same generation as its sales rows. The r
 `BIGQUERY_DAILY_ROLLUP_TABLE` remains the rollup mapping. Module-owned validated options are `BIGQUERY_DAILY_REPORT_PUBLICATIONS_TABLE`, `BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT`, `BIGQUERY_DAILY_REPORT_MAX_CDC_AGE_SECONDS` (300), `BIGQUERY_DAILY_REPORT_MAX_PUBLICATION_AGE_SECONDS` (900) and `BIGQUERY_DAILY_REPORT_MAX_CLOCK_SKEW_SECONDS` (30). The contract option must equal `pos-daily-store-sales-offline-v1`; table identifiers are fully qualified and validated. No real project, dataset, ETL writer or publication is fabricated or provisioned by these changes. Production configuration, immutable publication permissions, CDC completeness and actual warehouse/native differential proof remain release gates.
 
 Evidence: `tests/parity.test.ts` executes the pinned Python merge and float-rounding oracles. `tests/finance/offline-cash.mysql.integration.test.ts` reuses fresh verified-schema/sealed-receipt fixtures for source SQL equality with no receipts, data-reader transaction selection, cash/order deduplication, pending counts and later HP returns. `tests/reports/` validates named query bindings, source/generation/content/clock/empty-result gates, SDK scalar decoding/budgets and sanitized errors without cloud calls. The isolated Chromium harness `frontend/tests/reports/browser-check.mjs` passes five workflows: captured actor/multi-store request, pending/freshness notices, all 32 columns, pagination/full totals and complete formula-safe CSV. Its screenshot and JSON are in `parity/evidence/reports/`. This is bounded implementation evidence, not a claim of deployed BigQuery parity.
+# Daily report table controls — implementation follow-up
+
+The pinned `report/templates/daily_store_report/index.html:228` uses a
+client-loaded DataTable with search, sorting, column visibility, visible-column
+CSV and page lengths 10/25/50/100/500. The React replacement already had column
+visibility and a full-column/full-result CSV, but its fixed 50-row pages and
+missing search/sort/selected-column export did not cover these source controls.
+
+`frontend/src/pages/reports.tsx` now adds those controls over the already-loaded
+bounded report result. Filtering/sorting is memoized, only the current page is
+rendered, and no extra query or client-stored customer/report data is introduced.
+Visible-column CSV follows table search/order; the existing complete CSV keeps
+its original unfiltered data, columns and totals. Both retain the full server
+totals rather than recalculating financial totals from a page or text search.
+Column display labels and presentation remain intentionally redesigned.
+
+This records implementation, not fresh runtime or CSV-byte certification.
+Source/browser qualification of smart-search, null/numeric sorting, multirow
+headings/totals and both exports remains in the deferred validation phase.
+

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, ArrowRight } from 'lucide-react';
 import { z } from 'zod';
@@ -66,7 +66,6 @@ interface Filters {
   to: string;
   storeIds: string[];
 }
-const pageSize = 50;
 const defaultColumns: Field[] = [
   'store_name',
   'date',
@@ -128,7 +127,11 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
     [storeIds, setStoreIds] = useState<string[]>(storeId ? [storeId] : []),
     [submitted, setSubmitted] = useState<Filters | null>(null),
     [columns, setColumns] = useState<Field[]>(() => savedColumns(user.id)),
-    [page, setPage] = useState(1);
+    [page, setPage] = useState(1),
+    [pageSize, setPageSize] = useState(50),
+    [tableSearch, setTableSearch] = useState(''),
+    [sort, setSort] = useState<Field>('date'),
+    [direction, setDirection] = useState<'asc' | 'desc'>('desc');
   const fields = dailyReportFields.filter(([key]) => columns.includes(key));
   const report = useQuery({
     queryKey: [user.id, 'daily-report', submitted],
@@ -141,7 +144,41 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
       ),
     retry: false,
   });
-  const totalPages = Math.max(1, Math.ceil((report.data?.data.length || 0) / pageSize)),
+  const matchingRows = useMemo(() => {
+    const terms = [...tableSearch.matchAll(/"([^"]+)"|(\S+)/g)].map((match) =>
+        (match[1] ?? match[2] ?? '').toLocaleLowerCase(),
+      ),
+      collator = new Intl.Collator('en', { numeric: true, sensitivity: 'base' });
+    return (report.data?.data ?? [])
+      .filter((row) => {
+        if (!terms.length) return true;
+        const text = dailyReportFields
+          .map(([key]) => String(row[key] ?? ''))
+          .join(' ')
+          .toLocaleLowerCase();
+        return terms.every((term) => text.includes(term));
+      })
+      .map((row, index) => ({ row, index }))
+      .sort((left, right) => {
+        const a = left.row[sort],
+          b = right.row[sort];
+        let compared: number;
+        if (a === null || a === undefined || a === '')
+          compared = b === null || b === undefined || b === '' ? 0 : -1;
+        else if (b === null || b === undefined || b === '') compared = 1;
+        else if (
+          sort !== 'date' &&
+          sort !== 'store_name' &&
+          Number.isFinite(Number(a)) &&
+          Number.isFinite(Number(b))
+        )
+          compared = Number(a) - Number(b);
+        else compared = collator.compare(String(a), String(b));
+        return (direction === 'asc' ? compared : -compared) || left.index - right.index;
+      })
+      .map(({ row }) => row);
+  }, [report.data?.data, tableSearch, sort, direction]);
+  const totalPages = Math.max(1, Math.ceil(matchingRows.length / pageSize)),
     currentPage = Math.min(page, totalPages);
   function changeColumns(next: Field[]) {
     setColumns(next);
@@ -151,7 +188,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
       /* Preferences are optional. */
     }
   }
-  function download() {
+  function download(visibleOnly = false) {
     if (!report.data) return;
     let signal: AbortSignal;
     try {
@@ -159,17 +196,18 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
     } catch {
       return;
     }
+    const selected = visibleOnly ? fields : dailyReportFields;
     const rows = [
-      dailyReportFields.map(([, label]) => label),
-      ...[...report.data.data, report.data.totals].map((row) =>
-        dailyReportFields.map(([key]) => row[key]),
+      selected.map(([, label]) => label),
+      ...[...(visibleOnly ? matchingRows : report.data.data), report.data.totals].map((row) =>
+        selected.map(([key]) => row[key]),
       ),
     ];
     const csv = '\uFEFF' + rows.map((row) => row.map(csvCell).join(',')).join('\r\n');
     const link = document.createElement('a'),
       url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
     link.href = url;
-    link.download = `daily-store-sales-${submitted?.from}-${submitted?.to}.csv`;
+    link.download = `daily-store-sales-${submitted?.from}-${submitted?.to}${visibleOnly ? '-visible' : ''}.csv`;
     signal.throwIfAborted();
     link.click();
     URL.revokeObjectURL(url);
@@ -179,11 +217,19 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
       <PageTitle eyebrow="A CLEARER PICTURE OF THE DAY" title="Daily store sales">
         <button
           className="button secondary"
-          onClick={download}
+          onClick={() => download()}
           disabled={!report.data || report.isFetching}
         >
           <ArrowDownToLine size={16} />
           Export CSV
+        </button>
+        <button
+          className="button secondary"
+          onClick={() => download(true)}
+          disabled={!report.data || report.isFetching || !fields.length}
+        >
+          <ArrowDownToLine size={16} />
+          Export visible columns CSV
         </button>
       </PageTitle>
       <ReportNavigation user={user} />
@@ -285,7 +331,8 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
             ))}
           </fieldset>
           <p className="muted">
-            CSV exports contain every column, every result row and the full totals.
+            The complete CSV contains every column and result row. Visible-column CSV follows the
+            table search and sort. Both include the full report totals.
           </p>
         </details>
       </section>
@@ -331,6 +378,65 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
               <h2>Daily breakdown</h2>
               <span className="muted">{report.data.data.length} rows</span>
             </div>
+            <div className="daily-report-filters">
+              <label>
+                Search report
+                <input
+                  maxLength={150}
+                  value={tableSearch}
+                  onChange={(event) => {
+                    setTableSearch(event.target.value);
+                    setPage(1);
+                  }}
+                />
+              </label>
+              <label>
+                Sort report
+                <select
+                  value={sort}
+                  onChange={(event) => {
+                    const selected = dailyReportFields.find(([key]) => key === event.target.value);
+                    if (selected) setSort(selected[0]);
+                    setPage(1);
+                  }}
+                >
+                  {dailyReportFields.map(([key, label]) => (
+                    <option key={key} value={key}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Sort direction
+                <select
+                  value={direction}
+                  onChange={(event) => {
+                    setDirection(event.target.value === 'asc' ? 'asc' : 'desc');
+                    setPage(1);
+                  }}
+                >
+                  <option value="desc">Descending</option>
+                  <option value="asc">Ascending</option>
+                </select>
+              </label>
+              <label>
+                Rows
+                <select
+                  value={pageSize}
+                  onChange={(event) => {
+                    setPageSize(Number(event.target.value));
+                    setPage(1);
+                  }}
+                >
+                  {[10, 25, 50, 100, 500].map((size) => (
+                    <option key={size} value={size}>
+                      {size}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="table-wrap">
               <table className="daily-report-table" aria-label="Daily store sales breakdown">
                 <thead>
@@ -341,7 +447,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
                   </tr>
                 </thead>
                 <tbody>
-                  {report.data.data
+                  {matchingRows
                     .slice((currentPage - 1) * pageSize, currentPage * pageSize)
                     .map((row, i) => (
                       <tr key={i}>
@@ -368,7 +474,8 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
             </div>
             <div className="daily-report-pagination">
               <span>
-                Page {currentPage} of {totalPages} · totals cover all {report.data.data.length} rows
+                Page {currentPage} of {totalPages} · {matchingRows.length} matching rows · totals
+                cover all {report.data.data.length} rows
               </span>
               <div>
                 <button
