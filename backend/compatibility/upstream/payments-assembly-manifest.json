@@ -59,7 +59,7 @@
     "internal/poscheckout/screening.go": "7cbf99fa6fe23fa00bce5a11a0522350c8d5b215a46b973661946c225b38139c",
     "internal/poscheckout/screening_counter.go": "b5707b310b6b2734cfc80f158d38f999bdd8725eddb05b5e00fe5c47bff0b5e4",
     "internal/poscheckout/screening_counter_definition.go": "894373a498e90ef1da8ac98e3c160d4e78e97d9e1181158b612a5165492c772a",
-    "internal/poscheckout/screening_head_metadata.go": "2dd647cf3fc1ce0868d3eab121afa8393d23435f379b9b6254f034fc3fbb9f38",
+    "internal/poscheckout/screening_head_metadata.go": "d699fe0545490d73f32959f07632632f2e419c4cda24e56d724a27d88a3fee80",
     "internal/poscheckout/screening_head_metadata_definition.go": "89d9a38bf5a845c60ba8c639795638e52027151e31fbe5036a2a08aff0351a3e",
     "internal/poscheckout/stock.go": "c3caea35e7356ada5ab91428fb773941fa23250ec98d9cbe70f536ac83d8abb7",
     "internal/posstock/stock.go": "ffe08720c3527e0514faa0253194edc9b7fed88cd49bd5bfce00c1f92ec648ae",
@@ -87,7 +87,7 @@
     "main.go": "0441a4ef99edd4e03bcac0740cdf3f3df3f5d35c32a7aa8fdc52bc1e6664e32c",
     "other-writer-origins-manifest.json": "a9abb203469313531d76b6264a7bc5ff0d7aa90c543f0e7e4da4468f599137fd",
     "pos-review-migrations/legacy-order-imports/benefit-profile/coupon-history-writers.review.sql": "5c9ed214a67add48a45d95b746162c93f0b2663c02f6f4c9a1d5f7edb53d9805",
-    "pos-review-migrations/legacy-order-imports/screening-counter-grants.review.sql": "fdbac3c35dabc3141bf9845829f92f0e90f6360e60fdff5395f4f063e1efe118",
+    "pos-review-migrations/legacy-order-imports/screening-counter-grants.review.sql": "e1085e14d2ef94baff1bac96fb32f26bfbeed60aa8b40192a9ac2cd73e3b7f54",
     "pos-review-migrations/legacy-order-imports/screening-counter-writers.review.sql": "edf42ac7124f4ef5a088e3b6d081f6c542d4f6cba999af87c18d887f4070e24c",
     "pos-review-migrations/legacy-order-imports/screening-counter.review.sql": "31bc97aff3151c25ce45393e8b0062b7c1ef10e68cea17ea4fc6b537f0b894ee",
     "pos-review-migrations/other-writer-origins/go/admission-migration.review.sql": "bc0181454b58479b0a25fb33e525a2a70e5c43a028651413162aabda9ce7febc",
@@ -191,13 +191,13 @@
     "validation": "pending-final-validation"
   },
   "patches": {
-    "legacy-order-imports/payments-import-overlay.patch": "5b8b1b6e2df1aa0e528828d9c8d81447d01881d7866eb490c7efcdb4afd6497b",
+    "legacy-order-imports/payments-import-overlay.patch": "5c8b8fc9a806e3ae37d73277494e0b16c5136eeb2ae1b0a2eab80cd59e4c19e0",
     "patches/payments-pos-checkout.patch": "1dfcc98cc71f0ff290b0b12de1c6830758f735eab27bec99f8e7a17aa4002e6a",
     "patches/payments-pos-exchange.patch": "9d71b4984c5f8c4b7d81c8594025e739bc7eaf032b56f310114f591909948bdf"
   },
   "reviewMigrations": {
     "pos-review-migrations/legacy-order-imports/benefit-profile/coupon-history-writers.review.sql": "5c9ed214a67add48a45d95b746162c93f0b2663c02f6f4c9a1d5f7edb53d9805",
-    "pos-review-migrations/legacy-order-imports/screening-counter-grants.review.sql": "fdbac3c35dabc3141bf9845829f92f0e90f6360e60fdff5395f4f063e1efe118",
+    "pos-review-migrations/legacy-order-imports/screening-counter-grants.review.sql": "e1085e14d2ef94baff1bac96fb32f26bfbeed60aa8b40192a9ac2cd73e3b7f54",
     "pos-review-migrations/legacy-order-imports/screening-counter-writers.review.sql": "edf42ac7124f4ef5a088e3b6d081f6c542d4f6cba999af87c18d887f4070e24c",
     "pos-review-migrations/legacy-order-imports/screening-counter.review.sql": "31bc97aff3151c25ce45393e8b0062b7c1ef10e68cea17ea4fc6b537f0b894ee",
     "pos-review-migrations/other-writer-origins/go/admission-migration.review.sql": "bc0181454b58479b0a25fb33e525a2a70e5c43a028651413162aabda9ce7febc",

@@ -16,7 +16,7 @@
     "internal/poscheckout/screening.go": "e8f46630a87b5ddfc2721df96fd623862246e24def235aeb09376a65684993d3",
     "internal/poscheckout/screening_counter.go": "b5707b310b6b2734cfc80f158d38f999bdd8725eddb05b5e00fe5c47bff0b5e4",
     "internal/poscheckout/screening_counter_definition.go": "894373a498e90ef1da8ac98e3c160d4e78e97d9e1181158b612a5165492c772a",
-    "internal/poscheckout/screening_head_metadata.go": "2dd647cf3fc1ce0868d3eab121afa8393d23435f379b9b6254f034fc3fbb9f38",
+    "internal/poscheckout/screening_head_metadata.go": "d699fe0545490d73f32959f07632632f2e419c4cda24e56d724a27d88a3fee80",
     "internal/poscheckout/screening_head_metadata_definition.go": "89d9a38bf5a845c60ba8c639795638e52027151e31fbe5036a2a08aff0351a3e",
     "internal/poscheckout/public_screening.go": "1f8b38699166b93e41f201979e30df9c60ce0f7d1d49d409ed6d41d6bb96b4f5",
     "internal/poscheckout/public_screening_benefits.go": "f125547c3854c5116b724f45efd368b47c656fb7e11bfa382843e4212a11e93e",
@@ -24,7 +24,7 @@
     "internal/poscheckout/legacy_import_membership_reference.go": "990a97f2fa13adbee7c81891a11b1f765970b8e36d56bb27376aafc1462e34b5",
     "internal/poscheckout/coupon_consumption.go": "400cc5ee1e19920a89adaba41ad8c34d5071738813db5d1e4614e4c7cf3c2368"
   },
-  "patchSha256": "5b8b1b6e2df1aa0e528828d9c8d81447d01881d7866eb490c7efcdb4afd6497b",
+  "patchSha256": "5c8b8fc9a806e3ae37d73277494e0b16c5136eeb2ae1b0a2eab80cd59e4c19e0",
   "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
   "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
   "sourceFiles": {
@@ -58,7 +58,8 @@
       "private_cache.py": "9d8013157dc4e6c8babbe13a9dc20afba63229c5b4a7295ff0a0737d38a1d6ff",
       "cart_tracking.py": "e9d02a51fffc4b6d8973401dca21068eaa40be81ea6ab0e4ea37279487c4061a",
       "source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
-      "runtime.py": "df3318372d13bb8ef25e2dda95081c6f91c67268601834eb50a19d252cac310f",
+      "runtime.py": "bf7eff6bc5127d74cda9760157c639f6fdcb05d06a0b7a95b3ed0cdf97ed7551",
+      "screening_runtime.py": "5bc850e02f931368c4b918e9f549e2263bbfe93c079cbc4003ca71712b9c88da",
       "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
       "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac",
       "transaction.py": "00f4487027742a96fc1f330187a065504e96a48bfe2dc9df110745cabb07658b",
@@ -135,7 +136,7 @@
       "native.py": "9ee9d380c9197236e61f3fb3b0483b4ac932edf4b8fd1472d9eecd26caa6f9be",
       "protocol.py": "b3df5b3dcf9ad7d964b4aceb213b743346ffac2aa62c4dc929686bb31abfdd80",
       "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
-      "runtime.py": "df3318372d13bb8ef25e2dda95081c6f91c67268601834eb50a19d252cac310f"
+      "runtime.py": "bf7eff6bc5127d74cda9760157c639f6fdcb05d06a0b7a95b3ed0cdf97ed7551"
     }
   },
   "screening": {
@@ -152,18 +153,18 @@
     "activated": false,
     "historicalRouting": "independently qualified BQ baseline; current atomic contributions only",
     "files": {
-      "screening_counter.py": "c006c933a810d4aba50c5ab7cb3706bc0d38ca850c951cb47a8112c2c0e8e6d1",
+      "screening_counter.py": "c1b49f42f11a1a90250d5ec56bc4cc46d6ce4868f90b93fd3183b9f8d732c41b",
       "screening_preparation.py": "99a9bbc48f1eafa10d68ebfeb266b7cc262f7d86323884e8f4f1b9257c032762",
       "screening_profile.py": "b1bccfc7f2a5b1ee199da693541b692571ee18acd5c330bf49c3e3c7e1086f6d",
       "screening_counter.go": "b5707b310b6b2734cfc80f158d38f999bdd8725eddb05b5e00fe5c47bff0b5e4",
       "screening_counter_definition.go": "894373a498e90ef1da8ac98e3c160d4e78e97d9e1181158b612a5165492c772a",
-      "screening_head_metadata.go": "2dd647cf3fc1ce0868d3eab121afa8393d23435f379b9b6254f034fc3fbb9f38",
+      "screening_head_metadata.go": "d699fe0545490d73f32959f07632632f2e419c4cda24e56d724a27d88a3fee80",
       "screening_head_metadata_definition.go": "89d9a38bf5a845c60ba8c639795638e52027151e31fbe5036a2a08aff0351a3e",
       "screening-counter-definition.json": "ffbd319e6e885a7dbd5387d64bda91aa31ca311460483aaea4430eb566e0e2e2",
       "screening-counter.review.sql": "31bc97aff3151c25ce45393e8b0062b7c1ef10e68cea17ea4fc6b537f0b894ee",
       "screening-counter-writers.review.sql": "edf42ac7124f4ef5a088e3b6d081f6c542d4f6cba999af87c18d887f4070e24c",
       "screening-counter-bigquery.review.sql": "8a579c405a63ae0078d1771cda1f00e5b0cd0ee8065613a2111fba52ef8cac3c",
-      "screening-counter-grants.review.sql": "fdbac3c35dabc3141bf9845829f92f0e90f6360e60fdff5395f4f063e1efe118"
+      "screening-counter-grants.review.sql": "e1085e14d2ef94baff1bac96fb32f26bfbeed60aa8b40192a9ac2cd73e3b7f54"
     }
   },
   "otherOriginCredits": {
@@ -211,7 +212,7 @@
       "native.py": "9ee9d380c9197236e61f3fb3b0483b4ac932edf4b8fd1472d9eecd26caa6f9be",
       "receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
       "effects.py": "0abfcba5ba8ff457c845bdf47e5d7ea933751b2c68553d4ac6b650b6f6b4b5ac",
-      "runtime.py": "df3318372d13bb8ef25e2dda95081c6f91c67268601834eb50a19d252cac310f",
+      "runtime.py": "bf7eff6bc5127d74cda9760157c639f6fdcb05d06a0b7a95b3ed0cdf97ed7551",
       "protocol.py": "b3df5b3dcf9ad7d964b4aceb213b743346ffac2aa62c4dc929686bb31abfdd80",
       "http_app.py": "611fa16d06398ebc4c47cff74c986bc2d234e2a8c1eef8714952416593ac9500"
     },
