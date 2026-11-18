@@ -1,6 +1,5 @@
-import { createHash } from 'node:crypto';
+import { createHash, createHmac } from 'node:crypto';
 import { z } from 'zod';
-import { operationHash } from '../../checkout/crypto.js';
 import { equalImportHash, importFinancialError } from '../financial-adapter-primitives.js';
 
 export const counterContract = 'pos-screening-current-counter-v1';
@@ -90,9 +89,49 @@ export type CounterPublication = z.infer<typeof counterPublicationSchema>;
 export function counterError(kind: string, status = 503) {
   return importFinancialError('SCREENING_COUNTER_' + kind, status);
 }
+/** Python protocol.canonical uses Unicode codepoint ordering, never locale
+ * collation. Serialize keys directly so JSON numeric-key enumeration cannot
+ * undo that ordering. Actual counter schemas have fixed ASCII field names. */
+function canonicalCounter(value: unknown): string {
+  if (value === null || typeof value === 'string' || typeof value === 'boolean')
+    return JSON.stringify(value);
+  if (typeof value === 'number' && Number.isFinite(value)) return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(canonicalCounter).join(',') + ']';
+  if (typeof value === 'object' && value !== null) {
+    const compare = (a: string, b: string) => {
+      const left = Array.from(a),
+        right = Array.from(b);
+      for (let i = 0; i < Math.min(left.length, right.length); i++) {
+        const difference = left[i]!.codePointAt(0)! - right[i]!.codePointAt(0)!;
+        if (difference) return difference;
+      }
+      return left.length - right.length;
+    };
+    return (
+      '{' +
+      Object.keys(value)
+        .sort(compare)
+        .map(
+          (key) =>
+            JSON.stringify(key) + ':' + canonicalCounter((value as Record<string, unknown>)[key]),
+        )
+        .join(',') +
+      '}'
+    );
+  }
+  throw counterError('SOURCE_INVALID');
+}
 export function counterDigest(key: string, purpose: 'capture' | 'publication', body: unknown) {
   if (!/^[!-~]{32,4096}$/.test(key)) throw counterError('KEY_REQUIRED');
-  return operationHash('screening-counter.' + purpose + '.v1', body, key);
+  return createHmac('sha256', key)
+    .update(
+      '{"kind":' +
+        JSON.stringify('screening-counter.' + purpose + '.v1') +
+        ',"input":' +
+        canonicalCounter(body) +
+        '}',
+    )
+    .digest('hex');
 }
 export function counterRows(input: unknown): CounterRow[] {
   const rows = z.array(counterRowSchema).max(10000).safeParse(input);

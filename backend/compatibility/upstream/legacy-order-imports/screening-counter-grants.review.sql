@@ -25,3 +25,7 @@ GRANT EXECUTE ON FUNCTION `SOURCE_SCHEMA`.pos_rewrite_origin_transaction_metadat
 GRANT EXECUTE ON FUNCTION `SOURCE_SCHEMA`.pos_rewrite_origin_transaction_metadata TO 'COUNTER_DEFINER'@'HOST';
 -- No direct performance_schema SELECT, PROCESS or other routine EXECUTE for the
 -- counter definer. The audited readonly audit definer has its existing SELECT.
+-- Counter HMAC serialization follows the source Python canonical codepoint order.
+-- Recapture and independently republish any old Node locale-ordered baselines
+-- before cutover. Runtime accepts only the canonical seal; there is no legacy
+-- signature fallback and missing/invalid baseline never means zero history.
