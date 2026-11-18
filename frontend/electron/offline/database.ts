@@ -289,6 +289,7 @@ export function offlineStore(db: SqliteDatabase) {
         'PRICE_CHANGED',
         'TENDER_REFERENCE_NOT_FOUND',
         'OPERATOR_REVOKED',
+        'OUTCOME_UNKNOWN',
         'REJECTED',
       ])
       .catch('REJECTED')
@@ -470,6 +471,36 @@ export function offlineStore(db: SqliteDatabase) {
         decrement.run(line.quantity, storeId, line.product_id);
       }
       setMeta('catalog', JSON.stringify({ storeId, refreshedAt: now, products: products.length }));
+    },
+    /** Store and counter names for receipts, cached on each online contact. */
+    saveScopeNames(
+      stores: { id: string; name: string }[],
+      storeId: string,
+      counters: { id: string; name: string }[],
+      now: number,
+    ) {
+      const store = db.prepare(
+        `INSERT INTO stores (store_id, name, refreshed_at) VALUES (?, ?, ?)
+         ON CONFLICT(store_id) DO UPDATE SET name = excluded.name, refreshed_at = excluded.refreshed_at`,
+      );
+      for (const item of stores) store.run(item.id, item.name, now);
+      const counter = db.prepare(
+        `INSERT INTO counters (counter_id, store_id, name, refreshed_at) VALUES (?, ?, ?, ?)
+         ON CONFLICT(counter_id) DO UPDATE SET store_id = excluded.store_id, name = excluded.name,
+           refreshed_at = excluded.refreshed_at`,
+      );
+      for (const item of counters) counter.run(item.id, storeId, item.name, now);
+    },
+    scopeNames(storeId: string, counterId: string) {
+      const name = z.object({ name: z.string() });
+      const store = db.prepare('SELECT name FROM stores WHERE store_id = ?').get(storeId);
+      const counter = db
+        .prepare('SELECT name FROM counters WHERE counter_id = ? AND store_id = ?')
+        .get(counterId, storeId);
+      return {
+        storeName: store === undefined ? null : name.parse(store).name,
+        counterName: counter === undefined ? null : name.parse(counter).name,
+      };
     },
     catalogInfo() {
       const value = getMeta('catalog');

@@ -28,6 +28,7 @@ export const conflictCodeSchema = z.enum([
   'PRICE_CHANGED',
   'TENDER_REFERENCE_NOT_FOUND',
   'OPERATOR_REVOKED',
+  'OUTCOME_UNKNOWN',
   'REJECTED',
 ]);
 export type ConflictCode = z.infer<typeof conflictCodeSchema>;
@@ -208,6 +209,8 @@ export const saleSchema = z.object({
 });
 export type OfflineSale = z.infer<typeof saleSchema>;
 export const receiptSchema = saleSchema.extend({
+  storeName: z.string().nullable(),
+  counterName: z.string().nullable(),
   provisionalNotice: z.string(),
   heading: z.string(),
 });

@@ -4,26 +4,14 @@ import {
   DEFAULT_LIMITS,
   advanceWindow,
   evaluateLimits,
-  limitSetting,
   resetWindow,
 } from '../../src/offline/billing/limits';
 
 const minute = 60_000;
 
-describe('offline limit settings', () => {
-  it('uses 120 minutes / 10 orders when tss_settings rows are absent or invalid', () => {
+describe('offline limit defaults', () => {
+  it('uses 120 minutes / 10 orders until the backend environment values arrive', () => {
     expect(DEFAULT_LIMITS).toEqual({ maxMinutes: 120, maxOrders: 10 });
-    expect(limitSetting(undefined, 'maxMinutes')).toBe(120);
-    expect(limitSetting(null, 'maxOrders')).toBe(10);
-    expect(limitSetting('', 'maxOrders')).toBe(10);
-    expect(limitSetting('abc', 'maxMinutes')).toBe(120);
-    expect(limitSetting('0', 'maxOrders')).toBe(10);
-    expect(limitSetting('-3', 'maxOrders')).toBe(10);
-    expect(limitSetting('99999', 'maxMinutes')).toBe(120);
-  });
-  it('accepts configured values such as 3 orders / 5 minutes', () => {
-    expect(limitSetting(' 5 ', 'maxMinutes')).toBe(5);
-    expect(limitSetting('3', 'maxOrders')).toBe(3);
   });
 });
 

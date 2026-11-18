@@ -148,6 +148,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
   function receipt(sale: OfflineSale): OfflineReceipt {
     return {
       ...sale,
+      ...store.scopeNames(sale.storeId, sale.counterId),
       heading: sale.invoiceNumber
         ? `Invoice ${sale.invoiceNumber}`
         : `Provisional receipt ${sale.provisionalRef}`,
@@ -230,6 +231,8 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
     const previous = store.deviceOperator();
     const checkIn = await server.checkIn(traceId, session.user.id).catch(() => null);
     const limits = await server.settings(traceId, session.user.id).catch(() => null);
+    const stores = await server.stores(traceId).catch(() => []);
+    const counters = checkIn ? await server.counters(traceId, checkIn.storeId).catch(() => []) : [];
     store.transaction(() => {
       store.saveOperator({
         id: session.user.id,
@@ -242,6 +245,7 @@ export function offlineBillingService(deps: OfflineServiceDeps) {
         verifiedAt: deps.now(),
       });
       if (limits) store.setLimits(limits);
+      if (checkIn) store.saveScopeNames(stores, checkIn.storeId, counters, deps.now());
     });
     await sync(traceId);
     recordContact();
