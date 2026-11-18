@@ -88,9 +88,12 @@ export const documentationInput = z
   .strict();
 export type DocumentationInput = z.infer<typeof documentationInput>;
 export const documentationPageQuery = pageQuery.omit({ after: true }).extend({
+  limit: z.coerce.number().int().min(1).max(500).default(30),
+  sort: z.enum(['id', 'title', 'summary', 'sortOrder', 'updatedAt', 'active']).optional(),
+  direction: z.enum(['asc', 'desc']).optional(),
   after: z
     .string()
-    .regex(/^(?:0|v1\.[A-Za-z0-9_-]{1,200})$/)
+    .regex(/^(?:0|v1\.[A-Za-z0-9_-]{1,200}|c1\.[A-Za-z0-9_-]{1,2048})$/)
     .default('0'),
 });
 const cursorSchema = z

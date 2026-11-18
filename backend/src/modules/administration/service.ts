@@ -1,3 +1,4 @@
+import { administrationCollectionPage, collectionField } from './collection-page.js';
 import { generatedId } from '../../db/generated-id.js';
 import { Temporal } from '@js-temporal/polyfill';
 import {
@@ -68,6 +69,8 @@ export interface AdminPage {
   limit: number;
   search: string;
   active: 'true' | 'false' | 'all';
+  sort?: string;
+  direction?: 'asc' | 'desc';
 }
 const required = <T>(value: T | undefined, resource: string): T => {
   if (value === undefined)
@@ -456,6 +459,21 @@ export function administrationService(
       requireRole(user, [1, 2, 3]);
       const global = user.role === 1 && user.userType === 1;
       if (!global && !user.storeIds.length) return { data: [], nextCursor: null };
+      const collection = administrationCollectionPage(
+        page,
+        JSON.stringify(['stores', user.id, user.role, user.userType, user.storeIds]),
+        collectionField(Store.id, 'id', 'integer'),
+        {
+          name: collectionField(Store.store_name, 'store_name', 'text'),
+          locationCode: collectionField(Store.location_code, 'location_code', 'text'),
+          category: collectionField(Store.category, 'category', 'text'),
+          city: collectionField(Store.city_name, 'city_name', 'text'),
+          type: collectionField(Store.type, 'type', 'text'),
+          phone: collectionField(Store.phone, 'phone', 'text'),
+          email: collectionField(Store.email, 'email', 'text'),
+          active: collectionField(Store.is_active, 'is_active', 'boolean'),
+        },
+      );
       const rows = await db
         .get('primary')
         .select(storeReadFields)
@@ -467,7 +485,7 @@ export function administrationService(
             active(page.active) === undefined
               ? undefined
               : eq(Store.is_active, active(page.active)!),
-            gt(Store.id, BigInt(page.after)),
+            collection.boundary,
             page.search
               ? or(
                   like(Store.store_name, escapedSearch(page.search)),
@@ -476,9 +494,9 @@ export function administrationService(
               : undefined,
           ),
         )
-        .orderBy(asc(Store.id))
+        .orderBy(...collection.order)
         .limit(page.limit + 1);
-      return limited(rows, page.limit);
+      return collection.finish(rows);
     },
     async store(user: Principal, storeId: string) {
       requireRole(user, [1, 2, 3]);
@@ -727,6 +745,17 @@ export function administrationService(
     async counters(user: Principal, storeId: string, page: AdminPage) {
       requireRole(user, [1, 2, 3]);
       requireStore(user, storeId);
+      const collection = administrationCollectionPage(
+        page,
+        JSON.stringify(['counters', user.id, user.role, user.userType, user.storeIds, storeId]),
+        collectionField(StoreCounter.id, 'id', 'integer'),
+        {
+          name: collectionField(StoreCounter.counter_name, 'counter_name', 'text'),
+          type: collectionField(StoreCounter.counter_type, 'counter_type', 'text'),
+          description: collectionField(StoreCounter.counter_desc, 'counter_desc', 'text'),
+          active: collectionField(StoreCounter.is_active, 'is_active', 'boolean'),
+        },
+      );
       const rows = await db
         .get('primary')
         .select()
@@ -737,12 +766,12 @@ export function administrationService(
             active(page.active) === undefined
               ? undefined
               : eq(StoreCounter.is_active, active(page.active)!),
-            gt(StoreCounter.id, BigInt(page.after)),
+            collection.boundary,
           ),
         )
-        .orderBy(asc(StoreCounter.id))
+        .orderBy(...collection.order)
         .limit(page.limit + 1);
-      return limited(rows, page.limit);
+      return collection.finish(rows);
     },
     async createCounter(user: Principal, storeId: string, description: string) {
       requireRole(user, [1]);
@@ -795,6 +824,17 @@ export function administrationService(
     async storages(user: Principal, storeId: string, page: AdminPage) {
       requireRole(user, [1, 2, 3]);
       requireStore(user, storeId);
+      const collection = administrationCollectionPage(
+        page,
+        JSON.stringify(['storages', user.id, user.role, user.userType, user.storeIds, storeId]),
+        collectionField(StoreStorage.id, 'id', 'integer'),
+        {
+          name: collectionField(StoreStorage.storage_name, 'storage_name', 'text'),
+          type: collectionField(StoreStorage.storage_type, 'storage_type', 'text'),
+          description: collectionField(StoreStorage.storage_desc, 'storage_desc', 'text'),
+          active: collectionField(StoreStorage.is_active, 'is_active', 'boolean'),
+        },
+      );
       const rows = await db
         .get('primary')
         .select()
@@ -805,12 +845,12 @@ export function administrationService(
             active(page.active) === undefined
               ? undefined
               : eq(StoreStorage.is_active, active(page.active)!),
-            gt(StoreStorage.id, BigInt(page.after)),
+            collection.boundary,
           ),
         )
-        .orderBy(asc(StoreStorage.id))
+        .orderBy(...collection.order)
         .limit(page.limit + 1);
-      return limited(rows, page.limit);
+      return collection.finish(rows);
     },
     async storage(user: Principal, storeId: string, storageId: string) {
       requireRole(user, [1, 2, 3]);
@@ -973,12 +1013,34 @@ export function administrationService(
         });
       }
       const database = db.get('primary');
+      const collection = administrationCollectionPage(
+        page,
+        JSON.stringify([
+          'salespeople',
+          user.id,
+          user.role,
+          user.userType,
+          user.storeIds,
+          storeId ?? null,
+          checkoutPicker,
+        ]),
+        collectionField(SalesPerson.id, 'id', 'integer'),
+        {
+          firstName: collectionField(SalesPerson.first_name, 'first_name', 'text'),
+          lastName: collectionField(SalesPerson.last_name, 'last_name', 'text'),
+          employeeId: collectionField(SalesPerson.employee_id, 'employee_id', 'text'),
+          email: collectionField(SalesPerson.email, 'email', 'text'),
+          phone: collectionField(SalesPerson.phone, 'phone', 'text'),
+          userType: collectionField(SalesPerson.user_type, 'user_type', 'integer'),
+          active: collectionField(SalesPerson.is_active, 'is_active', 'integer'),
+        },
+      );
       const rows = await database
         .select()
         .from(SalesPerson)
         .where(
           and(
-            gt(SalesPerson.id, BigInt(page.after)),
+            collection.boundary,
             checkoutPicker ? lte(SalesPerson.id, 2147483647n) : undefined,
             checkoutPicker
               ? eq(SalesPerson.is_active, 1)
@@ -1009,14 +1071,14 @@ export function administrationService(
               : undefined,
           ),
         )
-        .orderBy(asc(SalesPerson.id))
+        .orderBy(...collection.order)
         .limit(page.limit + 1);
       const selected = rows.slice(0, page.limit),
         ids = selected.map((row) => row.id);
       if (checkoutPicker)
         return {
           data: selected.map((row) => ({ ...row, storeIds: [storeId!], activeStoreId: storeId! })),
-          nextCursor: rows.length > page.limit ? String(selected.at(-1)!.id) : null,
+          nextCursor: collection.finish(rows).nextCursor,
         };
       const assignments = ids.length
         ? await database
@@ -1039,7 +1101,7 @@ export function administrationService(
               .find((a) => a.salespersonId === row.id && a.active === 1)
               ?.storeId.toString() || null,
         })),
-        nextCursor: rows.length > page.limit ? String(selected.at(-1)!.id) : null,
+        nextCursor: collection.finish(rows).nextCursor,
       };
     },
     async createSalesperson(user: Principal, value: SalespersonInput) {
@@ -1264,13 +1326,27 @@ export function administrationService(
     },
     async operators(user: Principal, page: AdminPage) {
       requireRole(user, [1, 2, 3]);
+      const collection = administrationCollectionPage(
+        page,
+        JSON.stringify(['operators', user.id, user.role, user.userType, user.storeIds]),
+        collectionField(PosUser.id, 'id', 'integer'),
+        {
+          firstName: collectionField(PosUser.first_name, 'firstName', 'text'),
+          lastName: collectionField(PosUser.last_name, 'lastName', 'text'),
+          email: collectionField(PosUser.email, 'email', 'text'),
+          phone: collectionField(PosUser.phone, 'phone', 'text'),
+          role: collectionField(PosUser.role, 'role', 'integer'),
+          userType: collectionField(PosUser.user_type, 'userType', 'integer'),
+          active: collectionField(PosUser.is_active, 'active', 'boolean'),
+        },
+      );
       const rows = await db
         .get('primary')
         .select(operatorProjection)
         .from(PosUser)
         .where(
           and(
-            gt(PosUser.id, BigInt(page.after)),
+            collection.boundary,
             active(page.active) === undefined
               ? undefined
               : eq(PosUser.is_active, active(page.active)!),
@@ -1286,7 +1362,7 @@ export function administrationService(
               : undefined,
           ),
         )
-        .orderBy(asc(PosUser.id))
+        .orderBy(...collection.order)
         .limit(page.limit + 1);
       const ids = rows.slice(0, page.limit).map((r) => r.id);
       const assignments = ids.length
@@ -1303,7 +1379,7 @@ export function administrationService(
             .filter((a) => a.operatorId === row.id && a.storeId !== null)
             .map((a) => String(a.storeId)),
         })),
-        nextCursor: rows.length > page.limit ? String(rows[page.limit - 1]!.id) : null,
+        nextCursor: collection.finish(rows).nextCursor,
       };
     },
     async updateOperator(user: Principal, operatorId: string, value: OperatorInput) {

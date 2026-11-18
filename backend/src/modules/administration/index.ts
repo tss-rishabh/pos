@@ -1,4 +1,6 @@
+import { administrationCollectionPageQuery } from './collection-page.js';
 import type { FastifyInstance } from 'fastify';
+import { registerAdministrationStoreDetails } from './store-detail-routes.js';
 import { Readable } from 'node:stream';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
@@ -82,7 +84,7 @@ const storageScope = scope.extend({ storageId: identifier });
 const productScope = scope.extend({ productId: identifier });
 const salespersonScope = z.object({ salespersonId: identifier }).strict();
 const operatorScope = z.object({ operatorId: identifier }).strict();
-const personPageQuery = pageQuery.omit({ search: true });
+const personPageQuery = administrationCollectionPageQuery.omit({ search: true });
 const terminalScope = scope.extend({ provider: terminalProvider, terminalId: identifier });
 const trace = (resource: string, action: string) => ({
   config: { trace: { module: 'administration', resource, action } },
@@ -112,6 +114,7 @@ export function registerAdministration(
     inventory = inventoryService(config, db, options),
     support = supportService(config, db);
   const createOperator = operatorCreator(config, db);
+  registerAdministrationStoreDetails(app, db);
   const terminals = terminalService(config, db);
   const documentation = documentationService(config, db, options);
   const settings = settingsService(config, db, options);
@@ -300,7 +303,12 @@ export function registerAdministration(
     },
   );
   app.get('/api/v1/admin/stores', trace('store', 'list'), async (request) =>
-    wire(await service.stores(authenticated(request), pageQuery.parse(request.query))),
+    wire(
+      await service.stores(
+        authenticated(request),
+        administrationCollectionPageQuery.parse(request.query),
+      ),
+    ),
   );
   app.get('/api/v1/admin/stores/:storeId', trace('store', 'read'), async (request) =>
     wire(await service.store(authenticated(request), scope.parse(request.params).storeId)),
@@ -345,7 +353,7 @@ export function registerAdministration(
       await service.counters(
         authenticated(request),
         scope.parse(request.params).storeId,
-        pageQuery.parse(request.query),
+        administrationCollectionPageQuery.parse(request.query),
       ),
     ),
   );
@@ -381,7 +389,7 @@ export function registerAdministration(
       await service.storages(
         authenticated(request),
         scope.parse(request.params).storeId,
-        pageQuery.parse(request.query),
+        administrationCollectionPageQuery.parse(request.query),
       ),
     ),
   );
@@ -451,7 +459,12 @@ export function registerAdministration(
       return reply
         .header('Cache-Control', 'private, no-store')
         .send(
-          wire(await service.salespeople(authenticated(request), pageQuery.parse(request.body))),
+          wire(
+            await service.salespeople(
+              authenticated(request),
+              administrationCollectionPageQuery.parse(request.body),
+            ),
+          ),
         );
     },
   );
@@ -494,7 +507,7 @@ export function registerAdministration(
     trace('store-salesperson', 'search'),
     async (request, reply) => {
       z.object({}).strict().parse(request.query);
-      const { purpose, ...page } = pageQuery
+      const { purpose, ...page } = administrationCollectionPageQuery
         .extend({ purpose: z.literal('checkout').optional() })
         .parse(request.body);
       if (purpose && page.active !== 'true')
@@ -584,7 +597,14 @@ export function registerAdministration(
       z.object({}).strict().parse(request.query);
       return reply
         .header('Cache-Control', 'private, no-store')
-        .send(wire(await service.operators(authenticated(request), pageQuery.parse(request.body))));
+        .send(
+          wire(
+            await service.operators(
+              authenticated(request),
+              administrationCollectionPageQuery.parse(request.body),
+            ),
+          ),
+        );
     },
   );
   app.post('/api/v1/admin/operators', trace('operator', 'create'), async (request, reply) =>

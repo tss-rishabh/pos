@@ -1,3 +1,4 @@
+import { administrationCollectionPage, collectionField } from './collection-page.js';
 import { generatedId } from '../../db/generated-id.js';
 import { randomUUID, createHash } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
@@ -286,9 +287,23 @@ export function documentationService(
           'DOCUMENTATION_ACCESS_DENIED',
           'Archived documentation requires a super administrator.',
         );
+      const collection = page.sort
+        ? administrationCollectionPage(
+            page,
+            JSON.stringify(['documentation', user.id, user.role, user.userType]),
+            collectionField(PosTutorial.id, 'id', 'integer'),
+            {
+              title: collectionField(PosTutorial.title, 'title'),
+              summary: collectionField(PosTutorial.short_discription, 'short_discription'),
+              sortOrder: collectionField(PosTutorial.sort_value, 'sort_value', 'integer'),
+              updatedAt: collectionField(PosTutorial.updated_at, 'updated_at'),
+              active: collectionField(PosTutorial.is_active, 'is_active', 'integer'),
+            },
+          )
+        : null;
       let cursor: ReturnType<typeof decodeDocumentationCursor>;
       try {
-        cursor = decodeDocumentationCursor(page.after);
+        cursor = collection ? null : decodeDocumentationCursor(page.after);
       } catch {
         throw new AppError(400, 'INVALID_DOCUMENTATION_CURSOR', 'Choose a valid guide page.');
       }
@@ -301,15 +316,17 @@ export function documentationService(
             page.active === 'all'
               ? undefined
               : eq(PosTutorial.is_active, page.active === 'true' ? 1 : 0),
-            cursor
-              ? or(
-                  lt(PosTutorial.sort_value, cursor.sort),
-                  and(
-                    eq(PosTutorial.sort_value, cursor.sort),
-                    gt(PosTutorial.id, BigInt(cursor.id)),
-                  ),
-                )
-              : undefined,
+            collection
+              ? collection.boundary
+              : cursor
+                ? or(
+                    lt(PosTutorial.sort_value, cursor.sort),
+                    and(
+                      eq(PosTutorial.sort_value, cursor.sort),
+                      gt(PosTutorial.id, BigInt(cursor.id)),
+                    ),
+                  )
+                : undefined,
             page.search
               ? or(
                   like(PosTutorial.title, `%${page.search.replace(/[\\%_]/g, '\\$&')}%`),
@@ -318,7 +335,7 @@ export function documentationService(
               : undefined,
           ),
         )
-        .orderBy(desc(PosTutorial.sort_value), asc(PosTutorial.id))
+        .orderBy(...(collection?.order ?? [desc(PosTutorial.sort_value), asc(PosTutorial.id)]))
         .limit(page.limit + 1);
       const selected = rows.slice(0, page.limit),
         owned = await attachments(db.get('primary'), selected),
@@ -344,8 +361,9 @@ export function documentationService(
             names.get(String(row.created_by)),
           ),
         ),
-        nextCursor:
-          rows.length > page.limit
+        nextCursor: collection
+          ? collection.finish(rows).nextCursor
+          : rows.length > page.limit
             ? encodeDocumentationCursor(selected.at(-1)!.sort_value, selected.at(-1)!.id)
             : null,
       };
