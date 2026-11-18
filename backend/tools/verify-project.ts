@@ -310,7 +310,7 @@ const checks: Check[] = [
         {
           id: 'other-origin-go-prerequisites',
           directory: 'backend' as const,
-          command: 'sh',
+          command: 'sh' as const,
           args: ['tools/other-origin-verification/run.sh', 'preflight'],
           prerequisite: true,
         },
