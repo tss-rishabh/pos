@@ -1,11 +1,12 @@
 import {
   bigint,
-  int,
   datetime,
   index,
+  int,
   json,
+  longtext,
+  mysqlEnum,
   mysqlTable,
-  text,
   varchar,
 } from 'drizzle-orm/mysql-core';
 import type { StatusSnapshot, StatusReceipt, StatusPlatform, StatusState } from './domain.js';
@@ -45,7 +46,14 @@ export const wholeOrderStatusLogs = mysqlTable('vinculum_auto_delivered_logs', {
   orderId: bigint('order_id', { mode: 'bigint' }).notNull(),
   hasProductId: bigint('has_product_id', { mode: 'bigint' }),
   platform: varchar('platform', { length: 255 }),
-  status: varchar('status', { length: 255 }),
-  request: text('request'),
+  status: mysqlEnum('status', [
+    'SUCCESS',
+    'FAILED',
+    'QUOTA_EXCEEDED',
+    'UNEXPECTED',
+    'RETRYING',
+    'QUEUED',
+  ]).notNull(),
+  request: longtext('request'),
   updatedAt: datetime('updated_at', { mode: 'string' }).notNull(),
 });

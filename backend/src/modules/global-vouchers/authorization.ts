@@ -40,12 +40,9 @@ export async function assertVoucherLegacyCompatibility(tx: AdministrationTransac
       }),
     )
     .parse(result[0]);
-  if (
-    rows.length !== 4 ||
-    rows.filter((r) => r.columnName !== 'platform').some((r) => r.nullable !== 'YES') ||
-    !rows.find((r) => r.tableName === 'gift_voucher_history')?.columnType.includes("'GV_ADD'")
-  )
-    throw voucherUnavailable();
+  // The writer adapts to the production schema (zero-date validity, platform '') and
+  // needs no DDL; it only requires the columns it writes to exist.
+  if (rows.length !== 4) throw voucherUnavailable();
 }
 function hasVoucherMeta(raw: unknown): boolean {
   const projected = z

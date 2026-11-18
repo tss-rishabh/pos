@@ -4,11 +4,13 @@ import {
   double,
   float,
   int,
+  mysqlEnum,
   mysqlTable,
   text,
   tinyint,
   varchar,
 } from 'drizzle-orm/mysql-core';
+import { voucherHistoryPlatforms } from '../../db/legacy-enums.js';
 
 /** Verified physical columns, except the explicitly gated nullable validity correction. */
 export const globalCoupons = mysqlTable('coupons', {
@@ -36,7 +38,7 @@ export const globalCoupons = mysqlTable('coupons', {
   theme: varchar('theme', { length: 255 }).notNull(),
   message: varchar('message', { length: 255 }).notNull(),
   startsAt: datetime('start_date', { mode: 'string' }).notNull(),
-  expiresAt: datetime('end_date', { mode: 'string' }),
+  expiresAt: datetime('end_date', { mode: 'string' }).notNull(),
   minimum: float('min_order_amt').notNull(),
   count: int('no_times_allowed').notNull(),
   lot: varchar('coupon_lot_no', { length: 255 }).notNull(),
@@ -69,12 +71,12 @@ export const globalVouchers = mysqlTable('gift_vouchers', {
   orderId: bigint('order_id', { mode: 'bigint' }).notNull(),
   couponId: bigint('coupon_id', { mode: 'bigint' }).notNull(),
   collectionId: bigint('collection_no', { mode: 'bigint' }).notNull(),
-  kind: varchar('gv_type', { length: 20 }).notNull(),
+  kind: mysqlEnum('gv_type', ['GIFT_VOUCHER', 'GIFT_CARD']).notNull(),
   serial: bigint('gift_card_srno', { mode: 'bigint' }).notNull(),
   requiresPin: tinyint('is_gcpin').notNull(),
-  platform: varchar('platform', { length: 12 }).notNull(),
-  startsAt: datetime('start_date', { mode: 'string' }),
-  expiresAt: datetime('end_date', { mode: 'string' }),
+  platform: mysqlEnum('platform', ['both', 'offline', 'online']).notNull(),
+  startsAt: datetime('start_date', { mode: 'string' }).notNull(),
+  expiresAt: datetime('end_date', { mode: 'string' }).notNull(),
   createdAt: datetime('created_at', { mode: 'string' }).notNull(),
   updatedAt: datetime('updated_at', { mode: 'string' }).notNull(),
 });
@@ -87,7 +89,10 @@ export const globalVoucherHistory = mysqlTable('gift_voucher_history', {
   before: double('amt_before_update'),
   after: double('amt_after_update'),
   comment: text('comment'),
-  platform: varchar('platform', { length: 40 }),
+  // Legacy writes 'GV_ADD' (not a member); it is stored and written as ''.
+  platform: mysqlEnum('platform', voucherHistoryPlatforms).$type<
+    (typeof voucherHistoryPlatforms)[number] | ''
+  >(),
   operatorId: bigint('added_user', { mode: 'bigint' }),
   createdAt: datetime('created_at', { mode: 'string' }),
   updatedAt: datetime('updated_at', { mode: 'string' }),

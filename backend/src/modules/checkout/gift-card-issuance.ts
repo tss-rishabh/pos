@@ -1,5 +1,14 @@
 import { asc, eq, sql } from 'drizzle-orm';
-import { bigint, char, datetime, double, int, mysqlTable, varchar } from 'drizzle-orm/mysql-core';
+import {
+  bigint,
+  char,
+  datetime,
+  double,
+  mysqlEnum,
+  mysqlTable,
+  tinyint,
+  varchar,
+} from 'drizzle-orm/mysql-core';
 import type { Databases } from '../../db/pools.js';
 import { GiftCardCollection, Order } from '../../db/legacy-schema.js';
 import { AppError } from '../../domain/errors.js';
@@ -23,10 +32,10 @@ export const issuedVouchers = mysqlTable('gift_vouchers', {
   customerId: bigint('from_id', { mode: 'bigint' }).notNull(),
   code: varchar('voucher_code', { length: 25 }).notNull(),
   initialValue: double('voucher_initial_value'),
-  kind: varchar('gv_type', { length: 25 }).notNull(),
+  kind: mysqlEnum('gv_type', ['GIFT_VOUCHER', 'GIFT_CARD']).notNull(),
   collectionId: bigint('collection_no', { mode: 'bigint' }).notNull(),
   serial: bigint('gift_card_srno', { mode: 'bigint' }).notNull(),
-  status: int('status').notNull(),
+  status: tinyint('status').notNull(),
   startsAt: datetime('start_date', { mode: 'string' }).notNull(),
   expiresAt: datetime('end_date', { mode: 'string' }).notNull(),
 });

@@ -3,7 +3,9 @@ import { identifier } from '../../domain/validation.js';
 
 export const globalVoucherContract = 'pos-global-vouchers-v1' as const;
 export const exactVoucherValueContract = 'pos-gift-voucher-exact-cents-v1' as const;
-export const nonExpiringVoucherContract = 'pos-voucher-null-dates-gv-add-v1' as const;
+// v2 writes the production schema as-is: zero-date validity and platform '' (the value
+// MySQL stores for legacy 'GV_ADD' under the empty sql_mode). v1 required schema DDL.
+export const nonExpiringVoucherContract = 'pos-voucher-production-schema-v2' as const;
 export const voucherAmount = z
   .string()
   .regex(/^(?:0|[1-9]\d{0,7})(?:\.\d{1,2})?$/)

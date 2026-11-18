@@ -379,8 +379,11 @@ export function scheduledReportBuilder(
           }
         }),
       );
+      // fd_ticket_status is an ENUM without 'NEW'; only members can be written.
+      const ticketStatus = (status: string) =>
+        scheduledCrmLog.status.enumValues.find((value) => value === status);
       for (const result of results.values())
-        if (result.status === 'NEW')
+        if (ticketStatus(result.status) === undefined)
           throw new AppError(
             503,
             'CRM_STATUS_UNSUPPORTED',
@@ -421,7 +424,10 @@ export function scheduledReportBuilder(
           if (!updated.has(row.ticketId)) {
             await tx
               .update(scheduledCrmLog)
-              .set({ status: result.status, age: crmAge(result.createdAt, clock()).milliseconds })
+              .set({
+                status: ticketStatus(result.status),
+                age: crmAge(result.createdAt, clock()).milliseconds,
+              })
               .where(eq(scheduledCrmLog.ticketId, row.ticketId));
             updated.add(row.ticketId);
           }
