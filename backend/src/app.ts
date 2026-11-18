@@ -107,10 +107,7 @@ import { publicOrderHistory } from './modules/order-history/index.js';
 import { registerPublicOrders } from './modules/order-history/routes.js';
 import { registerOnlineOrderDetails } from './modules/order-history/online-detail/routes.js';
 import { historicalOrderCopyFacts } from './modules/order-history/copy-adapter.js';
-import {
-  registerOrderSearch,
-  readOrderSearchOptions,
-} from './modules/order-history/search/index.js';
+import { registerOrderSearch } from './modules/order-history/search/index.js';
 import { demoOrderSearch } from './modules/order-history/search/demo.js';
 import { draftMutationSchema, draftService } from './modules/drafts.js';
 import { demoServices, demoUser } from './modules/demo.js';
@@ -184,7 +181,7 @@ export async function buildApp(
     ? demoServices()
     : {
         catalog: catalogService(db),
-        orders: ordersService(db, config, orderHistory),
+        orders: ordersService(db, config),
         drafts: draftService(db),
       };
   const orderRedis = config.DEMO_MODE ? memoryOrderRedis() : nodeOrderRedis(config);
@@ -536,7 +533,6 @@ export async function buildApp(
     app,
     config,
     db,
-    readOrderSearchOptions(),
     config.DEMO_MODE ? { service: demoOrderSearch(config, services.catalog, services.orders) } : {},
   );
   app.get('/api/v1/stores/:storeId/cart-drafts', async (request) => {
