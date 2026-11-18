@@ -462,6 +462,31 @@ export async function nativeFeedbackFixture(output: string, productionOutput: st
     useProductionApp() {
       fullApp = true;
     },
+    async setStoreLocation(locationCode: string | null) {
+      await connection.execute('UPDATE stores SET location_code=? WHERE id=1', [locationCode]);
+    },
+    async bootstrapRows() {
+      const [rows] = await connection.query(
+        'SELECT id,store_name,location_code,city_name,is_active FROM stores ORDER BY id',
+      );
+      const stores = z
+        .array(
+          z.object({
+            id: exactNativeId,
+            store_name: z.string().nullable(),
+            location_code: z.string().nullable(),
+            city_name: z.string().nullable(),
+            is_active: z.number(),
+          }),
+        )
+        .parse(rows);
+      const checkout = await db
+        .get('writer')
+        .select()
+        .from(checkoutSessions)
+        .where(eq(checkoutSessions.id, feedbackCheckout));
+      return { stores, checkout };
+    },
     async attachCustomer(customerId: string, version: number) {
       await db
         .get('writer')
@@ -500,6 +525,7 @@ export async function nativeFeedbackFixture(output: string, productionOutput: st
       await connection.query('DELETE FROM product_rating_user');
       await connection.query('DELETE FROM pos_rewrite_product_feedback_receipts');
       fullApp = false;
+      await connection.execute('UPDATE stores SET location_code=? WHERE id=1', ['SYN1']);
       await db
         .get('writer')
         .update(checkoutSessions)

@@ -1,7 +1,7 @@
 {
   "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
-  "recordedAt": "2026-11-18T07:53:43.415032+00:00",
-  "rewriteBaseline": "4de9f3cc70243e7ca7267afa61f9e0b9b3076529",
+  "recordedAt": "2026-11-18T08:00:03.722291+00:00",
+  "rewriteBaseline": "4a410b9da2817aef7e68ff79efedb9b993be7077",
   "command": "PRODUCT_FEEDBACK_SOURCE_ROOT=/path/to/backend-pos-web sh backend/tools/product-feedback/run-native-workflow.sh",
   "executedWithPreprovisionedPrivatePython": true,
   "exitCode": 0,
@@ -123,15 +123,19 @@
     {
       "scope": "Actual production Vite index/main App with native session cookie only: real operator/store/counter bootstrap; 2020 historical-order direct entry; selected store mismatch blocks without feedback calls/native writes including persisted reload; restored store resumes; attached customer/version replacement rejects stale URL with native 404/no writes; restored binding real UI POST commits exactly four native rows.",
       "passed": true
+    },
+    {
+      "scope": "Active native store location_code=NULL: actual stores API parses through real frontend schema with locationCode empty string and all remaining fields/nonNULL codes unchanged; production App native-session fresh-browser selects store and renders both feedback forms; native store/checkout snapshots unchanged including retainedNULL, no mutation HTTP requests or feedback rows.",
+      "passed": true
     }
   ],
   "testFilesPassed": 1,
-  "testsPassed": 14,
-  "durationSeconds": 67.95,
+  "testsPassed": 15,
+  "durationSeconds": 64.05,
   "backendFixtureStrict": true,
   "frontendFixtureStrict": true,
   "changedTypeScriptLint": true,
-  "canonicalLogSha256": "a92988d445ed88c7aab2793e373f299e4e22ee5a50b05ec9d2d994c99de65421",
+  "canonicalLogSha256": "ca7f8355f7c8c9e9bd08db800731a3bd0ad6d647805c2d1e40851fc8a71be4f3",
   "apiResponseStubs": false,
   "sourceOrmDoubles": false,
   "liveDatabaseOrProviderWrites": false,
@@ -155,8 +159,7 @@
     "CSRF token presence/shape is checked and actual values pass through native source transport, but tokens/cookies/request payloads and original console values are not logged or stored in the receipt.",
     "Candidate fixture credentials bypass interactive password/MFA/Google login; production session validation/current identity/authority execute normally.",
     "No claim of identical wrong-source form/ID behavior, every invalid/racing request, independent rating-writer serialization, NPS, financial checkout, live deployment, OS/printer, full project parity or release certification.",
-    "Full production App entry and selected-store/current-customer gates now exercised, but Customer history discovery and its View feedback anchor navigation remain unexecuted without accepted BigQuery fixture. Shared notification feed/provider and service-worker lifecycle are not certified by this path.",
-    "Catalog nullable location-code contract concern reported separately: native store list can return NULL permitted by schema while frontend requires string; owned workflow fixtures use valid explicit synthetic location codes."
+    "Full production App entry and selected-store/current-customer gates now exercised, but Customer history discovery and its View feedback anchor navigation remain unexecuted without accepted BigQuery fixture. Shared notification feed/provider and service-worker lifecycle are not certified by this path."
   ],
   "checksums": {
     "backend/evidence/mysql-customer-benefit-schema.json": "74e04d9488ed76d58a4ea658c2833217e5ae618120014333d9a1181570634378",
@@ -174,7 +177,7 @@
     "backend/package-lock.json": "02b3e906ece30377231ea67891ef8b125708c188db343979588826c76db3c1d6",
     "backend/package.json": "a88c400c64cd2be8726258449cda4419ac3d38fc24ecf27e98bc6a3ca78d3b13",
     "backend/parity/legacy-inventory.json": "2893078e431fd66bf74661368e776b60fbce7a2125e8f00a6aeae9eac305c85a",
-    "backend/parity/product-feedback.md": "c5a3e5a23358337e89abca4c39ca74d5bb2d141c13128631079e2167f4cb47c2",
+    "backend/parity/product-feedback.md": "eabff9e98daab8ed35724c0b67e270da67fd7020a73d973eb6b93a7e75653395",
     "backend/src/app.ts": "ed8a941c5d3064d2de90efc4a99c75a27f53eb4c0cd0e2affb6808719c56828a",
     "backend/src/auth/crypto.ts": "c3a86f051b30d598d8a84364e0e7f39675b64b0a358051b81544cb7825e6bcad",
     "backend/src/auth/delivery.ts": "b813640dcda4f8fe910d29cd8d471d03fe2d452ab931c3f45c19cdb342a43d63",
@@ -376,7 +379,7 @@
     "backend/src/modules/catalog-details/schema.ts": "38b9e5cf1dc6f58dc01946092b3862a9c09f1c6c8201025c017408fd8d82cff5",
     "backend/src/modules/catalog-details/service.ts": "bca7f0f90eea1152b1a77b3de9cba7df8c6f8121bc8111465c7c83e6aec77407",
     "backend/src/modules/catalog-details/snapshot.ts": "c0cef1bf371e603775aea0767909978296a04702cd828835f657f01be6862cd2",
-    "backend/src/modules/catalog.ts": "7e7c372e8678cf5c489db601b4cb5be8930a3f0ce322e679809e96188bf808ad",
+    "backend/src/modules/catalog.ts": "042a817baf00892e05c33f28fb593698f4d4aa65d101da59f869a842378b22a9",
     "backend/src/modules/checkout-performance/authority.ts": "8b1d708c6162929e03a0e16f31e9fd057a91138ce9c23e6b664ffa9612a15f28",
     "backend/src/modules/checkout-performance/contracts.ts": "24225d76478b27c8934d25b7985c50fc64dc67374772ab2ce665d4ce9b853c17",
     "backend/src/modules/checkout-performance/index.ts": "5dcffcb2f448dafc2361e5bfb5caf15a554cac4b7cf9743c550ee0d6f21ab6f3",
@@ -1078,7 +1081,7 @@
     "backend/src/observability/context.ts": "e9d882dd76c398d2b3f461c0034f2cdb7ccb7c44d92fe9a06ff8f813f30add4b",
     "backend/src/observability/events.ts": "425f115c69689905268715f00dd9919cc13ef13db4f6455c91a812ff27aee38e",
     "backend/src/server.ts": "f24beb3cd06ab86f0ed8c3a0e942869612a86ccf9e07168a1e9ed408219d84d7",
-    "backend/tools/product-feedback/native-workflow-fixture.ts": "97c894b77d1f043d10c1c995fa291e7cd3700c5054d75b8b1edf95fa3b9d69b8",
+    "backend/tools/product-feedback/native-workflow-fixture.ts": "ab660df8489810bc3808d7bd443ea527b28c6abc3275de6ac7005125f2d8b11c",
     "backend/tools/product-feedback/native-workflow-requirements.txt": "5d31f925edb8d9014e8b71fdd034b1f4f09461cc29ec9df8a0cee4760fc11a7a",
     "backend/tools/product-feedback/native-workflow-source.py": "81fe715278b7478f86bacab70afdee15e3f49b6f93f6b8c4e0a297364e4acc0e",
     "backend/tools/product-feedback/native-workflow.tsconfig.json": "4d89dc753980c004e4707b6b2021f99dfc41089ae24dd70e8444cdf4684783e8",
@@ -1376,13 +1379,13 @@
     "frontend/tests/product-feedback/native-workflow-entry.tsx": "e35f500619d3a374676bc54bd243360e5c2c9e6e6dd34da332c374e89d6e37e2",
     "frontend/tests/product-feedback/native-workflow.config.ts": "4bdb004fea5dbcb0af5d40db55c1107bc4d86fb36f89f450d0a7a800f6808b01",
     "frontend/tests/product-feedback/native-workflow.html": "3062da4e8dbd6a3bcadab59a000706aaab78fc0350cef771bd4f35db42db5d97",
-    "frontend/tests/product-feedback/native-workflow.test.ts": "8a9ef09e2f95a91007bfbe80c85cf008298d8243fd6770f6a22569704041549c",
+    "frontend/tests/product-feedback/native-workflow.test.ts": "a1c44e736d6fc17fd4435c9030fd8f27d4e9895418395cc515e0819c5227f9d6",
     "frontend/tests/product-feedback/source-browser-workflows.ts": "e6fb3e4e71cc364bdf028ec132c16c2469d4b974f89ff1a8378819e4add8955a",
     "frontend/tests/product-feedback/tsconfig.json": "52359f6fc46fff446401526a0d6145cfa9673070e685433dc168038acc60b44c",
     "frontend/tsconfig.json": "b0ce9ceacabff6ef1f2d6f45ea20e091485b3f8f54cd726b9b7e533cc7e96c70",
     "frontend/vite.config.ts": "dd6591cb7d5c12224d373317fedbcac9b059b6db68a5977484bdf97e297d69ad"
   },
-  "extendsBoundedProofAtCommit": "abf9c5d",
+  "extendsBoundedProofAtCommit": "adbdc24",
   "sourceBrowser": {
     "originalRenderedDom": true,
     "originalInlineScript": true,
@@ -1408,7 +1411,8 @@
     "historyAnchorNavigationExecuted": false,
     "historyDiscoveryLimitation": "Requires accepted BigQuery history projection fixture; no warehouse response/provider acceptance fabricated.",
     "sharedNotificationsCertified": false,
-    "serviceWorkerLifecycleCertified": false
+    "serviceWorkerLifecycleCertified": false,
+    "nativeNullStoreLocationRegression": true
   },
   "checksumCoverage": "All backend/src and frontend/src files conservatively bind the entire used production App/server graph, plus tracked build/dependency/harness inputs. Hash inclusion alone does not certify unexecuted modules."
 }

@@ -19,6 +19,7 @@ import {
   nativeFeedbackFixture,
 } from '../../../backend/tools/product-feedback/native-workflow-fixture';
 import { feedbackWorkspace } from '../../../backend/src/modules/product-feedback/contracts';
+import { storeListSchema } from '../../src/api/schemas';
 import { registerSourceBrowserWorkflows } from './source-browser-workflows';
 
 describe.skipIf(!process.env.PRODUCT_FEEDBACK_WORKFLOW_MYSQL_URL)(
@@ -311,6 +312,40 @@ describe.skipIf(!process.env.PRODUCT_FEEDBACK_WORKFLOW_MYSQL_URL)(
       });
       expect(archived.status).toBe(401);
       await fixture.archiveOperator(true);
+      expect(await fixture.rows()).toEqual([]);
+    });
+    it('normalizes a native NULL store display location and bootstraps the production App without changing native store or checkout data', async () => {
+      const baseline = storeListSchema.parse((await read('7', '/api/v1/stores')).value);
+      await fixture.setStoreLocation(null);
+      const nativeBefore = await fixture.bootstrapRows();
+      expect(nativeBefore.stores.find((store) => store.id === '1')?.location_code).toBeNull();
+      const actual = await read('7', '/api/v1/stores');
+      expect(actual.response.status).toBe(200);
+      expect(storeListSchema.parse(actual.value)).toEqual({
+        data: baseline.data.map((store) =>
+          store.id === '1' ? { ...store, locationCode: '' } : store,
+        ),
+      });
+      fixture.useProductionApp();
+      const { page } = await workspace();
+      await browserExpect(page.getByLabel('Current store')).toHaveValue('1');
+      await browserExpect(
+        page.getByRole('button', { name: 'Save feedback', exact: true }),
+      ).toHaveCount(2);
+      expect(await page.getByLabel('Current store').locator('option').allTextContents()).toEqual([
+        'Synthetic store 1',
+        'Synthetic store 2',
+      ]);
+      expect(
+        fixture.traffic.some(
+          (row) =>
+            new URL(row.path, fixture.origin).pathname === fixture.api &&
+            row.method === 'GET' &&
+            row.status === 200,
+        ),
+      ).toBe(true);
+      expect(fixture.traffic.filter((row) => row.method !== 'GET')).toEqual([]);
+      expect(await fixture.bootstrapRows()).toEqual(nativeBefore);
       expect(await fixture.rows()).toEqual([]);
     });
   },

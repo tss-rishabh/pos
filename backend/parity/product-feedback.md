@@ -205,6 +205,12 @@ During fixture completion, an independent catalog contract concern was observed:
 verified legacy `stores.location_code` permits NULL, catalog currently returns
 that NULL, while the frontend store list schema requires a string. Native GET
 returned 200 but App store bootstrap showed a validation error for the synthetic
-NULL rows. This runner uses explicit valid synthetic location codes; the concern
-was reported to the parent for separate triage rather than changing production
-catalog behavior in this feature proof.
+NULL rows. The parent corrected the catalog display projection in `4a410b9` to return an
+empty string for a native NULL location; storage and inventory identifiers stay
+unchanged. The additional native regression sets one active fixture store
+location to NULL, checks the complete API store list against the real frontend
+schema (all other fields and the non-NULL location unchanged), then enters the
+actual production App with a fresh browser and native session cookie. Store
+selection and both feedback forms render. Native store/checkout snapshots remain
+identical after GET/bootstrap, the NULL stays NULL, and no mutation HTTP calls
+or feedback rows occur. Existing 14 cases remain present.
