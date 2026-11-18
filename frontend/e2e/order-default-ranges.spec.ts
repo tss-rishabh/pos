@@ -4,7 +4,7 @@ import {
   type OrderDefaultRanges,
 } from '../src/pages/order-history/search-client';
 
-function originalRange(generatedAt: string, timeZone: string, online = false) {
+function originalRange(generatedAt: string, timeZone: string) {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone,
     year: 'numeric',
@@ -21,7 +21,7 @@ function originalRange(generatedAt: string, timeZone: string, online = false) {
   const stamp = (date: Date) => date.toISOString().slice(0, 19).replace('T', ' ');
   return {
     placedFrom: stamp(new Date(wall.getTime() - 5 * 86400000)),
-    placedTo: stamp(new Date(wall.getTime() + (online ? 0 : 60000))),
+    placedTo: stamp(new Date(wall.getTime() + 60000)),
   };
 }
 const local = (value: string) => value.replace(' ', 'T').slice(0, 16);
@@ -60,7 +60,6 @@ test('actual routed App uses original server-clock defaults and preserves edits 
   const { defaults, body } = await enter(page);
   const expected = originalRange(defaults.generatedAt, defaults.timeZone);
   expect(defaults.store).toEqual(expected);
-  expect(defaults.online).toEqual(originalRange(defaults.generatedAt, defaults.timeZone, true));
   expect(body).toMatchObject({
     ...expected,
     from: expected.placedFrom.slice(0, 10),
@@ -119,7 +118,10 @@ test('actual routed App retains explicit calendar filters instead of injecting r
   await expect(page.getByLabel('Placed from', { exact: true })).toHaveValue('');
   // Use the real server window so synthetic demo rows are present; no response stubs.
   const from = initial.defaults.store.placedFrom.slice(0, 10),
-    to = initial.defaults.online.placedTo.slice(0, 10);
+    to = originalRange(initial.defaults.generatedAt, initial.defaults.timeZone).placedTo.slice(
+      0,
+      10,
+    );
   const searched = searchResponse(page);
   await page.goto(`/orders?from=${from}&to=${to}`);
   await searched;

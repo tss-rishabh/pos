@@ -7,7 +7,12 @@ import { useWorkspace } from '../state/workspace';
 import { currency } from '../lib/format';
 import { Empty, ErrorState, Loading, Metric, PageTitle } from '../components/common';
 import { request } from '../api/client';
-import { orderBrowseDetail, orderBrowserDates, orderDateQuery } from './order-history/client';
+import {
+  orderBrowseDetail,
+  orderBrowserDates,
+  orderDateQuery,
+  currentOrderDay,
+} from './order-history/client';
 import {
   AutomaticInvoicePreview,
   createAutomaticInvoiceRequest,
@@ -338,7 +343,11 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           onOpen={(row) => {
             const day = row.created_at.slice(0, 10);
             setRowDetail(
-              !dates.explicit && day < (defaults?.online.placedTo.slice(0, 10) ?? dates.to)
+              !dates.explicit &&
+                day <
+                  (defaults
+                    ? currentOrderDay(Date.parse(defaults.generatedAt), defaults.timeZone)
+                    : dates.to)
                 ? { scope: authorityScope, orderId: row.id, from: day, to: day }
                 : null,
             );

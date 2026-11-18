@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { createClient } from 'redis';
 import { ordersService } from '../../src/modules/orders.js';
 import type { Principal } from '../../src/domain/access.js';
 import {
@@ -21,7 +22,7 @@ describe.skipIf(!template || !python)('native midnight source-window supplement'
   let fixture: Awaited<ReturnType<typeof orderSearchFixture>>;
   beforeAll(async () => {
     fixture = await orderSearchFixture(template!);
-    await fixture.fixture.create(['products']);
+    await fixture.fixture.create(['products', 'pos_terminal_payment_modes']);
     await fixture.fixture.insert('pos_user', { id: 9, is_active: 1, role: 1, user_type: 1 });
     await fixture.fixture.insert('stores', {
       id: 1,
@@ -60,6 +61,19 @@ describe.skipIf(!template || !python)('native midnight source-window supplement'
       location_id: 0,
       location_type: '',
     });
+    await fixture.fixture.insert('orders', {
+      id: 502,
+      user_id: 7,
+      order_ref_no: 'SYN-ONLINE-FUTURE',
+      order_status: 3,
+      payment_status: 4,
+      payment_method: 14,
+      created_at: '2027-01-01 00:00:00',
+      order_amt: 120,
+      pay_amt: 119,
+      location_id: null,
+      location_type: '',
+    });
     for (const id of [1, 2])
       await fixture.fixture.insert('order_stores', {
         id,
@@ -76,6 +90,170 @@ describe.skipIf(!template || !python)('native midnight source-window supplement'
   });
   afterAll(async () => {
     await fixture?.close();
+  });
+  it.skipIf(!process.env.ORDER_DEFAULT_FORM_REDIS_URL)(
+    'runs actual original GET/POST and rendered form with unchanged type-switch placement',
+    async () => {
+      const redis = createClient({ url: process.env.ORDER_DEFAULT_FORM_REDIS_URL! });
+      await redis.connect();
+      try {
+        await redis.set('check_in_9', JSON.stringify([1, 'Synthetic midnight']));
+        const raw: unknown = JSON.parse(
+          execFileSync(python!, ['-B', 'tests/order-search/default-form-source.py'], {
+            input: JSON.stringify({
+              url: fixture.url,
+              redis: process.env.ORDER_DEFAULT_FORM_REDIS_URL,
+              actor: 9,
+            }),
+            encoding: 'utf8',
+            timeout: 30000,
+          }),
+        );
+        const result = z
+          .object({
+            defaultRange: z.string().regex(/^\d\d\/\d\d\/\d{4} /),
+            mro: z.array(z.string()),
+            cases: z
+              .array(
+                z.object({
+                  type: z.string(),
+                  status: z.number(),
+                  range: z.string(),
+                  ajaxRange: z.string(),
+                  selected: z.boolean(),
+                }),
+              )
+              .length(4),
+          })
+          .parse(raw);
+        expect(result.mro).toEqual([
+          'OrdersView',
+          'LoginRequiredMixin',
+          'AccessMixin',
+          'View',
+          'object',
+        ]);
+        expect(result.cases.map((value) => value.type)).toEqual(['N', 'ST', 'HE', 'N']);
+        for (const item of result.cases)
+          expect(item).toEqual({
+            type: item.type,
+            status: 200,
+            range: result.defaultRange,
+            ajaxRange: result.defaultRange,
+            selected: true,
+          });
+      } finally {
+        await redis.del('check_in_9');
+        await redis.quit();
+      }
+    },
+  );
+  it('retains the source store-page future endpoint for N without widening its cap or global authority', async () => {
+    const now = Date.parse('2026-12-31T18:29:55Z');
+    const input = orderSearchInput.parse({
+      ...sourceOrderDefaults(now, 'Asia/Kolkata').store,
+      orderType: 'N',
+      from: '2026-12-26',
+      to: '2027-01-01',
+    });
+    const scope: SourceSearchScope = {
+      contextStoreId: '1',
+      checkedInStoreId: '1',
+      allowedStores: ['1'],
+      internal: true,
+      globalReader: true,
+      binding: 'synthetic',
+      effectiveType: 'N',
+      selectedStores: ['1'],
+      explicitIds: false,
+      heLocationLabel: null,
+    };
+    const plan = sourceSearchReadPlan(input, 'Asia/Kolkata', now);
+    const facts = await sourceNativeRepository(fixture.db).currentFacts(
+      scope,
+      input,
+      plan.current!,
+      20000,
+    );
+    const selected = sourceSelect(
+      facts.map((value) => sourceIndex(value)),
+      scope,
+      input,
+      { orderPhone: '', userPhone: '', email: '' },
+    );
+    const actual = selected.rows.map((row) => {
+      const {
+        rowKey: _key,
+        actionStoreId: _store,
+        ...value
+      } = formatSourceOrder(
+        facts.find((fact) => fact.id === row.index.id)!,
+        scope,
+        row.rowKey,
+      );
+      return value;
+    });
+    const original: unknown = JSON.parse(
+      execFileSync(python!, ['tools/order-search/source_oracle.py'], {
+        input: JSON.stringify({
+          url: fixture.url,
+          cases: [
+            {
+              order_type: 'N',
+              order_date_range: '12/26/2026 11:59 PM - 01/01/2027 12:00 AM',
+              'search[value]': '',
+              'order[0][column]': '0',
+              'columns[0][data]': 'id',
+              'order[0][dir]': 'desc',
+              start: 0,
+              length: 100,
+              draw: 1,
+            },
+          ],
+        }),
+        encoding: 'utf8',
+        timeout: 30000,
+      }),
+    );
+    const expected = z
+      .array(
+        z.object({ response: z.object({ data: z.array(z.unknown()), recordsTotal: z.string() }) }),
+      )
+      .parse(original)[0]!.response;
+    expect(actual).toEqual(expected.data);
+    expect(actual).toHaveLength(1);
+    expect(selected.count).toBe(expected.recordsTotal);
+    await fixture.connection.query(
+      "UPDATE orders SET created_at='2027-01-01 00:00:01' WHERE id=502",
+    );
+    expect(
+      await sourceNativeRepository(fixture.db).currentFacts(scope, input, plan.current!, 20000),
+    ).toEqual([]);
+    await fixture.connection.query(
+      "UPDATE orders SET created_at='2027-01-01 00:00:00' WHERE id=502",
+    );
+    expect(
+      await sourceNativeRepository(fixture.db).currentFacts(
+        { ...scope, globalReader: false },
+        input,
+        plan.current!,
+        20000,
+      ),
+    ).toEqual([]);
+    expect(() =>
+      sourceSearchReadPlan(
+        orderSearchInput.parse({ ...input, placedTo: '2027-01-01 00:01:00' }),
+        'Asia/Kolkata',
+        now,
+      ),
+    ).toThrow();
+    expect(() =>
+      sourceSearchReadPlan(
+        orderSearchInput.parse({ ...input, intent: 'report' }),
+        'Asia/Kolkata',
+        now,
+      ),
+    ).toThrow();
   });
   it('opens only the source-admitted midnight point through authorized undated detail', async () => {
     const user: Principal = {

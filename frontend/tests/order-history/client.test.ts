@@ -4,14 +4,13 @@ import {
   orderBrowserDates,
   orderBrowsePage,
 } from '../../src/pages/order-history/client';
-import { defaultOrderRange, orderDefaultRanges } from '../../src/pages/order-history/search-client';
+import { orderDefaultRanges } from '../../src/pages/order-history/search-client';
 describe('public order browser date and keyset contracts', () => {
   it('uses validated server rolling bounds independently of device time and keeps explicit/invalid links authoritative', () => {
     const defaults = orderDefaultRanges.parse({
       generatedAt: '2026-12-31T18:29:55Z',
       timeZone: 'Asia/Kolkata',
       store: { placedFrom: '2026-12-26 23:59:00', placedTo: '2027-01-01 00:00:00' },
-      online: { placedFrom: '2026-12-26 23:59:00', placedTo: '2026-12-31 23:59:00' },
     });
     expect(
       orderBrowserDates(new URLSearchParams(), Date.parse('2030-01-01T00:00:00Z'), defaults),
@@ -24,9 +23,6 @@ describe('public order browser date and keyset contracts', () => {
     ).toEqual({ from: '2026-12-20', to: '2026-12-21', explicit: true, valid: true });
     for (const query of ['from=invalid', 'from=2026-12-31&to=2026-12-01', 'to=2026-12-31'])
       expect(orderBrowserDates(new URLSearchParams(query), 0, defaults).valid).toBe(false);
-    expect(defaultOrderRange(defaults, 'N').placedTo).toBe('2026-12-31 23:59:00');
-    for (const type of ['ST', 'HL', 'HE'] as const)
-      expect(defaultOrderRange(defaults, type).placedTo).toBe('2027-01-01 00:00:00');
     expect(orderDefaultRanges.safeParse({ ...defaults, timeZone: 'Invalid/Zone' }).success).toBe(
       false,
     );

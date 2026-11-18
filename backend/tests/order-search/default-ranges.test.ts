@@ -37,7 +37,7 @@ const vectors = [
 ] as const;
 describe('source-authoritative rolling order defaults', () => {
   it.each(vectors)(
-    'matches literal original helper and ST/N view prefixes at %s in %s',
+    'matches literal original helper and active store view prefix at %s in %s',
     (instant, zone) => {
       const now = Date.parse(instant),
         defaults = sourceOrderDefaults(now, zone);
@@ -45,7 +45,7 @@ describe('source-authoritative rolling order defaults', () => {
         .toZonedDateTimeISO(zone)
         .toPlainDateTime()
         .toString();
-      for (const online of [false, true]) {
+      for (const online of [false]) {
         const expected: unknown = JSON.parse(
           execFileSync('python3', ['-B', '-c', original], {
             input: JSON.stringify({
@@ -58,7 +58,7 @@ describe('source-authoritative rolling order defaults', () => {
             encoding: 'utf8',
           }),
         );
-        expect(online ? defaults.online : defaults.store).toEqual(expected);
+        expect(defaults.store).toEqual(expected);
       }
     },
   );
@@ -93,18 +93,10 @@ describe('source-authoritative rolling order defaults', () => {
       start: '2027-01-01 00:00:00',
       end: '2027-01-01 00:00:00.000001',
     });
-    expect(
-      sourceSearchReadPlan(
-        orderSearchInput.parse({
-          ...defaults.online,
-          orderType: 'N',
-          from: '2026-12-26',
-          to: '2026-12-31',
-        }),
-        'Asia/Kolkata',
-        now,
-      ).current,
-    ).toBeUndefined();
+    for (const orderType of ['ST', 'HL', 'HE', 'N'] as const)
+      expect(
+        sourceSearchReadPlan(orderSearchInput.parse({ ...input, orderType }), 'Asia/Kolkata', now),
+      ).toEqual(plan);
     // A frozen original view remains exactly bounded after midnight; it is not regenerated.
     const later = sourceSearchReadPlan(input, 'Asia/Kolkata', now + 120000);
     expect(later.selected.to).toBe('2027-01-01');
@@ -120,7 +112,6 @@ describe('source-authoritative rolling order defaults', () => {
     for (const change of [
       { placedTo: '2027-01-01 00:01:00' },
       { placedTo: '2026-12-31 23:59:00' },
-      { orderType: 'N' },
       { intent: 'report' },
       { to: '2027-01-02' },
       { from: '2027-01-01' },

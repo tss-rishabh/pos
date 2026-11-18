@@ -189,6 +189,31 @@ try {
   ).toBeVisible();
   await expect(page.getByText('No orders in this selection', { exact: true })).toHaveCount(0);
   passed++;
+  unavailable = false;
+  await page.goto(`http://127.0.0.1:${address.port}/tests/order-search/fixture.html?rolling=1`);
+  await expect(page.getByRole('button', { name: 'Apply filters', exact: true })).toBeEnabled();
+  for (const type of ['N', 'HE', 'HL', 'ST']) {
+    await page.getByLabel('Order type', { exact: true }).selectOption(type);
+    await expect(page.getByLabel('Placed from', { exact: true })).toHaveValue('2026-12-26T23:59');
+    await expect(page.getByLabel('Placed to', { exact: true })).toHaveValue('2027-01-01T00:00');
+    const response = page.waitForResponse(
+      (value) =>
+        value.request().method() === 'POST' &&
+        new URL(value.url()).pathname.endsWith('/orders/searches'),
+    );
+    await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+    const body = (await response).request().postDataJSON();
+    expect(body).toMatchObject({
+      orderType: type,
+      placedFrom: '2026-12-26 23:59:00',
+      placedTo: '2027-01-01 00:00:00',
+    });
+    passed++;
+  }
+  await page.getByLabel('Placed from', { exact: true }).fill('2026-12-27T12:34');
+  await page.getByLabel('Order type', { exact: true }).selectOption('N');
+  await expect(page.getByLabel('Placed from', { exact: true })).toHaveValue('2026-12-27T12:34');
+  passed++;
   await context.close();
   process.stdout.write(
     JSON.stringify({

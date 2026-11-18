@@ -7,7 +7,6 @@ import { currency } from '../../lib/format';
 import { OrderInvoiceActions } from '../invoice-documents';
 import {
   useOrderSearchOptions,
-  defaultOrderRange,
   type OrderDefaultRanges,
   type OrderSearchMetadata,
   searchOrders,
@@ -49,9 +48,7 @@ export function SourceOrderList({
   refreshToken?: number;
   onOpen: (row: SourceOrderRow) => void;
 }) {
-  const initialRange =
-    defaults && dates.explicit === false ? defaultOrderRange(defaults, 'ST') : undefined;
-  const placementTouched = useRef(false);
+  const initialRange = defaults && dates.explicit === false ? defaults.store : undefined;
   const localTime = (value: string) => value.replace(' ', 'T').slice(0, 16);
   const [form, setForm] = useState({
       type: 'ST' as OrderSearchBody['orderType'],
@@ -107,7 +104,6 @@ export function SourceOrderList({
     if (!calendarChanged && previous.current.refreshToken === refreshToken) return;
     previous.current = { dates: key, refreshToken };
     if (calendarChanged) {
-      placementTouched.current = true;
       setForm((old) => ({ ...old, placedFrom: '', placedTo: '' }));
     }
     setSelection((old) => ({
@@ -218,22 +214,8 @@ export function SourceOrderList({
               value={form.type}
               onChange={(e) => {
                 const type = e.currentTarget.value as OrderSearchBody['orderType'];
-                setForm((old) => {
-                  const range =
-                    defaults && dates.explicit === false && !placementTouched.current
-                      ? defaultOrderRange(defaults, type)
-                      : undefined;
-                  return {
-                    ...old,
-                    type,
-                    ...(range
-                      ? {
-                          placedFrom: localTime(range.placedFrom),
-                          placedTo: localTime(range.placedTo),
-                        }
-                      : {}),
-                  };
-                });
+                // Original radio controls retain the current placement window.
+                setForm((old) => ({ ...old, type }));
               }}
             >
               {(
@@ -356,7 +338,6 @@ export function SourceOrderList({
               disabled={queue}
               value={form.placedFrom}
               onChange={(e) => {
-                placementTouched.current = true;
                 setForm({ ...form, placedFrom: e.currentTarget.value });
               }}
             />
@@ -369,7 +350,6 @@ export function SourceOrderList({
               disabled={queue}
               value={form.placedTo}
               onChange={(e) => {
-                placementTouched.current = true;
                 setForm({ ...form, placedTo: e.currentTarget.value });
               }}
             />

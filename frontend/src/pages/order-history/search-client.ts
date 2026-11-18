@@ -88,14 +88,9 @@ export const orderDefaultRanges = z
         }
       }),
     store: sourceRange,
-    online: sourceRange,
   })
   .strict();
 export type OrderDefaultRanges = z.infer<typeof orderDefaultRanges>;
-export const defaultOrderRange = (
-  defaults: OrderDefaultRanges,
-  type: OrderSearchBody['orderType'],
-) => (type === 'N' ? defaults.online : defaults.store);
 const option = z.object({ id: zero, name: z.string().nullable() }).strict();
 export const orderSearchOptions = z
   .object({

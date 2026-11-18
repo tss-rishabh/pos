@@ -14,7 +14,6 @@ export function sourceOrderDefaults(now: number, timeZone: string) {
     generatedAt: instant.toString(),
     timeZone,
     store: { placedFrom, placedTo: stamp(minute.add({ minutes: 1 })) },
-    online: { placedFrom, placedTo: stamp(minute) },
   };
 }
 export interface SourceSearchReadPlan {
@@ -39,7 +38,6 @@ export function sourceSearchReadPlan(
     future &&
     (!input.placedTo ||
       input.placedTo.slice(0, 10) !== to ||
-      input.orderType === 'N' ||
       input.intent === 'report' ||
       Temporal.PlainDateTime.compare(
         Temporal.PlainDateTime.from(input.placedTo.replace(' ', 'T')),

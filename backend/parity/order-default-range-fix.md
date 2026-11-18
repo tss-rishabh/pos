@@ -1,5 +1,7 @@
 # Original rolling order window correction
 
+Historical first-fix record (9eaff84/e54d11d). The active store-page type-switch behavior is corrected separately in [order-type-range-retention-fix.md](order-type-range-retention-fix.md). The original online-view arithmetic prefix mentioned below does **not** establish rendered online defaults: its actual context supplies an empty range and HL, while active store-page radio changes retain the existing window.
+
 Source pinned at `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`: `helpers/helpers.py:496` and `order/views.py:70,232` subtract five local wall days and format to minute precision. Store-family views add one minute to the end; online does not. The rewrite previously opened today only.
 
 The additive options metadata now supplies server business-zone defaults. The App anchors them once per operator/role/store authority scope. Explicit URL calendars remain authoritative. Focus, reconnect, refresh and sorting do not regenerate the initial window or discard operator edits. Switching untouched type defaults selects the original ST/HL/HE versus N end. Applying unchanged calendar dates retains precise bounds. Opening historical rows sends their day only to the bound detail query, preserving the list and its filters.
