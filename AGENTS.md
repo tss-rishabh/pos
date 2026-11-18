@@ -60,7 +60,28 @@ These supersede earlier WIP patterns. Every agent must follow them.
     `tss_settings` rows `POS_OFFLINE_BILLING_MAX_MINUTES` and
     `POS_OFFLINE_BILLING_MAX_ORDERS`.
   - Web clients need internet to bill.
-- The full plan is in `docs/plans/single-stack-schema-freeze.md`.
+- **Revisions, 19 November 2026** (these override the offline bullets above where they conflict):
+  - Offline limits come from backend environment variables
+    `OFFLINE_BILLING_MAX_MINUTES` (default 120) and `OFFLINE_BILLING_MAX_ORDERS`
+    (default 10), not `tss_settings`, because `tss_settings.platform` is a fixed enum.
+  - Never write `orders.order_ref_no`. API-v2 owns it: it is the
+    shipment/finance tracking number. Record the provisional offline
+    reference as a legacy-style `comments` row on the created order, and keep
+    idempotency in Redis. An uncertain sync outcome goes to the manager and is
+    never resent automatically.
+  - **Drop Google SSO and desktop SSO.** Use legacy login only: password plus
+    OTP/TOTP, as in legacy `users/`.
+  - **Delete CSV order punch-in/import** (offline and Shopify CSV order import,
+    tender pause, manager corrections). Legacy has it disabled
+    (`core/urls.py:72-76`).
+  - Production MySQL runs with an empty (non-strict) `sql_mode`. Where legacy
+    writes enum values that are not in the enum (for example
+    `gift_voucher_history.platform='GV_ADD'` or `has_products.type='FREEBIE'`),
+    write the resulting stored value (`''`) explicitly, so rows are identical
+    in any mode.
+  - Gift-card batch archive password: use legacy's derived password.
+- The full plan is in `docs/plans/single-stack-schema-freeze.md`. The table
+  ledger is in `backend/parity/table-disposition.md`.
 
 - Frontend and backend remain separate folders. Desktop + web only.
 - Strict TypeScript, no `any`, runtime input validation, exact money/ID handling.
