@@ -55,13 +55,30 @@ with a guard requiring `ENV=POS_ORIGIN_HEAD_FIXTURE` and
 `DB=root@tcp(mysql:3306)/native_head_go_validation?parseTime=true`. The head
 runner creates and uses exactly `native_head_go_validation`; its host installer
 URL remains the required passwordless-root loopback
-`/pos_rewrite_checkout_test` URL on this phase's ephemeral published port.
+`/pos_rewrite_checkout_test` URL on this phase's ephemeral loopback relay port.
 The owned Docker proxy forwards those fixture-only Go environment settings.
 The original and replacement loader hashes are recorded, and original source
 bootstrap behavior is explicitly excluded from the result. The actual unchanged
 `run-head-native-tests.mjs` installs its native authority fixture and runs all
 four required head/capacity/FirstStart groups. Any skipped head case or missing
 required pass fails orchestration. Diagnostic vet bypass is never forwarded.
+
+The host installer uses `relay.py`, which streams protocol bytes through a fixed
+`docker exec -i <nonce-owned-mysql-id> /bin/bash -c <fixed-/dev/tcp-command>`.
+No database port is published from the internal network, no additional image
+is needed, and the Go tests continue connecting directly to the same native
+server at `mysql:3306`. The relay binds only `127.0.0.1`, limits concurrent
+connections to 32 and each direction's pending buffer to approximately 1 MiB,
+uses `os.read`/nonblocking writes, and never logs SQL or protocol bytes.
+COM_QUIT and server EOF are streamed normally. Client write-half-close closes
+Docker stdin while retaining server output; bash `/dev/tcp` cannot propagate
+an exact TCP `shutdown(SHUT_WR)`, so arbitrary TCP half-close equivalence is
+excluded. This is a MySQL fixture transport seam with no latency claim.
+The exact exec shell emits only its numeric PID on a private stderr control
+pipe; validated numeric PID termination stops that shell and its reader cat
+when a connection ends or the phase is interrupted. Accepted sockets, exec
+clients, worker threads and the listener close before owned Docker cleanup;
+the result records these lifecycle postconditions without protocol contents.
 
 `calendar` invokes the unchanged current `expiry-review/run-active-calendar.sh`
 with all five explicit paths: fresh assembly, private offline module cache,

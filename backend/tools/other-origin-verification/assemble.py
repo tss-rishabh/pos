@@ -22,6 +22,8 @@ import tempfile
 import time
 import uuid
 
+from relay import MySQLExecRelay
+
 HERE = Path(__file__).resolve().parent
 BACKEND = HERE.parents[1]
 UPSTREAM = BACKEND / 'compatibility/upstream'
@@ -233,6 +235,7 @@ def run_phase(phase, source, modules_source, docker, before_source, before_produ
     result = {'phase': phase, 'completed': False, 'sourcePin': PIN,
               'scope': 'Bounded native origin verification; not complete public HTTP parity'}
     active = None
+    relay = None
 
     def invoke(command, output):
         nonlocal active
@@ -339,7 +342,7 @@ def run_phase(phase, source, modules_source, docker, before_source, before_produ
             network = 'pos-origin-verifier-' + re.sub(r'[^a-z0-9]', '', nonce.lower())
             capture([str(proxy), 'network', 'create', network], env=environment)
             identifier = capture([str(proxy), 'run', '-d', '--name', network, '--network', network,
-                                  '--network-alias', 'mysql', '-p', '127.0.0.1::3306',
+                                  '--network-alias', 'mysql',
                                   '-e', 'MYSQL_ALLOW_EMPTY_PASSWORD=yes', '-e', 'MYSQL_ROOT_HOST=%',
                                   '-e', 'MYSQL_DATABASE=pos_rewrite_checkout_test', MYSQL], env=environment).decode().strip()
             for attempt in range(60):
@@ -350,8 +353,12 @@ def run_phase(phase, source, modules_source, docker, before_source, before_produ
                     break
                 require(attempt < 59, 'OWNED_MYSQL_NOT_READY')
                 time.sleep(1)
-            port = capture([docker, 'port', identifier, '3306/tcp']).decode().strip().split(':')[-1]
-            environment.update({'CHECKOUT_MYSQL_TEST_URL': 'mysql://root@127.0.0.1:' + port + '/pos_rewrite_checkout_test',
+            # Internal Docker networks do not publish host ports here. Keep
+            # the native Go/MySQL network isolated and bridge only the host
+            # fixture installer's loopback connection into this owned server.
+            relay = MySQLExecRelay(docker, identifier, nonce)
+            result['fixtureTransport'] = 'loopback-docker-exec-mysql'
+            environment.update({'CHECKOUT_MYSQL_TEST_URL': 'mysql://root@127.0.0.1:' + str(relay.port) + '/pos_rewrite_checkout_test',
                                 'POS_ORIGIN_HEAD_DOCKER_NETWORK': network,
                                 'ENV': 'POS_ORIGIN_HEAD_FIXTURE',
                                 'DB': 'root@tcp(mysql:3306)/native_head_go_validation?parseTime=true'})
@@ -393,6 +400,12 @@ def run_phase(phase, source, modules_source, docker, before_source, before_produ
     except Exception as error:
         result['failure'] = str(error) if isinstance(error, RuntimeError) else 'ORIGIN_PHASE_SETUP_OR_EXECUTION_FAILED'
     finally:
+        if relay is not None:
+            result['relayCleanup'] = relay.close()
+            if not all(result['relayCleanup'][key] for key in
+                       ('listenerClosed', 'allThreadsStopped', 'allExecClientsStopped')):
+                result['completed'] = False
+                result['failure'] = 'OWNED_RELAY_CLEANUP_FAILED'
         try:
             after = {'source': source_state(source), 'producer': producer_state()}
             write_json(work / 'after.json', after)
