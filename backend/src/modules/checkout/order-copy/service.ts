@@ -19,7 +19,7 @@ import {
 export interface OrderCopyLogger {
   warn(fields: Record<string, string | null>, message: string): void;
 }
-interface Scope {
+export interface OrderCopyScope {
   storeId: string;
   checkoutId: string;
 }
@@ -77,44 +77,42 @@ export function orderCopyService(
     ).map((line) => String(line.productId));
   }
   return {
-    async copy(user: Principal, scope: Scope, input: OrderCopyInput): Promise<OrderCopyResult> {
+    async copy(
+      user: Principal,
+      scope: OrderCopyScope,
+      input: OrderCopyInput,
+    ): Promise<OrderCopyResult> {
       requireStore(user, scope.storeId);
-      return sessions.exclusive(user.id, scope.storeId, scope.checkoutId, async (initial) => {
-        if (!initial.customerId)
-          throw new AppError(409, 'ORDER_COPY_CUSTOMER_REQUIRED', 'Please Connect The User');
-        if (initial.orderId || !['open', 'quoted'].includes(initial.phase))
-          throw new AppError(
-            409,
-            'CHECKOUT_ALREADY_SUBMITTED',
-            'This sale already has an order. Open its order details.',
-          );
-        if (initial.busyOperationId)
-          throw new AppError(
-            409,
-            'CHECKOUT_BUSY',
-            'Another change to this sale is still running. Try again.',
-          );
-        if ((await sessions.leaseHolder('customer', initial.customerId)) !== initial.id)
-          throw new AppError(
-            409,
-            'ORDER_COPY_CUSTOMER_LEASE_REQUIRED',
-            'Reconnect the customer cart before copying.',
-          );
-        let current: Cart;
-        try {
-          current = await cart.read(initial);
-        } catch {
-          throw new AppError(
-            502,
-            'ORDER_COPY_CART_UNAVAILABLE',
-            'Could not read cart, Please Try Again',
-          );
-        }
-        const products = await sourceLines(user, initial.customerId, input.orderId);
-        // The checkout cart helper accepts copy steps only for a state reserved to the copy. The
-        // reservation lives only in memory; the persisted state never carries it.
-        const copyId = randomUUID();
-        let state: CheckoutState = {
+      const copyId = randomUUID();
+      // Reserve the sale like every checkout operation (busyOperationId), so the cart helper's own
+      // checkpoints accept the copy steps and other mutations wait. No HTTP runs under the lock.
+      const { reserved, products } = await sessions.exclusive(
+        user.id,
+        scope.storeId,
+        scope.checkoutId,
+        async (initial) => {
+          if (!initial.customerId)
+            throw new AppError(409, 'ORDER_COPY_CUSTOMER_REQUIRED', 'Please Connect The User');
+          if (initial.orderId || !['open', 'quoted'].includes(initial.phase))
+            throw new AppError(
+              409,
+              'CHECKOUT_ALREADY_SUBMITTED',
+              'This sale already has an order. Open its order details.',
+            );
+          if (initial.busyOperationId)
+            throw new AppError(
+              409,
+              'CHECKOUT_REVIEW_REQUIRED',
+              'A previous checkout operation needs review before continuing.',
+            );
+          if ((await sessions.leaseHolder('customer', initial.customerId)) !== initial.id)
+            throw new AppError(
+              409,
+              'ORDER_COPY_CUSTOMER_LEASE_REQUIRED',
+              'Reconnect the customer cart before copying.',
+            );
+          const lines = await sourceLines(user, initial.customerId, input.orderId);
+          const next: CheckoutState = {
             ...initial,
             busyOperationId: copyId,
             orderCopy: {
@@ -124,9 +122,22 @@ export function orderCopyService(
               status: 'pending',
               resultHash: null,
             },
-          },
-          added = 0;
+            updatedAt: Date.now(),
+          };
+          return { state: next, value: { reserved: next, products: lines } };
+        },
+      );
+      let state = reserved,
+        added = 0,
+        unreadable = false;
+      try {
+        let current: Cart | null = null;
         try {
+          current = await cart.read(state);
+        } catch {
+          unreadable = true;
+        }
+        if (current)
           for (const productId of products) {
             if (added) current = await cart.read(state);
             state = await cart.setLine(
@@ -138,38 +149,53 @@ export function orderCopyService(
             );
             added++;
           }
-        } catch (error) {
-          // Legacy stops at the first failed addition and keeps what was already added.
-          logger?.warn(
-            {
-              module: 'checkout',
-              resource: 'order-copy',
-              eventId: 'checkout.order-copy.partial',
-              requestId: currentRequestTrace()?.requestId ?? null,
-              userId: user.id,
-              errorCode: error instanceof AppError ? error.code : 'ORDER_COPY_STEP_FAILED',
-            },
-            'Order copy stopped before every product was added',
+      } catch (error) {
+        // Legacy stops at the first failed addition and keeps what was already added.
+        logger?.warn(
+          {
+            module: 'checkout',
+            resource: 'order-copy',
+            eventId: 'checkout.order-copy.partial',
+            requestId: currentRequestTrace()?.requestId ?? null,
+            userId: user.id,
+            errorCode: error instanceof AppError ? error.code : 'ORDER_COPY_STEP_FAILED',
+          },
+          'Order copy stopped before every product was added',
+        );
+      }
+      const latest = state;
+      await sessions.exclusive(user.id, scope.storeId, scope.checkoutId, async (stored) => {
+        if (stored.busyOperationId !== copyId)
+          throw new AppError(
+            409,
+            'CHECKOUT_OPERATION_CHANGED',
+            'This checkout changed during the copy. Reload it before continuing.',
           );
-        }
-        const partial = added < products.length;
         return {
           state: {
-            ...state,
+            ...latest,
             busyOperationId: null,
             orderCopy: null,
             quote: null,
             phase: 'open',
-            version: initial.version + 1,
+            version: stored.version + 1,
             updatedAt: Date.now(),
           },
-          value: {
-            orderId: input.orderId,
-            partial,
-            message: partial ? orderCopyMessages.partial : orderCopyMessages.synced,
-          },
+          value: null,
         };
       });
+      if (unreadable)
+        throw new AppError(
+          502,
+          'ORDER_COPY_CART_UNAVAILABLE',
+          'Could not read cart, Please Try Again',
+        );
+      const partial = added < products.length;
+      return {
+        orderId: input.orderId,
+        partial,
+        message: partial ? orderCopyMessages.partial : orderCopyMessages.synced,
+      };
     },
   };
 }
