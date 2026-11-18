@@ -1,5 +1,38 @@
 # POS rewrite checkpoint
 
+The frozen `b201724` r5 run is terminal: 130 project checks executed, 123 passed,
+seven failed; generic app browser checks were deferred after those failures.
+Release gate also remains blocked, productionReady is false, changedInputs is
+empty. Backend: 2,688 passed, one stale route-count assertion failed, 90 skipped.
+The remaining failures are two identical narrow-Set fixture typechecks, Go
+confirmation fixture lifecycle, composed-benefit/private-source qualification,
+public-source Go permissions, and the inventory-workbook browser selector.
+Both desktop jobs in run `44229902258` failed only that same four-case selector
+ambiguity (102 other cases passed in their affected step); packaging was not
+reached. Do not describe these jobs or the full local run as green.
+
+Queued verified fixes: `4b78f25` (Set type, both checks pass), `54342e7`
+(explicit trace coverage of both return-window routes, ten tests pass),
+`e028ea4` (semantic Report combobox locator, five browser cases pass),
+`4f9142e` (genuine independent Go confirmation fixture, default vet/race pass),
+and `f282069` (exact no-row metadata guard compatibility and genuine coupon
+producers, composed-benefit group 11/11 plus three negative boundary methods).
+Proof-only `7aecc99` and bounded read-only BigQuery qualification `f4cbf73`
+are also ready. Root is unfreezing only after retaining this failed snapshot.
+
+Native membership/cache checks now establish a real required code gap: old
+Go/Node/Python membership-version fencing reads trigger definitions directly,
+which is incompatible with the restricted runtime account. Payment owns the
+three consumers, producer packing and fixtures; Hyper owns the reviewed
+seventeenth fixed-function metadata section, locked revision-trigger definer,
+cross-language qualification/registry/generator and generic base Go reader.
+Preserve native revision increments, original RR where required, actual RC for
+counter paths, and the existing two-function boundary. Do not grant runtime
+TRIGGER, allow root triggers, bypass guards or label this only external
+acceptance. Complete this port before the next consolidated run. CPP is
+separately proving the exact UPDATE-only referral_log fixture grant needed by
+the literal public Go allocation path. No live writes are authorized.
+
 The active-control implementation pass is reconciled on `d12d250` after the
 deliveries below. All 396 original IDs remain: 100 implementation-present,
 292 external-acceptance, zero identified missing active implementation groups,
