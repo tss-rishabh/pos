@@ -546,7 +546,7 @@ describe.skipIf(!template || !python)('pinned Django datatable and optimized nat
     await currentActor();
     const cases: OrderSearchRequest[] = [
       { orderType: 'ST', orderIds: ['103'] },
-      { orderType: 'HE', orderIds: ['101'] },
+      { orderType: 'HE', storeIds: ['1'], orderIds: ['101'] },
     ];
     const output = z.array(original).parse(
       JSON.parse(

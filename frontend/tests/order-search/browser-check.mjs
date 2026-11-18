@@ -214,6 +214,46 @@ try {
   await page.getByLabel('Order type', { exact: true }).selectOption('N');
   await expect(page.getByLabel('Placed from', { exact: true })).toHaveValue('2026-12-27T12:34');
   passed++;
+  await page.getByLabel('Order type', { exact: true }).selectOption('HE');
+  await page.getByLabel('Order IDs', { exact: true }).fill('9007199254740993');
+  for (const stores of [[], ['1', '2']]) {
+    await page.getByLabel('Order stores', { exact: true }).selectOption(stores);
+    const before = requests.length;
+    await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+    await expect(page.getByRole('alert')).toHaveText(
+      'Select exactly one store for Express orders.',
+    );
+    expect(requests.length).toBe(before);
+    passed++;
+    await page.getByLabel('Order stores', { exact: true }).selectOption('1');
+    const valid = page.waitForResponse(
+      (value) =>
+        value.request().method() === 'POST' &&
+        new URL(value.url()).pathname.endsWith('/orders/searches'),
+    );
+    await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+    expect((await valid).request().postDataJSON()).toMatchObject({
+      orderType: 'HE',
+      storeIds: ['1'],
+      orderIds: ['9007199254740993'],
+    });
+    await expect(page.getByRole('alert')).toHaveCount(0);
+    passed++;
+  }
+  await page.getByLabel('Order stores', { exact: true }).selectOption([]);
+  await page.getByLabel('In queue', { exact: true }).check();
+  const queued = page.waitForResponse(
+    (value) =>
+      value.request().method() === 'POST' &&
+      new URL(value.url()).pathname.endsWith('/orders/searches'),
+  );
+  await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+  expect((await queued).request().postDataJSON()).toMatchObject({
+    orderType: 'HE',
+    storeIds: [],
+    inQueue: true,
+  });
+  passed++;
   await context.close();
   process.stdout.write(
     JSON.stringify({

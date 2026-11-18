@@ -95,7 +95,11 @@ describe('source-authoritative rolling order defaults', () => {
     });
     for (const orderType of ['ST', 'HL', 'HE', 'N'] as const)
       expect(
-        sourceSearchReadPlan(orderSearchInput.parse({ ...input, orderType }), 'Asia/Kolkata', now),
+        sourceSearchReadPlan(
+          orderSearchInput.parse({ ...input, orderType, storeIds: ['1'] }),
+          'Asia/Kolkata',
+          now,
+        ),
       ).toEqual(plan);
     // A frozen original view remains exactly bounded after midnight; it is not regenerated.
     const later = sourceSearchReadPlan(input, 'Asia/Kolkata', now + 120000);

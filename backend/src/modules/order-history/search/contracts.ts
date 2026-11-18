@@ -70,6 +70,17 @@ export const orderSearchInput = z
   })
   .strict()
   .superRefine((value, ctx) => {
+    if (
+      value.orderType === 'HE' &&
+      !value.inQueue &&
+      !value.notPacked &&
+      value.storeIds.length !== 1
+    )
+      ctx.addIssue({
+        code: 'custom',
+        path: ['storeIds'],
+        message: 'Select exactly one store for Express orders.',
+      });
     if (Boolean(value.from) !== Boolean(value.to))
       ctx.addIssue({ code: 'custom', path: ['from'], message: 'Supply both calendar dates.' });
     if (Boolean(value.placedFrom) !== Boolean(value.placedTo))

@@ -137,6 +137,10 @@ export function SourceOrderList({
     }));
   }
   function submit() {
+    if (form.type === 'HE' && !form.inQueue && !form.notPacked && form.stores.length !== 1) {
+      setError('Select exactly one store for Express orders.');
+      return;
+    }
     const ids = form.ids.trim()
       ? form.ids
           .split(',')
