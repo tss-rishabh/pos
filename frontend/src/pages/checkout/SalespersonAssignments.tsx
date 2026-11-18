@@ -41,10 +41,9 @@ export function SalespersonAssignments({
         aria-keyshortcuts={productId ? undefined : 'S'}
         aria-label={label}
         disabled={disabled || directory.isPending || Boolean(directory.error)}
-        value={selected ?? ''}
+        value={selected ?? '0'}
         onChange={(event) => {
           const salespersonId = event.target.value;
-          if (!salespersonId) return;
           void act(async () => {
             await mutate('salesperson', 'PUT', {
               salespersonId,
@@ -53,10 +52,9 @@ export function SalespersonAssignments({
           });
         }}
       >
-        <option value="" disabled>
-          {productId ? 'Use sale salesperson' : 'Select salesperson'}
-        </option>
-        {selected && !people.some((person) => person.id === selected) && (
+        {/* Legacy "Not Selected" (value 0) removes the assignment (order/views.py:2969-3019). */}
+        <option value="0">Not Selected</option>
+        {selected && selected !== '0' && !people.some((person) => person.id === selected) && (
           <option value={selected}>Saved salesperson {selected}</option>
         )}
         {people.map((person) => (
@@ -77,8 +75,8 @@ export function SalespersonAssignments({
     <details>
       <summary>Salesperson assignments</summary>
       <p className="caption">
-        The sale salesperson applies to every product unless a separate assignment is saved. Fast
-        cash requires an assignment before completing a positive-total sale.
+        Choosing the sale salesperson sets every product to that salesperson; a product can then be
+        changed on its own. Every product needs a salesperson before the order is created.
       </p>
       {directory.isPending && <p role="status">Loading store salespeople…</p>}
       {directory.error && <p role="alert">{directory.error.message}</p>}
