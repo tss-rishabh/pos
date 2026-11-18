@@ -1,3 +1,4 @@
+import { sourceOrderDefaults } from '../../../backend/src/modules/order-history/search/default-ranges.js';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -147,6 +148,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               orderStatuses: [],
               orderTypes: ['ST'],
               checkedInStoreId: state.scopeStore,
+              defaults: sourceOrderDefaults(Date.now(), 'Asia/Kolkata'),
             },
           });
         if (method === 'POST' && path === `/api/v1/stores/${state.scopeStore}/orders/searches`) {

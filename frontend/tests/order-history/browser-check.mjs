@@ -1,8 +1,12 @@
+import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { chromium } from '@playwright/test';
 import { fileURLToPath } from 'node:url';
 import { existsSync, readFileSync } from 'node:fs';
+// Source OrdersView floors the local minute, subtracts five days and adds
+// one minute to the upper bound. Expected strings below are independently fixed.
+const fixtureNow = Date.parse('2026-11-18T12:34:56Z');
 const original = JSON.parse(
   readFileSync(new URL('../order-search/source-snapshot.json', import.meta.url), 'utf8'),
 ).response.data[0];
@@ -18,6 +22,15 @@ const server = await createServer({
 let browser;
 let passed = 0;
 try {
+  const { sourceOrderDefaults } = await server.ssrLoadModule(
+    fileURLToPath(
+      new URL(
+        '../../../backend/src/modules/order-history/search/default-ranges.ts',
+        import.meta.url,
+      ),
+    ),
+  );
+  const defaults = sourceOrderDefaults(fixtureNow, 'Asia/Kolkata');
   await server.listen();
   const address = server.httpServer.address();
   if (!address || typeof address === 'string')
@@ -54,6 +67,7 @@ try {
           orderStatuses: [],
           orderTypes: ['ST', 'HL', 'HE', 'N'],
           checkedInStoreId: '1',
+          defaults,
         },
       });
     if (url.pathname === '/api/v1/stores/1/orders/searches') {
@@ -63,7 +77,7 @@ try {
           year: 'numeric',
           month: '2-digit',
           day: '2-digit',
-        }).format(new Date()),
+        }).format(new Date(fixtureNow)),
         reader = body.from === today && body.to === today ? 'primary' : 'bigquery';
       return route.fulfill({
         json: {
@@ -82,7 +96,7 @@ try {
             actionStoreId: '1',
             created_at: body.from + ' 12:00:00',
           })),
-          fetchedAt: new Date().toISOString(),
+          fetchedAt: new Date(fixtureNow).toISOString(),
           range: { from: body.from, to: body.to, timeZone: 'Asia/Kolkata', ignoredForQueue: false },
           generationId: reader === 'bigquery' ? '4918d168-c62e-4ed7-b8ae-89b0a5e70019' : null,
         },
@@ -96,7 +110,7 @@ try {
         year: 'numeric',
         month: '2-digit',
         day: '2-digit',
-      }).format(new Date());
+      }).format(new Date(fixtureNow));
       const reader = from === today && to === today ? 'primary' : 'bigquery';
       const order = {
         id: '501',
@@ -152,6 +166,7 @@ try {
       },
     });
   });
+  await context.clock.setFixedTime(fixtureNow);
   const page = await context.newPage();
   await page.goto(`http://127.0.0.1:${address.port}/tests/order-history/fixture.html`);
   await page
@@ -159,13 +174,29 @@ try {
     .first()
     .waitFor({ timeout: 10000 });
   const current = requests.find((request) => request.path === '/api/v1/stores/1/orders/searches');
-  if (!current?.body.from || current.body.from !== current.body.to || current.actor !== '1')
-    throw new Error('Default order dates/operator were not explicit.');
+  assert(current, 'The source default selection must issue its explicit search.');
+  assert.deepEqual(
+    {
+      from: current.body.from,
+      to: current.body.to,
+      placedFrom: current.body.placedFrom,
+      placedTo: current.body.placedTo,
+      actor: current.actor,
+    },
+    {
+      from: '2026-11-13',
+      to: '2026-11-18',
+      placedFrom: '2026-11-13 18:04:00',
+      placedTo: '2026-11-18 18:05:00',
+      actor: '1',
+    },
+    'The fixed source clock must preserve its five-day/minute window and operator.',
+  );
   passed++;
   if ((await page.locator('tbody tr').count()) !== 2)
     throw new Error('Store-row multiplicity changed.');
   passed++;
-  const historical = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
+  const historical = '2026-11-15';
   await page.getByLabel('Orders from').fill(historical);
   await page.getByLabel('Orders to').fill(historical);
   await page.getByRole('button', { name: 'Apply dates', exact: true }).click();
@@ -209,6 +240,7 @@ try {
       json: { error: { code: 'SYNTHETIC_UNAVAILABLE', message: 'Synthetic unavailable' } },
     });
   });
+  await direct.clock.setFixedTime(fixtureNow);
   const linked = await direct.newPage();
   await linked.goto(
     `http://127.0.0.1:${address.port}/tests/order-history/fixture.html?entry=` +

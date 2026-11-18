@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T15:56:29.551715+00:00",
+  "executedBaseCommit": "db8a4462054be5582e1fe48708274942488461e1",
+  "scope": "Actual React pages/client with intercepted synthetic HTTP; not native/API/source-route parity",
+  "history": {
+    "passed": 5,
+    "rawPath": "/tmp/pos-order-browser-default-evidence-20261118/history-final.log",
+    "rawSha256": "9bb338b997bde5a1737d5acefa80d37a552f3a9f6ba2c4b0ae738056d6849d9a",
+    "fixtureClock": "2026-11-18T12:34:56Z",
+    "independentlyExpectedSourceBounds": {
+      "from": "2026-11-13",
+      "to": "2026-11-18",
+      "placedFrom": "2026-11-13 18:04:00",
+      "placedTo": "2026-11-18 18:05:00",
+      "operatorId": "1"
+    }
+  },
+  "payments": {
+    "passed": 17,
+    "failed": 0,
+    "skipped": 0,
+    "rawPath": "/tmp/pos-order-browser-default-evidence-20261118/payments.json",
+    "rawSha256": "3e2c39d32fa13ff429df02c9e1d77e34f039dceb01aa6b880b2d29a8021ad90e",
+    "originalInvoiceErrorLocatorRetained": true,
+    "caseNames": [
+      "prepares before any handback and atomically refreshes the actual order after the same reserved correction",
+      "keeps the confirmed financial UUID visible when actual order-detail refresh fails",
+      "reopens a saved actual-order correction GET-only after its committed response was lost",
+      "a lost actual-order arm acknowledgment recovers by original operation GET and never repeats a cash instruction",
+      "an absent correction keeps its original attested return and UUID until explicit reconciliation",
+      "actual-page storage failure prevents preparation, physical permission and all money dispatch",
+      "a late recorded return cannot publish into a different actual OrdersPage manager scope",
+      "a late recorded return cannot publish into a different actual OrdersPage store scope",
+      "another manager on a fresh device reconciles the shared pending queue with the original financial UUID",
+      "records existing-order cash and refreshes its detail without clearing or completing a local sale",
+      "declares online transport and enforces actual offline payment and cancellation transitions",
+      "reloads an absent original cash request GET-only and explicitly retries the exact saved body",
+      "recovers a lost committed legacy adoption without charge or another adoption and enquires explicitly",
+      "recovers a committed lost cancellation after reload with one command and no payment or local cart completion",
+      "keeps an absent cancellation GET-only until an explicit retry of its original UUID and snapshot",
+      "reviews approved benefit restoration and confirms retained expiry, unavailable voucher value and prior membership without a cash refund",
+      "retains an existing-order confirmed payment and the unrelated cart if automatic invoice publication fails"
+    ]
+  },
+  "inputHashesAtCompletion": {
+    "frontend/tests/order-history/browser-check.mjs": "847841f63995379561d4054b1139e36a98ac1b83e9760089bab398d718d6d007",
+    "frontend/tests/order-payments/order-payments.browser.test.ts": "b25bf213f6a1b106192fd4b9ec93a4cbbf87b55df15be9d291bd4315523fa53e",
+    "backend/src/modules/order-history/search/default-ranges.ts": "e09abed73eb4657d5362df1a91aa6b5b5cdb28003c48e8c82648ed5f102827c3",
+    "frontend/src/pages/order-history/search-client.ts": "01eecb2a6948882226da3a08db5a02b14a63c3c498acc017572dd06cd98d5314",
+    "frontend/src/pages/operations.tsx": "5d863f4ef81918f4f71bae7fc2de1b5b274bb5052365428483a8b3bf67a718a5"
+  },
+  "frozenFailures": {
+    "verification-order-history-browser-tests.log": {
+      "sha256": "7ce4c47691ad1e6d7f741a5493c410bd44258faa99e030e3955192304ef539e6",
+      "modified": false
+    },
+    "verification-order-payments-browser-tests.log": {
+      "sha256": "dcf0fa5ecfd2c94bbfc47988e56f83ec9122fc5639b64b6046f0417fd8fb68a9",
+      "modified": false
+    }
+  },
+  "checks": {
+    "historyScopedStrict": "passed",
+    "paymentsScopedStrict": "passed",
+    "changedHarnessEslint": "passed",
+    "mjsSyntax": "passed"
+  },
+  "productionFilesChanged": false,
+  "releaseLedgerPromoted": false
+}
