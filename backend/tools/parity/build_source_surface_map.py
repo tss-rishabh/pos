@@ -167,6 +167,11 @@ def define_families():
             external = ['Accept actual encrypted ZIP recipient clients, private storage/mail, external issuance fencing and missing historical warehouse publication.']
         if key in ['special-permission-history', 'inherited-administration-history', 'inventory-imports']:
             external += ['Publish missing historical tables with exact source collation/provenance/freshness contracts; never historical MySQL fallback.']
+        if key in ['stores', 'operators', 'salespeople', 'counters', 'storage', 'documentation']:
+            state = 'partial'
+            gaps = ['Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.']
+            if key == 'stores':
+                gaps.append('Selected-store read-only details and static marketing https://thesouledstore.com/?store_id=<id> PNG QR download remain under implementation; checked-in customer application handoff is a separate action.')
         family(key, row['implementation'], ADMIN_FRONT[key],
                ['tests/administration', 'frontend/tests/administration'], ['parity/administration.md'],
                state=state, gaps=gaps, external=external, scope=row['scope'],

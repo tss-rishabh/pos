@@ -18,16 +18,16 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 252,
-      "implementation_present": 100,
-      "partial": 41,
+      "external_acceptance": 231,
+      "implementation_present": 52,
+      "partial": 110,
       "missing": 3
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 165,
-        "implementation_present": 68,
-        "partial": 22
+        "external_acceptance": 157,
+        "implementation_present": 32,
+        "partial": 66
       },
       "jobs": {
         "external_acceptance": 27,
@@ -35,20 +35,20 @@
         "missing": 1
       },
       "templates": {
-        "implementation_present": 32,
-        "external_acceptance": 57,
-        "partial": 15,
+        "implementation_present": 20,
+        "external_acceptance": 46,
+        "partial": 38,
         "missing": 2
       },
       "websockets": {
         "external_acceptance": 1
       },
       "administration": {
-        "external_acceptance": 2
+        "partial": 2
       }
     },
     "families": 75,
-    "code_task_groups": 2,
+    "code_task_groups": 8,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -536,14 +536,15 @@
     "backend/src/modules/checkout/projection.ts": "c374f27795a95e28d493c85c2c0a81450acfa255cbd55f6c667ef0d49780990d",
     "backend/src/modules/checkout/refund-allocation.ts": "0a31917b42d48121a867fabfea0e106f9579b29c3ed7b5da4c4aff813b74a8fb",
     "backend/src/modules/checkout/repository.ts": "4328d3031cbb9a5b67c9da1eaa1a4a2a109f6972aa04e489f9e905028e1b025f",
-    "backend/src/modules/checkout/return-workflow/contracts.ts": "9a8a75770ef86f84159d462e7f363503ab5a4e4979cbc194371f01edb8ead5a2",
+    "backend/src/modules/checkout/return-workflow/contracts.ts": "e793e2a622a1b3c4ac2d610eee80bbcca82f5cdb427f45157926b422136eab9a",
     "backend/src/modules/checkout/return-workflow/exchange-ledger.ts": "d6d0ec91b096e38ac04f9eaa395729bd742601e9816bfa09308fa54d3142cb26",
     "backend/src/modules/checkout/return-workflow/exchanges.ts": "755f8376c935e454b3b067d3a03216935325e0300fe13d891191a910d2d213dd",
+    "backend/src/modules/checkout/return-workflow/extensions.ts": "60c785527225c15c001d27e47bdc9bf9be8d38e4a6049b4d3906de7c2424b1cd",
     "backend/src/modules/checkout/return-workflow/gateway.ts": "53e8b2f0f8fb7007d6bc4f4e0695222edd77f0a12e806a1247229519e6f3c7f7",
     "backend/src/modules/checkout/return-workflow/local-verification.ts": "178d67ff6b276667597aa162c4ac1c81cbe02ac71c21d4268a3840173dc2412d",
     "backend/src/modules/checkout/return-workflow/outbox.ts": "38bee548f09efaaf844682149d222b1c59407d25b492c11a3f2dcf14ce3ba05e",
-    "backend/src/modules/checkout/return-workflow/repository.ts": "da2276ff35f127e45f39f0ea2fda9fa7e4bad44c3313f0ae23e2201d02d36885",
-    "backend/src/modules/checkout/return-workflow/routes.ts": "d9d47b6c91e3326150f009cdcf7aa577489f2a57306bd41102970ae40395f8d7",
+    "backend/src/modules/checkout/return-workflow/repository.ts": "0a61b27076b23f5c690d43f1486d2bb0ce82d1ceefeb3047ecafcf111d439e23",
+    "backend/src/modules/checkout/return-workflow/routes.ts": "948b8ade8759251ef108510cf98d1f75ec129501d8d654b375a00c3686534a79",
     "backend/src/modules/checkout/return-workflow/schema.ts": "786bcfbff7970655406e134f1858e7661b8ac38fd65aa670420dae73a170e710",
     "backend/src/modules/checkout/return-workflow/service.ts": "0cf8a75b8eb5257537b35d98e35cd81fdf9b4ed136e0802afff6e9ee854d9dfd",
     "backend/src/modules/checkout/return-workflow/stock-proof.ts": "411f64e4797fdf7316c354e99939d0e5968a47d5b0f616227e5c2ca1d7b8b024",
@@ -1555,9 +1556,10 @@
     "frontend/src/pages/profile/index.tsx": "91585acb2eb641080b07d018275abdfea31e03d7f8755b9fa2ab21cafe28a2d6",
     "frontend/src/pages/profile/style.css": "ba534afe87ab8d5ac9052015923b1b5bbaf5fc1df239c10bf762012085b60154",
     "frontend/src/pages/reports.tsx": "24595f76a90145d19add888e431e2668951f4a2cf919c6766e822e3589eff2e2",
+    "frontend/src/pages/returns/ReturnWindowExtension.tsx": "331326ebfa2c71a1a031cfc4efb2e95255e25a34f246489b3b41f39d322635a1",
     "frontend/src/pages/returns/SalespersonSelect.tsx": "41e64ea8ef25219eb9967299af3fb67f427e3317483559149a68c08183542924",
-    "frontend/src/pages/returns/client.ts": "d9aba9122e136e6e11352411c4ffe1cd9b6cc6c32cf1d53396e4bfd4bb334d65",
-    "frontend/src/pages/returns/index.tsx": "136ba68677d49b4485f400e0771785ad49f7248fb149ef0a022d9c955a7f21eb",
+    "frontend/src/pages/returns/client.ts": "345045dbbb7948a086a0a5dee52580bd5ad27c2df7e9ddf85f460b165f486c33",
+    "frontend/src/pages/returns/index.tsx": "8cd2afdd59f491e95a8531cd0e2490d78abbc8d7b1b79a6207eb715788210c03",
     "frontend/src/pages/returns/style.css": "450e48e772a3ba5c1f08dc30c446b4ac7120492e7f54a9efe95bffe3eefd5e79",
     "frontend/tests/administration/barcodes/browser.test.ts": "163d0480cf21279464930a2eb1455313fef5e230507bced4453ef3b110683c9b",
     "frontend/tests/administration/barcodes/harness.tsx": "b28c0b9a674eba4faaae07aa87de2eb54fdb4552d0957ba94028a2da66c1572b",
@@ -1811,7 +1813,7 @@
     },
     {
       "id": "stores",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/administration/service.ts",
         "backend/src/modules/administration/index.ts"
@@ -1827,7 +1829,10 @@
         "backend/parity/administration.md"
       ],
       "implemented_scope": "Store CRUD/status, franchise details, initial counter and configured default operator access; reader/writer role and store checks. Slack incoming-webhook replacement/removal is write-only, safe reads expose only a configured flag, and blank updates preserve credentials. Server-side actor/session/store-bound OAuth connection now has separate evidence; real configured Slack acceptance remains required.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.",
+        "Selected-store read-only details and static marketing https://thesouledstore.com/?store_id=<id> PNG QR download remain under implementation; checked-in customer application handoff is a separate action."
+      ],
       "external_acceptance": [],
       "code_task_required": true,
       "notes": [
@@ -2465,7 +2470,7 @@
     },
     {
       "id": "storage",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/administration/service.ts",
         "backend/src/modules/administration/policies.ts"
@@ -2481,7 +2486,9 @@
         "backend/parity/administration.md"
       ],
       "implemented_scope": "Active/archived list, source name prefix, detail/edit, empty-storage moves and stock-aware archive.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ],
       "external_acceptance": [],
       "code_task_required": true,
       "notes": [
@@ -2534,7 +2541,7 @@
     },
     {
       "id": "counters",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/administration/service.ts",
         "backend/src/modules/administration/policies.ts"
@@ -2550,7 +2557,9 @@
         "backend/parity/administration.md"
       ],
       "implemented_scope": "Counter list/create/status; serial naming counts archived counters.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ],
       "external_acceptance": [],
       "code_task_required": true,
       "notes": [
@@ -2603,7 +2612,7 @@
     },
     {
       "id": "salespeople",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/administration/service.ts",
         "backend/src/modules/administration/contracts.ts"
@@ -2619,7 +2628,9 @@
         "backend/parity/administration.md"
       ],
       "implemented_scope": "CRUD/status, organization restrictions, batched assignments and scoped assignment replacement.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ],
       "external_acceptance": [],
       "code_task_required": true,
       "notes": [
@@ -2672,7 +2683,7 @@
     },
     {
       "id": "operators",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/administration/service.ts",
         "backend/src/modules/administration/operator-create.ts",
@@ -2689,7 +2700,9 @@
         "backend/parity/administration.md"
       ],
       "implemented_scope": "Safe projection, hashed staff creation with atomic commerce mirror, profile/status/store access; password editing uses a separate identity flow.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ],
       "external_acceptance": [],
       "code_task_required": true,
       "notes": [
@@ -3385,7 +3398,7 @@
     },
     {
       "id": "documentation",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/administration/documentation.ts",
         "backend/src/modules/administration/media-domain.ts",
@@ -3404,7 +3417,9 @@
         "backend/parity/administration.md"
       ],
       "implemented_scope": "Source descending sort priority with stable cursor, create/edit/version conflict protection, active/archive access, sanitized rich descriptions, private checksum-bound uploads, authenticated range streaming and downloads, reference-aware abandoned/removed media cleanup. React Chromium workflows use mocked HTTP/S3 boundaries; no full legacy or live S3 certification.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ],
       "external_acceptance": [
         "Accept configured private S3/CORS and physical supported files; synthetic storage tests are not live storage acceptance."
       ],
@@ -6308,6 +6323,49 @@
   ],
   "remaining_code_tasks": [
     {
+      "family": "stores",
+      "state": "partial",
+      "tasks": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.",
+        "Selected-store read-only details and static marketing https://thesouledstore.com/?store_id=<id> PNG QR download remain under implementation; checked-in customer application handoff is a separate action."
+      ]
+    },
+    {
+      "family": "storage",
+      "state": "partial",
+      "tasks": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ]
+    },
+    {
+      "family": "counters",
+      "state": "partial",
+      "tasks": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ]
+    },
+    {
+      "family": "salespeople",
+      "state": "partial",
+      "tasks": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ]
+    },
+    {
+      "family": "operators",
+      "state": "partial",
+      "tasks": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ]
+    },
+    {
+      "family": "documentation",
+      "state": "partial",
+      "tasks": [
+        "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ]
+    },
+    {
       "family": "returns-exchanges",
       "state": "partial",
       "tasks": [
@@ -6831,7 +6889,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -6863,7 +6921,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -6893,7 +6951,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -6923,7 +6981,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -6955,7 +7013,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -6987,7 +7045,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -7017,7 +7075,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -7047,7 +7105,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8065,7 +8123,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8097,7 +8155,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8130,7 +8188,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8162,7 +8220,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8192,7 +8250,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8224,7 +8282,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12701,7 +12759,7 @@
       "families": [
         "stores"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12733,7 +12791,7 @@
       "families": [
         "stores"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12763,7 +12821,7 @@
       "families": [
         "stores"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12794,7 +12852,7 @@
         "stores",
         "store-images"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12856,7 +12914,7 @@
       "families": [
         "stores"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12889,7 +12947,7 @@
         "stores",
         "store-images"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12921,7 +12979,7 @@
       "families": [
         "stores"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12951,7 +13009,7 @@
       "families": [
         "stores"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13041,7 +13099,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13073,7 +13131,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13103,7 +13161,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13133,7 +13191,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13165,7 +13223,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13197,7 +13255,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13229,7 +13287,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13259,7 +13317,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13289,7 +13347,7 @@
       "families": [
         "counters"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13321,7 +13379,7 @@
       "families": [
         "counters"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13351,7 +13409,7 @@
       "families": [
         "counters"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13381,7 +13439,7 @@
       "families": [
         "counters"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13411,7 +13469,7 @@
       "families": [
         "counters"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13441,7 +13499,7 @@
       "families": [
         "counters"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13657,7 +13715,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13689,7 +13747,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13719,7 +13777,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13749,7 +13807,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13781,7 +13839,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13813,7 +13871,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13843,7 +13901,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13873,7 +13931,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -15106,7 +15164,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -15124,7 +15182,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -15142,7 +15200,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -15160,7 +15218,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -15178,7 +15236,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -15196,7 +15254,7 @@
       "families": [
         "documentation"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -15545,7 +15603,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -15563,7 +15621,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -15581,7 +15639,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -15599,7 +15657,7 @@
       "families": [
         "salespeople"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16476,7 +16534,7 @@
       "families": [
         "counters"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16497,7 +16555,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -16518,7 +16576,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16539,7 +16597,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16560,7 +16618,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16581,7 +16639,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16617,7 +16675,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16635,7 +16693,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16653,7 +16711,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16671,7 +16729,7 @@
       "families": [
         "storage"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16851,7 +16909,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16869,7 +16927,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16887,7 +16945,7 @@
       "families": [
         "operators"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16972,7 +17030,7 @@
         "inherited-administration-history",
         "inherited-model-add-forms"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_framework_capabilities": [
@@ -17005,7 +17063,7 @@
         "inherited-administration-history",
         "inherited-model-add-forms"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_framework_capabilities": [
