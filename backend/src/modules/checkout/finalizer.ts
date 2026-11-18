@@ -29,18 +29,25 @@ export function financialYear(date: string): string {
 /** Source Helpers.get_transaction_id preserves hyphen handling for Paytm. */
 export function transactionIdentifier(
   orderId: string,
-  reference: string,
+  // orders.order_ref_no is nullable. Legacy helpers.py:714-737 treats None as falsy
+  // (falls back to order_id) except under an active Paytm attempt, where
+  // order_ref_no.replace() raises (helpers.py:730).
+  reference: string | null,
   inactivePineCount: number,
   inactivePaytmCount: number,
   activePaytm: boolean,
 ): string {
-  reference = activePaytm ? reference.replaceAll('-', '') : reference;
+  if (activePaytm) {
+    if (reference === null)
+      throw new Error('Legacy transaction ID requires order_ref_no with an active Paytm attempt.');
+    reference = reference.replaceAll('-', '');
+  }
   const count =
     (inactivePineCount ? inactivePineCount + 1 : 0) +
     (inactivePaytmCount ? inactivePaytmCount + 1 : 0);
   if (count) {
     const suffix = activePaytm ? String(count) : `-${count}`,
-      normalized = activePaytm ? reference.replaceAll('-', '') : reference;
+      normalized = activePaytm ? reference?.replaceAll('-', '') : reference;
     return `${normalized || orderId}${suffix}`;
   }
   const result = reference || orderId;

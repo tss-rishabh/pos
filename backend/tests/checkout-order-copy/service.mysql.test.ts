@@ -10,7 +10,6 @@ import { copyCommandSchema } from '../../src/modules/checkout/order-copy/contrac
 import { copyCancellationClearVerifier } from '../../src/modules/checkout/order-copy/cancellation-evidence.js';
 import { AppError } from '../../src/domain/errors.js';
 import { checkoutStateSchema, type CheckoutState } from '../../src/modules/checkout/contracts.js';
-import { offlineCashReceipts } from '../../src/modules/checkout/offline-cash/schema.js';
 import { checkoutRepository } from '../../src/modules/checkout/repository.js';
 import { checkoutService } from '../../src/modules/checkout/service.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
@@ -125,7 +124,6 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
     }, 30_000);
     afterAll(async () => native?.close());
     beforeEach(async () => {
-      await native.connection.query('DELETE FROM pos_rewrite_offline_cash_receipts');
       await native.connection.query('DELETE FROM pos_rewrite_order_copy_cancellations');
       await native.connection.query('DELETE FROM pos_rewrite_order_copy_commands');
       await native.connection.query('DELETE FROM pos_rewrite_order_copy_reviews');
@@ -563,90 +561,6 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
         await app.close();
       }
     });
-    it('refuses every collected-cash state without dropping, refunding or repricing the receipt', async () => {
-      for (const status of ['accepted', 'conflicted', 'importing', 'imported']) {
-        await native.connection.query('DELETE FROM pos_rewrite_offline_cash_receipts');
-        await native.db
-          .get('writer')
-          .insert(offlineCashReceipts)
-          .values({
-            id: crypto.randomUUID(),
-            authorizationId: crypto.randomUUID(),
-            deviceId: crypto.randomUUID(),
-            sequence: 1,
-            operatorId: operator.id,
-            storeId: '1',
-            counterId: '3',
-            draftId: state.draftId!,
-            businessDate: new Date(time).toISOString().slice(0, 10),
-            completedAt: time - 1000,
-            acceptedAt: time,
-            receiptNumber: 'FX-' + crypto.randomUUID().slice(0, 16),
-            requestHash: 'd'.repeat(64),
-            envelope: '{"fixture":"already-accepted"}',
-            payableCents: 10000,
-            cashReceivedCents: 12000,
-            changeCents: 2000,
-            status,
-            conflicts: '[]',
-            version: 1,
-            orderId: null,
-            requestId: 'fixture-original-request',
-          });
-        await expect(review()).rejects.toMatchObject({
-          code: 'ORDER_COPY_OFFLINE_CASH_COLLECTED',
-        });
-        const [rows] = await native.connection.query(
-          'SELECT payable_cents,cash_received_cents,change_cents,status FROM pos_rewrite_offline_cash_receipts',
-        );
-        expect(JSON.stringify(rows)).toContain(status);
-        expect(cartCalls()).toHaveLength(0);
-      }
-    });
-    it('keeps original GET recovery available when cash arrives after copying and blocks new acknowledgement', async () => {
-      const r = await review(),
-        result = await service.start(operator, scope(), {
-          operationId: crypto.randomUUID(),
-          reviewId: r.id,
-          manifestHash: r.hash,
-          expectedVersion: state.version,
-        });
-      await native.db
-        .get('writer')
-        .insert(offlineCashReceipts)
-        .values({
-          id: crypto.randomUUID(),
-          authorizationId: crypto.randomUUID(),
-          deviceId: crypto.randomUUID(),
-          sequence: 1,
-          operatorId: operator.id,
-          storeId: '1',
-          counterId: '3',
-          draftId: state.draftId!,
-          businessDate: new Date(time).toISOString().slice(0, 10),
-          completedAt: time - 1000,
-          acceptedAt: time,
-          receiptNumber: 'FX-' + crypto.randomUUID().slice(0, 16),
-          requestHash: 'e'.repeat(64),
-          envelope: '{"fixture":"late-arrival"}',
-          payableCents: 10000,
-          cashReceivedCents: 10000,
-          changeCents: 0,
-          status: 'conflicted',
-          conflicts: '[]',
-          version: 1,
-          orderId: null,
-          requestId: 'fixture-original-request',
-        });
-      expect((await service.read(operator, scope(), result.id)).resultHash).toBe(result.resultHash);
-      await expect(
-        service.acknowledge(operator, scope(), result.id, {
-          operationId: crypto.randomUUID(),
-          expectedVersion: result.checkoutVersion,
-          resultHash: result.resultHash!,
-        }),
-      ).rejects.toMatchObject({ code: 'ORDER_COPY_OFFLINE_CASH_COLLECTED' });
-    });
     it('serializes twenty unsent cancellations, claims the original nonce and makes delayed exact start read-only', async () => {
       const r = await review(),
         original = {
@@ -835,41 +749,13 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
       expect(await native.db.get('writer').select().from(orderCopyCancellations)).toHaveLength(0);
       expect(cartCalls()).toHaveLength(2);
     });
-    it('retains late collected cash while fencing an otherwise invalid copy without requiring customer or lease renewal', async () => {
+    it('fences an otherwise invalid copy without requiring customer or lease renewal', async () => {
       const original = {
         operationId: crypto.randomUUID(),
         reviewId: crypto.randomUUID(),
         manifestHash: 'e'.repeat(64),
         expectedVersion: state.version,
       };
-      await native.db
-        .get('writer')
-        .insert(offlineCashReceipts)
-        .values({
-          id: crypto.randomUUID(),
-          authorizationId: crypto.randomUUID(),
-          deviceId: crypto.randomUUID(),
-          sequence: 1,
-          operatorId: operator.id,
-          storeId: '1',
-          counterId: '3',
-          draftId: state.draftId!,
-          businessDate: new Date(time).toISOString().slice(0, 10),
-          completedAt: time - 1000,
-          acceptedAt: time,
-          receiptNumber: 'LATE-' + crypto.randomUUID().slice(0, 16),
-          requestHash: 'd'.repeat(64),
-          envelope: '{"retained":"late-cash"}',
-          payableCents: 10000,
-          cashReceivedCents: 12000,
-          changeCents: 2000,
-          status: 'conflicted',
-          conflicts: '[]',
-          version: 1,
-          orderId: null,
-          requestId: 'fixture-late-cash',
-        });
-      const before = await native.db.get('writer').select().from(offlineCashReceipts);
       await native.connection.query('UPDATE users SET is_disabled=1 WHERE id=1001');
       await native.connection.query('DELETE FROM pos_rewrite_customer_cart_leases');
       const receipt = await service.cancelUnsent(operator, scope(), original.operationId, {
@@ -878,17 +764,8 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
       });
       expect(receipt.status).toBe('cancelled-unsent');
       expect(await service.read(operator, scope(), original.operationId)).toEqual(receipt);
-      expect(await native.db.get('writer').select().from(offlineCashReceipts)).toEqual(before);
       expect(gateway.calls).toHaveLength(0);
       expect((await persisted()).cart).toEqual(state.cart);
-      await expect(
-        checkout.clear(operator, '1', state.id, {
-          operationId: crypto.randomUUID(),
-          expectedVersion: receipt.checkoutVersion,
-        }),
-      ).rejects.toMatchObject({ code: 'ORDER_COPY_OFFLINE_CASH_COLLECTED' });
-      expect(await native.db.get('writer').select().from(offlineCashReceipts)).toEqual(before);
-      expect(gateway.calls).toHaveLength(0);
     });
     it('fences an expired original review with its original nonce, never a replacement start', async () => {
       const r = await review(),

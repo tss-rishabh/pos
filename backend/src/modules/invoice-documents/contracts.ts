@@ -34,7 +34,8 @@ export interface InvoiceMappingScope {
   id: string;
   storeId: string;
   counterId: string;
-  number: string;
+  // order_stores.order_invoice is nullable in production.
+  number: string | null;
 }
 export interface InvoiceExpressScope {
   id: string;

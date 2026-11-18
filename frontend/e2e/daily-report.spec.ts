@@ -46,7 +46,6 @@ test('multiple-store daily reporting retains all source columns and full totals 
     total_online: 50,
     banking: 50,
     membership_revenue: 99.99,
-    pending_offline_orders: index === 0 ? 1 : 0,
   });
   await page.route('**/api/v1/reports/daily-store-sales?**', async (route) => {
     requests++;
@@ -69,9 +68,7 @@ test('multiple-store daily reporting retains all source columns and full totals 
           cash: 3050,
           payment_correction_cash_out: '25.49',
           cash_after_payment_corrections: '3024.51',
-          pending_offline_orders: 1,
         },
-        pendingOrderCount: 1,
       },
     });
   });
@@ -83,12 +80,9 @@ test('multiple-store daily reporting retains all source columns and full totals 
   const table = page.getByRole('table', { name: 'Daily store sales breakdown' });
   await expect(table.locator('tbody tr')).toHaveCount(50);
   await expect(table.locator('tfoot')).toContainText('6100');
-  await expect(
-    page.getByRole('status').filter({ hasText: 'offline cash receipt is awaiting order import' }),
-  ).toBeVisible();
-  await page.getByText('Columns (18 of 34)', { exact: true }).click();
+  await page.getByText('Columns (18 of 33)', { exact: true }).click();
   await page.getByRole('button', { name: 'Show all columns' }).click();
-  await expect(table.locator('thead th')).toHaveCount(34);
+  await expect(table.locator('thead th')).toHaveCount(33);
   for (const name of [
     'Target achieved %',
     'Online quantity',
@@ -102,7 +96,6 @@ test('multiple-store daily reporting retains all source columns and full totals 
     'Membership revenue',
     'Cash returned on corrections',
     'Cash after corrections',
-    'Offline orders awaiting import',
   ])
     await expect(table.getByRole('columnheader', { name, exact: true })).toBeVisible();
   const headings = await table.locator('thead th').allTextContents(),
@@ -132,7 +125,6 @@ test('multiple-store daily reporting retains all source columns and full totals 
   expect(csv).toContain('"Cash after corrections"');
   expect(csv).toContain('"50","25.49","24.51"');
   expect(csv).toContain('"3050","25.49","3024.51"');
-  expect(csv).toContain('"Offline orders awaiting import"');
   expect(csv).toContain('"Fixture store 60"');
   expect(csv).toContain('"\'\u200b=SUM(1,2)"');
   expect(csv).toContain('"Total"');

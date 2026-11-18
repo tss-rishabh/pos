@@ -1,4 +1,6 @@
 import { Decimal } from 'decimal.js';
+import { storedEnumValue } from '../../../db/legacy-columns.js';
+import { moneyHistoryPlatforms, pointHistoryPlatforms } from '../../../db/legacy-enums.js';
 import { and, asc, eq, inArray, sql, type SQLWrapper } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import { GiftCardCollection, HasProduct, MUser, Order } from '../../../db/legacy-schema.js';
@@ -18,7 +20,7 @@ import {
 } from '../gift-card-issuance.js';
 import { assertCancellationVoucherIndex } from './voucher-history.js';
 import { operationHash } from '../crypto.js';
-import { cashRefundAudit } from '../offline-cash/source-ledger.js';
+import { cashRefundAudit } from '../refund-audit.js';
 import { identifier } from '../../../domain/validation.js';
 import { checkoutHeaderHashSql } from '../projection.js';
 import {
@@ -532,6 +534,14 @@ export async function applyCancellationBenefits(
             ? pointsBefore! + pointCredit
             : before + credit.amount;
         if (!Number.isFinite(after) || after < 0) throw review();
+        const platform = expired
+          ? wallet.asset === 'money'
+            ? 'TSS_MONEY_EXPIRED'
+            : 'TSS_POINTS_EXPIRED'
+          : credit.bonus
+            ? // Not a tss_point_history ENUM member: stored as '' for points.
+              'FIRST_ORDER_RETURN_BONUS'
+            : 'ORDER_CANCELLED';
         const common = {
           userId: BigInt(scope.customerId),
           orderId: BigInt(scope.orderId),
@@ -541,13 +551,6 @@ export async function applyCancellationBenefits(
           used: 0,
           before,
           after,
-          platform: expired
-            ? wallet.asset === 'money'
-              ? 'TSS_MONEY_EXPIRED'
-              : 'TSS_POINTS_EXPIRED'
-            : credit.bonus
-              ? 'FIRST_ORDER_RETURN_BONUS'
-              : 'ORDER_CANCELLED',
           comment: expired
             ? 'Cancellation: original benefit already expired'
             : wallet.asset === 'money'
@@ -560,8 +563,17 @@ export async function applyCancellationBenefits(
           createdAt: scope.timestamp,
           updatedAt: scope.timestamp,
         };
-        if (wallet.asset === 'money') await tx.insert(cancellationMoneyHistory).values(common);
-        else await tx.insert(cancellationPointHistory).values({ ...common, gameId: 0n });
+        if (wallet.asset === 'money')
+          await tx.insert(cancellationMoneyHistory).values({
+            ...common,
+            platform: storedEnumValue(moneyHistoryPlatforms, platform),
+          });
+        else
+          await tx.insert(cancellationPointHistory).values({
+            ...common,
+            platform: storedEnumValue(pointHistoryPlatforms, platform),
+            gameId: 0n,
+          });
         if (!expired && wallet.asset === 'money')
           await tx
             .update(MUser)

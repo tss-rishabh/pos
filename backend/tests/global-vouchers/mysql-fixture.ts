@@ -5,13 +5,6 @@ import { readConfig } from '../../src/config.js';
 import { createDatabases } from '../../src/db/pools.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 
-// Production-schema changes the global voucher writer currently requires (see
-// backend/parity/w2-followups.md). Applied only to this disposable fixture schema.
-const legacyCandidateDdl = [
-  'ALTER TABLE coupons MODIFY end_date DATETIME NULL',
-  'ALTER TABLE gift_vouchers MODIFY start_date DATETIME NULL, MODIFY end_date DATETIME NULL',
-  "ALTER TABLE gift_voucher_history MODIFY platform enum('ORDER_PLACED','ORDER_CANCELLED','ORDER_REFUND','ORDER_MONEY','ORDER_RETURN','PAYMENT_FAILED','PRODUCT_RETURN','COURIER_COMPENSATION','DEFECTIVE_PRODUCT','PRODUCT_MISSING','PRODUCT_OUT_OF_STOCK','MISC_COMPENSATION','GV_ADD') CHARACTER SET utf8mb3 COLLATE utf8mb3_general_ci NULL",
-];
 export async function globalVoucherFixture(template: string) {
   const url = new URL(template);
   if (
@@ -90,9 +83,6 @@ export async function globalVoucherFixture(template: string) {
       db: databases,
       config,
       fixture,
-      async applyLegacyCandidate() {
-        for (const statement of legacyCandidateDdl) await connection.query(statement);
-      },
       async close() {
         await databases.close();
         await connection.query(`DROP DATABASE ${mysql.escapeId(schema)}`);

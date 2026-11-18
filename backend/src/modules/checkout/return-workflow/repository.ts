@@ -41,6 +41,8 @@ import {
   StoreSalesPerson,
   SalesPerson,
 } from '../../../db/legacy-schema.js';
+import { hasProductStatuses } from '../../../db/legacy-enums.js';
+import { storedEnumValue } from '../../../db/legacy-columns.js';
 import { assertCurrentOperatorRole } from '../../administration/authorization.js';
 import { requireRole, requireStore, type Principal } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
@@ -1155,21 +1157,19 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           return publicReturn(snapshot.operation);
         }
         const finishClaim = async (operation: ReturnOperation) => {
-          await tx
-            .insert(exchangeRecoveryClaims)
-            .values({
-              id: input.operationId,
-              operatorId: user.id,
-              storeId,
-              orderId,
-              lineId,
-              counterId: input.counterId,
-              verificationId: input.verificationId,
-              requestHash,
-              revision: input.expectedRevision,
-              operationId: operation.id,
-              recordedAt: timestamp(),
-            });
+          await tx.insert(exchangeRecoveryClaims).values({
+            id: input.operationId,
+            operatorId: user.id,
+            storeId,
+            orderId,
+            lineId,
+            counterId: input.counterId,
+            verificationId: input.verificationId,
+            requestHash,
+            revision: input.expectedRevision,
+            operationId: operation.id,
+            recordedAt: timestamp(),
+          });
           return publicReturn(operation);
         };
         if (
@@ -1801,7 +1801,10 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             .every((row) => ['PRODUCT_RETURNED', 'EXCHANGE_COMPLETED'].includes(row.status || ''))
             ? 6
             : 37;
-        const fy = financialYear(timestamp()),
+        // Legacy helpers.py:2205,2284,2299 formats Store.location_code (nullable) in
+        // f-strings, so a NULL code becomes 'None'.
+        const storeCode = store.locationCode ?? 'None',
+          fy = financialYear(timestamp()),
           [last] = await tx
             .select({ number: ReturnOrder.credit_note_no })
             .from(ReturnOrder)
@@ -1809,8 +1812,8 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               and(
                 eq(ReturnOrder.store_id, Number(storeId)),
                 or(
-                  like(ReturnOrder.credit_note_no, `${store.locationCode}/${fy}/CN/%`),
-                  like(ReturnOrder.credit_note_no, `${store.locationCode}${fy}CN%`),
+                  like(ReturnOrder.credit_note_no, `${storeCode}/${fy}/CN/%`),
+                  like(ReturnOrder.credit_note_no, `${storeCode}${fy}CN%`),
                 ),
               ),
             )
@@ -1818,7 +1821,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             .limit(1)
             .for('update'),
           sequence = last?.number ? Number(/(\d+)$/.exec(last.number)?.[1] || 0) + 1 : 1,
-          creditNote = `${store.locationCode}${fy}CN${String(sequence).padStart(5, '0')}`,
+          creditNote = `${storeCode}${fy}CN${String(sequence).padStart(5, '0')}`,
           date = timestamp();
         await tx.insert(ReturnOrder).values({
           order_status: orderStatus,
@@ -2408,7 +2411,10 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         await tx.update(Order).set({ order_statuses: 3n }).where(eq(Order.id, child.id));
         await tx
           .update(HasProduct)
-          .set({ status: status.name, salesperson_id: Number(exchange.salespersonId) })
+          .set({
+            status: storedEnumValue(hasProductStatuses, status.name),
+            salesperson_id: Number(exchange.salespersonId),
+          })
           .where(eq(HasProduct.order, child.id));
         await tx
           .update(HasProduct)
@@ -2483,7 +2489,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             .limit(1)
             .for('update'),
           addon = {
-            shipped_location: 'MW1',
+            shipped_location: 'MW1' as const,
             is_nps_mail_sent: 0,
             is_nps_notification_checked: parentAddon ? parentAddon.checked : 0,
           };

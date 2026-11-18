@@ -767,8 +767,8 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       'SELECT store_id,is_active FROM store_salesperson WHERE salesperson_id=1 ORDER BY store_id',
     );
     expect(rows.map((row) => [String(row.store_id), row.is_active])).toEqual([
-      ['1', 0],
-      ['2', 1],
+      ['1', '0'],
+      ['2', '1'],
     ]);
   });
   it('rolls check-in back with a caller-owned authentication transaction', async () => {
@@ -3997,7 +3997,8 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     });
     expect(refused.statusCode).toBe(400);
     const [unchanged] = await db.get('writer').select().from(Store).where(eq(Store.id, 1n));
-    expect(unchanged?.store_image).not.toContain(id);
+    // stores.store_image is nullable in production; an unset image is unchanged.
+    expect(unchanged?.store_image ?? '').not.toContain(id);
     storeImageBytes = valid;
     const accepted = await app.inject({
       method: 'POST',
@@ -4055,7 +4056,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     ).rejects.toMatchObject({ status: 403 });
     expect(storeImageVerifications).toHaveLength(0);
     const [store] = await db.get('writer').select().from(Store).where(eq(Store.id, 1n));
-    expect(store?.store_image).not.toContain(revoked.upload.id);
+    expect(store?.store_image ?? '').not.toContain(revoked.upload.id);
   });
   it('shares image cleanup leasing and retries, retaining every cross-store reference and excluding defaults', async () => {
     let timestamp = Date.now();

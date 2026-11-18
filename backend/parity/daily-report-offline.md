@@ -1,5 +1,7 @@
 # Daily store sales and offline cash
 
+> **Changed 19 November 2026 (W7).** Offline cash was deleted. The current-day report now runs the source `report_queries.py` store/online SQL with only the payment-correction changes; `pending_offline_orders`/`pendingOrderCount` are gone and the warehouse contract is `pos-daily-store-sales-v2`. The offline-cash text below is historical; see `w7-report.md`.
+
 Baseline: POS source `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`; `report/report_queries.py` SHA-256 `6ef32f5c50ca710f32aefeb5f0ecd92462e10a0687f78ad71da1d90e5220cd20`.
 
 `GET /api/v1/reports/daily-store-sales` retains the source HP predicates, grouping/multiplicity, discounts, membership, online residual, all 31 original/additional established fields and weighted totals. The new `pending_offline_orders` column and `pendingOrderCount` response explain cash receipts whose source HP rows are not yet imported. Existing Python merge/rounding vectors remain unchanged when that optional field is absent.

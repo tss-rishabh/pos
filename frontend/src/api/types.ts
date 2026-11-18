@@ -39,7 +39,7 @@ export interface Page<T> {
 }
 export interface Order {
   id: string;
-  reference: string;
+  reference: string | null;
   storeId: string;
   customer: string;
   amount: string;

@@ -1,7 +1,7 @@
 import { sourceIntId as sourceInt } from './source-id.js';
 import { randomUUID } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, gt, inArray, lt } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNotNull, lt } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
@@ -115,12 +115,16 @@ export function fulfillmentMaintenance(
                   ? lt(ExpressLineItem.accepted_expires_at, now)
                   : undefined,
             );
-            const orders = await tx
-              .selectDistinct({ id: ExpressLineItem.order })
-              .from(ExpressLineItem)
-              .where(condition)
-              .orderBy(asc(ExpressLineItem.order))
-              .limit(maxOrders + 1);
+            // express_line_item.order_id is nullable; a row without an order cannot be
+            // locked by order below (order_id IN (...) never matches NULL), so skip it.
+            const orders = (
+              await tx
+                .selectDistinct({ id: ExpressLineItem.order })
+                .from(ExpressLineItem)
+                .where(and(condition, isNotNull(ExpressLineItem.order)))
+                .orderBy(asc(ExpressLineItem.order))
+                .limit(maxOrders + 1)
+            ).flatMap((row) => (row.id === null ? [] : [{ id: row.id }]));
             hasMore ||= orders.length > maxOrders;
             if (orders.length > maxOrders) nextCursor[phase] = String(orders[maxOrders - 1]!.id);
             if (!orders.length) continue;

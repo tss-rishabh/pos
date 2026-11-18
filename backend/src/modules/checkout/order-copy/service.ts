@@ -148,7 +148,7 @@ export function orderCopyService(
     return repository.ownerScope(user, scope, async (tx, owned) => {
       const row = await repository.cancellation(tx, id);
       if (row) return stopped(row, owned, user);
-      const state = await repository.activeState(tx, owned, true);
+      const state = await repository.activeState(tx, owned);
       const command = await repository.command(tx, id);
       if (!command) throw new AppError(404, 'ORDER_COPY_NOT_FOUND', 'Copy operation not found.');
       bound(command, state, user);
@@ -501,33 +501,28 @@ export function orderCopyService(
       return receipt;
     },
     async review(user: Principal, scope: CopyScope, id: string) {
-      return repository.scope(
-        user,
-        scope,
-        async (tx, state) => {
-          const review = await repository.review(tx, id);
-          if (
-            !review ||
-            review.operatorId !== user.id ||
-            review.checkoutId !== state.id ||
-            review.customerId !== state.customerId
-          )
-            throw new AppError(404, 'ORDER_COPY_REVIEW_NOT_FOUND', 'Copy review not found.');
-          validReview(review);
-          const command = await repository.commandForReview(tx, review.id);
-          if (command) {
-            bound(command, state, user);
-            if (command.review.hash !== review.hash) throw conflict();
-          }
-          await repository.source(tx, user, review.source, {
-            state,
-            kind: command ? 'command' : 'review',
-            authority: command?.review.customerAuthority ?? review.customerAuthority,
-          });
-          return publicReview(review);
-        },
-        true,
-      );
+      return repository.scope(user, scope, async (tx, state) => {
+        const review = await repository.review(tx, id);
+        if (
+          !review ||
+          review.operatorId !== user.id ||
+          review.checkoutId !== state.id ||
+          review.customerId !== state.customerId
+        )
+          throw new AppError(404, 'ORDER_COPY_REVIEW_NOT_FOUND', 'Copy review not found.');
+        validReview(review);
+        const command = await repository.commandForReview(tx, review.id);
+        if (command) {
+          bound(command, state, user);
+          if (command.review.hash !== review.hash) throw conflict();
+        }
+        await repository.source(tx, user, review.source, {
+          state,
+          kind: command ? 'command' : 'review',
+          authority: command?.review.customerAuthority ?? review.customerAuthority,
+        });
+        return publicReview(review);
+      });
     },
     async current(user: Principal, scope: CopyScope) {
       return repository.ownerScope(user, scope, async (tx, owned) => {
@@ -536,7 +531,7 @@ export function orderCopyService(
           if (!row || row.cancellationId !== owned.orderCopy.cancellationId) throw conflict();
           return stopped(row, owned, user);
         }
-        const state = await repository.activeState(tx, owned, true);
+        const state = await repository.activeState(tx, owned);
         if (!state.orderCopy) return null;
         const command = await repository.command(tx, state.orderCopy.commandId);
         if (!command) throw conflict();

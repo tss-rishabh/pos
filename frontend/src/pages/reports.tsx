@@ -16,7 +16,6 @@ const responseSchema = z.object({
   range: z.object({ start: z.string(), end: z.string() }),
   data: z.array(z.record(z.string(), metric)),
   totals: z.record(z.string(), metric),
-  pendingOrderCount: z.number().int().nonnegative().safe().default(0),
   publication: z
     .object({
       generationId: z.string(),
@@ -59,7 +58,6 @@ export const dailyReportFields = [
   ['total_online', 'Card / UPI'],
   ['banking', 'Banking'],
   ['membership_revenue', 'Membership revenue'],
-  ['pending_offline_orders', 'Offline orders awaiting import'],
 ] as const;
 type Field = (typeof dailyReportFields)[number][0];
 interface Filters {
@@ -384,14 +382,6 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
         <ErrorState error={report.error} retry={() => void report.refetch()} />
       ) : (
         <>
-          {report.data.pendingOrderCount > 0 && (
-            <p role="status">
-              {report.data.pendingOrderCount} offline cash{' '}
-              {report.data.pendingOrderCount === 1 ? 'receipt is' : 'receipts are'} awaiting order
-              import. Cash and order counts include these receipts. Quantities and revenue reflect
-              imported sales.
-            </p>
-          )}
           {report.data.publication && (
             <p className="muted">
               Data updated through {new Date(report.data.publication.cdcWatermark).toLocaleString()}

@@ -4,6 +4,7 @@ import {
   double,
   index,
   json,
+  mysqlEnum,
   mysqlTable,
   primaryKey,
   text,
@@ -11,6 +12,7 @@ import {
   tinyint,
   varchar,
 } from 'drizzle-orm/mysql-core';
+import { moneyHistoryPlatforms, pointHistoryPlatforms } from '../../../db/legacy-enums.js';
 
 /** Physical types/defaults from mysql-pending-cancellation-benefits-schema.json. */
 const allocationFields = () => ({
@@ -39,7 +41,6 @@ const historyFields = () => ({
   used: double('used_amt').notNull().default(0),
   before: double('amt_before_update'),
   after: double('amt_after_update'),
-  platform: varchar('platform', { length: 40 }),
   comment: text('comment'),
   operatorId: bigint('added_user', { mode: 'bigint' }),
   createdAt: datetime('created_at', { mode: 'string' }),
@@ -50,10 +51,17 @@ const historyFields = () => ({
 });
 export const cancellationMoneyHistory = mysqlTable('tss_money_history', {
   ...historyFields(),
+  // A non-member platform is written as '' (see storedEnumValue).
+  platform: mysqlEnum('platform', moneyHistoryPlatforms).$type<
+    (typeof moneyHistoryPlatforms)[number] | ''
+  >(),
   productId: bigint('product_id', { mode: 'bigint' }).default(0n),
 });
 export const cancellationPointHistory = mysqlTable('tss_point_history', {
   ...historyFields(),
+  platform: mysqlEnum('platform', pointHistoryPlatforms).$type<
+    (typeof pointHistoryPlatforms)[number] | ''
+  >(),
   productId: bigint('prod_id', { mode: 'bigint' }).notNull().default(0n),
   gameId: bigint('game_category_id', { mode: 'bigint' }).default(0n),
 });
@@ -70,7 +78,11 @@ export const cancellationMembershipRows = mysqlTable(
   'user_eav',
   {
     entity: varchar('entity', { length: 255 }).notNull(),
-    attribute: varchar('attribute', { length: 30 }).notNull(),
+    attribute: mysqlEnum('attribute', [
+      'EXCLUSIVE_NOTIFY',
+      'EXCLUSIVE_EXPIRY',
+      'EXCLUSIVE_MEMBER',
+    ]).notNull(),
     value: text('value'),
     active: tinyint('is_active'),
     createdAt: timestamp('created_at', { mode: 'string' }).notNull(),

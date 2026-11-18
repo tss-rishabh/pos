@@ -1,5 +1,0 @@
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": { "types": ["vite/client", "node"] },
-  "include": ["../offline-cash-order-import.test.ts", "../../e2e/checkout/offline-cash.spec.ts"]
-}

@@ -257,16 +257,6 @@ const checks: Check[] = [
     args: ['node_modules/eslint/bin/eslint.js', 'src', 'tests', 'tools', 'vitest.config.ts'],
   },
   {
-    id: 'source-pricing-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/checkout/source-pricing.tsconfig.json',
-    ],
-  },
-  {
     id: 'shipping-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -578,16 +568,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'cash-manager-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/checkout-manager/tsconfig.json',
-    ],
-  },
-  {
     id: 'shipping-browser-fixture-typecheck',
     directory: 'frontend',
     args: [
@@ -595,16 +575,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tests/shipping-label/tsconfig.json',
-    ],
-  },
-  {
-    id: 'owner-cash-import-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/checkout-order-import/tsconfig.json',
     ],
   },
   {
@@ -652,11 +622,6 @@ const checks: Check[] = [
     directory: 'frontend',
     // Match the native CI bound; unbounded forks can starve IndexedDB cleanup.
     args: ['node_modules/vitest/vitest.mjs', 'run', '--maxWorkers=2'],
-  },
-  {
-    id: 'fast-cash-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tests/fast-cash/tsconfig.json'],
   },
   {
     id: 'order-payments-browser-fixture-typecheck',
@@ -756,16 +721,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tests/performance-runner/tsconfig.json',
-    ],
-  },
-  {
-    id: 'performance-production-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/performance-runner/tsconfig.e2e.json',
     ],
   },
   {
@@ -1081,11 +1036,6 @@ if (flags.has('--browser')) {
     directory: 'frontend',
     args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/customer-profile/browser.test.ts'],
     environment: { CUSTOMER_PROFILE_BROWSER_TESTS: 'true' },
-  });
-  checks.push({
-    id: 'cash-manager-browser-tests',
-    directory: 'frontend',
-    args: ['tools/run-browser-fixture.mjs', 'cash-manager'],
   });
   checks.push({
     id: 'shipping-label-browser-tests',

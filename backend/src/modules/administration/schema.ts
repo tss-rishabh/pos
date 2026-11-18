@@ -38,7 +38,6 @@ export type InventoryIntegrationEvent = (
         | 'return'
         | 'exchange-return'
         | 'inventory-import'
-        | 'offline-cash-import'
         | 'legacy-rto'
         | 'legacy-delivery'
         | 'order-cancel';

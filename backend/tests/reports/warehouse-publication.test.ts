@@ -9,7 +9,7 @@ import {
 } from '../../src/modules/finance/payment-correction-publication.js';
 import { reportService } from '../../src/modules/reports.js';
 import {
-  dailyOfflineWarehouseContract,
+  dailyWarehouseContract,
   dailyWarehouseOptions,
   readDailyWarehouseRollups,
   type DailyWarehouseQuery,
@@ -23,7 +23,7 @@ const now = Temporal.Instant.from('2026-11-16T08:00:00Z'),
   }),
   options = dailyWarehouseOptions({
     BIGQUERY_DAILY_REPORT_PUBLICATIONS_TABLE: 'fixture-project.pos.publications',
-    BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT: dailyOfflineWarehouseContract,
+    BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT: dailyWarehouseContract,
   });
 const partition = (store = '1', date = '2026-11-15', rowCount = 0) => ({
   generation_id: 'fixture_generation_42',
@@ -36,7 +36,7 @@ const partition = (store = '1', date = '2026-11-15', rowCount = 0) => ({
   cdc_watermark: '2026-11-16 07:59:30+00',
   source_position: 'mysql-bin.000042:123456',
   publication_state: 'COMPLETE',
-  offline_projection_contract: dailyOfflineWarehouseContract,
+  offline_projection_contract: dailyWarehouseContract,
   business_timezone: 'Asia/Kolkata',
   source_baseline: '78d5b63d6a149a6bf2c748fa1d191799c59ecb8a',
   source_sql_sha256: '6ef32f5c50ca710f32aefeb5f0ecd92462e10a0687f78ad71da1d90e5220cd20',
@@ -46,7 +46,7 @@ const rollup = (store = '1', date = '2026-11-15', source = 'store_orders') => ({
   store_id: store,
   order_date: date,
   order_source: source,
-  offline_projection_contract: dailyOfflineWarehouseContract,
+  offline_projection_contract: dailyWarehouseContract,
   store_name: 'Fixture ' + store,
   location_code: 'FIX-' + store,
   order_count: 2,
@@ -62,7 +62,6 @@ const rollup = (store = '1', date = '2026-11-15', source = 'store_orders') => ({
   district_total: 0,
   cash_total: 12.02,
   total_online: 0,
-  pending_offline_orders: source === 'store_orders' ? 1 : 0,
   banking_amount: 5,
   footfall: 4,
   target: 100,
@@ -91,7 +90,7 @@ function fixture(
   };
   return { query, calls };
 }
-describe('daily warehouse publication and offline projection boundaries', () => {
+describe('daily warehouse publication and projection boundaries', () => {
   it('binds one immutable generation, verifies every requested partition and returns its CDC provenance', async () => {
     const f = fixture(
       [
@@ -131,7 +130,7 @@ describe('daily warehouse publication and offline projection boundaries', () => 
     }
     expect(f.calls[0]?.params).toMatchObject({
       expected_partitions: 4,
-      contract: dailyOfflineWarehouseContract,
+      contract: dailyWarehouseContract,
     });
     expect(f.calls[2]?.params.generation).toBe('fixture_generation_42');
   });
@@ -398,7 +397,6 @@ describe('daily warehouse publication and offline projection boundaries', () => 
       to: '2026-11-15',
     });
     expect(result.reader).toBe('bigquery');
-    expect(result.pendingOrderCount).toBe(1);
     expect(result.data[0]).toMatchObject({
       cash: 12.02,
       total_orders: 2,
@@ -407,7 +405,6 @@ describe('daily warehouse publication and offline projection boundaries', () => 
       banking: 5,
       footfall: 4,
       target: 100,
-      pending_offline_orders: 1,
     });
     expect(get).not.toHaveBeenCalled();
     expect(auxiliary).not.toHaveBeenCalled();

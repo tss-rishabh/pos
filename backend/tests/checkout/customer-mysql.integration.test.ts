@@ -524,7 +524,8 @@ describe.skipIf(!template)('customer registration in an isolated writer schema',
       service.cancelRegistration(operator, '1', request.id, mutation(2)),
     ).rejects.toMatchObject({ code: 'CUSTOMER_REGISTRATION_REVIEW_REQUIRED' });
     const [owner] = await rows('SELECT customer_type,gstin FROM users WHERE id=777');
-    expect(owner).toMatchObject({ customer_type: '', gstin: '' });
+    // Nullable in production; the fixture-created account leaves both unset.
+    expect(owner).toMatchObject({ customer_type: null, gstin: null });
     const other = await service.create(operator, '1', '3');
     await expect(
       service.requestRegistration(operator, '1', other.id, mutation(0), request.value),

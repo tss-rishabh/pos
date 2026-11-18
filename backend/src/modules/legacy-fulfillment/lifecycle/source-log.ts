@@ -65,6 +65,10 @@ export async function ensureDeliveryLog(
     destinationTracking: '',
     createdAt: timestamp,
     updatedAt: timestamp,
-    deliveryExceptionDate: null,
+    // Production delivery_exception_date is NOT NULL without default. This insert is
+    // reachable only after assertInitialDeliveryLogContract has proved the reviewed
+    // nullable correction (it fails closed on production), so NULL is written as SQL.
+    // Recorded as NEEDS USER DECISION in parity/w7-report.md.
+    deliveryExceptionDate: sql`NULL`,
   });
 }

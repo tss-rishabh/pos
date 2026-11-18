@@ -166,7 +166,10 @@ export const sanitizeDocumentationHtml = (source: string) =>
   });
 
 /** Parse only string lists used by Python repr; never evaluate source metadata as code. */
-export function parseLegacyAssetList(value: string): string[] {
+export function parseLegacyAssetList(value: string | null): string[] {
+  // pos_tutorial media columns are nullable; legacy ast.literal_eval(None) raises
+  // (core/views.py:2512-2514), so NULL is invalid metadata, not an empty list.
+  if (value === null) throw new Error('Legacy asset list is NULL.');
   if (!value.trim()) return [];
   try {
     const parsed: unknown = JSON.parse(value);

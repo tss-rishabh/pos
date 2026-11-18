@@ -132,7 +132,9 @@ export const returnOperationSchema = z
   );
 export type ReturnOperation = z.infer<typeof returnOperationSchema>;
 export interface InboundReturn {
-  locationCode: string;
+  // Nullable stores.location_code; legacy sends kwargs.get('location_code') as-is
+  // (helpers.py:1898), so NULL is serialised as JSON null.
+  locationCode: string | null;
   orderId: string;
   trackingNumber: string | number | bigint;
   returnDate: string;

@@ -42,7 +42,6 @@ export async function orderCopyFixture(template: string) {
     for (const path of [
       'src/modules/checkout/migrations/0002_checkout.sql',
       'src/modules/checkout/migrations/0008_checkout_draft_binding.sql',
-      'src/modules/checkout/migrations/0011_offline_cash.sql',
       'src/modules/administration/migration.sql',
       'src/modules/checkout/order-copy/migration.sql',
       'src/modules/checkout/order-copy/cancellation-migration.sql',

@@ -121,7 +121,7 @@ export function giftCardBatchService(
     user: Principal,
     batch: LegacyGiftCardBatch,
     job: GiftCardBatchJobMetadata | null,
-    knownCreator?: { first: string; last: string },
+    knownCreator?: { first: string | null; last: string | null },
   ) {
     if (
       ![batch.completed, batch.printed, batch.blocked].every((flag) => flag === 0 || flag === 1) ||

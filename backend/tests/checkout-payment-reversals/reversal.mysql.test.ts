@@ -169,7 +169,6 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
     afterAll(async () => native?.close());
     beforeEach(async () => {
       for (const table of [
-        'pos_rewrite_offline_cash_order_links',
         'pos_rewrite_payment_correction_close_impacts',
         'pos_rewrite_payment_correction_cash',
         'pos_rewrite_payment_reversals',
@@ -745,7 +744,7 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
         'PAYMENT_REVERSAL_PROVIDER_REVIEW_REQUIRED',
       );
     });
-    it('partial/fulfilled returns, issued value and late offline-cash evidence remain reconciliation-only', async () => {
+    it('partial/fulfilled returns and issued value remain reconciliation-only', async () => {
       await native.fixture.insert('return_orders', {
         order_id: orderId,
         has_product_id: '9007199254740994',
@@ -759,14 +758,6 @@ describe.skipIf(!process.env.CHECKOUT_MYSQL_TEST_URL)(
         'PAYMENT_REVERSAL_ISSUED_VALUE_REVIEW_REQUIRED',
       );
       await native.connection.query('DELETE FROM gift_vouchers');
-      await native.connection.query(
-        'INSERT INTO pos_rewrite_offline_cash_order_links (receipt_id,order_id,payable_cents,business_date,projection_hash,finalized_at_ms) VALUES(?,?,?,?,?,?)',
-        [crypto.randomUUID(), orderId, 10000, today, 'a'.repeat(64), Date.now()],
-      );
-      expect((await reversals.context(manager, '1', orderId)).blocker).toBe(
-        'PAYMENT_REVERSAL_IMMUTABLE_SALE_REVIEW_REQUIRED',
-      );
-      await native.connection.query('DELETE FROM pos_rewrite_offline_cash_order_links');
     });
     it('cash accounting keeps original funding date, late cash-out date, new incoming date and a single logical order', async () => {
       const date1 = Temporal.PlainDate.from(today).add({ days: 1 }).toString(),

@@ -125,7 +125,8 @@ export interface SourceTerminal {
 }
 export interface SourceOrder {
   id: string;
-  reference: string;
+  // orders.order_ref_no is nullable in production.
+  reference: string | null;
   userId: string;
   customer: { id: string; first: string; last: string } | null;
   orderAmount: number;

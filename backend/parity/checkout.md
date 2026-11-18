@@ -22,17 +22,14 @@ npx playwright test e2e/checkout/invoice.spec.ts
 npx playwright test e2e/checkout/exchange.spec.ts e2e/checkout/discount-approval.spec.ts
 npx playwright test e2e/checkout-recovery.spec.ts
 npx playwright test e2e/checkout/gift-card.spec.ts
-npx playwright test e2e/checkout/offline-cash.spec.ts e2e/checkout/clearance.spec.ts
-npx playwright test e2e/checkout/fast-cash.spec.ts
+npx playwright test e2e/checkout/clearance.spec.ts
 ```
 
 `tools/checkout/legacy_oracle.py` AST-extracts original Python methods without importing Django. Tests compare cart/benefit/order wire payloads, invoice-year and transaction-ID behavior, refund rounding/modes, Pine Labs and Paytm payloads, the warehouse inbound request, `pos/exchange` payload and 22 manager-approval threshold/fallback cases. Those payload comparisons do not establish full end-to-end response parity with the unavailable upstream services.
 
 `tests/checkout/mysql.integration.test.ts` exercises actual transaction locks, simultaneous replay, version conflicts, lost-response checkpoints, provider-evidence settlement, cash split persistence, gift-card activation, day-close invalidation, return credit notes, hold inventory, cross-store authorization, line-specific extensions, exchange child completion/rejection retry/uncertainty, outbox claims and protected invoices. Gateway results are controlled fixtures; they do not certify the deployed providers or inventory routine.
 
-The explicit completed-cash offline lifecycle, exact source-price/template contracts, manager approval/import resources, physical schema compatibility candidate and test paths are documented in [offline-cash.md](offline-cash.md). The source/provider tests and whole-transaction MySQL import checks are separate from the older offline-cart checks.
-
-The durable online fast-cash orchestration, original amount oracle, salesperson controls and remaining fast-form field gaps are documented in [fast-cash.md](fast-cash.md).
+The IndexedDB offline cash flow and the fast-cash checkout UI were deleted by W7 on 19 November 2026 (see [w7-report.md](w7-report.md)). Desktop offline billing replaces offline cash. [fast-cash.md](fast-cash.md) describes the removed fast-cash UI; only its backend settlement-note resource and source vectors remain.
 
 The private invoice/purpose-only feedback correction, scoped log/privacy evidence and unapplied compatibility workers are documented in [invoice-security.md](invoice-security.md).
 
@@ -83,7 +80,6 @@ All integration values must come from the approved environment/secret store. Do 
 | Verified ordinary checkout projection      | `UPSTREAM_POS_CHECKOUT_PROJECTION_CONTRACT=pos-checkout-projection-v1`, `TSS_POS_CHECKOUT_PROJECTION_KEY`; the patched payment service independently validates matching `POS_CHECKOUT_PROJECTION_KEY` and writes transaction-bound proof              |
 | Approved per-HP refund allocation | `UPSTREAM_POS_REFUND_ALLOCATION_CONTRACT=pos-refund-per-hp-v1`, `UPSTREAM_POS_REFUND_ALLOCATION_PATCH_HASH=e156c0c281cf5d846b6ae88cd7824959babe2069ed409ca9dff31b7882945f11`; actual native HP/audit values are checked before confirmation/charge/settlement |
 | Paid store invoice                         | `TSS_STORE_INVOICE_URL` (exact `/internal/pos/invoices/store`), independent `TSS_POS_INVOICE_KEY`, `UPSTREAM_POS_INVOICE_CONTRACT=pos-invoice-security-v1`, `UPSTREAM_POS_FEEDBACK_PROOF_CONTRACT=pos-feedback-proof-v1`; see `invoice-security.md` |
-| Completed offline cash                     | See `offline-cash.md` for required limits, signing key, private source pricing/template contracts, strict schema compatibility and selected stock projection |
 | Financial delivery worker                  | `TSS_ORDER_PRODUCER_URL`, `TSS_ORDER_PRODUCER_APP_ID`, `TSS_ORDER_PRODUCER_APP_KEY`, `TSS_ORDER_ENGAGEMENT_URL`, `TSS_RETURN_EMAIL_URL`, `TSS_EXCHANGE_EMAIL_URL`; optional `FINANCIAL_OUTBOX_POLL_MS`                                                |
 | Private order SMS | `TSS_ORDER_SMS_URL` (exact `/internal/pos/order-messages`), `UPSTREAM_POS_ORDER_SMS_CONTRACT=pos-order-sms-security-v1`, independent `TSS_POS_ORDER_SMS_KEY`; old omnichannel SMS cannot be activated by only supplying a URL |
 | Manager discount approval delivery         | `NETCORE_EMAIL_URL`, `NETCORE_API_KEY`, `DISCOUNT_APPROVAL_SECRET` (at least 32 characters; approved secret store, identical in API and worker)                                                                                                       |
@@ -128,7 +124,7 @@ The following are not certified or complete and must remain visible in the full 
 - Invoice transport and script isolation are browser tested. Visual/legal parity still needs a real authoritative invoice fixture, including GST/IRN/QR fields. External images and active content are intentionally excluded; embedded PNG/JPEG/WebP QR images are supported. Online/SDD invoices and credit-note printing are not covered by the store invoice route.
 - Dedicated cancellation, fast-cash, customer-website handoff and invoice-document slices have their own implementation/evidence and qualification gates; earlier chronological gaps below are not declarations that those current modules are absent. Dormant CSV/order-punch jobs remain separately inventoried. Recorded paid cash correction is implemented locally in `payment-reversals.md`, with finance/provider/historical-reconciliation gates. Customer insights/profile/contact flows are separately owned and tracked by their module evidence. Customer registration/detachment, physical gift-card controls and order SMS/NPS are implemented locally but still require actual upstream/provider sandbox certification. The existing payload builders alone do not certify complete workflows.
 - Global Money/Points adjustments now have the approved atomic writer/UI and evidence in `wallet-adjustments.md`; activation still requires the shared-writer locking contract. Global Gift Voucher issuance remains blocked on physical defaults/validity/history-enum decisions. Gift-card batch generation/print/block is separately owned; batch artifacts do not fund vouchers. Audit history does not substitute for mutations.
-- Offline cash now has durable signed device receipts, source-authorized per-quantity price/tax tables, print/reprint, idempotent acceptance, manager conflict/clock approval, atomic source-compatible order/stock/cash import and immutable finance proof. Production activation still requires the reviewed source-provider/approved per-HP patch deployment, nullable unset-event schema compatibility/legacy-consumer audit, actual writer stock contract, signed Windows/macOS installation and physical printer evidence. See `offline-cash.md`; the existing cart-only tests do not certify this feature. No offline wallet, terminal, gift or refund workflow is enabled.
+- The IndexedDB offline cash flow was deleted (W7, 19 November 2026); desktop offline billing replaces it.
 - No full route-level parity certification has been recorded for this module. The source remains authoritative for pricing, tax and refund allocation; the rewrite does not invent replacement tax formulas.
 
 Database candidates and response-preservation conditions are recorded in `checkout-improve-query.md` for consolidation into the project `improve-query.md`.

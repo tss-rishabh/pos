@@ -381,15 +381,20 @@ export async function finalizeLifecycle(
           .orderBy(asc(TssMoneyHistory.id))
           .limit(2)
           .for('share');
+        const [refund] = history;
+        // tss_money_history amounts are nullable; a NULL refund row never matches.
         if (
           addon.refunded !== 1 ||
           history.length !== 1 ||
-          history[0]!.added !== context.order.hlCharges ||
-          history[0]!.used !== 0 ||
-          history[0]!.after !== pythonRoundMoney(history[0]!.before + history[0]!.added)
+          !refund ||
+          refund.added === null ||
+          refund.before === null ||
+          refund.added !== context.order.hlCharges ||
+          refund.used !== 0 ||
+          refund.after !== pythonRoundMoney(refund.before + refund.added)
         )
           throw reconciliation();
-        moneyHistoryId = String(history[0]!.id);
+        moneyHistoryId = String(refund.id);
       }
     }
     if (!command.snapshot.split)

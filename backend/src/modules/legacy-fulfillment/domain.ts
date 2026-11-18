@@ -43,11 +43,12 @@ export function sourceLegacyStatus(log: Pick<LegacyLogState, 'action' | 'created
 export const legacyRtoCorrectionContract = 'pos-legacy-rto-same-store-hp-v1';
 /** AjaxHlOrderView.cancel logs this before its webhook stock restoration. */
 export const legacyCancellationAudit = 'Hyperlocal Order Cancelled : Amount Refunded';
-export function legacyAuditComment(action: LegacyAction, note: string, firstName: string) {
-  const suffix =
-      action === 'packing'
-        ? `, Order Packed By: ${firstName}`
-        : `, RTO Package Recieved By: ${firstName}`,
+export function legacyAuditComment(action: LegacyAction, note: string, firstName: string | null) {
+  // Legacy order/views.py:4088,4149 format request.user.first_name (nullable) in an
+  // f-string, so NULL prints as 'None'.
+  const name = firstName ?? 'None',
+    suffix =
+      action === 'packing' ? `, Order Packed By: ${name}` : `, RTO Package Recieved By: ${name}`,
     comment = note + suffix;
   if ([...comment].length > 255)
     throw new AppError(

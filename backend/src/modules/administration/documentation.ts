@@ -162,7 +162,8 @@ export function documentationService(
     }));
     const urls = (kind: MediaKind) =>
       JSON.stringify(assets.filter((asset) => asset.kind === kind).map((asset) => asset.url));
-    const html = sanitizeDocumentationHtml(row.discription);
+    // Legacy _detail.html:16 renders {{discription}}; Django prints NULL as 'None'.
+    const html = sanitizeDocumentationHtml(row.discription ?? 'None');
     return {
       id: String(row.id),
       title: row.title,

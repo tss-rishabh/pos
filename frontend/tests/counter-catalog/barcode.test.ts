@@ -204,7 +204,7 @@ describe('exact scanner binding', () => {
     await eraseOperator('other');
     expect(await db.catalogBarcodes.count()).toBe(0);
   });
-  it('adds the version10 alias table while preserving existing version9 financial and draft rows', async () => {
+  it('adds the version10 alias table, drops retired offline-cash tables and keeps version9 drafts', async () => {
     const name = 'counter-barcode-upgrade-' + crypto.randomUUID();
     const legacy = new Dexie(name);
     const schema = Object.fromEntries(
@@ -215,7 +215,11 @@ describe('exact scanner binding', () => {
           [table.schema.primKey.src, ...table.schema.indexes.map((index) => index.src)].join(','),
         ]),
     );
-    legacy.version(9).stores(schema);
+    legacy.version(9).stores({
+      ...schema,
+      offlineCashReceipts:
+        '[ownerId+receiptId],&[ownerId+draftId],&[authorizationId+sequence],ownerId,storeId,[ownerId+storeId],[ownerId+storeId+completedAt],syncState,completedAt',
+    });
     const financial = {
       ownerId: '1',
       receiptId: 'receipt',
@@ -233,10 +237,10 @@ describe('exact scanner binding', () => {
     const upgraded = new PosDatabase(name);
     try {
       await upgraded.open();
-      expect(upgraded.verno).toBe(10);
+      expect(upgraded.verno).toBe(11);
       expect(await upgraded.catalogBarcodes.count()).toBe(0);
       expect(await upgraded.drafts.get(['1', draft.id])).toEqual(draft);
-      expect(await upgraded.offlineCashReceipts.get(['1', 'receipt'])).toEqual(financial);
+      expect(upgraded.tables.map((table) => table.name)).not.toContain('offlineCashReceipts');
     } finally {
       await upgraded.delete();
     }

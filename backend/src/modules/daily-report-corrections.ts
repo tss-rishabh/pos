@@ -3,25 +3,24 @@ import { sql, type SQL } from 'drizzle-orm';
 import { AppError } from '../domain/errors.js';
 import type { PaymentCorrectionCashDetails } from './checkout/payment-reversals/cash-projection.js';
 import type { Rollup } from './daily-report.js';
-import { emptyDailyStoreRow, type OfflineDailyStore } from './daily-report-offline.js';
 /** Only source cash/count/residual change. Native line/revenue/benefit predicates stay intact. */
 export function paymentCorrectionDailyStoreTemplate(source: string) {
   const changes: ReadonlyArray<readonly [string, string]> = [
     [
-      'SUM(CASE WHEN ord.offline_cash_imported = 1 THEN 0 ELSE 1 END) AS order_count,',
-      'SUM(CASE WHEN ord.payment_correction_managed = 1 OR ord.offline_cash_imported = 1 THEN 0 ELSE 1 END) AS order_count,',
+      'COUNT(*) AS order_count,',
+      'SUM(CASE WHEN ord.payment_correction_managed = 1 THEN 0 ELSE 1 END) AS order_count,',
     ],
     [
-      'SUM(CASE WHEN ord.offline_cash_imported = 1 THEN 0 ELSE ord.cash END) AS cash_total,',
-      'SUM(CASE WHEN ord.payment_correction_managed = 1 OR ord.offline_cash_imported = 1 THEN 0 ELSE ord.cash END) AS cash_total,',
+      'SUM(ord.cash) AS cash_total,',
+      'SUM(CASE WHEN ord.payment_correction_managed = 1 THEN 0 ELSE ord.cash END) AS cash_total,',
     ],
     [
-      'MAX(t.CASH) AS cash, MAX(t.OfflineCashImported) AS offline_cash_imported,',
-      'MAX(t.CASH) AS cash, MAX(t.OfflineCashImported) AS offline_cash_imported, MAX(t.PaymentCorrectionManaged) AS payment_correction_managed,',
+      'MAX(t.CASH) AS cash,',
+      'MAX(t.CASH) AS cash, MAX(t.PaymentCorrectionManaged) AS payment_correction_managed,',
     ],
     [
-      'oss.offline_payment AS CASH, CASE WHEN __OFFLINE_MATCH__ THEN 1 ELSE 0 END AS OfflineCashImported,',
-      'oss.offline_payment AS CASH, CASE WHEN __OFFLINE_MATCH__ THEN 1 ELSE 0 END AS OfflineCashImported, CASE WHEN __PAYMENT_CORRECTION_MATCH__ THEN 1 ELSE 0 END AS PaymentCorrectionManaged,',
+      'oss.offline_payment AS CASH,',
+      'oss.offline_payment AS CASH, CASE WHEN __PAYMENT_CORRECTION_MATCH__ THEN 1 ELSE 0 END AS PaymentCorrectionManaged,',
     ],
     [
       'SUM(ord.pay_amount - ord.cash - ord.district) AS total_online',
@@ -61,7 +60,7 @@ export function matchedPaymentCorrectionOrder(
 export function addDailyPaymentCorrections(
   source: readonly Rollup[],
   corrections: readonly PaymentCorrectionCashDetails[],
-  stores: readonly OfflineDailyStore[],
+  stores: readonly DailyStore[],
 ): Rollup[] {
   const rows = source.map((row) => ({ ...row })),
     byDay = new Map(rows.map((row) => [`${row.store_id}\0${row.order_date}`, row])),
@@ -168,4 +167,38 @@ export function applyDailyPaymentCorrectionPartitions(
     }
   }
   return rows;
+}
+
+export interface DailyStore {
+  id: string;
+  name: string;
+  locationCode: string;
+}
+export function emptyDailyStoreRow(store: DailyStore, date: string): Rollup {
+  const id = Number(store.id);
+  if (!Number.isSafeInteger(id))
+    throw new AppError(
+      503,
+      'DAILY_REPORT_STORE_RECONCILIATION_REQUIRED',
+      'A cash movement store dimension requires reconciliation.',
+    );
+  return {
+    store_id: id,
+    store_name: store.name,
+    location_code: store.locationCode,
+    order_date: date,
+    order_count: 0,
+    qty: 0,
+    revenue: 0,
+    membership_purchase_orders: 0,
+    membership_orders_total: 0,
+    membership_revenue: 0,
+    tss_money_used_total: 0,
+    tss_points_used_total: 0,
+    pg_discount_total: 0,
+    gift_voucher_total: 0,
+    district_total: 0,
+    cash_total: 0,
+    total_online: 0,
+  };
 }

@@ -9,7 +9,7 @@ export function parseStoreRollout(raw: string) {
     ids: [...new Set(parts.filter((value) => /^\d+$/.test(value)).map((value) => BigInt(value)))],
     categories: [
       ...new Set(
-        parts.flatMap((value) =>
+        parts.flatMap((value): ('IN_HOUSE' | 'FRANCHISE')[] =>
           value === 'COCO' ? ['IN_HOUSE'] : value === 'FOFO' ? ['FRANCHISE'] : [],
         ),
       ),

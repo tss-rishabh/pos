@@ -278,9 +278,6 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       '0007_exchange_stock_proof.sql',
       '0008_checkout_draft_binding.sql',
       '0009_checkout_projection_proof.sql',
-      '0011_offline_cash.sql',
-      '0012_offline_cash_receipt_identity.sql',
-      '0013_offline_cash_import_proof.sql',
       '0015_gift_card_issuance.sql',
       '0017_customer_consent_proof.sql',
     ])
@@ -1786,10 +1783,11 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       'SELECT message,offline_payment,offline_payment_recieved FROM order_stores WHERE order_id=?',
       [orderId],
     );
+    // order_stores payment columns are DOUBLE in production; the driver returns numbers.
     expect(records[0]).toMatchObject({
       message: note,
-      offline_payment: '99.95',
-      offline_payment_recieved: '100.00',
+      offline_payment: 99.95,
+      offline_payment_recieved: 100,
     });
     const [logs] = await connection.query<RowDataPacket[]>(
       'SELECT id FROM pos_transaction_logs WHERE order_id=?',
@@ -1861,7 +1859,7 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
         'SELECT message,offline_payment FROM order_stores WHERE order_id=?',
         [retryOrderId],
       );
-      expect(rolledBack[0]).toMatchObject({ message: '', offline_payment: '0.00' });
+      expect(rolledBack[0]).toMatchObject({ message: '', offline_payment: 0 });
       expect((await writer.get(operator, '1', retryOrderId, retryInput.operationId)).status).toBe(
         'dispatching',
       );
@@ -1885,7 +1883,7 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       'SELECT message,offline_payment FROM order_stores WHERE order_id=?',
       [retryOrderId],
     );
-    expect(repaired[0]).toMatchObject({ message: note, offline_payment: '99.95' });
+    expect(repaired[0]).toMatchObject({ message: note, offline_payment: 99.95 });
   });
   it('rejects missing/changed refund deployment contracts and legacy per-product overwrite before provider dispatch', async () => {
     const orderId = await paymentFixture(905001),
@@ -2310,9 +2308,9 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       'SELECT offline_payment,offline_payment_recieved,online_payment,is_manually_paid FROM order_stores WHERE order_id=8001',
     );
     expect(mapping[0]).toMatchObject({
-      offline_payment: '99.95',
-      offline_payment_recieved: '100.00',
-      online_payment: '0.00',
+      offline_payment: 99.95,
+      offline_payment_recieved: 100,
+      online_payment: 0,
       is_manually_paid: 1,
     });
     const [cards] = await connection.query<mysql.RowDataPacket[]>(
@@ -3774,9 +3772,9 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       'SELECT offline_payment,online_payment,online_other_payment,is_manually_paid,order_invoice FROM order_stores WHERE order_id=19201',
     );
     expect(mapping[0]).toMatchObject({
-      offline_payment: '0.00',
-      online_payment: '0.00',
-      online_other_payment: '0.00',
+      offline_payment: 0,
+      online_payment: 0,
+      online_other_payment: 0,
       is_manually_paid: 0,
     });
     expect(String(mapping[0]?.order_invoice)).toMatch(/^FST1\d{4}INV\d+$/);

@@ -225,7 +225,9 @@ export function otpDelivery(
               content: [
                 {
                   type: 'html',
-                  value: `Hey ${escapeHtml(account.firstName)},\n\n${code} is your OTP to login into the POS Admin.\n\nHave a soulful day!\nThe Souled Store Team`,
+                  // Legacy core/tasks.py:110 passes user_obj.first_name into an f-string
+                  // (helpers/helpers.py:1478), so a NULL name renders as 'None'.
+                  value: `Hey ${escapeHtml(account.firstName ?? 'None')},\n\n${code} is your OTP to login into the POS Admin.\n\nHave a soulful day!\nThe Souled Store Team`,
                 },
               ],
               personalizations: [

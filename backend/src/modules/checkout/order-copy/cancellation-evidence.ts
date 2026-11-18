@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
 import { AppError } from '../../../domain/errors.js';
@@ -6,7 +6,6 @@ import type { CheckoutState } from '../contracts.js';
 import { operationHash } from '../crypto.js';
 import { copyCancellationReceiptSchema } from './cancellation-contracts.js';
 import { orderCopyCancellations } from './schema.js';
-import { offlineCashReceipts } from '../offline-cash/schema.js';
 
 export function verifyCopyCancellation(
   row: typeof orderCopyCancellations.$inferSelect,
@@ -69,24 +68,5 @@ export function copyCancellationClearVerifier(config: Config, db: Databases) {
         'ORDER_COPY_CANCELLATION_UNCONFIRMED',
         'The unsent cancellation belongs to another saved intent.',
       );
-    if (state.draftId) {
-      const [cash] = await db
-        .get('writer')
-        .select({ id: offlineCashReceipts.id })
-        .from(offlineCashReceipts)
-        .where(
-          and(
-            eq(offlineCashReceipts.operatorId, state.operatorId),
-            eq(offlineCashReceipts.draftId, state.draftId),
-          ),
-        )
-        .limit(1);
-      if (cash)
-        throw new AppError(
-          409,
-          'ORDER_COPY_OFFLINE_CASH_COLLECTED',
-          'Cash was already received for this saved sale. Keep its receipt and cancellation proof for reconciliation.',
-        );
-    }
   };
 }

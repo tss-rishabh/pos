@@ -9,6 +9,8 @@ import {
   MUser,
   PosSpecialPermissionActivityLog,
 } from '../../db/legacy-schema.js';
+import { legacyZeroDateTime, storedEnumValue } from '../../db/legacy-columns.js';
+import { voucherHistoryPlatforms } from '../../db/legacy-enums.js';
 import type { Databases } from '../../db/pools.js';
 import { retryTransaction } from '../../db/retry.js';
 import { requireStore, type Principal } from '../../domain/access.js';
@@ -586,7 +588,9 @@ export function globalVoucherService(
               theme: '0',
               message: '',
               startsAt: now,
-              expiresAt: null,
+              // Legacy core/views.py AjaxGiftVoucherModuleView omits end_date; NOT NULL
+              // without default stores the zero date under the production sql_mode.
+              expiresAt: legacyZeroDateTime,
               minimum: 0,
               count: 0,
               lot: '',
@@ -624,8 +628,9 @@ export function globalVoucherService(
               serial: 0n,
               requiresPin: 0,
               platform: 'both',
-              startsAt: null,
-              expiresAt: null,
+              // Legacy INSERT ... SELECT omits both dates (zero date, see above).
+              startsAt: legacyZeroDateTime,
+              expiresAt: legacyZeroDateTime,
               createdAt: now,
               updatedAt: now,
             }),
@@ -639,7 +644,8 @@ export function globalVoucherService(
               before: 0,
               after: numeric,
               comment: 'GV ADD: Gift Voucher Amount Added',
-              platform: 'GV_ADD',
+              // Legacy writes 'GV_ADD', which is not an ENUM member and is stored as ''.
+              platform: storedEnumValue(voucherHistoryPlatforms, 'GV_ADD'),
               operatorId: BigInt(user.id),
               createdAt: now,
               updatedAt: now,

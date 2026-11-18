@@ -6,17 +6,8 @@ import { draftSchema } from '../api/schemas';
 export async function queueDraft(cart: LocalDraft, database: PosDatabase = db): Promise<void> {
   await database.transaction(
     'rw',
-    [database.operations, database.clearedDrafts, database.offlineCashReceipts],
+    [database.operations, database.clearedDrafts],
     async () => {
-      if (
-        await database.offlineCashReceipts
-          .where('[ownerId+draftId]')
-          .equals([cart.ownerId, cart.id])
-          .first()
-      )
-        throw new Error(
-          'Cash has already been received for this sale. It cannot be queued as a draft.',
-        );
       if (await database.clearedDrafts.get([cart.ownerId, cart.id]))
         throw new Error('This checkout was cleared. Open a new sale before saving again.');
       const existing = await database.operations
@@ -109,7 +100,7 @@ export async function resolveConflict(
 ) {
   await db.transaction(
     'rw',
-    [db.drafts, db.operations, db.clearedDrafts, db.offlineCashReceipts],
+    [db.drafts, db.operations, db.clearedDrafts],
     async () => {
       const operation = await db.operations.get(operationId);
       if (!operation || operation.ownerId !== ownerId || operation.state !== 'conflict')

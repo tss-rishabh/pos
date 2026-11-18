@@ -27,7 +27,6 @@ import {
   paymentCorrectionFinanceOptions,
   type PaymentCorrectionFinanceOptions,
 } from './payment-corrections.js';
-import { aggregateOfflineCash, matchedImportedOfflineOrder } from './offline-cash.js';
 import {
   canClose,
   cashDifference,
@@ -84,7 +83,6 @@ export async function collectionSnapshot(
 ): Promise<CollectionSnapshot> {
   const start = `${date} 00:00:00`,
     end = `${Temporal.PlainDate.from(date).add({ days: 1 })} 00:00:00`;
-  const [offline] = await aggregateOfflineCash(db, [storeId], date, date);
   const [correction] = await currentPaymentCorrectionCash(db, [storeId], date, date, corrections);
   // Exact source predicates; do not add order-status exclusions to cash collection.
   const district = and(
@@ -93,8 +91,8 @@ export async function collectionSnapshot(
   );
   const [collection] = await db
     .select({
-      orderCount: sql<number>`coalesce(sum(case when ${matchedImportedOfflineOrder(db)} then 0 else 1 end),0)`,
-      cash: sql<string>`coalesce(sum(case when ${matchedImportedOfflineOrder(db)} then 0 else ${OrderStore.offline_payment} end),0)`,
+      orderCount: sql<number>`count(*)`,
+      cash: sql<string>`coalesce(sum(${OrderStore.offline_payment}),0)`,
       card: sql<string>`coalesce(sum(${OrderStore.online_payment}),0)`,
       district: sql<string>`coalesce(sum(case when ${district} then ${OrderStore.online_other_payment} else 0 end),0)`,
       onlineOther: sql<string>`coalesce(sum(case when ${or(isNull(OrderStore.district_transaction_id), eq(OrderStore.district_transaction_id, ''))} then ${OrderStore.online_other_payment} else 0 end),0)`,
@@ -132,17 +130,13 @@ export async function collectionSnapshot(
       ),
     );
   const cash = money(
-      new Decimal(collection?.cash || '0')
-        .plus(offline?.cash || '0')
-        .plus(correction?.cashAdjustment || '0'),
+      new Decimal(collection?.cash || '0').plus(correction?.cashAdjustment || '0'),
     ),
     card = money(collection?.card),
     onlineOther = money(collection?.onlineOther);
   return {
     order_count:
-      Number(collection?.orderCount || 0) +
-      (offline?.orderCount || 0) +
-      (correction?.orderCountAdjustment || 0),
+      Number(collection?.orderCount || 0) + (correction?.orderCountAdjustment || 0),
     cash,
     card_upi: card,
     district: money(collection?.district),

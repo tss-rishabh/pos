@@ -55,7 +55,6 @@ const row = (index) => ({
   total_online: 50,
   banking: 50,
   membership_revenue: 99.99,
-  pending_offline_orders: index === 0 ? 1 : 0,
 });
 await page.route('**/*', async (route) => {
   const request = route.request(),
@@ -98,9 +97,7 @@ await page.route('**/*', async (route) => {
           cash: 3050,
           payment_correction_cash_out: 5.25,
           cash_after_payment_corrections: 3044.75,
-          pending_offline_orders: 1,
         },
-        pendingOrderCount: 1,
         publication: {
           generationId: 'fixture_generation',
           publishedAt: '2026-11-16T07:59:50Z',
@@ -123,16 +120,10 @@ try {
   await page.getByRole('button', { name: 'View report', exact: true }).click();
   const table = page.getByRole('table', { name: 'Daily store sales breakdown' });
   await expect(table.locator('tbody tr')).toHaveCount(50);
-  await expect(
-    page.getByRole('status').filter({ hasText: 'offline cash receipt is awaiting order import' }),
-  ).toBeVisible();
   await expect(page.getByText(/^Data updated through/)).toBeVisible();
-  await page.getByText('Columns (18 of 34)', { exact: true }).click();
+  await page.getByText('Columns (18 of 33)', { exact: true }).click();
   await page.getByRole('button', { name: 'Show all columns' }).click();
-  await expect(table.locator('thead th')).toHaveCount(34);
-  await expect(
-    table.getByRole('columnheader', { name: 'Offline orders awaiting import' }),
-  ).toBeVisible();
+  await expect(table.locator('thead th')).toHaveCount(33);
   await page.getByRole('button', { name: 'Next page' }).click();
   await expect(table.locator('tbody tr')).toHaveCount(11);
   await expect(table.locator('tfoot')).toContainText('6100');
@@ -141,7 +132,6 @@ try {
   const file = await waiting,
     csv = await readFile(await file.path(), 'utf8');
   expect(csv.trim().split('\r\n')).toHaveLength(63);
-  expect(csv).toContain('"Offline orders awaiting import"');
   expect(csv).toContain('"Fixture store 60"');
   expect(csv).toContain('"\'\u200b=SUM(1,2)"');
   expect(csv).toContain('"Cash returned on corrections"');
@@ -186,8 +176,8 @@ try {
     scope: 'isolated-browser-fixtures',
     checks: [
       'captured operator and multi-store request',
-      'pending cash and warehouse freshness notices',
-      'all34 source/additive columns including cash corrections',
+      'warehouse freshness notice',
+      'all33 source/additive columns including cash corrections',
       '50row paging and full totals',
       'all-results CSV and formula protection',
       'quoted search, stable sorting and source page-size controls without extra queries',

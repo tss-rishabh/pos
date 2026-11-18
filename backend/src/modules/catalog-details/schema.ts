@@ -7,5 +7,5 @@ export const catalogProductTypes = mysqlTable('product_types', {
 });
 export const catalogCategories = mysqlTable('categories', {
   id: bigint('id', { mode: 'bigint', unsigned: true }).primaryKey(),
-  category: varchar('category', { length: 50 }),
+  category: varchar('category', { length: 50 }).notNull(),
 });

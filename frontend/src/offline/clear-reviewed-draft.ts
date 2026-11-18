@@ -27,12 +27,9 @@ export async function clearReviewedDraft(
       database.reviewSnapshots,
       database.completedSales,
       database.clearedDrafts,
-      database.offlineCashReceipts,
     ],
     async () => {
       const key: [string, string] = [candidate.ownerId, candidate.id];
-      if (await database.offlineCashReceipts.where('[ownerId+draftId]').equals(key).first())
-        throw new Error('Cash has already been received for this sale. Its receipt has been kept.');
       if (await database.completedSales.get(key))
         throw new Error(
           'This sale already has a confirmed payment. Its local evidence has been kept.',

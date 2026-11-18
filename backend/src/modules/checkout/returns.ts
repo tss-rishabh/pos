@@ -163,6 +163,8 @@ export function returnReadService(
         .orderBy(asc(SubReason.id));
       return reasons
         .filter((row) => {
+          // sub_reasons.cat_id is nullable; a NULL category list matches nothing.
+          if (row.categories === null) return false;
           try {
             const list: unknown = JSON.parse(row.categories);
             return (

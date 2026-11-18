@@ -126,20 +126,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       .split(';')
       .filter((value) => value.trim()))
       await admin.query(query);
-    for (const query of readFileSync(
-      'src/modules/checkout/migrations/0011_offline_cash.sql',
-      'utf8',
-    )
-      .split(';')
-      .filter((value) => value.trim()))
-      await admin.query(query);
-    for (const query of readFileSync(
-      'src/modules/checkout/migrations/0013_offline_cash_import_proof.sql',
-      'utf8',
-    )
-      .split(';')
-      .filter((value) => value.trim()))
-      await admin.query(query);
     for (const path of [
       'src/modules/checkout/migrations/0003_payments.sql',
       'src/modules/checkout/payment-reversals/migration.sql',
@@ -262,7 +248,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
           date: '2026-11-16',
           cash: money(String(nativeCash[0]!.cash)),
           cashRefund: money(String(nativeRefund[0]!.cashRefund)),
-          lateOfflineCash: '0.00',
         },
       ],
       proofKey = 'fixture-current-ledger-publication-'.repeat(2),
@@ -300,7 +285,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
           BQ_FINANCE_DAY_CLOSES: 'fixture-project.finance.closes',
           BQ_FINANCE_DAY_BANKING: 'fixture-project.finance.banking',
           BQ_FINANCE_CASH_COLLECTIONS: 'fixture-project.finance.collections',
-          BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-offline-cash-ledger-v1',
+          BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-cash-collections-v2',
         }),
         {
           async queryReport(statement) {
@@ -313,7 +298,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
             if (statement.includes('finance.banking')) return banks;
             return sales.map((row) => ({
               ...row,
-              cashProjectionContract: 'pos-offline-cash-ledger-v1',
+              cashProjectionContract: 'pos-cash-collections-v2',
             }));
           },
         },
@@ -454,7 +439,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
           date: dates[0]!,
           cash: '100.00',
           cashRefund: '0.00',
-          lateOfflineCash: '0.00',
         },
       ],
       partitions = dates.map((date, index) =>
@@ -483,7 +467,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         BQ_FINANCE_DAY_CLOSES: 'fixture-project.finance.closes',
         BQ_FINANCE_DAY_BANKING: 'fixture-project.finance.banking',
         BQ_FINANCE_CASH_COLLECTIONS: 'fixture-project.finance.collections',
-        BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-offline-cash-ledger-v1',
+        BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-cash-collections-v2',
       });
     let missing = false;
     const warehouse = {
@@ -500,7 +484,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
           if (statement.includes('finance.collections'))
             return sales.map((row) => ({
               ...row,
-              cashProjectionContract: 'pos-offline-cash-ledger-v1',
+              cashProjectionContract: 'pos-cash-collections-v2',
             }));
           return [];
         },
@@ -545,7 +529,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       BQ_FINANCE_DAY_CLOSES: 'fixture-project.finance.closes',
       BQ_FINANCE_DAY_BANKING: 'fixture-project.finance.banking',
       BQ_FINANCE_CASH_COLLECTIONS: 'fixture-project.finance.collections',
-      BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-offline-cash-ledger-v1',
+      BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-cash-collections-v2',
     });
     const proofKey = 'fixture-history-financial-proof-key-'.repeat(2),
       anchor = { storeId: '1', date: '2026-11-15', amount: '100.00' },
@@ -554,7 +538,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         date: '2026-11-15',
         cash: '20.00',
         cashRefund: '2.00',
-        lateOfflineCash: '0.00',
       },
       publication = sealPaymentCorrectionPartition(
         {
@@ -598,8 +581,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
               date: '2026-11-15',
               cash: '20.00',
               cashRefund: '2.00',
-              lateOfflineCash: '0.00',
-              cashProjectionContract: 'pos-offline-cash-ledger-v1',
+                  cashProjectionContract: 'pos-cash-collections-v2',
             },
           ];
         return [];

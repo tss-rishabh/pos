@@ -36,7 +36,7 @@ export interface RestorationGroupFacts {
     productId: string;
     quantity: string;
     createdAt: string;
-    creditNote: string;
+    creditNote: string | null;
   }[];
   saleable: readonly { id: string; before: string | null; after: string | null; at: string }[];
   held: readonly { id: string; before: string | null; after: string | null; at: string }[];
@@ -95,7 +95,7 @@ export function proveRestorationGroup(
       credit.productId !== facts.productId ||
       !positive(credit.quantity) ||
       BigInt(credit.quantity) !== BigInt(line.quantity) ||
-      !credit.creditNote.trim() ||
+      !credit.creditNote?.trim() ||
       credit.createdAt < log.createdAt ||
       !['DELIVERED', 'EXCHANGE_INITIATED', 'EXCHANGE_COMPLETED'].includes(line.status || '')
     )

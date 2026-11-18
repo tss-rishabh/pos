@@ -195,7 +195,12 @@ export function administrationService(
     if (!locations.includes(value.locationCode))
       throw new AppError(400, 'INVALID_LOCATION_CODE', 'Select a configured store location code.');
   }
-  function storeValues(value: StoreInput, franchiseId: number, imagePath = defaultStoreImage) {
+  function storeValues(
+    value: StoreInput,
+    franchiseId: number,
+    // stores.store_image is nullable; an edit keeps the current value, NULL included.
+    imagePath: string | null = defaultStoreImage,
+  ) {
     return {
       store_name: value.name,
       type: value.type,

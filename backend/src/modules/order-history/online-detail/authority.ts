@@ -19,8 +19,10 @@ import type { OnlineDetailSelection, OnlineDetailFact } from './contracts.js';
 
 import { detailUnavailable, detailInvalid } from './errors.js';
 export { detailUnavailable, detailInvalid } from './errors.js';
-export function nextStoreIds(value: string): string[] {
-  if (!value.trim()) return [];
+export function nextStoreIds(value: string | null): string[] {
+  // Nullable orders.next_location_ids; legacy treats NULL as no next stores
+  // (order/views.py:579,3777).
+  if (!value?.trim()) return [];
   try {
     return [
       ...new Set(

@@ -60,7 +60,7 @@ export async function verifiedVoucherReceipt(
       history.amount !== (result.kind === 'issuance' ? amount : -amount) ||
       history.before !== (result.kind === 'issuance' ? 0 : amount) ||
       history.after !== (result.kind === 'issuance' ? amount : 0) ||
-      history.platform !== (result.kind === 'issuance' ? 'GV_ADD' : 'MISC_COMPENSATION')
+      history.platform !== (result.kind === 'issuance' ? '' : 'MISC_COMPENSATION')
     )
       voucherEvidenceUnavailable();
     if (result.kind === 'issuance') {

@@ -30,7 +30,8 @@ export interface Page<T> {
 }
 export interface OrderDto {
   id: string;
-  reference: string;
+  // orders.order_ref_no is nullable; NULL is serialised as null.
+  reference: string | null;
   storeId: string;
   customer: string;
   amount: string;

@@ -54,8 +54,8 @@ describe.skipIf(!template)('atomic global vouchers on verified isolated MySQL', 
   const now = Date.parse('2026-06-15T12:00:00+05:30');
   const assertVerified = vi.fn(async () => undefined);
   beforeAll(async () => {
+    // The writer uses the unchanged production schema (no candidate DDL).
     native = await globalVoucherFixture(template!);
-    await native.applyLegacyCandidate();
   });
   afterAll(async () => native?.close());
   beforeEach(async () => {
@@ -474,10 +474,10 @@ describe.skipIf(!template)('atomic global vouchers on verified isolated MySQL', 
       shadow: 25,
       initial: 25.49,
       value: 25.49,
-      starts: null,
-      ends: null,
+      starts: '0000-00-00 00:00:00',
+      ends: '0000-00-00 00:00:00',
       platform: 'both',
-      historyPlatform: 'GV_ADD',
+      historyPlatform: '',
     });
     expect(await wallet()).toMatchObject({ money: '100', cashback: '7' });
   });

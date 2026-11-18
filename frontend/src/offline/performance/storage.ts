@@ -2,12 +2,10 @@ import { z } from 'zod';
 import { captureOperatorScope } from '../../api/client';
 import { cachedOperatorForStore } from '../operator-session';
 import { db, type PosDatabase } from '../database';
-import { fastCashCommandSchema, type FastCashCommand } from '../fast-cash/contracts';
 import {
   emptyPerformance,
   performanceCapture,
   performanceCommand,
-  performanceReadyEvent,
   timingOwner,
   type PerformanceCapture,
   type PerformanceCommand,
@@ -176,7 +174,7 @@ export async function recordCustomerConnection(
   );
 }
 type TimingIdentity = Pick<
-  FastCashCommand,
+  PerformanceCommand,
   | 'id'
   | 'ownerId'
   | 'storeId'
@@ -198,157 +196,6 @@ function assertCommand(saved: PerformanceCommand, cash: TimingIdentity) {
   )
     throw new Error('The timing snapshot does not match the original cash intent.');
 }
-/** Freeze once before order/payment dispatch; reloads never recompute elapsed time. */
-export async function freezePerformance(
-  raw: FastCashCommand,
-  options: PerformanceStorageOptions = {},
-) {
-  const cash = fastCashCommandSchema.parse(raw),
-    scope = context(cash.ownerId, options);
-  return scope.database.transaction(
-    'rw',
-    [
-      scope.database.sessions,
-      scope.database.performanceCaptures,
-      scope.database.performanceCommands,
-    ],
-    async () => {
-      await active(cash, scope);
-      const rawSaved = await scope.database.performanceCommands.get(cash.id);
-      if (rawSaved) {
-        const saved = performanceCommand.parse(rawSaved);
-        assertCommand(saved, cash);
-        return saved;
-      }
-      const capture = performanceCapture.safeParse(
-        await scope.database.performanceCaptures.get([cash.ownerId, cash.draftId]),
-      );
-      const now = scope.clock();
-      const performance = emptyPerformance();
-      // A late observer cannot invent the source's pre-dispatch measurements.
-      if (
-        cash.state === 'prepared' &&
-        cash.orderAttempts === 0 &&
-        capture.success &&
-        matching(capture.data, cash) &&
-        (capture.data.checkoutId === null || capture.data.checkoutId === cash.checkoutId)
-      ) {
-        Object.assign(performance, capture.data.phases);
-        if (capture.data.checkoutId === cash.checkoutId && capture.data.startedAt !== null) {
-          const elapsed = now - capture.data.startedAt;
-          // Source float('0'+negative) crashes its report. Use its existing
-          // missing-time branch when the wall clock moved backwards.
-          if (Number.isSafeInteger(elapsed) && elapsed >= 0 && elapsed < 1e13)
-            performance.overall_performance_time = String(elapsed);
-        }
-      }
-      const saved = performanceCommand.parse({
-        id: cash.id,
-        operationId: crypto.randomUUID(),
-        ownerId: cash.ownerId,
-        storeId: cash.storeId,
-        counterId: cash.counterId,
-        draftId: cash.draftId,
-        draftVersion: cash.draftVersion,
-        checkoutId: cash.checkoutId,
-        submissionId: cash.submissionId,
-        paymentId: cash.paymentId,
-        performance,
-        orderId: null,
-        receiptId: null,
-        state: 'captured',
-        revision: 0,
-        claimId: null,
-        claimedAt: null,
-        attempts: 0,
-        nextAttemptAt: now,
-        createdAt: now,
-        errorCode: null,
-      });
-      await scope.database.performanceCommands.add(saved);
-      scope.signal.throwIfAborted();
-      return saved;
-    },
-  );
-}
-/** Attach only the existing proved payment; never create or change cash evidence. */
-export async function bindPaidPerformance(
-  raw: FastCashCommand,
-  options: PerformanceStorageOptions = {},
-) {
-  const cash = fastCashCommandSchema.parse(raw),
-    scope = context(cash.ownerId, options);
-  if (
-    cash.state !== 'paid' ||
-    !cash.orderId ||
-    !cash.receipt ||
-    cash.receipt.orderId !== cash.orderId ||
-    cash.receipt.cashAmount !== cash.payable ||
-    cash.receipt.onlineAmount !== '0.00' ||
-    (cash.payable === '0.00'
-      ? cash.receipt.source !== 'prepaid' ||
-        cash.receipt.checkoutId !== cash.checkoutId ||
-        cash.receipt.receiptId !== cash.submissionId
-      : cash.receipt.source !== 'counter' || cash.receipt.paymentAttemptId !== cash.paymentId)
-  )
-    throw new Error('Performance recording requires the original paid sale.');
-  await freezePerformance(cash, options);
-  return scope.database
-    .transaction('rw', [scope.database.sessions, scope.database.performanceCommands], async () => {
-      await active(cash, scope);
-      const saved = performanceCommand.parse(await scope.database.performanceCommands.get(cash.id));
-      assertCommand(saved, cash);
-      if (
-        (saved.orderId !== null && saved.orderId !== cash.orderId) ||
-        (saved.receiptId !== null && saved.receiptId !== cash.receipt!.receiptId)
-      )
-        throw new Error('The timing snapshot changed its original payment.');
-      if (saved.orderId === cash.orderId && saved.receiptId === cash.receipt!.receiptId)
-        return saved;
-      const result = performanceCommand.parse({
-        ...saved,
-        state: saved.state === 'captured' ? 'prepared' : saved.state,
-        orderId: cash.orderId,
-        receiptId: cash.receipt!.receiptId,
-        revision: saved.revision + 1,
-      });
-      await scope.database.performanceCommands.put(result);
-      scope.signal.throwIfAborted();
-      return result;
-    })
-    .then((result) => {
-      if (result.state === 'prepared' && typeof window !== 'undefined')
-        window.dispatchEvent(new Event(performanceReadyEvent));
-      return result;
-    });
-}
-
-export async function deferUnpaidPerformance(
-  command: PerformanceCommand,
-  options: PerformanceStorageOptions = {},
-) {
-  const scope = context(command.ownerId, options);
-  return scope.database.transaction(
-    'rw',
-    [scope.database.sessions, scope.database.performanceCommands],
-    async () => {
-      await active(command, scope);
-      const saved = performanceCommand.parse(
-        await scope.database.performanceCommands.get(command.id),
-      );
-      if (saved.state !== 'captured' || saved.revision !== command.revision) return;
-      await scope.database.performanceCommands.put(
-        performanceCommand.parse({
-          ...saved,
-          nextAttemptAt: scope.clock() + 30000,
-          revision: saved.revision + 1,
-        }),
-      );
-      scope.signal.throwIfAborted();
-    },
-  );
-}
-
 export async function claimPerformance(
   id: string,
   ownerId: string,

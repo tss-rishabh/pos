@@ -26,11 +26,6 @@ import {
   paymentCorrectionBaselineHash,
 } from './payment-correction-publication.js';
 import { money } from './domain.js';
-import {
-  aggregateOfflineCash,
-  lateOfflineCashForLatestClose,
-  matchedImportedOfflineOrder,
-} from './offline-cash.js';
 
 const id = z
   .union([z.string().regex(/^\d+$/), z.number().int().refine(Number.isSafeInteger), z.bigint()])
@@ -48,6 +43,8 @@ const day = z
 const amount = z
   .union([z.string().regex(/^-?\d+(?:\.\d+)?$/), z.number().finite()])
   .transform((value) => money(value));
+/** Source-only cash collections. v1 (pos-offline-cash-ledger-v1) carried offline-cash receipts. */
+export const cashCollectionsContract = 'pos-cash-collections-v2';
 const table = z
   .string()
   .regex(
@@ -63,7 +60,7 @@ export function ledgerOptions(env: NodeJS.ProcessEnv = process.env) {
       BQ_FINANCE_CASH_COLLECTIONS: table,
       BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: z.preprocess(
         (value) => (value === '' ? undefined : value),
-        z.literal('pos-offline-cash-ledger-v1').optional(),
+        z.literal(cashCollectionsContract).optional(),
       ),
     })
     .parse(env);
@@ -89,11 +86,9 @@ const salesSchema = z.object({
   date: day,
   cash: amount,
   cashRefund: amount,
-  lateOfflineCash: amount.optional(),
 });
 const warehouseSalesSchema = salesSchema.extend({
-  lateOfflineCash: amount,
-  cashProjectionContract: z.literal('pos-offline-cash-ledger-v1'),
+  cashProjectionContract: z.literal(cashCollectionsContract),
 });
 export type LedgerAnchor = z.infer<typeof anchorSchema>;
 export type LedgerClose = z.infer<typeof closeSchema>;
@@ -136,7 +131,6 @@ export function cashLedgerCorrectionBaselineHash(
           date,
           cash: row.cash,
           cashRefund: row.cashRefund,
-          lateOfflineCash: row.lateOfflineCash ?? '0.00',
         }
       : null,
   });
@@ -242,9 +236,6 @@ export function cashLedgerRows(
           closing_balance: money(closing),
           status: close.status,
         });
-        const lateOfflineCash = live.get(`${store.id}:${date}`)?.lateOfflineCash;
-        if (close.status === 'STALE' && lateOfflineCash && new Decimal(lateOfflineCash).gt(0))
-          row.note = `Accepted offline cash of ${lateOfflineCash} arrived after this close. The displayed close figures are frozen; reconcile and reclose.`;
         if (date >= from) result.push(row);
         balance = money(closing);
         date = Temporal.PlainDate.from(date).add({ days: 1 }).toString();
@@ -287,13 +278,11 @@ async function currentCashWithoutReturns(
 ): Promise<LedgerSales[]> {
   const start = date + ' 00:00:00',
     end = Temporal.PlainDate.from(date).add({ days: 1 }).toString() + ' 00:00:00';
-  const offline = await aggregateOfflineCash(db, storeIds, date, date);
   const correction = await currentPaymentCorrectionCash(db, storeIds, date, date, corrections);
-  const lateOffline = await lateOfflineCashForLatestClose(db, storeIds, date, date);
   const collections = await db
     .select({
       storeId: OrderStore.store,
-      cash: sql<string>`coalesce(sum(case when ${matchedImportedOfflineOrder(db)} then 0 else ${OrderStore.offline_payment} end),0)`,
+      cash: sql<string>`coalesce(sum(${OrderStore.offline_payment}),0)`,
     })
     .from(Order)
     .innerJoin(OrderStore, eq(OrderStore.order, Order.id))
@@ -308,8 +297,6 @@ async function currentCashWithoutReturns(
     .groupBy(OrderStore.store);
   const cash = new Map(collections.map((row) => [String(row.storeId), money(row.cash)])),
     cashRefund = new Map<string, string>();
-  for (const row of offline)
-    cash.set(row.storeId, money(new Decimal(cash.get(row.storeId) || '0').plus(row.cash)));
   for (const row of correction) {
     cash.set(
       row.storeId,
@@ -325,7 +312,6 @@ async function currentCashWithoutReturns(
     date,
     cash: cash.get(storeId) || '0.00',
     cashRefund: cashRefund.get(storeId) || '0.00',
-    lateOfflineCash: lateOffline.find((row) => row.storeId === storeId)?.cash || '0.00',
   }));
 }
 async function hasCurrentReturns(
@@ -449,7 +435,7 @@ export function cashLedgerService(
       }
       if (reader === 'bigquery') {
         if (!options.BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT)
-          return unavailable('BigQuery offline cash collection contract');
+          return unavailable('BigQuery cash collection contract');
         const tableName = (
           name: Exclude<keyof LedgerOptions, 'BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT'>,
         ) => {
@@ -507,7 +493,7 @@ export function cashLedgerService(
             chainTypes,
           ),
           queryReport(
-            `SELECT CAST(store_id AS STRING) AS storeId,CAST(business_date AS STRING) AS date,CAST(cash AS STRING) AS cash,CAST(cash_refund AS STRING) AS cashRefund,CAST(late_offline_cash AS STRING) AS lateOfflineCash,offline_cash_projection_contract AS cashProjectionContract FROM ${tableName('BQ_FINANCE_CASH_COLLECTIONS')} WHERE generation_id=@generation AND CAST(store_id AS STRING) IN UNNEST(@stores) AND business_date BETWEEN @start AND @end`,
+            `SELECT CAST(store_id AS STRING) AS storeId,CAST(business_date AS STRING) AS date,CAST(cash AS STRING) AS cash,CAST(cash_refund AS STRING) AS cashRefund,offline_cash_projection_contract AS cashProjectionContract FROM ${tableName('BQ_FINANCE_CASH_COLLECTIONS')} WHERE generation_id=@generation AND CAST(store_id AS STRING) IN UNNEST(@stores) AND business_date BETWEEN @start AND @end`,
             chainParams,
             chainTypes,
           ),
@@ -567,7 +553,6 @@ export function cashLedgerService(
             date: partition.businessDate,
             cash,
             cashRefund,
-            lateOfflineCash: original?.lateOfflineCash ?? '0.00',
           });
         }
       } else {

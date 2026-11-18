@@ -77,7 +77,7 @@ export function offlineSyncRepository(db: Databases, timezone: string): OfflineS
     payable: number;
     storeId: bigint;
     counterId: bigint;
-    invoice: string;
+    invoice: string | null;
   }): OfflineOrder => ({
     orderId: String(row.orderId),
     storeId: String(row.storeId),

@@ -4,7 +4,8 @@ import type { Config } from '../config.js';
 import { AppError, unavailable } from '../domain/errors.js';
 import { identifier } from '../domain/validation.js';
 
-export const dailyOfflineWarehouseContract = 'pos-daily-store-sales-offline-v1';
+/** Source-only rollup projection (legacy report_queries.py). v1 carried offline-cash receipts. */
+export const dailyWarehouseContract = 'pos-daily-store-sales-v2';
 const dailyRowColumns = [
   'generation_id',
   'offline_projection_contract',
@@ -26,7 +27,6 @@ const dailyRowColumns = [
   'district_total',
   'cash_total',
   'total_online',
-  'pending_offline_orders',
   'banking_amount',
   'footfall',
   'target',
@@ -46,7 +46,7 @@ export function dailyWarehouseOptions(env: NodeJS.ProcessEnv = process.env) {
   const parsed = z
     .object({
       BIGQUERY_DAILY_REPORT_PUBLICATIONS_TABLE: optional(view),
-      BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT: optional(z.literal(dailyOfflineWarehouseContract)),
+      BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT: optional(z.literal(dailyWarehouseContract)),
       BIGQUERY_DAILY_REPORT_MAX_CDC_AGE_SECONDS: z.coerce
         .number()
         .int()
@@ -117,7 +117,7 @@ const partitionSchema = z.object({
   cdc_watermark: timestamp,
   source_position: z.string().regex(/^[A-Za-z0-9:._,-]{1,4096}$/),
   publication_state: z.literal('COMPLETE'),
-  offline_projection_contract: z.literal(dailyOfflineWarehouseContract),
+  offline_projection_contract: z.literal(dailyWarehouseContract),
   business_timezone: z.string(),
   source_baseline: z.literal(sourceBaseline),
   source_sql_sha256: z.literal(sourceSqlHash),
@@ -173,7 +173,7 @@ export async function readDailyWarehouseRollups(
     scopeTypes = { stores: ['STRING'], start: 'DATE', end: 'DATE' };
   const generations = await query(
     `SELECT generation_id,CAST(MAX(published_at) AS STRING) AS published_at FROM ${publicationTable} WHERE CAST(store_id AS STRING) IN UNNEST(@stores) AND business_date BETWEEN @start AND @end AND publication_state='COMPLETE' AND offline_projection_contract=@contract GROUP BY generation_id HAVING COUNT(*)=@expected_partitions ORDER BY MAX(published_at) DESC,generation_id DESC LIMIT 1`,
-    { ...scopeParams, contract: dailyOfflineWarehouseContract, expected_partitions: expected.size },
+    { ...scopeParams, contract: dailyWarehouseContract, expected_partitions: expected.size },
     { ...scopeTypes, contract: 'STRING', expected_partitions: 'INT64' },
     'daily-store-report-publication',
   );
@@ -245,7 +245,7 @@ export async function readDailyWarehouseRollups(
       store_id: identifier,
       order_date: z.iso.date(),
       order_source: z.enum(['store_orders', 'online_orders']),
-      offline_projection_contract: z.literal(dailyOfflineWarehouseContract),
+      offline_projection_contract: z.literal(dailyWarehouseContract),
       row_hash: z.string().regex(/^[a-f0-9]{64}$/),
     }),
     counts = new Map<string, number>(),

@@ -143,7 +143,8 @@ export interface OrderReadMetadata {
 export type OrderListPage = Page<OrderDto & { rowId?: string }> & Partial<OrderReadMetadata>;
 export interface OrderDetail {
   id: string | bigint;
-  reference: string;
+  // orders.order_ref_no is nullable; NULL is serialised as null.
+  reference: string | null;
   amount: number;
   createdAt: string;
   status: string | null;
@@ -155,7 +156,8 @@ export interface OrderDetail {
     quantity: string | bigint;
     amount: number;
     gst: number;
-    status: string;
+    // has_products.status is a nullable ENUM in production.
+    status: string | null;
   }[];
   reader?: 'primary' | 'data' | 'bigquery';
   range?: OrderReadRange;

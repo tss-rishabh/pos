@@ -18,6 +18,8 @@ import {
   StoreDayClose,
   Store,
 } from '../../../db/legacy-schema.js';
+import { hasProductStatuses } from '../../../db/legacy-enums.js';
+import { storedEnumValue } from '../../../db/legacy-columns.js';
 import type { Principal } from '../../../domain/access.js';
 import { requireStore } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
@@ -53,7 +55,6 @@ import {
   assertRefundAllocationReady,
   type RefundAllocationConfiguration,
 } from '../refund-allocation.js';
-import { offlineCashOrderLinks, offlineCashReceipts } from '../offline-cash/schema.js';
 import { recordGiftCardIssuance } from '../gift-card-issuance.js';
 import { checkoutSessions } from '../schema.js';
 import { checkoutStateSchema } from '../contracts.js';
@@ -268,21 +269,6 @@ export function paymentRepository(
         'This order has an immutable cancellation. Another payment cannot be collected.',
       );
   }
-  async function rejectOfflineCashSettlement(tx: PaymentTransaction, orderId: string) {
-    const [evidence] = await tx
-      .select({ linkId: offlineCashOrderLinks.receiptId, receiptId: offlineCashReceipts.id })
-      .from(Order)
-      .leftJoin(offlineCashOrderLinks, eq(offlineCashOrderLinks.orderId, orderId))
-      .leftJoin(offlineCashReceipts, eq(offlineCashReceipts.orderId, orderId))
-      .where(eq(Order.id, BigInt(orderId)))
-      .limit(1);
-    if (evidence?.linkId || evidence?.receiptId)
-      throw new AppError(
-        409,
-        'ORDER_ALREADY_SETTLED_OFFLINE',
-        'This order has an immutable completed cash receipt. Reconcile that receipt instead of collecting another payment.',
-      );
-  }
   const checkIns = checkInService(db, config),
     now = () =>
       (options.clock?.() ?? Temporal.Now.instant())
@@ -293,12 +279,7 @@ export function paymentRepository(
   const assertCheckIn =
     options.assertCheckIn ||
     ((userId, storeId, counterId, tx) => checkIns.assertCheckIn(userId, storeId, counterId, tx));
-  async function order(
-    tx: PaymentTransaction,
-    user: Principal,
-    storeId: string,
-    orderId: string,
-  ) {
+  async function order(tx: PaymentTransaction, user: Principal, storeId: string, orderId: string) {
     requireStore(user, storeId);
     // Check-in/current actor/store precede financial order locks, matching cancellation/day-close.
     // A nonlocking counter preflight here would establish an old REPEATABLE READ
@@ -363,7 +344,6 @@ export function paymentRepository(
     orderId: string,
   ) {
     await rejectCancelledOrder(tx, orderId);
-    await rejectOfflineCashSettlement(tx, orderId);
     assertUnpaid(mapping);
     assertCheckoutProjectionReady(options.projection);
     assertRefundAllocationReady(options.projection);
@@ -540,7 +520,6 @@ export function paymentRepository(
     attempt: PaymentAttempt,
     mapping: Awaited<ReturnType<typeof order>>,
   ) {
-    await rejectOfflineCashSettlement(tx, attempt.orderId);
     await rejectCancelledOrder(tx, attempt.orderId);
     if (mapping.paymentStatus !== 4n) assertUnpaid(mapping);
     await assertCheckoutProjection(tx, {
@@ -600,7 +579,7 @@ export function paymentRepository(
       .where(eq(OrderStore.id, mapping.mappingId));
     await tx
       .update(HasProduct)
-      .set({ status: status.name })
+      .set({ status: storedEnumValue(hasProductStatuses, status.name) })
       .where(eq(HasProduct.order, BigInt(attempt.orderId)));
     await tx
       .update(GiftVoucher)
