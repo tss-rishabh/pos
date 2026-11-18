@@ -1,4 +1,5 @@
 import { splitMigration } from '../../src/db/migrations.js';
+import { checkInService } from '../../src/modules/administration/checkins.js';
 import { readFileSync } from 'node:fs';
 import mysql, { type Connection, type RowDataPacket } from 'mysql2/promise';
 import { Decimal } from 'decimal.js';
@@ -267,6 +268,10 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
     // Generic financial writers require the imported-order hold control tables.
     for (const statement of splitMigration(
       readFileSync('src/modules/legacy-order-imports/financial-proof-migration.sql', 'utf8'),
+    ))
+      await connection.query(statement);
+    for (const statement of splitMigration(
+      readFileSync('src/modules/checkout/return-workflow/recovery-claims-migration.sql', 'utf8'),
     ))
       await connection.query(statement);
     for (const migration of [
@@ -3415,7 +3420,7 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
         ...claim,
         salespersonId: '6',
       }),
-    ).rejects.toMatchObject({ code: 'EXCHANGE_RECOVERY_CHANGED' });
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
     expect((await repo.read(operator, '1', recovered.id)).exchange?.sourceCounterId).toBe('0');
     expect(calls).toBe(1);
     expect(returnCalls.inbound - before).toBe(1);
@@ -3534,6 +3539,200 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       'SELECT id FROM return_orders WHERE order_id=9222',
     );
     expect(notes).toHaveLength(3);
+  });
+  it('reads immutable recovery claims with renewed native proof after expiry, handoff and actor revocation', async () => {
+    const fixture = await returnFixture(9240),
+      request = exchangeRequest(fixture.input);
+    let dispatches = 0;
+    const service = exchangeWorkflow(
+      exchangeGateway(async () => {
+        dispatches++;
+        return { status: 'FAIL' };
+      }),
+    );
+    await expect(
+      service.start(operator, '1', fixture.orderId, fixture.lineId, request),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_REPLACEMENT_REJECTED' });
+    const config = readConfig({
+      NODE_ENV: 'test',
+      DEMO_MODE: 'true',
+      SESSION_SECRET: 'claim-receipt-native-secret-'.repeat(3),
+    });
+    const checks = checkInService(db, config);
+    await checks.set(operator, '1', '3');
+    const repo = returnRepository(db, config, {
+      hashSecret: signingEnvironment.hs256,
+      returnPeriodDays: 30,
+    });
+    const original = { counterId: '3', verificationId: fixture.input.verificationId };
+    const commandId = crypto.randomUUID();
+    expect(
+      await repo.exchangeRecoveryClaimStatus(
+        operator,
+        '1',
+        fixture.orderId,
+        fixture.lineId,
+        commandId,
+        original,
+      ),
+    ).toEqual({ status: 'not-recorded' });
+    await expect(
+      repo.exchangeRecoveryClaimStatus(operator, '1', fixture.orderId, fixture.lineId, commandId, {
+        ...original,
+        verificationId: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: 'RETURN_CUSTOMER_VERIFICATION_REQUIRED' });
+    const selected = await repo.exchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      original,
+    );
+    const command = { ...original, operationId: commandId, expectedRevision: selected.revision };
+    const claimed = await repo.claimExchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      command,
+    );
+    expect(
+      await repo.exchangeRecoveryClaimStatus(
+        operator,
+        '1',
+        fixture.orderId,
+        fixture.lineId,
+        commandId,
+        original,
+      ),
+    ).toEqual({ status: 'recorded', operationId: claimed.id });
+    await connection.execute(
+      "UPDATE pos_rewrite_return_verifications SET state=JSON_SET(state,'$.verifiedUntil',0) WHERE id=?",
+      [original.verificationId],
+    );
+    await expect(
+      repo.exchangeRecoveryClaimStatus(
+        operator,
+        '1',
+        fixture.orderId,
+        fixture.lineId,
+        commandId,
+        original,
+      ),
+    ).rejects.toMatchObject({ code: 'RETURN_CUSTOMER_VERIFICATION_REQUIRED' });
+    await connection.execute(
+      'DELETE FROM pos_rewrite_return_verification_limits WHERE customer_id=1001',
+    );
+    const verification = returnVerificationService(db, config, repository, approvedReturn, {
+      secret: signingEnvironment.hs256,
+    });
+    const renewed = await verification.create(
+      operator,
+      '1',
+      fixture.orderId,
+      crypto.randomUUID(),
+      '3',
+    );
+    await verification.verify(operator, '1', renewed.id, crypto.randomUUID(), '123456');
+    const current = { counterId: '3', verificationId: renewed.id };
+    expect(
+      await repo.exchangeRecoveryClaimStatus(
+        operator,
+        '1',
+        fixture.orderId,
+        fixture.lineId,
+        commandId,
+        current,
+      ),
+    ).toEqual({ status: 'recorded', operationId: claimed.id });
+    await seed(UserStore, { django_user_id: 45, store_id: 1 });
+    const other = { ...operator, id: '45', role: 3 as const };
+    await checks.set(other, '1', '3');
+    await connection.execute(
+      'DELETE FROM pos_rewrite_return_verification_limits WHERE customer_id=1001',
+    );
+    const otherProof = await verification.create(
+      other,
+      '1',
+      fixture.orderId,
+      crypto.randomUUID(),
+      '3',
+    );
+    await verification.verify(other, '1', otherProof.id, crypto.randomUUID(), '123456');
+    const otherScope = { counterId: '3', verificationId: otherProof.id };
+    expect(
+      await repo.exchangeRecoveryClaimStatus(
+        other,
+        '1',
+        fixture.orderId,
+        fixture.lineId,
+        commandId,
+        otherScope,
+      ),
+    ).toEqual({ status: 'not-recorded' });
+    const next = await repo.exchangeRecovery(
+      other,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      otherScope,
+    );
+    const handed = await repo.claimExchangeRecovery(other, '1', fixture.orderId, fixture.lineId, {
+      ...otherScope,
+      operationId: crypto.randomUUID(),
+      expectedRevision: next.revision,
+    });
+    expect(handed.id).toBe(claimed.id);
+    expect(
+      await repo.exchangeRecoveryClaimStatus(
+        operator,
+        '1',
+        fixture.orderId,
+        fixture.lineId,
+        commandId,
+        current,
+      ),
+    ).toEqual({ status: 'recorded', operationId: claimed.id });
+    const [receipts] = await connection.query<mysql.RowDataPacket[]>(
+      'SELECT counter_id,verification_id FROM pos_rewrite_exchange_recovery_claims WHERE id=?',
+      [commandId],
+    );
+    expect(receipts).toMatchObject([{ counter_id: '3', verification_id: original.verificationId }]);
+    await checks.clear(operator);
+    await expect(
+      repo.exchangeRecoveryClaimStatus(
+        operator,
+        '1',
+        fixture.orderId,
+        fixture.lineId,
+        commandId,
+        current,
+      ),
+    ).rejects.toMatchObject({ code: 'CHECK_IN_REQUIRED' });
+    await checks.set(operator, '1', '3');
+    await connection.execute('UPDATE pos_user SET is_active=0 WHERE id=?', [operator.id]);
+    try {
+      await expect(
+        repo.exchangeRecoveryClaimStatus(
+          operator,
+          '1',
+          fixture.orderId,
+          fixture.lineId,
+          commandId,
+          current,
+        ),
+      ).rejects.toMatchObject({ status: 401 });
+    } finally {
+      await connection.execute('UPDATE pos_user SET is_active=1 WHERE id=?', [operator.id]);
+      await checks.clear(operator);
+      await checks.clear(other);
+    }
+    expect(dispatches).toBe(1);
+    const [notes] = await connection.query<mysql.RowDataPacket[]>(
+      'SELECT id FROM return_orders WHERE order_id=9240',
+    );
+    expect(notes).toHaveLength(1);
   });
   it('completes one cross-store exchange with zero new cash and correct source credit-note/child markers', async () => {
     const fixture = await returnFixture(9201),

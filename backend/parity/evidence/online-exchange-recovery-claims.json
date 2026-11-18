@@ -1,0 +1,35 @@
+{
+  "scope": "Immutable native recovery claim outcome/proof-renewal integration; not whole App/provider/source-route admission",
+  "rootBase": "e9c6558",
+  "executedMerge": "ad064275472c2bafd8b93ccb4f4227ce051cd6de",
+  "implementation": "50e2129ff57666cb69dc5a5ed0c41ab3b6eef93c",
+  "checks": {
+    "backendStrict": true,
+    "frontendStrict": true,
+    "changedLint": true,
+    "nativeSelected": 4,
+    "nativeUnrelatedSkipped": 68,
+    "nativeSeconds": 2.65,
+    "entryClient": 23,
+    "productionBuild": true
+  },
+  "inputs": {
+    "backend/src/db/migrations.ts": "6cc4c2ce90aaae2662c2917ab620ce838feeeccfd103bf144476ce3402913332",
+    "backend/src/modules/checkout/return-workflow/repository.ts": "43b65283c4432b95be8d3cba733ef897571b3c2a68a5b251d24a82bd47946969",
+    "backend/src/modules/checkout/return-workflow/routes.ts": "4d8add4ff45384d3fada070edb92c5b71b2668314e632e0786acaf66674eb3cc",
+    "backend/src/modules/checkout/return-workflow/schema.ts": "b18bf9704991d272a179b533d3fcedc635c7e8a4732f012c97b92d5e96704150",
+    "backend/src/modules/checkout/return-workflow/recovery-claims-migration.sql": "b6c7b90edd836964849781db669a3adebb5beb6d859495dcfd065c5960826a29",
+    "frontend/src/pages/returns/client.ts": "28fe625b3bb26d9dbd8ad33d5a6c24198c1ea5135b4eb47e26955f29d763d796",
+    "frontend/src/pages/returns/index.tsx": "d2748197c650a259c1962e1b7c9ac02f5b9df0f7f3bfddf5732fd8a3e1ec0132",
+    "backend/tests/checkout/mysql.integration.test.ts": "0d95b55c0ccfd0d93ccf581827438ce31f268102516fa77f6e9b113eabc6e4df",
+    "frontend/tests/returns/recovery-claim-status.test.ts": "cc0e0647ed93461697b228db0f5e4bfb6746bc6e0cbc606c8f126e5ec472f7a5"
+  },
+  "logs": {
+    "/tmp/pos-recovery-receipts-native-20261118.log": "2bc521e49b17cca774c2bc0d4f3ac857c8159601bf5a33430334df0d8aedccfc",
+    "/tmp/pos-recovery-receipts-native-newcase-20261118.log": "60eb902f11f78a5e565a311f978183baeae304f8c53ec4d729fb8aceb3917f67",
+    "/tmp/pos-recovery-receipts-native-final-20261118.log": "a2aa229162cbda68780a164a6ae1f91420126a8d7d3aa2775557cccf31430e0f",
+    "/tmp/pos-recovery-receipts-client-final-20261118.log": "45187772df978297993c6be88aff38d1d2e00e9ebfa758608bbcc7c245dc0993",
+    "/tmp/pos-recovery-receipts-build-20261118.log": "ff38046ed56a7efad8b5bae3e5dde49e526d0d87cf44d622c762f57f4d1403a9"
+  },
+  "fixtureCleanup": "Owned909d0b3ce0e15d3aea39f174dcd1e1c4913797221ee8cec7eb41741f8fd98942 exactlabel verified; rm-fv completed; absent"
+}

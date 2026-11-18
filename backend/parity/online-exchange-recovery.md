@@ -39,3 +39,7 @@ Owned group fixture `b4e54f466051755421a7108042c37e4ec84ca385e68affe69bafdca340d
 ## Retry actor versus financial counter
 
 Source `views.py:1120` deliberately replaces `PosExchangeLog.staff_user_id` with current `request.user.id`; `:1167+` resolves current staff MUser for API `admin_user_id`. The stored source counter is retained separately at `:1068`. Candidate replacement uses current `customers.operatorIdentity(user.id)`/API adminCustomerId, writes current staff in `claimReplacement`, and supplies current operatorCustomerId to finalization. Original operation actor is attempt provenance; current recovery claimant/proof is separately durable. Original source financial counter (including0) remains unchanged. No staff actor was inferred from the historical counter.
+
+## Immutable claim outcome integration
+
+The lost-response/proof-renewal follow-up is implemented and scoped native/client checked. See [online-exchange-recovery-claims.md](online-exchange-recovery-claims.md) for the immutable receipt migration, read-only outcome lookup, current-proof/native-actor checks and exact boundaries. Earlier receipts remain unchanged.
