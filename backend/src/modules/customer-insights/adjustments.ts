@@ -6,14 +6,10 @@ import { MUser } from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
-import { currentRequestTrace } from '../../observability/context.js';
 import { checkoutSessions } from '../checkout/schema.js';
 import { operationHash } from '../checkout/crypto.js';
-import {
-  assertCustomerContextReady,
-  customerContextConfigured,
-  type CustomerContextConfiguration,
-} from '../checkout/customer-context.js';
+import type { OrderRedis } from '../fulfillment/order-redis.js';
+import { contactWallTime } from '../customer-contacts/authority.js';
 import {
   customerCheckoutScope,
   customerProfileEditable,
@@ -34,15 +30,49 @@ import {
   customerProfileSelection,
   customerProfileValue,
 } from './profile-value.js';
-import { customerProfileAdjustments } from './schema.js';
+
+/**
+ * Lost-response replay receipt (table-disposition.md customer-insights: the rewrite-only
+ * `pos_rewrite_customer_profile_adjustments` table moves to Redis). The profile values land
+ * in `users` exactly as legacy (users/views.py:665-690, 1050-1075); legacy keeps no audit row.
+ * `pos:customer_profile_adjustment:{operationId}` → JSON {operatorId, storeId, checkoutId,
+ * customerId, requestHash, checkoutVersion, receipt}, SET NX EX 86400, written after commit.
+ */
+export const profileAdjustmentKey = (operationId: string) =>
+  `pos:customer_profile_adjustment:${operationId}`;
+const savedAdjustment = z
+  .object({
+    operatorId: z.string(),
+    storeId: z.string(),
+    checkoutId: z.string(),
+    customerId: z.string(),
+    requestHash: z.string(),
+    checkoutVersion: z.number().int(),
+    receipt: z.unknown(),
+  })
+  .strict();
+type SavedAdjustment = z.infer<typeof savedAdjustment>;
 
 export function customerProfileAdjustmentService(
   config: Config,
   db: Databases,
-  environment: CustomerContextConfiguration,
+  redis: OrderRedis,
   clock: () => number = Date.now,
 ) {
   const withCheckout = customerCheckoutScope(config, db);
+  async function saved(operationId: string): Promise<SavedAdjustment | undefined> {
+    const raw = await redis.get(profileAdjustmentKey(operationId));
+    if (raw === null) return undefined;
+    let value: unknown = null;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      /* handled below */
+    }
+    const parsed = savedAdjustment.safeParse(value);
+    if (!parsed.success) throw receiptUnavailable();
+    return parsed.data;
+  }
   function assertScopeIdentifiers(user: Principal, scope: CustomerProfileScope) {
     identifier.parse(user.id);
     customerProfileScope.parse(scope);
@@ -62,14 +92,9 @@ export function customerProfileAdjustmentService(
   ) {
     assertScopeIdentifiers(user, scope);
     z.uuid().parse(operationId);
-    if (input) assertCustomerContextReady(environment);
-    return withCheckout(user, scope, 'update', async (tx, state) => {
-      const [existing] = await tx
-        .select()
-        .from(customerProfileAdjustments)
-        .where(eq(customerProfileAdjustments.id, operationId))
-        .limit(1)
-        .for('update');
+    let record: SavedAdjustment | undefined;
+    const response = await withCheckout(user, scope, 'update', async (tx, state) => {
+      const existing = await saved(operationId);
       const requestHash = input
         ? operationHash(
             'customer-profile-adjustment',
@@ -171,7 +196,7 @@ export function customerProfileAdjustmentService(
             ...(changes.customerType !== undefined ? { customer_type: changes.customerType } : {}),
             ...(changes.gstin !== undefined ? { gstin: changes.gstin } : {}),
             ...(['birthday', 'anniversary', 'gender'].some((field) => field in changes)
-              ? { updated_at: new Date(clock()).toISOString().slice(0, 19).replace('T', ' ') }
+              ? { updated_at: contactWallTime(clock(), config.BUSINESS_TIMEZONE) }
               : {}),
           })
           .where(eq(MUser.id, row.id));
@@ -188,8 +213,7 @@ export function customerProfileAdjustmentService(
             .map(([key]) => customerProfileField.parse(key)),
           appliedAt: new Date(clock()).toISOString(),
         });
-        await tx.insert(customerProfileAdjustments).values({
-          id: operationId,
+        record = {
           operatorId: user.id,
           storeId: scope.storeId,
           checkoutId: scope.checkoutId,
@@ -197,9 +221,7 @@ export function customerProfileAdjustmentService(
           requestHash: requestHash!,
           checkoutVersion: version,
           receipt: applied,
-          requestId: currentRequestTrace()?.requestId ?? null,
-          createdAt: applied.appliedAt.slice(0, 23).replace('T', ' '),
-        });
+        };
         await tx
           .update(checkoutSessions)
           .set({
@@ -227,11 +249,17 @@ export function customerProfileAdjustmentService(
           customerId: state.customerId,
           checkoutVersion: version,
           etag: customerProfileEtag(value),
-          editable: customerProfileEditable(state) && customerContextConfigured(environment),
+          editable: customerProfileEditable(state),
           profile: value,
         }),
       });
     });
+    if (record)
+      // A lost receipt only degrades replay: the etag check then refuses the stale intent.
+      await redis
+        .set(profileAdjustmentKey(operationId), JSON.stringify(record), { NX: true, EX: 86400 })
+        .catch(() => false);
+    return response;
   }
   return {
     apply(user: Principal, scope: CustomerProfileScope, value: unknown) {

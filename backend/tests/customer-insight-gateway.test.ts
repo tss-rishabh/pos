@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../src/config.js';
 import { customerBriefingGateway } from '../src/modules/customer-insights/briefing-gateway.js';
-import {
-  customerInsightContract,
-  readCustomerBriefingOptions,
-} from '../src/modules/customer-insights/briefing-options.js';
+import { readCustomerBriefingOptions } from '../src/modules/customer-insights/briefing-options.js';
 
 const config = readConfig({
   NODE_ENV: 'test',
@@ -12,12 +9,11 @@ const config = readConfig({
   SESSION_SECRET: 'customer-insight-fixture-session-key-'.repeat(2),
 });
 const options = readCustomerBriefingOptions({
-  CUSTOMER_INSIGHTS_ENABLED: 'true',
   CUSTOMER_INSIGHT_URL: 'http://127.0.0.1:9/private/insights',
   CUSTOMER_INSIGHT_API_KEY: 'private-insight-fixture-key',
-  CUSTOMER_INSIGHT_QUERY_CONTRACT: customerInsightContract,
 });
-const headers = { 'X-POS-Insights-Contract': customerInsightContract };
+// Legacy AjaxCustomerInsightView sends no contract header and requires none back.
+const headers = {};
 describe('source contact-first private customer insight gateway', () => {
   it('preserves contacts/store and never sends a conflicting POS ID alongside contact lookup', async () => {
     const requests: { url: URL; init?: RequestInit }[] = [];
@@ -59,7 +55,7 @@ describe('source contact-first private customer insight gateway', () => {
       );
     }
   });
-  it('keeps the disabled/store/transport/lineage gates before network dispatch', async () => {
+  it('keeps the unconfigured/store/transport gates before network dispatch', async () => {
     let calls = 0;
     const fetcher: typeof fetch = async () => {
       calls++;
@@ -67,8 +63,6 @@ describe('source contact-first private customer insight gateway', () => {
     };
     for (const candidate of [
       readCustomerBriefingOptions({}),
-      { ...options, CUSTOMER_INSIGHT_QUERY_CONTRACT: undefined },
-      { ...options, CUSTOMER_INSIGHT_API_KEY: undefined },
       { ...options, CUSTOMER_INSIGHT_URL: 'http://outside.example.test/private' },
       { ...options, CUSTOMER_INSIGHT_URL: 'https://user:password@example.test/private' },
       { ...options, CUSTOMER_INSIGHT_URL: 'https://example.test/private?customer=unbound' },
@@ -82,13 +76,12 @@ describe('source contact-first private customer insight gateway', () => {
       ).rejects.toMatchObject({ status: expect.any(Number) });
     expect(calls).toBe(0);
   });
-  it('rejects source explicit-false envelopes, unreadable/oversized bodies and unproven lineage without leaking error data', async () => {
+  it('rejects source explicit-false envelopes, non-200 and unreadable/oversized bodies without leaking error data', async () => {
     const responses = [
       Response.json({ success: false, error: 'secret email@example.test' }, { headers }),
       Response.json({ detail: 'secret SQL' }, { status: 403, headers }),
       new Response('not-json', { headers }),
       Response.json({ customer: { name: 'x'.repeat(300_000) } }, { headers }),
-      Response.json({ success: true, data: {} }),
       Response.json(
         { success: true, data: { action_points: [{ kind: 'rec', count: -1 }] } },
         { headers },

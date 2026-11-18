@@ -1,20 +1,14 @@
 import { z } from 'zod';
 import { identifier } from '../../domain/validation.js';
 
-export const customerInsightContract = 'pos-customer-insights-bigquery-private-v1';
 const optional = <T extends z.ZodType>(schema: T) =>
   z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
 export function readCustomerBriefingOptions(env: NodeJS.ProcessEnv = process.env) {
   const values = z
     .object({
-      CUSTOMER_INSIGHTS_ENABLED: z.preprocess(
-        (value) =>
-          value === undefined ? false : value === 'true' ? true : value === 'false' ? false : value,
-        z.boolean(),
-      ),
       CUSTOMER_INSIGHT_URL: optional(z.url()),
-      CUSTOMER_INSIGHT_API_KEY: optional(z.string().min(16).max(4096)),
-      CUSTOMER_INSIGHT_QUERY_CONTRACT: optional(z.literal(customerInsightContract)),
+      /** Legacy default '' (`settings.py:650`): no X-API-Key header is sent. */
+      CUSTOMER_INSIGHT_API_KEY: z.string().max(4096).default(''),
       CUSTOMER_INSIGHT_STORE_IDS: z
         .string()
         .max(10000)

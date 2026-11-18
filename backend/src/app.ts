@@ -384,7 +384,7 @@ export async function buildApp(
   registerShippingLabels(app, db);
   registerLegacyFulfillment(app, config, db, { jobs: options.jobs, redis: orderRedis });
   await registerWholeOrderStatus(app, config, db, wholeOrderOptions);
-  registerCustomerWorkspace(app, config, db);
+  registerCustomerWorkspace(app, config, db, orderRedis);
   registerCustomerHistory(app, config, db);
   registerProductFeedback(app, config, db, orderRedis);
   registerCheckoutPerformance(app, config, db);

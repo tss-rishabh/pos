@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { readConfig } from '../src/config.js';
 import { createDatabases, type Databases } from '../src/db/pools.js';
-import { migrationPlan } from '../src/db/migrations.js';
+import { existsSync, readFileSync } from 'node:fs';
+import { migrationPaths, splitMigration } from '../src/db/migrations.js';
 import { MUser, PosUser, Store, StoreCounter } from '../src/db/legacy-schema.js';
 import type { Principal } from '../src/domain/access.js';
 import { checkInService } from '../src/modules/administration/checkins.js';
@@ -18,8 +19,8 @@ import {
 import { verifiedMysqlFixture } from '../tools/operational-reports/verified-mysql-fixture.js';
 import { customerProfileAdjustmentService } from '../src/modules/customer-insights/adjustments.js';
 import { customerProfileAdjustmentInput } from '../src/modules/customer-insights/contracts.js';
-import { customerProfileAdjustments } from '../src/modules/customer-insights/schema.js';
-import { customerContextContract } from '../src/modules/checkout/customer-context.js';
+import { profileAdjustmentKey } from '../src/modules/customer-insights/adjustments.js';
+import { memoryOrderRedis } from '../src/modules/fulfillment/order-redis.js';
 import { customerBriefingService } from '../src/modules/customer-insights/briefing.js';
 import { customerBriefing } from '../src/modules/customer-insights/briefing-contracts.js';
 import { customerBenefitsService } from '../src/modules/customer-insights/benefits.js';
@@ -78,6 +79,7 @@ describe.skipIf(!integration)(
     let service: ReturnType<typeof customerProfileService>;
     let adjustments: ReturnType<typeof customerProfileAdjustmentService>;
     let fixture: ReturnType<typeof verifiedMysqlFixture>;
+    const redis = memoryOrderRedis();
     const schema =
       'pos_rewrite_customer_profile_test_' + randomUUID().replaceAll('-', '').slice(0, 12);
     const checkoutId = randomUUID();
@@ -171,8 +173,10 @@ describe.skipIf(!integration)(
         status: 1,
         is_block: 0,
       });
-      for (const migration of migrationPlan())
-        for (const statement of migration.statements) await connection.query(statement);
+      // Workstreams delete their module migration files ahead of the registry clean-up.
+      for (const path of migrationPaths.filter((value) => existsSync(value)))
+        for (const statement of splitMigration(readFileSync(path, 'utf8')))
+          await connection.query(statement);
       base.pathname = '/' + schema;
       config = readConfig({
         NODE_ENV: 'test',
@@ -184,14 +188,8 @@ describe.skipIf(!integration)(
         MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
       });
       db = createDatabases(config);
-      service = customerProfileService(config, db, {
-        customerContextContract,
-        customerContextKey: 'customer-profile-context-test-'.repeat(3),
-      });
-      adjustments = customerProfileAdjustmentService(config, db, {
-        customerContextContract,
-        customerContextKey: 'customer-profile-context-test-'.repeat(3),
-      });
+      service = customerProfileService(config, db);
+      adjustments = customerProfileAdjustmentService(config, db, redis);
     }, 30_000);
     beforeEach(async () => {
       await connection.query('DELETE FROM user_eav');
@@ -233,7 +231,7 @@ describe.skipIf(!integration)(
         })
         .where(eq(MUser.id, 777n));
       await db.get('writer').delete(checkoutSessions).where(eq(checkoutSessions.id, checkoutId));
-      await db.get('writer').delete(customerProfileAdjustments);
+      await redis.del([...redis.snapshot().keys()]);
       await db
         .get('writer')
         .insert(checkoutSessions)
@@ -387,7 +385,9 @@ describe.skipIf(!integration)(
         'is_block',
       ] as const)
         expect(after?.[field]).toEqual(before?.[field]);
-      const [proof] = await db.get('writer').select().from(customerProfileAdjustments);
+      const [proof] = [...redis.snapshot().values()].map(
+        (value) => JSON.parse(value) as { requestHash: string },
+      );
       expect(proof?.requestHash).toMatch(/^[a-f0-9]{64}$/);
       expect(JSON.stringify(proof)).not.toMatch(
         /example\.test|9876543210|2004-02-29|2022-12-01|ABCDE/,
@@ -395,12 +395,27 @@ describe.skipIf(!integration)(
     });
     it('replays20 identical concurrent commands once and rejects same UUID with a different intent', async () => {
       const input = await intent();
-      const results = await Promise.all(
+      // The replay receipt is written to Redis after the MySQL commit (schema freeze), so a
+      // retry racing that commit sees the moved checkout version instead of the receipt.
+      const settled = await Promise.allSettled(
         Array.from({ length: 20 }, () => adjustments.apply(user, scope, input)),
       );
+      const results = settled.flatMap((result) =>
+        result.status === 'fulfilled' ? [result.value] : [],
+      );
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(
+        settled
+          .filter((result) => result.status === 'rejected')
+          .every((result) =>
+            ['CUSTOMER_PROFILE_VERSION_CHANGED', 'CUSTOMER_PROFILE_CHANGED'].includes(
+              (result.reason as { code?: string }).code ?? '',
+            ),
+          ),
+      ).toBe(true);
       expect(new Set(results.map((result) => result.adjustment.etag)).size).toBe(1);
       expect(results.every((result) => result.adjustment.checkoutVersion === 2)).toBe(true);
-      expect(await db.get('writer').select().from(customerProfileAdjustments)).toHaveLength(1);
+      expect(redis.snapshot().size).toBe(1);
       expect(await adjustments.read(user, scope, input.operationId)).toEqual(results[0]);
       await expect(
         adjustments.apply(user, scope, { ...input, changes: { gender: 'O' } }),
@@ -470,19 +485,15 @@ describe.skipIf(!integration)(
       await expect(adjustments.apply(user, scope, input)).rejects.toMatchObject({
         code: 'CUSTOMER_PROFILE_NOT_FOUND',
       });
-      expect(await db.get('writer').select().from(customerProfileAdjustments)).toEqual([]);
+      expect(redis.snapshot().size).toBe(0);
     });
-    it('requires a valid B2B GSTIN and never bypasses the fresh-context deployment gate', async () => {
+    it('requires a valid B2B GSTIN; legacy has no upstream customer-context gate', async () => {
       const input = await intent();
       await expect(
         adjustments.apply(user, scope, { ...input, changes: { gstin: '' } }),
       ).rejects.toMatchObject({ code: 'CUSTOMER_PROFILE_GSTIN_REQUIRED' });
-      const unavailable = customerProfileAdjustmentService(config, db, {});
-      expect((await customerProfileService(config, db).read(user, scope)).editable).toBe(false);
-      await expect(unavailable.apply(user, scope, input)).rejects.toMatchObject({
-        code: 'CUSTOMER_CONTEXT_CONTRACT_UNVERIFIED',
-      });
-      expect(await db.get('writer').select().from(customerProfileAdjustments)).toEqual([]);
+      expect((await customerProfileService(config, db).read(user, scope)).editable).toBe(true);
+      expect(redis.snapshot().size).toBe(0);
     });
     it('rolls back customer fields and receipt when the late checkout write fails, then retries the same intent', async () => {
       const input = await intent();
@@ -497,7 +508,7 @@ describe.skipIf(!integration)(
           .from(MUser)
           .where(eq(MUser.id, 777n));
         expect(customer?.gender).toBe('F');
-        expect(await db.get('writer').select().from(customerProfileAdjustments)).toEqual([]);
+        expect(redis.snapshot().size).toBe(0);
       } finally {
         await connection.query('DROP TRIGGER fixture_profile_late_failure');
       }
@@ -509,11 +520,14 @@ describe.skipIf(!integration)(
       await expect(
         adjustments.read({ ...user, id: '8' }, scope, input.operationId),
       ).rejects.toMatchObject({ code: 'CUSTOMER_PROFILE_NOT_FOUND' });
-      await db
-        .get('writer')
-        .update(customerProfileAdjustments)
-        .set({ receipt: sql`JSON_OBJECT('operationId','invalid')` })
-        .where(eq(customerProfileAdjustments.id, input.operationId));
+      const key = profileAdjustmentKey(input.operationId);
+      await redis.set(
+        key,
+        JSON.stringify({
+          ...JSON.parse(redis.snapshot().get(key)!),
+          receipt: { operationId: 'invalid' },
+        }),
+      );
       await expect(adjustments.read(user, scope, input.operationId)).rejects.toMatchObject({
         code: 'CUSTOMER_PROFILE_PROOF_INVALID',
       });

@@ -3,10 +3,6 @@ import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { MUser } from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
-import {
-  customerContextConfigured,
-  type CustomerContextConfiguration,
-} from '../checkout/customer-context.js';
 import { customerProfileSchema, type CustomerProfileScope } from './contracts.js';
 import {
   customerCheckoutScope,
@@ -21,11 +17,7 @@ import {
 
 export { customerProfileDate } from './profile-value.js';
 
-export function customerProfileService(
-  config: Config,
-  db: Databases,
-  environment: CustomerContextConfiguration = {},
-) {
+export function customerProfileService(config: Config, db: Databases) {
   const withCheckout = customerCheckoutScope(config, db);
   return {
     async read(user: Principal, scope: CustomerProfileScope) {
@@ -57,7 +49,7 @@ export function customerProfileService(
           customerId: state.customerId,
           checkoutVersion: state.version,
           etag: customerProfileEtag(value),
-          editable: customerProfileEditable(state) && customerContextConfigured(environment),
+          editable: customerProfileEditable(state),
           profile: value,
         });
       });
