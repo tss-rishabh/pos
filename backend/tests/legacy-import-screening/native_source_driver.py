@@ -100,7 +100,7 @@ def run(value):
                 query = re.sub(r'WHERE order_id = [1-9][0-9]*$', 'WHERE order_id = 100', query)
             elif order and mode == 'screening-date-wide-predicate':
                 query += ' OR 1=1'
-            return original_execute(replay, text(query), parameters, **kwargs)
+            return original_execute(replay, text(query) if query != str(statement) else statement, parameters, **kwargs)
         ReplaySession.execute = date_probe
     source = QualifiedNativePipeline(value['sourceRoot'], value.get('mode'))
     if value.get('mode') == 'screening-race':
