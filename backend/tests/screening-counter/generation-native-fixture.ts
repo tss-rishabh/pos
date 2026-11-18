@@ -20,7 +20,9 @@ export async function quotaGenerationNativeFixture(template: string) {
   if (
     u.protocol !== 'mysql:' ||
     !['127.0.0.1', 'localhost'].includes(u.hostname) ||
-    u.pathname !== '/pos_rewrite_legacy_order_imports_test' ||
+    !['/pos_rewrite_legacy_order_imports_test', '/pos_rewrite_checkout_test'].includes(
+      u.pathname,
+    ) ||
     u.search ||
     u.hash
   )
