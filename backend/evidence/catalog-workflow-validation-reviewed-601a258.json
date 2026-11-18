@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T13:42:36Z",
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "executedImplementationCommit": "601a2580e4692b453b52cda43bbd6ea5147a4d24",
+  "rawReceipt": "backend/parity/evidence/catalog-details/workflow-validation.json",
+  "rawReceiptSha256": "deabb6be4eb98ad8f3017fdd0b78764a00bcc399b06e045862bd438e64b3c697",
+  "review": {
+    "recordedInputs": 922,
+    "currentInputHashesMatched": 921,
+    "executedDocumentationHashMatchedGitSnapshot": {
+      "path": "backend/tools/catalog-details/workflow-benchmark.md",
+      "commit": "601a2580e4692b453b52cda43bbd6ea5147a4d24",
+      "reason": "The later validation summary changes documentation only; the original execution receipt remains unchanged."
+    },
+    "sourceFileHashesMatchedPerProfile": 5,
+    "profiles": 2,
+    "fullResponseEqualityScenarios": 8,
+    "calibrationPerProfile": {
+      "textSelectReads": 1,
+      "preparedSelectReads": 1,
+      "cteReads": 1
+    },
+    "timingSamples": 0,
+    "ownedContainerAbsent": true,
+    "ownedContainerId": "e9cd03996a0e9774ca1a784db1feebd5d256129413a9537b851cf2a8072403a5",
+    "anonymousVolumeNames": []
+  },
+  "limits": [
+    "Untimed synthetic validation; no latency or production performance conclusion.",
+    "Service and authenticated HTTP boundaries are distinct from source preauthenticated Django dispatch.",
+    "Parent catalogue read count is not universally lower; matrix cases remove per-row ERP queries.",
+    "No source-surface admission or release requirement is promoted."
+  ]
+}
