@@ -41,11 +41,13 @@ describe.skipIf(!connection)('real MySQL atomic draft persistence', () => {
       );
     const admin = await mysql.createConnection({
       host: url.hostname,
+      port: Number(url.port || 3306),
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
-      database: 'pos_rewrite_integration',
     });
     try {
+      await admin.query('CREATE DATABASE IF NOT EXISTS pos_rewrite_integration');
+      await admin.changeUser({ database: 'pos_rewrite_integration' });
       for (const statement of readFileSync('migrations/0001_rewrite_state.sql', 'utf8')
         .replace(/^--.*$/gm, '')
         .split(';')

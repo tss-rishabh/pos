@@ -64,6 +64,7 @@ export async function orderImportRuntimeFixture(template: string) {
     for (const path of [
       'src/modules/legacy-order-imports/migration.sql',
       'src/modules/legacy-order-imports/resumption-migration.sql',
+      'src/modules/legacy-order-imports/authority-succession/migration.sql',
     ])
       for (const statement of splitMigration(readFileSync(path, 'utf8')))
         await connection.query(statement);
@@ -83,6 +84,10 @@ export async function orderImportRuntimeFixture(template: string) {
       fixture,
       async reset() {
         for (const table of [
+          'pos_rewrite_import_authority_continuations',
+          'pos_rewrite_import_authority_stage_claims',
+          'pos_rewrite_import_authority_heads',
+          'pos_rewrite_import_authority_successions',
           'pos_rewrite_legacy_order_import_resumptions',
           'pos_rewrite_legacy_order_import_rows',
           'pos_rewrite_legacy_order_imports',

@@ -5,7 +5,7 @@ import { createDatabases } from '../src/db/pools.js';
 import { readConfig, type Config } from '../src/config.js';
 
 const template = process.env.MIGRATION_MYSQL_TEST_URL;
-describe.skipIf(!template)('writer-only migration journal in isolated local MySQL', () => {
+describe.skipIf(!template)('writer-only migration journal in isolated local MySQL', { timeout: 30000 }, () => {
   let connection: Connection, config: Config, schema: string;
   beforeEach(async () => {
     const url = new URL(template!);
