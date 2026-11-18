@@ -393,6 +393,7 @@ export async function buildApp(
   registerInvoiceDocuments(app, config, db);
   registerCustomerContacts(app, config, db, readCustomerContactOptions());
   await registerFinance(app, config, db, {
+    ephemeral: moduleRuntime.ephemeral,
     paymentCorrections,
     ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
   });

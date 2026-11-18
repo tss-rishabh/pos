@@ -26,7 +26,7 @@ import {
   paymentCorrectionPublicationContract,
 } from '../../src/modules/finance/payment-correction-publication.js';
 import { financePendingAlerts } from '../../src/modules/finance/alerts.js';
-import { fulfillmentEffects } from '../../src/modules/fulfillment/schema.js';
+import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
 import { closeHistoryService, dayCloseCsv } from '../../src/modules/finance/history.js';
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
@@ -118,14 +118,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     await admin.query(
       'ALTER TABLE store_day_banking ADD UNIQUE KEY uq_banking_day(store_id,banking_date)',
     );
-    for (const query of readFileSync('src/modules/finance/migration.sql', 'utf8')
-      .split(';')
-      .filter((value) => value.trim()))
-      await admin.query(query);
-    for (const query of readFileSync('src/modules/fulfillment/migration.sql', 'utf8')
-      .split(';')
-      .filter((value) => value.trim()))
-      await admin.query(query);
     for (const path of [
       'src/modules/checkout/migrations/0003_payments.sql',
       'src/modules/checkout/payment-reversals/migration.sql',
@@ -418,21 +410,19 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     const dates = ['2026-11-13', '2026-11-14', '2026-11-15'],
       proofKey = 'fixture-corrected-history-financial-key-'.repeat(2),
       anchors = [{ storeId: '1', date: dates[0]!, amount: '50.00' }],
-      closes = dates
-        .slice(0, 2)
-        .map((date, index) => ({
-          storeId: '1',
-          date,
-          version: 1,
-          status: 'CLOSED',
-          cashSystem: index === 0 ? '100.00' : '0.00',
-          cashRefund: index === 0 ? '0.00' : '100.00',
-          cashPunched: '0.00',
-          cashCreated: '0.00',
-          cashActual: index === 0 ? '100.00' : '0.00',
-          cashDifference: '0.00',
-          banking: '0.00',
-        })),
+      closes = dates.slice(0, 2).map((date, index) => ({
+        storeId: '1',
+        date,
+        version: 1,
+        status: 'CLOSED',
+        cashSystem: index === 0 ? '100.00' : '0.00',
+        cashRefund: index === 0 ? '0.00' : '100.00',
+        cashPunched: '0.00',
+        cashCreated: '0.00',
+        cashActual: index === 0 ? '100.00' : '0.00',
+        cashDifference: '0.00',
+        banking: '0.00',
+      })),
       sales = [
         {
           storeId: '1',
@@ -581,7 +571,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
               date: '2026-11-15',
               cash: '20.00',
               cashRefund: '2.00',
-                  cashProjectionContract: 'pos-cash-collections-v2',
+              cashProjectionContract: 'pos-cash-collections-v2',
             },
           ];
         return [];
@@ -724,41 +714,68 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
       code: 'STORE_ACCESS_DENIED',
     });
   });
-  it('queues pending-close alerts idempotently, derives the last expired day and respects authoritative filed closes', async () => {
+  it('posts pending-close alerts synchronously per store, derives the last expired day and replays a command from Redis', async () => {
     const cfg = readConfig({
         NODE_ENV: 'test',
         DEMO_MODE: 'true',
         SESSION_SECRET: 'pending-alerts-fixture-'.repeat(3),
       }),
-      alerts = financePendingAlerts(cfg, resources(), clock),
-      commandId = crypto.randomUUID(),
-      requestId = crypto.randomUUID();
-    const results = await Promise.all(
-      Array.from({ length: 8 }, () => alerts.queue(commandId, undefined, requestId)),
-    );
-    expect(
-      results.every((result) => result.closeDate === '2026-11-15' && result.pending === 1),
-    ).toBe(true);
-    const effects = await resources().get('writer').select().from(fulfillmentEffects);
-    expect(effects).toHaveLength(1);
-    expect(effects[0]).toMatchObject({
-      operatorId: 'service-day-close',
-      requestId,
-      payload: { action: 'DAY_CLOSE_PENDING', closeDate: '2026-11-15', status: 'NOT_CLOSED' },
-    });
-    await expect(alerts.queue(crypto.randomUUID(), '2026-11-16')).rejects.toMatchObject({
-      code: 'DAY_CLOSE_WINDOW_ACTIVE',
-    });
-    await resources()
-      .get('writer')
-      .update(StoreDayClose)
-      .set({ close_date: '2026-11-15', status: 'CLOSED' });
-    expect(await alerts.queue(crypto.randomUUID())).toMatchObject({
-      pending: 0,
-      delivery: 'not-required',
-    });
-    expect(await alerts.queue(commandId)).toEqual(results[0]);
-    expect(await resources().get('writer').select().from(fulfillmentEffects)).toHaveLength(1);
+      posts: { url: string | undefined; text: string }[] = [],
+      ephemeral = memoryEphemeralStore(),
+      alerts = financePendingAlerts(
+        cfg,
+        resources(),
+        ephemeral,
+        {
+          SLACK_URL: 'https://hooks.slack.com/services/FIXTURE/COMMON/SECRET',
+          COMMON_GROUP_ALERT_ON: true,
+        },
+        async (url, text) => {
+          posts.push({ url, text });
+          return true;
+        },
+        clock,
+      ),
+      commandId = crypto.randomUUID();
+    await admin!.query('ALTER TABLE stores ADD COLUMN slack_group_url VARCHAR(255) NULL');
+    try {
+      await admin!.query(
+        "UPDATE stores SET slack_group_url='https://hooks.slack.com/services/FIXTURE/STORE/SECRET' WHERE id=1",
+      );
+      const result = await alerts.send(commandId);
+      expect(result).toEqual({ commandId, closeDate: '2026-11-15', pending: 1 });
+      // report/views.py:2570-2577 + helpers.py:1102-1131: store channel, then the common copy.
+      expect(posts).toEqual([
+        {
+          url: 'https://hooks.slack.com/services/FIXTURE/STORE/SECRET',
+          text: expect.stringMatching(/^Day Close pending — .+ — 15-11-2026 was never closed\./),
+        },
+        {
+          url: 'https://hooks.slack.com/services/FIXTURE/COMMON/SECRET',
+          text: posts[0]!.text,
+        },
+      ]);
+      expect(await ephemeral.get(`pos:finance_day_close_alert_cmd:${commandId}`)).not.toBeNull();
+      expect(await ephemeral.ttl(`pos:finance_day_close_alert_cmd:${commandId}`)).toBeGreaterThan(
+        86000,
+      );
+      expect(await alerts.send(commandId)).toEqual(result);
+      expect(posts).toHaveLength(2);
+      await expect(alerts.send(commandId, '2026-11-14')).rejects.toMatchObject({
+        code: 'IDEMPOTENCY_CONFLICT',
+      });
+      await expect(alerts.send(crypto.randomUUID(), '2026-11-16')).rejects.toMatchObject({
+        code: 'DAY_CLOSE_WINDOW_ACTIVE',
+      });
+      await resources()
+        .get('writer')
+        .update(StoreDayClose)
+        .set({ close_date: '2026-11-15', status: 'CLOSED' });
+      expect(await alerts.send(crypto.randomUUID())).toMatchObject({ pending: 0 });
+      expect(posts).toHaveLength(2);
+    } finally {
+      await admin!.query('ALTER TABLE stores DROP COLUMN slack_group_url');
+    }
   });
   it('denies elevated revision permission from a stale principal when the writer role is lower', async () => {
     const cfg = readConfig({

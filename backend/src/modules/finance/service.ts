@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
 import { Decimal } from 'decimal.js';
+import { z } from 'zod';
 import { and, desc, eq, exists, gte, isNull, lt, ne, or, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -18,7 +19,7 @@ import { AppError } from '../../domain/errors.js';
 import { generatedId } from '../../db/generated-id.js';
 import { requireStore, type Principal } from '../../domain/access.js';
 import { localTimestamp } from '../fulfillment/domain.js';
-import { financeCommands } from './schema.js';
+import { memoryEphemeralStore, type EphemeralStore } from '../../jobs/ephemeral.js';
 import { checkInService } from '../administration/checkins.js';
 import { storeRolloutEnabled } from '../../domain/rollout.js';
 import { assertCurrentOperatorRole } from '../administration/authorization.js';
@@ -129,14 +130,11 @@ export async function collectionSnapshot(
         exists(refundedLine),
       ),
     );
-  const cash = money(
-      new Decimal(collection?.cash || '0').plus(correction?.cashAdjustment || '0'),
-    ),
+  const cash = money(new Decimal(collection?.cash || '0').plus(correction?.cashAdjustment || '0')),
     card = money(collection?.card),
     onlineOther = money(collection?.onlineOther);
   return {
-    order_count:
-      Number(collection?.orderCount || 0) + (correction?.orderCountAdjustment || 0),
+    order_count: Number(collection?.orderCount || 0) + (correction?.orderCountAdjustment || 0),
     cash,
     card_upi: card,
     district: money(collection?.district),
@@ -154,7 +152,34 @@ export function financeService(
     config,
   ),
   corrections: PaymentCorrectionFinanceOptions = paymentCorrectionFinanceOptions(),
+  ephemeral: EphemeralStore = memoryEphemeralStore(),
 ) {
+  /**
+   * Day-close replay receipt (table-disposition finance/day-close): Redis
+   * `pos:finance_day_close_cmd:{operatorId}:{commandId}` -> {requestHash, closeId}, 7 days. The
+   * financial fact itself is the store_day_close/store_day_banking rows.
+   */
+  const commandKey = (operatorId: string, commandId: string) =>
+      `pos:finance_day_close_cmd:${operatorId}:${commandId}`,
+    commandTtl = 7 * 86400,
+    commandSchema = z.object({
+      requestHash: z.string().regex(/^[a-f0-9]{64}$/),
+      closeId: z.string().regex(/^\d+$/).nullable(),
+    });
+  async function readCommand(operatorId: string, commandId: string) {
+    const raw = await ephemeral.get(commandKey(operatorId, commandId));
+    if (raw === null) return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      parsed = null;
+    }
+    const result = commandSchema.safeParse(parsed);
+    if (!result.success)
+      throw new AppError(503, 'DEPENDENCY_UNAVAILABLE', 'The day-close receipt is unavailable.');
+    return result.data;
+  }
   const nowSql = () => localTimestamp(clock(), config.BUSINESS_TIMEZONE);
   async function enabled(user: Principal, storeId: string, db: FinanceExecutor) {
     return storeRolloutEnabled(() => db, config.DAY_CLOSE_ENABLED_STORE_IDS, user.role, storeId);
@@ -249,148 +274,159 @@ export function financeService(
       )
         throw new AppError(400, 'FUTURE_CLOSE_DATE', 'A future date cannot be closed.');
       const hash = createHash('sha256')
-        .update(JSON.stringify({ storeId, date, expectedVersion, entries }))
-        .digest('hex');
-      return retryTransaction(() =>
-        databases.get('writer').transaction(async (tx) => {
-          const now = nowSql();
-          await checkins.assertCheckIn(user.id, storeId, undefined, tx);
-          const currentRole = await assertCurrentOperatorRole(tx, user.id, [1, 2, 3, 4, 5]),
-            currentUser = { ...user, role: currentRole };
-          await tx
-            .insert(financeCommands)
-            .values({ operatorId: user.id, commandId, requestHash: hash, createdAt: now })
-            .onDuplicateKeyUpdate({ set: { commandId } });
-          const [command] = await tx
-            .select()
-            .from(financeCommands)
-            .where(
-              and(
-                eq(financeCommands.operatorId, user.id),
-                eq(financeCommands.commandId, commandId),
-              ),
-            )
-            .for('update');
-          if (command!.requestHash !== hash)
-            throw new AppError(
-              409,
-              'IDEMPOTENCY_CONFLICT',
-              'This command ID was used with different close figures.',
-            );
-          if (command!.closeId) {
-            const [saved] = await tx
-              .select()
-              .from(StoreDayClose)
-              .where(eq(StoreDayClose.id, BigInt(command!.closeId)));
-            return serializeClose(saved);
-          }
-          const [store] = await tx
-            .select({ id: Store.id })
-            .from(Store)
-            .where(eq(Store.id, BigInt(storeId)))
-            .for('update');
-          if (!store) throw new AppError(404, 'STORE_NOT_FOUND', 'Store not found.');
-          const active = await activeClose(tx, storeId, date);
-          if ((active?.version || 0) !== expectedVersion)
-            throw new AppError(
-              409,
-              'DAY_CLOSE_VERSION_CONFLICT',
-              'The close changed. Refresh the figures before submitting.',
-            );
-          const permission = canClose(
-            currentRole,
-            date,
-            clock(),
-            await enabled(currentUser, storeId, tx),
-            active || null,
-            config,
+          .update(JSON.stringify({ storeId, date, expectedVersion, entries }))
+          .digest('hex'),
+        key = commandKey(user.id, commandId),
+        reservation = JSON.stringify({ requestHash: hash, closeId: null });
+      const replay = async () => {
+        let command = await readCommand(user.id, commandId);
+        // A concurrent duplicate waits (bounded) for the first submission's outcome.
+        for (let waited = 0; command && !command.closeId && waited < 15000; waited += 100) {
+          if (command.requestHash !== hash) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          command = await readCommand(user.id, commandId);
+        }
+        if (!command) return undefined;
+        if (command.requestHash !== hash)
+          throw new AppError(
+            409,
+            'IDEMPOTENCY_CONFLICT',
+            'This command ID was used with different close figures.',
           );
-          if (!permission.allowed)
-            throw new AppError(409, 'DAY_CLOSE_NOT_ALLOWED', permission.message);
-          const snapshot = await collectionSnapshot(tx, storeId, date, corrections),
-            errors = discrepancyErrors(snapshot, entries, config.DAY_CLOSE_TOLERANCE);
-          if (errors.length) throw new AppError(400, 'DAY_CLOSE_EXPLANATION_REQUIRED', errors[0]!);
-          const version = expectedVersion + 1;
-          if (version > 65535)
-            throw new AppError(
-              409,
-              'DAY_CLOSE_VERSION_LIMIT',
-              'This day has reached its revision limit.',
+        if (!command.closeId)
+          throw new AppError(
+            409,
+            'DAY_CLOSE_IN_PROGRESS',
+            'This close is still being saved. Check the close versions before retrying.',
+          );
+        const [saved] = await databases
+          .get('writer')
+          .select()
+          .from(StoreDayClose)
+          .where(eq(StoreDayClose.id, BigInt(command.closeId)));
+        return serializeClose(saved);
+      };
+      const replayed = await replay();
+      if (replayed !== undefined) return replayed;
+      if (!(await ephemeral.set(key, reservation, { NX: true, EX: commandTtl }))) {
+        const raced = await replay();
+        if (raced !== undefined) return raced;
+      }
+      let saved: { id: string; close: ReturnType<typeof serializeClose> };
+      try {
+        saved = await retryTransaction(() =>
+          databases.get('writer').transaction(async (tx) => {
+            const now = nowSql();
+            await checkins.assertCheckIn(user.id, storeId, undefined, tx);
+            const currentRole = await assertCurrentOperatorRole(tx, user.id, [1, 2, 3, 4, 5]),
+              currentUser = { ...user, role: currentRole };
+            const [store] = await tx
+              .select({ id: Store.id })
+              .from(Store)
+              .where(eq(Store.id, BigInt(storeId)))
+              .for('update');
+            if (!store) throw new AppError(404, 'STORE_NOT_FOUND', 'Store not found.');
+            const active = await activeClose(tx, storeId, date);
+            if ((active?.version || 0) !== expectedVersion)
+              throw new AppError(
+                409,
+                'DAY_CLOSE_VERSION_CONFLICT',
+                'The close changed. Refresh the figures before submitting.',
+              );
+            const permission = canClose(
+              currentRole,
+              date,
+              clock(),
+              await enabled(currentUser, storeId, tx),
+              active || null,
+              config,
             );
-          const values = {
-            store_id: Number(storeId),
-            close_date: date,
-            version,
-            status: 'CLOSED',
-            closed_by_id: BigInt(user.id),
-            closed_at: now,
-            cash_system: snapshot.cash,
-            cash_refund_system: snapshot.cash_refund,
-            cash_actual: money(entries.cash_actual),
-            cash_manual_punched: money(entries.cash_manual_punched),
-            cash_manual_created: money(entries.cash_manual_created),
-            cash_difference: cashDifference(
-              snapshot.cash,
-              snapshot.cash_refund,
-              entries.cash_actual,
-              entries.cash_manual_punched,
-              entries.cash_manual_created,
-            ),
-            cash_reason: entries.cash_reason,
-            cash_comment: entries.cash_comment,
-            card_system: snapshot.total_online,
-            card_actual: money(entries.card_actual),
-            card_manual_punched: money(entries.card_manual_punched),
-            card_manual_created: money(entries.card_manual_created),
-            card_difference: cardDifference(
-              snapshot.total_online,
-              entries.card_actual,
-              entries.card_manual_punched,
-              entries.card_manual_created,
-            ),
-            card_reason: entries.card_reason,
-            card_comment: entries.card_comment,
-            district_system: snapshot.district,
-            banking_amount: money(entries.banking_amount),
-            snap_order_count: snapshot.order_count,
-            last_verified_at: now,
-            created_at: now,
-            updated_at: now,
-          };
-          const inserted = { id: generatedId(await tx.insert(StoreDayClose).values(values)) };
-          await tx
-            .insert(StoreDayBanking)
-            .values({
+            if (!permission.allowed)
+              throw new AppError(409, 'DAY_CLOSE_NOT_ALLOWED', permission.message);
+            const snapshot = await collectionSnapshot(tx, storeId, date, corrections),
+              errors = discrepancyErrors(snapshot, entries, config.DAY_CLOSE_TOLERANCE);
+            if (errors.length)
+              throw new AppError(400, 'DAY_CLOSE_EXPLANATION_REQUIRED', errors[0]!);
+            const version = expectedVersion + 1;
+            if (version > 65535)
+              throw new AppError(
+                409,
+                'DAY_CLOSE_VERSION_LIMIT',
+                'This day has reached its revision limit.',
+              );
+            const values = {
               store_id: Number(storeId),
-              banking_date: date,
-              amount: money(entries.banking_amount),
-              updated_by_id: BigInt(user.id),
+              close_date: date,
+              version,
+              status: 'CLOSED',
+              closed_by_id: BigInt(user.id),
+              closed_at: now,
+              cash_system: snapshot.cash,
+              cash_refund_system: snapshot.cash_refund,
+              cash_actual: money(entries.cash_actual),
+              cash_manual_punched: money(entries.cash_manual_punched),
+              cash_manual_created: money(entries.cash_manual_created),
+              cash_difference: cashDifference(
+                snapshot.cash,
+                snapshot.cash_refund,
+                entries.cash_actual,
+                entries.cash_manual_punched,
+                entries.cash_manual_created,
+              ),
+              cash_reason: entries.cash_reason,
+              cash_comment: entries.cash_comment,
+              card_system: snapshot.total_online,
+              card_actual: money(entries.card_actual),
+              card_manual_punched: money(entries.card_manual_punched),
+              card_manual_created: money(entries.card_manual_created),
+              card_difference: cardDifference(
+                snapshot.total_online,
+                entries.card_actual,
+                entries.card_manual_punched,
+                entries.card_manual_created,
+              ),
+              card_reason: entries.card_reason,
+              card_comment: entries.card_comment,
+              district_system: snapshot.district,
+              banking_amount: money(entries.banking_amount),
+              snap_order_count: snapshot.order_count,
+              last_verified_at: now,
               created_at: now,
               updated_at: now,
-            })
-            .onDuplicateKeyUpdate({
-              set: {
+            };
+            const inserted = { id: generatedId(await tx.insert(StoreDayClose).values(values)) };
+            await tx
+              .insert(StoreDayBanking)
+              .values({
+                store_id: Number(storeId),
+                banking_date: date,
                 amount: money(entries.banking_amount),
                 updated_by_id: BigInt(user.id),
+                created_at: now,
                 updated_at: now,
-              },
-            });
-          await tx
-            .update(financeCommands)
-            .set({ closeId: String(inserted!.id) })
-            .where(
-              and(
-                eq(financeCommands.operatorId, user.id),
-                eq(financeCommands.commandId, commandId),
-              ),
-            );
-          const [saved] = await tx
-            .select()
-            .from(StoreDayClose)
-            .where(eq(StoreDayClose.id, BigInt(inserted!.id)));
-          return serializeClose(saved);
-        }),
-      );
+              })
+              .onDuplicateKeyUpdate({
+                set: {
+                  amount: money(entries.banking_amount),
+                  updated_by_id: BigInt(user.id),
+                  updated_at: now,
+                },
+              });
+            const [row] = await tx
+              .select()
+              .from(StoreDayClose)
+              .where(eq(StoreDayClose.id, BigInt(inserted!.id)));
+            return { id: String(inserted!.id), close: serializeClose(row) };
+          }),
+        );
+      } catch (error) {
+        await ephemeral.delIfEquals(key, reservation).catch(() => false);
+        throw error;
+      }
+      await ephemeral.set(key, JSON.stringify({ requestHash: hash, closeId: saved.id }), {
+        EX: commandTtl,
+      });
+      return saved.close;
     },
     async versions(user: Principal, storeId: string, date: string, before?: number, limit = 30) {
       requireStore(user, storeId);
@@ -413,21 +449,15 @@ export function financeService(
       };
     },
     async receipt(user: Principal, commandId: string) {
-      const db = databases.get('writer');
-      const [command] = await db
-        .select()
-        .from(financeCommands)
-        .where(
-          and(eq(financeCommands.operatorId, user.id), eq(financeCommands.commandId, commandId)),
-        )
-        .limit(1);
+      const command = await readCommand(user.id, commandId);
       if (!command?.closeId)
         throw new AppError(
           404,
           'DAY_CLOSE_COMMAND_NOT_FOUND',
           'No completed day close was found for this command.',
         );
-      const [close] = await db
+      const [close] = await databases
+        .get('writer')
         .select()
         .from(StoreDayClose)
         .where(eq(StoreDayClose.id, BigInt(command.closeId)))
