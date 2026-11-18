@@ -105,6 +105,7 @@ if (flags.has('--mysql')) {
     MYSQL_INTEGRATION_URL: 'pos_rewrite_integration',
     AUTH_MYSQL_TEST_URL: 'pos_rewrite_auth_test',
     ADMINISTRATION_MYSQL_TEST_URL: 'pos_rewrite_administration_test',
+    ADMINISTRATION_CREATOR_MYSQL_URL: 'pos_rewrite_creator_authority_test',
     CHECKOUT_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
     MEMBERSHIP_HEAD_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
     ORIGIN_PREVIEW_MYSQL_TEST_URL: 'pos_rewrite_origin_preview_test',
@@ -132,7 +133,12 @@ if (flags.has('--mysql')) {
     SHORTCUT_REFERENCE_MYSQL_TEST_URL: 'pos_rewrite_shortcut_reference_test',
   })) {
     url.pathname = '/' + schema;
-    childEnvironment[name] = url.href;
+    const fixtureUrl = new URL(url);
+    if (name === 'ADMINISTRATION_CREATOR_MYSQL_URL') {
+      if (fixtureUrl.hostname === 'localhost') fixtureUrl.hostname = '127.0.0.1';
+      fixtureUrl.port ||= '3306';
+    }
+    childEnvironment[name] = fixtureUrl.href;
   }
   childEnvironment.ORDER_SEARCH_ORACLE_PYTHON = resolve(
     backend,
