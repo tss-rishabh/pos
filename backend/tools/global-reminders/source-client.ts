@@ -134,6 +134,12 @@ export function sourceClientEvidence(source: string, original: unknown, now: num
     assert.deepEqual(JSON.parse(stored.get('hl_alerted_keys') || '{}'), {});
     checks.push(`${path}:grouped-30-5-persisted-dedup-cleanup-default-interval`);
 
+    if (!template.includes('var DAY_CLOSE_NAG_MS =')) {
+      assert.equal(path, 'users/templates/admin/layouts/base_no_sidebar_navbar.html');
+      checks.push(`${path}:no-day-close-nag-in-pinned-source`);
+      continue;
+    }
+
     clock = now;
     stored.clear();
     let hidden = true,

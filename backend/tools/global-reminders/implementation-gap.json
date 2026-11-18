@@ -1,0 +1,61 @@
+{
+  "recordedAt": "2026-11-18T10:26:15.184Z",
+  "status": "failed-implementation-gap",
+  "productionBaseCommit": "7fb0a96",
+  "scope": "Same-record fresh native authority restoration for the two global clients; no whole-template certification.",
+  "executedHarnessInputs": {
+    "backend/tools/global-reminders/native.ts": "6cc5a2112e9d1565cca9abf941015eca316a29bc995dbd8e658d55b9e5fdde69",
+    "backend/tools/global-reminders/source-client.ts": "c143f45b3054e564f915e74e4abe0d82981378bcd2b9dde5f99d03dac80d667d",
+    "backend/tools/global-reminders/source-expiry.py": "81f5c14592d7ddaec5bcf62d835e709386790a80fe7b014acb883501ff78da05",
+    "frontend/tests/global-reminders/native-app.ts": "e758f35c154a1d1a4239ecce9a6dff28177d24499c04d0b259a1c1483896a81f"
+  },
+  "productionGraph": {
+    "files": 1202,
+    "sha256": "ad510b409a6a4f39fc38bb98b906afd2973947eb7df0bb4de1639da2c841293e"
+  },
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "sourceHashes": {
+    "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+    "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+    "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+    "order/urls.py": "072291b1b3da04ab20ef2c1326f457337b29590f64b23322a982f7069134ce49",
+    "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b",
+    "users/templates/admin/layouts/base.html": "024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c",
+    "users/templates/admin/layouts/base_no_sidebar_navbar.html": "61170b15ed87e1f272a8c439986a4c94e352ec9edbdd736e57be5a4069849c36"
+  },
+  "failure": {
+    "sequence": [
+      "Native role4 assignment removed; both prompt APIs deny403 and hide data",
+      "Same assignment restored without changing native check-in row",
+      "Actual Store check-in page fetches200 and its record exactly equals original",
+      "Both global client recovery assertions reject at original5000ms deadline"
+    ],
+    "result": {
+      "expiry": "rejected",
+      "dayClose": "rejected"
+    },
+    "productionEditsMade": false
+  },
+  "logs": {
+    "canonical.log": "c36e9c0f1f99ab39e5f289a6b562467d479621a278020d5c3b3363515cf9da75",
+    "scoped-sixth.log": "a1dcd12c0eb13aaaf712aca10d3f4b970c9c7abbd9bf43b3c146f1cc273653e6",
+    "scoped-seventh-authority.log": "ae35a145e1ed115af427bb8f987ec883e390958bfc35d6ac7cb4644518c7dc1b"
+  },
+  "baselinePassedCheckNames": [
+    "pinned-django-native-http-global-off-route-grouped-30-to-5-dedup-reload-cleanup-host-LA",
+    "native-cross-tab-web-lock-dedup-no-second-window-warning",
+    "native-day-close-financial-reminder-keeps-priority-over-urgent-expiry-until-dismissal",
+    "native-foreground-only-full-dismiss-snooze-and-server-date-navigation",
+    "actual-app-invalid-duplicate-calendar-query-and-manual-refresh-send-no-finance-http",
+    "native-current-checkin-store-and-archived-authentication-hide-private-global-alerts",
+    "explicit-business-zone-UTC-IST-and-invalid-ambiguous-DST-wall-time-boundaries"
+  ],
+  "baselineCaveat": "Historical baseline excludes the newly added restoration case and does not make the current target pass. No release certification is advanced.",
+  "sourceCorrection": "Pinned no-sidebar base has expiry script but no day-close nag. The source proof explicitly asserts this absence.",
+  "seams": [
+    "Date-only Node/browser clock; real timers/network/native SQL/services",
+    "Explicit browser visibility data descriptors",
+    "Source VM browser/jQuery/Swal bridges; source expiry Django/native query oracle"
+  ],
+  "nextStep": "Complete authority recovery implementation before further parity execution."
+}

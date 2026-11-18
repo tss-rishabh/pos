@@ -12,10 +12,12 @@ omitted. ModelBackend/signature sessions and LoginRequiredMixin are real. Only t
 source Redis check-in helper is bridged to the owned native check-in record, and
 clock/host-calendar are fixed IST. No ORM or candidate principal/session doubles.
 
-Both original base-layout global scripts execute in a VM with explicit browser,
+Both original base-layout expiry scripts execute in a VM with explicit browser,
 jQuery/Swal, storage and IST-host clock bridges. They establish source grouped
 30/5-minute warnings, persisted dedup/cleanup, 60000-ms default expiry interval and
-foreground stale-day-close prompts with a full 10-minute snooze after dismissal.
+foreground stale-day-close prompts with a full 10-minute snooze after dismissal in
+base.html. The pinned no-sidebar layout has no day-close nag; its absence is asserted
+explicitly, rather than claiming a second source nag implementation.
 The UI bridge does not substitute any candidate HTTP response. It is not evidence
 for all layout markup, source Redis integration or financial eligibility policies.
 
@@ -57,3 +59,15 @@ then runs the joined proof. Keep raw failure logs private (0600); browser errors
 include synthetic fixture DOM. Final output contains only source hashes, check names
 and explicit boundaries. No release ledger/certification is advanced automatically.
 This is authoring until actual coordinated execution passes.
+
+## Current implementation blocker on 7fb0a96
+
+The baseline joined workflow passed, including foreground/no-read, full-dismissal
+snooze, dated navigation and date rejection. An additional native authority case
+then found a production gap: after assignment denial followed by restoration,
+an actual Store check-in page read can succeed with exactly the same check-in
+store/counter/expiry. Both global clients remain blocked instead of resuming.
+The test keeps its original five-second recovery expectations and fails for both
+clients. No production code is changed here. Further parity execution is paused
+until implementation addresses fresh same-record authority without remounting an
+already-visible modal for every harmless authority read.

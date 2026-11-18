@@ -13,6 +13,8 @@ import {
 } from '../../../backend/tools/global-reminders/native.js';
 import { sourceClientEvidence } from '../../../backend/tools/global-reminders/source-client.js';
 import { fulfillmentExpiryInstant } from '../../src/pages/fulfillment/expiry-alerts.js';
+import { checkInSchema } from '../../src/pages/administration/api.js';
+import { z } from 'zod';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const built = resolve(root, 'frontend/dist');
@@ -89,9 +91,9 @@ async function visibility(page: Page, visible: boolean) {
   await page.evaluate((value) => {
     Object.defineProperty(document, 'visibilityState', {
       configurable: true,
-      get: () => (value ? 'visible' : 'hidden'),
+      value: value ? 'visible' : 'hidden',
     });
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => !value });
+    Object.defineProperty(document, 'hidden', { configurable: true, value: !value });
     document.dispatchEvent(new Event('visibilitychange'));
   }, visible);
 }
@@ -117,9 +119,13 @@ try {
     await value.addCookies([fixture.accounts[0]!.cookie]);
     return value;
   }
-  async function open(value: BrowserContext): Promise<Page> {
+  async function open(value: BrowserContext, forceVisible = false): Promise<Page> {
     const page = await value.newPage();
     await page.clock.install({ time: fixtureNow });
+    if (forceVisible) await page.addInitScript(() => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' });
+      Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    });
     await page.goto(origin + '/shortcut-reference');
     await expect(
       page.getByRole('heading', { name: 'Shortcut reference.', exact: true }),
@@ -192,7 +198,8 @@ try {
   await fixture.expiry(4);
   await fixture.dayClose('CLOSED');
   const tabs = await context();
-  const pages = await Promise.all([open(tabs), open(tabs)]);
+  const pages = await Promise.all([open(tabs, true), open(tabs, true)]);
+  for (const item of pages) assert.equal(await item.evaluate(() => document.visibilityState), 'visible');
   await expect
     .poll(async () =>
       (await Promise.all(pages.map((item) => expiryDialog(item).count()))).reduce(
@@ -237,26 +244,37 @@ try {
   const snoozePage = await snooze.newPage();
   await snoozePage.clock.install({ time: fixtureNow });
   await snoozePage.addInitScript(() => {
-    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
-    Object.defineProperty(document, 'hidden', { configurable: true, get: () => true });
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
   });
-  const beforeHidden = calls.filter((call) => call.path === nagPath).length;
+  let ownNagReads = 0;
+  const requestVisibility: { visibility: string; hidden: boolean }[] = [];
+  snoozePage.on('request', (request) => {
+    if (new URL(request.url()).pathname === nagPath) {
+      ownNagReads++;
+      void snoozePage.evaluate(() => ({ visibility: document.visibilityState, hidden: document.hidden }))
+        .then((value) => requestVisibility.push(value)).catch(() => undefined);
+    }
+  });
   await snoozePage.goto(origin + '/shortcut-reference');
   await expect(
     snoozePage.getByRole('heading', { name: 'Shortcut reference.', exact: true }),
   ).toBeVisible();
   await expiryReply(snoozePage);
-  assert.equal(calls.filter((call) => call.path === nagPath).length, beforeHidden);
+  const hiddenState = await snoozePage.evaluate(() => ({ visibility: document.visibilityState, hidden: document.hidden }));
+  assert.equal(hiddenState.visibility, 'hidden', 'Visibility seam must still be hidden after native App initialization');
+  assert.equal(ownNagReads, 0, 'Hidden page must not issue its own day-close prompt read: ' + JSON.stringify(requestVisibility));
   await visibility(snoozePage, true);
   await expect(nagDialog(snoozePage)).toBeVisible();
   await snoozePage.clock.setSystemTime(fixtureNow + 30000);
   await nagDialog(snoozePage).getByRole('button', { name: 'Not now', exact: true }).click();
-  const beforeSnoozed = calls.filter((call) => call.path === nagPath).length;
-  await snoozePage.clock.setSystemTime(fixtureNow + 60001);
+  const dismissedAt = await snoozePage.evaluate(() => Number(localStorage.getItem('pos-day-close-reminder:["1","1"]')));
+  const beforeSnoozed = ownNagReads;
+  await snoozePage.clock.setSystemTime(dismissedAt + 30000);
   await visibility(snoozePage, true);
   await expect(nagDialog(snoozePage)).toHaveCount(0);
-  assert.equal(calls.filter((call) => call.path === nagPath).length, beforeSnoozed);
-  await snoozePage.clock.setSystemTime(fixtureNow + 90001);
+  assert.equal(ownNagReads, beforeSnoozed);
+  await snoozePage.clock.setSystemTime(dismissedAt + 60001);
   await visibility(snoozePage, true);
   await expect(nagDialog(snoozePage)).toBeVisible();
   await nagDialog(snoozePage).getByRole('link', { name: 'Close the day now', exact: true }).click();
@@ -286,6 +304,46 @@ try {
     'actual-app-invalid-duplicate-calendar-query-and-manual-refresh-send-no-finance-http',
   );
   await snooze.close();
+
+  await fixture.expiry(4);
+  await fixture.dayClose('CLOSED');
+  const restoredScope = await browser.newContext({ serviceWorkers: 'block', timezoneId: 'UTC' });
+  await restoredScope.addCookies([fixture.accounts[1]!.cookie]);
+  const restoredPage = await open(restoredScope, true);
+  await expect(expiryDialog(restoredPage)).toBeVisible();
+  await expiryDialog(restoredPage).getByRole('button', { name: 'Dismiss', exact: true }).click();
+  const checkinPath = '/api/v1/operators/me/check-in';
+  const originalAuthority = z.object({ data: checkInSchema }).parse(await (await restoredScope.request.get(origin + checkinPath)).json() as unknown).data;
+  let successfulExpiryReads = 0, ownRestoredNagReads = 0;
+  restoredPage.on('response', (reply) => { if (new URL(reply.url()).pathname === expiryPath && reply.status() === 200) successfulExpiryReads++; });
+  restoredPage.on('request', (read) => { if (new URL(read.url()).pathname === nagPath) ownRestoredNagReads++; });
+  const rejectedExpiry = restoredPage.waitForResponse((reply) => new URL(reply.url()).pathname === expiryPath && reply.status() === 403);
+  await fixture.assignment('2', '1', false);
+  await rejectedExpiry;
+  await expect(restoredPage.getByRole('complementary', { name: 'Fulfillment status', exact: true })).toHaveCount(0);
+  const rejectedNag = restoredPage.waitForResponse((reply) => new URL(reply.url()).pathname === nagPath && reply.status() === 403);
+  await visibility(restoredPage, true); await rejectedNag;
+  await fixture.assignment('2', '1', true);
+  await fixture.dayClose('STALE');
+  const now = await restoredPage.evaluate(() => Date.now());
+  await restoredPage.clock.setSystemTime(now + 11000);
+  const freshAuthority = restoredPage.waitForResponse((reply) => new URL(reply.url()).pathname === checkinPath && reply.status() === 200);
+  await restoredPage.getByRole('link', { name: 'Store check-in', exact: true }).click();
+  const fresh = await freshAuthority;
+  const verifiedAuthority = z.object({ data: checkInSchema }).parse(await fresh.json() as unknown).data;
+  assert.deepEqual(verifiedAuthority, originalAuthority, 'Fresh authoritative read must retain the exact check-in record');
+  const expiryReadsBeforeRecovery = successfulExpiryReads;
+  const nagReadsBeforeRecovery = ownRestoredNagReads;
+  await visibility(restoredPage, true);
+  const recovery = await Promise.allSettled([
+    expect.poll(() => successfulExpiryReads).toBeGreaterThan(expiryReadsBeforeRecovery),
+    expect.poll(() => ownRestoredNagReads).toBeGreaterThan(nagReadsBeforeRecovery),
+  ]);
+  await restoredScope.close();
+  assert(recovery.every((result) => result.status === 'fulfilled'),
+    'Fresh unchanged check-in must resume expiry and day-close reminders after assignment restoration: ' +
+    JSON.stringify({ expiry: recovery[0]?.status, dayClose: recovery[1]?.status }));
+  checks.push('same-record-fresh-native-authority-restores-both-global-reminders-after-scope-regrant');
 
   await fixture.expiry(4);
   await fixture.dayClose('CLOSED');

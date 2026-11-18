@@ -156,7 +156,7 @@ export async function remindersFixture(connection: string, origin: string, sourc
         order_id: id,
         prod_id: '100',
         qty: '1',
-        status: 'CONFIRMED',
+        status: 'PLACED',
         pre_gst_amt: 100,
         gst: 5,
       });
@@ -198,6 +198,7 @@ export async function remindersFixture(connection: string, origin: string, sourc
       };
     }
     const accounts = [await account('1'), await account('2')];
+    const removedAssignments = new Map<string, string>();
     const wall = (minutes: number) =>
       Temporal.Instant.fromEpochMilliseconds(fixtureNow)
         .add({ minutes })
@@ -243,6 +244,7 @@ export async function remindersFixture(connection: string, origin: string, sourc
     return {
       apiOrigin,
       accounts,
+      account,
       expiry,
       dayClose,
       async sourceExpiry() {
@@ -275,6 +277,18 @@ export async function remindersFixture(connection: string, origin: string, sourc
       },
       async archive(id: string) {
         await native.admin.query('UPDATE pos_user SET is_active=0 WHERE id=?', [id]);
+      },
+      async assignment(id: string, storeId: string, allowed: boolean) {
+        const key = JSON.stringify([id, storeId]);
+        if (allowed) {
+          const previous = removedAssignments.get(key); assert(previous);
+          await native.seed('user_stores', { id: previous, django_user_id: id, store_id: storeId });
+          return;
+        }
+        const [rows] = await native.admin.query('SELECT id FROM user_stores WHERE django_user_id=? AND store_id=?', [id, storeId]);
+        const row = z.array(z.object({ id: z.union([z.string(), z.number().int()]).transform(String) })).length(1).parse(rows)[0]!;
+        removedAssignments.set(key, row.id);
+        await native.admin.query('DELETE FROM user_stores WHERE id=?', [row.id]);
       },
       async close() {
         await app?.close();
