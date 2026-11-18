@@ -76,6 +76,22 @@ def patch_inputs():
     return result
 
 
+def verify_membership_metadata_base(tree):
+    """Reject stale ordinary patches even when their old manifest hashes agree.
+
+    These files are base-owned; no later overlay may redefine the shared reader
+    or silently ship an older membership consumer alongside the new descriptor.
+    """
+    for name in ('membership.go', 'screening_head_metadata.go',
+                 'screening_head_metadata_definition.go'):
+        canonical = ROOT / 'go/internal/poscheckout' / name
+        assembled = Path(tree) / 'internal/poscheckout' / name
+        if (canonical.is_symlink() or assembled.is_symlink()
+                or not canonical.is_file() or not assembled.is_file()
+                or digest(canonical.read_bytes()) != digest(assembled.read_bytes())):
+            fail()
+
+
 def assemble_payments(reference, output, generate=None, producer='docker'):
     """Produce a review/build input, never a parity or release certificate.
 
@@ -181,6 +197,7 @@ def assemble_payments(reference, output, generate=None, producer='docker'):
             sql = source.read_bytes()
             destination.write_bytes(sql)
             reviews[str(destination.relative_to(tree))] = digest(sql)
+        verify_membership_metadata_base(tree)
         files = {}
         for path in sorted(tree.rglob('*')):
             if path.is_symlink():

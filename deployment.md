@@ -71,7 +71,10 @@ accept only a local fixture connection, defaulting to
 local credentials or the port differ. The fixture schemas are disposable.
 The runner records file checksums and requires the clean pinned source checkout;
 it rejects results if inputs or that source baseline change during the run.
-Its summary is `backend/evidence/verification.json`, with synthetic
+Its summary includes the rewrite commit before/after, expected/completed check
+counts and explicit unexecuted checks. It rejects a changed rewrite commit as
+well as changed inputs or source. The report is
+`backend/evidence/verification.json`, with synthetic
 diagnostics under the ignored `backend/evidence/private/` folder. A passing
 verification run does not imply production readiness: the release gate remains
 separate. Add `--release` to require that gate to pass too.
@@ -86,10 +89,14 @@ it does not select another source revision. Fixture launchers forward only
 that source location rather than inherited service credentials. Generated
 exchange metadata records repository/commit identity instead of a local path.
 
-The `6d8a4bc` combined result remains failed because eight older fixture files
-did not use that pinned source consistently. All 64 cases in those files and
-the 52 main browser cases pass in the focused follow-up. That evidence does
-not replace a fresh consolidated run or certify complete legacy parity.
+The frozen `b201724` verification executed 130 project checks: 123 passed and
+seven failed, with unchanged inputs. Its backend suite passed 2,688 tests with
+one stale route-count failure; the generic app browser group was not executed
+after earlier failures. The report remains failed. Subsequent focused fixes
+are recorded in `CHECKPOINT.md`; they do not relabel that snapshot or replace a
+fresh consolidated run. Platform run `44235902175` passed both Windows and macOS
+on `cd179c5`, including unsigned review packaging and native smoke checks.
+This does not certify signed production distribution or the later metadata port.
 
 The inventory workbook source oracle additionally needs its isolated Python
 environment. Install `backend/tools/inventory-workbooks/requirements-oracle.txt`
@@ -193,6 +200,28 @@ import. The legacy unset-event date correction in
 `backend/compatibility/upstream/offline-cash-import/improve-query.md` is a separate
 writer schema review; `OFFLINE_CASH_ORDER_SCHEMA_CONTRACT=pos-offline-cash-order-schema-v1`
 must not be selected before that contract exists on the actual writer.
+
+Membership activation and restoration additionally require the reviewed native
+revision-fence contract in
+[`membership-revision-head-metadata.md`](backend/parity/membership-revision-head-metadata.md).
+Install the exact four source fences under a separate locked owner and configure
+`POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER` for every full metadata reader,
+independent publisher, API, producer adapter and source-capture worker whenever
+these fences are installed, including profiles that are not buying membership.
+An installed but undeclared family cannot qualify. The locked owner needs only the documented table rights
+and column-scoped `UPDATE(id)` on `users` for the original locking read; runtime
+accounts receive no `TRIGGER`, schema-changing or table-wide user-update grant
+for metadata discovery.
+
+The same two fixed readonly functions now return 17 sections and explicit column
+names in privilege rows. Regenerate and verify the source bundles/manifests,
+install the reviewed functions, and independently recapture/requalify before
+activating source profiles. Old function hashes/captures cannot qualify. Keep
+ingress and generation activation fenced during the coordinated upgrade; do not
+permit old root-owned triggers or restore stale captures as a rollback shortcut.
+Ordinary membership retains its actual RR/RC transaction contract; screening
+continues to require actual READ COMMITTED. None of these steps authorize writes
+or grants on the investigation reader supplied for this task.
 
 Run the financial outbox in a supervised process:
 

@@ -1,5 +1,28 @@
 # POS rewrite checkpoint
 
+Current implementation closure supersedes the historical membership gap below.
+The Node, Python and Go membership consumers now use the authenticated shared
+metadata contract under independent application authority; the seventeenth
+section authenticates all four revision triggers without runtime TRIGGER
+privileges. Native revision, collation, isolation and rollback checks remain.
+Targeted cancellation benefits (15), import adapter (42), actual Python/Node/Go
+membership workflows, and Go ordinary/cache/confirmation/CSV runners passed.
+The current 114-file payments assembly compiled with Go 1.25.4, locked modules,
+read-only source and no network. Its packaging guard rejects missing, stale or
+symlinked shared metadata components. This is bounded evidence, not release
+certification. The regenerated 396-surface map identifies zero remaining code
+groups and adds zero workflow certifications.
+
+Desktop run `44235902175` on `cd179c5` succeeded on both macOS and Windows,
+including unsigned review packaging and native/offline checks. That snapshot
+predates the membership port; latest-head platform validation is still needed.
+The seven r5 failures below have integrated fixes and targeted passing evidence.
+Next: freeze the regenerated artifacts and run the complete Node 24/MySQL/browser
+verifier plus latest-head desktop CI. Production readiness remains false. The
+wallet calendar policy candidate is still inactive pending the user's decision.
+
+## Historical r5 result and repair context
+
 The frozen `b201724` r5 run is terminal: 130 project checks executed, 123 passed,
 seven failed; generic app browser checks were deferred after those failures.
 Release gate also remains blocked, productionReady is false, changedInputs is

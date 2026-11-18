@@ -18,9 +18,8 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 288,
+      "external_acceptance": 292,
       "implementation_present": 100,
-      "partial": 4,
       "missing": 4
     },
     "by_kind": {
@@ -29,14 +28,12 @@
         "implementation_present": 68
       },
       "jobs": {
-        "external_acceptance": 29,
-        "partial": 2,
+        "external_acceptance": 31,
         "missing": 1
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 69,
-        "partial": 2,
+        "external_acceptance": 71,
         "missing": 3
       },
       "websockets": {
@@ -47,7 +44,7 @@
       }
     },
     "families": 76,
-    "code_task_groups": 1,
+    "code_task_groups": 0,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -102,7 +99,7 @@
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql": "f92598819256cf9193bb720d9dd6b7e6566257ecedbbbd1a17fdf9816d144720",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/run-native-tests.sh": "30efe0e049fa43c0c3cf4b97ba599f53dc4f808cecd24eb99bf6b0665ceca670",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/source-manifest.json": "0611f9abde9c816a70698ff0fd974f9de2ee782899807dac86efc1e4237e0e27",
-    "backend/compatibility/upstream/legacy-order-imports/cache_lock_driver.py": "b6e52f8d3fb51a1f5042ea2eb9267b169338aae1b4ca4a70aba87e7a833e08c3",
+    "backend/compatibility/upstream/legacy-order-imports/cache_lock_driver.py": "abefb320dcee6e965c97cbbadbdd8595a1533e2ff53a2cdaa2a17c9a166b4c10",
     "backend/compatibility/upstream/legacy-order-imports/cart_preparation.py": "23b2629665bf611bca59534b9000a5dc95772f7d18e1103dbb1c4400a8a6ea09",
     "backend/compatibility/upstream/legacy-order-imports/cart_tracking.py": "e9d02a51fffc4b6d8973401dca21068eaa40be81ea6ab0e4ea37279487c4061a",
     "backend/compatibility/upstream/legacy-order-imports/correction_profile.py": "80f4c4d0fdb5a61ab4c4d5745743a46491376f34a31f1f6ae40d10e3a958f01c",
@@ -116,30 +113,30 @@
     "backend/compatibility/upstream/legacy-order-imports/import_cache_test.go": "b88a956077a9d87291223a870735c3b96b0a50ee9307e23ecce9a09fa8431d1c",
     "backend/compatibility/upstream/legacy-order-imports/import_codec_test.go": "033eb813e722fa6afde05c6be8bc368214edb7e2d4fbc1711c4f739d5c7f13ab",
     "backend/compatibility/upstream/legacy-order-imports/import_correction_test.go": "3f1e14ce4e7aaeb3b8ae6c23e24e933cd3acc1b34a55dcf0d7ad3ffb795595c3",
-    "backend/compatibility/upstream/legacy-order-imports/import_head_fixture_test.go": "8f098f67b9281b7a04f094c1284ecb73fa155de16f74845ae4a8deb1d89c666e",
-    "backend/compatibility/upstream/legacy-order-imports/import_membership_test.go": "d0010d905bf30c82000a83a8709db6613f9100b295ef8646f57678b3153a1510",
+    "backend/compatibility/upstream/legacy-order-imports/import_head_fixture_test.go": "b7c09e4dd6fbdb1e32f60048c476aea49fac1f9f3144ba8fd7a5440cccbb2a2f",
+    "backend/compatibility/upstream/legacy-order-imports/import_membership_test.go": "6471b78bb6f86bdad1b67d84abdb164cc80a189b750d31dc79151a90917bbcd3",
     "backend/compatibility/upstream/legacy-order-imports/import_native_test.go": "833b462cbff168692a52231ae8a2fbbcc5e388bcc9914565555abd82729181e8",
     "backend/compatibility/upstream/legacy-order-imports/legacy_import.go": "7064f775b0ca5465f33e2c117dccd64f923ff1a151d8ef2dfd43433d880ff65e",
     "backend/compatibility/upstream/legacy-order-imports/legacy_import_membership_reference.go": "990a97f2fa13adbee7c81891a11b1f765970b8e36d56bb27376aafc1462e34b5",
     "backend/compatibility/upstream/legacy-order-imports/legacy_import_succession.go": "692bf0fd6cd4112bcc01433106cd33f2eaeb81833b684b2a0441938a22111610",
-    "backend/compatibility/upstream/legacy-order-imports/manifest.json": "272a3f86e94e50ba59ca3da764032395b56075c959f2b75a5be1766bc2e5161f",
+    "backend/compatibility/upstream/legacy-order-imports/manifest.json": "43bc690d537e80ffb48485f17f981b691c93d6b252188b8f6cfe1dd9cca541fd",
     "backend/compatibility/upstream/legacy-order-imports/membership-history-publication.review.sql": "1b81ff4adb42d9dc14963d8276c4e0c7f9c25b65aea93be5012cd3432b0c9691",
     "backend/compatibility/upstream/legacy-order-imports/membership_cache.py": "c161c922d3cc962bf0e86dfa155b1afa34b54e3ab8e78566ff14cd3765b8d5af",
     "backend/compatibility/upstream/legacy-order-imports/membership_consumer.py": "f5aa3b57a44c5679a2cfdb1aaf15e7783d59d74024f87f58ed355965ebf42567",
     "backend/compatibility/upstream/legacy-order-imports/membership_handoff.py": "67cd6a982ac0599e5222f04353e340f0818b955075e367e72467fe74f2bba3ce",
     "backend/compatibility/upstream/legacy-order-imports/membership_history.py": "9b54297dd4c996d29423fc6de5a1efa13755f4bbb03e5e4b0529736f79018879",
-    "backend/compatibility/upstream/legacy-order-imports/membership_profile.py": "61da338688d1c27394ea032acea79fa1b68eac944d2828aeccd5a8ca6435f6e6",
+    "backend/compatibility/upstream/legacy-order-imports/membership_profile.py": "e39ab3339b53400ce6acc4259f8e1de2680f33019a70577dd78ef40a981d66cc",
     "backend/compatibility/upstream/legacy-order-imports/membership_reference.py": "afefd4e23508536d932e65465be95876845289227393e83d87a5ba26b2d4e709",
     "backend/compatibility/upstream/legacy-order-imports/membership_staged_reference.py": "b37b17878e907833661a839a0b324ed0d109d8da30f6a5920d63aee00c2b4e4c",
     "backend/compatibility/upstream/legacy-order-imports/model_compat.py": "3492926c4c12afba4094a016befb6b6b48d47afdc80b237204a4dd7d6174af65",
-    "backend/compatibility/upstream/legacy-order-imports/native-confirmation-fixture.md": "80cbbb10403ca9f18e207316ef9029db43f5e0a8ea8bc3f4799e2f00ace39294",
+    "backend/compatibility/upstream/legacy-order-imports/native-confirmation-fixture.md": "33ff5b7b02fc20c25147dbc01aa1a8fbe384525196d00cbc9e2dd75d0e3baa07",
     "backend/compatibility/upstream/legacy-order-imports/native.py": "9ee9d380c9197236e61f3fb3b0483b4ac932edf4b8fd1472d9eecd26caa6f9be",
     "backend/compatibility/upstream/legacy-order-imports/native_head_limits.py": "e5b6911bba2622e46bd19627ae4c9e28e20f105c1802316f20bc53c28dce3f8b",
-    "backend/compatibility/upstream/legacy-order-imports/native_membership_profile.py": "ffda58747922de2541cb994324bc8ab2a335465d6e5f32664e7dd2947e3ae5db",
+    "backend/compatibility/upstream/legacy-order-imports/native_membership_profile.py": "dc3b596330534dee395c2e03851d9d8087bc8ea3d34372405f60acd6ee8edb1a",
     "backend/compatibility/upstream/legacy-order-imports/native_source_driver.py": "ab183d016e9424258a84ce332ee2b1bfc95364c9c8b164bdedde340daec88692",
     "backend/compatibility/upstream/legacy-order-imports/order_guard.py": "1c82e092914b5797f3a18629016443739c272a73a406240d29bb148a8ff5ab71",
-    "backend/compatibility/upstream/legacy-order-imports/order_preparation.py": "712aa68e0418f1df5a2e171b8e7fcfa858251f9b75fb7fa8f1468a5db4f35fcd",
-    "backend/compatibility/upstream/legacy-order-imports/prepare.py": "8cc0a225755da434290cede1fc7312ccd09034553d0dd5bd16499379bcb700ef",
+    "backend/compatibility/upstream/legacy-order-imports/order_preparation.py": "dadc5af3e667daf0e42ae186a91fc74a5c59375ca670dc1b43064c9706904178",
+    "backend/compatibility/upstream/legacy-order-imports/prepare.py": "d659b7a4666253f04c6e8aebb5dbab2af2b9326b385424a6ee86bad55918a1eb",
     "backend/compatibility/upstream/legacy-order-imports/private_cache.py": "9d8013157dc4e6c8babbe13a9dc20afba63229c5b4a7295ff0a0737d38a1d6ff",
     "backend/compatibility/upstream/legacy-order-imports/private_celery.py": "4a53f09a5e2669fc0e2cd95335b6cb3a6b342c6944c0dc7eed46ae4fea2cc987",
     "backend/compatibility/upstream/legacy-order-imports/profiles.py": "a39be566a97ec67c071e5643cc89a847645a32f5a6e66ca351a45ac68ceb4fd8",
@@ -147,12 +144,12 @@
     "backend/compatibility/upstream/legacy-order-imports/public_screening.go": "1f8b38699166b93e41f201979e30df9c60ce0f7d1d49d409ed6d41d6bb96b4f5",
     "backend/compatibility/upstream/legacy-order-imports/public_screening_benefits.go": "f125547c3854c5116b724f45efd368b47c656fb7e11bfa382843e4212a11e93e",
     "backend/compatibility/upstream/legacy-order-imports/receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
-    "backend/compatibility/upstream/legacy-order-imports/run-cache-order-tests.sh": "2a43f7ec3d7412ff82a3918aa399cfcdaff7c758495c8787c7938949b956e8c5",
+    "backend/compatibility/upstream/legacy-order-imports/run-cache-order-tests.sh": "bc32e036c3f87528d6eef6e8ce16bfdd6999fd64248299ca9497e20448f3d2ad",
     "backend/compatibility/upstream/legacy-order-imports/run-correction-tests.sh": "07359874be36305051cb1a2d4f5d49b24105b871ca9b9f509dfb0e40705f9cb3",
     "backend/compatibility/upstream/legacy-order-imports/run-coupon-tests.sh": "a151b65eb09da3440d6c502e546ab7000b1e780907ff7049688a67211ebe8082",
-    "backend/compatibility/upstream/legacy-order-imports/run-go-native-fixture.mjs": "448686b05665b2b25736c40f4ab0fe45263a7678c3c661c714614c8d2b1c2e42",
+    "backend/compatibility/upstream/legacy-order-imports/run-go-native-fixture.mjs": "bcb18c6aeb6ecb792a641aacfb948159b807e42f891577db609aed1c7b2a29c0",
     "backend/compatibility/upstream/legacy-order-imports/run-go-tests.sh": "0c06bfd27e214e4eab076953bb81b241470414204c6f72d8a4f6b1cf2ddb4f96",
-    "backend/compatibility/upstream/legacy-order-imports/run-membership-tests.sh": "d17efa45c7f518ddd8f1d7646cea7c96b26ac9566865658de8d47a8bdc811298",
+    "backend/compatibility/upstream/legacy-order-imports/run-membership-tests.sh": "01a8cec4910cd601cf7beebffc8d37004e08700a5c28b37f9c6dd78639b139a3",
     "backend/compatibility/upstream/legacy-order-imports/run-source-tests.sh": "96f45c6b75c6f220e8d3975852f90e082a64e27e77cf5d7b9c8a6352342b73bc",
     "backend/compatibility/upstream/legacy-order-imports/runtime.py": "bf7eff6bc5127d74cda9760157c639f6fdcb05d06a0b7a95b3ed0cdf97ed7551",
     "backend/compatibility/upstream/legacy-order-imports/screening-counter-bigquery.review.sql": "8a579c405a63ae0078d1771cda1f00e5b0cd0ee8065613a2111fba52ef8cac3c",
@@ -163,12 +160,12 @@
     "backend/compatibility/upstream/legacy-order-imports/screening.go": "e8f46630a87b5ddfc2721df96fd623862246e24def235aeb09376a65684993d3",
     "backend/compatibility/upstream/legacy-order-imports/screening_counter.go": "56fd725c20c4347726057b305aa216dd8ca9edb63a86e65969e3e38be052e36b",
     "backend/compatibility/upstream/legacy-order-imports/screening_counter.py": "710ea39b574c275cfc453e91dc3926216d577b9fc19f8bf73d416077f64c1cf9",
-    "backend/compatibility/upstream/legacy-order-imports/screening_counter_definition.go": "894373a498e90ef1da8ac98e3c160d4e78e97d9e1181158b612a5165492c772a",
-    "backend/compatibility/upstream/legacy-order-imports/screening_fixture_writer.go": "a5153fd3d8b4807bceeb12e2ecd25c9be12eafeb0061b3720fa14aef0a0a8a3e",
-    "backend/compatibility/upstream/legacy-order-imports/screening_fixture_writer_test.go": "a1c13176d343f6bb6f283c6de89258b349c506594fd24a4e6fbee3d2e9c2990e",
-    "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go": "8826c9373a29c0915373e13c959807599677ae975e632ac65a6e0b38a69f898d",
-    "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata_definition.go": "7204aaaaa62198bc46e74fd0a5f77d83e978e843c3ee027a74f6919facdad099",
-    "backend/compatibility/upstream/legacy-order-imports/screening_native_test.go": "0d7d7fcba2f58aee9cc9b6d4206eada8536e505e9794828406a75bf9ad865849",
+    "backend/compatibility/upstream/legacy-order-imports/screening_counter_definition.go": "e0c8c3bfb86caf259280693abc57e859108799a7a3161a797049e7953291adb2",
+    "backend/compatibility/upstream/legacy-order-imports/screening_fixture_writer.go": "c88bddc54a0eb006a9ed418491ae056f1092ba1bc30a6ed5d336054397d7ebcb",
+    "backend/compatibility/upstream/legacy-order-imports/screening_fixture_writer_test.go": "612007ba9981a6a79a979efcd2b340f31020a354051f5c9ca3235d4c9594df67",
+    "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go": "ed9ff577a9acde8d2cca7d1ea9abe7c5da559a9aa07c38e461520ea61e31f003",
+    "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata_definition.go": "8dbf8dc4845517827ea53bb4c826ca1394d6739b6fb2ecf485ef8d822d57b478",
+    "backend/compatibility/upstream/legacy-order-imports/screening_native_test.go": "a72de4c25ca72e7f5c793002f6bd8dbdbbc609feddc62e6373fc3d2bea54de47",
     "backend/compatibility/upstream/legacy-order-imports/screening_origin_pending.py": "f173d528df7208fc9f05c8a1ce410dd604c551ebc7738fe7beb040a8c5055413",
     "backend/compatibility/upstream/legacy-order-imports/screening_preparation.py": "99a9bbc48f1eafa10d68ebfeb266b7cc262f7d86323884e8f4f1b9257c032762",
     "backend/compatibility/upstream/legacy-order-imports/screening_profile.py": "4075eba8794152791a8773a93b5c5dcfa6cfc39f52444d5f7f6e1fda10dd2932",
@@ -184,7 +181,7 @@
     "backend/compatibility/upstream/legacy-order-imports/tender-profile/test_tender.py": "cfb9990e18987ba44ac2c8ef8422a2ce26ae0cc96dfcf1cbc0ad3a6e95aca094",
     "backend/compatibility/upstream/legacy-order-imports/test_membership_history.py": "761fcaa824adaa3274ce19372bcbc52f8bfc81ae528d431375729148f5e92a3f",
     "backend/compatibility/upstream/legacy-order-imports/test_membership_profile.py": "93d926d73c4b2f561779c576403446c57e49f4e0e7d908a1a6a891ba7eb24f76",
-    "backend/compatibility/upstream/legacy-order-imports/test_order_preparation_metadata.py": "8fb0df9aa1dda27330a1563da060fd76185772eff12b57e5e54a82602e48b7c7",
+    "backend/compatibility/upstream/legacy-order-imports/test_order_preparation_metadata.py": "ed431e79628ce1a3c1cc7ae3ae5ead18abccec4d36888d9c8e6205a0c2af8565",
     "backend/compatibility/upstream/legacy-order-imports/test_protocol.py": "291aa48765f38d44291af1dd4e0e798dcebf428d7ee3c4edac36f4e55a916b24",
     "backend/compatibility/upstream/legacy-order-imports/test_screening_runtime.py": "855256f2e1df6947df177d9281c229c451bf9fe8d0940d6723348cf769f62e9a",
     "backend/compatibility/upstream/legacy-order-imports/test_source_sessions.py": "b9847facde116f2f1ea2fc58be71e1e601a919502da8687842b514845c0edc20",
@@ -197,21 +194,22 @@
     "backend/compatibility/upstream/ordinary/migration.sql": "8177b14e265516f216245c11c7b7c0a26397cd0085d61683d333d2fd49a19121",
     "backend/compatibility/upstream/ordinary/prepare_patch.py": "aa50f4ba400caeeb4b2ee633ecca5eebe28acad28c07419bba7b585cee765f63",
     "backend/compatibility/upstream/ordinary/prepare_source.py": "90d6c97c13a437ca1a25d1afb61cc6b1b9378242e40074cdeda06b8697690711",
-    "backend/compatibility/upstream/ordinary/run-isolated-tests.sh": "1b8bfb9d193dd599f74bb58e127bd9bf92318906dee54a4643ffa75f358fecf7",
+    "backend/compatibility/upstream/ordinary/run-isolated-tests.sh": "4ea07d147ec209d45ad5863ee19ffafb2e5efd4ae5b6166234b2a334341ff277",
     "backend/compatibility/upstream/ordinary/transform_source.go": "5f9ab1870f8c2f184dc58c49b8e4c37925fd5a7e5ff28243a7396b3c691d60a9",
     "backend/compatibility/upstream/pending-cancellation/decision.md": "e726b805b647799e9e078000a97eadf5b6a188e789d3d05c05980787769d6d28",
     "backend/compatibility/upstream/pending-cancellation/membership-fence.sql": "50b5181a5037178e48cb8a88429decb79a16cb7c7e6baa73b06e9b29193be932",
-    "backend/compatibility/upstream/pending-cancellation/membership-producer-manifest.json": "5b16dcfb7c5449c461c77ddbf68950fd57472905d69141cd4cb6167f474c1fb1",
+    "backend/compatibility/upstream/pending-cancellation/membership-producer-manifest.json": "8cc626f9c60528d012acb9496af2753f2f9e5da7e697d3b90bf95b709c8352a8",
     "backend/compatibility/upstream/pending-cancellation/membership-producers.md": "37f532b8f309b1d591d75a741e13b02a7a729eedd27ec029b8253e0ceb118ddb",
     "backend/compatibility/upstream/pending-cancellation/membership-reader-manifest.json": "fd95fa42e334696643280a868abbdbf332ea9b6a3e00345d30929746fc26c07b",
     "backend/compatibility/upstream/pending-cancellation/membership_context.py": "0dca5755723ac5b26800c63ac7f5b51f221554d248a40f2d6de62c38ce62f65f",
     "backend/compatibility/upstream/pending-cancellation/membership_fence.py": "3b19d4affb0773486416bfd3d5725f7f2229da0f85edf673564b8b91acca21a1",
     "backend/compatibility/upstream/pending-cancellation/membership_fence_contract.py": "81b66758074b5e75e02d783d93c9ee6b6f71caad0f9c37c28f468c71583d1a7a",
-    "backend/compatibility/upstream/pending-cancellation/membership_provenance.py": "5517bfaefb324ca86ea9cf571c69359691f9c344674b1c893eb3c7670d57ee63",
-    "backend/compatibility/upstream/pending-cancellation/native_membership_driver.py": "a144f0e2db12006c08e1f291d29d9566785f3e8cd7e0e8be55d448384f4c7d6b",
-    "backend/compatibility/upstream/pending-cancellation/prepare_membership_producers.py": "ceea01d31a5633020903bbaa5a4864cbee918c2d0f94d142bb67763479e5033e",
+    "backend/compatibility/upstream/pending-cancellation/membership_provenance.py": "a3f0d794ce1e709deb2758e0ee0993df6548a11d845bc17a7d888a5cb5047880",
+    "backend/compatibility/upstream/pending-cancellation/native_membership_account.py": "caf60ceee04b29f08c5298dcd167373baefe5c08ab4fd368fed01fa97a5c741c",
+    "backend/compatibility/upstream/pending-cancellation/native_membership_driver.py": "c5b17704885b0f2fe771b8ebec738cc64c2c4ac1d4b8ba9f1b5fe3067091e79b",
+    "backend/compatibility/upstream/pending-cancellation/prepare_membership_producers.py": "6f704bc03c21b918ff4ce5bde7cd49fe4fe8fe48a2e21e8bf655410176cdec3b",
     "backend/compatibility/upstream/pending-cancellation/prepare_membership_reader.py": "aba6db4f3e0d06c2c866dcfa5bc80753f20a5f028bcb25bde56e9a403367d092",
-    "backend/compatibility/upstream/pending-cancellation/run-membership-native.sh": "fcebc432bf542349338a021c08991275f2dfd4694263572d8beff112eea71b4e",
+    "backend/compatibility/upstream/pending-cancellation/run-membership-native.sh": "0eb009eff344e83bdf646785d2fe8fd6fabe01f18c7fbebe3b4301752841ec39",
     "backend/compatibility/upstream/pending-cancellation/test_membership_context.py": "c037aef8d04127062b7669cbd70110246cc08661f118a91763a085cafb37e867",
     "backend/compatibility/upstream/pending-cancellation/test_membership_producers.py": "e0c410a4c26cd48a7fe87831249a48dafcc05f5b49f5cf54ae14e5dbf57eca99",
     "backend/compatibility/upstream/pending-cancellation/voucher-history-index.sql": "79168271086532c2d9ec7ca868eda5b271e06a8df5d241b59dae9f86816b7637",
@@ -257,6 +255,7 @@
     "backend/parity/legacy-inventory.json": "2893078e431fd66bf74661368e776b60fbce7a2125e8f00a6aeae9eac305c85a",
     "backend/parity/legacy-order-imports.md": "afdb32d569e001712a907ce3cadd3f1fc870bb5835e1e82338ae2b292fa3d189",
     "backend/parity/local-delivery-lifecycle.md": "7ab62faecfcf5e6f32af8105d596581880f489d90141219ecb7c4ffc866829e0",
+    "backend/parity/membership-revision-head-metadata.md": "a77f3d573f3a497c31a8b624dea856785477e1ea22bf4324b4e486ff1a82058b",
     "backend/parity/offline-invoice-worksheet.md": "019677536db53a0cea5a1dc775c992cceeb6e36c5dcd93e1804e27403684a4a3",
     "backend/parity/operational-reports.md": "33a48500a6deed2c82b224da52be819cf85ba0cf36ff03048312f549012e5de4",
     "backend/parity/order-copy.md": "0ec6a6d7c4de5a957e44f8e6f611f6d4c83b986174d0e23d56c0812703be0a74",
@@ -421,7 +420,7 @@
     "backend/src/modules/checkout/cancellations/contracts.ts": "228dacdbbb1312aee9b02d2f8d36d2fcb3dbda41733043aca257fe6e03f9cd7d",
     "backend/src/modules/checkout/cancellations/membership-context.ts": "766e4e30647995085a91a47d8396a72c93d34d2b3c44380bd6f60159793341cd",
     "backend/src/modules/checkout/cancellations/membership-fence-contract.ts": "e9aab793a4dde2f54e525f28458da18a7b7495d8fc1d53f8b3b2cde682aaf51c",
-    "backend/src/modules/checkout/cancellations/membership-fence.ts": "e346d8ee8455f49c84404430fb5eafd535df12d6642fd8246aef061c4bd6e7f1",
+    "backend/src/modules/checkout/cancellations/membership-fence.ts": "a03f4266ae2b758d1519b0a66f04a7d2ada485201e0d0566c6d23789ea1901fd",
     "backend/src/modules/checkout/cancellations/membership-producer-migration.sql": "b0c755941dc6c2cf02e36659f0ceabcc036cd94fa302d51efcbaa3a95b72d389",
     "backend/src/modules/checkout/cancellations/membership.ts": "9e01920ba42dc25c1af7a6890c3f5da325f2c2a17a0adb68d053d25cac77c9c8",
     "backend/src/modules/checkout/cancellations/migration.sql": "7f34a3168605051eb51498108c067e4d67317789d5bb74d82c96619848088156",
@@ -1094,7 +1093,7 @@
     "backend/tests/checkout-performance/http.test.ts": "8a1e41e243505e3a375fa945890a556127a9f20ba8fb991c49f1a08dacfa6dba",
     "backend/tests/checkout-performance/mysql.integration.test.ts": "e021b52ceea3eaf22819a8e49510181dfc57bd358e50fd01be3fca5ff721e263",
     "backend/tests/checkout/cancellation-benefit-candidate.test.ts": "5d114ae5fea75b28376db8fc1e43ce06cc08c2b096291e9797e819f701a1f33b",
-    "backend/tests/checkout/cancellation-benefits.mysql.test.ts": "2495117b3cb46d1ad162f0ee58a7a6935ae7b92319dd0689b18bd1217d747b39",
+    "backend/tests/checkout/cancellation-benefits.mysql.test.ts": "026867d38cab4bd9e1f8b3e5707e6ff7b594ceb4762c3d2e954303ec696321a6",
     "backend/tests/checkout/cancellation-membership-context.test.ts": "6608a05826fbc43cdda621ada701220838d73992ccf362e99a4a81b92366e47b",
     "backend/tests/checkout/customer-consent-proof.mysql.integration.test.ts": "8dd5c6bf8ef5918fed1434ee22cd0496164cab3e1daca59025ced1118f400733",
     "backend/tests/checkout/customer-consent.test.ts": "2dfb31aa4fa8cf6e524f495059e8d9f640af8d90dc977539430a06163d9ed69e",
@@ -5027,7 +5026,8 @@
         "frontend/e2e/checkout"
       ],
       "parity_documents": [
-        "backend/parity/checkout.md"
+        "backend/parity/checkout.md",
+        "backend/parity/membership-revision-head-metadata.md"
       ],
       "implemented_scope": "Draft tabs/sessions, connected/walk-in customers, durable cart sync/clear, quote, register, discounts, wallet/coupons/vouchers, salesperson and ordinary submission.",
       "remaining_code": [],
@@ -5039,6 +5039,101 @@
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "path": "backend/src/modules/checkout/cancellations/membership-fence.ts",
+          "line": 94,
+          "anchor": "const metadata = await readNativeHeadMetadata(tx, readNativeHeadMetadataOptions());",
+          "scope": "Actual shared membership fence consumes authenticated fixed-function revision metadata under application authority without TRIGGER privileges, retaining exact bodies, native indexes/collations and revision semantics. Go/Python counterparts and independent-account workflow fixtures are integrated; this is not deployed or full-project certification."
+        }
+      ],
+      "reviewed_source_surfaces": [
+        {
+          "kind": "routes",
+          "id": "order/urls.py:22",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:23",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:24",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:25",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:26",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:27",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:28",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:29",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:30",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:31",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:32",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:35",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:36",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:38",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:39",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "templates",
+          "id": "order/templates/order/create_order.html",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "templates",
+          "id": "order/templates/order/tab.html",
+          "disposition": "external_acceptance"
+        }
+      ],
       "test_files": [
         "backend/tests/checkout/cancellation-benefit-candidate.test.ts",
         "backend/tests/checkout/cancellation-benefits.mysql.test.ts",
@@ -5455,7 +5550,8 @@
       ],
       "parity_documents": [
         "backend/parity/pending-order-cancellation.md",
-        "backend/compatibility/upstream/pending-cancellation/membership-producers.md"
+        "backend/compatibility/upstream/pending-cancellation/membership-producers.md",
+        "backend/parity/membership-revision-head-metadata.md"
       ],
       "implemented_scope": "Atomic pending COC cancellation, grouped stock restoration, approved expiry/wallet/GV correction and immutable receipts; source-pinned Python staging to Go activation to Node cancellation provenance producers have native concurrency/rollback evidence.",
       "remaining_code": [],
@@ -5467,6 +5563,31 @@
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "path": "backend/src/modules/checkout/cancellations/membership-fence.ts",
+          "line": 94,
+          "anchor": "const metadata = await readNativeHeadMetadata(tx, readNativeHeadMetadataOptions());",
+          "scope": "Actual shared membership fence consumes authenticated fixed-function revision metadata under application authority without TRIGGER privileges, retaining exact bodies, native indexes/collations and revision semantics. Go/Python counterparts and independent-account workflow fixtures are integrated; this is not deployed or full-project certification."
+        }
+      ],
+      "reviewed_source_surfaces": [
+        {
+          "kind": "routes",
+          "id": "order/urls.py:37",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "templates",
+          "id": "order/templates/order/index.html",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "templates",
+          "id": "order/templates/order/show.html",
+          "disposition": "external_acceptance"
+        }
+      ],
       "test_files": [
         "backend/tests/checkout/cancellation-benefit-candidate.test.ts",
         "backend/tests/checkout/cancellation-benefits.mysql.test.ts",
@@ -7040,7 +7161,7 @@
     },
     {
       "id": "legacy-order-imports",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/legacy-order-imports",
         "backend/compatibility/upstream/legacy-order-imports",
@@ -7067,12 +7188,11 @@
         "backend/parity/legacy-import-financial.md",
         "backend/parity/import-order-hold-guards.md",
         "backend/parity/csv-tender-decision.md",
-        "backend/parity/csv-screening-runtime.md"
+        "backend/parity/csv-screening-runtime.md",
+        "backend/parity/membership-revision-head-metadata.md"
       ],
       "implemented_scope": "Source parsers/planners, encrypted immutable staging, current store/counter authority, job API, actor-bound recovery UI, bounded worker and qualified historical readers are integrated. Server-installed membership/provenance, automatic birthday-coupon and declared POS complementary profiles compose with actual private source creation and Go confirmation. The production Node factory now installs the screening reservation/counter lifecycle and the private WSGI factory installs its existing source wrapper, with explicit trusted line-mode agreement. The approved manager pause-and-correct workflow retains the original no-effect boundary and binds a corrected successor tender to the source calculation. Unknown outcomes remain GET-only; approval/preparation/resume never replace completed rows or original uncertain nonces.",
-      "remaining_code": [
-        "Native membership-version fencing still queries trigger definitions directly, which fails for the required runtime account without TRIGGER privileges. Port Go/Node/Python consumers to the reviewed fixed-function membership-revision metadata section and locked trigger owner, preserving existing revision increments and transaction isolation; regenerate producer artifacts and verify genuine membership/cache paths before closing this code gap."
-      ],
+      "remaining_code": [],
       "external_acceptance": [
         "Accept closed-period/custom-date privilege, original source financial/Kinesis cooperation and historical publication.",
         "Qualify actual private source settings/runtime/broker, approved schema and both fixed readonly metadata functions, distinct locked owners, current counter baseline, all cooperating writers and complete membership/coupon history publications before selecting the default-disabled profiles. Component implementation is not deployed acceptance."
@@ -7088,6 +7208,12 @@
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
       "implementation_review": [
+        {
+          "path": "backend/src/modules/checkout/cancellations/membership-fence.ts",
+          "line": 94,
+          "anchor": "const metadata = await readNativeHeadMetadata(tx, readNativeHeadMetadataOptions());",
+          "scope": "Actual shared membership fence consumes authenticated fixed-function revision metadata under application authority without TRIGGER privileges, retaining exact bodies, native indexes/collations and revision semantics. Go/Python counterparts and independent-account workflow fixtures are integrated; this is not deployed or full-project certification."
+        },
         {
           "path": "backend/src/app.ts",
           "line": 361,
@@ -7132,7 +7258,7 @@
         },
         {
           "path": "backend/compatibility/upstream/legacy-order-imports/membership_profile.py",
-          "line": 130,
+          "line": 134,
           "anchor": "def membership_order_tree(root):",
           "scope": "Pinned membership setters run through the existing stage/provenance producer; free membership additions/replacements require source causality."
         },
@@ -7210,7 +7336,7 @@
         },
         {
           "path": "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go",
-          "line": 240,
+          "line": 328,
           "anchor": "func (a *headAudit) validate(",
           "scope": "Actual Go financial transactions freshly authenticate full native writer/head metadata with retained locks, closed participant authority, roles/proxies and exact fixed readonly routines."
         },
@@ -7237,22 +7363,22 @@
         {
           "kind": "jobs",
           "id": "core/tasks.py:51",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "jobs",
           "id": "core/tasks.py:62",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "core/templates/order_punch/index.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "core/templates/shopify_order_punch/index.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
@@ -7616,15 +7742,7 @@
       ]
     }
   ],
-  "remaining_code_tasks": [
-    {
-      "family": "legacy-order-imports",
-      "state": "partial",
-      "tasks": [
-        "Native membership-version fencing still queries trigger definitions directly, which fails for the required runtime account without TRIGGER privileges. Port Go/Node/Python consumers to the reviewed fixed-function membership-revision metadata section and locked trigger owner, preserving existing revision increments and transaction isolation; regenerate producer artifacts and verify genuine membership/cache paths before closing this code gap."
-      ]
-    }
-  ],
+  "remaining_code_tasks": [],
   "routes": [
     {
       "source": {
@@ -15585,7 +15703,7 @@
       "families": [
         "legacy-order-imports"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -15608,7 +15726,7 @@
       "families": [
         "legacy-order-imports"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -16626,7 +16744,7 @@
       "families": [
         "legacy-order-imports"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -16938,7 +17056,7 @@
       "families": [
         "legacy-order-imports"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",

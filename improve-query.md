@@ -4,6 +4,51 @@ Investigation uses MySQL 8.0.39, schema `tss`, TLS verification and a read-only
 session. No index or schema changes have been executed. Saved query plans and
 bounded comparison results are in `backend/evidence/mysql-readonly.json`.
 
+## Membership fence metadata under restricted runtime accounts
+
+The previous native guard queried trigger definitions directly:
+
+```sql
+SELECT TRIGGER_NAME, EVENT_MANIPULATION, EVENT_OBJECT_TABLE,
+       ACTION_TIMING, LOWER(SHA2(ACTION_STATEMENT,256)), SQL_MODE
+FROM INFORMATION_SCHEMA.TRIGGERS
+WHERE TRIGGER_SCHEMA = DATABASE()
+  AND TRIGGER_NAME IN ('pos_rewrite_mem_eav_insert',
+                       'pos_rewrite_mem_eav_update',
+                       'pos_rewrite_mem_eav_delete',
+                       'pos_rewrite_mem_user_email');
+```
+
+MySQL hides these definitions from the required application account without
+`TRIGGER` privileges. The corrected Node, Python and Go guards use the existing
+two fixed readonly functions instead:
+
+```sql
+SELECT pos_rewrite_origin_history_metadata();
+SELECT pos_rewrite_origin_transaction_metadata();
+```
+
+The first function exposes the closed four-entry `membershipRevisionTriggers`
+section. Consumers validate exact native bodies, events, tables, SQL mode and
+the independent locked owner, retain table metadata locks, and recheck both
+function identities. The original native collation, supporting indexes,
+membership values, revision increments and financial responses remain unchanged.
+There is no application `TRIGGER` grant or historical row-query fallback.
+
+The original trigger's `users` locking read requires a narrow owner privilege
+on pinned MySQL 8.0.39: column-scoped `UPDATE(id)`. The reviewed owner receives
+that right along with `SELECT,TRIGGER` on `users`/`user_eav` and
+`SELECT,INSERT,UPDATE` on the revision table. Table-wide user updates, another
+column, owner DELETE/EXECUTE/roles and application DDL remain refused. Review
+[the exact metadata contract](backend/parity/membership-revision-head-metadata.md)
+and `backend/compatibility/upstream/screening-origins/history-security.review.sql`
+before a coordinated writer-side installation and fresh capture qualification.
+
+Actual independent-account Node/Python collector checks and the original
+cross-language activation/restoration workflows retain their financial results;
+this is a least-privilege correctness change, not a production latency claim.
+No grants, DDL or data changes were made on the supplied investigation reader.
+
 ## Customer first-order history: implementation pending final validation
 
 Pinned API-v2 order creation performs three customer-wide, all-time reads:

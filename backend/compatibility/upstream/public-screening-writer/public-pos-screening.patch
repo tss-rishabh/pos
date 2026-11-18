@@ -205,7 +205,7 @@
 +def install(main_file):return Bootstrap(Path(main_file).resolve().parent)
 --- /dev/null
 +++ b/pos_screening_origins.py
-@@ -0,0 +1,13 @@
+@@ -0,0 +1,16 @@
 +"""Purpose-specific original customer/staff/system writer installation."""
 +import os
 +import sys
@@ -219,3 +219,6 @@
 +def install():
 +    from origin_bootstrap import OriginBootstrap
 +    return OriginBootstrap()
++def qualified_head_metadata(session):
++    from origin_history_privileges import qualified_head_metadata as read
++    return read(session)

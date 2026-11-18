@@ -65,6 +65,7 @@ if (flags.has('--mysql')) {
     AUTH_MYSQL_TEST_URL: 'pos_rewrite_auth_test',
     ADMINISTRATION_MYSQL_TEST_URL: 'pos_rewrite_administration_test',
     CHECKOUT_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
+    MEMBERSHIP_HEAD_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
     ORIGIN_PREVIEW_MYSQL_TEST_URL: 'pos_rewrite_origin_preview_test',
     MIGRATION_MYSQL_TEST_URL: 'pos_rewrite_migrations_test',
     SPECIAL_PERMISSION_MYSQL_TEST_URL: 'pos_rewrite_activity_history_test',
@@ -221,13 +222,19 @@ function generatedEvidenceChecksums() {
 type Check = {
   id: string;
   directory: 'backend' | 'frontend';
-  command?: 'sh';
+  command?: 'sh' | 'python3';
   args: string[];
   environment?: NodeJS.ProcessEnv;
   timeoutMs?: number;
 };
 type CheckResult = { id: string; exitCode: number; durationMs: number; log: string };
 const checks: Check[] = [
+  {
+    id: 'payments-base-metadata-packaging-tests',
+    directory: 'backend',
+    command: 'python3',
+    args: ['compatibility/upstream/test_assemble_payments.py'],
+  },
   {
     id: 'backend-build',
     directory: 'backend',

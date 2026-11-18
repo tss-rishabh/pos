@@ -163,7 +163,7 @@
          logger.debug(f"PosOrder | warehouse assign task dispatched | order_id={order.id}")
 --- /dev/null
 +++ b/middleware/PosMembershipProvenance.py
-@@ -0,0 +1,487 @@
+@@ -0,0 +1,491 @@
 +"""Transactional producer for real API-v2 membership mutations; no service startup.
 +
 +The companion source patch surrounds the actual PosOrder block and decorates
@@ -300,10 +300,14 @@
 +
 +    if not supports("users", ["email"]) or not supports("user_eav", ["entity", "attribute"]):
 +        _fail()
-+    triggers = _rows(
-+        session,
-+        "SELECT TRIGGER_NAME AS name,EVENT_MANIPULATION AS event,EVENT_OBJECT_TABLE AS tableName,ACTION_TIMING AS timing,LOWER(SHA2(ACTION_STATEMENT,256)) AS hash,SQL_MODE AS mode FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_mem_eav_insert','pos_rewrite_mem_eav_update','pos_rewrite_mem_eav_delete','pos_rewrite_mem_user_email')",
-+    )
++    # Exact readonly metadata runs in this native transaction and validates the
++    # current isolated owner and all writer privileges before returning bodies.
++    # No application TRIGGER grant or cross-request attestation is accepted.
++    try:
++        from pos_screening_origins import qualified_head_metadata
++        triggers = qualified_head_metadata(session)['membershipRevisionTriggers']
++    except Exception:
++        _fail()
 +    if len(triggers) != len(DEFINITIONS):
 +        _fail()
 +    indexed = {row["name"]: row for row in triggers}
@@ -321,7 +325,7 @@
 +                ]
 +            )
 +            or not {"STRICT_TRANS_TABLES", "STRICT_ALL_TABLES"}.intersection(
-+                actual["mode"].split(",")
++                actual["sqlMode"].split(",")
 +            )
 +        ):
 +            _fail()
