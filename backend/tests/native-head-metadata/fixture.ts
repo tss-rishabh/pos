@@ -50,9 +50,11 @@ export async function installNativeHeadFixture(
     url.protocol !== 'mysql:' ||
     !['localhost', '127.0.0.1'].includes(url.hostname) ||
     decodeURIComponent(url.username) !== 'root' ||
-    !['/pos_rewrite_legacy_order_imports_test', '/pos_rewrite_checkout_test'].includes(
-      url.pathname,
-    ) ||
+    ![
+      '/pos_rewrite_legacy_order_imports_test',
+      '/pos_rewrite_checkout_test',
+      '/pos_checkout_contract_test',
+    ].includes(url.pathname) ||
     url.search ||
     url.hash
   )
@@ -63,7 +65,11 @@ export async function installNativeHeadFixture(
   const identity = z
     .array(
       z.object({
-        db: z.string().regex(/^(?:pos_rewrite_|quota_|native_head_)[A-Za-z0-9_]{1,50}$/),
+        db: z
+          .string()
+          .regex(
+            /^(?:(?:pos_rewrite_|quota_|native_head_)[A-Za-z0-9_]{1,50}|pos_checkout_contract_test)$/,
+          ),
         account: z.enum(['root@localhost', 'root@%']),
       }),
     )

@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 from types import SimpleNamespace
 from urllib.parse import urlparse
 import sqlalchemy
@@ -16,7 +17,11 @@ from sqlalchemy.orm import declarative_base,sessionmaker
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE));sys.path.insert(0,str(HERE.parent/'pending-cancellation'))
 from membership_profile import MembershipProfile,compile_writers,compile_free_membership,receipt,CONTEXT,membership_order_tree
-from prepare_membership_producers import source
+from prepare_membership_producers import COMMIT
+
+def source(path):
+    repo=Path(os.environ.get("POS_LEGACY_IMPORT_FIXTURE_SOURCE_REPOSITORY",str(HERE.parents[4]/"backend-tss-api_v2")))
+    return subprocess.check_output(["git","show",COMMIT+":"+path],cwd=repo,text=True)
 from transaction import private_session
 from receiver import record
 from protocol import digest,ImportReview

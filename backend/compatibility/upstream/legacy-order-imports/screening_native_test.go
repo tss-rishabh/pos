@@ -26,8 +26,8 @@ func screeningMAC(kind string, value interface{}) string {
 	mac.Write(raw)
 	return hex.EncodeToString(mac.Sum(nil))
 }
-func screeningFixture(t *testing.T, private bool) (*sql.DB, context.Context, map[string]interface{}) {
-	db, cap := importSourceFixture(t)
+func screeningFixture(t *testing.T, private bool, deferHead ...bool) (*sql.DB, context.Context, map[string]interface{}) {
+	db, cap := importSourceFixture(t, true)
 	t.Setenv("POS_LEGACY_IMPORT_SCREENING_CONTRACT", poscheckout.ImportScreeningContract)
 	t.Setenv("POS_LEGACY_IMPORT_SCREENING_SCHEMA_CONTRACT", poscheckout.ImportScreeningSchemaContract)
 	t.Setenv("POS_LEGACY_IMPORT_SCREENING_WRITER_CONTRACT", poscheckout.ImportScreeningWriterContract)
@@ -68,6 +68,9 @@ func screeningFixture(t *testing.T, private bool) (*sql.DB, context.Context, map
 		execute(t, db, `DELETE FROM pos_rewrite_import_financial_operations`)
 		execute(t, db, `DELETE FROM pos_rewrite_import_financial_stages`)
 		writePublicCreationFixture(t, db, 5001, false)
+	}
+	if len(deferHead) == 0 {
+		installImportNativeHead(t, db)
 	}
 	return db, ctx, cap
 }
@@ -203,7 +206,7 @@ func TestScreeningActualSourceConfirmationAndBoundReservation(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			result, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
+			result, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
 			if err != nil || !result.Created || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 19 || number(t, db, strings.Replace(poscheckout.ScreeningCountSQL, "?", "77", 1)) != 1 {
 				t.Fatalf("screening source confirmation failed: %v", err)
 			}
@@ -219,7 +222,7 @@ func TestScreeningActualSourceConfirmationAndBoundReservation(t *testing.T) {
 					t.Fatal("Go released or fabricated final quota completion")
 				}
 			}
-			result, err = poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(*sql.Tx) error { t.Fatal("proof replay reached source"); return nil })
+			result, err = importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(*sql.Tx) error { t.Fatal("proof replay reached source"); return nil })
 			if err != nil || result.Created || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 19 {
 				t.Fatalf("screening immutable replay failed: %v", err)
 			}
@@ -242,7 +245,7 @@ func TestScreeningPublicAbandonmentFencesDelayedConfirmation(t *testing.T) {
 	called := false
 	result := make(chan error, 1)
 	go func() {
-		_, e := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+		_, e := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 		result <- e
 	}()
 	waitNativeQuery(t, db, "stores", result)
@@ -276,7 +279,7 @@ func TestScreeningPublicMissingAndChangedCreationProofRefuse(t *testing.T) {
 				execute(t, db, `UPDATE pos_rewrite_public_screening_orders SET customer_id='78'`)
 			}
 			called := false
-			_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+			_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 			if !errors.Is(err, poscheckout.ErrReview) || called || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 20 {
 				t.Fatal("unproved public origin reached source")
 			}
@@ -285,7 +288,9 @@ func TestScreeningPublicMissingAndChangedCreationProofRefuse(t *testing.T) {
 }
 
 func TestScreeningCountPreservesLiteralSourcePredicates(t *testing.T) {
-	db, _, _ := screeningFixture(t, false)
+	// Literal raw-source oracle deliberately includes invalid parent/ownership rows;
+	// it runs before installing the operational counter and is not a writer proof.
+	db, _, _ := screeningFixture(t, false, true)
 	for i, status := range []interface{}{1, 4, 6, 0, 17, nil, 1, 1} {
 		order := 7001 + i
 		line := 8001 + i
@@ -306,7 +311,7 @@ func TestScreeningCountPreservesLiteralSourcePredicates(t *testing.T) {
 func TestScreeningTwoUnitRowsAndLiteralQuantityMode(t *testing.T) {
 	for _, unitMode := range []bool{false, true} {
 		t.Run(fmt.Sprint(unitMode), func(t *testing.T) {
-			db, ctx, _ := screeningFixture(t, false)
+			db, ctx, _ := screeningFixture(t, false, true)
 			if unitMode {
 				execute(t, db, `INSERT INTO has_products(id,order_id,prod_id,sub_prod_id,qty,price,status) VALUES(6002,5001,390238,0,1,12.34,'INCOMPLETE')`)
 				execute(t, db, `INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(5001,6002,77)`)
@@ -314,7 +319,15 @@ func TestScreeningTwoUnitRowsAndLiteralQuantityMode(t *testing.T) {
 				execute(t, db, `UPDATE has_products SET qty=2 WHERE order_id=5001`)
 			}
 			writePublicCreationFixture(t, db, 5001, unitMode)
-			_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
+			if !unitMode {
+				seedOrder(t, db, 5002, 14, 0, 0)
+				execute(t, db, `UPDATE order_stores SET store_id=2,counter_id=4 WHERE order_id=5002`)
+				execute(t, db, `UPDATE has_products SET prod_id=390238,sub_prod_id=0,qty=1 WHERE order_id=5002`)
+				execute(t, db, `INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(5002,6002,77)`)
+				writePublicCreationFixture(t, db, 5002, false)
+			}
+			installImportNativeHead(t, db)
+			_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
 			if err != nil || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 18 {
 				t.Fatalf("literal HP mode source failed: %v", err)
 			}
@@ -326,12 +339,7 @@ func TestScreeningTwoUnitRowsAndLiteralQuantityMode(t *testing.T) {
 				t.Fatal("COUNT was replaced by SUM(quantity)")
 			}
 			if !unitMode {
-				seedOrder(t, db, 5002, 14, 0, 0)
-				execute(t, db, `UPDATE order_stores SET store_id=2,counter_id=4 WHERE order_id=5002`)
-				execute(t, db, `UPDATE has_products SET prod_id=390238,sub_prod_id=0,qty=1 WHERE order_id=5002`)
-				execute(t, db, `INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(5002,6002,77)`)
-				writePublicCreationFixture(t, db, 5002, false)
-				_, err = poscheckout.Confirm(ctx, db, 5002, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5002, false) })
+				_, err = importFixtureConfirm(ctx, db, 5002, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5002, false) })
 				if err != nil || number(t, db, strings.Replace(poscheckout.ScreeningCountSQL, "?", "77", 1)) != 2 {
 					t.Fatalf("literal later one-row purchase changed: %v", err)
 				}
@@ -342,7 +350,8 @@ func TestScreeningTwoUnitRowsAndLiteralQuantityMode(t *testing.T) {
 
 func TestScreeningCrossStoreCustomerWaitSeesNewSourceCount(t *testing.T) {
 	db, ctx, _ := screeningFixture(t, false)
-	writer, err := db.BeginTx(context.Background(), &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	writer, releaseWriter := screeningFixtureWriter(t, db, []int64{77}, []int64{7001}, []int64{8001, 8002})
+	var err error
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -357,7 +366,7 @@ func TestScreeningCrossStoreCustomerWaitSeesNewSourceCount(t *testing.T) {
 	result := make(chan error, 1)
 	called := false
 	go func() {
-		_, e := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+		_, e := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 		result <- e
 	}()
 	waitNativeQuery(t, db, "users", result)
@@ -370,6 +379,9 @@ func TestScreeningCrossStoreCustomerWaitSeesNewSourceCount(t *testing.T) {
 		t.Fatal("screening acquired Order before global customer", e)
 	}
 	probe.Rollback()
+	if err = releaseWriter(); err != nil {
+		t.Fatal(err)
+	}
 	if err = writer.Commit(); err != nil {
 		t.Fatal(err)
 	}
@@ -385,8 +397,9 @@ func TestScreeningCrossStoreCustomerWaitSeesNewSourceCount(t *testing.T) {
 
 func TestScreeningTicketAddedAfterUnlockedHintFailsBeforeSource(t *testing.T) {
 	db, ctx, _ := screeningFixture(t, false)
-	execute(t, db, `UPDATE has_products SET prod_id=10 WHERE order_id=5001`)
-	blocker, err := db.Begin()
+	screeningFixtureMutation(t, db, []int64{77}, []int64{5001}, []int64{6001}, `UPDATE has_products SET prod_id=10 WHERE order_id=5001`)
+	blocker, releaseBlocker := screeningFixtureWriter(t, db, []int64{77}, []int64{5001}, []int64{6001})
+	var err error
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -397,11 +410,14 @@ func TestScreeningTicketAddedAfterUnlockedHintFailsBeforeSource(t *testing.T) {
 	called := false
 	result := make(chan error, 1)
 	go func() {
-		_, e := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+		_, e := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 		result <- e
 	}()
 	waitNativeQuery(t, db, "orders", result)
 	if _, err = blocker.Exec(`UPDATE has_products SET prod_id=390238 WHERE order_id=5001`); err != nil {
+		t.Fatal(err)
+	}
+	if err = releaseBlocker(); err != nil {
 		t.Fatal(err)
 	}
 	if err = blocker.Commit(); err != nil {
@@ -428,7 +444,7 @@ func TestScreeningQuantityModeUsesOneMarkerAndPendingCredits(t *testing.T) {
 				writeScreeningState(t, db, screeningStateFixture(operation, "", "77", "2", "4", "RESERVED", 1, false))
 			}
 			called := false
-			_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+			_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 			if pending == 1 {
 				if err != nil || !called || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 18 {
 					t.Fatalf("source quantity mode lost one-marker semantics: %v", err)
@@ -455,7 +471,7 @@ func TestScreeningStoreCustomerPreludeAndChangedHints(t *testing.T) {
 			result := make(chan error, 1)
 			called := false
 			go func() {
-				_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+				_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 				result <- err
 			}()
 			waitNativeQuery(t, db, "stores", result)
@@ -476,7 +492,7 @@ func TestScreeningStoreCustomerPreludeAndChangedHints(t *testing.T) {
 			case "store":
 				execute(t, db, `UPDATE order_stores SET store_id=2,counter_id=4 WHERE order_id=5001`)
 			case "removed-ticket":
-				execute(t, db, `UPDATE has_products SET prod_id=10 WHERE order_id=5001`)
+				screeningFixtureMutation(t, db, []int64{77}, []int64{5001}, []int64{6001}, `UPDATE has_products SET prod_id=10 WHERE order_id=5001`)
 			}
 			if err = blocker.Commit(); err != nil {
 				t.Fatal(err)
@@ -499,7 +515,7 @@ func TestScreeningNonTicketWalletCancellationCannotInvertCountLocks(t *testing.T
 	entered, proceed := make(chan struct{}), make(chan struct{})
 	result := make(chan error, 1)
 	go func() {
-		_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { close(entered); <-proceed; return sourceApply(tx, 5001, false) })
+		_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { close(entered); <-proceed; return sourceApply(tx, 5001, false) })
 		result <- err
 	}()
 	select {
@@ -546,18 +562,23 @@ func TestScreeningDifferentCustomerSourceInsertHasNoRangeGap(t *testing.T) {
 	execute(t, db, `UPDATE orders SET user_id=78 WHERE id=5002`)
 	execute(t, db, `UPDATE order_stores SET store_id=2,counter_id=4 WHERE order_id=5002`)
 	execute(t, db, `UPDATE has_products SET prod_id=390238,qty=1,sub_prod_id=0 WHERE order_id=5002`)
-	_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error {
+	_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error {
 		other, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		writer, e := db.BeginTx(other, nil)
+		raw, _ := importFixtureApplications.Load(db)
+		writer, releaseWriter, e := poscheckout.ImportNativeFixtureBegin(other, raw.(*sql.DB), []int64{78}, []int64{5002}, []int64{6002})
 		if e != nil {
 			return e
 		}
 		defer writer.Rollback()
+		defer releaseWriter()
 		for _, query := range []string{`SELECT id FROM stores WHERE id=2 FOR UPDATE`, `SELECT id FROM users WHERE id=78 FOR UPDATE`, `SELECT id FROM orders WHERE id=5002 FOR UPDATE`, `INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(5002,6002,78)`} {
 			if _, e = writer.ExecContext(other, query); e != nil {
 				return e
 			}
+		}
+		if e = releaseWriter(); e != nil {
+			return e
 		}
 		if e = writer.Commit(); e != nil {
 			return e
@@ -570,19 +591,20 @@ func TestScreeningDifferentCustomerSourceInsertHasNoRangeGap(t *testing.T) {
 }
 
 func TestScreeningTwoCustomersReachOriginalSourceBeforeEmptyProofInsertion(t *testing.T) {
-	db, ctx, _ := screeningFixture(t, false)
+	db, ctx, _ := screeningFixture(t, false, true)
 	seedOrder(t, db, 5002, 14, 0, 0)
 	execute(t, db, `UPDATE orders SET user_id=78 WHERE id=5002`)
 	execute(t, db, `UPDATE order_stores SET store_id=2,counter_id=4 WHERE order_id=5002`)
 	execute(t, db, `UPDATE has_products SET prod_id=390238,qty=1,sub_prod_id=0 WHERE order_id=5002`)
 	execute(t, db, `INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(5002,6002,78)`)
 	writePublicCreationFixture(t, db, 5002, false)
+	installImportNativeHead(t, db)
 	arrived := make(chan struct{}, 2)
 	proceed := make(chan struct{})
 	results := make(chan error, 2)
 	for _, id := range []int{5001, 5002} {
 		go func(id int) {
-			_, e := poscheckout.Confirm(ctx, db, int64(id), poscheckout.DefaultHashes, func(tx *sql.Tx) error { arrived <- struct{}{}; <-proceed; return sourceApply(tx, id, false) })
+			_, e := importFixtureConfirm(ctx, db, int64(id), poscheckout.DefaultHashes, func(tx *sql.Tx) error { arrived <- struct{}{}; <-proceed; return sourceApply(tx, id, false) })
 			results <- e
 		}(id)
 	}
@@ -607,7 +629,7 @@ func TestScreeningLateMutationRollsBackSourceAndProof(t *testing.T) {
 	for _, change := range []string{"reservation", "marker"} {
 		t.Run(change, func(t *testing.T) {
 			db, ctx, _ := screeningFixture(t, true)
-			_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error {
+			_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error {
 				if e := sourceApply(tx, 5001, false); e != nil {
 					return e
 				}
@@ -634,7 +656,7 @@ func TestScreeningConcurrentOriginalReplayAppliesOnce(t *testing.T) {
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			_, e := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { calls.Add(1); return sourceApply(tx, 5001, false) })
+			_, e := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { calls.Add(1); return sourceApply(tx, 5001, false) })
 			errorsChannel <- e
 		}()
 	}
@@ -652,7 +674,7 @@ func TestScreeningConcurrentOriginalReplayAppliesOnce(t *testing.T) {
 
 func TestScreeningCompletedImportReadSurvivesOriginalActorArchive(t *testing.T) {
 	db, ctx, cap := screeningFixture(t, true)
-	if _, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) }); err != nil {
+	if _, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) }); err != nil {
 		t.Fatal(err)
 	}
 	completed := map[string]interface{}{"scope": cap["scope"], "requestHash": cap["requestHash"], "order": map[string]interface{}{"orderId": "5001", "customerId": "77"}}
@@ -681,21 +703,21 @@ func TestScreeningCompletedImportReadSurvivesOriginalActorArchive(t *testing.T) 
 	execute(t, db, `UPDATE pos_rewrite_import_screening_reservations SET data=?,proof_hash=?`, stateRaw, screeningMAC("screening-state", state))
 	execute(t, db, `UPDATE pos_rewrite_import_financial_order_bindings SET status='completed'`)
 	execute(t, db, `UPDATE pos_user SET is_active=0 WHERE id=44`)
-	result, err := poscheckout.Confirm(context.Background(), db, 5001, poscheckout.DefaultHashes, func(*sql.Tx) error { t.Fatal("completed archived original receipt reapplied source"); return nil })
+	result, err := importFixtureConfirm(context.Background(), db, 5001, poscheckout.DefaultHashes, func(*sql.Tx) error { t.Fatal("completed archived original receipt reapplied source"); return nil })
 	if err != nil || result.Created || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 19 {
 		t.Fatalf("retained completed import did not survive archival: %v", err)
 	}
 	state["completionHash"] = strings.Repeat("f", 64)
 	stateRaw, _ = json.Marshal(state)
 	execute(t, db, `UPDATE pos_rewrite_import_screening_reservations SET data=?,proof_hash=?`, stateRaw, screeningMAC("screening-state", state))
-	if _, err = poscheckout.Confirm(context.Background(), db, 5001, poscheckout.DefaultHashes, func(*sql.Tx) error { t.Fatal("changed completion reference reached source"); return nil }); err == nil {
+	if _, err = importFixtureConfirm(context.Background(), db, 5001, poscheckout.DefaultHashes, func(*sql.Tx) error { t.Fatal("changed completion reference reached source"); return nil }); err == nil {
 		t.Fatal("COUNTED did not bind the exact original financial completion")
 	}
 }
 
 func TestScreeningImportCapabilityExpiresDuringStockWait(t *testing.T) {
 	db, _, cap := screeningFixture(t, true)
-	cap["expiresAt"] = time.Now().Add(150 * time.Millisecond).UnixMilli()
+	cap["expiresAt"] = time.Now().Add(2500 * time.Millisecond).UnixMilli()
 	ctx := importContext(t, cap)
 	blocker, err := db.Begin()
 	if err != nil {
@@ -708,11 +730,11 @@ func TestScreeningImportCapabilityExpiresDuringStockWait(t *testing.T) {
 	called := false
 	result := make(chan error, 1)
 	go func() {
-		_, e := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+		_, e := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 		result <- e
 	}()
 	waitNativeQuery(t, db, "product_store", result)
-	time.Sleep(200 * time.Millisecond)
+	time.Sleep(time.Until(time.UnixMilli(cap["expiresAt"].(int64))) + 25*time.Millisecond)
 	if err = blocker.Commit(); err != nil {
 		t.Fatal(err)
 	}
@@ -734,7 +756,7 @@ func TestScreeningUnselectedAndMissingProofFailBeforeSource(t *testing.T) {
 			case "unselected":
 				t.Setenv("POS_LEGACY_IMPORT_SCREENING_WRITER_CONTRACT", "")
 			case "missing-marker":
-				execute(t, db, `DELETE FROM spiderman_screening_orders`)
+				screeningFixtureMutation(t, db, []int64{77}, []int64{5001}, []int64{6001}, `DELETE FROM spiderman_screening_orders`)
 			case "missing-reservation":
 				execute(t, db, `DELETE FROM pos_rewrite_import_screening_reservations`)
 			case "bad-seal":
@@ -747,7 +769,7 @@ func TestScreeningUnselectedAndMissingProofFailBeforeSource(t *testing.T) {
 				execute(t, db, `UPDATE store_counters SET is_active=0 WHERE id=3`)
 			}
 			called := false
-			_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(*sql.Tx) error { called = true; return errors.New("source must not run") })
+			_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(*sql.Tx) error { called = true; return errors.New("source must not run") })
 			if err == nil || called || number(t, db, `SELECT stock FROM product_store WHERE id=3`) != 20 {
 				t.Fatal("unqualified screening reached source effects")
 			}

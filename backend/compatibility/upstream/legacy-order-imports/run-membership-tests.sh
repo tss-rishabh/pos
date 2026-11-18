@@ -1,5 +1,6 @@
 #!/bin/sh
 set -eu
+if [ "${1:-}" != "--steps" ]; then
 member_root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 member_backend=$(CDPATH= cd -- "$member_root/../../.." && pwd)
 member_work=$(mktemp -d /tmp/pos-csv-member.XXXXXX)
@@ -8,6 +9,8 @@ cleanup(){ docker rm -f "$member_name" >/dev/null 2>&1 || true; docker network r
 trap cleanup EXIT HUP INT TERM
 cp -R "$member_root/../go/." "$member_work/"
 git -C "$member_work" apply "$member_root/payments-import-overlay.patch"
+cp "$member_root/import_head_fixture_test.go" "$member_work/internal/poscheckout/sourcefixture/import_head_fixture_test.go"
+cp "$member_root/../../../src/modules/legacy-order-imports/authority-succession/migration.sql" "$member_work/internal/poscheckout/sourcefixture/import_authority_migration.sql"
 cp "$member_root/import_native_test.go" "$member_work/internal/poscheckout/sourcefixture/import_receiver_test.go"
 cp "$member_root/import_membership_test.go" "$member_work/internal/poscheckout/sourcefixture/import_membership_test.go"
 docker network create "$member_name" >/dev/null
@@ -19,6 +22,11 @@ until docker exec "$member_name" mysql --protocol=TCP -h127.0.0.1 -uroot -Dpos_c
  member_attempt=$((member_attempt+1));if [ "$member_attempt" -ge 60 ];then exit 1;fi;sleep 1
 done
 member_port=$(docker port "$member_name" 3306/tcp | cut -d: -f2)
+export member_root member_backend member_work member_name member_port
+cd "$member_backend"
+node --import tsx "$member_root/run-go-native-fixture.mjs" "$member_work" "$member_name" "$member_port" unused membership
+exit
+fi
 export MEMBERSHIP_NATIVE_URL="mysql+pymysql://root@127.0.0.1:$member_port/pos_checkout_contract_test"
 export MEMBERSHIP_NATIVE_NODE_URL="mysql://root@127.0.0.1:$member_port/pos_checkout_contract_test"
 export POS_MEMBERSHIP_PROOF_KEY=fixture-independent-membership-key-0123456789
@@ -31,12 +39,12 @@ export POS_LEGACY_IMPORT_KEY=fixture-independent-private-import-key-0123456789
 export POS_LEGACY_IMPORT_PROOF_KEY=fixture-independent-private-import-proof-0123456789
 export POS_LEGACY_IMPORT_CONFIRMATION_CONTRACT=pos-legacy-order-import-confirmation-v1
 member_image=golang:1.25.4@sha256:698183780de28062f4ef46f82a79ec0ae69d2d22f7b160cf69f71ea8d98bf25d
-member_python="$member_root/../offline-cash-pricing/.venv/bin/python"
-docker run --rm -v "$member_work:/work" -v pos-rewrite-membership-go-modules:/go/pkg/mod -v pos-rewrite-membership-go-build:/root/.cache/go-build \
+member_python="${POS_LEGACY_IMPORT_FIXTURE_PYTHON:-$member_root/../offline-cash-pricing/.venv/bin/python}"
+docker run --rm -v "$member_work:/work" -v pos-rewrite-membership-go-modules:/go/pkg/mod:ro -v "${POS_IMPORT_GO_BUILD_CACHE:-$member_work/build-cache}:/root/.cache/go-build" \
  -w /work -e GOPROXY=off "$member_image" go test -mod=readonly -c -o /work/member.test ./internal/poscheckout/sourcefixture
 bridge(){
- docker run --rm --network "$member_name" -v "$member_work:/work:ro" \
-  -e POS_CSV_MEMBERSHIP_BRIDGE=1 -e POS_CSV_MEMBERSHIP_KIND \
+ docker run --rm --network "$member_name" -v "$member_work:/work" \
+  -e POS_IMPORT_NATIVE_FIXTURE_BRIDGE=/work/fixture-bridge -e POS_CSV_MEMBERSHIP_BRIDGE=1 -e POS_CSV_MEMBERSHIP_KIND \
   -e POS_MEMBERSHIP_PROOF_KEY -e POS_MEMBERSHIP_NATIVE_REVISION_CONTRACT -e POS_MEMBERSHIP_PRODUCT_IDS \
   -e POS_LEGACY_IMPORT_KEY -e POS_LEGACY_IMPORT_PROOF_KEY -e POS_LEGACY_IMPORT_CONFIRMATION_CONTRACT \
   -e POS_LEGACY_IMPORT_MEMBERSHIP_CONTRACT -e POS_MEMBERSHIP_FRESH_READER_CONTRACT \

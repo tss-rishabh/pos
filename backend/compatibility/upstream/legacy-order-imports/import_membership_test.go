@@ -55,22 +55,22 @@ func TestImportMembershipActivationRollback(t *testing.T) {
 	if os.Getenv("POS_CSV_MEMBERSHIP_BRIDGE") != "1" {
 		t.Skip("isolated bridge only")
 	}
-	db := bridgeDB(t)
+	db := importApplicationBridgeDB(t)
 	tables := []string{"user_eav", "pos_rewrite_membership_versions", "pos_rewrite_cancellation_membership_provenance", "product_store", "orders", "pos_rewrite_import_financial_source_receipts"}
 	before := snapshot(t, db, tables)
 	execute(t, db, `CREATE TRIGGER csv_member_late_failure BEFORE UPDATE ON product_store FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='private late source stock canary'`)
 	called := false
-	_, err := poscheckout.Confirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+	_, err := importFixtureConfirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 	execute(t, db, `DROP TRIGGER csv_member_late_failure`)
 	if err == nil || !called || !reflect.DeepEqual(before, snapshot(t, db, tables)) {
-		t.Fatal("CSV source membership activation escaped late stock rollback")
+		t.Fatalf("CSV source membership activation escaped late stock rollback: called=%t error=%v", called, importFixtureError(err))
 	}
 }
 func TestImportMembershipActivate(t *testing.T) {
 	if os.Getenv("POS_CSV_MEMBERSHIP_BRIDGE") != "1" {
 		t.Skip("isolated bridge only")
 	}
-	db := bridgeDB(t)
+	db := importApplicationBridgeDB(t)
 	var group sync.WaitGroup
 	var created atomic.Int32
 	failures := make(chan error, 20)
@@ -79,7 +79,7 @@ func TestImportMembershipActivate(t *testing.T) {
 		group.Add(1)
 		go func() {
 			defer group.Done()
-			result, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
+			result, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
 			if err != nil {
 				failures <- err
 			} else if result.Created {
@@ -113,10 +113,10 @@ func TestImportMembershipShopifyRemainsPending(t *testing.T) {
 	if os.Getenv("POS_CSV_MEMBERSHIP_BRIDGE") != "1" {
 		t.Skip("isolated bridge only")
 	}
-	db := bridgeDB(t)
+	db := importApplicationBridgeDB(t)
 	before := snapshot(t, db, []string{"user_eav", "orders", "product_store", "pos_rewrite_cancellation_membership_provenance"})
 	called := false
-	_, err := poscheckout.Confirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(_ *sql.Tx) error { called = true; return nil })
+	_, err := importFixtureConfirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(_ *sql.Tx) error { called = true; return nil })
 	if err == nil || called || !reflect.DeepEqual(before, snapshot(t, db, []string{"user_eav", "orders", "product_store", "pos_rewrite_cancellation_membership_provenance"})) {
 		t.Fatal("Shopify pending import gained ordinary paid activation")
 	}
@@ -125,11 +125,11 @@ func TestImportMembershipMissingDescriptor(t *testing.T) {
 	if os.Getenv("POS_CSV_MEMBERSHIP_BRIDGE") != "1" {
 		t.Skip("isolated bridge only")
 	}
-	db := bridgeDB(t)
+	db := importApplicationBridgeDB(t)
 	execute(t, db, `UPDATE pos_rewrite_import_financial_source_receipts SET proof_hash=REPEAT('0',64) WHERE kind='membership'`)
 	before := snapshot(t, db, []string{"user_eav", "orders", "product_store", "pos_rewrite_cancellation_membership_provenance"})
 	called := false
-	_, err := poscheckout.Confirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(_ *sql.Tx) error { called = true; return nil })
+	_, err := importFixtureConfirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(_ *sql.Tx) error { called = true; return nil })
 	if err == nil || called || !reflect.DeepEqual(before, snapshot(t, db, []string{"user_eav", "orders", "product_store", "pos_rewrite_cancellation_membership_provenance"})) {
 		t.Fatal("Changed descriptor reached source activation")
 	}
@@ -139,14 +139,14 @@ func TestImportMembershipExternalWriter(t *testing.T) {
 	if os.Getenv("POS_CSV_MEMBERSHIP_BRIDGE") != "1" {
 		t.Skip("isolated bridge only")
 	}
-	db := bridgeDB(t)
+	db := importApplicationBridgeDB(t)
 	// The exact EAV value is restored. Native all-writer revisions still prove
 	// another write occurred; equality cannot manufacture original provenance.
 	execute(t, db, `UPDATE user_eav SET value='2' WHERE attribute='EXCLUSIVE_MEMBER'`)
 	execute(t, db, `UPDATE user_eav SET value='1' WHERE attribute='EXCLUSIVE_MEMBER'`)
 	before := snapshot(t, db, []string{"user_eav", "orders", "product_store", "pos_rewrite_cancellation_membership_provenance"})
 	called := false
-	_, err := poscheckout.Confirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(_ *sql.Tx) error { called = true; return nil })
+	_, err := importFixtureConfirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(_ *sql.Tx) error { called = true; return nil })
 	if err == nil || called || !reflect.DeepEqual(before, snapshot(t, db, []string{"user_eav", "orders", "product_store", "pos_rewrite_cancellation_membership_provenance"})) {
 		t.Fatal("external membership revision reached source activation")
 	}

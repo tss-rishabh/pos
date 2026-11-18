@@ -19,7 +19,7 @@ const importProofKey = "fixture-independent-private-import-proof-0123456789"
 const importOperation = "5a5d1efb-727e-45ea-b214-9136be787031"
 const importNonce = "62123802-cf5f-49f1-976c-35cf1282e82b"
 
-func importSourceFixture(t *testing.T) (*sql.DB, map[string]interface{}) {
+func importSourceFixture(t *testing.T, deferHead ...bool) (*sql.DB, map[string]interface{}) {
 	db := fixture(t)
 	t.Setenv("POS_LEGACY_IMPORT_KEY", importAuthKey)
 	t.Setenv("POS_LEGACY_IMPORT_PROOF_KEY", importProofKey)
@@ -49,6 +49,7 @@ func importSourceFixture(t *testing.T) (*sql.DB, map[string]interface{}) {
 	} {
 		execute(t, db, query)
 	}
+	installImportAuthorityMigration(t, db)
 	seedOrder(t, db, 5001, 14, 0, 0)
 	execute(t, db, `UPDATE orders SET created_at='2026-06-15 12:00:00',currency='INR',currency_conv_rate='0',fraction_value=0 WHERE id=5001`)
 	raw, _ := json.Marshal([]interface{}{"fixture-import", nil, "fixture-password", false, nil, nil, nil, 0, 1, 1, true, false})
@@ -65,6 +66,9 @@ func importSourceFixture(t *testing.T) (*sql.DB, map[string]interface{}) {
 	execute(t, db, `INSERT INTO pos_rewrite_import_financial_operations VALUES(?,'44','1','3',?,?,?,?)`, importOperation, strings.Repeat("a", 64), strings.Repeat("b", 64), "pos-import-v1:"+importOperation, body)
 	execute(t, db, `INSERT INTO pos_rewrite_import_financial_stages VALUES(?,'confirmation',?,'dispatched')`, importOperation, importNonce)
 	execute(t, db, `INSERT INTO pos_rewrite_import_financial_order_bindings VALUES('5001',?,?,'held')`, importOperation, strings.Repeat("a", 64))
+	if len(deferHead) == 0 {
+		installImportNativeHead(t, db)
+	}
 	now := time.Now().UnixMilli()
 	return db, map[string]interface{}{"contract": "pos-legacy-order-import-source-v1", "phase": "confirmation",
 		"operationId": importOperation, "requestHash": strings.Repeat("a", 64), "planHash": strings.Repeat("b", 64),
@@ -97,14 +101,14 @@ func importContext(t *testing.T, value map[string]interface{}) context.Context {
 func TestImportActualSourceConfirmationAndNativeReceipt(t *testing.T) {
 	db, value := importSourceFixture(t)
 	ctx := importContext(t, value)
-	result, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
+	result, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
 	if err != nil || !result.Created {
 		t.Fatalf("native import source confirmation rejected: %v", err)
 	}
 	if number(t, db, `SELECT stock FROM product_store WHERE id=1`) != 18 || number(t, db, `SELECT COUNT(*) FROM pos_rewrite_import_financial_source_receipts WHERE kind='confirmation'`) != 1 {
 		t.Fatal("missing native atomic import receipt")
 	}
-	result, err = poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { t.Fatal("source replay mutated"); return nil })
+	result, err = importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { t.Fatal("source replay mutated"); return nil })
 	if err != nil || result.Created || number(t, db, `SELECT stock FROM product_store WHERE id=1`) != 18 {
 		t.Fatal("source replay did not preserve original effect")
 	}
@@ -144,7 +148,7 @@ func TestImportScopeAndFreshAuthorityFencesBeforeSource(t *testing.T) {
 				execute(t, db, `INSERT INTO pos_rewrite_customer_contact_revisions VALUES('77',9007199254740993)`)
 			}
 			called := false
-			_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+			_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 			if err == nil || called || number(t, db, `SELECT stock FROM product_store WHERE id=1`) != 20 || number(t, db, `SELECT COUNT(*) FROM pos_rewrite_checkout_projections`) != 0 {
 				t.Fatal("stale import authority reached financial source")
 			}
@@ -154,7 +158,7 @@ func TestImportScopeAndFreshAuthorityFencesBeforeSource(t *testing.T) {
 func TestImportProofInsertFailureRollsBackOriginalSource(t *testing.T) {
 	db, value := importSourceFixture(t)
 	execute(t, db, `CREATE TRIGGER import_receipt_failure BEFORE INSERT ON pos_rewrite_import_financial_source_receipts FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='isolated late proof failure'`)
-	_, err := poscheckout.Confirm(importContext(t, value), db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
+	_, err := importFixtureConfirm(importContext(t, value), db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { return sourceApply(tx, 5001, false) })
 	if err == nil || number(t, db, `SELECT stock FROM product_store WHERE id=1`) != 20 || number(t, db, `SELECT COUNT(*) FROM pos_rewrite_checkout_projections`) != 0 || number(t, db, `SELECT order_status FROM orders WHERE id=5001`) != 0 {
 		t.Fatal("late import proof failed outside original source transaction")
 	}
@@ -174,7 +178,7 @@ func TestImportCapabilityExpiryAfterNativeLockWait(t *testing.T) {
 	result := make(chan error, 1)
 	called := false
 	go func() {
-		_, err := poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+		_, err := importFixtureConfirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
 		result <- err
 	}()
 	time.Sleep(250 * time.Millisecond)
