@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "independent CPython zipfile/ElementTree decoder: python3 -c import sys,zipfile,io,json,xml.etree.ElementTree as E; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None; n={'m':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}; s=E.fromstring(z.read('xl/worksheets/sheet1.xml')); print(json.dumps({'names':z.namelist(),'rows':[[c.find('m:is/m:t',n).text or '' for c in r] for r in s.find('m:sheetData',n)],'formulas':len(s.findall('.//m:f',n))}))",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:38Z",
+  "test": "tests/catalog/workbook.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "a9465204c2d84669cb345e4cd8ca3a10ead2c54ace1a49983bb74c432b441d8c",
+      "args": [
+        "-c",
+        "import sys,zipfile,io,json,xml.etree.ElementTree as E; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None; n={'m':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}; s=E.fromstring(z.read('xl/worksheets/sheet1.xml')); print(json.dumps({'names':z.namelist(),'rows':[[c.find('m:is/m:t',n).text or '' for c in r] for r in s.find('m:sheetData',n)],'formulas':len(s.findall('.//m:f',n))}))"
+      ],
+      "status": 0,
+      "output": {
+        "names": [
+          "[Content_Types].xml",
+          "_rels/.rels",
+          "xl/workbook.xml",
+          "xl/_rels/workbook.xml.rels",
+          "xl/worksheets/sheet1.xml"
+        ],
+        "rows": [
+          ["ID", "Product", "Price"],
+          ["9007199254740993", "=HYPERLINK(\"https://invalid.test\")", "10.00"],
+          ["2", "blue <cotton> & \"quote\"", ""]
+        ],
+        "formulas": 0
+      }
+    }
+  ]
+}

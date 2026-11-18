@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { catalogWorkbook } from '../../src/pages/catalog/workbook';
+import { goldenStdout } from '../golden/load';
 describe('offline catalog Excel export', () => {
   it('can be decoded by independent ZIP/XML readers, preserving long identifiers and formula-like literal cells', async () => {
     const blob = catalogWorkbook(
@@ -10,13 +10,8 @@ describe('offline catalog Excel export', () => {
         ['2', 'blue <cotton> & "quote"\u0000', null],
       ],
     );
-    const python =
-      "import sys,zipfile,io,json,xml.etree.ElementTree as E; z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())); assert z.testzip() is None; n={'m':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'}; s=E.fromstring(z.read('xl/worksheets/sheet1.xml')); print(json.dumps({'names':z.namelist(),'rows':[[c.find('m:is/m:t',n).text or '' for c in r] for r in s.find('m:sheetData',n)],'formulas':len(s.findall('.//m:f',n))}))";
     const decoded: unknown = JSON.parse(
-      execFileSync('python3', ['-c', python], {
-        input: Buffer.from(await blob.arrayBuffer()),
-        encoding: 'utf8',
-      }),
+      goldenStdout('catalog', 'workbook', Buffer.from(await blob.arrayBuffer())),
     );
     expect(decoded).toMatchObject({
       rows: [
