@@ -1,10 +1,17 @@
 # POS rewrite handoff — 18 November 2026
 
-The user requested handoff to another agent. Implementation is **unfinished**;
-do not deploy this branch or claim complete source parity. New work was stopped,
-owned local test fixtures were cleaned, and unverified work was preserved on
-separate branches. This document supersedes the current-execution paragraphs in
-CHECKPOINT.md where they differ; older receipts remain historical evidence.
+The user requested handoff, then explicitly requested merging all accumulated
+changes into main with documentation for each PR. Implementation is **unfinished**;
+do not deploy or claim complete source parity. Preserved WIP has now been brought
+onto PR2's integration branch for review; do not cherry-pick it again. Only bounded
+integration fixes/checks resumed after the handoff request. This document
+supersedes older CHECKPOINT.md status paragraphs; receipts remain historical.
+
+GitHub organization ruleset14992756 requires one approving review. PR1's merge
+attempt was rejected with REVIEW_REQUIRED. Repository auto-merge is disabled;
+no review bypass or ruleset change was made. Both PRs require an approving GitHub
+review before normal merges can complete. The current descriptions and
+docs/pull-requests files record their scope and validation limits.
 
 ## Start here
 
@@ -15,8 +22,8 @@ CHECKPOINT.md where they differ; older receipts remain historical evidence.
 - Implementation head before this handoff document: `e9c65583c896bbb0df7023699af15a3562cab1d8`.
 - Original POS: `/Users/rishabhbhatia/code/backend-pos-web`, pinned
   `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`.
-- Main branch is the integration baseline. Cherry-pick the individual WIP
-  commits below after review; do not blindly merge their old branch ancestry.
+- The integration branch contains the WIP content described below. Its old
+  branch/commit labels are provenance, not instructions to reapply patches.
 - Read this document, CHECKPOINT.md, backend/parity/source-surface-map.md,
   backend/parity/coverage-ledger.json if present, and the relevant scoped parity
   documents. Mapping a source surface is not proof that its behavior is complete.
@@ -78,7 +85,7 @@ does not establish all-feature acceptance; follow the source inventory and evide
 
 ## Immediate unfinished implementation
 
-### 1. Checkout quote summary and complementary-product removal
+### 1. Checkout quote summary and complementary-product removal integration
 
 Preserved **unverified** commit `ad6f1a1` on `fix/counter-scan-bindings`.
 Worktree: `/Users/rishabhbhatia/code/pos-rewrite-counter-scan`.
@@ -89,9 +96,13 @@ CheckoutReview mount and complementary Remove using existing PUT
 deleteCartPayload for quantity0, including complementary-only SKUs; it does not
 substitute setproduct. Draft synchronization and quote invalidation must remain.
 
-WIP has not been compiled, linted or browser/native tested. Its browser entry is
-only a fixture; a browser test runner is not authored. Verify the mount/client
-schemas, source display gates, removal/recovery behavior and stale quote state.
+The original WIP was integrated as8f9495b. Follow-up f6e7d45 adds its browser
+runner and scoped documentation: four unit and seven controlled-browser cases,
+main/focused frontend strict, changed lint and production build passed on the
+recorded integration graph. This is not joined native/provider or full-template
+acceptance. The source control inventory and final full regression remain pending.
+The new exchange eligibility/recovery reads also required an E2E fixture repair
+e1c26a6; the original full-App exchange scenario passes locally afterward.
 
 Source anchors: create_order.html450–547 calculations and Cart Details;
 complementary controls165–174 and rebuilt1601; remove handler2583.
@@ -130,13 +141,15 @@ identifiers/hashes/result UUID, not provider/customer payloads.
 
 New migration: return-workflow/recovery-claims-migration.sql, registered after
 0004_returns in backend/src/db/migrations.ts. **Do not deploy/apply it live.**
-Only already-running backend/frontend typechecks passed on WIP. Next checks:
-
-- Add migration to focused checkout native fixture setup.
-- Update changed-body expectation to IDEMPOTENCY_CONFLICT.
-- Test recorded/not-recorded, original-proof expiry→fresh-proof lookup,
-  revoked actor denial, later handoff receipt retention and read-only UI recovery.
-- Then focused lint/build/native/UI checks; do not claim this WIP complete.
+Original WIP was integrated as871ee3f; validation follow-up9640c75 now loads
+the migration in its native fixture and tests IDEMPOTENCY_CONFLICT. Four focused
+native cases cover recorded/not-recorded, original-proof expiry→renewal,
+native actor/check-in refusal and later handoff receipt retention;23 client/entry
+checks, backend/frontend strict, changed lint and production build pass on the
+recorded isolated integration graph. See
+backend/parity/online-exchange-recovery-claims.md for actual seams and retained
+setup failure. Joined browser renewal/provider and final full acceptance remain
+separate; do not call the whole legacy template certified.
 
 Also **not implemented**: source `_return_exchange_cells.html` suppresses NEW
 exchange for current Product.prod_type8, while failed-exchange recovery precedes
@@ -192,16 +205,16 @@ the user requested handoff. Useful local scratch inventories:
 `/tmp/pos-checkout-action-source-controls.txt`,
 `/tmp/pos-checkout-action-source-bindings.txt`,
 `/tmp/pos-checkout-rewrite-bindings.txt`.
-The source map/CHECKPOINT current gap wording predates the last few commits;
-reconcile it once the real missing controls are finished. Do not declare zero
-missing features solely because all routes have module mappings.
+The source map now records the remaining type8 guard and unfinished complete
+checkout-control inventory. Do not declare zero missing features solely because
+all routes have module mappings.
 
 ## Actual validation state
 
 Last full verifier r9 is **FAILED**, frozen at
 `caba871773b55009d4fe21b20305cd2653824d5d`:
 
--163 expected checks;162 executed;157 passed;5 failed;1 generic browser check not run.
+- 163 expected checks;162 executed;157 passed;5 failed;1 generic browser check not run.
 - Backend inside that run:2722 passed,90 skipped,1 failed.
 - Raw report: backend/evidence/verification-caba871-r9.json, SHA256
   `3ff9a11ceaae72fd51e84937fb1b4b8cdcb7e2b9aa8ab293bcd2537991c676fd`.
@@ -278,5 +291,6 @@ accepted atomic writer contract. Do not make live calls/writes or invent it.
 
 The OpenObserve inspection request was explicitly cancelled. Do not resume it.
 AWS access was authorized for relevant inspection, not arbitrary deployment.
-Do not send messages, charge providers, deploy, merge the draft PR, run live
-financial writes or apply production DDL as part of this handoff.
+Do not send messages, charge providers, deploy, run live financial writes or
+apply production DDL. Repository merges are explicitly authorized by the user's
+later request, subject to GitHub's actual approval requirements.

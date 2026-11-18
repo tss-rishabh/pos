@@ -16,8 +16,8 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **orders-read (partial)**: Finish original online-detail per-line return/exchange eligibility, manager extension/override and failed-exchange discovery/retry entry. Authorized N/HL/HE read details and order/mode-bound receiving-store links are integrated; generic links do not establish the original per-line action behavior.
-- **checkout-cart (partial)**: Bind barcode Enter to the actual submitted scan and authoritative matching result. Current CounterPage can add a previous deferred/cached single-product query result while a new barcode is still loading. Review reachable source product detail/troubleshoot bindings after fixing the wrong-SKU race.
+- **orders-read (partial)**: Add the source new-exchange Product.prod_type=8 guard/eligibility reason while preserving failed-exchange recovery priority. Authorized detail, per-line eligibility/override, recovery claims and complete restoration-group proof are integrated; full reachable-template and renewed-proof browser acceptance remain pending.
+- **checkout-cart (partial)**: Finish the complete reachable source checkout control inventory before claiming all features. Exact scans, offline aliases, product/troubleshoot links, direct quantity editing, quoted summary and complementary deletion are integrated with scoped checks; full source/native checkout acceptance remains pending.
 
 ## Line-bound implementation review
 
@@ -143,10 +143,10 @@ Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (e
 | `order/views.py:4449` | Active source exact order/product/HP create/update, native administrator provenance, end-of-day date and reactivation; empty date is not a clear operation. |
 | `order/templates/order/show.html:247` | Active source closed-window Extend Date action belongs to roles1-3; the manager action is separate from role1 cash/eligibility override. |
 | `backend/src/modules/checkout/return-workflow/extensions.ts:19` | Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts. |
-| `backend/src/modules/checkout/return-workflow/repository.ts:619` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
-| `backend/src/modules/checkout/return-workflow/routes.ts:77` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
-| `frontend/src/pages/returns/index.tsx:597` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
-| `frontend/src/pages/returns/client.ts:243` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
+| `backend/src/modules/checkout/return-workflow/repository.ts:1378` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
+| `backend/src/modules/checkout/return-workflow/routes.ts:80` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
+| `frontend/src/pages/returns/index.tsx:848` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
+| `frontend/src/pages/returns/client.ts:254` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
 | `frontend/src/pages/returns/ReturnWindowExtension.tsx:48` | Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only. |
 
 ### invoice-documents
@@ -230,7 +230,7 @@ Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (e
 | Code/source reference | Reviewed scope |
 | --- | --- |
 | `backend/src/modules/checkout/cancellations/membership-fence.ts:94` | Actual shared membership fence consumes authenticated fixed-function revision metadata under application authority without TRIGGER privileges, retaining exact bodies, native indexes/collations and revision semantics. Go/Python counterparts and independent-account workflow fixtures are integrated; this is not deployed or full-project certification. |
-| `backend/src/app.ts:363` | Actual application registration invokes the production import factory; the profile is not a standalone unused constructor. |
+| `backend/src/app.ts:365` | Actual application registration invokes the production import factory; the profile is not a standalone unused constructor. |
 | `backend/src/modules/legacy-order-imports/worker-main.ts:72` | Standalone production worker uses that same configured import factory and its selected/blocked profile decisions. |
 | `backend/src/modules/legacy-order-imports/runtime.ts:23` | Actual server and worker registration composes preparation, benefits, approvals, corrections and the selected screening profile. |
 | `backend/src/modules/legacy-order-imports/worker.ts:20` | Bounded production worker replaces the offline/Shopify source task entry points; original operation outcomes remain durable. |

@@ -1,5 +1,21 @@
 # POS rewrite checkpoint
 
+## Handoff and requested main integration — 18 November 2026
+
+The user requested a handoff, then explicitly asked to merge all accumulated
+changes into main and document each PR. HANDOFF.md and docs/pull-requests/1-*/2-*
+supersede the older current-execution status below. Preserved checkout summary,
+complementary removal, immutable claim receipts and unfinished proof authoring
+have been integrated into PR2's branch. Bounded summary/native/client checks and
+the stale exchange E2E fixture correction pass; no final full run occurred.
+
+PR1's normal merge attempt was rejected by organization ruleset14992756:
+one approving review is required. No reviews exist; auto-merge is disabled.
+No administrator bypass or ruleset change was used. Repository integration is
+authorized, but production release remains unaccepted. Remaining code/audit work
+includes the new-only type8 exchange guard and complete checkout-control inventory;
+joined source/provider/warehouse and full regression acceptance remain pending.
+
 ## Current execution — 18 November 2026
 
 Implementation remains the first priority. Full source-to-UI tracing found gaps
