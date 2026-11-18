@@ -1,0 +1,48 @@
+.fulfillment-global-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.1rem;
+  margin: 0.75rem 1.5rem 0;
+  padding: 0.8rem 1rem;
+  border: 1px solid #e4c15f;
+  border-radius: 0.75rem;
+  background: #fff7da;
+  color: #513c0b;
+}
+.fulfillment-global-banner a {
+  color: inherit;
+  font-weight: 650;
+  text-underline-offset: 0.15em;
+}
+.fulfillment-expiry-dialog {
+  width: min(32rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  border: 1px solid #d9dce3;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  color: #252b35;
+  background: white;
+  box-shadow: 0 1rem 4rem #14223540;
+}
+.fulfillment-expiry-dialog::backdrop {
+  background: #10182780;
+}
+.fulfillment-expiry-dialog h2 {
+  margin-top: 0;
+}
+.fulfillment-expiry-dialog ul {
+  max-height: 14rem;
+  overflow: auto;
+  padding-left: 1.5rem;
+}
+.fulfillment-expiry-dialog li {
+  padding: 0.3rem 0;
+}
+.fulfillment-expiry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}

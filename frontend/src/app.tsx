@@ -43,6 +43,7 @@ import { Login } from './pages/login';
 import { Empty, ErrorState, Loading } from './components/common';
 import type { Principal } from './api/types';
 import { NotificationsPanel } from './pages/fulfillment/notifications';
+import { GlobalFulfillmentExpiryAlerts } from './pages/fulfillment/global-expiry-alerts';
 import { pendingSlackConnection } from './pages/administration/slack-return';
 
 const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default: m.CounterPage })));
@@ -476,6 +477,12 @@ function Workspace({ user }: { user: Principal }) {
             </button>
           </div>
         </header>
+        <GlobalFulfillmentExpiryAlerts
+          operatorId={user.id}
+          storeId={state.storeId}
+          enabled={sync.online && capabilities.data?.demo === false &&
+            !stores.isError && Boolean(currentStore?.active)}
+        />
         {!sync.online && (
           <div className="offline-banner" role="status">
             <CloudOff size={16} />
