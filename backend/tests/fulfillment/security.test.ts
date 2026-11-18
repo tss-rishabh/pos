@@ -31,7 +31,11 @@ afterEach(async () => {
   await app?.close();
   app = undefined;
 });
-async function setup() {
+async function setup(subscription?: {
+  ready: Promise<void>;
+  started: () => void;
+  completed: () => void;
+}) {
   let databaseCalls = 0,
     stillValid = true;
   let checkedInStore: string | null = '1';
@@ -46,6 +50,11 @@ async function setup() {
   const bus: NotificationBus = {
     publish: async () => {},
     subscribe: async (_store, _user, _id, listener) => {
+      subscription?.started();
+      if (subscription) {
+        await subscription.ready;
+        subscription.completed();
+      }
       receive = listener;
       return async () => {
         receive = undefined;
@@ -94,6 +103,51 @@ async function setup() {
   };
 }
 describe('fulfillment security boundaries', () => {
+  it('does not expose an OPEN notification transport before broker subscription readiness', async () => {
+    // This is an explicit connection-order unit, not native Redis/source parity.
+    // No event payload is fabricated: only actual injectWS upgrade is observed.
+    let releaseBroker: () => void = () => {},
+      markStarted: () => void = () => {};
+    const brokerReady = new Promise<void>((resolve) => {
+      releaseBroker = resolve;
+    });
+    const subscriptionStarted = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const lifecycle: string[] = [];
+    const fixture = await setup({
+      ready: brokerReady,
+      started: markStarted,
+      completed: () => {
+        lifecycle.push('broker-ready');
+      },
+    });
+    let opened = false;
+    const connecting = fixture.app
+      .injectWS('/api/v1/stores/1/notifications/stream', {
+        headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
+      })
+      .then((socket) => {
+        opened = true;
+        lifecycle.push('transport-open');
+        return socket;
+      });
+    await subscriptionStarted;
+    // Drain this in-process handshake turn while the broker gate remains held.
+    // This schedules no retry, payload, timeout or artificial network delay.
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    const openedBeforeBrokerReady = opened;
+    releaseBroker();
+    const socket = await connecting;
+    try {
+      expect(openedBeforeBrokerReady).toBe(false);
+      expect(lifecycle).toEqual(['broker-ready', 'transport-open']);
+      expect(socket.readyState).toBe(socket.OPEN);
+      expect(fixture.calls()).toBe(0);
+    } finally {
+      socket.close();
+    }
+  });
   it('rejects missing/invalid webhook credentials before DB work even with a browser cookie', async () => {
     const fixture = await setup();
     for (const headers of [
