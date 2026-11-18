@@ -166,6 +166,42 @@ async function install() {
   // An explicit fixture-only writer allowlist. Head/projection DML remains solely
   // under the independent trigger owners and publication account.
   await grantApplication(native.names.app);
+  if (mode === 'membership' || mode === 'cache') {
+    // Literal free-membership catalog I/O uses this separate reviewed fixture
+    // view. A mainschema SELECT grant does not authorize this exact source read.
+    await admin.query('CREATE DATABASE IF NOT EXISTS tss');
+    await admin.query(
+      'CREATE OR REPLACE VIEW tss.products AS SELECT id,1 AS is_avail,0 AS is_del FROM pos_checkout_contract_test.products',
+    );
+    const url = new URL(native.appUrl);
+    const probe = await mysql.createConnection({
+      host: url.hostname,
+      port: Number(url.port),
+      user: decodeURIComponent(url.username),
+      password: decodeURIComponent(url.password),
+      database: 'pos_checkout_contract_test',
+    });
+    try {
+      let denied = false;
+      try {
+        await probe.query('SELECT id FROM tss.products LIMIT 1');
+      } catch (error) {
+        if (error?.errno !== 1142) throw error;
+        denied = true;
+      }
+      if (!denied) throw new Error('Unexpected prior fixture catalog authority');
+      await admin.query(
+        'GRANT SELECT ON tss.products TO ' + mysql.escape(native.names.app) + "@'%'",
+      );
+      await probe.query('SELECT id FROM tss.products LIMIT 1');
+      process.stdout.write(
+        'Literal free catalog: exact SELECT initially refused1142 and qualified after readonly fixture grant.\n',
+      );
+    } finally {
+      await probe.end();
+    }
+  }
+
   if (mode === 'confirmation') {
     const [customers] = await admin.query(
       'SELECT CAST(id AS CHAR) id FROM users ORDER BY id LIMIT 101',
