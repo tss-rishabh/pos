@@ -12,6 +12,7 @@ import { paymentRepository } from '../checkout/payments/repository.js';
 import { paymentEnvironment, terminalGateway } from '../checkout/payments/gateway.js';
 import { offlineSaleParamsSchema, offlineSaleUploadSchema } from './contracts.js';
 import { redisOfflineSyncCoordinator, type OfflineSyncCoordinator } from './locks.js';
+import { readOfflineBillingOptions } from './options.js';
 import { offlineSyncRepository } from './repository.js';
 import { offlineSyncService, type OfflineCheckoutPort } from './service.js';
 
@@ -28,8 +29,10 @@ const trace = (resource: string, action: string) => ({
 });
 
 /** Desktop offline billing sync (Phase D2). No server-side tables: the order is
- * created through the ordinary checkout/payment services, orders.order_ref_no
- * holds the provisional reference, and Redis holds the short upload lock. */
+ * created through the ordinary checkout/payment services; the provisional
+ * reference is recorded as a legacy-style comments row on the order (API-v2
+ * owns the order's own reference number), and Redis holds the idempotency
+ * record and the short upload lock. Limits come from the backend environment. */
 export function registerOfflineSync(
   app: FastifyInstance,
   config: Config,
@@ -43,7 +46,8 @@ export function registerOfflineSync(
         ? redisOfflineSyncCoordinator(config, config.REDIS_URL)
         : null;
   const service = offlineSyncService({
-    repository: offlineSyncRepository(db),
+    repository: offlineSyncRepository(db, config.BUSINESS_TIMEZONE),
+    limits: readOfflineBillingOptions(),
     coordinator,
     checkout: options.checkout,
     payments: paymentService(

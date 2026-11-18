@@ -67,6 +67,7 @@ export type OfflineConflictCode =
   | 'PRICE_CHANGED'
   | 'TENDER_REFERENCE_NOT_FOUND'
   | 'OPERATOR_REVOKED'
+  | 'OUTCOME_UNKNOWN'
   | 'REJECTED';
 
 /** Minor units from a two-decimal string; never floating point. */

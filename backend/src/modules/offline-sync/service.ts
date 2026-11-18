@@ -12,12 +12,9 @@ import {
   type OfflineSaleResult,
   type OfflineSaleUpload,
 } from './contracts.js';
-import type { OfflineSyncCoordinator } from './locks.js';
-import {
-  OFFLINE_LIMIT_KEYS,
-  type ExistingOfflineOrder,
-  type OfflineSyncRepository,
-} from './repository.js';
+import type { OfflineSyncCoordinator, SaleRecord } from './locks.js';
+import type { OfflineBillingLimits } from './options.js';
+import type { OfflineOrder, OfflineSyncRepository } from './repository.js';
 
 /** The ordinary checkout service (modules/checkout/service.ts) as used here. */
 export type CheckoutReply =
@@ -61,6 +58,8 @@ export interface OfflineSyncDeps {
   /** Secret for deterministic per-reference operation identifiers. */
   operationSecret: string;
   quotePayable(quote: Record<string, unknown>): string;
+  limits: OfflineBillingLimits;
+  now?: () => number;
 }
 
 const MANAGER_ROLES = new Set([1, 2, 3, 4]);
@@ -75,8 +74,9 @@ const NOT_STOCK = new Set([
   'CHECKOUT_VERSION_CONFLICT',
   'IDEMPOTENCY_CONFLICT',
 ]);
-const LOCK_TTL_MS = 120_000,
-  PROGRESS_TTL_SECONDS = 24 * 3600;
+const LOCK_TTL_MS = 120_000;
+const DAY_MS = 24 * 3600_000,
+  FALLBACK_WINDOW_MS = 31 * DAY_MS;
 
 const stateSchema = z
   .object({
@@ -121,16 +121,6 @@ export function isManager(user: Pick<Principal, 'role'>): boolean {
   return MANAGER_ROLES.has(user.role);
 }
 
-export function limitSetting(
-  value: string | null | undefined,
-  fallback: number,
-  max: number,
-): number {
-  if (typeof value !== 'string' || !/^\s*\d{1,6}\s*$/.test(value)) return fallback;
-  const parsed = Number(value.trim());
-  return parsed >= 1 && parsed <= max ? parsed : fallback;
-}
-
 /** Offline payable: sum of lines, floored to whole rupees (legacy CalculationsWrapper). */
 export function offlinePayable(lines: OfflineSaleUpload['lines']): bigint {
   const gross = lines.reduce(
@@ -140,8 +130,15 @@ export function offlinePayable(lines: OfflineSaleUpload['lines']): bigint {
   return gross - (gross % 100n);
 }
 
+const unknownOutcome = () =>
+  conflict(
+    'OUTCOME_UNKNOWN',
+    'The store service may already have created this order. A manager must check Orders for this provisional reference before resolving.',
+  );
+
 export function offlineSyncService(deps: OfflineSyncDeps) {
   const { repository, checkout } = deps;
+  const now = deps.now ?? Date.now;
   /** RFC 9562 version-8 UUID derived from the reference and step, so a retried
    * upload replays the same checkout/payment operations instead of repeating them. */
   function operationId(reference: string, step: string): string {
@@ -193,160 +190,206 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
           };
     await deps.payments.start(user, storeId, orderId, input);
   }
-  async function existing(
+  /** Finish a known order: the legacy comment row carrying the provisional
+   * reference (written once), then the tender if it is not yet paid. */
+  async function finish(
     user: Principal,
     sale: OfflineSaleUpload,
     storeId: string,
     counterId: string,
-    found: ExistingOfflineOrder[],
+    orderId: string,
+    status: OfflineSaleResult['status'],
   ): Promise<OfflineSaleResult> {
-    const [order] = found;
-    if (found.length !== 1 || !order || order.storeId !== storeId || order.counterId !== counterId)
-      throw conflict('REJECTED', 'Another order already uses this provisional reference.');
-    if (!order.paid) await pay(user, sale, storeId, order.orderId, order.payable);
+    const order: OfflineOrder | null = await repository.order(orderId);
+    if (!order || order.storeId !== storeId || order.counterId !== counterId)
+      throw conflict('REJECTED', 'The synced order does not belong to this store counter.');
+    if (!(await repository.commentExists(orderId, sale.provisionalRef)))
+      await repository.recordReference({
+        orderId,
+        reference: sale.provisionalRef,
+        billedAt: sale.billedAt,
+        userId: user.id,
+      });
+    if (!order.paid) await pay(user, sale, storeId, orderId, order.payable);
     return {
-      status: 'existing',
-      orderId: order.orderId,
+      status,
+      orderId,
       invoiceNumber: order.invoiceNumber,
       provisionalRef: sale.provisionalRef,
     };
   }
+  async function markDone(reference: string, orderId: string, invoiceNo: string | null) {
+    await deps.coordinator!.saveRecord(reference, { state: 'done', orderId, invoiceNo });
+  }
 
-  /** Create the order through the ordinary checkout path, stamp
-   * orders.order_ref_no with the provisional reference and record the tender. */
+  /** Lines and quote through the ordinary checkout service. Nothing here can
+   * create an order, so a failure clears the in-flight record. */
+  async function prepare(
+    user: Principal,
+    sale: OfflineSaleUpload,
+    storeId: string,
+    counterId: string,
+    record: Extract<SaleRecord, { state: 'in-flight' }>,
+  ) {
+    const reference = sale.provisionalRef;
+    let checkoutId = record.checkoutId;
+    if (!checkoutId) {
+      checkoutId = view(await checkout.create(user, storeId, counterId)).id;
+      await deps.coordinator!.saveRecord(reference, { ...record, checkoutId });
+    }
+    let state = view(await checkout.read(user, storeId, checkoutId));
+    if (state.phase !== 'open' && state.phase !== 'quoted')
+      throw conflict(
+        'REJECTED',
+        'The store service could not confirm this sale. A manager must review it.',
+      );
+    if (state.customerId)
+      throw conflict('REJECTED', 'Offline sales cannot carry customer benefits.');
+    const quantities = () =>
+      new Map(
+        (state.cart?.products.items ?? []).map((item) => [
+          String(item.prod_id),
+          Number(item.quantity),
+        ]),
+      );
+    for (const line of sale.lines) {
+      if (quantities().get(line.productId) === line.quantity) continue;
+      try {
+        state = succeeded(
+          await checkout.setLine(
+            user,
+            storeId,
+            checkoutId,
+            {
+              operationId: operationId(
+                reference,
+                `line:${line.productId}:${line.quantity}:${state.version}`,
+              ),
+              expectedVersion: state.version,
+            },
+            line.productId,
+            line.quantity,
+          ),
+        ).state;
+      } catch (error) {
+        if (
+          error instanceof AppError &&
+          error.status >= 400 &&
+          error.status < 500 &&
+          !error.code.startsWith('OFFLINE_') &&
+          !NOT_STOCK.has(error.code)
+        )
+          throw conflict(
+            'STOCK_SHORTFALL',
+            'A product in this sale is no longer available in store stock.',
+          );
+        if (error instanceof AppError && error.code === 'CHECKOUT_VERSION_CONFLICT') throw retry();
+        throw error;
+      }
+      if (quantities().get(line.productId) !== line.quantity)
+        throw conflict('STOCK_SHORTFALL', 'Store stock is lower than the quantity sold offline.');
+    }
+    const expected = new Set(sale.lines.map((line) => line.productId));
+    if ([...quantities().keys()].some((productId) => !expected.has(productId)))
+      throw conflict(
+        'REJECTED',
+        'The server cart differs from this offline sale. A manager must review it.',
+      );
+    state = succeeded(
+      await checkout.quote(user, storeId, checkoutId, {
+        operationId: operationId(reference, `quote:${state.version}`),
+        expectedVersion: state.version,
+      }),
+    ).state;
+    if (!state.quote) throw retry();
+    const serverPayable = deps.quotePayable(state.quote);
+    if (minor(serverPayable) !== minor(sale.payable) && sale.resolution?.action !== 'accept')
+      throw conflict(
+        'PRICE_CHANGED',
+        `The store price is now Rs. ${serverPayable}; this sale collected Rs. ${sale.payable}.`,
+      );
+    return { checkoutId, version: state.version };
+  }
+
+  /** Create the order through the ordinary checkout path. order reference
+   * number stays API-v2's; the provisional reference goes into a comments row. */
   async function create(
     user: Principal,
     sale: OfflineSaleUpload,
     storeId: string,
     counterId: string,
-  ) {
+    record: Extract<SaleRecord, { state: 'in-flight' }>,
+  ): Promise<OfflineSaleResult> {
     const coordinator = deps.coordinator!;
     const reference = sale.provisionalRef;
-    const progress = await coordinator.progress(reference);
-    if (progress && progress.operatorId !== user.id) throw retry();
-    let checkoutId = progress?.checkoutId;
-    if (!checkoutId) {
-      checkoutId = view(await checkout.create(user, storeId, counterId)).id;
-      await coordinator.saveProgress(
-        reference,
-        { checkoutId, operatorId: user.id },
-        PROGRESS_TTL_SECONDS,
-      );
+    let prepared: { checkoutId: string; version: number };
+    try {
+      prepared = await prepare(user, sale, storeId, counterId, record);
+      await coordinator.saveRecord(reference, {
+        state: 'in-flight',
+        operatorId: user.id,
+        checkoutId: prepared.checkoutId,
+        submitting: true,
+      });
+    } catch (error) {
+      // No order can exist before submission: allow a clean retry.
+      await coordinator.clearRecord(reference).catch(() => undefined);
+      throw error;
     }
-    let state = view(await checkout.read(user, storeId, checkoutId));
-    let orderId: string | null = state.phase === 'submitted' ? state.orderId : null;
-    if (!orderId) {
-      if (state.phase !== 'open' && state.phase !== 'quoted')
-        throw conflict(
-          'REJECTED',
-          'The store service could not confirm this sale. A manager must review it.',
-        );
-      if (state.customerId)
-        throw conflict('REJECTED', 'Offline sales cannot carry customer benefits.');
-      const quantities = () =>
-        new Map(
-          (state.cart?.products.items ?? []).map((item) => [
-            String(item.prod_id),
-            Number(item.quantity),
-          ]),
-        );
-      for (const line of sale.lines) {
-        if (quantities().get(line.productId) === line.quantity) continue;
-        try {
-          state = succeeded(
-            await checkout.setLine(
-              user,
-              storeId,
-              checkoutId,
-              {
-                operationId: operationId(
-                  reference,
-                  `line:${line.productId}:${line.quantity}:${state.version}`,
-                ),
-                expectedVersion: state.version,
-              },
-              line.productId,
-              line.quantity,
-            ),
-          ).state;
-        } catch (error) {
-          if (
-            error instanceof AppError &&
-            error.status >= 400 &&
-            error.status < 500 &&
-            !error.code.startsWith('OFFLINE_') &&
-            !NOT_STOCK.has(error.code)
-          )
-            throw conflict(
-              'STOCK_SHORTFALL',
-              'A product in this sale is no longer available in store stock.',
-            );
-          if (error instanceof AppError && error.code === 'CHECKOUT_VERSION_CONFLICT')
-            throw retry();
-          throw error;
-        }
-        if (quantities().get(line.productId) !== line.quantity)
-          throw conflict('STOCK_SHORTFALL', 'Store stock is lower than the quantity sold offline.');
+    let reply: CheckoutReply;
+    try {
+      reply = await checkout.submit(user, storeId, prepared.checkoutId, {
+        operationId: operationId(reference, `submit:${prepared.version}`),
+        expectedVersion: prepared.version,
+      });
+    } catch (error) {
+      // Refused before dispatching pos/order: no order exists.
+      if (
+        error instanceof AppError &&
+        [
+          'CHECKOUT_QUOTE_CHANGED',
+          'CHECKOUT_VERSION_CONFLICT',
+          'CHECKOUT_QUOTE_REQUIRED',
+          'CHECK_IN_REQUIRED',
+        ].includes(error.code)
+      ) {
+        await coordinator.clearRecord(reference).catch(() => undefined);
+        throw retry();
       }
-      const expected = new Set(sale.lines.map((line) => line.productId));
-      if ([...quantities().keys()].some((productId) => !expected.has(productId)))
-        throw conflict(
-          'REJECTED',
-          'The server cart differs from this offline sale. A manager must review it.',
-        );
-      const quoted = succeeded(
-        await checkout.quote(user, storeId, checkoutId, {
-          operationId: operationId(reference, `quote:${state.version}`),
-          expectedVersion: state.version,
-        }),
-      );
-      state = quoted.state;
-      if (!state.quote) throw retry();
-      const serverPayable = deps.quotePayable(state.quote);
-      if (minor(serverPayable) !== minor(sale.payable) && sale.resolution?.action !== 'accept')
-        throw conflict(
-          'PRICE_CHANGED',
-          `The store price is now Rs. ${serverPayable}; this sale collected Rs. ${sale.payable}.`,
-        );
-      let submitted: ReturnType<typeof succeeded>;
-      try {
-        submitted = succeeded(
-          await checkout.submit(user, storeId, checkoutId, {
-            operationId: operationId(reference, `submit:${state.version}`),
-            expectedVersion: state.version,
-          }),
-        );
-      } catch (error) {
-        // A changed quote is re-read on the next attempt; never a second order.
-        if (
-          error instanceof AppError &&
-          ['CHECKOUT_QUOTE_CHANGED', 'CHECKOUT_VERSION_CONFLICT'].includes(error.code)
-        )
-          throw retry();
-        throw error;
-      }
-      orderId = z.union([z.string(), z.number()]).transform(String).parse(submitted.result.orderId);
+      // Anything else may have created the order: never resubmit automatically.
+      throw unknownOutcome();
     }
-    await repository.stampReference(orderId, reference);
-    await coordinator.clearProgress(reference);
-    const [order] = await repository.findByReference(reference);
-    if (!order || order.orderId !== orderId) throw retry();
-    if (!order.paid) await pay(user, sale, storeId, orderId, order.payable);
-    return {
-      status: 'created' as const,
-      orderId,
-      invoiceNumber: order.invoiceNumber,
-      provisionalRef: reference,
-    };
+    if (reply.status !== 'succeeded') throw unknownOutcome();
+    const result = reply.result;
+    const orderId = z.union([z.string(), z.number()]).transform(String).parse(result.orderId);
+    const invoice = z
+      .string()
+      .nullable()
+      .catch(null)
+      .parse(result.invoice ?? null);
+    await markDone(reference, orderId, invoice);
+    return finish(user, sale, storeId, counterId, orderId, 'created');
+  }
+
+  /** Manager-accepted unknown outcome: read (never resubmit) the checkout. */
+  async function reconcile(
+    user: Principal,
+    sale: OfflineSaleUpload,
+    storeId: string,
+    counterId: string,
+    record: Extract<SaleRecord, { state: 'in-flight' }>,
+  ) {
+    if (sale.resolution?.action !== 'accept' || !record.checkoutId || record.operatorId !== user.id)
+      throw unknownOutcome();
+    const state = view(await checkout.read(user, storeId, record.checkoutId));
+    if (state.phase !== 'submitted' || !state.orderId) throw unknownOutcome();
+    await markDone(sale.provisionalRef, state.orderId, null);
+    return finish(user, sale, storeId, counterId, state.orderId, 'created');
   }
 
   return {
-    async settings() {
-      const rows = await repository.settings();
-      return {
-        maxMinutes: limitSetting(rows[OFFLINE_LIMIT_KEYS.maxMinutes], 120, 24 * 60),
-        maxOrders: limitSetting(rows[OFFLINE_LIMIT_KEYS.maxOrders], 10, 500),
-      };
+    settings(): OfflineBillingLimits {
+      return { ...deps.limits };
     },
     async sync(
       user: Principal,
@@ -391,15 +434,40 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
           'OFFLINE_SALE_OPERATOR_MISMATCH',
           'Only the billing operator or a manager can sync this sale.',
         );
-      const found = await repository.findByReference(sale.provisionalRef);
-      if (found.length) return existing(user, sale, storeId, counterId, found);
-      if (!deps.coordinator)
+      const coordinator = deps.coordinator;
+      if (!coordinator)
         throw new AppError(503, 'OFFLINE_SYNC_UNAVAILABLE', 'Offline sale sync is not configured.');
-      const owner = randomUUID();
-      if (!(await deps.coordinator.lock(sale.provisionalRef, owner, LOCK_TTL_MS))) throw retry();
+      const reference = sale.provisionalRef,
+        owner = randomUUID();
+      if (!(await coordinator.lock(reference, owner, LOCK_TTL_MS))) throw retry();
       try {
-        const again = await repository.findByReference(sale.provisionalRef);
-        if (again.length) return await existing(user, sale, storeId, counterId, again);
+        const record = await coordinator.record(reference);
+        if (record?.state === 'done')
+          return await finish(user, sale, storeId, counterId, record.orderId, 'existing');
+        if (record?.state === 'in-flight') {
+          if (record.submitting) return await reconcile(user, sale, storeId, counterId, record);
+          if (record.operatorId !== user.id) throw retry();
+          return await create(user, sale, storeId, counterId, record);
+        }
+        // Durable fallback when the Redis record expired or was lost.
+        const at = now(),
+          from = Math.max(Math.min(sale.billedAt, at) - DAY_MS, at - FALLBACK_WINDOW_MS);
+        const found = await repository.findByComment(
+          reference,
+          [
+            ...new Set([
+              user.id,
+              sale.billedBy,
+              ...(sale.resolution ? [sale.resolution.managerId] : []),
+            ]),
+          ],
+          from,
+          at + 3600_000,
+        );
+        if (found) {
+          await markDone(reference, found.orderId, found.invoiceNumber);
+          return await finish(user, sale, storeId, counterId, found.orderId, 'existing');
+        }
         if (sale.resolution?.action !== 'accept') {
           const billed = await deps.operators.get(sale.billedBy);
           const access =
@@ -419,9 +487,16 @@ export function offlineSyncService(deps: OfflineSyncDeps) {
               'The card/UPI reference was not found in this store’s terminal transactions.',
             );
         }
-        return await create(user, sale, storeId, counterId);
+        const inFlight = {
+          state: 'in-flight' as const,
+          operatorId: user.id,
+          checkoutId: null,
+          submitting: false,
+        };
+        await coordinator.saveRecord(reference, inFlight);
+        return await create(user, sale, storeId, counterId, inFlight);
       } finally {
-        await deps.coordinator.unlock(sale.provisionalRef, owner).catch(() => undefined);
+        await coordinator.unlock(reference, owner).catch(() => undefined);
       }
     },
   };

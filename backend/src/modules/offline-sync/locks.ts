@@ -3,32 +3,47 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 
-/** Ephemeral offline-sync coordination in Redis (schema freeze: no tables).
- * - lock: short exclusive upload lock per provisional reference.
- * - progress: which checkout session carries the reference until the order
- *   is stamped with orders.order_ref_no (the durable idempotency key). */
+/** Ephemeral offline-sync state in Redis (schema freeze: no tables).
+ * - `pos:offline_sale:<ref>`: idempotency record. `in-flight` is written before
+ *   the checkout service is called; `done` with the order and invoice after the
+ *   order is created. Kept 30 days. An `in-flight` record without an order is
+ *   an unknown outcome and is never resubmitted automatically.
+ * - `pos:offline_sale_lock:<ref>`: short exclusive upload lock. */
+export const SALE_RECORD_TTL_SECONDS = 30 * 24 * 3600;
+const identifier = z.string().regex(/^[1-9]\d{0,19}$/);
+export const saleRecordSchema = z.discriminatedUnion('state', [
+  z
+    .object({
+      state: z.literal('in-flight'),
+      operatorId: identifier,
+      checkoutId: z.uuid().nullable(),
+      submitting: z.boolean(),
+    })
+    .strict(),
+  z
+    .object({
+      state: z.literal('done'),
+      orderId: identifier,
+      invoiceNo: z.string().max(255).nullable(),
+    })
+    .strict(),
+]);
+export type SaleRecord = z.infer<typeof saleRecordSchema>;
+
 export interface OfflineSyncCoordinator {
   lock(reference: string, owner: string, ttlMs: number): Promise<boolean>;
   unlock(reference: string, owner: string): Promise<void>;
-  progress(reference: string): Promise<{ checkoutId: string; operatorId: string } | null>;
-  saveProgress(
-    reference: string,
-    value: { checkoutId: string; operatorId: string },
-    ttlSeconds: number,
-  ): Promise<void>;
-  clearProgress(reference: string): Promise<void>;
+  record(reference: string): Promise<SaleRecord | null>;
+  saveRecord(reference: string, value: SaleRecord): Promise<void>;
+  clearRecord(reference: string): Promise<void>;
   close(): Promise<void>;
 }
 
 const unlockScript = `if redis.call('GET',KEYS[1])==ARGV[1] then return redis.call('DEL',KEYS[1]) end; return 0`;
-const keys = {
-  lock: (reference: string) => `pos_rewrite:offline_sync:lock:${reference}`,
-  progress: (reference: string) => `pos_rewrite:offline_sync:progress:${reference}`,
+export const saleKeys = {
+  record: (reference: string) => `pos:offline_sale:${reference}`,
+  lock: (reference: string) => `pos:offline_sale_lock:${reference}`,
 };
-const progressSchema = z.object({
-  checkoutId: z.uuid(),
-  operatorId: z.string().regex(/^[1-9]\d{0,19}$/),
-});
 
 export function redisOfflineSyncCoordinator(
   config: Config,
@@ -93,34 +108,37 @@ export function redisOfflineSyncCoordinator(
   return {
     async lock(reference, owner, ttlMs) {
       const result = await command((c) =>
-        c.set(keys.lock(reference), owner, { NX: true, PX: ttlMs }),
+        c.set(saleKeys.lock(reference), owner, { NX: true, PX: ttlMs }),
       );
       return result === 'OK';
     },
     async unlock(reference, owner) {
       await command((c) =>
-        c.eval(unlockScript, { keys: [keys.lock(reference)], arguments: [owner] }),
+        c.eval(unlockScript, { keys: [saleKeys.lock(reference)], arguments: [owner] }),
       );
     },
-    async progress(reference) {
-      const value = await command((c) => c.get(keys.progress(reference)));
+    async record(reference) {
+      const value = await command((c) => c.get(saleKeys.record(reference)));
       if (typeof value !== 'string') return null;
       try {
-        const parsed = progressSchema.safeParse(JSON.parse(value));
-        return parsed.success ? parsed.data : null;
+        const parsed = saleRecordSchema.safeParse(JSON.parse(value));
+        // An unreadable record is treated as an unknown outcome, never as absent.
+        return parsed.success
+          ? parsed.data
+          : { state: 'in-flight', operatorId: '1', checkoutId: null, submitting: true };
       } catch {
-        return null;
+        return { state: 'in-flight', operatorId: '1', checkoutId: null, submitting: true };
       }
     },
-    async saveProgress(reference, value, ttlSeconds) {
+    async saveRecord(reference, value) {
       await command((c) =>
-        c.set(keys.progress(reference), JSON.stringify(progressSchema.parse(value)), {
-          EX: ttlSeconds,
+        c.set(saleKeys.record(reference), JSON.stringify(saleRecordSchema.parse(value)), {
+          EX: SALE_RECORD_TTL_SECONDS,
         }),
       );
     },
-    async clearProgress(reference) {
-      await command((c) => c.del(keys.progress(reference)));
+    async clearRecord(reference) {
+      await command((c) => c.del(saleKeys.record(reference)));
     },
     async close() {
       if (client) reset(client);
