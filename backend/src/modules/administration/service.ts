@@ -1031,7 +1031,7 @@ export function administrationService(
           name: {
             column: sql`trim(concat(coalesce(${SalesPerson.first_name},''),' ',coalesce(${SalesPerson.last_name},'')))`,
             type: 'text',
-            value: (row) => [row.first_name, row.last_name].filter(Boolean).join(' '),
+            value: (row) => [row.first_name, row.last_name].filter(Boolean).join(' ').replace(/^ +| +$/g, ''),
           },
           firstName: collectionField(SalesPerson.first_name, 'first_name', 'text'),
           lastName: collectionField(SalesPerson.last_name, 'last_name', 'text'),
@@ -1346,7 +1346,7 @@ export function administrationService(
           name: {
             column: sql`trim(concat(coalesce(${PosUser.first_name},''),' ',coalesce(${PosUser.last_name},'')))`,
             type: 'text',
-            value: (row) => [row.firstName, row.lastName].filter(Boolean).join(' '),
+            value: (row) => [row.firstName, row.lastName].filter(Boolean).join(' ').replace(/^ +| +$/g, ''),
           },
           firstName: collectionField(PosUser.first_name, 'firstName', 'text'),
           lastName: collectionField(PosUser.last_name, 'lastName', 'text'),
