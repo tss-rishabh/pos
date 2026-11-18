@@ -30,3 +30,39 @@ payment/recovery checks also pass together with the three shortcut scenarios:
 ordinary/prepaid cash and lost note/order/payment responses retain their immutable
 IDs and reviewed cart. This document does not certify the whole original cashier
 workflow.
+
+## Joined static-help proof
+
+`tools/cashier-shortcuts/run-joined.sh /absolute/pinned/backend-pos-web` runs the
+source help route and the production React help with no intercepted API
+responses. It requires Node 24, `uv`, an existing Python 3.12 interpreter and
+both projects' own `npm ci` installs. Set `SHORTCUT_ORACLE_PYTHON` to an explicit
+existing interpreter if necessary. It creates/removes its own Python cache;
+the source fixture pins Django 4.2.5, asgiref 3.7.2, sqlparse 0.4.4 and
+WhiteNoise 6.12.0 from the actual source requirements. No shared dependencies,
+source application, database, provider or writer is modified or started.
+
+The oracle executes the exact committed `keyShortcutsView`, source connection
+wrapper, both `/api/v1/orders/` and `/orders/` mounts, complete help/base/header
+templates and source middleware list. Real Django signed-cookie and CSRF
+middleware verifies anonymous/tampered-cookie redirects, authenticated GET/HEAD,
+missing-CSRF rejection and method rejection after valid CSRF. Five synthetic
+identities per mount use an in-memory identity adapter; deployed PosUser,
+password/SSO login, database-session persistence and unrelated source routes
+are outside this fixture. A dummy database engine prevents accidental queries.
+
+The candidate is the actual production frontend build and full `buildApp`
+behind a localhost-only forwarding/static fixture. It uses the actual sealed
+session cookie and demo-mode synthetic identities/read data. Its seven checks
+join the nine source help keys to the displayed table (P/PP share one row),
+real B focus, T local-tab creation, R catalog-read refresh, ordinary typing,
+modifier/repeat/IME/contenteditable/modal
+pausing, persisted off preference, empty-cart action preconditions and tampered
+session removal. There are zero Playwright interception handlers and zero
+financial dispatches. All fixture servers/browser contexts close on completion.
+
+The receipt `../evidence/cashier-shortcut-help-2848c69.json` records this exact
+scope and current input hashes. It adds no release-ledger certification. The
+subjects are `order/urls.py:57` and `order/templates/order/shortcuts.html`;
+positive quoted-sale P/PP/F/N/E/S effects, identity-provider acceptance, payment
+or offline settlement, and the full counter template remain separate proofs.
