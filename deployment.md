@@ -79,16 +79,6 @@ diagnostics under the ignored `backend/evidence/private/` folder. A passing
 verification run does not imply production readiness: the release gate remains
 separate. Add `--release` to require that gate to pass too.
 
-Source oracles also require the reviewed API baseline
-`2960acbea10c4eaf16b6d99e15ff6e03ef7724c5`. When the developer's API checkout
-has moved on, use a separate, clean Git checkout of that commit and set
-`POS_LEGACY_IMPORT_SOURCE_ROOT` to its directory
-before starting verification. Do not reset or modify the developer's checkout.
-The alternate location preserves each consumer's original commit/byte checks;
-it does not select another source revision. Fixture launchers forward only
-that source location rather than inherited service credentials. Generated
-exchange metadata records repository/commit identity instead of a local path.
-
 The build toolchain selects an exact local picomatch mitigation in both
 lockfiles. Keep each project's `tools/dependency-security` artifact and verifier
 in its independent build context. Run `npm ci` before using a changed lockfile;
@@ -107,26 +97,10 @@ fresh consolidated run. Platform run `44235902175` passed both Windows and macOS
 on `cd179c5`, including unsigned review packaging and native smoke checks.
 This does not certify signed production distribution or the later metadata port.
 
-The inventory workbook source oracle additionally needs its isolated Python
-environment. Install `backend/tools/inventory-workbooks/requirements-oracle.txt`
-into `backend/tools/inventory-workbooks/.venv` with Python 3.10 before running
-the source comparisons. This is a verification dependency, not a production
-runtime dependency. Source-oracle preflight now checks the pinned local Python
-versions and packages before the full verifier starts compilation: pricing
-requires Python 3.12.15, SQLAlchemy 2.1.8 and PyMySQL 1.2.4; workbooks require
-Python 3.10.22, openpyxl 3.1.2 and et-xmlfile 1.1.0. Run
-`node tools/verify-fixture-environments.mjs` from `backend/`. Fresh worktrees
-need their own oracle environments; the original untracked environments are
-not part of a Git checkout. Provision private copies or use the documented
-locked environment setup, preserving any shared environment.
-
-Frontend verification uses two Vitest workers, matching desktop CI, without
-changing test deadlines. A caller may reuse an existing private native-runner
-compilation cache with `POS_IMPORT_GO_BUILD_CACHE`; the full verifier accepts
-only caller-owned, nonsymlink `/tmp/pos-import-go.<id>/build-cache` directories
-under a private runner directory. The native command retains `-race -count=1`.
-This avoids repeating a cold compiler build; it does not reuse test results or
-convert an earlier timeout into a passing run.
+Legacy oracles are no longer executed: the repository has no Python, Go or PHP,
+and source comparisons read committed golden fixtures instead. Frontend
+verification uses two Vitest workers, matching desktop CI, without changing test
+deadlines.
 
 The workbook writer uses the existing durable report queue
 and private bounded spool; review `backend/parity/inventory-workbooks.md`.

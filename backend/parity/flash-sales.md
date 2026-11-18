@@ -1,6 +1,6 @@
 # Flash-sales source and query evidence
 
-Source: `report/datatables/sales_data.py:AjaxSalesDataView`, baseline `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. `tools/operational-reports/generate-flash-sales-sql.py` extracts inspected SQL and the 22-column CSV manifest using AST only and records the source SHA-256. It does not import Django or connect to services.
+Source: `report/datatables/sales_data.py:AjaxSalesDataView`, baseline `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. the former `tools/operational-reports/generate-flash-sales-sql.py` (removed 19 November 2026; output frozen) extracted inspected SQL and the 22-column CSV manifest using AST only and records the source SHA-256. It does not import Django or connect to services.
 
 `POST /api/v1/reports/flash-sales/search`, `FlashSalesPage({user,storeId})` and the queued `flash-sales` export cover the source screen, full export and financial buckets. Calendar dates select inclusive complete business days. Internal operators select stores explicitly; non-superadmins cannot cross assignments. Restricted user type 2 uses all its assigned stores, preserving the source override of a narrower selection, while an unassigned restricted account cannot request other stores. Jobs freeze those assignments and check writer-current role/type/assignment on subsequent artifact access.
 

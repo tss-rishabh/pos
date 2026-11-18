@@ -59,15 +59,13 @@ npm test
 npm run parity:gate
 ```
 
-`parity:gate` must fail until the ledger is complete. Pure legacy report and
-checkout payload tests execute selected original Python methods through an AST
-oracle without importing Django, executing application startup, or using a live
-database. They require `../backend-pos-web` beside this project and Python 3.
-The source pricing/refund and stock suites additionally require the pinned
-`../backend-tss-api_v2` and `../backend-sync-api` reference checkouts. Install
-`uv` for the private source compatibility checks; its frozen lock selects an
-isolated Python 3.12 runtime and dependencies without importing source startup.
-These tests establish component parity, not complete request/runtime parity.
+`parity:gate` must fail until the ledger is complete. The repository contains
+no Python, Go or PHP. Legacy source behaviour is compared against committed
+golden JSON fixtures (`backend/tests/golden/`, captured outside the repository
+from the pinned legacy source) and read-only live MySQL parity tests. A few
+tests read pinned legacy files as text through `git show` and need
+`../backend-pos-web` beside this project. These tests establish component
+parity, not complete request/runtime parity.
 
 The optional MySQL integration suite only permits a local schema named
 `pos_rewrite_integration`; it verifies real transaction races and idempotency.

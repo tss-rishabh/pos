@@ -1,5 +1,0 @@
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": { "types": ["node", "vite/client"], "noEmit": true },
-  "include": ["joined-help.ts", "native-reference.ts", "../../../backend/src/**/*.d.ts"]
-}

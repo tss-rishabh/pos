@@ -26,7 +26,6 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "inventory": "python3 tools/inventory_legacy.py",
     "parity:gate": "tsx tools/parity-gate.ts",
     "verify:mysql": "node tools/verify-mysql.cjs",
     "lint": "eslint src tests tools",

@@ -1,6 +1,6 @@
 import { execFileSync, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -26,23 +26,8 @@ const childEnvironment: NodeJS.ProcessEnv = {
 };
 for (const name of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'COMSPEC'])
   if (process.env[name]) childEnvironment[name] = process.env[name];
-// Only local source roots are forwarded, never arbitrary service environment or
-// credentials. Every source consumer still validates its immutable byte pins.
-for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT']) {
-  const value = process.env[name];
-  if (value) {
-    const path = resolve(value);
-    if (!existsSync(path) || !statSync(path).isDirectory())
-      throw new Error('Pinned source root is unavailable.');
-    childEnvironment[name] = path;
-  }
-}
 if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE)
   childEnvironment.PLAYWRIGHT_CHROMIUM_EXECUTABLE = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
-childEnvironment.WHOLE_ORDER_STATUS_ORACLE_PYTHON = resolve(
-  backend,
-  'tools/order-search/run-oracle.sh',
-);
 if (flags.has('--mysql')) {
   let url: URL;
   try {
@@ -100,10 +85,6 @@ if (flags.has('--mysql')) {
     }
     childEnvironment[name] = fixtureUrl.href;
   }
-  childEnvironment.ORDER_SEARCH_ORACLE_PYTHON = resolve(
-    backend,
-    'tools/order-search/run-oracle.sh',
-  );
   childEnvironment.ORDER_SEARCH_SOURCE_ROOT = resolve(workspace, '../backend-pos-web');
 }
 
@@ -263,12 +244,6 @@ const checks: Check[] = [
     id: 'verification-process-cleanup-tests',
     directory: 'backend',
     args: ['--import', 'tsx', '--test', 'tools/verification/check.test.ts'],
-    prerequisite: true,
-  },
-  {
-    id: 'source-oracle-environments',
-    directory: 'backend',
-    args: ['tools/verify-fixture-environments.mjs'],
     prerequisite: true,
   },
   {
@@ -987,53 +962,6 @@ const checks: Check[] = [
 ];
 for (const [id, directory, config] of [
   ['backend-vitest-config-typecheck', 'backend', 'tsconfig.vitest.json'],
-  ['lookup-workflow-backend-typecheck', 'backend', 'tools/lookup-workflow/backend.tsconfig.json'],
-  ['lookup-workflow-browser-typecheck', 'frontend', 'tests/lookup-workflow/tsconfig.json'],
-  [
-    'archival-native-workflow-typecheck',
-    'frontend',
-    'tests/administration/archival-workflow-tsconfig.json',
-  ],
-  [
-    'global-reminders-native-workflow-typecheck',
-    'frontend',
-    'tests/global-reminders/tsconfig.native.json',
-  ],
-  [
-    'release-notes-native-workflow-typecheck',
-    'frontend',
-    'tests/global-reminders/tsconfig.notes.json',
-  ],
-  [
-    'notification-native-workflow-typecheck',
-    'backend',
-    'tools/fulfillment/notification-workflow.tsconfig.json',
-  ],
-  [
-    'notification-native-browser-typecheck',
-    'frontend',
-    'tests/fulfillment/notification-workflow.tsconfig.json',
-  ],
-  [
-    'customer-profile-native-workflow-typecheck',
-    'backend',
-    'tools/customer-profile/native-workflow.tsconfig.json',
-  ],
-  [
-    'customer-profile-native-browser-typecheck',
-    'frontend',
-    'tests/customer-profile/native-workflow.tsconfig.json',
-  ],
-  [
-    'feedback-native-workflow-typecheck',
-    'backend',
-    'tools/product-feedback/native-workflow.tsconfig.json',
-  ],
-  [
-    'shortcut-joined-workflow-typecheck',
-    'frontend',
-    'tools/cashier-shortcuts/tsconfig.joined.json',
-  ],
 ] as const)
   checks.push({
     id,
@@ -1042,85 +970,19 @@ for (const [id, directory, config] of [
   });
 if (flags.has('--browser')) {
   if (flags.has('--mysql')) {
-    const source = resolve(workspace, '../backend-pos-web');
-    checks.push(
-      {
-        id: 'counter-barcode-source-dispatch-tests',
-        directory: 'backend',
-        command: 'sh',
-        args: [
-          'tools/order-search/run-oracle.sh',
-          '-B',
-          '../frontend/tests/counter-catalog/source-barcode.py',
-          source,
-        ],
-      },
-      {
-        id: 'online-order-detail-native-app-browser-tests',
-        directory: 'backend',
-        args: [
-          'node_modules/vitest/vitest.mjs',
-          'run',
-          'tests/order-history/online-detail.mysql.test.ts',
-          '-t',
-          'loads actual routed App with native cookie',
-          '--maxWorkers=1',
-        ],
-        environment: { ORDER_DETAIL_BROWSER_TEST: 'true' },
-      },
-      {
-        id: 'lookup-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/lookup-workflow/run.sh'],
-        environment: { LOOKUP_WORKFLOW_SOURCE_ROOT: source },
-      },
-      {
-        id: 'feedback-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/product-feedback/run-native-workflow.sh'],
-        environment: { PRODUCT_FEEDBACK_SOURCE_ROOT: source },
-      },
-      {
-        id: 'customer-profile-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/customer-profile/native-workflow-run.sh'],
-        environment: { CUSTOMER_PROFILE_SOURCE_ROOT: source },
-      },
-      {
-        id: 'shortcut-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/cashier-shortcuts/run-joined.sh', source, '--native-reference'],
-      },
-      {
-        id: 'archival-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/administration/archival-workflow-run.sh', source],
-      },
-      {
-        id: 'global-reminders-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/global-reminders/run.sh', source],
-      },
-      {
-        id: 'release-notes-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/global-reminders/notes-run.sh', source],
-      },
-      {
-        id: 'notification-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/fulfillment/notification-workflow-run.sh'],
-        environment: { NOTIFICATION_SOURCE_ROOT: source },
-      },
-    );
+    checks.push({
+      id: 'online-order-detail-native-app-browser-tests',
+      directory: 'backend',
+      args: [
+        'node_modules/vitest/vitest.mjs',
+        'run',
+        'tests/order-history/online-detail.mysql.test.ts',
+        '-t',
+        'loads actual routed App with native cookie',
+        '--maxWorkers=1',
+      ],
+      environment: { ORDER_DETAIL_BROWSER_TEST: 'true' },
+    });
   }
   checks.push({
     id: 'daily-reports-browser-tests',

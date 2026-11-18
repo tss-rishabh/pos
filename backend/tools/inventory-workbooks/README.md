@@ -1,15 +1,6 @@
 # Isolated workbook verification
 
-Run from `backend/`. Source sibling `../backend-pos-web` must contain commit `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`; the oracle reads pinned bytes with `git show` and checks their hashes. It never imports/runs the source application or sends network/storage work.
-
-Set up the test-only Python environment once:
-
-```sh
-uv venv --python 3.10.22 tools/inventory-workbooks/.venv
-uv pip install --python tools/inventory-workbooks/.venv/bin/python -r tools/inventory-workbooks/requirements-oracle.txt
-```
-
-Alternatively set `INVENTORY_WORKBOOK_ORACLE_PYTHON` to an isolated Python executable with exact openpyxl3.1.2 and et-xmlfile1.1.0. The default is the above virtual environment. No new production Python dependency is introduced.
+Run from `backend/`. Source sibling `../backend-pos-web` must contain commit `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`.
 
 ```sh
 INVENTORY_WORKBOOK_MYSQL_TEST_URL=mysql://root@127.0.0.1/pos_rewrite_integration npx -y node@24.22.3 node_modules/vitest/vitest.mjs run tests/inventory-workbooks

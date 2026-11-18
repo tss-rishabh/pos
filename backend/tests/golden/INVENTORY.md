@@ -219,3 +219,25 @@ Status values: **captured** (test rewired to the golden, assertions unchanged);
 - W2 can delete every oracle script whose only callers are captured rows above; scripts named in uncaptured rows still have live callers.
 - verify-project.ts oracle stages are inventoried but not changed in W1 (Phase B5).
 - Uncaptured python-unittest suites need their Python assertions ported to TS (against goldens or live read-only MySQL) before deletion, or an explicit parity-scope reduction.
+
+## W2 disposition (19 November 2026)
+
+W2 deleted every `.py`, `.go` and `.php` file, the Python environments, and the
+verifier stages and environment probes that ran them. The `uncaptured`,
+`partially captured`, `obsolete` and verifier rows above now resolve as follows:
+
+- **Deleted with removed features** (CSV order import, screening, compatibility):
+  every `legacy-import-*`, `legacy-order-imports/*`, `source-runtime-acceptance`,
+  `public-screening-writer`, `screening-*`, `native-head-metadata`,
+  `customer-contacts` bridge, `ecommerce-sync/bridge`, `offline-cash-import`,
+  `offline-cash-source-pricing.mysql`, `invoice-reader`, `invoice-security`
+  Python cases, `gift-issuance` and `cancellation-membership-context` row.
+- **Converted to TypeScript:** `frontend/tests/catalog/browser-check.mjs` now
+  decodes the downloaded workbook with Node's `zlib`, and its assertion is
+  unchanged. `backend/tests/order-search/native.test.ts` (not listed above; it
+  spawned `tools/order-search/source_oracle.py`) now compares vector 0 against
+  the committed `frontend/tests/order-search/source-snapshot.json`.
+  `tests/orm-metadata.test.ts` now compares Drizzle definitions with
+  `schema/production-schema.json` instead of re-running `generate_orm.py`.
+- **Parity-evidence gaps (no golden exists, nothing invented):** see
+  `backend/parity/w2-followups.md`, section "Python, Go and PHP removal".
