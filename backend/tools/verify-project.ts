@@ -224,6 +224,7 @@ type Check = {
   command?: 'sh';
   args: string[];
   environment?: NodeJS.ProcessEnv;
+  timeoutMs?: number;
 };
 type CheckResult = { id: string; exitCode: number; durationMs: number; log: string };
 const checks: Check[] = [
@@ -731,8 +732,17 @@ const checks: Check[] = [
   {
     id: 'backend-tests',
     directory: 'backend',
-    // Bound concurrent native fixture DDL while other isolated workers are active.
-    args: ['node_modules/vitest/vitest.mjs', 'run', '--maxWorkers=4'],
+    // Native authority audits inspect the shared account/definer universe.
+    // Keep its fixtures serial; unrelated fixture DDL must not look like an
+    // authority attack, or consume another fixture's setup timeout.
+    args: [
+      'node_modules/vitest/vitest.mjs',
+      'run',
+      ...(flags.has('--mysql')
+        ? ['--maxWorkers=1', '--no-file-parallelism']
+        : ['--maxWorkers=4']),
+    ],
+    timeoutMs: flags.has('--mysql') ? 20 * 60 * 1000 : 10 * 60 * 1000,
   },
   {
     id: 'frontend-typecheck',
@@ -1435,7 +1445,10 @@ async function run(check: Check): Promise<CheckResult> {
   };
   child.stdout!.on('data', collect);
   child.stderr!.on('data', collect);
-  const timeout = setTimeout(() => stopProcess(child, 'SIGKILL'), 10 * 60 * 1000);
+  const timeout = setTimeout(
+    () => stopProcess(child, 'SIGKILL'),
+    check.timeoutMs ?? 10 * 60 * 1000,
+  );
   const code = await new Promise<number>((done) => {
     child.once('error', () => done(1));
     child.once('close', (exitCode) => done(exitCode ?? 1));
