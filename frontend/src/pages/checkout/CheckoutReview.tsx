@@ -17,6 +17,7 @@ import {
   saveRecovery,
   registrationSchema,
   type Checkout,
+  type CheckoutFlags,
   type Customer,
 } from './client';
 import { PaymentPanel, type ConfirmedPayment } from './PaymentPanel';
@@ -109,6 +110,8 @@ export function CheckoutReview({
     [coupon, setCoupon] = useState(''),
     [giftCode, setGiftCode] = useState(''),
     [giftPin, setGiftPin] = useState(''),
+    [giftPinRequested, setGiftPinRequested] = useState(false),
+    [flags, setFlags] = useState<CheckoutFlags | null>(null),
     [discount, setDiscount] = useState(''),
     [discountKind, setDiscountKind] = useState<'pg' | 'store'>('store'),
     [discountRemark, setDiscountRemark] = useState(''),
@@ -116,6 +119,10 @@ export function CheckoutReview({
     [wallet, setWallet] = useState(''),
     [walletMoney, setWalletMoney] = useState(true),
     [walletPoints, setWalletPoints] = useState(false);
+  useEffect(() => {
+    if (flags?.enableNewPgDiscount === false && flags.enableOldPgDiscount) setDiscountKind('pg');
+    if (flags?.enableOldPgDiscount === false && flags.enableNewPgDiscount) setDiscountKind('store');
+  }, [flags]);
   const [profilePending, setProfilePending] = useState(false);
   const [contactPending, setContactPending] = useState(false);
   const [conversionPending, setConversionPending] = useState(false);
@@ -191,6 +198,7 @@ export function CheckoutReview({
       throw new Error(
         'This checkout belongs to a different operator. Restore the original operator before continuing.',
       );
+    if (value.flags) setFlags(value.flags);
     if (value.phase === 'cleared') {
       const proof = value.lastClear;
       if (
@@ -509,14 +517,7 @@ export function CheckoutReview({
   useEffect(() => {
     const request = shortcutRequest,
       root = shortcutRoot.current;
-    if (
-      !request ||
-      !root ||
-      request.action !== 'salesperson' ||
-      disabled ||
-      pendingId
-    )
-      return;
+    if (!request || !root || request.action !== 'salesperson' || disabled || pendingId) return;
     const focus = () => {
       if (
         !shortcutIntent.current.consumed &&
@@ -984,11 +985,7 @@ export function CheckoutReview({
                 }}
                 checkoutVersion={checkout.version}
                 online={online}
-                disabled={
-                  disabled ||
-                  Boolean(pendingId) ||
-                  Boolean(checkout.busyOperationId)
-                }
+                disabled={disabled || Boolean(pendingId) || Boolean(checkout.busyOperationId)}
               />
             )}
             {checkout.customerId && (
@@ -1002,11 +999,7 @@ export function CheckoutReview({
                 }}
                 checkoutVersion={checkout.version}
                 online={online}
-                disabled={
-                  disabled ||
-                  Boolean(pendingId) ||
-                  Boolean(checkout.busyOperationId)
-                }
+                disabled={disabled || Boolean(pendingId) || Boolean(checkout.busyOperationId)}
                 orderDetailsPath={(orderId) => '/orders?orderId=' + encodeURIComponent(orderId)}
                 feedbackPath={(orderId) =>
                   productFeedbackPath({
@@ -1043,45 +1036,21 @@ export function CheckoutReview({
                 />
                 <details {...sectionProps('messages')}>
                   <summary>Order messages</summary>
+                  {/* Legacy posts nps_feedback_switch from a checked, disabled box and always
+                      queues the order SMS (create_order.html:76, order/views.py:2831). */}
                   <label>
                     <input
                       type="checkbox"
-                      checked={checkout.orderNotifications?.sendSms ?? true}
-                      disabled={disabled}
-                      onChange={(event) => {
-                        const sendSms = event.target.checked;
-                        void act(async () => {
-                          await mutate('order-notifications', 'PUT', {
-                            sendSms,
-                            npsFeedback:
-                              sendSms && (checkout.orderNotifications?.npsFeedback ?? false),
-                          });
-                        });
-                      }}
-                    />
-                    Send the customer an order SMS
-                  </label>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={checkout.orderNotifications?.npsFeedback ?? false}
+                      checked
+                      disabled
                       data-cashier-action="toggle-nps"
                       aria-keyshortcuts="N"
-                      disabled={disabled || checkout.orderNotifications?.sendSms === false}
-                      onChange={(event) => {
-                        const npsFeedback = event.target.checked;
-                        void act(async () => {
-                          await mutate('order-notifications', 'PUT', {
-                            sendSms: true,
-                            npsFeedback,
-                          });
-                        });
-                      }}
+                      readOnly
                     />
-                    Include the shopping feedback link
+                    NPS Feedback
                   </label>
                   <p className="caption">
-                    Messages are queued after the order is confirmed. Their delivery does not
+                    The order SMS is sent after the order is confirmed. Its delivery does not
                     determine payment status.
                   </p>
                 </details>
@@ -1245,40 +1214,44 @@ export function CheckoutReview({
                   )}
                 </details>
                 <details {...sectionProps('membership')}>
-                  <summary>Coupon and membership</summary>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void act(async () => {
-                        await mutate('coupon', 'PUT', { code: coupon });
-                        setCoupon('');
-                      });
-                    }}
-                  >
-                    <label>
-                      Coupon
-                      <input
-                        value={coupon}
-                        onChange={(e) => setCoupon(e.target.value)}
-                        maxLength={100}
-                      />
-                    </label>
-                    <button className="button secondary" disabled={disabled}>
-                      Apply coupon
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={disabled}
-                      onClick={() =>
+                  <summary>
+                    {flags?.showCouponModule === false ? 'Membership' : 'Coupon and membership'}
+                  </summary>
+                  {flags?.showCouponModule !== false && (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
                         void act(async () => {
-                          await mutate('coupon/removals', 'POST');
-                        })
-                      }
+                          await mutate('coupon', 'PUT', { code: coupon });
+                          setCoupon('');
+                        });
+                      }}
                     >
-                      Remove coupon
-                    </button>
-                  </form>
+                      <label>
+                        Coupon
+                        <input
+                          value={coupon}
+                          onChange={(e) => setCoupon(e.target.value)}
+                          maxLength={100}
+                        />
+                      </label>
+                      <button className="button secondary" disabled={disabled}>
+                        Apply coupon
+                      </button>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={disabled}
+                        onClick={() =>
+                          void act(async () => {
+                            await mutate('coupon/removals', 'POST');
+                          })
+                        }
+                      >
+                        Remove coupon
+                      </button>
+                    </form>
+                  )}
                   <label>
                     <input
                       type="checkbox"
@@ -1377,9 +1350,23 @@ export function CheckoutReview({
                     onSubmit={(e) => {
                       e.preventDefault();
                       void act(async () => {
-                        const pin = giftPin;
+                        // Legacy applies with gc_pin 0 and asks for "GC PIN" only when the
+                        // voucher needs one (create_order.html:3433-3557).
+                        const pin = giftPinRequested && giftPin ? giftPin : '0';
                         setGiftPin('');
-                        await mutate('gift-vouchers', 'POST', { code: giftCode, pin });
+                        try {
+                          await mutate('gift-vouchers', 'POST', { code: giftCode, pin });
+                        } catch (error) {
+                          if (
+                            error instanceof ApiError &&
+                            ['GIFT_VOUCHER_PIN_REQUIRED', 'GIFT_VOUCHER_PIN_INVALID'].includes(
+                              error.code,
+                            )
+                          )
+                            setGiftPinRequested(true);
+                          throw error;
+                        }
+                        setGiftPinRequested(false);
                         setGiftCode('');
                       });
                     }}
@@ -1393,17 +1380,23 @@ export function CheckoutReview({
                         required
                       />
                     </label>
-                    <label>
-                      Gift voucher PIN
-                      <input
-                        type="password"
-                        autoComplete="off"
-                        value={giftPin}
-                        onChange={(e) => setGiftPin(e.target.value)}
-                        maxLength={32}
-                        required
-                      />
-                    </label>
+                    {giftPinRequested && (
+                      <label>
+                        GC PIN
+                        <input
+                          type="password"
+                          autoComplete="off"
+                          inputMode="numeric"
+                          placeholder="Enter 6 Digit PIN"
+                          value={giftPin}
+                          onChange={(e) => setGiftPin(e.target.value)}
+                          pattern="[0-9_]{1,20}"
+                          maxLength={20}
+                          required
+                          autoFocus
+                        />
+                      </label>
+                    )}
                     <button
                       className="button secondary"
                       disabled={
@@ -1428,100 +1421,108 @@ export function CheckoutReview({
                     </button>
                   </form>
                 </details>
-                <details>
-                  <summary>Store and payment gateway discounts</summary>
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      void act(async () => {
-                        await mutate('discount', 'PUT', {
-                          kind: discountKind,
-                          amount: discount,
-                          apply: true,
-                          remark: discountRemark,
-                          ...(discountKind === 'store' ? { reason: discountReason } : {}),
-                        });
-                      });
-                    }}
-                  >
-                    <label>
-                      Discount type
-                      <select
-                        value={discountKind}
-                        onChange={(event) =>
-                          setDiscountKind(event.target.value === 'pg' ? 'pg' : 'store')
-                        }
-                      >
-                        <option value="store">Store discount (PG)</option>
-                        <option value="pg">Payment gateway discount</option>
-                      </select>
-                    </label>
-                    <label>
-                      Discount amount
-                      <input
-                        value={discount}
-                        onChange={(e) => setDiscount(e.target.value)}
-                        inputMode="decimal"
-                        pattern="[0-9]+(\.[0-9]{1,2})?"
-                        required
-                      />
-                    </label>
-                    <label>
-                      Discount remark
-                      <input
-                        value={discountRemark}
-                        onChange={(event) => setDiscountRemark(event.target.value)}
-                        minLength={3}
-                        maxLength={35}
-                        required
-                      />
-                    </label>
-                    {discountKind === 'store' && (
-                      <label>
-                        Store discount reason
-                        <select
-                          required
-                          value={discountReason}
-                          onChange={(event) => setDiscountReason(event.target.value)}
-                        >
-                          <option value="">Select reason</option>
-                          {[
-                            'Price mismatch (Online v/s POS)',
-                            'Price mismatch (Pricetag v/s POS)',
-                            'Price mismatch (During exchange)',
-                            'Founder billing',
-                            'Marketing activity',
-                            'Uniform billing',
-                            'Perfume tester',
-                            'Trial socks',
-                            'Personal Care',
-                          ].map((reason) => (
-                            <option key={reason}>{reason}</option>
-                          ))}
-                        </select>
-                      </label>
-                    )}
-                    <button className="button secondary" disabled={disabled}>
-                      Apply discount
-                    </button>
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={disabled}
-                      onClick={() =>
-                        void act(async () => {
-                          await mutate('discount', 'PUT', {
-                            kind: discountKind,
-                            amount: '0.00',
-                            apply: false,
+                {flags?.showPgDiscountModule !== false &&
+                  (flags?.enableNewPgDiscount !== false ||
+                    flags?.enableOldPgDiscount !== false) && (
+                    <details>
+                      <summary>Store and payment gateway discounts</summary>
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          void act(async () => {
+                            await mutate('discount', 'PUT', {
+                              kind: discountKind,
+                              amount: discount,
+                              apply: true,
+                              remark: discountRemark,
+                              ...(discountKind === 'store' ? { reason: discountReason } : {}),
+                            });
                           });
-                        })
-                      }
-                    >
-                      Remove selected discount
-                    </button>
-                  </form>
-                </details>
+                        }}
+                      >
+                        <label>
+                          Discount type
+                          <select
+                            value={discountKind}
+                            onChange={(event) =>
+                              setDiscountKind(event.target.value === 'pg' ? 'pg' : 'store')
+                            }
+                          >
+                            {flags?.enableNewPgDiscount !== false && (
+                              <option value="store">Store discount (PG)</option>
+                            )}
+                            {flags?.enableOldPgDiscount !== false && (
+                              <option value="pg">Payment gateway discount</option>
+                            )}
+                          </select>
+                        </label>
+                        <label>
+                          Discount amount
+                          <input
+                            value={discount}
+                            onChange={(e) => setDiscount(e.target.value)}
+                            inputMode="decimal"
+                            pattern="[0-9]+(\.[0-9]{1,2})?"
+                            required
+                          />
+                        </label>
+                        <label>
+                          Discount remark
+                          <input
+                            value={discountRemark}
+                            onChange={(event) => setDiscountRemark(event.target.value)}
+                            minLength={3}
+                            maxLength={35}
+                            required
+                          />
+                        </label>
+                        {discountKind === 'store' && (
+                          <label>
+                            Store discount reason
+                            <select
+                              required
+                              value={discountReason}
+                              onChange={(event) => setDiscountReason(event.target.value)}
+                            >
+                              <option value="">Select reason</option>
+                              {[
+                                'Price mismatch (Online v/s POS)',
+                                'Price mismatch (Pricetag v/s POS)',
+                                'Price mismatch (During exchange)',
+                                'Founder billing',
+                                'Marketing activity',
+                                'Uniform billing',
+                                'Perfume tester',
+                                'Trial socks',
+                                'Personal Care',
+                              ].map((reason) => (
+                                <option key={reason}>{reason}</option>
+                              ))}
+                            </select>
+                          </label>
+                        )}
+                        <button className="button secondary" disabled={disabled}>
+                          Apply discount
+                        </button>
+                        <button
+                          type="button"
+                          className="button secondary"
+                          disabled={disabled}
+                          onClick={() =>
+                            void act(async () => {
+                              await mutate('discount', 'PUT', {
+                                kind: discountKind,
+                                amount: '0.00',
+                                apply: false,
+                              });
+                            })
+                          }
+                        >
+                          Remove selected discount
+                        </button>
+                      </form>
+                    </details>
+                  )}
                 <button
                   className="button secondary full"
                   disabled={disabled}

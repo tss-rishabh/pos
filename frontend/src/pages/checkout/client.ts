@@ -37,7 +37,22 @@ export const registrationSchema = z.object({
   deliveries: z.array(z.object({ channel: z.enum(['sms', 'whatsapp']), status: z.string() })),
 });
 export type Registration = z.infer<typeof registrationSchema>;
-export const checkoutSchema = z
+export /**
+ * Legacy settings flags resolved by the server per request (checkout store category and
+ * operator user_type), as `CreateOrderView` passes them to `create_order.html`.
+ */
+const checkoutFlagsSchema = z
+  .object({
+    showCouponModule: z.boolean(),
+    showPgDiscountModule: z.boolean(),
+    enableOldPgDiscount: z.boolean(),
+    enableNewPgDiscount: z.boolean(),
+    enableVoucherToMoney: z.boolean(),
+    tenPerSwitch: z.boolean(),
+  })
+  .strict();
+export type CheckoutFlags = z.infer<typeof checkoutFlagsSchema>;
+const checkoutSchema = z
   .object({
     id: z.uuid(),
     operatorId: z
@@ -127,6 +142,7 @@ export const checkoutSchema = z
       .record(z.string(), z.object({ startDate: z.iso.date(), endDate: z.iso.date() }))
       .optional(),
     giftCardValues: z.record(z.string(), z.number().int().min(1).max(10000)).optional(),
+    flags: checkoutFlagsSchema.optional(),
   })
   .passthrough();
 export type Checkout = z.infer<typeof checkoutSchema>;
