@@ -267,3 +267,18 @@ export function configuredStateStore(config: Config): PosStateStore {
   configuredStores.set(key, created);
   return created;
 }
+
+/**
+ * The store the application configured first (app.ts creates it at startup), for call sites
+ * outside W4 that cannot pass one yet (offline-sync constructs `paymentService` with two
+ * arguments). Falls back to the shared in-memory store outside production.
+ */
+export function sharedStateStore(): PosStateStore {
+  const first = configuredStores.values().next();
+  if (!first.done) return first.value;
+  if (process.env.NODE_ENV === 'production')
+    throw new Error('Production requires the configured checkout state store.');
+  const created = memoryStateStore();
+  configuredStores.set('memory:', created);
+  return created;
+}

@@ -70,11 +70,6 @@ import {
   registerWholeOrderStatus,
 } from './modules/legacy-order-status/index.js';
 import { checkoutEnvironment } from './modules/checkout/gateway.js';
-import {
-  paymentCorrectionEvidence,
-  paymentReversalOptions,
-  registerPaymentReversals,
-} from './modules/checkout/payment-reversals/index.js';
 import { registerFulfillment } from './modules/fulfillment/index.js';
 import { registerShippingLabels } from './modules/fulfillment/shipping-label/index.js';
 import { registerLegacyFulfillment } from './modules/legacy-fulfillment/index.js';
@@ -104,7 +99,6 @@ import { ordersService } from './modules/orders.js';
 import { publicOrderHistory } from './modules/order-history/index.js';
 import { registerPublicOrders } from './modules/order-history/routes.js';
 import { registerOnlineOrderDetails } from './modules/order-history/online-detail/routes.js';
-import { historicalOrderCopyFacts } from './modules/order-history/copy-adapter.js';
 import {
   registerOrderSearch,
   readOrderSearchOptions,
@@ -364,9 +358,7 @@ export async function buildApp(
   const checkout = await registerCheckout(app, config, db, {
     ...checkoutShared,
     environment: checkoutRuntime,
-    paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
     customerOtp,
-    orderCopy: { history: historicalOrderCopyFacts(orderHistory) },
     rejectedInboundRepairDispatcherEnabled:
       !config.DEMO_MODE && wholeOrderOptions.WHOLE_ORDER_STATUS_WORKER_ENABLED,
     ...(stockProjection
@@ -374,12 +366,6 @@ export async function buildApp(
       : {}),
   });
   registerOfflineSync(app, config, db, { checkout, identity, environment: checkoutRuntime });
-  registerPaymentReversals(app, config, db, {
-    ...checkoutShared,
-    ...paymentReversalOptions(),
-    hashSecret: paymentCorrections.proofKey ?? '',
-    projection: checkoutRuntime,
-  });
   await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), {
     ...checkoutShared,
     customerOtp,

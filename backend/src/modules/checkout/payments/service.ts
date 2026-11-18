@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Principal } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
 import { amount, minorUnits } from '../../../domain/money.js';
-import { memoryStateStore, readJson, withStateLock, type PosStateStore } from '../state-store.js';
+import { readJson, sharedStateStore, withStateLock, type PosStateStore } from '../state-store.js';
 import {
   PaymentOutcomeUnknown,
   paymentAttemptRecordSchema,
@@ -70,15 +70,15 @@ export interface PaymentServiceOptions {
   pushes?: OrderPushes;
 }
 /**
- * `stateStore` must be the shared Redis store in production. The in-memory default exists
- * only for existing two-argument call sites (offline sync) and is process-local.
+ * `stateStore` must be the shared Redis store in production. Two-argument call sites (offline
+ * sync) get the application's configured store through `sharedStateStore()`.
  */
 export function paymentService(
   repository: PaymentRepository,
   gateway: PaymentGateway,
   options: PaymentServiceOptions = {},
 ) {
-  const store = options.stateStore ?? memoryStateStore();
+  const store = options.stateStore ?? sharedStateStore();
   const locked = <T>(orderId: string, run: () => Promise<T>) =>
     withStateLock(store, paymentKeys.lock(orderId), run, {
       ttlSeconds: LOCK_TTL_SECONDS,

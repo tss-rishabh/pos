@@ -8,7 +8,6 @@ import { AppError } from '../../../domain/errors.js';
 import type { JobProducer } from '../../../jobs/contract.js';
 import { checkoutSessionStore, type CheckoutSessionStore } from '../session-store.js';
 import { configuredStateStore, type PosStateStore } from '../state-store.js';
-import type { CustomerVerificationClient } from '../customer-verification.js';
 import { orderCopyInputSchema, type CopyCartPort, type CopyFactsPort } from './contracts.js';
 import { orderCopyService } from './service.js';
 
@@ -16,8 +15,6 @@ export interface OrderCopyOptions {
   stateStore?: PosStateStore;
   sessions?: CheckoutSessionStore;
   jobs?: JobProducer;
-  /** TRANSITIONAL, unused: legacy copy needs no customer OTP. Remove from the registerCheckout call. */
-  customerOtp?: CustomerVerificationClient;
   /** TRANSITIONAL, unused: legacy reads the source order from MySQL. Remove from app.ts. */
   history?: CopyFactsPort;
 }

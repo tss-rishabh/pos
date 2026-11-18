@@ -59,7 +59,6 @@ import { registerPendingOrderCancellations } from './cancellations/routes.js';
 import { pendingCancellationOptions } from './cancellations/options.js';
 import type { PendingCancellationOptions } from './cancellations/options.js';
 import { registerOrderCopy, type OrderCopyOptions } from './order-copy/routes.js';
-import type { PaymentCorrectionPort } from './payment-reversals/evidence.js';
 import { copyCancellationClearVerifier } from './order-copy/cancellation-evidence.js';
 import { configuredStateStore, type PosStateStore } from './state-store.js';
 import { checkoutFlagsReader } from './legacy-flags.js';
@@ -74,7 +73,6 @@ const trace = (resource: string, action: string) => ({
   config: { trace: { module: 'checkout', resource, action } },
 });
 export interface CheckoutRegistrationOptions {
-  paymentCorrections?: PaymentCorrectionPort;
   orderCopy?: OrderCopyOptions;
   repository?: CheckoutRepository;
   gateway?: CheckoutGateway;
@@ -719,9 +717,6 @@ export function registerCheckout(
   );
   registerPayments(app, config, db, {
     ...shared,
-    corrections: overrides.paymentCorrections,
-    hashSecret: environment.hs256 || environment.hs512 || '',
-    projection: environment,
     gateway: overrides.paymentGateway,
     assertCheckIn: overrides.assertCheckIn
       ? (userId, storeId, counterId) => overrides.assertCheckIn!(userId, storeId, counterId)
@@ -751,7 +746,6 @@ export function registerCheckout(
   registerOrderCopy(app, config, db, service.orderCopyCart, {
     ...shared,
     ...overrides.orderCopy,
-    customerOtp,
   });
   registerWalletAdjustments(app, config, db, { ...shared });
   return service;
