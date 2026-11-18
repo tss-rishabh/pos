@@ -106,6 +106,7 @@ if (flags.has('--mysql')) {
     AUTH_MYSQL_TEST_URL: 'pos_rewrite_auth_test',
     ADMINISTRATION_MYSQL_TEST_URL: 'pos_rewrite_administration_test',
     ADMINISTRATION_CREATOR_MYSQL_URL: 'pos_rewrite_creator_authority_test',
+    STORE_DEFAULT_OPERATORS_MYSQL_URL: 'pos_rewrite_store_defaults_test',
     CHECKOUT_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
     MEMBERSHIP_HEAD_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
     ORIGIN_PREVIEW_MYSQL_TEST_URL: 'pos_rewrite_origin_preview_test',
@@ -134,7 +135,10 @@ if (flags.has('--mysql')) {
   })) {
     url.pathname = '/' + schema;
     const fixtureUrl = new URL(url);
-    if (name === 'ADMINISTRATION_CREATOR_MYSQL_URL') {
+    if (
+      name === 'ADMINISTRATION_CREATOR_MYSQL_URL' ||
+      name === 'STORE_DEFAULT_OPERATORS_MYSQL_URL'
+    ) {
       if (fixtureUrl.hostname === 'localhost') fixtureUrl.hostname = '127.0.0.1';
       fixtureUrl.port ||= '3306';
     }
