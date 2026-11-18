@@ -1,0 +1,23 @@
+.day-close-reminder {
+  width: min(30rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 3rem);
+  overflow: auto;
+  border: 1px solid #dfbb6a;
+  border-radius: 1rem;
+  padding: 1.5rem;
+  color: #252b35;
+  background: white;
+  box-shadow: 0 1rem 4rem #14223540;
+}
+.day-close-reminder::backdrop {
+  background: #10182780;
+}
+.day-close-reminder h2 {
+  margin-top: 0;
+}
+.day-close-reminder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.25rem;
+}

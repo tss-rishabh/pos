@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Check, History, RefreshCw, ShieldCheck } from 'lucide-react';
 import { z } from 'zod';
@@ -29,14 +30,25 @@ const labels: Record<(typeof reasons)[number], string> = {
   JUMBLING: 'Payment mix-up',
 };
 export function DayClosePage({ user, storeId }: { user: Principal; storeId: string }) {
-  const [date, setDate] = useState('');
+  const [search, setSearch] = useSearchParams();
+  const requestedDates = search.getAll('date');
+  const requested = z.iso.date().safeParse(requestedDates[0]);
+  const invalidDate =
+    requestedDates.length > 0 && (requestedDates.length !== 1 || !requested.success);
+  const date = requested.success && requestedDates.length === 1 ? requested.data : '';
+  const setDate = (value: string) => {
+    const next = new URLSearchParams(search);
+    if (value) next.set('date', value);
+    else next.delete('date');
+    setSearch(next);
+  };
   const state = useQuery({
     queryKey: [user.id, 'finance-day-close', storeId, date],
-    enabled: !!storeId,
-    queryFn: () =>
+    enabled: !!storeId && !invalidDate,
+    queryFn: ({ signal }) =>
       request(
         `/api/v1/stores/${storeId}/day-closes?${params({ date: date || undefined })}`,
-        {},
+        { operatorId: user.id, signal },
         stateSchema,
       ),
   });
@@ -59,7 +71,9 @@ export function DayClosePage({ user, storeId }: { user: Principal; storeId: stri
         </label>
         <span>Cash collection and refunds are checked again when you submit.</span>
       </div>
-      {state.isPending ? (
+      {invalidDate ? (
+        <ErrorState error={new Error('Choose a valid business date.')} />
+      ) : state.isPending ? (
         <Loading />
       ) : state.isError ? (
         <ErrorState error={state.error} retry={() => void state.refetch()} />

@@ -44,6 +44,7 @@ import { Empty, ErrorState, Loading } from './components/common';
 import type { Principal } from './api/types';
 import { NotificationsPanel } from './pages/fulfillment/notifications';
 import { GlobalFulfillmentExpiryAlerts } from './pages/fulfillment/global-expiry-alerts';
+import { DayCloseReminder } from './pages/finance/day-close-reminder';
 import { pendingSlackConnection } from './pages/administration/slack-return';
 
 const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default: m.CounterPage })));
@@ -479,6 +480,12 @@ function Workspace({ user }: { user: Principal }) {
         </header>
         <GlobalFulfillmentExpiryAlerts
           operatorId={user.id}
+          storeId={state.storeId}
+          enabled={sync.online && capabilities.data?.demo === false &&
+            !stores.isError && Boolean(currentStore?.active)}
+        />
+        <DayCloseReminder
+          user={user}
           storeId={state.storeId}
           enabled={sync.online && capabilities.data?.demo === false &&
             !stores.isError && Boolean(currentStore?.active)}
