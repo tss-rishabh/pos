@@ -5,7 +5,7 @@ import {
   type ConfirmationRecoveryLease,
 } from '../confirmation-recovery.js';
 
-/** The durable queue row proves the request; this lease never sends a message. */
+/** The Redis registration record proves the request; this lease never sends a message. */
 export function reserveRegistrationRequestRecovery(
   state: CheckoutState,
   operationId: string,
