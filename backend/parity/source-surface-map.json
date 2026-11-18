@@ -18,16 +18,14 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 283,
+      "external_acceptance": 292,
       "implementation_present": 100,
-      "partial": 9,
       "missing": 4
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 182,
-        "implementation_present": 68,
-        "partial": 5
+        "external_acceptance": 187,
+        "implementation_present": 68
       },
       "jobs": {
         "external_acceptance": 31,
@@ -35,9 +33,8 @@
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 67,
-        "missing": 3,
-        "partial": 4
+        "external_acceptance": 71,
+        "missing": 3
       },
       "websockets": {
         "external_acceptance": 1
@@ -47,7 +44,7 @@
       }
     },
     "families": 76,
-    "code_task_groups": 1,
+    "code_task_groups": 0,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -1024,18 +1021,19 @@
     "backend/src/modules/order-history/routes.ts": "f5de2b66c09f80fc28a3b0c406cef0187490f32245cd7e88148cc22dd6cc11a6",
     "backend/src/modules/order-history/search/contacts.ts": "e362c5be4752f01290134385b2c5fb40406b4febb0df70e8f2bb0a625108ea04",
     "backend/src/modules/order-history/search/contracts.ts": "ec30ea38cf690b0d0b4c62f06e03afe6d557fc542a2104d8f934cb12f7fc3e96",
-    "backend/src/modules/order-history/search/demo.ts": "5fd6c28a305f3ee71c88d3929dab594913a3dfdcf2c0318613150c7873f03aee",
+    "backend/src/modules/order-history/search/default-ranges.ts": "99b549c33c6822ae5b2f26942575039c33df1c846fe04079a9464917a139ede5",
+    "backend/src/modules/order-history/search/demo.ts": "8dd4d5c833d3aa6d06881a4b2e194f184f7366dffdeaac7b3ef704ccb91f89c4",
     "backend/src/modules/order-history/search/format.ts": "8f8c5492d9f51beac7ad93f26588633ccf673c9b623b47ed5e22c20a8cea512b",
     "backend/src/modules/order-history/search/index.ts": "ca566023168806893b899e1f82947c00e1f5229d5bcba9205821b76aae866414",
-    "backend/src/modules/order-history/search/native.ts": "79d0b64da99a27931232c15440497144c5d8e6a25e21c444fd24ebcc0fb9ea88",
+    "backend/src/modules/order-history/search/native.ts": "f48bd785e74c1ef2a1c3e983ee53cd75854c9069e5049f50921b87e4388fe869",
     "backend/src/modules/order-history/search/options.ts": "62e46754c2db8356971b0b8e694a88223c0e46137f3698fae974b246a3349180",
     "backend/src/modules/order-history/search/queue.ts": "1903ed55aa3ca087860bd5d454cf35753d12b802cf4de857c9c856bd4a0eb782",
     "backend/src/modules/order-history/search/reducer.ts": "73412170e5df1073f9ab8a8ac76459f950c21591fcfa1bd71a1e2caf73c81e17",
     "backend/src/modules/order-history/search/scope.ts": "b9b58d7f6c540511bb24c5cb560f7fcf32667bb99af0e62d7419bc2e84e416cf",
-    "backend/src/modules/order-history/search/service.ts": "fd579081d4d21efa39f3229072c2127b1fec02a77d85ef91bf2f7386d5e27194",
+    "backend/src/modules/order-history/search/service.ts": "4ed0f29302b3468dd37af2f63ab8bc113a8aa3b23339bbaae5d9d2425420c593",
     "backend/src/modules/order-history/search/warehouse.ts": "fac33d74e7289e6095fe5c8fabf0554dc5df2637d4a93cc3a27f888f376110b2",
     "backend/src/modules/order-history/sql.ts": "f97ceea0cf751a4f404fd1d5a3470bbb072b34fd39afdbe6f243cc0f96becfa9",
-    "backend/src/modules/orders.ts": "a48729a3376cf72ba1cbe485c10778824391fd557425d761bab0f5abf5d9d503",
+    "backend/src/modules/orders.ts": "02ecaab77261095387de01ec9a1d42706fc1c62e40c792c608039a6510679fff",
     "backend/src/modules/product-feedback/contracts.ts": "341bc3b25319974f63028981567c316401aa5b5cb072f794d49a6d58568f83df",
     "backend/src/modules/product-feedback/index.ts": "bba4bacf927eb75b5cdf2b27d3decbbf91da979be7ae87240270240c79a449e2",
     "backend/src/modules/product-feedback/schema.ts": "58a6787fca12d3113e5b98867d55ae339866c3d6dcb83b390a1697c2a7fa5ef5",
@@ -1314,6 +1312,8 @@
     "backend/tests/order-history/reader.test.ts": "00e0a629c75f2a85f70abf1b4c023c1622e4a6350f9c3d682d8c172ee84aef1f",
     "backend/tests/order-history/routes.test.ts": "362554df9ad366540f63885416105903c9ef711432e80db8aa0fa14fa3ad9228",
     "backend/tests/order-history/source.test.ts": "665ecdb51293859957df03b783d16dfc5f87d0003e9b16c9d730396b2a1d9930",
+    "backend/tests/order-search/default-range.mysql.test.ts": "f5ff6d520ab124589f9d26c2179026ac481864f34fe579c5a603e9f7cc9e009b",
+    "backend/tests/order-search/default-ranges.test.ts": "41a5568b5f29ca93f60fa15b8f80da9f6333cb132a2296e63ef7feab98027256",
     "backend/tests/order-search/fixtures.ts": "c208521cd6eb061c580c6261dd829180798b4e80e444cac07c7cdefb584e81c3",
     "backend/tests/order-search/mysql-fixture.ts": "94a4f23f0809b814d09774dec9c03bfabcd9b78abdf53afe0699670d1c1e3750",
     "backend/tests/order-search/native.test.ts": "055b68790670eb923cb3dad6cd2dba5ef31f4b084af3cf303cfa083a1f7c75bf",
@@ -1578,14 +1578,14 @@
     "frontend/src/pages/operational-reports/report-view.tsx": "fd026007a306626fae2c78b2a019fc164fccd574ad9566cf8bfd2ce72eb001ba",
     "frontend/src/pages/operational-reports/returned-orders.tsx": "19b2025409ff7c8ab70c66fbba6f3f0effcf7b76fb9277374b1bcf9dc0c8cb5a",
     "frontend/src/pages/operational-reports/style.css": "06e72842b38bbba36ffd0cd5d1be74efa91a6eae634f773bbd6255a72f28f8a8",
-    "frontend/src/pages/operations.tsx": "dd0e3db06155f79aea1b52bdf1595610ef52f61cba7a68b9797d2bb2dd17b01d",
+    "frontend/src/pages/operations.tsx": "a80d7495543fb13c4cee3f6a8dbc1d96b16fcae7f34d0ad1f17417b892aab85c",
     "frontend/src/pages/order-copy/client.ts": "0a979a8870cf6d7748c44a3ae21d08a0a8136de5eaf5de10035d701cdf74fe5f",
     "frontend/src/pages/order-copy/index.tsx": "bc0ebf6be1f3e9b3b62d09dd949f6c017357264a744dfd06f8662ac2bb1ebdff",
     "frontend/src/pages/order-copy/marker.ts": "3ae37435c7da14a69bcbce1ec158e14ca168b6733b5c22527d2835c81bcbc2d9",
-    "frontend/src/pages/order-history/SourceOrderList.tsx": "61b4da27e346b9ffb34b1406c9594eeef472529968163e08fc292f73cd36e11f",
-    "frontend/src/pages/order-history/client.ts": "0bc307eb08a8b4099e8020599eedcd1c9146b35c8f35c71ab59be78126e3edcd",
+    "frontend/src/pages/order-history/SourceOrderList.tsx": "d202a078ad86373575e52f1f3615a7edf1abd6ad4e8eb72494414f75446ddffe",
+    "frontend/src/pages/order-history/client.ts": "7ef8170b3bd31a960ab4dd4c5b4fdde26f3ce171f5297e38d2c930fb7f518297",
     "frontend/src/pages/order-history/order-search.css": "9a36776bb40d132c7833bef9c38f320899ecea2c78d652284c50958395d1f1cf",
-    "frontend/src/pages/order-history/search-client.ts": "c096ae8c2eecec0512c5a701f3320bee54fc896c7e9a02b14222d164ce83283c",
+    "frontend/src/pages/order-history/search-client.ts": "dd3e44262b12130dea30a56b800e786c239abd1027595f58fb346e182f8d5e15",
     "frontend/src/pages/order-status/ReturnRepairObligations.tsx": "10dd7e54fb5f159eb5e4cfb13ad3199834536971d312a4bc70c63a04a9c46a9a",
     "frontend/src/pages/order-status/WholeOrderStatusActions.tsx": "16898d5b362d332b192f7b3eb098d26a163e38ee87e2dcd37fcb71ea05d5c369",
     "frontend/src/pages/order-status/client.ts": "c886637f6aac6708e9a53509eb1bcb4f96f72cd7453097e339c9cbda881aed0c",
@@ -1745,7 +1745,7 @@
     "frontend/tests/order-copy/operation-reference.test.ts": "f610a703cd5e992cff757103fcc69c12c17b8cf197986826fa8934de8df6b26d",
     "frontend/tests/order-copy/tsconfig.json": "fa424617bd5e067711f78621f15c6329fb39b755499280740ea2a944dc904c99",
     "frontend/tests/order-history/browser-check.mjs": "6c13c98e88b662862c1ca9e63f6f340e7198227f1eb3ec3c9e36504f612373ec",
-    "frontend/tests/order-history/client.test.ts": "5902ce9f898b2c0d07c0eb6400d5a19abeab6fcb71a84c30297c5363464e1dfe",
+    "frontend/tests/order-history/client.test.ts": "facd7edfc52eb05c65a5d09c9ba1c10502d1cc623d35acc8a1fdfede58b1ba07",
     "frontend/tests/order-history/fixture.html": "8d3a37f11ec80e65b249e0af08225f3ecc88a5e505fe1125c84c0ffffc5a7127",
     "frontend/tests/order-history/fixture.tsx": "915556e81d0d8eb3193e8f8b82e4d0544495762e7e2bfd73e63b1f15c58f5365",
     "frontend/tests/order-history/tsconfig.json": "519a2838358fb05aaf371ed08cab3549bebb524fafccdf43d5a5d06ab2650325",
@@ -4993,7 +4993,7 @@
     },
     {
       "id": "orders-read",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/orders.ts",
         "backend/src/modules/order-history",
@@ -5017,9 +5017,7 @@
         "backend/parity/checkout.md"
       ],
       "implemented_scope": "Full ST/HL/HE/N/queue/explicit-ID order list, contact/payment/status filters, source search/sort/page and formatter/actions are integrated with 43 pinned-Django vectors and 12 browser workflows. Existing detail/paid/invoice/cancellation guards remain. PRIMARY interactive/DATA today/BigQuery old or mixed facts, live-only queue discovery, private HMAC comparisons and post-read session revocation are enforced. Demo uses an explicit synthetic adapter without a database port.",
-      "remaining_code": [
-        "Restore source rolling five-day, minute-precision initial order discovery bounds: store mode includes the additional ending minute; online mode does not. Current plain /orders initializes today only. Preserve authoritative business timezone, explicit filters and stable form state."
-      ],
+      "remaining_code": [],
       "external_acceptance": [
         "Accept both complete common-checkpoint historical order/search publications, private contact-key generation/collation identity, real queue/current-source lifecycle and representative workload performance. Native source vectors and local browser checks are not complete production workflow certification."
       ],
@@ -5030,26 +5028,32 @@
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
       "implementation_review": [
         {
-          "path": "frontend/src/pages/order-history/client.ts",
-          "line": 21,
-          "anchor": "export function orderBrowserDates(",
-          "scope": "Identified default-range gap: no-query entry currently selects today, whereas original OrdersView/OnlineOrdersView initialize rolling five days with distinct ending-minute behavior. Fix before consolidated verification."
+          "path": "backend/src/modules/order-history/search/default-ranges.ts",
+          "line": 8,
+          "anchor": "export function sourceOrderDefaults(",
+          "scope": "Server-authoritative rolling five-day minute bounds preserve the source store/local/express extra ending minute and online ending minute, including a bounded midnight fraction without a future warehouse publication."
         },
         {
           "path": "frontend/src/pages/operations.tsx",
-          "line": 279,
+          "line": 134,
+          "anchor": "export function OrdersPage(",
+          "scope": "Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission."
+        },
+        {
+          "path": "frontend/src/pages/operations.tsx",
+          "line": 329,
           "anchor": "<SourceOrderList",
           "scope": "Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls."
         },
         {
           "path": "frontend/src/pages/order-history/SourceOrderList.tsx",
-          "line": 180,
+          "line": 191,
           "anchor": "function exportPage()",
           "scope": "Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired."
         },
         {
           "path": "frontend/src/pages/order-history/search-client.ts",
-          "line": 120,
+          "line": 162,
           "anchor": "export function sourcePageCsv(",
           "scope": "Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes."
         }
@@ -5058,47 +5062,47 @@
         {
           "kind": "routes",
           "id": "order/urls.py:8",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:9",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:10",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:11",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:12",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/index.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/online/_return_exchange_cells.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/online/show.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/show.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         }
       ],
       "test_files": [
@@ -5144,6 +5148,8 @@
         "backend/tests/order-history/reader.test.ts",
         "backend/tests/order-history/routes.test.ts",
         "backend/tests/order-history/source.test.ts",
+        "backend/tests/order-search/default-range.mysql.test.ts",
+        "backend/tests/order-search/default-ranges.test.ts",
         "backend/tests/order-search/native.test.ts",
         "backend/tests/order-search/private-output.test.ts",
         "backend/tests/order-search/routes.test.ts",
@@ -5730,12 +5736,12 @@
         {
           "kind": "templates",
           "id": "order/templates/order/index.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/show.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         }
       ],
       "test_files": [
@@ -5905,22 +5911,22 @@
         {
           "kind": "templates",
           "id": "order/templates/order/index.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/online/_return_exchange_cells.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/online/show.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/show.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         }
       ],
       "test_files": [
@@ -8114,15 +8120,7 @@
       ]
     }
   ],
-  "remaining_code_tasks": [
-    {
-      "family": "orders-read",
-      "state": "partial",
-      "tasks": [
-        "Restore source rolling five-day, minute-precision initial order discovery bounds: store mode includes the additional ending minute; online mode does not. Current plain /orders initializes today only. Preserve authoritative business timezone, explicit filters and stable form state."
-      ]
-    }
-  ],
+  "remaining_code_tasks": [],
   "routes": [
     {
       "source": {
@@ -10880,7 +10878,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -10913,7 +10911,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -10946,7 +10944,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -10977,7 +10975,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11010,7 +11008,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -17799,7 +17797,7 @@
         "pending-order-cancellation",
         "local-deliveries"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17837,7 +17835,7 @@
         "returns-exchanges",
         "invoice-documents"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -17857,7 +17855,7 @@
         "returns-exchanges",
         "invoice-documents"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17916,7 +17914,7 @@
         "local-deliveries",
         "legacy-vinculum-status"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

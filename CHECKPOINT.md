@@ -3,10 +3,13 @@
 ## Current state — 18 November 2026, completed fixes and expanded verification
 
 User work order remains implementation first, then parity/full verification.
-The order-discovery review found a new application gap: plain /orders selects
-today instead of the original rolling five-day minute-precision window. The
-feedback worker owns its server-authoritative correction before full r9 starts.
-The implementation map records that family as partial until the fix is integrated.
+The order-discovery default gap is corrected by cb63732/9f21378: server-owned
+rolling five-day minute bounds, source store/online ending-minute differences,
+bounded future-midnight discovery/detail and unchanged ordinary historical
+publication rules. Row detail state preserves the list window and explicit
+multi-day selections. Ten source, three frontend helper, two native and two
+actual routed-App checks pass, along with strict/lint/build. Independent review
+closed clock-rollover and detail-state regressions before the full-run freeze.
 Previously identified application gaps are integrated. Newly discovered runtime
 and verification-wrapper faults are fixed before broader execution. This is not
 complete parity or production readiness. No live service writes, charges,
@@ -44,8 +47,9 @@ claim is made that readiness caused the earlier auxiliary zero-frame observation
 Exact notification HTTP route +WebSocket admission is refreshed in the
 coverage ledger; whole headers/templates/providers/finance remain excluded.
 Root independently verified all1262 executed source/runtime hashes and both
-canonical/lifecycle log digests. Two of396 source declarations are currently
-admitted;394 and all12 release requirements remain unaccepted.
+canonical/lifecycle log digests. Two declarations were admitted on that executed
+graph. The order-default change reopens them until the registered workflow is
+refreshed; current admissions are0 of396 and all12 requirements remain unaccepted.
 
 Wallet native proof: `ede20db` retains20 expiry cases (10 actual original and10
 selected generated) plus2 actual TLS gateway cases;24 named passes including

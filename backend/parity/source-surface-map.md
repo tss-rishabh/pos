@@ -16,7 +16,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **orders-read (partial)**: Restore source rolling five-day, minute-precision initial order discovery bounds: store mode includes the additional ending minute; online mode does not. Current plain /orders initializes today only. Preserve authoritative business timezone, explicit filters and stable form state.
+No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.
 
 ## Line-bound implementation review
 
@@ -106,14 +106,15 @@ Mapped surfaces: `dashboard/urls.py:8` (implementation_present), `dashboard/urls
 
 ### orders-read
 
-Mapped surfaces: `order/urls.py:8` (partial), `order/urls.py:9` (partial), `order/urls.py:10` (partial), `order/urls.py:11` (partial), `order/urls.py:12` (partial), `order/templates/order/index.html` (partial), `order/templates/order/online/_return_exchange_cells.html` (partial), `order/templates/order/online/show.html` (partial), `order/templates/order/show.html` (partial).
+Mapped surfaces: `order/urls.py:8` (external_acceptance), `order/urls.py:9` (external_acceptance), `order/urls.py:10` (external_acceptance), `order/urls.py:11` (external_acceptance), `order/urls.py:12` (external_acceptance), `order/templates/order/index.html` (external_acceptance), `order/templates/order/online/_return_exchange_cells.html` (external_acceptance), `order/templates/order/online/show.html` (external_acceptance), `order/templates/order/show.html` (external_acceptance).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/order-history/client.ts:21` | Identified default-range gap: no-query entry currently selects today, whereas original OrdersView/OnlineOrdersView initialize rolling five days with distinct ending-minute behavior. Fix before consolidated verification. |
-| `frontend/src/pages/operations.tsx:279` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
-| `frontend/src/pages/order-history/SourceOrderList.tsx:180` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
-| `frontend/src/pages/order-history/search-client.ts:120` | Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes. |
+| `backend/src/modules/order-history/search/default-ranges.ts:8` | Server-authoritative rolling five-day minute bounds preserve the source store/local/express extra ending minute and online ending minute, including a bounded midnight fraction without a future warehouse publication. |
+| `frontend/src/pages/operations.tsx:134` | Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission. |
+| `frontend/src/pages/operations.tsx:329` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
+| `frontend/src/pages/order-history/SourceOrderList.tsx:191` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
+| `frontend/src/pages/order-history/search-client.ts:162` | Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes. |
 
 ### checkout-cart
 
@@ -125,7 +126,7 @@ Mapped surfaces: `order/urls.py:22` (external_acceptance), `order/urls.py:23` (e
 
 ### pending-order-cancellation
 
-Mapped surfaces: `order/urls.py:37` (external_acceptance), `order/templates/order/index.html` (partial), `order/templates/order/show.html` (partial).
+Mapped surfaces: `order/urls.py:37` (external_acceptance), `order/templates/order/index.html` (external_acceptance), `order/templates/order/show.html` (external_acceptance).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -133,7 +134,7 @@ Mapped surfaces: `order/urls.py:37` (external_acceptance), `order/templates/orde
 
 ### returns-exchanges
 
-Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (external_acceptance), `order/urls.py:18` (external_acceptance), `order/urls.py:19` (external_acceptance), `order/urls.py:20` (external_acceptance), `order/urls.py:21` (external_acceptance), `order/urls.py:43` (external_acceptance), `order/templates/order/_exchange_js.html` (external_acceptance), `order/templates/order/index.html` (partial), `order/templates/order/online/_return_exchange_cells.html` (partial), `order/templates/order/online/show.html` (partial), `order/templates/order/show.html` (partial).
+Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (external_acceptance), `order/urls.py:18` (external_acceptance), `order/urls.py:19` (external_acceptance), `order/urls.py:20` (external_acceptance), `order/urls.py:21` (external_acceptance), `order/urls.py:43` (external_acceptance), `order/templates/order/_exchange_js.html` (external_acceptance), `order/templates/order/index.html` (external_acceptance), `order/templates/order/online/_return_exchange_cells.html` (external_acceptance), `order/templates/order/online/show.html` (external_acceptance), `order/templates/order/show.html` (external_acceptance).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -277,9 +278,9 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 5 | 0 | 182 |
+| routes | 68 | 0 | 0 | 187 |
 | jobs | 0 | 0 | 1 | 31 |
-| templates | 32 | 4 | 3 | 67 |
+| templates | 32 | 0 | 3 | 71 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
@@ -382,11 +383,11 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `dashboard/urls.py:9` | `ajax-feed-live-internet-speed/` | shared-shell | implementation_present |
 | `dashboard/urls.py:10` | `ajax-live-internet-data/` | shared-shell | implementation_present |
 | `notification/urls.py:7` | `ajax-notification-update/` | notifications | external_acceptance |
-| `order/urls.py:8` | `store/` | orders-read | partial |
-| `order/urls.py:9` | `online/` | orders-read | partial |
-| `order/urls.py:10` | `ajax-order-list/` | orders-read | partial |
-| `order/urls.py:11` | `store/<int:order_id>/show/` | orders-read | partial |
-| `order/urls.py:12` | `online/<int:order_id>/show/` | orders-read | partial |
+| `order/urls.py:8` | `store/` | orders-read | external_acceptance |
+| `order/urls.py:9` | `online/` | orders-read | external_acceptance |
+| `order/urls.py:10` | `ajax-order-list/` | orders-read | external_acceptance |
+| `order/urls.py:11` | `store/<int:order_id>/show/` | orders-read | external_acceptance |
+| `order/urls.py:12` | `online/<int:order_id>/show/` | orders-read | external_acceptance |
 | `order/urls.py:13` | `store/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:14` | `online/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:15` | `online_sdd/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
@@ -645,13 +646,13 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/hyperlocal/_progress_content.html` | `order/templates/order/hyperlocal/_progress_content.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/all_stores_dashboard.html` | `order/templates/order/hyperlocal/all_stores_dashboard.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/progress.html` | `order/templates/order/hyperlocal/progress.html` | express-fulfillment | external_acceptance |
-| `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | partial |
+| `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | external_acceptance |
 | `order/templates/order/invoice.html` | `order/templates/order/invoice.html` | invoice-documents | external_acceptance |
-| `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | partial |
-| `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | partial |
+| `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
+| `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
 | `order/templates/order/shipping.html` | `order/templates/order/shipping.html` | shipping-labels | external_acceptance |
 | `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
-| `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | partial |
+| `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | external_acceptance |
 | `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | external_acceptance |
 | `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |
 | `report/templates/bd_report/daily_report_matric_upload.html` | `report/templates/bd_report/daily_report_matric_upload.html` | business-metrics-upload | missing |
