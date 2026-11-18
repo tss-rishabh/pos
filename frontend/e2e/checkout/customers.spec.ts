@@ -207,7 +207,18 @@ for (const interrupted of [false, true]) {
     await page.getByRole('button', { name: 'Confirm prices online' }).click();
     await page.getByText('Customer and verification', { exact: true }).click();
     await page.getByLabel('Email or phone', { exact: true }).fill('lookup@example.com');
-    await page.getByRole('button', { name: 'Find customer', exact: true }).click();
+    const findCustomer = page.getByRole('button', { name: 'Find customer', exact: true });
+    // A dispatched click does not wait for the async lookup or its route handler.
+    const lookupResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'POST' &&
+        new URL(response.url()).pathname === '/api/v1/stores/1/customer-lookups',
+    );
+    await findCustomer.click();
+    const response = await lookupResponse;
+    expect(response.status()).toBe(200);
+    expect(await response.finished()).toBeNull();
+    await expect(findCustomer).toBeEnabled();
     expect(lookups).toBe(1);
     await page.getByText('Create a customer account', { exact: true }).click();
     await page.getByLabel('Customer name', { exact: true }).fill('New Browser Customer');
@@ -249,6 +260,9 @@ for (const interrupted of [false, true]) {
     const persisted = await page.evaluate(() => Object.values(localStorage).join('\n'));
     for (const sensitive of ['9000000001', 'New Browser Customer', '29ABCDE1234F1Z5', '111111'])
       expect(persisted).not.toContain(sensitive);
+    // Recheck after the complete registration/recovery/clear lifecycle so a
+    // delayed duplicate lookup cannot pass the earlier response barrier.
+    expect(lookups).toBe(1);
     expect(initializations).toBe(1);
     expect(creations).toBe(1);
     expect(reconciliations).toBe(interrupted ? 1 : 0);
