@@ -30,6 +30,7 @@ import type { Principal } from '../../src/domain/access.js';
 import { fulfillmentMaintenance } from '../../src/modules/fulfillment/maintenance.js';
 import { readFulfillmentOptions } from '../../src/modules/fulfillment/options.js';
 import { fulfillmentMonitoring } from '../../src/modules/fulfillment/monitoring.js';
+import { operatorCheckIns } from '../../src/modules/administration/schema.js';
 import { monitoringOptions } from '../../src/modules/fulfillment/monitoring-options.js';
 import { fulfillmentWorker } from '../../src/modules/fulfillment/worker.js';
 
@@ -50,6 +51,7 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
     UserStore,
     Store,
     UsersNotification,
+    operatorCheckIns,
   ];
   const user: Principal = {
     id: '900001',
@@ -153,6 +155,13 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
     await insert(Store, { id: 1, store_name: 'Fixture store', is_active: 1, type: 'STORE' });
     await insert(PosUser, { id: Number(user.id), is_active: 1, role: 4, user_type: 1 });
     await insert(UserStore, { django_user_id: Number(user.id), store_id: 1 });
+    await insert(operatorCheckIns, {
+      operator_id: user.id,
+      store_id: 1,
+      counter_id: null,
+      checked_in_at: '2026-11-16 08:00:00.000',
+      expires_at: '2099-01-01 00:00:00.000',
+    });
     await insert(Product, { id: 101, product: 'Fixture tee' });
     await insert(Order, {
       id: 1001,
@@ -226,6 +235,35 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
     expect((await service.notifications(user, '1', second)).data.map((row) => row.id)).toEqual([
       '9007199254740995',
     ]);
+  });
+  it('does not mark notifications read with expired or different-store check-in authority', async () => {
+    await insert(Notification, { id: 1, store_id: 1, order_id: 1001, title: 'Fixture notice' });
+    await insert(UsersNotification, {
+      notification_id: 1,
+      pos_admin_id: Number(user.id),
+      is_viewed: 0,
+    });
+    const service = fulfillmentService(config, db());
+    await admin!.query(
+      'UPDATE pos_rewrite_operator_checkins SET expires_at=? WHERE operator_id=?',
+      ['2000-01-01 00:00:00.000', user.id],
+    );
+    await expect(service.markNotificationRead(user, '1', '1')).rejects.toMatchObject({
+      code: 'CHECK_IN_REQUIRED',
+    });
+    await admin!.query(
+      'UPDATE pos_rewrite_operator_checkins SET expires_at=?,store_id=? WHERE operator_id=?',
+      ['2099-01-01 00:00:00.000', 2, user.id],
+    );
+    await expect(service.markNotificationRead(user, '1', '1')).rejects.toMatchObject({
+      code: 'CHECK_IN_REQUIRED',
+    });
+    const [rows] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT is_viewed FROM pos_user_notifications WHERE notification_id=? AND pos_admin_id=?',
+      [1, user.id],
+    );
+    expect(rows).toHaveLength(1);
+    expect(Number(rows[0]?.is_viewed)).toBe(0);
   });
   it('uses writer-current assignment/account/role before actions, retries and administrator edits', async () => {
     const service = fulfillmentService(config, db(), clock),

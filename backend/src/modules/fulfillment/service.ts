@@ -17,6 +17,7 @@ import {
 } from '../../db/legacy-schema.js';
 import { retryTransaction } from '../../db/retry.js';
 import { assertCurrentStoreAccess } from '../administration/authorization.js';
+import { checkInService } from '../administration/checkins.js';
 import { requireRole, requireStore, type Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import {
@@ -112,6 +113,7 @@ export function fulfillmentService(
   databases: Databases,
   clock = () => Temporal.Now.instant(),
 ) {
+  const checkins = checkInService(databases, config);
   const timestamp = () => localTimestamp(clock(), config.BUSINESS_TIMEZONE);
   const todayFilter = (tab: FulfillmentTab, storeId: string) => {
     const bounds = calendarBounds(clock(), config.BUSINESS_TIMEZONE);
@@ -695,7 +697,9 @@ export function fulfillmentService(
       requireStore(user, storeId);
       return retryTransaction(() =>
         databases.get('writer').transaction(async (db) => {
-          await assertCurrentStoreAccess(db, user.id, storeId);
+          // Lock current actor/store/check-in authority before touching read state.
+          // A concurrent checkout or assignment revocation cannot cross this write.
+          await checkins.assertCheckIn(user.id, storeId, undefined, db);
           const [notice] = await db
             .select({ id: Notification.id })
             .from(Notification)

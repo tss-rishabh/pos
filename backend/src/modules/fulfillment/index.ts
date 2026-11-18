@@ -310,7 +310,10 @@ export async function registerFulfillment(
           })
           .strict()
           .parse(request.query);
-      return service.notifications(user, params.storeId, query.after, query.limit);
+      await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
+      const notices = await service.notifications(user, params.storeId, query.after, query.limit);
+      await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
+      return notices;
     },
   );
   app.put(
@@ -319,6 +322,7 @@ export async function registerFulfillment(
     async (request) => {
       const user = assertOperator(request),
         params = scope.extend({ notificationId: identifier }).parse(request.params);
+      await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
       const result = await service.markNotificationRead(
         user,
         params.storeId,
