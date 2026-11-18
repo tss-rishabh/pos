@@ -6,7 +6,7 @@ import {
   type FixtureValue,
 } from '../../tools/operational-reports/verified-mysql-fixture.js';
 import { publicScreeningFixture } from '../public-screening-writer/native-fixture.js';
-import { counterInstallationSql } from '../../src/modules/legacy-order-imports/screening-counter/writers.js';
+import { installNativeHeadFixture } from '../native-head-metadata/fixture.js';
 import {
   screeningCounterSourceCapture,
   initializeScreeningCounter,
@@ -39,9 +39,15 @@ export async function currentCounterFixture(template: string) {
   const f = await publicScreeningFixture(template);
   await f.reset();
   await f.fixture.insert('users', { id: '78', status: 1, is_block: 0, is_disabled: 0 });
-  for (const statement of counterInstallationSql) await f.connection.query(statement);
+  const heads = await installNativeHeadFixture(f.connection, template, { families: ['counter'] });
   async function initialize(customerId: string) {
-    const capture = await screeningCounterSourceCapture(f.db, sourceKey).capture(customerId);
+    const snapshot = await screeningCounterSourceCapture(
+        heads.sourceDb,
+        sourceKey,
+        Date.now,
+        heads.headMetadata,
+      ).snapshot(customerId),
+      capture = snapshot.capture;
     // Synthetic independently-owned BQ fixture publication. Actual runtime
     // publisher uses the separately verified warehouse query, never this SQL.
     const [raw] = await f.connection.query<mysql.RowDataPacket[]>(
@@ -59,11 +65,34 @@ export async function currentCounterFixture(template: string) {
         markerId: row.markerId as string,
         orderId: row.orderId as string,
         lineId: row.lineId as string,
-        included: row.included === 1,
+        included: String(row.included) === '1',
       })),
     });
-    await initializeScreeningCounter(f.db, baseline, publicationKey);
+    await initializeScreeningCounter(
+      heads.publisherDb!,
+      baseline,
+      publicationKey,
+      null,
+      Date.now(),
+      {
+        headMetadata: heads.headMetadata,
+        configuration: snapshot.configuration,
+        purpose: 'counter-publication',
+      },
+    );
     return baseline;
   }
-  return { ...f, initialize };
+  return {
+    ...f,
+    db: heads.appDb,
+    headMetadata: heads.headMetadata,
+    environment: heads.environment,
+    sourceDb: heads.sourceDb,
+    publisherDb: heads.publisherDb!,
+    initialize,
+    async close() {
+      await heads.close();
+      await f.close();
+    },
+  };
 }

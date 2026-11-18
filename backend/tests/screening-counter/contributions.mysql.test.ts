@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { sql } from 'drizzle-orm';
 import type mysql from 'mysql2/promise';
 import type { AdministrationTransaction } from '../../src/modules/administration/checkins.js';
@@ -14,15 +14,20 @@ describe.skipIf(!template)('screening contribution join keys and concurrent nati
   let f: Awaited<ReturnType<typeof currentCounterFixture>>;
   beforeAll(async () => {
     f = await currentCounterFixture(template!);
+    for (const [name, value] of Object.entries(f.environment)) vi.stubEnv(name, value);
     await f.initialize('77');
     await f.initialize('78');
   }, 30000);
   afterAll(async () => {
-    await f?.close();
+    try {
+      await f?.close();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
   const parents = {
     customerIds: ['77', '78'],
-    orderIds: ['100', '101', '102', '200', '201', '202'],
+    orderIds: ['100', '101', '102', '200', '201', '202', '999'],
     lineIds: ['300', '301', '302', '400', '401', '402'],
   };
   const mutate = (work: (tx: AdministrationTransaction) => Promise<void>) =>
@@ -35,7 +40,10 @@ describe.skipIf(!template)('screening contribution join keys and concurrent nati
       );
       const current = await financialTransaction(f.db, true, async (tx) => {
         await lockScreeningCustomer(tx, customer);
-        return readCurrentScreeningCounter(tx, customer, counterOptions);
+        return readCurrentScreeningCounter(tx, customer, {
+          ...counterOptions,
+          headMetadata: f.headMetadata,
+        });
       });
       expect(String(current.count)).toBe(raw[0]!.bought);
     }
@@ -46,7 +54,7 @@ describe.skipIf(!template)('screening contribution join keys and concurrent nati
     });
     await equal();
   }
-  it('matches every literal join-key mutation, duplicate, orphan and status including NULL', async () => {
+  it('matches every literal join-key mutation, duplicate, orphan and status and native nullability', async () => {
     await mutate(async (tx) => {
       await insertCounterFixture(tx, 'orders', { id: '100', user_id: '77', order_status: 1 });
       await insertCounterFixture(tx, 'has_products', {
@@ -63,8 +71,10 @@ describe.skipIf(!template)('screening contribution join keys and concurrent nati
     // Multiplicity is marker rows, never HP quantity, order customer or HP.order_id.
     await change(sql`UPDATE has_products SET qty=12,order_id=999 WHERE id=300`);
     await change(sql`UPDATE orders SET user_id=78 WHERE id=100`);
-    for (const status of [0, 17, null, 4, 3, 1])
+    for (const status of [0, 17, 4, 3, 1])
       await change(sql`UPDATE orders SET order_status=${status} WHERE id=100`);
+    await expect(change(sql`UPDATE orders SET order_status=NULL WHERE id=100`)).rejects.toThrow();
+    await equal();
     await change(sql`UPDATE has_products SET prod_id=123 WHERE id=300`);
     await change(sql`UPDATE has_products SET prod_id=390238 WHERE id=300`);
     await change(sql`UPDATE spiderman_screening_orders SET user_id=78 WHERE id=2`);

@@ -1,28 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { publicScreeningFixture } from '../public-screening-writer/native-fixture.js';
-import {
-  counterInstallationSql,
-  assertCounterDefinitions,
-} from '../../src/modules/legacy-order-imports/screening-counter/writers.js';
-import {
-  screeningCounterSourceCapture,
-  initializeScreeningCounter,
-} from '../../src/modules/legacy-order-imports/screening-counter/publisher.js';
-import { sealCounterPublication } from '../../src/modules/legacy-order-imports/screening-counter/contracts.js';
+import { currentCounterFixture } from './fixture.js';
+import { assertCounterDefinitions } from '../../src/modules/legacy-order-imports/screening-counter/writers.js';
 import { readCurrentScreeningCounter } from '../../src/modules/legacy-order-imports/screening-counter/reader.js';
 import {
   financialTransaction,
   lockScreeningCustomer,
 } from '../../src/modules/legacy-order-imports/screening-transactions.js';
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
-const sourceKey = 'fixture-independent-screening-source-key-'.repeat(2),
-  publicationKey = 'fixture-independent-screening-publication-key-'.repeat(2);
+const publicationKey = 'fixture-independent-screening-publication-key-'.repeat(2);
 describe.skipIf(!template)('native materialized screening counter', () => {
-  let f: Awaited<ReturnType<typeof publicScreeningFixture>>;
+  let f: Awaited<ReturnType<typeof currentCounterFixture>>;
   beforeAll(async () => {
-    f = await publicScreeningFixture(template!);
-    await f.reset();
-    for (const statement of counterInstallationSql) await f.connection.query(statement);
+    f = await currentCounterFixture(template!);
   }, 30000);
   afterAll(async () => {
     await f?.close();
@@ -41,26 +30,19 @@ describe.skipIf(!template)('native materialized screening counter', () => {
         return readCurrentScreeningCounter(tx, '77', {
           contract: 'pos-screening-current-counter-v1',
           publicationKey,
+          headMetadata: f.headMetadata,
         });
       }),
     ).rejects.toMatchObject({ code: 'SCREENING_COUNTER_PROJECTION_REQUIRED' });
   });
   it('requires a complete independently sealed empty baseline before the first zero read', async () => {
-    const capture = await screeningCounterSourceCapture(f.db, sourceKey).capture('77');
-    const baseline = sealCounterPublication(capture, sourceKey, publicationKey, {
-      generationId: 'a'.repeat(64),
-      snapshotId: capture.snapshotId,
-      sourceCaptureHash: capture.signature,
-      sourceCdcThrough: Date.now(),
-      complete: true,
-      rows: [],
-    });
-    await initializeScreeningCounter(f.db, baseline, publicationKey);
+    const baseline = await f.initialize('77');
     const read = await financialTransaction(f.db, true, async (tx) => {
       await lockScreeningCustomer(tx, '77');
       return readCurrentScreeningCounter(tx, '77', {
         contract: 'pos-screening-current-counter-v1',
         publicationKey,
+        headMetadata: f.headMetadata,
       });
     });
     expect(read.count).toBe(0n);

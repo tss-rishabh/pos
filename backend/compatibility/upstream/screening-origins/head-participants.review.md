@@ -7,7 +7,7 @@ The application reads the fixed `pos_rewrite_origin_history_metadata()`
 function in `history-security.review.sql`. Its locked audit owner has only the
 dictionary visibility checked by `origin_history_privileges.py`; the function
 returns bounded metadata, never history, credentials or request values. Grant
-application and capture accounts EXECUTE on this one function, SELECT on the
+application and capture accounts EXECUTE on the two exact readonly functions, SELECT on the
 required head tables, and SHOW_ROUTINE so they can compare its exact body.
 After function creation, grant its locked audit definer EXECUTE on that exact
 function too; MySQL requires this self-execution right. The qualifier permits
@@ -41,7 +41,7 @@ objects. Each trigger owner receives SELECT/TRIGGER only on its watched tables
 and the listed DML only on its family's head/projection tables. The counter
 owner alone receives EXECUTE on its exact `pos_screening_sync_marker`
 procedure. Grant no schema-wide DML, grant options, extra routines or ownership
-of unrelated objects. The audit account alone owns the metadata function.
+of unrelated objects. The audit account alone owns both fixed metadata functions.
 
 The independent counter publisher is an active service account declared as
 `POS_SCREENING_COUNTER_PUBLISHER_GRANTEE`, separate from the application and
