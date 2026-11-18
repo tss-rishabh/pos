@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "recordedAt": "2026-11-18T14:59:30.163255+00:00",
+  "recordedAt": "2026-11-18T15:00:36.918162+00:00",
   "baseCommit": "b2828883905bf9c1469924b1bf1057f66547cf3b",
   "scope": "Native creator authority regressions; not full source/API/UI form parity",
   "nodeVersion": "24.22.3",
@@ -91,9 +91,10 @@
         "containerAbsent": true,
         "anonymousVolumes": 0,
         "removedWithVolumes": true
-      }
+      },
+      "inputBinding": "Original production baseline at baseCommit with the same assertions before mechanical test formatting; no byte-identical test checksum claim."
     },
-    "corrected": {
+    "initialCorrected": {
       "rawPath": "/tmp/pos-creator-authority-evidence-20261118/corrected-vitest.json",
       "rawSha256": "308e0c9f4c75f257de125136ddf61be605d98bdff8f1a13d9487307c5dcbc945",
       "passed": 15,
@@ -162,6 +163,96 @@
         }
       ],
       "ownedContainerId": "32979c20afd9daf85fb1ac9dc7328febcc4c1071656f79787e448e3397da7e1b",
+      "cleanup": {
+        "containerAbsent": true,
+        "anonymousVolumes": 0,
+        "removedWithVolumes": true
+      },
+      "inputBinding": "Behavioural result retained; two unrelated formatter-only hunks were restored during startup. Use final run for frozen-byte validation."
+    },
+    "final": {
+      "executedCommit": "2158d9302678dbd500b7ee6b7be834de8c506678",
+      "rawPath": "/tmp/pos-creator-authority-evidence-20261118/final-vitest.json",
+      "rawSha256": "f324bf71e625d3a66c27f2ddf3fccb106a4f5bfdb02a6c01a4807bdcf89d6389",
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "cases": [
+        {
+          "name": "rejects operator creation after demotion at real hash/transaction admission without identity or mirror writes",
+          "status": "passed"
+        },
+        {
+          "name": "rejects operator creation after OPM tier change at real hash/transaction admission without identity or mirror writes",
+          "status": "passed"
+        },
+        {
+          "name": "rejects operator creation after archive at real hash/transaction admission without identity or mirror writes",
+          "status": "passed"
+        },
+        {
+          "name": "rejects operator creation after organization change at real hash/transaction admission without identity or mirror writes",
+          "status": "passed"
+        },
+        {
+          "name": "rejects store creation after a current organization change without store, franchise, counter or assignment writes",
+          "status": "passed"
+        },
+        {
+          "name": "rejects current franchise role 1 creating an in-house store before all side effects",
+          "status": "passed"
+        },
+        {
+          "name": "rejects current franchise role 3 creating an in-house store before all side effects",
+          "status": "passed"
+        },
+        {
+          "name": "preserves current operator create capability for role 1, organization 1",
+          "status": "passed"
+        },
+        {
+          "name": "preserves current operator create capability for role 2, organization 1",
+          "status": "passed"
+        },
+        {
+          "name": "preserves current operator create capability for role 3, organization 1",
+          "status": "passed"
+        },
+        {
+          "name": "preserves current operator create capability for role 3, organization 2",
+          "status": "passed"
+        },
+        {
+          "name": "preserves legitimate store create capability for role 1, organization 1",
+          "status": "passed"
+        },
+        {
+          "name": "preserves legitimate store create capability for role 3, organization 1",
+          "status": "passed"
+        },
+        {
+          "name": "preserves legitimate store create capability for role 1, organization 2",
+          "status": "passed"
+        },
+        {
+          "name": "preserves legitimate store create capability for role 3, organization 2",
+          "status": "passed"
+        }
+      ],
+      "inputsBefore": {
+        "backend/src/modules/administration/authorization.ts": "34983bfb086ce36db1b11783225f82aec61f1f1b8cc4873cb78d360003ebb268",
+        "backend/src/modules/administration/operator-create.ts": "0ffd2f7221ad1ab67dce65523a4f3a4e10170a4ea7192a7de59d604d167f05e5",
+        "backend/src/modules/administration/service.ts": "133dc0fc029546bf7a3602f72390ec87720542d87f3ecaa39e4bb993d090df72",
+        "backend/tests/administration/creator-authority.mysql.test.ts": "609e444b4f8e2c3c86d143b03d690699c5b8d3d3ecd32f68f53abaf6774ab9a1"
+      },
+      "inputsAfter": {
+        "backend/src/modules/administration/authorization.ts": "34983bfb086ce36db1b11783225f82aec61f1f1b8cc4873cb78d360003ebb268",
+        "backend/src/modules/administration/operator-create.ts": "0ffd2f7221ad1ab67dce65523a4f3a4e10170a4ea7192a7de59d604d167f05e5",
+        "backend/src/modules/administration/service.ts": "133dc0fc029546bf7a3602f72390ec87720542d87f3ecaa39e4bb993d090df72",
+        "backend/tests/administration/creator-authority.mysql.test.ts": "609e444b4f8e2c3c86d143b03d690699c5b8d3d3ecd32f68f53abaf6774ab9a1"
+      },
+      "inputsUnchanged": true,
+      "ownedContainerId": "6c9ce118c99a31f7af54872f17dca5af048f3fa4eb620f81f8971d4b3e76ef73",
       "cleanup": {
         "containerAbsent": true,
         "anonymousVolumes": 0,
