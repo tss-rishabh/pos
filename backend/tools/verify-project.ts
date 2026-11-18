@@ -372,16 +372,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'google-sso-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/auth/tsconfig.sso-tests.json',
-    ],
-  },
-  {
     id: 'gift-issuance-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -788,11 +778,6 @@ const checks: Check[] = [
       '-p',
       'tests/cashier-shortcuts/tsconfig.json',
     ],
-  },
-  {
-    id: 'desktop-sso-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tests/desktop-sso/tsconfig.json'],
   },
   {
     id: 'legacy-delivery-browser-fixture-typecheck',
@@ -1313,12 +1298,6 @@ if (flags.has('--browser')) {
     directory: 'frontend',
     args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/product-feedback/browser.test.ts'],
     environment: { PRODUCT_FEEDBACK_BROWSER_TESTS: 'true' },
-  });
-  checks.push({
-    id: 'desktop-sso-browser-tests',
-    directory: 'frontend',
-    args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/desktop-sso/browser.test.ts'],
-    environment: { DESKTOP_SSO_BROWSER_TESTS: 'true' },
   });
   checks.push({
     id: 'customer-profile-browser-tests',

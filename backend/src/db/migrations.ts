@@ -14,8 +14,6 @@ export const migrationPaths = [
   'migrations/0004_auth_security_alerts.sql',
   'migrations/0005_profile_media.sql',
   'migrations/0006_operator_auth_epochs.sql',
-  'migrations/0007_google_identities.sql',
-  'migrations/0008_desktop_sso.sql',
   'src/modules/administration/migration.sql',
   'src/modules/gift-card-batches/migration.sql',
   'src/modules/administration/media-migration.sql',

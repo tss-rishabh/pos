@@ -36,16 +36,6 @@ const resources: Record<string, ResourceTrace> = {
     resource: 'session',
     action: 'delete',
   },
-  'GET /api/v1/auth/sso/login': {
-    module: 'identity',
-    resource: 'sso-session',
-    action: 'authorize',
-  },
-  'GET /api/v1/auth/sso/callback': {
-    module: 'identity',
-    resource: 'sso-session',
-    action: 'complete',
-  },
   'GET /api/v1/stores': { module: 'stores', resource: 'store', action: 'list' },
   'GET /api/v1/stores/:storeId/counters': { module: 'stores', resource: 'counter', action: 'list' },
   'GET /api/v1/stores/:storeId/catalog/products': {

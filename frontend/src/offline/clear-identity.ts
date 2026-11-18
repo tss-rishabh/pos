@@ -2,7 +2,6 @@ import type { QueryClient } from '@tanstack/react-query';
 import { setRequestOperator } from '../api/client';
 import { useWorkspace } from '../state/workspace';
 import { db } from './database';
-import { clearDesktopSsoReference } from './desktop-sso';
 
 /** Revoke local identity immediately; operator-owned sales/outbox remain durable. */
 export async function clearLocalIdentity(
@@ -11,7 +10,6 @@ export async function clearLocalIdentity(
   fromOperatorQuery = false,
 ) {
   setRequestOperator(null);
-  clearDesktopSsoReference();
   try {
     localStorage.setItem('pos-pending-logout', '1');
   } catch {

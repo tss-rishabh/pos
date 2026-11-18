@@ -57,7 +57,6 @@ test('desktop shell blocks external links, redirects and new windows', async () 
       NODE_ENV: 'development',
       POS_DESKTOP_URL: origin,
       POS_DESKTOP_PROFILE_DIR: profile,
-      POS_SSO_ORIGINS: '',
       POS_OAUTH_ORIGINS: 'https://oauth.example.test',
       POS_APP_LINK_ORIGINS: 'https://application.example.test',
       POS_CUSTOMER_WEBSITE_ORIGIN: 'https://customer.example.test',
@@ -217,99 +216,6 @@ test('desktop shell blocks external links, redirects and new windows', async () 
     await rm(profile, { recursive: true, force: true });
     await new Promise<void>((done, failed) =>
       server.close((error) => (error ? failed(error) : done())),
-    );
-  }
-});
-
-test('desktop Google sign-in opens only the app pairing URL in the system browser', async () => {
-  const server = createServer((_request, response) => {
-    response.writeHead(200, { 'Content-Type': 'text/html' });
-    response.end('<!doctype html><title>Desktop sign-in fixture</title><p>Ready</p>');
-  });
-  await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
-  const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('Desktop fixture port unavailable.');
-  const origin = `http://127.0.0.1:${address.port}`;
-  const profile = await mkdtemp(join(tmpdir(), 'souled-pos-google-'));
-  const application = await _electron.launch({
-    args: ['.'],
-    env: {
-      ...process.env,
-      NODE_ENV: 'development',
-      POS_DESKTOP_URL: origin,
-      POS_DESKTOP_PROFILE_DIR: profile,
-      POS_SSO_ORIGINS: 'https://accounts.google.com',
-      POS_OAUTH_ORIGINS: '',
-      POS_APP_LINK_ORIGINS: '',
-    },
-  });
-  try {
-    const window = await application.firstWindow();
-    await expect(window.getByText('Ready')).toBeVisible();
-    const result = await application.evaluate(async ({ BrowserWindow, shell }, origin) => {
-      const contents = BrowserWindow.getAllWindows()[0]!.webContents,
-        previous = shell.openExternal;
-      const opened: string[] = [],
-        usage: (boolean | undefined)[] = [];
-      shell.openExternal = async (target, options) => {
-        opened.push(target);
-        usage.push(options?.logUsage);
-      };
-      const id = 'a53b9ec4-76ce-4641-95d5-7d3f4f073ab4',
-        ticket = 'b'.repeat(43);
-      const valid = origin + `/api/v1/auth/sso/login?desktop=${id}&ticket=${ticket}`;
-      try {
-        const destinations = [
-          valid,
-          origin + '/api/v1/auth/sso/login',
-          valid + '&returnTo=https://attacker.example.test',
-          valid + '&desktop=' + id,
-          origin + `/api/v1/auth/sso/login?desktop=${id}&ticket=short`,
-          valid + '#fragment',
-          'https://accounts.google.com/o/oauth2/v2/auth?state=fixture',
-          'https://attacker.example.test/api/v1/auth/sso/login?desktop=' + id + '&ticket=' + ticket,
-          'file:///tmp/installer',
-        ];
-        const blocked = destinations.map((destination) => {
-          const event = {
-            defaultPrevented: false,
-            preventDefault() {
-              this.defaultPrevented = true;
-            },
-          };
-          contents.emit('will-navigate', event, destination);
-          return event.defaultPrevented;
-        });
-        const redirect = {
-          defaultPrevented: false,
-          preventDefault() {
-            this.defaultPrevented = true;
-          },
-        };
-        contents.emit(
-          'will-redirect',
-          redirect,
-          'https://accounts.google.com/o/oauth2/v2/auth?state=fixture',
-        );
-        await contents.executeJavaScript('window.open(' + JSON.stringify(valid) + ', "_blank")');
-        return { opened, usage, blocked, redirectBlocked: redirect.defaultPrevented, valid };
-      } finally {
-        shell.openExternal = previous;
-      }
-    }, origin);
-    expect(result.blocked).toEqual(Array(9).fill(true));
-    expect(result.redirectBlocked).toBe(true);
-    expect(result.opened).toEqual([result.valid, result.valid]);
-    expect(result.usage).toEqual([false, false]);
-    expect(window.url()).toBe(origin + '/');
-    expect(
-      await application.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows().length),
-    ).toBe(1);
-  } finally {
-    await application.close();
-    await rm(profile, { recursive: true, force: true });
-    await new Promise<void>((done, fail) =>
-      server.close((error) => (error ? fail(error) : done())),
     );
   }
 });

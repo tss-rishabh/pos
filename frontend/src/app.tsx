@@ -102,9 +102,6 @@ const ApplicationLinkLandingPage = lazy(() =>
     default: m.ApplicationLinkLandingPage,
   })),
 );
-const DesktopSsoApprovalPage = lazy(() =>
-  import('./pages/desktop-sso').then((module) => ({ default: module.DesktopSsoApprovalPage })),
-);
 const OnlineOrderDetailPage = lazy(() =>
   import('./pages/order-history/OnlineOrderDetail').then((module) => ({
     default: module.OnlineOrderDetailPage,
@@ -261,7 +258,6 @@ const links = [
 const roleNames = { 1: 'Super admin', 2: 'Admin', 3: 'OPM', 4: 'SM', 5: 'Staff' };
 export function App() {
   const { pathname } = useLocation();
-  const desktopApproval = pathname === '/desktop-sign-in';
   const kind =
     pathname === '/application-links/staff'
       ? 'staff'
@@ -269,13 +265,9 @@ export function App() {
         ? 'customer'
         : null;
   useLayoutEffect(() => {
-    if (kind || desktopApproval) setRequestOperator(null);
-  }, [kind, desktopApproval]);
-  return desktopApproval ? (
-    <Suspense fallback={<Loading />}>
-      <DesktopSsoApprovalPage />
-    </Suspense>
-  ) : kind ? (
+    if (kind) setRequestOperator(null);
+  }, [kind]);
+  return kind ? (
     <Suspense fallback={<Loading />}>
       <ApplicationLinkLandingPage key={kind} kind={kind} />
     </Suspense>

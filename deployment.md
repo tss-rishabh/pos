@@ -158,9 +158,7 @@ actions before enabling retries. A blanket table drop is not a rollback strategy
 
 ## Identity, reporting and background work
 
-Configure the OIDC issuer/client/redirect and test account provisioning, verified
-email, state, nonce, PKCE, logout and role/store revocation in the actual test
-tenant. Password login requires OTP or TOTP plus a valid store check-in. Configure
+Test logout and role/store revocation in the actual test tenant. Password login requires OTP or TOTP plus a valid store check-in. Configure
 the source-compatible Netcore/Gupshup delivery channels; OTPs are hashed at rest,
 and delivery credentials/phone/code are sent in POST bodies rather than URLs.
 Pending-proof and full-session credential fingerprints invalidate after changes.
@@ -279,8 +277,7 @@ provider sandboxes, alert recipients and log retention before production traffic
 ## Desktop distribution and media
 
 Build/package Electron separately on each supported target. Use the deployed
-HTTPS origin in `POS_DESKTOP_URL` and exact trusted SSO origins in
-`POS_SSO_ORIGINS`. Connect once to prepare the offline shell. Verify upgrades,
+HTTPS origin in `POS_DESKTOP_URL`. Connect once to prepare the offline shell. Verify upgrades,
 offline reload/replay, print/download, logout and device storage policies on
 signed Windows and macOS distributions; both are mandatory. Linux remains an
 optional target. Follow [desktop platform checks](desktop-platforms.md), including
@@ -290,7 +287,7 @@ checks on both OSes. An unsigned local package is not a signed production releas
 For the optional confidential Slack incoming-webhook flow, configure its approved
 app credentials, exact same-origin HTTPS callback and workspace IDs in the
 backend. Set desktop `POS_OAUTH_ORIGINS=https://slack.com` to permit same-window
-authorization. This allowlist is separate from SSO and never permits new windows.
+authorization. This allowlist never permits new windows.
 Apply the Slack migration and run the bounded security cleanup worker. The
 provider callback carries a short-lived code/state in its query: ensure any
 external ingress/CDN also omits or redacts callback query strings. Application

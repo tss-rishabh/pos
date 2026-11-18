@@ -13,8 +13,6 @@ import { registerAuth, authenticated } from './auth/routes.js';
 import { AppError } from './domain/errors.js';
 import { catalogBarcode, readCatalogBarcode } from './modules/catalog-barcode.js';
 import { memorySessions, mysqlSessions } from './auth/sessions.js';
-import { desktopSsoService } from './auth/desktop-sso.js';
-import { registerDesktopSso } from './auth/desktop-sso-routes.js';
 import { loginChallengeService } from './auth/mfa.js';
 import { otpDelivery } from './auth/delivery.js';
 import { profileService } from './auth/profile.js';
@@ -284,9 +282,7 @@ export async function buildApp(
     setCheckIn: (user, storeId, transaction) => checkins.set(user, storeId, null, transaction),
   });
   const sessions = config.DEMO_MODE ? memorySessions() : mysqlSessions(db);
-  const desktopSso = desktopSsoService(config, db, identity, sessions);
-  const auth = registerAuth(app, config, identity, demoUser, sessions, challenges, { desktopSso });
-  registerDesktopSso(app, config, desktopSso, sessions);
+  const auth = registerAuth(app, config, identity, demoUser, sessions, challenges);
   const profileStore = config.DEMO_MODE
     ? undefined
     : createScopedMediaStore(config, readPrivateS3Options(), 'uploads/users', {

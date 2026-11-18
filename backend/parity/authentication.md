@@ -43,9 +43,8 @@ closed; provider credentials/contact/OTP are sent in HTTPS POST bodies instead
 of URLs; persistent revoked sessions are rejected server-side. These changes
 need review alongside a complete source request/response parity certificate.
 
-OIDC authorization code + PKCE/state/nonce and verified-email provisioning are
-implemented, but the actual provider, app client, tenant MFA policy and logout
-integration are awaiting user details. Existing enabled account roles/store
+Google and desktop single sign-on were removed (19 November 2026). Login is the
+legacy password plus OTP/TOTP flow. Existing enabled account roles/store
 assignments remain authoritative. Aggregate-only read-only verification found
 all 1,237 active accounts use `pbkdf2_sha256`, and all active user types are 1/2;
 no hashes, names or contact values were returned. Evidence is

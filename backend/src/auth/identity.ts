@@ -7,10 +7,7 @@ import { roles } from '../domain/access.js';
 import { AppError } from '../domain/errors.js';
 import { verifyDjangoPassword } from './crypto.js';
 import { currentAuthenticationVersion } from './revocation.js';
-import { googleIdentities } from './google-identity-schema.js';
-import type { GoogleIdentity } from './google-sso.js';
 import type { SessionTransaction } from './sessions.js';
-import { currentRequestTrace } from '../observability/context.js';
 
 export interface IdentityService {
   get(id: string): Promise<Principal | null>;
@@ -21,7 +18,6 @@ export interface IdentityService {
     lock?: 'share' | 'update',
   ): Promise<PasswordIdentity | null>;
   byVerifiedEmail(email: string): Promise<Principal | null>;
-  byGoogleIdentity?(identity: GoogleIdentity): Promise<PasswordIdentity | null>;
   close(): Promise<void>;
 }
 export interface PasswordIdentity {
@@ -78,61 +74,6 @@ export function identityService(config: Config, databases: Databases): IdentityS
       : null;
   }
   return {
-    async byGoogleIdentity(identity) {
-      const email = identity.email.toLowerCase();
-      if (!/^[\x21-\x7e]{1,255}$/.test(identity.subject))
-        throw new AppError(403, 'SSO_IDENTITY_INVALID', 'Google identity could not be verified.');
-      const row = await database().transaction(async (tx) => {
-        const rows = await tx
-          .select()
-          .from(PosUser)
-          .where(and(sql`lower(${PosUser.email})=${email}`, eq(PosUser.is_active, true)))
-          .limit(2)
-          .for('update');
-        const current = rows.length === 1 ? rows[0] : undefined;
-        if (
-          !current ||
-          (current.email ?? '').toLowerCase() !== email ||
-          !(current.role in roles) ||
-          !(current.user_type === 1 || current.user_type === 2)
-        )
-          return null;
-        const bindings = await tx
-          .select()
-          .from(googleIdentities)
-          .where(
-            or(
-              eq(googleIdentities.subject, identity.subject),
-              eq(googleIdentities.operatorId, current.id.toString()),
-            ),
-          )
-          .limit(2)
-          .for('update');
-        if (bindings.length) {
-          if (
-            bindings.length !== 1 ||
-            bindings[0]!.subject !== identity.subject ||
-            bindings[0]!.operatorId !== current.id.toString()
-          )
-            throw new AppError(
-              403,
-              'SSO_IDENTITY_CHANGED',
-              'This work identity is not linked to this POS account.',
-            );
-        } else {
-          await tx
-            .insert(googleIdentities)
-            .values({
-              subject: identity.subject,
-              operatorId: current.id.toString(),
-              requestId: currentRequestTrace()?.requestId ?? null,
-              createdAt: new Date().toISOString().slice(0, 23).replace('T', ' '),
-            });
-        }
-        return current;
-      });
-      return row ? passwordIdentity(row) : null;
-    },
     async get(id) {
       const [row] = await database()
         .select()

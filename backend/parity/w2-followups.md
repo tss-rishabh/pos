@@ -78,3 +78,18 @@ return and import holds.
   snapshots no longer read cash-return controls. Legacy relies on `mark_stale`
   instead (see above). The rewrite has no equivalent of `mark_stale` for
   reversals yet.
+
+## Google SSO and desktop SSO (commit 3)
+
+- Removed: `auth/google-sso*`, `auth/google-identity-schema.ts`,
+  `auth/desktop-sso*`, the `/api/v1/auth/sso/*` and desktop pairing routes,
+  `migrations/0007_google_identities.sql` and `0008_desktop_sso.sql`, the
+  `OIDC_*`/`DESKTOP_SSO_ENABLED` config keys, the `openid-client` dependency,
+  the desktop approval page, the Electron SSO navigation filter and the
+  `POS_SSO_ORIGINS` workspace key. The `ssoOrigins` field is gone from the
+  Electron workspace JSON. `workspace.json` must be rebuilt by
+  `before-pack.cjs`; it keeps format version 1. Auth capabilities now return
+  only `password` and `demo`.
+- **W3: `src/config.ts` is a shared file.** This commit removed the OIDC keys
+  from it. The production HTTPS check now covers only `TSS_API_BASE_URL`.
+  Legacy login (`users/` password plus OTP/TOTP) is unchanged.

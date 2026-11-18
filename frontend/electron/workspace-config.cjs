@@ -60,7 +60,7 @@ function validateWorkspace(value, development = false) {
     typeof value !== 'object' ||
     Array.isArray(value) ||
     Object.keys(value).sort().join(',') !==
-      'applicationOrigins,customerWebsiteOrigin,oauthOrigins,ssoOrigins,url,v' ||
+      'applicationOrigins,customerWebsiteOrigin,oauthOrigins,url,v' ||
     value.v !== VERSION
   )
     invalid();
@@ -69,7 +69,6 @@ function validateWorkspace(value, development = false) {
   return Object.freeze({
     v: VERSION,
     url: workspaceUrl(value.url, development),
-    ssoOrigins: Object.freeze(exactOrigins(value.ssoOrigins)),
     oauthOrigins: Object.freeze(exactOrigins(value.oauthOrigins)),
     applicationOrigins: Object.freeze(exactOrigins(value.applicationOrigins)),
     customerWebsiteOrigin: customer[0] ?? null,
@@ -84,7 +83,6 @@ function workspaceFromEnvironment(env = process.env, development = false) {
     {
       v: VERSION,
       url: workspaceUrl(env.POS_DESKTOP_URL, development),
-      ssoOrigins: originList(env.POS_SSO_ORIGINS || ''),
       oauthOrigins: originList(env.POS_OAUTH_ORIGINS || ''),
       applicationOrigins: originList(env.POS_APP_LINK_ORIGINS || ''),
       customerWebsiteOrigin: customer[0] ?? null,

@@ -1,18 +1,12 @@
-import { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ArrowRight, LockKeyhole, Monitor } from 'lucide-react';
 import { z } from 'zod';
 import { post, request } from '../api/client';
 import { capabilitiesSchema, loginChallengeSchema, sessionSchema } from '../api/schemas';
-import { ErrorState, Loading } from '../components/common';
+import { ErrorState } from '../components/common';
 import { useWorkspace } from '../state/workspace';
-import { db } from '../offline/database';
-import { isDesktopRuntime } from '../lib/desktop-runtime';
-import { hasPendingDesktopLogout } from '../offline/desktop-sso';
 
-const DesktopSsoLogin = lazy(() =>
-  import('./desktop-sso').then((module) => ({ default: module.DesktopSsoLogin })),
-);
 
 type Challenge = z.infer<typeof loginChallengeSchema>;
 export function Login() {
@@ -29,7 +23,6 @@ export function Login() {
     queryFn: () => request('/api/v1/auth/capabilities', {}, capabilitiesSchema),
     retry: false,
   });
-  const [desktopActive, setDesktopActive] = useState(false);
   const mayRestoreChallenge = useRef(true);
   function showChallenge(value: Challenge) {
     mayRestoreChallenge.current = false;
@@ -63,7 +56,7 @@ export function Login() {
     }
   }
   async function login(demo: boolean, form?: HTMLFormElement) {
-    if (desktopActive || busy) return;
+    if (busy) return;
     // Disabled controls are omitted by FormData. Capture before locking the UI
     // or awaiting a pending logout, while keeping credentials in this call only.
     const data = form ? new FormData(form) : undefined;
@@ -122,39 +115,6 @@ export function Login() {
     } finally {
       setBusy(false);
     }
-  }
-  async function startSso() {
-    setBusy(true);
-    setError(null);
-    try {
-      await clearPendingLogout();
-      window.location.assign('/api/v1/auth/sso/login');
-    } catch (error) {
-      setError(error);
-      setBusy(false);
-    }
-  }
-  async function acceptDesktopSession(expected: z.infer<typeof sessionSchema>) {
-    if (hasPendingDesktopLogout()) throw new Error('Sign-in was cancelled. Start again.');
-    const current = await request('/api/v1/auth/sessions/current', {}, sessionSchema);
-    if (hasPendingDesktopLogout()) throw new Error('Sign-in was cancelled. Reset desktop sign-in.');
-    if (current.user.id !== expected.user.id) {
-      await complete();
-      throw new Error('The signed-in operator changed. Refresh the workspace.');
-    }
-    await db.transaction('rw', db.sessions, async () => {
-      if (hasPendingDesktopLogout())
-        throw new Error('Sign-in was cancelled. Reset desktop sign-in.');
-      await db.sessions.put({
-        id: 'current',
-        user: current.user,
-        expiresAt: current.sessionExpiresAt,
-      });
-      if (hasPendingDesktopLogout())
-        throw new Error('Sign-in was cancelled. Reset desktop sign-in.');
-    });
-    if (hasPendingDesktopLogout()) throw new Error('Sign-in was cancelled. Reset desktop sign-in.');
-    client.setQueryData(['operator'], current.user);
   }
   return (
     <main className="login">
@@ -248,7 +208,7 @@ export function Login() {
             </form>
             <button
               className="button secondary full"
-              disabled={busy || desktopActive}
+              disabled={busy}
               onClick={() => void resend()}
             >
               {factor === 'totp' ? 'Send a login OTP' : 'Resend OTP'}
@@ -290,7 +250,7 @@ export function Login() {
                   <input
                     autoFocus
                     name="username"
-                    disabled={busy || desktopActive}
+                    disabled={busy}
                     autoComplete="username"
                     required
                     maxLength={254}
@@ -301,7 +261,7 @@ export function Login() {
                   Password
                   <input
                     name="password"
-                    disabled={busy || desktopActive}
+                    disabled={busy}
                     type="password"
                     autoComplete="current-password"
                     required
@@ -309,39 +269,18 @@ export function Login() {
                     placeholder="Enter your password"
                   />
                 </label>
-                <button className="button primary full" disabled={busy || desktopActive}>
+                <button className="button primary full" disabled={busy}>
                   {busy ? 'Checking credentials…' : 'Continue'}
                   <ArrowRight size={18} />
                 </button>
               </form>
             )}
-            {options.data?.sso &&
-              (isDesktopRuntime() ? (
-                <Suspense fallback={<Loading />}>
-                  <DesktopSsoLogin
-                    enabled={options.data.desktopSso}
-                    disabled={busy}
-                    beforeStart={clearPendingLogout}
-                    onActiveChange={setDesktopActive}
-                    onSession={acceptDesktopSession}
-                  />
-                </Suspense>
-              ) : (
-                <button
-                  className="button secondary full"
-                  disabled={busy || desktopActive}
-                  onClick={() => void startSso()}
-                >
-                  <LockKeyhole size={16} />
-                  Continue with Google
-                </button>
-              ))}
             {options.data?.demo && (
               <div className="demo-note">
                 <span>LOCAL PREVIEW · SAMPLE DATA</span>
                 <button
                   className="button secondary full"
-                  disabled={busy || desktopActive}
+                  disabled={busy}
                   onClick={() => void login(true)}
                 >
                   Explore demo workspace
