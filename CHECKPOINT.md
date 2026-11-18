@@ -1,5 +1,42 @@
 # POS rewrite checkpoint
 
+Latest validation checkpoint (18 November, supersedes older counts below):
+the integrated `f5d3e56` snapshot was pushed to draft PR #2. Its isolated Node
+24/MySQL/browser verifier completed 128 checks: 121 passed, seven failed,
+with no input changes. Production readiness remains false. The backend suite
+recorded 2,320 passed, 232 failed and 111 skipped tests. Do not infer feature
+certification from the aggregate check count. Both desktop CI jobs on that
+snapshot failed: the shared offline committed-import test raced a successful
+background GET, and Windows also failed the cashier shortcut quote assertion.
+
+Integrated subsequent repairs through `5cf0c16`: actual membership/coupon native
+coverage (10 focused passes), fresh Go authority/start coverage, private
+development-dependency exposure review, canonical authority-succession fixture
+migrations, explicit fixture MySQL port/schema and migration time budgets,
+session trace assertions for successor routes, deterministic lost-import
+recovery (five repeated local browser passes), and codepoint canonical counter
+seals matching Python. The fixture repair worktree additionally passed 57
+financial/hold tests, 15 actual Python-source scenarios (one Go case skipped),
+and the 12 draft/runtime cases after setup fixes. These are scoped results;
+the full failed suite has not yet been recertified.
+
+Implementation gaps found during validation are being fixed before any final
+validation claim: payment owner is wiring the existing screening-ticket CSV
+profile into both Node and private Python runtimes; reporting owner is routing
+actual historical fact cohorts to BigQuery (including two-day summaries and
+older sale facts referenced by today's returns); coupon owner is repairing the
+exact two-function Python privilege mirror and genuine public/source fixtures.
+Root owns remaining financial fixture repairs and Windows shortcut diagnosis
+in `/Users/rishabhbhatia/code/pos-rewrite-validation`. No live services were
+written. Source manifests must be regenerated after these changes integrate.
+
+The wallet calendar-date decision is still pending; its candidate remains
+inactive. The picomatch development advisory remains open: no production-only
+dependency exposure was found, and the behavior-restricting candidate is
+inactive. Physical printer, final Windows/macOS packaging and external
+SSO/warehouse/provider qualification are not certified. Preserve all release
+gates and the user's implementation-first order when fixing these gaps.
+
 Standing user instruction (18 November 2026): finish all feature and integration
 code first; perform parity testing and full verification afterward. During
 implementation, defer further test expansion, certification and repeated check
