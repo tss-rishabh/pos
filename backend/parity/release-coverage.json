@@ -28,7 +28,7 @@
     {
       "kind": "route",
       "id": "core/urls.py:31",
-      "status": "pending",
+      "status": "verified",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -45,14 +45,14 @@
         "frontend/tests/lookup-workflow/harness.tsx"
       ],
       "evidence": [
-        "backend/evidence/lookup-routes-reviewed-d717c89.json"
+        "backend/evidence/lookup-routes-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Standalone help/shared-shell implementation changed after this execution; affected workflows must be re-executed before current admission. Historical evidence is retained."
+      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained."
     },
     {
       "kind": "route",
       "id": "core/urls.py:167",
-      "status": "pending",
+      "status": "verified",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -71,9 +71,87 @@
         "frontend/tests/lookup-workflow/harness.tsx"
       ],
       "evidence": [
-        "backend/evidence/lookup-routes-reviewed-d717c89.json"
+        "backend/evidence/lookup-routes-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Standalone help/shared-shell implementation changed after this execution; affected workflows must be re-executed before current admission. Historical evidence is retained."
+      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained."
+    },
+    {
+      "kind": "route",
+      "id": "order/urls.py:60",
+      "status": "verified",
+      "implementation": [
+        "backend/src/app.ts",
+        "backend/src/auth/routes.ts",
+        "backend/src/auth/identity.ts",
+        "backend/src/auth/sessions.ts",
+        "backend/src/modules/product-feedback/index.ts",
+        "backend/src/modules/product-feedback/service.ts",
+        "frontend/src/app.tsx",
+        "frontend/src/pages/product-feedback/index.tsx"
+      ],
+      "tests": [
+        "backend/tools/product-feedback/native-workflow-fixture.ts",
+        "backend/tools/product-feedback/native-workflow-source.py",
+        "backend/tools/product-feedback/run-native-workflow.sh",
+        "frontend/tests/product-feedback/native-workflow.test.ts",
+        "frontend/tests/product-feedback/native-workflow-entry.tsx"
+      ],
+      "evidence": [
+        "backend/evidence/product-feedback-reviewed-6cbae5f.json"
+      ],
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded."
+    },
+    {
+      "kind": "route",
+      "id": "users/urls.py:29",
+      "status": "verified",
+      "implementation": [
+        "backend/src/app.ts",
+        "backend/src/auth/routes.ts",
+        "backend/src/auth/identity.ts",
+        "backend/src/auth/sessions.ts",
+        "backend/src/modules/product-feedback/index.ts",
+        "backend/src/modules/product-feedback/service.ts",
+        "frontend/src/app.tsx",
+        "frontend/src/pages/product-feedback/index.tsx"
+      ],
+      "tests": [
+        "backend/tools/product-feedback/native-workflow-fixture.ts",
+        "backend/tools/product-feedback/native-workflow-source.py",
+        "backend/tools/product-feedback/run-native-workflow.sh",
+        "frontend/tests/product-feedback/native-workflow.test.ts",
+        "frontend/tests/product-feedback/native-workflow-entry.tsx"
+      ],
+      "evidence": [
+        "backend/evidence/product-feedback-reviewed-6cbae5f.json"
+      ],
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded."
+    },
+    {
+      "kind": "template",
+      "id": "order/templates/order/add_order_feedback.html",
+      "status": "verified",
+      "implementation": [
+        "backend/src/app.ts",
+        "backend/src/auth/routes.ts",
+        "backend/src/auth/identity.ts",
+        "backend/src/auth/sessions.ts",
+        "backend/src/modules/product-feedback/index.ts",
+        "backend/src/modules/product-feedback/service.ts",
+        "frontend/src/app.tsx",
+        "frontend/src/pages/product-feedback/index.tsx"
+      ],
+      "tests": [
+        "backend/tools/product-feedback/native-workflow-fixture.ts",
+        "backend/tools/product-feedback/native-workflow-source.py",
+        "backend/tools/product-feedback/run-native-workflow.sh",
+        "frontend/tests/product-feedback/native-workflow.test.ts",
+        "frontend/tests/product-feedback/native-workflow-entry.tsx"
+      ],
+      "evidence": [
+        "backend/evidence/product-feedback-reviewed-6cbae5f.json"
+      ],
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded."
     }
   ],
   "requirements": [

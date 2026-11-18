@@ -1,6 +1,6 @@
 # POS rewrite checkpoint
 
-## Current state — 18 November 2026, preparation for r8
+## Current state — 18 November 2026, r8 in progress
 
 All currently identified implementation gaps are closed. Latest production
 change `4a410b9` normalizes nullable legacy store display labels without changing
@@ -18,19 +18,28 @@ Lookup/feedback provision and clean their own pinned disposable MySQL fixtures.
 Their runs leave committed evidence unchanged. Verifier strict compilation and
 focused lint pass. Original shared dependencies/Python environments are unchanged.
 
-Next is a fixed-snapshot, prerequisite-complete full r8 in the dedicated sibling
-worktree, with its own mitigated dependencies and both pinned Python oracles.
-No full r8 has started at this checkpoint. The last complete attempt remains
+A fixed-snapshot, prerequisite-complete full r8 is running on `6cbae5f` in
+`pos-rewrite-validation-20261118-r8`, exec session94149, private log
+`/tmp/pos-rewrite-validation-20261118/full-verification-r8.log`. Both pinned
+Python oracles and mitigated installs were checked; owned localhost MySQL was
+recreated fresh while retaining its previous volume. First53 checks passed;
+this is progress only, not a terminal full-run result. Poll the same live handle
+and keep heavy local tests/builds/measurements idle. The last complete attempt remains
 failed r7: 133 passed, three failed, one unexecuted. Focused follow-ups passed;
-they do not replace a clean full run. The release gate remains failing. All
-three prior route certificates remain pending after shared-shell changes;
-refresh/admit exact workflows from actual executions, never by rewriting hashes.
+they do not replace a clean full run. The release gate remains failing. Current read-only admission review accepts four routes and one feedback
+template: fresh country/postal proof plus15-case source/native/full-App feedback.
+All retained input hashes/source blobs match; three omitted helper hashes were
+compared with the exact executed baseline and bound in a separate review. Old
+receipts are unchanged. The quote certificate remains pending re-execution.
+Root gate:391 surfaces pending, all12 requirements pending, no malformed/stale
+admission failures, productionReady false. This new review does not change the
+frozen r8 inputs or turn that in-progress run into a current-Root verification.
 
 Live provider/SSO/warehouse/inventory acceptance, full source parity,
 representative performance/security review, signed desktop/physical printing,
 background workers and deployment/rollback acceptance remain incomplete.
-Latest recorded both-platform success is the older `9b7827e` snapshot; newer
-production changes require current CI. Do not claim production readiness.
+Both platforms also pass the shortcut-access snapshot `4de9f3c` in run
+44261638997. Exact r8 snapshot `6cbae5f` is running in CI44264574673. Do not claim production readiness.
 
 ## Historical checkpoint entries (superseded where noted above)
 
