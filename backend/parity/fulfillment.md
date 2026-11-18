@@ -4,6 +4,12 @@ Source baseline: `backend-pos-web` commit `78d5b63d6a149a6bf2c748fa1d191799c59ec
 
 The plugin implements 19 resource routes. This is implementation coverage, not certification of all legacy routes or production integrations.
 
+Source review identified missing global expiry reminders and incoming notification
+links, visual alerts and sound. These variants are being implemented before
+further parity/performance execution; the page-level expiry banner and existing
+notification badge alone do not provide their behavior. Historical scoped proofs
+remain unchanged and require affected re-execution after the shared shell changes.
+
 | Source surface | Rewrite |
 |---|---|
 | Hyperlocal progress page, content refresh, load more, tab counts | `GET /api/v1/stores/:storeId/fulfillment/{summary,orders}`; `FulfillmentPage` |
@@ -47,7 +53,14 @@ Worker options are validated in `options.ts`:
 | `FULFILLMENT_WORKER_BATCH_SIZE` | `25` |
 | `FULFILLMENT_WORKER_CONCURRENCY` | `4` |
 | `HL_TIMED_OUT_REASON_ID` | `5` |
+| `HL_EXPIRY_POLL_INTERVAL_MS` | `60000`; validated range `5000`–`300000` |
 | `VINC_ALLOCATED_STATUSES` | `Allocated,Part Allocated` |
+
+The expiry response publishes the configured poll interval and business timezone.
+Its selected store must match the operator's current native check-in before and
+after the read. This preserves source check-in scope across concurrent store or
+authority changes. The global widget and fulfillment page share the same query;
+the global widget owns background polling.
 
 The plugin starts the worker on Fastify readiness only when explicitly enabled, and awaits delivery shutdown before closing Redis. Claims use `FOR UPDATE SKIP LOCKED`; core effects follow command sequence; counter deltas are also serialized by store and monotonic dispatch order. SQL store/line locks serialize expiry mutations. Batches expose cursors so unresolved early orders cannot starve later orders. Slack failures cannot block later core effects solely by occupying an earlier notification sequence.
 

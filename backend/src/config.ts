@@ -109,6 +109,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
         .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
         .default('21:00'),
       DAY_CLOSE_CUTOFF_DAYS: z.coerce.number().int().min(0).max(7).default(1),
+      DAY_CLOSE_NAG_INTERVAL_MINUTES: z.coerce.number().int().min(1).max(1440).default(10),
       DAY_CLOSE_NAG_EVENING_START: z
         .string()
         .regex(/^([01]\d|2[0-3]):[0-5]\d$/)

@@ -1235,6 +1235,16 @@ for (const [id, directory, config] of [
   ['lookup-workflow-backend-typecheck', 'backend', 'tools/lookup-workflow/backend.tsconfig.json'],
   ['lookup-workflow-browser-typecheck', 'frontend', 'tests/lookup-workflow/tsconfig.json'],
   [
+    'customer-profile-native-workflow-typecheck',
+    'backend',
+    'tools/customer-profile/native-workflow.tsconfig.json',
+  ],
+  [
+    'customer-profile-native-browser-typecheck',
+    'frontend',
+    'tests/customer-profile/native-workflow.tsconfig.json',
+  ],
+  [
     'feedback-native-workflow-typecheck',
     'backend',
     'tools/product-feedback/native-workflow.tsconfig.json',
@@ -1321,6 +1331,13 @@ if (flags.has('--browser')) {
         command: 'sh',
         args: ['tools/product-feedback/run-native-workflow.sh'],
         environment: { PRODUCT_FEEDBACK_SOURCE_ROOT: source },
+      },
+      {
+        id: 'customer-profile-native-source-api-browser-workflow',
+        directory: 'backend',
+        command: 'sh',
+        args: ['tools/customer-profile/native-workflow-run.sh'],
+        environment: { CUSTOMER_PROFILE_SOURCE_ROOT: source },
       },
       {
         id: 'shortcut-native-source-api-browser-workflow',

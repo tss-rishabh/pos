@@ -18,33 +18,37 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 292,
+      "external_acceptance": 249,
       "implementation_present": 100,
+      "partial": 43,
       "missing": 4
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 187,
-        "implementation_present": 68
+        "external_acceptance": 160,
+        "implementation_present": 68,
+        "partial": 27
       },
       "jobs": {
-        "external_acceptance": 31,
+        "external_acceptance": 28,
+        "partial": 3,
         "missing": 1
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 71,
-        "missing": 3
+        "external_acceptance": 59,
+        "missing": 3,
+        "partial": 12
       },
       "websockets": {
-        "external_acceptance": 1
+        "partial": 1
       },
       "administration": {
         "external_acceptance": 2
       }
     },
     "families": 76,
-    "code_task_groups": 0,
+    "code_task_groups": 3,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -245,7 +249,7 @@
     "backend/parity/fast-cash.md": "d2a6989ff9bbd7bdb42d9ffcd5fc4f55e02ebebdf77c6d1cfa4593ef42ec50fc",
     "backend/parity/finance.md": "2c3ec9980227273d9b4a1dd9445db65d97ec1b74305ff916f56a5f634669a77f",
     "backend/parity/fulfillment-shipping.md": "fc258cf5779abe6de81c1945cd78c666d568b672635190f0250a17db097e2f91",
-    "backend/parity/fulfillment.md": "38ef683e6d58bde79bc3e418f403e974732d6f76323418dbd799cdbe2c1c839e",
+    "backend/parity/fulfillment.md": "689439d948c25735e763f0d6ecef497b85dd5bedca366c22cdfed8bede1b64d1",
     "backend/parity/global-vouchers.md": "460d458c2c37445dc45313ed697b6ce3f3d5bd3f6d7d9ec092b03e27d77a9ab6",
     "backend/parity/import-order-hold-guards.md": "09a4a5f99d3ce4de1b16b59e8a463a24ff9167d8a94a1715678e8bda2db3e7d0",
     "backend/parity/inventory-workbooks.md": "ff9dbc33de5561364c757bda12e9cd862b12542c0b36c45a9a1180a5fac3c8d4",
@@ -676,7 +680,7 @@
     "backend/src/modules/finance/feed-sql.ts": "5117e1e145a03cf4e9b0a048c36e633f24e2b12707d915a37c18692fc05fe84a",
     "backend/src/modules/finance/feed.ts": "5f85ad9cffa4947e890279bde2c845bb3754efbe5ac0257c13f224270775aabc",
     "backend/src/modules/finance/history.ts": "249c033b33a7edad52a137805a9fb815a03e8df8538fd848dd4266ace94168c1",
-    "backend/src/modules/finance/index.ts": "36a935af167f810926cc5a3338294fec43bcf85b5d59d40f9ca66c69dc93e088",
+    "backend/src/modules/finance/index.ts": "405e2a0db8fc3ff1829ebd5e5141c217e83d1f85cac013f602c7a3c0f3ddc50e",
     "backend/src/modules/finance/ledger.ts": "e210194b1057c5f198dd1e37a105fc6ab66fef3c74097cc81e3d7e09e7de23bc",
     "backend/src/modules/finance/migration.sql": "4a26e5d1864ffdeabc710ce58fe09271d1d3f3fd68e3a9fc220744a89a683f10",
     "backend/src/modules/finance/offline-cash.ts": "4acb0e954d7cbf0ef5fe7b7552a377904d55da93249c458d83b97465c24d3835",
@@ -685,7 +689,7 @@
     "backend/src/modules/finance/schema.ts": "efe5411a988a5909ba959f0542140ae3e02eda1c185ca513bd349fac4bd0c192",
     "backend/src/modules/finance/service.ts": "df0e5391e310ecc271dd1eda0ca202605b6c46f80ea8cb0a5389e7d7236de899",
     "backend/src/modules/fulfillment/domain.ts": "1addb1100798d36704d85cecd158483dc06d4914dfb22b02f25780078f204bba",
-    "backend/src/modules/fulfillment/index.ts": "5736218f5d6e65d6498f258f260e61bc32e0e43f19625696fd18f2f8b6ba7887",
+    "backend/src/modules/fulfillment/index.ts": "63f238e55763793bbf68250717a62d5faf80dcaed9b6bfcd9c4d36ac39525bea",
     "backend/src/modules/fulfillment/integrations.ts": "c04edf09466e10931f203b7ee3a2e16bb1678bef2b17f4d969b932a7a66dd52e",
     "backend/src/modules/fulfillment/maintenance.ts": "4c434a4b1522f3c6ae4b84c1ccad18414729832b7238e07bfe31ba8d73602f83",
     "backend/src/modules/fulfillment/migration.sql": "386060f0a67a145f53d58bab280a571de3ea2b20ef49c461922befc9ea9ffb38",
@@ -693,7 +697,7 @@
     "backend/src/modules/fulfillment/monitoring.ts": "f7d24f6d8037cfaf6fa32b7509f44d26811f9c8a5958306fc3798c38c8798480",
     "backend/src/modules/fulfillment/notification-bus.ts": "cfb943621814feb833b2fa0aa117e51ff6e6abc1685bc0309e1fe35e516784c5",
     "backend/src/modules/fulfillment/notifications.ts": "242ebc5438b9c84260ee8a76f0aa20474c38f676ec92d603144dc7cef87237c9",
-    "backend/src/modules/fulfillment/options.ts": "a00725308fd05b7dad04e42a545680c90a03d5b600e1290815de80a12f5b2ac4",
+    "backend/src/modules/fulfillment/options.ts": "620472d123da5fcbc4a6d91a156c3b531c77e20a2ee4d2faab8d3db92fa79809",
     "backend/src/modules/fulfillment/outbox.ts": "6ea3cd1c16eb1283f88567a2dad3670cc86af767801463f307cbdc39855550d0",
     "backend/src/modules/fulfillment/schema.ts": "4d1d25199cd0fccd6bfbc5d852ff0b9b02bdafcbffe3178313fe99b97b9ffde0",
     "backend/src/modules/fulfillment/service.ts": "6757f35ee5459719b2f7a040045153a99023df38ae6788d6ff4f6cd8ef35c4ca",
@@ -1641,7 +1645,12 @@
     "frontend/tests/customer-otp/tsconfig.json": "0b60e8f8416f09d1ff8556e1e49183b4f851a38cb787e3e0ad134c79086b1224",
     "frontend/tests/customer-profile/browser-entry.tsx": "74e85281d43b3314bb0d873191cee0763e78a73a56f5c46a69fc5362246b2e60",
     "frontend/tests/customer-profile/browser.test.ts": "b40ee01a9493626b72e77abca6a497b94adb520522ccfde4ec34756c985e8fa8",
-    "frontend/tests/customer-profile/tsconfig.json": "0bc683c75a5f8292e1a4e004fdcc110592dcfd10bf935035a497161941703803",
+    "frontend/tests/customer-profile/native-workflow-seed.html": "7e0de21d1acf404363577925c510013b3f91be89ed48e77be95c03356543b4d5",
+    "frontend/tests/customer-profile/native-workflow-seed.ts": "c15e3a34c18635bff634e777cb9d5a6fd26ad411abd2f1c08b1329b566ee316e",
+    "frontend/tests/customer-profile/native-workflow.config.ts": "52c47d38b10afafa9e5757f2697b49de91170d8bac4fd1d7f660950329064236",
+    "frontend/tests/customer-profile/native-workflow.test.ts": "ded730f9b0001d3872bdbe1e29ad2bd943b850147b8e8b4fed732aa41eef8e09",
+    "frontend/tests/customer-profile/native-workflow.tsconfig.json": "5f7f1995a72b3202e7eae265e9926b0faac11c5d8da91ae2f49f5618e30f3109",
+    "frontend/tests/customer-profile/tsconfig.json": "52359f6fc46fff446401526a0d6145cfa9673070e685433dc168038acc60b44c",
     "frontend/tests/customer-website-handoff.test.ts": "2f07f978181bc1320548b11939ea0ff76fc42f79f692c5bb6716f43484e22d3b",
     "frontend/tests/customer-website-handoff.tsconfig.json": "f6c424b923b89dd166c1fd9dee164725bc3b9fcd4a74740960b266c1664bfd50",
     "frontend/tests/dashboard/browser.test.ts": "c2cadc1656c7ab2ae95a95c9cdbbf2cf21d3ffd49c40ec45348fc3fceb2b20c6",
@@ -4456,6 +4465,7 @@
         "frontend/tests/customer-contacts/contacts.browser.test.ts",
         "frontend/tests/customer-otp/otp.browser.test.ts",
         "frontend/tests/customer-profile/browser.test.ts",
+        "frontend/tests/customer-profile/native-workflow.test.ts",
         "frontend/tests/customer-website-handoff.test.ts",
         "frontend/tests/dashboard/browser.test.ts",
         "frontend/tests/desktop-sso/browser.test.ts",
@@ -4702,6 +4712,7 @@
         "frontend/tests/customer-contacts/contacts.browser.test.ts",
         "frontend/tests/customer-otp/otp.browser.test.ts",
         "frontend/tests/customer-profile/browser.test.ts",
+        "frontend/tests/customer-profile/native-workflow.test.ts",
         "frontend/tests/customer-website-handoff.test.ts",
         "frontend/tests/dashboard/browser.test.ts",
         "frontend/tests/desktop-sso/browser.test.ts",
@@ -5227,6 +5238,7 @@
         "frontend/tests/customer-contacts/contacts.browser.test.ts",
         "frontend/tests/customer-otp/otp.browser.test.ts",
         "frontend/tests/customer-profile/browser.test.ts",
+        "frontend/tests/customer-profile/native-workflow.test.ts",
         "frontend/tests/customer-website-handoff.test.ts",
         "frontend/tests/dashboard/browser.test.ts",
         "frontend/tests/desktop-sso/browser.test.ts",
@@ -6127,7 +6139,8 @@
       "test_files": [
         "backend/tests/customer-benefits.test.ts",
         "backend/tests/customer-profile.mysql.integration.test.ts",
-        "frontend/tests/customer-profile/browser.test.ts"
+        "frontend/tests/customer-profile/browser.test.ts",
+        "frontend/tests/customer-profile/native-workflow.test.ts"
       ]
     },
     {
@@ -6276,7 +6289,7 @@
     },
     {
       "id": "express-fulfillment",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/fulfillment"
       ],
@@ -6290,8 +6303,10 @@
       "parity_documents": [
         "backend/parity/fulfillment.md"
       ],
-      "implemented_scope": "Express tabs/progress/content/load-more/reasons, bulk accept/reject/pack/ship/RTO/admin edits, expiry alerts and all-store monitoring.",
-      "remaining_code": [],
+      "implemented_scope": "Express tabs/progress/content/load-more/reasons, bulk accept/reject/pack/ship/RTO/admin edits, page expiry data and all-store monitoring.",
+      "remaining_code": [
+        "Restore the source global 30/5-minute grouped expiry reminders, scoped persisted deduplication and unaccepted/unpacked/packed banner outside the fulfillment page. Share one configured poller with page consumers and use the explicit business timezone."
+      ],
       "external_acceptance": [
         "Accept actual Express courier/concurrency/status/email providers and stock cooperation."
       ],
@@ -6405,7 +6420,7 @@
     },
     {
       "id": "notifications",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/fulfillment/index.ts",
         "backend/src/modules/fulfillment/notification-bus.ts",
@@ -6421,7 +6436,9 @@
         "backend/parity/fulfillment.md"
       ],
       "implemented_scope": "Persisted notifications/read receipts and one store-scoped authenticated/current-check-in WebSocket subscription with expiry/backpressure.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Restore actionable order/queue navigation for notices without url_key, source-equivalent visual toast/queue indication and gesture-safe audible alerts with scoped preferences. Reject browser-normalized external paths, including the confirmed backslash-origin bypass."
+      ],
       "external_acceptance": [
         "Accept production Redis/pubsub/websocket gateway and original consumer cutover."
       ],
@@ -6446,7 +6463,7 @@
     },
     {
       "id": "finance-day-close",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/finance"
       ],
@@ -6461,8 +6478,10 @@
         "backend/parity/finance.md",
         "backend/parity/export-history-controls.md"
       ],
-      "implemented_scope": "Day-close state/revisions/nag/pending alerts, cash-ledger/history and exact Glassbox orders feed; pending offline cash retained.",
-      "remaining_code": [],
+      "implemented_scope": "Day-close state/revisions/server prompt/pending alerts, cash-ledger/history and exact Glassbox orders feed; pending offline cash retained.",
+      "remaining_code": [
+        "Mount the source foreground-only global day-close reminder with operator/store snooze, cross-tab suppression, modal priority and correct target-date navigation; the server prompt alone has no frontend consumer."
+      ],
       "external_acceptance": [
         "Accept generation/CDC warehouse financial publication, source timezone/rollout and actual scheduled notices."
       ],
@@ -6489,77 +6508,77 @@
         {
           "kind": "routes",
           "id": "report/urls.py:16",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:73",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:74",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:75",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:76",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:77",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:78",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:79",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:80",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "report/urls.py:81",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "jobs",
           "id": "report/datatables/cash_balance_datatable.py:83",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "jobs",
           "id": "report/datatables/day_close_datatable.py:216",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "report/templates/day_close/cash_balance.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "report/templates/day_close/index.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "report/templates/day_close/logs.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         }
       ],
       "test_files": [
@@ -7074,12 +7093,12 @@
         {
           "kind": "jobs",
           "id": "report/datatables/cash_balance_datatable.py:83",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "jobs",
           "id": "report/datatables/day_close_datatable.py:216",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "jobs",
@@ -7772,7 +7791,29 @@
       ]
     }
   ],
-  "remaining_code_tasks": [],
+  "remaining_code_tasks": [
+    {
+      "family": "express-fulfillment",
+      "state": "partial",
+      "tasks": [
+        "Restore the source global 30/5-minute grouped expiry reminders, scoped persisted deduplication and unaccepted/unpacked/packed banner outside the fulfillment page. Share one configured poller with page consumers and use the explicit business timezone."
+      ]
+    },
+    {
+      "family": "notifications",
+      "state": "partial",
+      "tasks": [
+        "Restore actionable order/queue navigation for notices without url_key, source-equivalent visual toast/queue indication and gesture-safe audible alerts with scoped preferences. Reject browser-normalized external paths, including the confirmed backslash-origin bypass."
+      ]
+    },
+    {
+      "family": "finance-day-close",
+      "state": "partial",
+      "tasks": [
+        "Mount the source foreground-only global day-close reminder with operator/store snooze, cross-tab suppression, modal priority and correct target-date navigation; the server prompt alone has no frontend consumer."
+      ]
+    }
+  ],
   "routes": [
     {
       "source": {
@@ -10500,7 +10541,7 @@
       "families": [
         "notifications"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12512,7 +12553,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12543,7 +12584,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12576,7 +12617,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12607,7 +12648,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12640,7 +12681,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12671,7 +12712,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12702,7 +12743,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12733,7 +12774,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12764,7 +12805,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12795,7 +12836,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12828,7 +12869,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12859,7 +12900,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12890,7 +12931,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12923,7 +12964,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12956,7 +12997,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12987,7 +13028,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13018,7 +13059,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13722,7 +13763,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13754,7 +13795,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13784,7 +13825,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13814,7 +13855,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13844,7 +13885,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13874,7 +13915,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13906,7 +13947,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13936,7 +13977,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -13968,7 +14009,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -16009,7 +16050,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -16125,7 +16166,7 @@
         "finance-day-close",
         "report-exports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -16149,7 +16190,7 @@
         "finance-day-close",
         "report-exports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -17220,7 +17261,7 @@
         "express-fulfillment",
         "notifications"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -17301,7 +17342,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17319,7 +17360,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -17337,7 +17378,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -17355,7 +17396,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -17373,7 +17414,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17391,7 +17432,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17409,7 +17450,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17427,7 +17468,7 @@
       "families": [
         "express-fulfillment"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17657,7 +17698,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17675,7 +17716,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17693,7 +17734,7 @@
       "families": [
         "finance-day-close"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -18399,7 +18440,7 @@
       "families": [
         "notifications"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified"
     }

@@ -370,7 +370,9 @@ def define_families():
            external=['Accept provider/outcome adapters, source monetary/projection/cancellation cooperation and service/scheduler credentials.'])
     bind('local-deliveries', ['AjaxHlOrderView', 'AutoHlOrderView', 'AJaxConvertOnlineView', 'AjaxRtoRecievedView', 'AjaxOrderPackView', 'AjaxPassOrderView', 'WebhookCancelledOrderView', 'AjaxCheckOrderStatusView'])
     family('express-fulfillment', ['src/modules/fulfillment'], ['src/pages/fulfillment'], ['tests/fulfillment', 'frontend/tests/fulfillment'],
-           ['parity/fulfillment.md'], scope='Express tabs/progress/content/load-more/reasons, bulk accept/reject/pack/ship/RTO/admin edits, expiry alerts and all-store monitoring.',
+           ['parity/fulfillment.md'], state='partial',
+           scope='Express tabs/progress/content/load-more/reasons, bulk accept/reject/pack/ship/RTO/admin edits, page expiry data and all-store monitoring.',
+           gaps=['Restore the source global 30/5-minute grouped expiry reminders, scoped persisted deduplication and unaccepted/unpacked/packed banner outside the fulfillment page. Share one configured poller with page consumers and use the explicit business timezone.'],
            external=['Accept actual Express courier/concurrency/status/email providers and stock cooperation.'])
     bind('express-fulfillment', ['AjaxExpressLineItemPackView', 'HyperlocalProgressView', 'AjaxHyperlocalProgressDataView', 'AjaxHyperlocalProgressContentView', 'AjaxHyperlocalRejectionReasonsView', 'AjaxExpressLineItemsBulkActionView', 'AjaxExpressOrderPackAllView', 'AjaxExpressOrderMarkShippedView', 'AjaxExpressOrderNotifyView', 'AjaxHyperlocalLoadMoreView', 'AjaxExpressOrderMarkRTOView', 'AjaxHyperlocalExpiryAlertsView', 'HyperlocalAllStoresDashboardView', 'AjaxHyperlocalAllStoresDataView', 'AjaxHyperlocalAdminEditView', 'ExpressOrderMarkShippedApiView'])
     family('shipping-labels', ['src/modules/fulfillment/shipping-label'], ['src/pages/fulfillment/shipping-label.tsx'],
@@ -386,11 +388,15 @@ def define_families():
     bind('legacy-vinculum-status', ['AjaxUpdateStatusVincView'])
     family('notifications', ['src/modules/fulfillment/index.ts', 'src/modules/fulfillment/notification-bus.ts', 'src/modules/fulfillment/notifications.ts'],
            ['src/pages/fulfillment/notifications.tsx'], ['tests/fulfillment'], ['parity/fulfillment.md'],
+           state='partial',
            scope='Persisted notifications/read receipts and one store-scoped authenticated/current-check-in WebSocket subscription with expiry/backpressure.',
+           gaps=['Restore actionable order/queue navigation for notices without url_key, source-equivalent visual toast/queue indication and gesture-safe audible alerts with scoped preferences. Reject browser-normalized external paths, including the confirmed backslash-origin bypass.'],
            external=['Accept production Redis/pubsub/websocket gateway and original consumer cutover.'])
     bind('notifications', ['AjaxNotificationUpdateView'])
     family('finance-day-close', ['src/modules/finance'], ['src/pages/finance'], ['tests/finance', 'frontend/tests/finance'],
-           ['parity/finance.md', 'parity/export-history-controls.md'], scope='Day-close state/revisions/nag/pending alerts, cash-ledger/history and exact Glassbox orders feed; pending offline cash retained.',
+           ['parity/finance.md', 'parity/export-history-controls.md'], state='partial',
+           scope='Day-close state/revisions/server prompt/pending alerts, cash-ledger/history and exact Glassbox orders feed; pending offline cash retained.',
+           gaps=['Mount the source foreground-only global day-close reminder with operator/store snooze, cross-tab suppression, modal priority and correct target-date navigation; the server prompt alone has no frontend consumer.'],
            external=['Accept generation/CDC warehouse financial publication, source timezone/rollout and actual scheduled notices.'])
     families['finance-day-close']['implementation_review'] = [
         review_reference('frontend/src/pages/finance/ledger.tsx', '[pageSize, setPageSize] = useState(31)', 'Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations.'),

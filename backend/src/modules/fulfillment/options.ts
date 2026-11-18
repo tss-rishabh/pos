@@ -24,6 +24,7 @@ export function readFulfillmentOptions(env: NodeJS.ProcessEnv = process.env) {
         z.boolean(),
       ),
       HL_TIMED_OUT_REASON_ID: z.coerce.number().int().min(1).max(2_147_483_647).default(5),
+      HL_EXPIRY_POLL_INTERVAL_MS: z.coerce.number().int().min(5000).max(300000).default(60000),
       FULFILLMENT_WORKER_ENABLED: z.preprocess(
         (value) =>
           value === undefined ? false : value === 'true' ? true : value === 'false' ? false : value,

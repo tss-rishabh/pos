@@ -1,62 +1,77 @@
 # POS rewrite checkpoint
 
-## Current state — 18 November 2026, terminal r8 and scoped follow-ups
+## Current state — 18 November 2026, implementation first: global alerts
 
-Production graph remains the nullable-store DTO fix `4a410b9` plus standalone
-help/access fixes. Latest pushed code `851f620` changes only QA discovery,
-expectation and failure diagnostics. No known implementation gap is established;
-complete source behavior and release acceptance remain unproven.
+Three actual implementation gaps were found during notification source review.
+The source supplies actionable order/queue links even when `url_key` is NULL,
+audible incoming alerts, visual toasts/new-queue indication, and global expiry
+reminders/banners across pages. The rewrite had only a notification badge and
+fulfillment-page expiry summary. Do not describe implementation as complete.
+Source map now records three partial code groups: notifications, global
+express expiry and foreground day-close reminders. Finish these variants before new parity/full/performance runs.
 
-Full r8 on frozen `6cbae5f` is TERMINAL failed, session94149 closed exit1:
-146 expected,145 executed,144 passed, one failed (`backend-tests`), generic
-`browser-tests` unexecuted by the existing failure guard. Source/rewrite and
-all hashed inputs stayed unchanged, interrupted false. Canonical report and
-`backend/evidence/verification-6cbae5f-r8.json` retain the exact failed result.
-Backend phase finished naturally in975529ms:2701 tests passed,90 skipped, one
-outdated NULL display-label assertion failed; two node:test tool files were
-also wrongly collected as empty Vitest suites. No timeouts/output limits.
+Production work is isolated and owned: feedback worker handles notification
+navigation, safe URL parsing, visual/audio alerts/preferences and the existing
+FulfillmentPage query/tab; shortcut worker handles global expiry component,
+App mount and shared expiry query helper. Root handles backend poll/timezone
+metadata and coordination. The source also prompts for missing/stale day close outside the finance page;
+the former client never called its implemented prompt endpoint. Source expiry defaults to 60,000 ms with grouped 30/5-minute
+warnings, persistent dedup/cleanup and pending/accepted/packed counts. Root has
+added validated HL_EXPIRY_POLL_INTERVAL_MS and businessTimeZone response metadata,
+plus strict empty-query validation and environment documentation. Native current
+check-in must match before/after expiry reads. The existing day-close prompt now
+exposes its configured snooze interval (source default 10 minutes) and timezone;
+its financial eligibility/staleness logic is unchanged. The foreground global
+reminder consumer and correct close-date navigation are being implemented.
+Frontend variants remain in implementation. A bounded Node WHATWG URL evaluation proved
+the old slash-prefix check accepts a backslash path normalized to another origin;
+no external request was made. That sanitizer correction is owned by feedback.
 
-Corrections on851f620 are verified in an independent own-install checkout:
-new Vitest config removes exactly those two Node-runner files (344→342 files,
-no other removals/additions); the two explicit Node prerequisites already pass
-with unchanged bytes in r8. All15 native barcode/catalog tests pass, including
-the full franchise/global store-picker assertion now expecting the actual
-empty-string DTO. Backend config and OTP fixture strict checks plus changed
-backend lint pass. Receipt `backend/evidence/verification-r8-corrections.json`
-is bounded evidence, not a replacement complete run. Original shared installs
-and Python environments remain untouched.
+These shared production edits invalidate the broad current proof bindings.
+All eight prior admitted surfaces are explicitly pending; original execution
+receipts remain immutable. Re-execute affected workflows once after code closure,
+never just rehash them. Full release acceptance remains unproven.
 
-Desktop CI44268539314 on851f620 SUCCESS on Windows and macOS, including native,
-offline, browser recovery and unsigned packaging; receipt
-`backend/evidence/desktop-ci-851f620.json`. Earlier6c Windows OTP reload failure
-is retained separately. Assertions/deadlines/counts are unchanged; failure-only
-diagnostics contain allowlisted booleans/timings/read counts and trace fields.
-The passing rerun does not establish the cause of the older failure. Signing,
-physical printing/device and release acceptance remain unproven.
+Profile proof `8383911` + `397c432` is integrated as `bfa9ae0` / `fdbc2c0`: 7/7 pass in 28.11 s,
+scoped strict/lint/syntax pass, 1,233 matched input hashes and canonical log digest.
+Exactly users/urls.py:23,:28 only; no whole checkout/template or shared cart
+provider acceptance. Real App/native profile operations use a bounded localhost
+read-only cart contract seam with actual signed token/context/native bindings.
+A reversed source mixin order allows anonymous property writes; candidate auth
+and confirmed UI refresh are intentional security/interface corrections. No
+production defect was found in that resource. Native workflow/verifier
+registration and existing compiler-target declaration coverage are prepared;
+legacy profile compiler target, verifier strict and lint pass. Current source
+graph changes mean admission waits for affected re-execution after code closure.
 
-Fresh r8 joined lookup4, feedback15 and shortcut source/API/native/UI checks
-pass. Scoped quote source/API tests also pass in the failed backend aggregate;
-both quote browser cases pass within the current unfiltered53-case CI suite.
-New review certificates preserve parent failures and old receipts. Gate now
-accepts six routes and two templates (8/396),388 surfaces and all12 release
-requirements pending, no malformed/stale certificate failures. This is exact
-resource/template scope; no full counter, positive financial shortcut, history
-navigation, provider or release certification.
+Archive candidate `d02a5cf` + `e38c527` retains twelve native/source postconditions and
+six scoped API/built-App checks for four archive/reactivate routes. Its final
+scoped runner exited 0 against `851f620`; the complete build+wrapper was not rerun
+after harness corrections because of the implementation-first hold. Source
+history/assignments and old-cookie revocation are verified only in that bounded
+snapshot. A partial-body lost reply produced one PATCH and one epoch increment;
+an earlier pre-header transport fault repeated PATCH, with historical native
+counts unavailable. Preserve that limit. Its owned MySQL is removed and no
+archive process is live. New code must precede further parity runs.
 
-Next parity work is isolated: profile edits candidate8383911 is executing;
-first3 native/source cases pass,4 UI cases exposed a fixture cart-read dependency
-and source snippet extraction error. Worker preserves real restore guards and
-is qualifying a localhost upstream read boundary, explicitly excluding provider
-parity. Catalogue/matrix benchmark54e9ce4+53cf24e passes static checks but native
-validation/measurement waits for an actually idle host. Archival workflow
-d02a5cf covers four exact source declarations as an unexecuted authoring
-candidate. No candidate receives admission from test/file counts. Finish these
-focused proofs and any actual implementation fixes before another complete run.
+Catalogue/matrix benchmark `54e9ce4` + `53cf24e` is static-ready only. Native validation
+and measurement remain held until all implementation and competing jobs finish.
+No performance/production p95 claim is made. Root's completed-run MySQL fixture
+was stopped (volume retained); no unrelated containers/shared installs changed.
 
-Live SSO/warehouse/provider/inventory/background-worker acceptance, complete
-source parity, representative performance/security review, signed desktop and
-physical offline printing, and deployment/rollback acceptance remain required.
-Do not claim production readiness.
+Last full r8 on `6cbae5f` is terminal failed: 146 expected, 145 executed, 144 passed,
+one backend check failed; generic browser check unexecuted. Inputs unchanged,
+not interrupted. Backend: 2,701 pass / 90 skip, with two Node-runner files accidentally
+collected by Vitest and one stale NULL-label assertion. `851f620` bounded follow-ups
+pass 15 native cases, exact 344→342 discovery, strict/lint. Both Windows/macOS CI
+`44268539314` pass `851f620` including native/offline/unsigned packaging. Older `6cbae5f`
+Windows OTP failure remains archived; unchanged assertions pass but old cause
+is unresolved. Reports and all bounded limits remain in backend/evidence.
+
+Complete source parity, live SSO/warehouse/providers/inventory/background-worker
+acceptance, representative performance/security review, signed desktop/physical
+printing/offline reconciliation and deployment/rollback remain required. Do not
+claim production readiness.
 
 ## Historical checkpoint entries (superseded where noted above)
 

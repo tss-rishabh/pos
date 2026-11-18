@@ -246,9 +246,15 @@ export async function registerFinance(
     '/api/v1/stores/:storeId/day-close-prompt',
     { config: trace('day-close-prompt', 'read') },
     async (request) => {
+      z.object({}).strict().parse(request.query);
       const user = authenticated(request),
         params = z.object({ storeId: identifier }).parse(request.params);
-      return service.prompt(user, params.storeId);
+      const prompt = await service.prompt(user, params.storeId);
+      return {
+        ...prompt,
+        nagIntervalMs: config.DAY_CLOSE_NAG_INTERVAL_MINUTES * 60000,
+        businessTimeZone: config.BUSINESS_TIMEZONE,
+      };
     },
   );
   return { service, ledger, feed, alerts, history };

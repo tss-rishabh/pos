@@ -79,6 +79,14 @@ export async function registerFulfillment(
     options.dispatcher || integrationDispatcher(config, db, credentials),
   );
   const checkins = options.checkins || checkInService(db, config);
+  async function requireCurrentCheckIn(
+    userId: string,
+    storeId: string,
+    purpose: 'notifications' | 'expiry reminders',
+  ) {
+    if ((await checkins.checkedInStore(userId)) !== storeId)
+      throw new AppError(403, 'CHECK_IN_REQUIRED', `Check into this store to receive ${purpose}.`);
+  }
   const notifications = notificationDelivery(config, db, bus, checkins);
   const maintenance = fulfillmentMaintenance(config, db, credentials);
   const worker = fulfillmentWorker(
@@ -190,9 +198,17 @@ export async function registerFulfillment(
     '/api/v1/stores/:storeId/fulfillment/expiry-alerts',
     { config: trace('express-expiry-alert', 'list') },
     async (request) => {
+      z.object({}).strict().parse(request.query);
       const user = authenticated(request),
         params = scope.parse(request.params);
-      return service.expiryAlerts(user, params.storeId);
+      await requireCurrentCheckIn(user.id, params.storeId, 'expiry reminders');
+      const alerts = await service.expiryAlerts(user, params.storeId);
+      await requireCurrentCheckIn(user.id, params.storeId, 'expiry reminders');
+      return {
+        ...alerts,
+        pollIntervalMs: credentials.HL_EXPIRY_POLL_INTERVAL_MS,
+        businessTimeZone: config.BUSINESS_TIMEZONE,
+      };
     },
   );
   app.get(
@@ -336,12 +352,7 @@ export async function registerFulfillment(
         requireStore(user, params.storeId);
         if (request.headers.origin !== new URL(config.WEB_ORIGIN).origin)
           throw new AppError(403, 'ORIGIN_DENIED', 'Request origin is not allowed.');
-        if ((await checkins.checkedInStore(user.id)) !== params.storeId)
-          throw new AppError(
-            403,
-            'CHECK_IN_REQUIRED',
-            'Check into this store to receive notifications.',
-          );
+        await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
       },
     },
     (socket, request) => {
@@ -360,11 +371,15 @@ export async function registerFulfillment(
         return sessionValid && (await checkins.checkedInStore(user.id)) === params.storeId;
       };
       let queue = Promise.resolve();
-      let pendingMessages=0;
+      let pendingMessages = 0;
       void bus
         .subscribe(params.storeId, user.id, id, (event) => {
-          if(closed)return;
-          if(pendingMessages>=100||socket.bufferedAmount>65536){closed=true;socket.close(1013,'Reconnect to refresh notifications');return;}
+          if (closed) return;
+          if (pendingMessages >= 100 || socket.bufferedAmount > 65536) {
+            closed = true;
+            socket.close(1013, 'Reconnect to refresh notifications');
+            return;
+          }
           pendingMessages++;
           queue = queue
             .then(async () => {
@@ -373,9 +388,12 @@ export async function registerFulfillment(
                 socket.close(1008, 'Session expired');
                 return;
               }
-              if(socket.readyState===socket.OPEN)socket.send(JSON.stringify(event));
+              if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(event));
             })
-            .catch(() => socket.close(1013, 'Notifications unavailable')).finally(()=>{pendingMessages--;});
+            .catch(() => socket.close(1013, 'Notifications unavailable'))
+            .finally(() => {
+              pendingMessages--;
+            });
         })
         .then((stop) => {
           if (closed) void stop().catch(() => {});

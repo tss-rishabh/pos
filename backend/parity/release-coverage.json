@@ -5,7 +5,7 @@
     {
       "kind": "route",
       "id": "core/urls.py:66",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/modules/motivational-quotes/index.ts",
         "backend/src/modules/motivational-quotes/pool.ts",
@@ -23,12 +23,12 @@
       "evidence": [
         "backend/evidence/quotes-route-reviewed-r8-ci851f620.json"
       ],
-      "notes": "Fresh scoped proof from actual r8 quote source/API tests and current both-platform unfiltered browser execution. All83 values preserved; one real-backend UI case plus one controlled escaping/offline case. Parent backend/full run remains failed; no counter-template, financial or release certification."
+      "notes": "Fresh scoped proof from actual r8 quote source/API tests and current both-platform unfiltered browser execution. All83 values preserved; one real-backend UI case plus one controlled escaping/offline case. Parent backend/full run remains failed; no counter-template, financial or release certification. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     },
     {
       "kind": "route",
       "id": "core/urls.py:31",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -47,12 +47,12 @@
       "evidence": [
         "backend/evidence/lookup-routes-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained."
+      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     },
     {
       "kind": "route",
       "id": "core/urls.py:167",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -73,12 +73,12 @@
       "evidence": [
         "backend/evidence/lookup-routes-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained."
+      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Fresh canonical workflow executed against the current production graph; historical receipts retained. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     },
     {
       "kind": "route",
       "id": "order/urls.py:60",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -99,12 +99,12 @@
       "evidence": [
         "backend/evidence/product-feedback-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded."
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     },
     {
       "kind": "route",
       "id": "users/urls.py:29",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -125,12 +125,12 @@
       "evidence": [
         "backend/evidence/product-feedback-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded."
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     },
     {
       "kind": "template",
       "id": "order/templates/order/add_order_feedback.html",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -151,12 +151,12 @@
       "evidence": [
         "backend/evidence/product-feedback-reviewed-6cbae5f.json"
       ],
-      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded."
+      "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     },
     {
       "kind": "route",
       "id": "order/urls.py:57",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "frontend/src/app.tsx",
         "frontend/src/pages/cashier-shortcuts/help.tsx",
@@ -177,12 +177,12 @@
       "evidence": [
         "backend/evidence/shortcut-help-reviewed-r8.json"
       ],
-      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance."
+      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     },
     {
       "kind": "template",
       "id": "order/templates/order/shortcuts.html",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "frontend/src/app.tsx",
         "frontend/src/pages/cashier-shortcuts/help.tsx",
@@ -203,7 +203,7 @@
       "evidence": [
         "backend/evidence/shortcut-help-reviewed-r8.json"
       ],
-      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance."
+      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     }
   ],
   "requirements": [
