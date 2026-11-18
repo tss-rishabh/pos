@@ -83,7 +83,7 @@ do not certify all source HTTP routes or production mixed-writer deployment.
 
 ## Joined native source, API and built-page workflow
 
-`tools/product-feedback/run-native-workflow.sh` runs five joined workflows on an
+`tools/product-feedback/run-native-workflow.sh` runs thirteen joined workflows on an
 owned disposable MySQL 8.0.39 container. It checks both selected dependency
 artifacts before tool execution, restricts database access to localhost and its
 explicit fixture schema, and removes the container and temporary environment
@@ -104,14 +104,25 @@ The source oracle now also executes the immutable handler bodies on genuine
 Django QuerySets against the same physical fixtures used by the rewrite.
 Unused Order/User/Product/HP model fields are projected away; used field and
 relationship declarations, Meta, display methods and the complete rating model
-come from the pinned source AST. Original URL bindings and LoginRequiredMixin
-presence are checked. The exact feedback template main block is rendered by
-Django; the surrounding shell, unused mathfilters import and CDN/legacy AJAX
-execution are outside this receipt.
+come from the pinned source AST. Original URL bindings are checked. The complete
+source view classes now also run through Django dispatch and LoginRequiredMixin,
+including the original GET renderer and POST exception handling. Their fixture
+identity seam reads the native operator's active state; it does not certify the
+shared password/session/SSO provider or global CSRF/ASGI middleware.
+
+The exact feedback main block and custom inline script render through Django.
+Pinned local jQuery executes the source serializer in a real browser. Only its
+HTTP transport is adapted to the actual original Django view/native ORM; no
+candidate response is substituted. Captured business fields and wire encoding
+are compared in memory; CSRF token values, cookies and payloads are never logged
+or retained in the receipt. Legacy console calls are counted through a sink
+without preserving their payload values. Unused CDN plugins, the surrounding
+application shell and the unused mathfilters import remain outside this feature.
 
 The browser loads a production-built `ProductFeedbackPage` at its real route
-shape and talks to `buildApp` through an HTTP proxy. Normal response bodies come from the real server; no API data is fabricated. Native session credentials are created by the
-fixture; production cookie validation, identity reload, current authority,
+shape and talks to `buildApp` through an HTTP proxy. Normal response bodies come
+from the real server; no API data is fabricated. Native session credentials are
+created by the fixture; production cookie validation, identity reload, current authority,
 request validation, routes and ORM writes run normally. This proves current
 session use, not password/MFA/Google sign-in. One fault-injection case delivers
 the committed POST headers and truncates its JSON body; the UI recovers through
@@ -119,13 +130,37 @@ the actual receipt GET with one POST and four rows.
 
 The joined checks compare all frontend-visible source order/product/rating
 values, duplicate SKU occurrences and known form constraints; four actual source
-inserts match the rewrite's native business fields and defaults. Generated
+script-generated AJAX inserts match the rewrite's native business fields and
+defaults for empty and nonempty optional fields/comments. Generated
 rating IDs/timestamps are not compared for equality across separate writes;
 they are not source feedback display values. Partial/null/unknown-option/mobile
 data remains readonly, all five numeric roles are exercised, and wrong
 store/customer/order/product/version and archived-session requests are refused.
 The built page keeps comments out of console and durable browser state and
 renders HTML-like source text safely.
+
+The source-browser execution establishes explicit nonfinancial corrections:
+
+- Duplicate-SKU source forms reuse element IDs. Invoking the second form's exact
+  handler reads the first form's values; the rewrite saves the selected line's
+  values while retaining product-level feedback aggregation.
+- An order ID above `2^53` is emitted as an unquoted source JavaScript literal.
+  Rounding changes its DOM lookup, which throws before any AJAX or insert. The
+  rewrite preserves the exact string ID and saves to the intended order.
+- Repeated source handler invocations can insert eight rows. An ordinary native
+  source button also follows default form navigation without waiting for its
+  independent AJAX deliveries. The proof exercises handlers separately to
+  compare complete four-request values, then observes unmodified native button
+  navigation and whichever requests reach the source. The rewrite completes
+  explicitly in-page and disables both duplicate forms after one confirmed save.
+- Source missing input returns HTTP 200 with string status `400`; a nonnumeric
+  option raises a native-dispatch ValueError/HTTP 500. The typed replacement
+  rejects malformed requests before writes. Anonymous source dispatch redirects;
+  the replacement API returns 401, leaving sign-in to the application.
+- A native CHECK fault on the fourth option leaves three successful source
+  inserts and an HTTP-200/string-400 result for the last request. The same fault
+  rolls back the replacement's entire command; receipt lookup finds no result,
+  and an explicit exact retry succeeds once the fixture fault is removed.
 
 Transport envelopes, stronger current checkout/customer/store authority,
 atomic four-row writes and UUID receipt recovery are intentional adaptations

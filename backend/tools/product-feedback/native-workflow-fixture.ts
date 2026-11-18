@@ -19,6 +19,7 @@ import { checkInService } from '../../src/modules/administration/checkins.js';
 import { verifiedMysqlFixture } from '../operational-reports/verified-mysql-fixture.js';
 
 export const feedbackOrder = '9007199254740993';
+export const feedbackSafeOrder = '900001';
 export const feedbackProduct = '10';
 export const feedbackCheckout = 'a53b9ec4-76ce-4641-95d5-7d3f4f073ab4';
 export const feedbackApi = `/api/v1/stores/1/checkout-sessions/${feedbackCheckout}/customers/777/orders/${feedbackOrder}/product-feedback`;
@@ -65,6 +66,24 @@ const sourceWrite = z.object({
   nativeInserts: z.number().int().nonnegative(),
   sourceHashes: z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/)),
 });
+const sourceDispatchResult = z.object({
+  status: z.number().int(),
+  body: z.unknown(),
+  html: z.string().nullable(),
+  location: z.string().nullable(),
+  exceptionType: z.string().nullable(),
+  queries: z.number().int().nonnegative(),
+  nativeInserts: z.number().int().nonnegative(),
+  sourceHashes: z.record(z.string(), z.string().regex(/^[a-f0-9]{64}$/)),
+});
+export type SourceFeedbackRequest = {
+  payload: Record<string, string>;
+  serializedBusiness: string;
+  csrfTokenPresent: boolean;
+  csrfTokenFormatValid: boolean;
+  status: number;
+  sourceStatus: string | null;
+};
 const exactNativeId = z.union([z.string(), z.number().int().safe()]).transform(String);
 const nativeRows = z.array(
   z
@@ -162,6 +181,12 @@ export async function nativeFeedbackFixture(output: string) {
     order_amt: 50,
     order_status: 3,
   });
+  await physical.insert('orders', {
+    id: feedbackSafeOrder,
+    user_id: 777,
+    order_amt: 125.5,
+    order_status: 3,
+  });
   await physical.insert('products', { id: 10, product: '<Synthetic feedback product>' });
   await physical.insert('products', { id: 11, product: 'Another product' });
   for (const id of ['9007199254740997', '9007199254740998'])
@@ -170,14 +195,102 @@ export async function nativeFeedbackFixture(output: string) {
       order_id: feedbackOrder,
       prod_id: feedbackProduct,
     });
+  for (const id of ['101', '102'])
+    await physical.insert('has_products', {
+      id,
+      order_id: feedbackSafeOrder,
+      prod_id: feedbackProduct,
+    });
   for (const migration of migrationPlan())
     for (const statement of migration.statements) await connection.query(statement);
 
   let backendOrigin = '',
     dropNextPost = false;
+  let qualityFault = false,
+    sourceNavigations = 0;
+  const sourceTraffic: SourceFeedbackRequest[] = [];
+  const pendingSource = new Set<Promise<void>>();
   const traffic: { method: string; path: string; status: number }[] = [];
   const gateway = createServer(async (request, response) => {
     const path = request.url ?? '/';
+    if (path === '/__feedback_source_jquery.js') {
+      const result = spawnSync(
+        'git',
+        [
+          '-C',
+          process.env.PRODUCT_FEEDBACK_SOURCE_ROOT ?? '',
+          'show',
+          '78d5b63d6a149a6bf2c748fa1d191799c59ecb8a:static/adminlte/plugins/jquery/jquery.min.js',
+        ],
+        {
+          encoding: 'utf8',
+          maxBuffer: 512000,
+          timeout: 5000,
+          env: { PATH: process.env.PATH },
+        },
+      );
+      if (result.status !== 0) {
+        response.writeHead(503);
+        response.end();
+        return;
+      }
+      response.writeHead(200, { 'content-type': 'text/javascript' });
+      response.end(result.stdout);
+      return;
+    }
+    if (/^\/users\/order-feedback-form\/\d+\/\d+(?:\?.*)?$/.test(path)) {
+      sourceNavigations += 1;
+      const result = dispatchSource('GET', path);
+      response.writeHead(result.status, { 'content-type': 'text/html' });
+      response.end(result.html ?? '');
+      return;
+    }
+    if (path === '/orders/ajax-add-feedback/') {
+      const operation = (async () => {
+        const chunks: Buffer[] = [];
+        let bytes = 0;
+        for await (const value of request) {
+          const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value);
+          bytes += chunk.length;
+          if (bytes > 16000) throw new Error('Source fixture transport limit exceeded');
+          chunks.push(chunk);
+        }
+        const serialized = Buffer.concat(chunks).toString('utf8');
+        const fields = new URLSearchParams(serialized);
+        const token = fields.get('csrfmiddlewaretoken');
+        fields.delete('csrfmiddlewaretoken');
+        const result = dispatchSource('POST', path, serialized);
+        const status = z.object({ status: z.string() }).safeParse(result.body);
+        sourceTraffic.push({
+          payload: Object.fromEntries(fields),
+          serializedBusiness: serialized
+            .split('&')
+            .filter((part) => !part.startsWith('csrfmiddlewaretoken='))
+            .join('&'),
+          csrfTokenPresent: Boolean(token),
+          csrfTokenFormatValid: Boolean(token && /^[A-Za-z0-9]{64}$/.test(token)),
+          status: result.status,
+          sourceStatus: status.success ? status.data.status : null,
+        });
+        response.writeHead(result.status, {
+          'content-type': result.body === null ? 'text/html' : 'application/json',
+          ...(result.location ? { location: result.location } : {}),
+        });
+        response.end(result.body === null ? (result.html ?? '') : JSON.stringify(result.body));
+      })();
+      pendingSource.add(operation);
+      try {
+        await operation;
+      } catch {
+        if (!response.destroyed) {
+          response.writeHead(503);
+          response.end('Source fixture unavailable.');
+        }
+      } finally {
+        pendingSource.delete(operation);
+      }
+      return;
+    }
     if (path.startsWith('/api/v1/')) {
       const chunks: Buffer[] = [];
       for await (const chunk of request)
@@ -306,11 +419,46 @@ export async function nativeFeedbackFixture(output: string) {
       throw new Error('Native source execution failed without exposing diagnostics');
     return JSON.parse(result.stdout) as unknown;
   }
+  function dispatchSource(
+    method: 'GET' | 'POST',
+    target: string,
+    serialized = '',
+    authenticated = true,
+  ) {
+    return sourceDispatchResult.parse(
+      original({ action: 'dispatch', method, target, serialized, authenticated }),
+    );
+  }
+  async function drainSource() {
+    while (pendingSource.size) await Promise.allSettled([...pendingSource]);
+  }
+  async function allowQuality() {
+    if (qualityFault) {
+      await connection.query('ALTER TABLE product_rating_user DROP CHECK feedback_fixture_quality');
+      qualityFault = false;
+    }
+  }
   return {
     origin,
     path: feedbackPath,
     api: feedbackApi,
     traffic,
+    sourceTraffic,
+    sourcePath(orderId = feedbackSafeOrder) {
+      return `/users/order-feedback-form/777/${orderId}`;
+    },
+    sourceNavigationCount() {
+      return sourceNavigations;
+    },
+    dispatchSource,
+    drainSource,
+    async rejectQuality() {
+      await connection.query(
+        'ALTER TABLE product_rating_user ADD CONSTRAINT feedback_fixture_quality CHECK (product_rating_option_id <> 3)',
+      );
+      qualityFault = true;
+    },
+    allowQuality,
     async cookie(id = '7') {
       const credential = await mysqlSessions(db).create(id, Date.now() + 300000);
       return {
@@ -322,9 +470,13 @@ export async function nativeFeedbackFixture(output: string) {
       };
     },
     async reset() {
+      await drainSource();
+      await allowQuality();
       await connection.query('DELETE FROM product_rating_user');
       await connection.query('DELETE FROM pos_rewrite_product_feedback_receipts');
       traffic.length = 0;
+      sourceTraffic.length = 0;
+      sourceNavigations = 0;
       dropNextPost = false;
     },
     loseNextCommittedResponse() {
@@ -336,8 +488,8 @@ export async function nativeFeedbackFixture(output: string) {
       );
       return nativeRows.parse(rows);
     },
-    originalRead(customerId = '777') {
-      return sourceRead.parse(original({ action: 'read', customerId, orderId: feedbackOrder }));
+    originalRead(customerId = '777', orderId = feedbackOrder) {
+      return sourceRead.parse(original({ action: 'read', customerId, orderId }));
     },
     originalWrite() {
       return sourceWrite.parse(
@@ -378,6 +530,7 @@ export async function nativeFeedbackFixture(output: string) {
         });
     },
     async close() {
+      await drainSource();
       await app.close();
       await db.close();
       await new Promise<void>((done) => gateway.close(() => done()));

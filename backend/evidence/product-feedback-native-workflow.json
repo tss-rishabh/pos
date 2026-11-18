@@ -1,6 +1,6 @@
 {
   "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
-  "recordedAt": "2026-11-18T05:55:19.720593+00:00",
+  "recordedAt": "2026-11-18T06:57:06.202543+00:00",
   "rewriteBaseline": "2848c695810cc532a77873f87892ca26e86976b8",
   "command": "PRODUCT_FEEDBACK_SOURCE_ROOT=/path/to/backend-pos-web sh backend/tools/product-feedback/run-native-workflow.sh",
   "executedWithPreprovisionedPrivatePython": true,
@@ -53,6 +53,18 @@
     {
       "path": "order/templates/order/add_order_feedback.html",
       "sha256": "a7943b3198f7054989943ff49431feee37df4741cd236902f156da80977990f1"
+    },
+    {
+      "path": "static/adminlte/plugins/jquery/jquery.min.js",
+      "sha256": "f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d"
+    },
+    {
+      "path": "users/templates/admin/layouts/base.html",
+      "sha256": "024f047571d04d2f1839837a733faf470e5ff5ba60af2e87d7ccf9d81605f55c"
+    },
+    {
+      "path": "static/js/main.js",
+      "sha256": "fa30fe11933958772f3ee8f4469850451c046f23d3a21ba0253e2addee8228f4"
     }
   ],
   "checks": [
@@ -75,15 +87,47 @@
     {
       "scope": "Actual current database-backed sessions for all five numeric roles; wrong store/customer/order/product/version and archived operator are refused without writes.",
       "passed": true
+    },
+    {
+      "scope": "Exact rendered source inline script produces four real jQuery-serialized AJAX requests with blank optional ratings/comment; native rows match actual candidate UI/HTTP output.",
+      "passed": true
+    },
+    {
+      "scope": "Exact source serializer preserves nonempty optional rating/comment encoding and only attaches the comment to option0; source and candidate native rows match.",
+      "passed": true
+    },
+    {
+      "scope": "The actual second source form handler reads the first duplicate-SKU controls; actual candidate second form saves its own selected values.",
+      "passed": true
+    },
+    {
+      "scope": "The source numeric order literal rounds its DOM lookup and throws TypeError before any AJAX/write; candidate exact-string order succeeds.",
+      "passed": true
+    },
+    {
+      "scope": "Real source and candidate browser form constraints prevent empty/out-of-range/invalid-step submissions and document navigation.",
+      "passed": true
+    },
+    {
+      "scope": "Repeated source handler calls insert eight rows; candidate confirms one four-row command and disables both forms.",
+      "passed": true
+    },
+    {
+      "scope": "Unmodified native source button follows default form navigation; committed rows agree with requests reaching native source, while candidate completes explicitly in-page.",
+      "passed": true
+    },
+    {
+      "scope": "Actual source dispatch gives missing-input string400/HTTP200, nonnumeric ValueError/HTTP500 and anonymous302; candidate malformed/anonymous requests fail400/401 without writes. Fourth native CHECK failure leaves source3, candidate0, then exact explicit retry4.",
+      "passed": true
     }
   ],
   "testFilesPassed": 1,
-  "testsPassed": 5,
-  "durationSeconds": 21.04,
+  "testsPassed": 13,
+  "durationSeconds": 63.08,
   "backendFixtureStrict": true,
   "frontendFixtureStrict": true,
   "changedTypeScriptLint": true,
-  "canonicalLogSha256": "fa510b5e50baacde70d99e5d4fe1c548276c44858b2ad192d97ee576f1e23b26",
+  "canonicalLogSha256": "c8a5c8dfae43fd6a11caa64dceed9a1a066064fe1be65d057bca74a3112e07d3",
   "apiResponseStubs": false,
   "sourceOrmDoubles": false,
   "liveDatabaseOrProviderWrites": false,
@@ -93,14 +137,20 @@
     "Versioned JSON envelopes replace legacy status strings/form transport; route names are redesigned.",
     "Current operator/checkout/check-in/store/customer/order/product authority and input validation harden the source login-only methods.",
     "One atomic four-row command and immutable UUID receipt replace four independent AJAX inserts; exact recovery is additive.",
-    "Generated row IDs/timestamps differ across separate inserts and are not compared as source display values; native visible business fields/defaults are compared."
+    "Generated row IDs/timestamps differ across separate inserts and are not compared as source display values; native visible business fields/defaults are compared.",
+    "Duplicate source element IDs select first-SKU controls even from second form; rewrite deliberately uses selected HP-line controls while preserving product aggregation.",
+    "Unquoted source numeric order literal loses precision and prevents its DOM lookup before any POST; rewrite deliberately preserves the exact string ID.",
+    "Repeated source handlers/default navigation do not provide a once-only completed operation; rewrite explicitly prevents navigation and uses native atomic receipt recovery.",
+    "Nonnumeric source option raises outside its exception handler; malformed replacement DTO returns400 before writes instead of preserving source500.",
+    "Source native fourth-option failure leaves three independent inserts with last string400/HTTP200; replacement rolls back all four, looks up missing receipt and allows one exact retry after the fault is removed."
   ],
   "limitations": [
-    "Original method bodies execute with real Django QuerySets and source AST field/model projections; original ASGI/auth middleware and legacy AJAX/CDN transport do not execute.",
-    "Only the exact feedback template main block and actual production feedback component are rendered; application shell/navigation/history entry are outside this receipt.",
-    "Native fixture credentials bypass interactive password/MFA/Google login; production session validation and current identity/authority run normally.",
-    "No claim of identical behavior for every invalid, partially committed or competing independent-writer request.",
-    "No NPS, financial checkout, independent-writer serialization, live deployment, OS/printer, full project parity or release certification."
+    "Original complete feedback class dispatch, resource LoginRequiredMixin, rendered main/custom script, pinned jQuery and genuine Django native QuerySets execute; source identity is an established-operator fixture seam, not the original provider/session authentication.",
+    "Shared ASGI mounting/global CSRF enforcement, surrounding shell/navigation/history entry and unrelated CDN plugins are outside this scoped feature receipt.",
+    "Source handlers are invoked directly to compare all completed AJAX values; separate unmodified button submission observes actual default navigation and possible canceled/partial delivery, rather than falsely asserting all source requests always complete.",
+    "CSRF token presence/shape is checked and actual values pass through native source transport, but tokens/cookies/request payloads and original console values are not logged or stored in the receipt.",
+    "Candidate fixture credentials bypass interactive password/MFA/Google login; production session validation/current identity/authority execute normally.",
+    "No claim of identical wrong-source form/ID behavior, every invalid/racing request, independent rating-writer serialization, NPS, financial checkout, live deployment, OS/printer, full project parity or release certification."
   ],
   "checksums": {
     "backend/evidence/mysql-customer-benefit-schema.json": "74e04d9488ed76d58a4ea658c2833217e5ae618120014333d9a1181570634378",
@@ -118,7 +168,7 @@
     "backend/package-lock.json": "02b3e906ece30377231ea67891ef8b125708c188db343979588826c76db3c1d6",
     "backend/package.json": "a88c400c64cd2be8726258449cda4419ac3d38fc24ecf27e98bc6a3ca78d3b13",
     "backend/parity/legacy-inventory.json": "2893078e431fd66bf74661368e776b60fbce7a2125e8f00a6aeae9eac305c85a",
-    "backend/parity/product-feedback.md": "ed0d78c30a320359c7371adb596da6d34c4ad1d5062bc01b94be0875b6325038",
+    "backend/parity/product-feedback.md": "8bb18084ea9319534bbd867305b3644dd93e6eef0cbb68ce2e3beda0d5568720",
     "backend/src/app.ts": "ed8a941c5d3064d2de90efc4a99c75a27f53eb4c0cd0e2affb6808719c56828a",
     "backend/src/auth/crypto.ts": "c3a86f051b30d598d8a84364e0e7f39675b64b0a358051b81544cb7825e6bcad",
     "backend/src/auth/delivery.ts": "b813640dcda4f8fe910d29cd8d471d03fe2d452ab931c3f45c19cdb342a43d63",
@@ -175,9 +225,9 @@
     "backend/src/modules/product-feedback/service.ts": "5137b76f930e1060a78b2858bf18b6c05df48f2c13fb381449624552fa056153",
     "backend/src/observability/context.ts": "e9d882dd76c398d2b3f461c0034f2cdb7ccb7c44d92fe9a06ff8f813f30add4b",
     "backend/src/observability/events.ts": "425f115c69689905268715f00dd9919cc13ef13db4f6455c91a812ff27aee38e",
-    "backend/tools/product-feedback/native-workflow-fixture.ts": "1e8e378175c2b23b3af5246267f3d3a41d54fd4fcd5c2fd2ebd7cb2449db105d",
+    "backend/tools/product-feedback/native-workflow-fixture.ts": "30cfd951b3044c441611a3c9ed875c2b457cd38fbb531cdfdf644ab07b654ee4",
     "backend/tools/product-feedback/native-workflow-requirements.txt": "5d31f925edb8d9014e8b71fdd034b1f4f09461cc29ec9df8a0cee4760fc11a7a",
-    "backend/tools/product-feedback/native-workflow-source.py": "1a11922c6142f28396438b520813d4e42747e11ffb78389b0bdeef49d5e9c784",
+    "backend/tools/product-feedback/native-workflow-source.py": "81fe715278b7478f86bacab70afdee15e3f49b6f93f6b8c4e0a297364e4acc0e",
     "backend/tools/product-feedback/native-workflow.tsconfig.json": "4d89dc753980c004e4707b6b2021f99dfc41089ae24dd70e8444cdf4684783e8",
     "backend/tools/product-feedback/run-native-workflow.sh": "f44ef9abc4a3b5f42fcdc2be8b737f1deebb2dd986c4ce5bc030fc04cf066dfa",
     "backend/tools/product-feedback/source-feedback.py": "b93d6a5c16a039d3eea6468542edd34624c70fe43b53ce50af7de2736b1c1828",
@@ -232,7 +282,21 @@
     "frontend/tests/product-feedback/native-workflow-entry.tsx": "e35f500619d3a374676bc54bd243360e5c2c9e6e6dd34da332c374e89d6e37e2",
     "frontend/tests/product-feedback/native-workflow.config.ts": "4bdb004fea5dbcb0af5d40db55c1107bc4d86fb36f89f450d0a7a800f6808b01",
     "frontend/tests/product-feedback/native-workflow.html": "3062da4e8dbd6a3bcadab59a000706aaab78fc0350cef771bd4f35db42db5d97",
-    "frontend/tests/product-feedback/native-workflow.test.ts": "495cbb4f3f44cd067f04ca1e10f70f9a81539ae8e487245e6566316c686892c8",
+    "frontend/tests/product-feedback/native-workflow.test.ts": "4fb6765bb7e64fe5147235f99d524e3fe8c32ff80775d65edeb8563890d010d7",
+    "frontend/tests/product-feedback/source-browser-workflows.ts": "e6fb3e4e71cc364bdf028ec132c16c2469d4b974f89ff1a8378819e4add8955a",
     "frontend/tests/product-feedback/tsconfig.json": "52359f6fc46fff446401526a0d6145cfa9673070e685433dc168038acc60b44c"
+  },
+  "extendsBoundedProofAtCommit": "a07baca",
+  "sourceBrowser": {
+    "originalRenderedDom": true,
+    "originalInlineScript": true,
+    "pinnedLocalJQuery": true,
+    "nativeSourceClassDispatch": true,
+    "loginRequiredMixinExecuted": true,
+    "transport": "Real source jQuery XMLHttpRequest serialization; only local HTTP carrier adapts to actual original Django class/native ORM dispatch.",
+    "capturedBusinessPayloads": "Compared in memory; never logged or retained in receipt.",
+    "csrfTokenValuesRetained": false,
+    "legacyConsolePayloadValuesRetained": false,
+    "handlerAndDefaultNavigationTestedSeparately": true
   }
 }

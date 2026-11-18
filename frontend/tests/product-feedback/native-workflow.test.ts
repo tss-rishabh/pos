@@ -3,7 +3,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   chromium,
   expect as browserExpect,
@@ -19,6 +19,7 @@ import {
   nativeFeedbackFixture,
 } from '../../../backend/tools/product-feedback/native-workflow-fixture';
 import { feedbackWorkspace } from '../../../backend/src/modules/product-feedback/contracts';
+import { registerSourceBrowserWorkflows } from './source-browser-workflows';
 
 describe.skipIf(!process.env.PRODUCT_FEEDBACK_WORKFLOW_MYSQL_URL)(
   'pinned source / actual authenticated API / built feedback UI / native MySQL',
@@ -55,20 +56,24 @@ describe.skipIf(!process.env.PRODUCT_FEEDBACK_WORKFLOW_MYSQL_URL)(
     beforeEach(async () => {
       await fixture.reset();
     });
+    afterEach(async () => {
+      await Promise.all(contexts.splice(0).map((context) => context.close()));
+      await fixture?.drainSource();
+    });
     afterAll(async () => {
       await Promise.all(contexts.map((context) => context.close()));
       await browser?.close();
       await fixture?.close();
       if (temporary) await rm(temporary, { recursive: true, force: true });
     });
-    async function workspace() {
+    async function workspace(orderId = feedbackOrder) {
       const context = await browser.newContext({ serviceWorkers: 'block' });
       contexts.push(context);
       await context.addCookies([await fixture.cookie()]);
       const page = await context.newPage();
       const consoleMessages: string[] = [];
       page.on('console', (message) => consoleMessages.push(message.text()));
-      await page.goto(fixture.origin + fixture.path);
+      await page.goto(fixture.origin + fixture.path.replace(feedbackOrder, orderId));
       return { context, page, consoleMessages };
     }
     async function read(id = '7', path = fixture.api) {
@@ -111,6 +116,12 @@ describe.skipIf(!process.env.PRODUCT_FEEDBACK_WORKFLOW_MYSQL_URL)(
         },
       ];
     }
+    registerSourceBrowserWorkflows({
+      fixture: () => fixture,
+      browser: () => browser,
+      contexts,
+      candidate: workspace,
+    });
 
     it('renders exact duplicate source occurrences and all four constrained controls through the real API', async () => {
       const original = fixture.originalRead();
