@@ -1,0 +1,69 @@
+{
+  "afterInputsSha256": "396f16f1e1201da046c56b3b52e5eff59bdedce2ed4205984a1fa01b403d7a5c",
+  "assemblyManifestSha256": "14ef21d7808117167de15f27ebd149fef9f0a29caf269a31e746028254463ba8",
+  "beforeInputsSha256": "396f16f1e1201da046c56b3b52e5eff59bdedce2ed4205984a1fa01b403d7a5c",
+  "cleanup": {
+    "allAbsent": true,
+    "anonymousVolumes": 1,
+    "independentlyConfirmedAbsent": true,
+    "resourceRecords": 4
+  },
+  "excludedBootstrapBoundary": {
+    "originalSha256": "3c366e2456f8b8e918787018ef829fa6bd87bad6ef1bf496cefc6751a6892c38",
+    "path": "config/env.go",
+    "runtimeSha256": "bade0b0a8ba9e95505e20a34a7bf40c45c5227b6830d17f8602bfba274addb70",
+    "scope": "fixture loader only; original startup not exercised"
+  },
+  "exclusions": [
+    "Complete public HTTP/controller/provider parity",
+    "Original source config bootstrap",
+    "Arbitrary TCP write-half-close equivalence",
+    "Latency/performance claims",
+    "Later wrapper changes"
+  ],
+  "executedInputHashes": {
+    "assemble.py": "f9a1454e66ce9e83c3a24cdb0e342c4c9592a197314b921ed90b769aa8c99b54",
+    "relay.py": "4f352d5904f939575a9f1542bb2c19d53cbcea1996e304c27b19878e9d989815"
+  },
+  "executedProductionBase": "ecb4571",
+  "executedRunnerSha256": "0feee51099b12cbb1b2e6afba82fb2aa24f5d2344372bfaaf74208352d862036",
+  "executedWrapperCommit": "f39f8cc",
+  "hashPolicy": "Hashes identify actual executed bytes; no rebinding to later wrapper changes.",
+  "inputsUnchanged": true,
+  "originalBuildVetLogSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "phase": "head",
+  "preservedFailures": [
+    {
+      "directory": "/private/tmp/pos-origin-verification.t_t5j1sj",
+      "scope": "initial host-port setup failure; no native cases"
+    },
+    {
+      "directory": "/private/tmp/pos-origin-verification.jitnmv1x",
+      "scope": "confirmed internal network has no published port; no native cases"
+    },
+    {
+      "directory": "/private/tmp/pos-origin-verification.fv2lwxk1",
+      "scope": "four parents passed; relay EOF hang; wrapper interrupted and NOT accepted"
+    }
+  ],
+  "privateEvidenceDirectory": "/private/tmp/pos-origin-verification.0xx82r_b",
+  "privateReceiptSha256": "503901d65dd03c5a786a5b8d8fcd1a992796bc4c5da604da3308a4ea6f072830",
+  "relayCleanup": {
+    "accepted": 1,
+    "allExecClientsStopped": true,
+    "allThreadsStopped": true,
+    "listenerClosed": true,
+    "rejected": 0,
+    "transport": "loopback-docker-exec-mysql"
+  },
+  "requiredPassedCases": [
+    "TestOriginNativeHeadFreshAuthorityAndActualIsolation",
+    "TestOriginNativeHeadCapacityReaderBoundaries",
+    "TestOriginNativeHeadCapacityActualCaller",
+    "TestOriginNativeFirstStartHasDurableCheckpointAndBaselineFence"
+  ],
+  "runnerLogSha256": "4ec01ae6619e7a95891c752a10b7ee8fb0914db124881d2942422cf097f7780e",
+  "schema": "pos-other-origin-wrapper-review-v1",
+  "sourcePin": "434f3e438d1cb48c64e5723222c6efda506db571",
+  "status": "passed-bounded"
+}
