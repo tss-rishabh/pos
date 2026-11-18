@@ -25,7 +25,7 @@ describe.skipIf(!template)('actual isolated v3 counter publisher account boundar
   beforeAll(async () => {
     const url = new URL(template!);
     url.pathname = '/pos_rewrite_checkout_test';
-    base = await publicScreeningFixture(url.href);
+    base = await publicScreeningFixture(url.href, { nativeHeads: false });
     await base.reset();
     heads = await installNativeHeadFixture(base.connection, template!, { families: ['counter'] });
     for (const [name, value] of Object.entries(heads.environment)) vi.stubEnv(name, value);

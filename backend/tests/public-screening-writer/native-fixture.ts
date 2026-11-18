@@ -1,4 +1,13 @@
-import { execFileSync, spawn } from 'node:child_process';
+import mysql from 'mysql2/promise';
+import { sql } from 'drizzle-orm';
+import { installNativeHeadFixture } from '../native-head-metadata/fixture.js';
+import { screeningCounterMutation } from '../../src/modules/legacy-order-imports/screening-counter/entry.js';
+import {
+  screeningCounterSourceCapture,
+  initializeScreeningCounter,
+} from '../../src/modules/legacy-order-imports/screening-counter/publisher.js';
+import { sealCounterPublication } from '../../src/modules/legacy-order-imports/screening-counter/contracts.js';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -30,10 +39,15 @@ export const python = resolve('compatibility/upstream/offline-cash-pricing/.venv
     customerContextContract: 'pos-customer-context-v1',
     customerContextKey: 'isolated-public-node-screening-purpose-'.repeat(3),
   };
-export async function publicScreeningFixture(template: string) {
+export async function publicScreeningFixture(
+  template: string,
+  options: { nativeHeads?: boolean } = {},
+) {
   const f = await importFinancialFixture(template),
     extra = [
       'cities',
+      'courier_companies',
+      'order_attributes',
       'zones',
       'pricelist',
       'pricelist_meta',
@@ -70,6 +84,7 @@ export async function publicScreeningFixture(template: string) {
     'src/modules/checkout/cancellations/benefit-migration.sql',
     'src/modules/checkout/cancellations/membership-producer-migration.sql',
     'compatibility/upstream/public-screening-writer/migration.review.sql',
+    'compatibility/upstream/screening-origins/migration.sql',
     'src/modules/checkout/screening-writer/negative-migration.sql',
     'src/modules/checkout/screening-writer/migration.sql',
   ])
@@ -92,7 +107,152 @@ export async function publicScreeningFixture(template: string) {
     ['order_stores', 'order', 'order_id'],
   ] as const)
     await f.connection.query('CREATE INDEX `' + index + '` ON `' + table + '`(`' + column + '`)');
+  const heads =
+    options.nativeHeads === false
+      ? null
+      : await installNativeHeadFixture(f.connection, template, { families: ['counter'] });
+  const counterPublicationKey = 'public-native-fixture-independent-publication-'.repeat(2);
+  const nativeEnvironment = heads
+    ? {
+        ...heads.environment,
+        POS_SCREENING_COUNTER_CONTRACT: 'pos-screening-current-counter-v1',
+        POS_SCREENING_COUNTER_PUBLICATION_KEY: counterPublicationKey,
+      }
+    : {};
+  const previousEnvironment = Object.fromEntries(
+    Object.keys(nativeEnvironment).map((key) => [key, process.env[key]]),
+  );
+  Object.assign(process.env, nativeEnvironment);
+  const config = heads
+    ? { ...f.config, MYSQL_WRITER_URL: heads.appUrl, MYSQL_READER_URL: heads.appUrl }
+    : f.config;
+  async function refreshApplicationGrants() {
+    if (!heads) return;
+    const [tables] = await f.connection.query<mysql.RowDataPacket[]>(
+      "SELECT TABLE_NAME name FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE'",
+    );
+    for (const table of tables) {
+      const name = String(table.name);
+      const sourceWrites = new Set([
+        'orders',
+        'has_products',
+        'spiderman_screening_orders',
+        'users',
+        'order_stores',
+        'flag_history',
+        'amount_to_be_refunded_log',
+        'order_cancel_message_mapping',
+        'order_status',
+        'order_address_mapping',
+        'order_payment_transactions',
+        'comments',
+        'pos_transaction_log',
+        'product_store',
+        'product_inventory_logs',
+        'pos_inventory_sync_log',
+        'products_inventory_logs',
+        'pos_user',
+        'stores',
+        'product_stocks',
+        'stock_log',
+      ]);
+      const controls = new Set([
+        'pos_rewrite_import_screening_reservations',
+        'pos_rewrite_customer_cart_leases',
+        'pos_rewrite_customer_consents',
+        'pos_rewrite_customer_consent_events',
+        'pos_rewrite_membership_versions',
+        'pos_rewrite_cancellation_membership_provenance',
+        'pos_rewrite_sessions',
+        'pos_rewrite_operator_checkins',
+      ]);
+      if (
+        !sourceWrites.has(name) &&
+        !controls.has(name) &&
+        !/^pos_rewrite_(?:public_screening_|checkout_|payment_|import_financial_)/.test(name)
+      )
+        continue;
+
+      if (
+        [
+          'pos_rewrite_screening_origin_history_heads',
+          'pos_rewrite_screening_origin_history_changes',
+          'pos_rewrite_screening_counter_heads',
+          'pos_rewrite_screening_counters',
+          'pos_rewrite_screening_contributions',
+          'pos_rewrite_membership_history_heads',
+          'pos_rewrite_coupon_history_heads',
+        ].includes(name)
+      )
+        continue;
+      await f.connection.query(
+        'GRANT SELECT,INSERT,UPDATE,DELETE ON ' +
+          mysql.escapeId(heads.schema) +
+          '.' +
+          mysql.escapeId(name) +
+          ' TO ' +
+          mysql.escape(heads.names.app) +
+          "@'%'",
+      );
+    }
+  }
+  async function seedCounter(customerId: string) {
+    if (!heads) return;
+    const snapshot = await screeningCounterSourceCapture(
+      heads.sourceDb,
+      sourceKey,
+      Date.now,
+      heads.headMetadata,
+    ).snapshot(customerId);
+    if (snapshot.rows.length)
+      throw new Error('Public fixture baseline must start from independently empty history');
+    const baseline = sealCounterPublication(snapshot.capture, sourceKey, counterPublicationKey, {
+      generationId: 'a'.repeat(64),
+      snapshotId: snapshot.capture.snapshotId,
+      sourceCaptureHash: snapshot.capture.signature,
+      sourceCdcThrough: Date.now(),
+      complete: true,
+      rows: [],
+    });
+    await initializeScreeningCounter(
+      heads.publisherDb!,
+      baseline,
+      counterPublicationKey,
+      null,
+      Date.now(),
+      {
+        headMetadata: heads.headMetadata,
+        configuration: snapshot.configuration,
+        purpose: 'counter-publication',
+      },
+    );
+  }
   async function reset() {
+    await refreshApplicationGrants();
+    if (heads) {
+      const [markers] = await f.connection.query<mysql.RowDataPacket[]>(
+        'SELECT CAST(user_id AS CHAR) customerId,CAST(order_id AS CHAR) orderId,CAST(has_product_id AS CHAR) lineId FROM spiderman_screening_orders',
+      );
+      if (markers.length)
+        await screeningCounterMutation(
+          heads.appDb,
+          {
+            customerIds: [...new Set(markers.map((row) => String(row.customerId)))],
+            orderIds: [...new Set(markers.map((row) => String(row.orderId)))],
+            lineIds: [...new Set(markers.map((row) => String(row.lineId)))],
+          },
+          async (tx) => {
+            await tx.execute(sql`DELETE FROM spiderman_screening_orders`);
+          },
+        );
+      for (const table of [
+        'pos_rewrite_screening_contributions',
+        'pos_rewrite_screening_counters',
+        'pos_rewrite_screening_counter_heads',
+      ])
+        await f.connection.query('DELETE FROM ' + table);
+    }
+
     for (const table of [
       'pos_rewrite_public_screening_abandonments',
       'pos_rewrite_public_screening_negatives',
@@ -153,6 +313,12 @@ export async function publicScreeningFixture(template: string) {
     await f.connection.query(
       "INSERT INTO pos_rewrite_operator_checkins VALUES('1',1,2,'2099-06-15 23:59:59','2026-06-15 00:00:00')",
     );
+    if (heads) {
+      const [users] = await f.connection.query<mysql.RowDataPacket[]>(
+        'SELECT CAST(id AS CHAR) id FROM users',
+      );
+      for (const user of users) await seedCounter(String(user.id));
+    }
   }
   async function prepare(
     quantity = 2,
@@ -160,6 +326,13 @@ export async function publicScreeningFixture(template: string) {
     scope = { actorId: '1', customerId: '77', storeId: '1', counterId: '2' },
     journaled = true,
   ) {
+    if (heads) {
+      const [existing] = await f.connection.query<mysql.RowDataPacket[]>(
+        'SELECT customer_id FROM pos_rewrite_screening_counters WHERE customer_id=?',
+        [scope.customerId],
+      );
+      if (!existing.length) await seedCounter(scope.customerId);
+    }
     const lines = [{ productId: '390238', quantity, unitPrice: '25.00' }],
       quote = JSON.parse(
         execFileSync(python, ['-B', driver], {
@@ -268,7 +441,7 @@ export async function publicScreeningFixture(template: string) {
       state,
       signed,
       value: {
-        url: f.config.MYSQL_WRITER_URL,
+        url: config.MYSQL_WRITER_URL,
         sourceRoot,
         key: environment.customerContextKey,
         proofKey: sourceKey,
@@ -280,18 +453,40 @@ export async function publicScreeningFixture(template: string) {
       },
     };
   }
-  return { ...f, sourceFixture: fixture, reset, prepare };
+  return {
+    ...f,
+    config,
+    db: heads?.appDb ?? f.db,
+    headFixture: heads,
+    nativeEnvironment,
+    sourceFixture: fixture,
+    reset,
+    prepare,
+    seedCounter,
+    async close() {
+      try {
+        await heads?.close();
+        await f.close();
+      } finally {
+        for (const [key, value] of Object.entries(previousEnvironment)) {
+          if (value === undefined) delete process.env[key];
+          else process.env[key] = value;
+        }
+      }
+    },
+  };
 }
 export function run(value: unknown): unknown {
-  return JSON.parse(
-    execFileSync(python, ['-B', driver], {
-      input: JSON.stringify(value),
-      encoding: 'utf8',
-      timeout: 20000,
-      maxBuffer: 64000,
-    }),
-  ) as unknown;
+  const result = spawnSync(python, ['-B', driver], {
+    input: JSON.stringify(value),
+    encoding: 'utf8',
+    timeout: 20000,
+    maxBuffer: 64000,
+  });
+  if (result.error || !result.stdout) throw new Error('Native source child failed');
+  return JSON.parse(result.stdout) as unknown;
 }
+
 export function runAsync(value: unknown) {
   const child = spawn(python, ['-B', driver], { stdio: ['pipe', 'pipe', 'pipe'] });
   let output = '',

@@ -36,7 +36,7 @@ export async function insertCounterFixture(
   await fixture.insert(table, overrides);
 }
 export async function currentCounterFixture(template: string) {
-  const f = await publicScreeningFixture(template);
+  const f = await publicScreeningFixture(template, { nativeHeads: false });
   await f.reset();
   await f.fixture.insert('users', { id: '78', status: 1, is_block: 0, is_disabled: 0 });
   const heads = await installNativeHeadFixture(f.connection, template, { families: ['counter'] });

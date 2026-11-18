@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session,sessionmaker
 
 ROOT=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(ROOT/'compatibility/upstream/legacy-order-imports'))
+sys.path.insert(0,str(ROOT/'compatibility/upstream/screening-origins'))
 sys.path.insert(0,str(ROOT/'tools/legacy-import-preparation'))
 from source_fixture import pipeline,K
 from test_catalog_pipeline import actual_catalog,fixture_add_io

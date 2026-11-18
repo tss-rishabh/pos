@@ -23,6 +23,11 @@ SKU='390238'
 _SHAPE=('SELECT COUNT(*) AS cnt FROM spiderman_screening_orders s '
         'JOIN orders o ON o.id = s.order_id JOIN has_products hp ON hp.id = s.has_product_id '
         'WHERE s.user_id = :user_id AND hp.prod_id = :sku AND o.order_status NOT IN (0, 17)')
+
+# Exact current graph reads in the pinned 2960 source; all require this
+# attempt's after_flush provenance, not merely a matching customer/lock.
+_CURRENT_ORDER_SELECT='SELECT o.id, order_status, voucher_used, voucher_amt_used, payment_method, cashback_used, pay_amt, tss_money_used, tss_points_used, order_amt AS price, gifting_charges, shipping_amt, cashback_earned, tss_points_earned, cod_charges, hl_charges, coupon_used, coupon_amt_used, cc.name AS courier_name, o.original_order_id, o.location_id, o.start_timeslot, o.end_timeslot, o.location_type, hl_parent_order_id, o.parent_order_id, o.fraction_value As fraction_value, o.created_at as order_date, ha.postcode as postal_code, o.is_split_order, o.is_global_order, o.is_express, o.express_charges, o.is_parent_express, oa.priority_reason FROM orders o LEFT JOIN courier_companies cc ON cc.id = o.courier LEFT JOIN has_addresses ha ON ha.id = o.has_address_id LEFT JOIN order_attributes oa ON oa.order_id = o.id WHERE o.id = :order_id AND o.user_id = :user_id'
+_CURRENT_LINES_SELECT='select id, hp_tss_points_used, status, prod_id, price, gst, disc, wallet_disc, voucher_disc,store_disc_pg from has_products where order_id = '
 _FIELDS={'contract','sourceCommit','writersContract','scope','snapshotId','serverUuid','sourceSchema',
          'generationId','headRevision','writersDefinitionHash','writersOwner','rows','count','rowsHash','sourceCaptureHash',
          'sourceCapturedAt','sourceFinishedAt','sourceCdcThrough','publishedAt','complete','signature'}
@@ -208,9 +213,63 @@ class _Result:
 
 
 class ReplaySession:
-    def __init__(self,session,snapshot):self.session,self.snapshot=session,snapshot;self.reads=0
+    def __init__(self,session,snapshot):
+        self.session,self.snapshot=session,snapshot;self.reads=0
+        self.creation_context=snapshot.session.info.get('screening_counter_creation_context')
+    def new_order(self,order):
+        self.snapshot.guard();native=self.snapshot.session;context=self.creation_context
+        if (not _identifier(order) or context is None or native.info.get('screening_counter_creation_context') is not context
+                or not context['active'] or context['transaction'] is not native.get_transaction()
+                or context['savepoint'] is not native.get_nested_transaction()
+                or context['connection'] is not native.connection() or context['customer']!=self.snapshot.customer
+                or context['orders'].get(order)!=self.snapshot.customer):refuse()
+        owner=one(native,'SELECT user_id FROM orders WHERE id=:id FOR UPDATE',{'id':order})
+        lock=one(native,'SELECT IS_USED_LOCK(:name)=CONNECTION_ID() AS held',{'name':_named(native,'o',order)})
+        if str(owner['user_id'])!=self.snapshot.customer or lock['held']!=1:refuse()
+        return native,context
+    def address_update(self,statement,parameters,kwargs,match):
+        address,order=match.groups();native,context=self.new_order(order)
+        if parameters not in (None,{}) or kwargs or not _identifier(address) or (order,address) not in context['addresses']:refuse()
+        mappings=rows(native,'SELECT has_address_id FROM order_address_mapping WHERE order_id=:order AND has_address_id=:address LIMIT 2',{'order':order,'address':address},2)
+        if len(mappings)!=1:refuse()
+        return self.session.execute(statement,parameters,**kwargs)
+    def new_lines(self,order):
+        native,context=self.new_order(order)
+        values=rows(native,'SELECT id,order_id,prod_id FROM has_products WHERE order_id=:id ORDER BY id LIMIT 10001',{'id':order},10000)
+        for row in values:
+            line=str(row['id']);product=str(row['prod_id'])
+            if context['lines'].get(line)!=(order,product):refuse()
+            lock=one(native,'SELECT IS_USED_LOCK(:name)=CONNECTION_ID() AS held',{'name':_named(native,'p',line)})
+            if lock['held']!=1:refuse()
+        return native,context
     def execute(self,statement,parameters=None,**kwargs):
+        address=re.fullmatch(r"UPDATE orders SET has_address_id = '([1-9][0-9]{0,18})' WHERE id = ([1-9][0-9]{0,18})",str(statement))
+        if address:return self.address_update(statement,parameters,kwargs,address)
         compact=' '.join(str(statement).split()).strip()
+        if compact in ('SELECT * FROM orders WHERE id=:id',_CURRENT_ORDER_SELECT):
+            params=parameters if parameters is not None else kwargs.get('params',kwargs.get('parameters'))
+            key='id' if compact=='SELECT * FROM orders WHERE id=:id' else 'order_id'
+            if not isinstance(params,dict) or key not in params or type(params[key]) not in (str,int):refuse()
+            self.new_order(str(params[key]))
+            if key=='id':
+                if set(params)!={'id'}:refuse()
+                bound={'id':params[key]}
+            else:
+                if type(params.get('user_id')) not in (str,int) or str(params['user_id'])!=self.snapshot.customer:refuse()
+                bound={'order_id':params['order_id'],'user_id':params['user_id']}
+            return self.session.execute(statement,bound)
+        lines=re.fullmatch(_CURRENT_LINES_SELECT+r'([1-9][0-9]{0,18})',compact)
+        if lines:
+            if parameters not in (None,{}) or kwargs:refuse()
+            self.new_lines(lines.group(1))
+            return self.session.execute(statement,parameters,**kwargs)
+        refund=re.fullmatch(r'UPDATE has_products SET amount_to_be_refunded = ((?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?), fraction_value = 0 WHERE order_id = ([1-9][0-9]{0,18}) and prod_id = ([1-9][0-9]{0,18}) AND id = ([1-9][0-9]{0,18})',compact)
+        if refund:
+            amount,order,product,line=refund.groups()
+            if parameters not in (None,{}) or kwargs or len(amount)>40 or not _identifier(product) or not _identifier(line):refuse()
+            native,context=self.new_lines(order)
+            if context['lines'].get(line)!=(order,product):refuse()
+            return self.session.execute(statement,parameters,**kwargs)
         if compact==_SHAPE:
             params=parameters if parameters is not None else kwargs.get('params',kwargs.get('parameters'))
             self.snapshot.guard()
@@ -232,6 +291,37 @@ def _named(session,kind,identity):
 @contextmanager
 def writer_entry(session,customer):
     session=_session(session);connection=session.connection();owned_names=[]
+    if session.info.get('screening_counter_creation_context') is not None:fail('WRITER_SCOPE_CHANGED')
+    context={'active':True,'transaction':session.get_transaction(),'savepoint':session.get_nested_transaction(),
+             'connection':connection,'customer':str(customer),'orders':{},'addresses':set(),'lines':{}}
+    if context['transaction'] is None:fail('TRANSACTION_REQUIRED')
+    session.info['screening_counter_creation_context']=context
+    def record_creation(current_session,*_args):
+        if (current_session is not session or not context['active'] or current_session.get_transaction() is not context['transaction']
+                or current_session.get_nested_transaction() is not context['savepoint'] or current_session.connection() is not connection):refuse()
+        for model in sorted(current_session.new,key=lambda value: 0 if inspect(value).mapper.local_table.name=='orders' else 1):
+            state=inspect(model);table=state.mapper.local_table
+            # Inspect the actual SQLAlchemy physical mapped table and exact
+            # native session/bind, never a class name or request supplied flag.
+            if (state.session is not session or table is not state.mapper.persist_selectable or table.schema is not None
+                    or table.metadata.tables.get(table.name) is not table):continue
+            binding=current_session.get_bind(mapper=state.mapper)
+            if binding is not connection.engine and binding is not connection:refuse()
+            if table.name=='orders':
+                identity=str(getattr(model,'id',None));owner=str(getattr(model,'user_id',None))
+                if not _identifier(identity) or owner!=str(customer):refuse()
+                context['orders'][identity]=owner;acquire('o',identity)
+            elif table.name=='has_products':
+                identity=str(getattr(model,'id',None));order=str(getattr(model,'order_id',None));product=str(getattr(model,'prod_id',None))
+                if not _identifier(identity) or not _identifier(product) or order not in context['orders']:refuse()
+                context['lines'][identity]=(order,product);acquire('p',identity)
+            elif table.name=='order_address_mapping':
+                order=str(getattr(model,'order_id',None));address=str(getattr(model,'has_address_id',None))
+                if _identifier(order) and _identifier(address):context['addresses'].add((order,address))
+    def retire(current_session,transaction):
+        if transaction is context['transaction'] or transaction is context['savepoint']:
+            context['active']=False
+            if session.info.get('screening_counter_creation_context') is context:session.info.pop('screening_counter_creation_context')
     def acquire(kind,identity):
         name=_named(session,kind,identity)
         if name in owned_names:return
@@ -289,9 +379,14 @@ def writer_entry(session,customer):
     try:
         acquire('u',customer)
         event.listen(session,'before_flush',parent_guard)
+        event.listen(session,'after_flush',record_creation)
+        event.listen(session,'after_transaction_end',retire)
         yield
     finally:
-        if event.contains(session,'before_flush',parent_guard):event.remove(session,'before_flush',parent_guard)
+        context['active']=False
+        if session.info.get('screening_counter_creation_context') is context:session.info.pop('screening_counter_creation_context')
+        for name,callback in (('before_flush',parent_guard),('after_flush',record_creation),('after_transaction_end',retire)):
+            if event.contains(session,name,callback):event.remove(session,name,callback)
         if not connection.closed and not connection.invalidated:
             for name in reversed(owned_names):
                 connection.execute(text('SELECT RELEASE_LOCK(:name)'),{'name':name}).close()

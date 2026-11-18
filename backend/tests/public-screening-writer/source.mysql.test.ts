@@ -18,8 +18,9 @@ describe.skipIf(!template)('public Node POS source frame on disposable MySQL', (
     'commits literal source HP/markers with separate public receipt; unit mode %s',
     async (unitMode) => {
       const prepared = await f.prepare(2, unitMode),
-        result = run(prepared.value);
+        result = run({ ...prepared.value, poolCheck: true });
       expect(result).toMatchObject({ result: { method: 14, isValid: true, name: 'placed_order' } });
+      expect(result).toHaveProperty('fixturePoolLocksReleased', true);
       const proof = await f.db
         .get('writer')
         .transaction((tx) =>
@@ -42,6 +43,79 @@ describe.skipIf(!template)('public Node POS source frame on disposable MySQL', (
         'SELECT COUNT(*) AS n FROM pos_rewrite_import_financial_operations',
       );
       expect(count).toMatchObject([{ n: '0' }]);
+    },
+  );
+  it('permits exactly the two fixed readonly metadata functions and refuses a third executable function', async () => {
+    const prepared = await f.prepare();
+    expect(run({ ...prepared.value, action: 'counter-privileges' })).toEqual({ qualified: true });
+    const account = "'" + f.headFixture!.names.app + "'@'%'";
+    const name = 'pos_fixture_unapproved_metadata';
+    await f.connection.query('CREATE FUNCTION ' + name + '() RETURNS INT READS SQL DATA RETURN 1');
+    await f.connection.query('GRANT EXECUTE ON FUNCTION ' + name + ' TO ' + account);
+    try {
+      expect(run({ ...prepared.value, action: 'counter-privileges' })).toMatchObject({
+        code: 'ORDER_IMPORT_SCREENING_COUNTER_APPLICATION_GRANTS',
+      });
+    } finally {
+      await f.connection.query('REVOKE EXECUTE ON FUNCTION ' + name + ' FROM ' + account);
+      await f.connection.query('DROP FUNCTION ' + name);
+    }
+    expect(run({ ...prepared.value, action: 'counter-privileges' })).toEqual({ qualified: true });
+  });
+  it.each([
+    'wrong-address',
+    'old-order',
+    'other-customer-order',
+    'changed-header',
+    'other-attempt',
+    'other-transaction',
+    'rollback-savepoint',
+    'old-line-in-new-order',
+    'old-line-update',
+    'or-predicate',
+    'union',
+    'aggregate',
+  ] as const)(
+    'refuses %s through the literal source current-graph boundary and rolls back the attempt',
+    async (probe) => {
+      await f.fixture.insert('orders', {
+        id: '987',
+        user_id: probe === 'other-customer-order' ? '88' : '77',
+        order_status: 1,
+      });
+      await f.fixture.insert('has_products', {
+        id: '10001',
+        order_id: '987',
+        prod_id: '390238',
+        qty: 1,
+      });
+      const prepared = await f.prepare();
+      const refused = run({ ...prepared.value, probe });
+      expect(refused).not.toHaveProperty('result');
+      expect(refused).toHaveProperty('fixturePoolLocksReleased', true);
+      expect(refused).toMatchObject({
+        fixtureErrors: expect.arrayContaining([
+          expect.objectContaining({ type: 'CounterReadRefused' }),
+        ]),
+      });
+      const [orders] = await f.connection.query('SELECT CAST(id AS CHAR) id FROM orders');
+      const [lines] = await f.connection.query(
+        'SELECT CAST(id AS CHAR) id,CAST(order_id AS CHAR) orderId FROM has_products',
+      );
+      expect(orders).toEqual([{ id: '987' }]);
+      expect(lines).toEqual([{ id: '10001', orderId: '987' }]);
+      for (const table of [
+        'order_address_mapping',
+        'spiderman_screening_orders',
+        'pos_rewrite_public_screening_orders',
+      ]) {
+        const [rows] = await f.connection.query('SELECT COUNT(*) n FROM ' + table);
+        expect(rows).toMatchObject([{ n: '0' }]);
+      }
+      const [locks] = await f.connection.query(
+        "SELECT IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':u:77')) customer,IS_USED_LOCK(CONCAT('pos-screening:',LEFT(SHA2(DATABASE(),256),16),':o:987')) oldOrder",
+      );
+      expect(locks).toEqual([{ customer: null, oldOrder: null }]);
     },
   );
   it('rolls every literal source commit back on a late failure', async () => {
