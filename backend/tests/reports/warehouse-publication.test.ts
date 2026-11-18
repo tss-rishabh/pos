@@ -178,6 +178,83 @@ describe('daily warehouse publication and offline projection boundaries', () => 
       ),
     ).rejects.toMatchObject({ code: 'DAILY_WAREHOUSE_PUBLICATION_INVALID' });
   });
+  it('qualifies the source midnight default including tomorrow in one common-position generation', async () => {
+    const midnight = Temporal.Instant.from('2026-11-18T18:29:30Z'),
+      dates = [
+        '2026-11-13',
+        '2026-11-14',
+        '2026-11-15',
+        '2026-11-16',
+        '2026-11-17',
+        '2026-11-18',
+        '2026-11-19',
+      ],
+      published = '2026-11-18T18:29:20Z',
+      partitions = dates.map((date) => ({
+        ...partition('1', date, date === '2026-11-19' ? 1 : 0),
+        published_at: published,
+        cdc_watermark: published,
+      })),
+      future = rollup('1', '2026-11-19'),
+      f = fixture(partitions, [future], [
+        { generation_id: 'fixture_generation_42', published_at: published },
+      ]);
+    const result = await readDailyWarehouseRollups(
+      config,
+      options,
+      f.query,
+      ['1'],
+      '2026-11-13',
+      '2026-11-19',
+      midnight,
+    );
+    expect(result.rows).toEqual([future]);
+    expect(result.publication.sourcePosition).toBe('mysql-bin.000042:123456');
+    expect(f.calls[0]?.params).toMatchObject({
+      start: '2026-11-13',
+      end: '2026-11-19',
+      expected_partitions: 7,
+    });
+    expect(f.calls).toHaveLength(3);
+    const missing = fixture(partitions.slice(0, -1), [], [
+      { generation_id: 'fixture_generation_42', published_at: published },
+    ]);
+    await expect(
+      readDailyWarehouseRollups(
+        config,
+        options,
+        missing.query,
+        ['1'],
+        '2026-11-13',
+        '2026-11-19',
+        midnight,
+      ),
+    ).rejects.toMatchObject({ code: 'DAILY_WAREHOUSE_PUBLICATION_INVALID' });
+    expect(missing.calls).toHaveLength(2);
+    const mixed = fixture(
+      partitions.map((entry) => ({
+        ...entry,
+        source_position:
+          entry.business_date === '2026-11-19'
+            ? 'mysql-bin.000042:123457'
+            : entry.source_position,
+      })),
+      [future],
+      [{ generation_id: 'fixture_generation_42', published_at: published }],
+    );
+    await expect(
+      readDailyWarehouseRollups(
+        config,
+        options,
+        mixed.query,
+        ['1'],
+        '2026-11-13',
+        '2026-11-19',
+        midnight,
+      ),
+    ).rejects.toMatchObject({ code: 'DAILY_WAREHOUSE_PUBLICATION_INVALID' });
+    expect(mixed.calls).toHaveLength(2);
+  });
   it('rejects stale/future watermarks, mixed positions, duplicates, incomplete scope and different source contracts', async () => {
     const cases: Array<{
       partitions: Record<string, unknown>[];

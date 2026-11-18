@@ -140,6 +140,14 @@ prove zero accepted receipts or zero outflows.
    and publication timestamp. Readers reject mixed generations, row/hash/count
    mismatches, future/stale timestamps, missing partitions or missing contracts.
    Do not publish `COMPLETE` before all required rows/proofs are durable.
+   The source daily screen adds one minute before formatting its ending date.
+   At business time 23:59 it therefore requests the following date as well.
+   That partition must be published from the **same** generation/source position,
+   including any actual forward-dated facts or an explicitly verified zero-row
+   manifest. Its business date may be tomorrow; publication/watermark timestamps
+   still obey the existing clock-skew/freshness rules. Never invent an empty
+   future partition or supplement this financial report with a different DATA
+   snapshot. Missing upcoming-day coverage retains the explicit unavailable result.
 7. Validate late offline receipts against closed days: the current writer marks
    the latest close stale while retaining frozen figures. Historical publication
    must refresh the affected day and conserve its cash. A later generation can
