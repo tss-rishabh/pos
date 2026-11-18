@@ -45,6 +45,14 @@ import {
   returnedOrdersInputSchema,
 } from './returned-orders.js';
 import { orderReportScope } from './report-inputs.js';
+import { managerReportExport } from './export-presentation.js';
+import { screenReportCsv } from './screen-report-csv.js';
+import { acceptanceInputSchema, acceptanceReportService } from './acceptance.js';
+import {
+  cashierInputSchema,
+  salespersonInputSchema,
+  staffPerformanceService,
+} from './performance.js';
 import {
   orderTransactionsReportService,
   orderTransactionsInputSchema,
@@ -77,6 +85,8 @@ interface ExportReportServices {
   orderTransactions?: Pick<ReturnType<typeof orderTransactionsReportService>, 'read'>;
   hyperlocalDaily?: Pick<ReturnType<typeof hyperlocalDailyReportService>, 'read'>;
   flashSales?: Pick<ReturnType<typeof flashSalesReportService>, 'read'>;
+  performance?: Pick<ReturnType<typeof staffPerformanceService>, 'salespeople' | 'cashiers'>;
+  acceptance?: Pick<ReturnType<typeof acceptanceReportService>, 'read'>;
   inventoryWorkbook?: ExportBuilder;
 }
 export function reportExportBuilder(
@@ -90,12 +100,45 @@ export function reportExportBuilder(
     transactions = services.orderTransactions || orderTransactionsReportService(config, db),
     daily = services.hyperlocalDaily || hyperlocalDailyReportService(config, db),
     flash = services.flashSales || flashSalesReportService(config, db),
+    performance = services.performance || staffPerformanceService(config, db),
+    acceptance = services.acceptance || acceptanceReportService(config, db),
     inventory = services.inventoryWorkbook || inventoryWorkbookBuilder(config, db);
   return async (user, input, context) => {
     if (input.kind === 'current-inventory-workbook') return inventory(user, input, context);
+    if (
+      input.kind === 'salesperson-performance' ||
+      input.kind === 'cashier-performance' ||
+      input.kind === 'hyperlocal-acceptance'
+    ) {
+      const selection = {
+          from: input.from,
+          to: input.to,
+          storeIds: input.storeIds,
+          sort: input.sort,
+          direction: input.direction,
+        },
+        report =
+          input.kind === 'salesperson-performance'
+            ? await performance.salespeople(user, salespersonInputSchema.parse(selection), true)
+            : input.kind === 'cashier-performance'
+              ? await performance.cashiers(user, cashierInputSchema.parse(selection), true)
+              : await acceptance.read(user, acceptanceInputSchema.parse(selection), true);
+      return {
+        bytes: Buffer.from(
+          screenReportCsv(input.kind, report.data, input.columns, context?.maxBytes),
+          'utf8',
+        ),
+        rowCount: report.data.length,
+        format: 'CSV',
+      };
+    }
     if (input.kind === 'day-close-history') {
       const report = await history.read(user, { ...input, page: 1, pageSize: 500 }, true);
-      return { bytes: Buffer.from(dayCloseCsv(report.data), 'utf8'), rowCount: report.data.length };
+      return {
+        bytes: Buffer.from(dayCloseCsv(report.data), 'utf8'),
+        rowCount: report.data.length,
+        format: 'CSV',
+      };
     }
     if (input.kind === 'returned-orders') {
       const report = await returns.read(
@@ -105,12 +148,20 @@ export function reportExportBuilder(
           to: input.to,
           storeIds: input.storeIds,
           search: input.search,
+          sort: input.sort ?? 'return_id',
+          direction: input.direction,
         }),
         true,
       );
       return {
-        bytes: Buffer.from(returnedOrdersCsv(report.data), 'utf8'),
+        bytes: Buffer.from(
+          input.columns
+            ? screenReportCsv(input.kind, report.data, input.columns, context?.maxBytes)
+            : returnedOrdersCsv(report.data),
+          'utf8',
+        ),
         rowCount: report.data.length,
+        format: 'CSV',
       };
     }
     if (input.kind === 'order-transactions') {
@@ -126,8 +177,14 @@ export function reportExportBuilder(
         true,
       );
       return {
-        bytes: Buffer.from(orderReportCsv(report.data), 'utf8'),
+        bytes: Buffer.from(
+          input.columns
+            ? screenReportCsv(input.kind, report.data, input.columns, context?.maxBytes)
+            : orderReportCsv(report.data),
+          'utf8',
+        ),
         rowCount: report.data.length,
+        format: 'CSV',
       };
     }
     if (input.kind === 'hyperlocal-daily') {
@@ -143,23 +200,38 @@ export function reportExportBuilder(
       return {
         bytes: Buffer.from(hyperlocalDailyCsv(report.data), 'utf8'),
         rowCount: report.data.length,
+        format: 'CSV',
       };
     }
     if (input.kind === 'flash-sales') {
       const report = await flash.read(
         user,
-        flashSalesInputSchema.parse({ from: input.from, to: input.to, storeIds: input.storeIds }),
+        flashSalesInputSchema.parse({
+          from: input.from,
+          to: input.to,
+          storeIds: input.storeIds,
+          sort: input.sort,
+          direction: input.direction,
+        }),
         true,
+        input.columns !== undefined,
       );
       return {
-        bytes: Buffer.from(flashSalesCsv(report.data), 'utf8'),
+        bytes: Buffer.from(
+          input.columns
+            ? screenReportCsv(input.kind, report.data, input.columns, context?.maxBytes)
+            : flashSalesCsv(report.data),
+          'utf8',
+        ),
         rowCount: report.data.length,
+        format: 'CSV',
       };
     }
     const report = await ledger.read(user, input.storeIds, input.from, input.to);
     return {
       bytes: Buffer.from(cashBalanceCsv(report.data), 'utf8'),
       rowCount: report.data.length,
+      format: 'CSV',
     };
   };
 }
@@ -214,12 +286,15 @@ async function currentOperator(
 }
 function allowed(user: Principal, job: ReportExportJob): boolean {
   return (
+    (!managerReportExport(job.input.kind) || user.role === 1) &&
     (user.id === job.operatorId || user.role === 1) &&
     (!job.requiresGlobal || user.role === 1) &&
     (job.requesterUserType === 2 || user.userType === 1) &&
     ((user.role === 1 &&
       !(
-        (requiresSelectedExportStores(job.input.kind) || job.input.kind === 'hyperlocal-daily') &&
+        (requiresSelectedExportStores(job.input.kind) ||
+          job.input.kind === 'hyperlocal-daily' ||
+          managerReportExport(job.input.kind)) &&
         user.userType === 2
       )) ||
       job.storeIds.every((id) => user.storeIds.includes(id)))
@@ -259,6 +334,9 @@ function dto(job: ReportExportJob, user: Principal) {
         'order-transactions': 'Order transactions',
         'hyperlocal-daily': 'Hyperlocal daily report',
         'flash-sales': 'Flash sales',
+        'salesperson-performance': 'Salesperson performance',
+        'cashier-performance': 'Cashier performance',
+        'hyperlocal-acceptance': 'Hyperlocal acceptance',
         'current-inventory-workbook': 'Current inventory workbook',
       }[job.input.kind],
     note: job.input.note || null,
@@ -525,10 +603,12 @@ export function reportExportService(
       const requestHash = createHash('sha256').update(JSON.stringify(input)).digest('hex');
       return transaction(async (tx) => {
         const current = await currentOperator(tx, user.id, 'update');
+        if (managerReportExport(input.kind) && current.role !== 1) throw noAccess();
         await assertWorkbookStoreScope(tx, current, input);
         if (
           requiresSelectedExportStores(input.kind) ||
-          (input.kind === 'hyperlocal-daily' && current.userType === 2)
+          ((input.kind === 'hyperlocal-daily' || managerReportExport(input.kind)) &&
+            current.userType === 2)
         )
           orderReportScope(current, input.storeIds);
         input.storeIds.forEach((id) => requireStore(current, id));
@@ -578,18 +658,25 @@ export function reportExportService(
             storeIds:
               input.kind === 'flash-sales' && current.userType === 2
                 ? current.storeIds
-                : requiresSelectedExportStores(input.kind)
+                : requiresSelectedExportStores(input.kind) ||
+                    (managerReportExport(input.kind) && current.userType === 2)
                   ? input.storeIds
                   : input.storeIds.length
                     ? input.storeIds
                     : current.role === 1 &&
-                        !(input.kind === 'hyperlocal-daily' && current.userType === 2)
+                        !(
+                          (input.kind === 'hyperlocal-daily' || managerReportExport(input.kind)) &&
+                          current.userType === 2
+                        )
                       ? []
                       : current.storeIds,
             requiresGlobal:
               !requiresSelectedExportStores(input.kind) &&
               current.role === 1 &&
-              !(input.kind === 'hyperlocal-daily' && current.userType === 2) &&
+              !(
+                (input.kind === 'hyperlocal-daily' || managerReportExport(input.kind)) &&
+                current.userType === 2
+              ) &&
               !input.storeIds.length,
             requesterUserType: current.userType,
             status: 'QUEUED',

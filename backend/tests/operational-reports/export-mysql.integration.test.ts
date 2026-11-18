@@ -9,6 +9,7 @@ import { createDatabases, type Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
 import {
   reportExportService,
+  reportExportBuilder,
   type ExportBuilder,
 } from '../../src/modules/operational-reports/export-service.js';
 import {
@@ -19,6 +20,10 @@ import {
   exportHistoryInputSchema,
   type ReportExportListRow,
 } from '../../src/modules/operational-reports/export-history.js';
+import {
+  performanceOptions,
+  staffPerformanceService,
+} from '../../src/modules/operational-reports/performance.js';
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!connection)('durable report exports on isolated local MySQL', () => {
@@ -195,14 +200,23 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
     expect(JSON.stringify(receipt)).not.toContain('uploads/');
     expect((await exports.list(user, 'legacy')).total).toBe(1);
   });
-  it('freezes assigned stores for restricted superadmin daily and flash exports without global scope',async()=>{
+  it('freezes assigned stores for restricted superadmin daily and flash exports without global scope', async () => {
     await admin!.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=900001');
-    const exports=service(),actor={...user,role:1 as const,userType:2 as const};
-    for(const kind of ['hyperlocal-daily','flash-sales'] as const){
-      const value={kind,from:kind==='hyperlocal-daily'?'2026-11-16T00:00:00':'2026-11-16',to:kind==='hyperlocal-daily'?'2026-11-16T23:59:59':'2026-11-16',storeIds:[]},job=await exports.create(actor,randomUUID(),value);
-      expect(await exports.runOne()).toMatchObject({jobId:job.id,status:'COMPLETED'});
+    const exports = service(),
+      actor = { ...user, role: 1 as const, userType: 2 as const };
+    for (const kind of ['hyperlocal-daily', 'flash-sales'] as const) {
+      const value = {
+          kind,
+          from: kind === 'hyperlocal-daily' ? '2026-11-16T00:00:00' : '2026-11-16',
+          to: kind === 'hyperlocal-daily' ? '2026-11-16T23:59:59' : '2026-11-16',
+          storeIds: [],
+        },
+        job = await exports.create(actor, randomUUID(), value);
+      expect(await exports.runOne()).toMatchObject({ jobId: job.id, status: 'COMPLETED' });
       await admin!.query('DELETE FROM user_stores WHERE django_user_id=900001');
-      await expect(exports.download(actor,job.id)).rejects.toMatchObject({code:'EXPORT_ACCESS_DENIED'});
+      await expect(exports.download(actor, job.id)).rejects.toMatchObject({
+        code: 'EXPORT_ACCESS_DENIED',
+      });
       await admin!.query('INSERT INTO user_stores VALUES(1,900001,1)');
     }
   });
@@ -221,6 +235,118 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
     expect(putCount).toBe(1);
     expect(headCount).toBe(1);
     expect((await exports.read(user, job.id)).canDownload).toBe(true);
+  });
+  it('builds a full manager column export once, recovers lost upload and rechecks current manager authority', async () => {
+    await admin!.query('UPDATE pos_user SET role=1 WHERE id=900001');
+    let factReads = 0;
+    const performance = staffPerformanceService(
+        config,
+        db(),
+        performanceOptions({
+          BQ_SALESPERSON_PERFORMANCE_VIEW: 'fixture-project.reports.salespeople',
+        }),
+        {
+          async queryReport() {
+            factReads++;
+            return Array.from({ length: 61 }, (_, i) => ({
+              employeeId: String(i + 1),
+              storeName: 'not exported',
+              salespersonName: i === 60 ? '=private formula' : `Staff ${i}`,
+              totalSales: 610 - 10 * i,
+            }));
+          },
+        },
+        () => now,
+      ),
+      exports = reportExportService(
+        config,
+        db(),
+        options,
+        store,
+        reportExportBuilder(config, db(), { performance }),
+        () => now,
+      ),
+      command = randomUUID(),
+      selected = {
+        kind: 'salesperson-performance',
+        from: '2026-11-15T00:00:00',
+        to: '2026-11-15T23:59:59',
+        storeIds: ['1'],
+        columns: ['salesperson_name', 'rating'],
+        sort: 'total_sales',
+        direction: 'desc',
+      },
+      job = await exports.create(user, command, selected);
+    expect((await exports.create(user, command, selected)).id).toBe(job.id);
+    await expect(
+      exports.create(user, command, { ...selected, columns: ['rating'] }),
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    uploadFailure = true;
+    expect(await exports.runOne()).toMatchObject({ status: 'STORING' });
+    expect(factReads).toBe(1);
+    now = now.add({ seconds: 16 });
+    expect(await exports.runOne()).toMatchObject({ status: 'COMPLETED' });
+    const file = await exports.download(user, job.id),
+      chunks: Buffer[] = [];
+    for await (const chunk of file.body) chunks.push(Buffer.from(chunk));
+    const csv = Buffer.concat(chunks).toString();
+    expect(csv.split('\r\n')).toHaveLength(62);
+    expect(csv).toContain('"\'=private formula","0.2"');
+    expect(csv).not.toContain('not exported');
+    expect(factReads).toBe(1);
+    expect(putCount).toBe(1);
+    expect(headCount).toBe(1);
+    await admin!.query('UPDATE pos_user SET role=4 WHERE id=900001');
+    await expect(exports.read(user, job.id)).rejects.toMatchObject({
+      code: 'EXPORT_ACCESS_DENIED',
+    });
+    await expect(exports.download(user, job.id)).rejects.toMatchObject({
+      code: 'EXPORT_ACCESS_DENIED',
+    });
+    await expect(
+      exports.create({ ...user, role: 1 }, randomUUID(), selected),
+    ).rejects.toMatchObject({ code: 'EXPORT_ACCESS_DENIED' });
+  });
+  it('refuses manager export dispatch after role/assignment revocation and does not broaden empty franchise scope', async () => {
+    await admin!.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=900001');
+    const exports = service(),
+      actor = { ...user, role: 1 as const, userType: 2 as const };
+    for (const kind of [
+      'salesperson-performance',
+      'cashier-performance',
+      'hyperlocal-acceptance',
+    ] as const) {
+      const selected = {
+        kind,
+        from: '2026-11-15T00:00:00',
+        to: '2026-11-15T23:59:59',
+        storeIds: ['1'],
+      };
+      await expect(
+        exports.create(actor, randomUUID(), { ...selected, storeIds: ['2'] }),
+      ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
+      const job = await exports.create(actor, randomUUID(), selected);
+      await admin!.query('UPDATE pos_user SET role=4 WHERE id=900001');
+      expect(await exports.runOne()).toMatchObject({
+        jobId: job.id,
+        status: 'FAILED',
+        errorCode: 'EXPORT_ACCESS_DENIED',
+      });
+      await admin!.query('UPDATE pos_user SET role=1 WHERE id=900001');
+    }
+    expect(buildCount).toBe(0);
+    const job = await exports.create(actor, randomUUID(), {
+      kind: 'salesperson-performance',
+      from: '2026-11-15T00:00:00',
+      to: '2026-11-15T23:59:59',
+      storeIds: [],
+    });
+    const [rows] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT store_ids,requires_global FROM pos_rewrite_report_exports WHERE id=?',
+      [job.id],
+    );
+    expect(rows[0]?.store_ids).toEqual([]);
+    expect(rows[0]?.requires_global).toBe(0);
   });
   it('fails unavailable or interrupted artifacts safely without exposing query errors', async () => {
     const exports = service();

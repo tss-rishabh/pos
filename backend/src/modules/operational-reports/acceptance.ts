@@ -6,7 +6,7 @@ import type { Databases } from '../../db/pools.js';
 import { HyperlocalOrderLog, Order, PosUser, Store } from '../../db/legacy-schema.js';
 import { requireRole, requireStore, type Principal } from '../../domain/access.js';
 import { identifier } from '../../domain/validation.js';
-import { unavailable } from '../../domain/errors.js';
+import { AppError, unavailable } from '../../domain/errors.js';
 import { warehouseService } from '../warehouse.js';
 import {
   businessTimestamp,
@@ -67,7 +67,7 @@ export function acceptanceReportService(
   clock = () => Temporal.Now.instant(),
 ) {
   return {
-    async read(user: Principal, value: AcceptanceInput) {
+    async read(user: Principal, value: AcceptanceInput, all = false) {
       requireRole(user, [1]);
       const input = acceptanceInputSchema.parse(value),
         bounds = timestampReportBounds(config, input.from, input.to, clock()),
@@ -76,6 +76,7 @@ export function acceptanceReportService(
       ids.forEach((id) => requireStore(user, id));
       if (scope.empty) return { reader: bounds.reader, data: [], total: 0, page: 1, totalPages: 0 };
       let total: number, page: number, totalPages: number, rows: AcceptanceRecord[];
+      const limit = all ? 70001 : input.pageSize;
       if (bounds.reader === 'bigquery') {
         if (!options.BQ_HYPERLOCAL_ACCEPTANCE_VIEW)
           return unavailable('BigQuery hyperlocal acceptance view');
@@ -92,7 +93,13 @@ export function acceptanceReportService(
         );
         total = warehouseReportCount(counted);
         totalPages = Math.ceil(total / input.pageSize);
-        page = input.page <= totalPages ? input.page : 1;
+        page = !all && input.page <= totalPages ? input.page : 1;
+        if (all && total > 70000)
+          throw new AppError(
+            422,
+            'EXPORT_TOO_LARGE',
+            'Select a smaller store/date range for export.',
+          );
         const sort = {
           created_at: 'created_at',
           order_id: 'order_id',
@@ -102,7 +109,7 @@ export function acceptanceReportService(
         }[input.sort];
         const result = await warehouse.queryReport(
           `SELECT log_id AS id,order_id AS orderId,pos_admin_id AS staffId,store_id AS storeId,store_name AS storeName,created_at AS createdAt,time_taken AS timeTaken FROM ${view} WHERE ${where} ORDER BY ${sort} ${input.direction},log_id ASC LIMIT @limit OFFSET @offset`,
-          { ...params, limit: input.pageSize, offset: (page - 1) * input.pageSize },
+          { ...params, limit, offset: (page - 1) * input.pageSize },
           { ...types, limit: 'INT64', offset: 'INT64' },
           'hyperlocal-acceptance',
         );
@@ -130,7 +137,13 @@ export function acceptanceReportService(
           .where(where);
         total = counted?.count || 0;
         totalPages = Math.ceil(total / input.pageSize);
-        page = input.page <= totalPages ? input.page : 1;
+        page = !all && input.page <= totalPages ? input.page : 1;
+        if (all && total > 70000)
+          throw new AppError(
+            422,
+            'EXPORT_TOO_LARGE',
+            'Select a smaller store/date range for export.',
+          );
         const sort = {
           created_at: HyperlocalOrderLog.created_at,
           order_id: HyperlocalOrderLog.order_id,
@@ -153,10 +166,16 @@ export function acceptanceReportService(
           .leftJoin(Store, eq(Store.id, Order.location_id))
           .where(where)
           .orderBy(input.direction === 'asc' ? asc(sort) : desc(sort), asc(HyperlocalOrderLog.id))
-          .limit(input.pageSize)
+          .limit(limit)
           .offset((page - 1) * input.pageSize);
         rows = z.array(rawSchema).parse(result);
       }
+      if (all && rows.length > 70000)
+        throw new AppError(
+          422,
+          'EXPORT_TOO_LARGE',
+          'Select a smaller store/date range for export.',
+        );
       const staffIds = [...new Set(rows.map((row) => row.staffId))],
         operators = staffIds.length
           ? await db

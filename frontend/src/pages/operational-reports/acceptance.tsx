@@ -27,6 +27,7 @@ export function HyperlocalAcceptancePage({ user, storeId }: { user: Principal; s
       rowSchema={rowSchema}
       columns={columns}
       defaultSort="created_at"
+      exportKind="hyperlocal-acceptance"
     />
   );
 }

@@ -6,7 +6,7 @@ import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
-import { queueReportExport } from './export-commands';
+import { queueReportExport, type ReportExportFilters } from './export-commands';
 import './style.css';
 interface ReportColumn<T> {
   key: keyof T;
@@ -61,6 +61,7 @@ export function ReportView<T extends Record<string, unknown>>({
   sortOptions,
   dateOnly = false,
   defaultDirection = 'desc',
+  columnControls = true,
 }: {
   user: Principal;
   storeId: string;
@@ -73,10 +74,11 @@ export function ReportView<T extends Record<string, unknown>>({
   allowedRoles?: readonly Principal['role'][];
   searchable?: boolean;
   requiresSelectedStores?: boolean;
-  exportKind?: 'returned-orders' | 'hyperlocal-daily' | 'flash-sales';
+  exportKind?: ReportExportFilters['kind'];
   sortOptions?: readonly { value: string; label: string }[];
   dateOnly?: boolean;
   defaultDirection?: 'asc' | 'desc';
+  columnControls?: boolean;
 }) {
   const online = useOnline(),
     queryClient = useQueryClient(),
@@ -89,6 +91,8 @@ export function ReportView<T extends Record<string, unknown>>({
     ),
     [page, setPage] = useState(1),
     [pageSize, setPageSize] = useState(25),
+    [hidden, setHidden] = useState<readonly string[]>([]),
+    visible = columns.filter((column) => !hidden.includes(String(column.key))),
     schema = z.object({
       reader: z.enum(['data', 'bigquery']),
       data: z.array(rowSchema),
@@ -140,6 +144,13 @@ export function ReportView<T extends Record<string, unknown>>({
         storeIds: submitted.storeIds,
         attempts: 'all',
         search: submitted.search,
+        ...(columnControls
+          ? {
+              sort: submitted.sort,
+              direction: submitted.direction,
+              columns: visible.map((column) => String(column.key)),
+            }
+          : {}),
       });
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: [user.id, 'report-exports'] }),
@@ -154,11 +165,15 @@ export function ReportView<T extends Record<string, unknown>>({
         {exportKind && (
           <button
             className="button secondary"
-            disabled={!online || !report.data?.total || createExport.isPending}
+            disabled={!online || !report.data?.total || createExport.isPending || !visible.length}
             onClick={() => createExport.mutate()}
           >
             <ArrowDownToLine size={16} />
-            {createExport.isPending ? 'Requesting…' : 'Export CSV'}
+            {createExport.isPending
+              ? 'Requesting…'
+              : columnControls
+                ? 'Export visible columns CSV'
+                : 'Export CSV'}
           </button>
         )}
       </PageTitle>
@@ -219,7 +234,11 @@ export function ReportView<T extends Record<string, unknown>>({
         </label>
         <label>
           Sort by
-          <select value={filters.sort} onChange={(event) => update('sort', event.target.value)}>
+          <select
+            aria-label="Sort by"
+            value={filters.sort}
+            onChange={(event) => update('sort', event.target.value)}
+          >
             {(
               sortOptions || columns.map((column) => ({ value: column.sort, label: column.label }))
             ).map((column, index) => (
@@ -232,6 +251,7 @@ export function ReportView<T extends Record<string, unknown>>({
         <label>
           Direction
           <select
+            aria-label="Direction"
             value={filters.direction}
             onChange={(event) => update('direction', event.target.value === 'asc' ? 'asc' : 'desc')}
           >
@@ -254,6 +274,40 @@ export function ReportView<T extends Record<string, unknown>>({
           View report
         </button>
       </form>
+      {exportKind && columnControls && (
+        <p className="muted">
+          CSV includes all matching records in the selected sort order and visible columns. Retrieve
+          the file from Report exports.
+        </p>
+      )}
+      {columnControls && (
+        <details className="surface report-column-controls">
+          <summary>
+            Columns ({visible.length} of {columns.length})
+          </summary>
+          <div className="report-column-options">
+            {columns.map((column) => (
+              <label key={String(column.key)}>
+                <input
+                  type="checkbox"
+                  checked={!hidden.includes(String(column.key))}
+                  onChange={(event) =>
+                    setHidden((current) =>
+                      event.target.checked
+                        ? current.filter((key) => key !== String(column.key))
+                        : [...current, String(column.key)],
+                    )
+                  }
+                />
+                {column.label}
+              </label>
+            ))}
+          </div>
+          <button type="button" className="button secondary" onClick={() => setHidden([])}>
+            Show all columns
+          </button>
+        </details>
+      )}
       {stores.isError && <ErrorState error={stores.error} />}
       {createExport.isError && <ErrorState error={createExport.error} />}
       {createExport.isSuccess && (
@@ -277,7 +331,7 @@ export function ReportView<T extends Record<string, unknown>>({
             <table>
               <thead>
                 <tr>
-                  {columns.map((column) => (
+                  {visible.map((column) => (
                     <th key={String(column.key)}>{column.label}</th>
                   ))}
                 </tr>
@@ -285,7 +339,7 @@ export function ReportView<T extends Record<string, unknown>>({
               <tbody>
                 {report.data.data.map((row, index) => (
                   <tr key={String(row.id ?? `${page}:${index}`)}>
-                    {columns.map((column) => (
+                    {visible.map((column) => (
                       <td key={String(column.key)}>
                         {row[column.key] === null || row[column.key] === undefined
                           ? '—'
@@ -317,7 +371,7 @@ export function ReportView<T extends Record<string, unknown>>({
                   setPage(1);
                 }}
               >
-                {[25, 50, 100, 250, 500].map((size) => (
+                {[10, 25, 50, 100, 250, 500].map((size) => (
                   <option key={size} value={size}>
                     {size}
                   </option>

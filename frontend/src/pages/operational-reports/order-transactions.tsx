@@ -115,12 +115,13 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
       retry: false,
     }),
     createExport = useMutation({
-      mutationFn: () =>
+      mutationFn: (columns: readonly Field[] | null) =>
         queueReportExport(user.id, {
           kind: 'order-transactions',
           ...submitted,
           attempts: 'all',
           search: '',
+          ...(columns ? { columns, sort: 'transaction_date', direction: 'desc' as const } : {}),
         }),
       onSuccess: () => queryClient.invalidateQueries({ queryKey: [user.id, 'report-exports'] }),
     });
@@ -133,10 +134,18 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
         <button
           className="button secondary"
           disabled={!online || !report.data?.total || createExport.isPending}
-          onClick={() => createExport.mutate()}
+          onClick={() => createExport.mutate(null)}
         >
           <ArrowDownToLine size={16} />
           {createExport.isPending ? 'Requesting…' : 'Export complete CSV'}
+        </button>
+        <button
+          className="button secondary"
+          disabled={!online || !report.data?.total || !visible.length || createExport.isPending}
+          onClick={() => createExport.mutate(visible.map(([, field]) => field))}
+        >
+          <ArrowDownToLine size={16} />
+          {createExport.isPending ? 'Requesting…' : 'Export visible columns CSV'}
         </button>
       </PageTitle>
       <form

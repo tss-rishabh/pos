@@ -193,7 +193,7 @@ export function flashSalesReportService(
   clock = () => Temporal.Now.instant(),
 ) {
   return {
-    async read(user: Principal, value: FlashSalesInput, all = false) {
+    async read(user: Principal, value: FlashSalesInput, all = false, screenColumns = false) {
       const input = flashSalesInputSchema.parse(value),
         selected = orderReportScope(user, input.storeIds),
         stores = user.userType === 2 ? [...new Set(user.storeIds)] : selected,
@@ -212,7 +212,7 @@ export function flashSalesReportService(
           totalPages: 0,
         };
       try {
-        const kind = all ? 'export' : 'interactive',
+        const kind = all && !screenColumns ? 'export' : 'interactive',
           params = { start: bounds.from, end: bounds.to, stores },
           types = { start: 'DATETIME', end: 'DATETIME', stores: ['STRING'] };
         let sales: FlashSalesSourceRow[], refunds: FlashRefundRow[];

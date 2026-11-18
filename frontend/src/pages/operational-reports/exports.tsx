@@ -179,7 +179,13 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
                           ? 'current-inventory-workbook'
                           : event.target.value === 'flash-sales'
                             ? 'flash-sales'
-                            : 'day-close-history',
+                            : event.target.value === 'salesperson-performance'
+                              ? 'salesperson-performance'
+                              : event.target.value === 'cashier-performance'
+                                ? 'cashier-performance'
+                                : event.target.value === 'hyperlocal-acceptance'
+                                  ? 'hyperlocal-acceptance'
+                                  : 'day-close-history',
               )
             }
           >
@@ -188,6 +194,13 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             <option value="returned-orders">Returned orders</option>
             <option value="order-transactions">Order transactions</option>
             <option value="hyperlocal-daily">Hyperlocal daily report</option>
+            {user.role === 1 && (
+              <>
+                <option value="salesperson-performance">Salesperson performance</option>
+                <option value="cashier-performance">Cashier performance</option>
+                <option value="hyperlocal-acceptance">Hyperlocal acceptance</option>
+              </>
+            )}
             <option value="flash-sales">Flash sales</option>
             <option value="current-inventory-workbook">Current inventory workbook (XLSX)</option>
           </select>

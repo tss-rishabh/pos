@@ -4,6 +4,7 @@ import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
 import type { CashLedgerRow } from '../finance/ledger.js';
 import { businessTimestamp } from './report-inputs.js';
+import { reportColumnSelection } from './export-presentation.js';
 
 const date = z
   .string()
@@ -56,7 +57,55 @@ export const exportInputSchema = z
       })
       .strict(),
     z.object({ kind: z.literal('cash-balance'), ...common }).strict(),
-    z.object({ kind: z.literal('flash-sales'), ...common }).strict(),
+    z
+      .object({
+        kind: z.literal('flash-sales'),
+        ...common,
+        sort: z.literal('store_date').optional(),
+        direction: z.enum(['asc', 'desc']).optional(),
+        columns: reportColumnSelection('flash-sales'),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal('salesperson-performance'),
+        ...labels,
+        from: businessTimestamp,
+        to: businessTimestamp,
+        storeIds: common.storeIds,
+        sort: z
+          .enum(['store_name', 'employee_id', 'salesperson_name', 'total_sales', 'rating'])
+          .optional(),
+        direction: z.enum(['asc', 'desc']).optional(),
+        columns: reportColumnSelection('salesperson-performance'),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal('cashier-performance'),
+        ...labels,
+        from: businessTimestamp,
+        to: businessTimestamp,
+        storeIds: common.storeIds,
+        sort: z
+          .enum(['cashier_name', 'cashier_id', 'product_sold', 'time_taken', 'rating'])
+          .optional(),
+        direction: z.enum(['asc', 'desc']).optional(),
+        columns: reportColumnSelection('cashier-performance'),
+      })
+      .strict(),
+    z
+      .object({
+        kind: z.literal('hyperlocal-acceptance'),
+        ...labels,
+        from: businessTimestamp,
+        to: businessTimestamp,
+        storeIds: common.storeIds,
+        sort: z.enum(['created_at', 'order_id', 'store_name', 'staff_id', 'time_taken']).optional(),
+        direction: z.enum(['asc', 'desc']).optional(),
+        columns: reportColumnSelection('hyperlocal-acceptance'),
+      })
+      .strict(),
     z
       .object({
         kind: z.literal('returned-orders'),
@@ -65,6 +114,23 @@ export const exportInputSchema = z
         to: businessTimestamp,
         storeIds: common.storeIds,
         search: z.string().trim().max(100).default(''),
+        sort: z
+          .enum([
+            'store_name',
+            'order_id',
+            'prod_id',
+            'qty',
+            'pay_amount_refunded',
+            'reason',
+            'sub_reason',
+            'comment',
+            'created_at',
+            'order_date',
+            'return_id',
+          ])
+          .optional(),
+        direction: z.enum(['asc', 'desc']).optional(),
+        columns: reportColumnSelection('returned-orders'),
       })
       .strict(),
     z
@@ -76,6 +142,9 @@ export const exportInputSchema = z
         storeIds: common.storeIds,
         source: z.enum(['store', 'online']).default('store'),
         dateType: z.enum(['order_date', 'return_date']).default('order_date'),
+        sort: z.literal('transaction_date').optional(),
+        direction: z.literal('desc').optional(),
+        columns: reportColumnSelection('order-transactions'),
       })
       .strict(),
     z
@@ -124,7 +193,14 @@ export const exportInputSchema = z
   });
 export type ReportExportInput = z.infer<typeof exportInputSchema>;
 export function timestampExportKind(kind: string) {
-  return kind === 'returned-orders' || kind === 'order-transactions' || kind === 'hyperlocal-daily';
+  return [
+    'returned-orders',
+    'order-transactions',
+    'hyperlocal-daily',
+    'salesperson-performance',
+    'cashier-performance',
+    'hyperlocal-acceptance',
+  ].includes(kind);
 }
 export function requiresSelectedExportStores(kind: ReportExportInput['kind']) {
   return (

@@ -72,13 +72,13 @@ const numeric = z.union([
     performanceJson: z.string().max(255),
     quantity: numeric.nullable(),
   });
-function pageRows<T>(rows: T[], page: number, pageSize: number) {
+function pageRows<T>(rows: T[], page: number, pageSize: number, all = false) {
   if (rows.length > 70000)
     throw new AppError(422, 'REPORT_TOO_LARGE', 'Select a smaller store/date range.');
   const totalPages = Math.ceil(rows.length / pageSize),
-    selected = page <= totalPages ? page : 1;
+    selected = !all && page <= totalPages ? page : 1;
   return {
-    data: rows.slice((selected - 1) * pageSize, selected * pageSize),
+    data: all ? rows : rows.slice((selected - 1) * pageSize, selected * pageSize),
     total: rows.length,
     page: selected,
     totalPages,
@@ -92,7 +92,7 @@ export function staffPerformanceService(
   clock = () => Temporal.Now.instant(),
 ) {
   return {
-    async salespeople(user: Principal, value: SalespersonInput) {
+    async salespeople(user: Principal, value: SalespersonInput, all = false) {
       requireRole(user, [1]);
       const input = salespersonInputSchema.parse(value),
         bounds = timestampReportBounds(config, input.from, input.to, clock()),
@@ -164,10 +164,10 @@ export function staffPerformanceService(
       }
       return {
         reader: bounds.reader,
-        ...pageRows(salespersonRatings(rows), input.page, input.pageSize),
+        ...pageRows(salespersonRatings(rows), input.page, input.pageSize, all),
       };
     },
-    async cashiers(user: Principal, value: CashierInput) {
+    async cashiers(user: Principal, value: CashierInput, all = false) {
       requireRole(user, [1]);
       const input = cashierInputSchema.parse(value),
         bounds = timestampReportBounds(config, input.from, input.to, clock()),
@@ -222,6 +222,7 @@ export function staffPerformanceService(
           cashierPerformance(rows, input.sort, input.direction),
           input.page,
           input.pageSize,
+          all,
         ),
       };
     },

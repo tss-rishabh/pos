@@ -53,6 +53,7 @@ export function HyperlocalDailyPage({ user, storeId }: { user: Principal; storeI
       sortOptions={[{ value: 'order_date', label: 'Order date' }]}
       allowedRoles={[1, 2, 3, 4, 5]}
       exportKind="hyperlocal-daily"
+      columnControls={false}
     />
   );
 }

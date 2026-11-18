@@ -42,10 +42,76 @@ function fixtureStorage() {
   };
 }
 describe('report export request recovery', () => {
-  it('canonicalizes local timestamps and retains source/date-basis metadata for order exports',async()=>{
-    const storage=fixtureStorage(),commands:string[]=[],value={...filters,kind:'order-transactions' as const,source:'online' as const,dateType:'return_date' as const,from:'2026-11-16T00:00',to:'2026-11-16T23:59:59'};
-    await expect(queueReportExport('10',value,storage,async(command,input)=>{commands.push(command);expect(input).toMatchObject({source:'online',dateType:'return_date',from:'2026-11-16T00:00:00'});expect(input).not.toHaveProperty('search');throw new Error('Transport interrupted');})).rejects.toThrow();
-    await queueReportExport('10',{...value,from:'2026-11-16T00:00:00'},storage,async command=>{commands.push(command);return result;});expect(commands[0]).toBe(commands[1]);expect(storage.entries.size).toBe(0);
+  it('retains exact sorted visible-column command retries, with a separate digest for changed columns', async () => {
+    const storage = fixtureStorage(),
+      commands: string[] = [],
+      value: ReportExportFilters = {
+        ...filters,
+        kind: 'salesperson-performance',
+        from: '2026-11-16T00:00',
+        to: '2026-11-16T23:59',
+        sort: 'rating',
+        direction: 'asc',
+        columns: ['salesperson_name', 'rating'],
+      };
+    const fail = async (command: string, input: unknown) => {
+      commands.push(command);
+      expect(input).toEqual({
+        kind: value.kind,
+        from: '2026-11-16T00:00:00',
+        to: '2026-11-16T23:59:00',
+        storeIds: ['1', '2'],
+        sort: 'rating',
+        direction: 'asc',
+        columns: value.columns,
+      });
+      throw new Error('Lost response');
+    };
+    await expect(queueReportExport('10', value, storage, fail)).rejects.toThrow();
+    await expect(queueReportExport('10', value, storage, fail)).rejects.toThrow();
+    expect(commands[0]).toBe(commands[1]);
+    await queueReportExport('10', { ...value, columns: ['rating'] }, storage, async (command) => {
+      expect(command).not.toBe(commands[0]);
+      return result;
+    });
+    expect(storage.entries.size).toBe(1);
+    expect(JSON.stringify([...storage.entries])).not.toContain(value.search);
+    expect(JSON.stringify([...storage.entries])).not.toContain('salesperson_name');
+  });
+  it('canonicalizes local timestamps and retains source/date-basis metadata for order exports', async () => {
+    const storage = fixtureStorage(),
+      commands: string[] = [],
+      value = {
+        ...filters,
+        kind: 'order-transactions' as const,
+        source: 'online' as const,
+        dateType: 'return_date' as const,
+        from: '2026-11-16T00:00',
+        to: '2026-11-16T23:59:59',
+      };
+    await expect(
+      queueReportExport('10', value, storage, async (command, input) => {
+        commands.push(command);
+        expect(input).toMatchObject({
+          source: 'online',
+          dateType: 'return_date',
+          from: '2026-11-16T00:00:00',
+        });
+        expect(input).not.toHaveProperty('search');
+        throw new Error('Transport interrupted');
+      }),
+    ).rejects.toThrow();
+    await queueReportExport(
+      '10',
+      { ...value, from: '2026-11-16T00:00:00' },
+      storage,
+      async (command) => {
+        commands.push(command);
+        return result;
+      },
+    );
+    expect(commands[0]).toBe(commands[1]);
+    expect(storage.entries.size).toBe(0);
   });
   it('preserves a command across transport failures and canonicalizes store selections without storing search text', async () => {
     const storage = fixtureStorage(),

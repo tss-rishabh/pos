@@ -27,6 +27,9 @@ export interface ReportExportFilters {
     | 'order-transactions'
     | 'hyperlocal-daily'
     | 'flash-sales'
+    | 'salesperson-performance'
+    | 'cashier-performance'
+    | 'hyperlocal-acceptance'
     | 'current-inventory-workbook';
   from: string;
   to: string;
@@ -37,9 +40,28 @@ export interface ReportExportFilters {
   dateType?: 'order_date' | 'return_date';
   label?: string;
   note?: string;
+  sort?: string;
+  direction?: 'asc' | 'desc';
+  columns?: readonly string[];
 }
 export const timestampExport = (kind: ReportExportFilters['kind']) =>
-  kind === 'returned-orders' || kind === 'order-transactions' || kind === 'hyperlocal-daily';
+  [
+    'returned-orders',
+    'order-transactions',
+    'hyperlocal-daily',
+    'salesperson-performance',
+    'cashier-performance',
+    'hyperlocal-acceptance',
+  ].includes(kind);
+export const screenColumnExport = (kind: ReportExportFilters['kind']) =>
+  [
+    'returned-orders',
+    'order-transactions',
+    'flash-sales',
+    'salesperson-performance',
+    'cashier-performance',
+    'hyperlocal-acceptance',
+  ].includes(kind);
 type CommandStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 const commandSchema = z
   .object({ commandId: z.uuid(), hash: z.string().regex(/^[a-f0-9]{64}$/) })
@@ -68,6 +90,13 @@ export async function queueReportExport(
             ),
       ...(filters.label?.trim() ? { label: filters.label.trim() } : {}),
       ...(filters.note?.trim() ? { note: filters.note.trim() } : {}),
+      ...(screenColumnExport(filters.kind)
+        ? {
+            ...(filters.sort === undefined ? {} : { sort: filters.sort }),
+            ...(filters.direction === undefined ? {} : { direction: filters.direction }),
+            ...(filters.columns === undefined ? {} : { columns: [...filters.columns] }),
+          }
+        : {}),
     },
     input =
       filters.kind === 'current-inventory-workbook'

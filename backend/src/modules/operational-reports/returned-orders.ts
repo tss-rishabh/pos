@@ -144,7 +144,7 @@ export function returnedOrdersReportService(
         };
       let total: number, page: number, totalPages: number, rows: ReturnedOrderRecord[];
       const limit = all ? 70001 : input.pageSize,
-        sort = all ? 'return_id' : input.sort;
+        sort = input.sort;
       if (bounds.reader === 'bigquery') {
         if (!options.BQ_RETURNED_ORDERS_VIEW) return unavailable('BigQuery returned-orders view');
         const view = '`' + options.BQ_RETURNED_ORDERS_VIEW + '`',
