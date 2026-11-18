@@ -15,7 +15,7 @@ export const fulfillmentExpiryAlertsSchema = z.object({
     expiresAt: z.string().max(64),
   })),
   bannerCounts: fulfillmentBannerCountsSchema,
-  pollIntervalMs: z.number().int().min(1000).max(3600000).optional(),
+  pollIntervalMs: z.number().int().min(5000).max(300000).optional(),
   businessTimeZone: z.string().min(1).max(64).optional(),
 });
 export type FulfillmentExpiryAlerts = z.infer<typeof fulfillmentExpiryAlertsSchema>;
@@ -25,7 +25,9 @@ export const fulfillmentExpiryAuthorityDenied = (error: unknown) =>
   error instanceof ApiError && (error.status === 401 || error.status === 403);
 
 /** One operator/store query shared by the global widget and fulfillment page. */
-export function useFulfillmentExpiryAlerts(operatorId: string, storeId: string, enabled = true) {
+export function useFulfillmentExpiryAlerts(
+  operatorId: string, storeId: string, enabled = true, options: { poll?: boolean } = {},
+) {
   const client = useQueryClient();
   const identity = JSON.stringify([operatorId, storeId]);
   const [blockedIdentity, setBlockedIdentity] = useState<string | null>(null);
@@ -39,7 +41,9 @@ export function useFulfillmentExpiryAlerts(operatorId: string, storeId: string, 
       fulfillmentExpiryAlertsSchema,
     ),
     retry: (count, error) => !fulfillmentExpiryAuthorityDenied(error) && count < 1,
-    refetchInterval: (current) => current.state.data?.pollIntervalMs ?? 60000,
+    // Workspace owns the timer. Standalone embeddings may explicitly opt in;
+    // page/notification observers share its data and invalidations without timers.
+    refetchInterval: options.poll ? (current) => current.state.data?.pollIntervalMs ?? 60000 : false,
     staleTime: 10000,
   });
   const denied = fulfillmentExpiryAuthorityDenied(query.error);
@@ -51,7 +55,7 @@ export function useFulfillmentExpiryAlerts(operatorId: string, storeId: string, 
   return { ...query, data: allowed && !denied ? query.data : undefined, authorityDenied: denied || blockedIdentity === identity };
 }
 
-/** Legacy DATETIME is a business wall clock, never the desktop's local zone. */
+/** Legacy DATETIME is a business wall clock; invalid/ambiguous DST times fail closed. */
 export function fulfillmentExpiryInstant(value: string, timeZone = 'Asia/Kolkata'): number | null {
   if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(value)) {
     const timestamp = Date.parse(value);
@@ -71,10 +75,13 @@ export function fulfillmentExpiryInstant(value: string, timeZone = 'Asia/Kolkata
       const parts = new Map(formatter.formatToParts(timestamp).map((part) => [part.type, part.value]));
       return `${parts.get('year')}-${parts.get('month')}-${parts.get('day')}T${parts.get('hour')}:${parts.get('minute')}:${parts.get('second')}`;
     };
-    let instant = calendar;
-    for (let attempt = 0; attempt < 3; attempt++)
-      instant += calendar - Date.parse(partsAt(instant) + 'Z');
-    if (partsAt(instant) !== wall) return null;
-    return instant + Number((matched[3] || '').padEnd(3, '0').slice(0, 3));
+    const offsets = new Set([-36, 0, 36].map((hours) => {
+      const sample = calendar + hours * 3600000;
+      return Date.parse(partsAt(sample) + 'Z') - sample;
+    }));
+    const candidates = [...offsets].map((offset) => calendar - offset)
+      .filter((instant) => partsAt(instant) === wall);
+    if (candidates.length !== 1) return null;
+    return candidates[0]! + Number((matched[3] || '').padEnd(3, '0').slice(0, 3));
   } catch { return null; }
 }
