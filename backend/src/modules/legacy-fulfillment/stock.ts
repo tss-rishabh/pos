@@ -269,15 +269,13 @@ export function lifecycleStock(runtime: LifecycleRuntime) {
             and(eq(ProductStore.product, BigInt(id)), eq(ProductStore.store, BigInt(storeId))),
           );
       else
-        await tx
-          .insert(ProductStore)
-          .values({
-            product: BigInt(id),
-            store: BigInt(storeId),
-            stock: 0,
-            is_del: false,
-            is_avail: true,
-          });
+        await tx.insert(ProductStore).values({
+          product: BigInt(id),
+          store: BigInt(storeId),
+          stock: 0,
+          is_del: false,
+          is_avail: true,
+        });
     }
     await stockProcedure(tx, {
       storeId,
