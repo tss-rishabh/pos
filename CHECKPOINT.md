@@ -4,10 +4,28 @@
 
 Implementation remains the first priority. Full source-to-UI tracing found gaps
 that the earlier component map did not establish. Current known code work is
-authorized N/HL/HE detail entry, genuine N full/SDD invoice access, and real-App
-store-create default-operator wiring. All have assigned owners; their historical data must use complete qualified publications,
-never invented store ownership or historical MySQL fallback. Online action
-bindings must be mapped honestly before claiming complete templates.
+genuine N full/SDD invoice access and per-line online return/exchange/manager
+extension/override/failed-exchange retry bindings. Both have assigned owners;
+historical data must use complete qualified publications, never invented store
+ownership or historical MySQL fallback. Reachability review found the online
+customer icon has no active edit handler and its money icon opens HL acceptance;
+unreachable controls are not invented from unrelated endpoints.
+
+Authorized N/HL/HE detail reads are integrated in426b597, with current product
+and customer dimensions separated from immutable historical financial facts.
+Bounded source/native/routed-App9, value/publication7, link2 and component24
+cases passed on their recorded feature graph.1947373/b519cf1 add explicit
+operator/store/counter/order/mode return navigation without automatic OTP or
+mutation, retaining pending recovery. Merged frontend/backend strict and17
+entry/link cases pass in the owned corrections checkout.
+
+Real-App store creation now resolves configured STOREDEFAULTUSER contact
+identities under writer locks (9a89415), preserving archived assignments while
+denying archived access.3ed2a9c corrects exact-token parsing and its provenance:
+original receipt tested trimming, final separate7-case receipt verifies no
+per-token trimming with unchanged input hashes.15 creator regressions remain
+historical and are not relabeled. Native full-verifier mapping includes this
+fixture in a103679. Source map presence is not parity admission.
 
 Integrated since caba871: active order-type date retention; writer-current
 operator/store creator guards (15 native passes,7 unsafe baseline failures);

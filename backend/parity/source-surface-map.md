@@ -16,8 +16,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **stores (partial)**: Wire the real App store creator to configured source default-operator contact identities. Resolve them under current writer authority; missing and explicit-empty configuration must differ, and the native-cookie application path must create stores without fixture-only options injection.
-- **orders-read (partial)**: Implement authorized N/HL/HE online-detail entry, complete read fields and lines from the reachable ShowOnlineOrderDetailsView. Current N summary has no line-item detail; HL/HE links lead only to operational queues. Preserve real ownership/global-reader checks and qualified historical facts without fabricated store associations or historical MySQL fallback.
+- **orders-read (partial)**: Finish original online-detail per-line return/exchange eligibility, manager extension/override and failed-exchange discovery/retry entry. Authorized N/HL/HE read details and order/mode-bound receiving-store links are integrated; generic links do not establish the original per-line action behavior.
 - **invoice-documents (partial)**: Implement explicit global-online access for genuine paid N full/SDD invoices without a fake OrderStore or context-store issuer. Preserve source legal templates, exact SDD split/platform conditions and purpose-bound current-actor/provider proofs.
 
 ## Line-bound implementation review
@@ -26,7 +25,7 @@ These reviewed code paths bind actual import/manager/table controls and preserve
 
 ### stores
 
-Mapped surfaces: `stores/urls.py:8` (partial), `stores/urls.py:9` (partial), `stores/urls.py:10` (partial), `stores/urls.py:11` (partial), `stores/urls.py:13` (partial), `stores/urls.py:14` (partial), `stores/urls.py:15` (partial), `stores/urls.py:16` (partial), `stores/templates/stores/_form.html` (partial), `stores/templates/stores/create.html` (partial), `stores/templates/stores/edit.html` (partial), `stores/templates/stores/index.html` (partial), `stores/templates/stores/show.html` (partial), `stores/admin.py:6` (partial).
+Mapped surfaces: `stores/urls.py:8` (implementation_present), `stores/urls.py:9` (implementation_present), `stores/urls.py:10` (implementation_present), `stores/urls.py:11` (external_acceptance), `stores/urls.py:13` (implementation_present), `stores/urls.py:14` (external_acceptance), `stores/urls.py:15` (implementation_present), `stores/urls.py:16` (implementation_present), `stores/templates/stores/_form.html` (external_acceptance), `stores/templates/stores/create.html` (external_acceptance), `stores/templates/stores/edit.html` (external_acceptance), `stores/templates/stores/index.html` (external_acceptance), `stores/templates/stores/show.html` (external_acceptance), `stores/admin.py:6` (external_acceptance).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -82,7 +81,7 @@ Mapped surfaces: `core/urls.py:131` (implementation_present), `core/urls.py:132`
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `backend/src/modules/administration/index.ts:113` | Actual administration registrar mounts the credential-free EDC directory. |
+| `backend/src/modules/administration/index.ts:114` | Actual administration registrar mounts the credential-free EDC directory. |
 | `backend/src/modules/administration/terminal-directory.ts:27` | Pine/Paytm union applies fresh role/current assigned-store authority, finite provider/search/sort and bounded primary paging; credential fields are not selected. |
 | `frontend/src/pages/administration/terminal-directory.tsx:58` | Actual provider directory offers nonsecret columns, visibility/page choices and page/full CSV while preserving the independent write-only editor. |
 
@@ -112,10 +111,11 @@ Mapped surfaces: `order/urls.py:8` (partial), `order/urls.py:9` (partial), `orde
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
+| `backend/src/modules/order-history/online-detail/service.ts:22` | Authorized N/HL/HE details bind native current authority to complete primary or qualified BigQuery facts, then hydrate explicitly current customer/product dimensions. Source/native/routed-App proof is scoped; complete historical transport and per-line actions remain separate. |
 | `backend/src/modules/order-history/search/default-ranges.ts:8` | Server-authoritative rolling five-day store-page bounds include its extra ending minute and bounded midnight fraction without a future warehouse publication. Active type switching must retain this same window; separate online-prefix arithmetic does not establish rendered online-entry behavior. |
 | `frontend/src/pages/operations.tsx:139` | Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission. |
 | `frontend/src/pages/operations.tsx:334` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
-| `frontend/src/pages/order-history/SourceOrderList.tsx:191` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
+| `frontend/src/pages/order-history/SourceOrderList.tsx:211` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
 | `frontend/src/pages/order-history/search-client.ts:157` | Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes. |
 
 ### checkout-cart
@@ -145,7 +145,7 @@ Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (e
 | `backend/src/modules/checkout/return-workflow/extensions.ts:19` | Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts. |
 | `backend/src/modules/checkout/return-workflow/repository.ts:619` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
 | `backend/src/modules/checkout/return-workflow/routes.ts:77` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
-| `frontend/src/pages/returns/index.tsx:566` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
+| `frontend/src/pages/returns/index.tsx:577` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
 | `frontend/src/pages/returns/client.ts:243` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
 | `frontend/src/pages/returns/ReturnWindowExtension.tsx:48` | Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only. |
 
@@ -221,7 +221,7 @@ Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (e
 | Code/source reference | Reviewed scope |
 | --- | --- |
 | `backend/src/modules/checkout/cancellations/membership-fence.ts:94` | Actual shared membership fence consumes authenticated fixed-function revision metadata under application authority without TRIGGER privileges, retaining exact bodies, native indexes/collations and revision semantics. Go/Python counterparts and independent-account workflow fixtures are integrated; this is not deployed or full-project certification. |
-| `backend/src/app.ts:362` | Actual application registration invokes the production import factory; the profile is not a standalone unused constructor. |
+| `backend/src/app.ts:363` | Actual application registration invokes the production import factory; the profile is not a standalone unused constructor. |
 | `backend/src/modules/legacy-order-imports/worker-main.ts:72` | Standalone production worker uses that same configured import factory and its selected/blocked profile decisions. |
 | `backend/src/modules/legacy-order-imports/runtime.ts:23` | Actual server and worker registration composes preparation, benefits, approvals, corrections and the selected screening profile. |
 | `backend/src/modules/legacy-order-imports/worker.ts:20` | Bounded production worker replaces the offline/Shopify source task entry points; original operation outcomes remain durable. |
@@ -282,11 +282,11 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 62 | 16 | 0 | 177 |
+| routes | 68 | 8 | 0 | 179 |
 | jobs | 0 | 0 | 1 | 31 |
-| templates | 32 | 10 | 3 | 61 |
+| templates | 32 | 5 | 3 | 66 |
 | websockets | 0 | 0 | 0 | 1 |
-| administration | 0 | 1 | 0 | 1 |
+| administration | 0 | 0 | 0 | 2 |
 
 “External acceptance” means code exists and the named real dependency remains unaccepted. It does not turn a missing callback/financial adapter into a deployed feature. Warehouse absence, source collation/generation proofs, shared writer patches, physical printers, real OAuth/SMS/mail and SDD/legal rendering are carried at their specific family boundaries in the JSON; they are not hundreds of invented code tasks.
 
@@ -503,15 +503,15 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/urls.py:88` | `ajax-hyperlocal-daily-export/` | operational-reports | external_acceptance |
 | `report/urls.py:91` | `export-logs/` | report-exports | external_acceptance |
 | `report/urls.py:92` | `ajax-export-logs/` | report-exports | external_acceptance |
-| `stores/urls.py:8` | `stores` | stores | partial |
-| `stores/urls.py:9` | `ajax-store-list/` | stores | partial |
-| `stores/urls.py:10` | `ajax-archived-store-list/` | stores | partial |
-| `stores/urls.py:11` | `create/` | stores, store-images | partial |
+| `stores/urls.py:8` | `stores` | stores | implementation_present |
+| `stores/urls.py:9` | `ajax-store-list/` | stores | implementation_present |
+| `stores/urls.py:10` | `ajax-archived-store-list/` | stores | implementation_present |
+| `stores/urls.py:11` | `create/` | stores, store-images | external_acceptance |
 | `stores/urls.py:12` | `add-location/` | location-codes | implementation_present |
-| `stores/urls.py:13` | `<int:pk>/view/` | stores | partial |
-| `stores/urls.py:14` | `<int:pk>/edit/` | stores, store-images | partial |
-| `stores/urls.py:15` | `<int:pk>/delete/` | stores | partial |
-| `stores/urls.py:16` | `<int:pk>/activate/` | stores | partial |
+| `stores/urls.py:13` | `<int:pk>/view/` | stores | implementation_present |
+| `stores/urls.py:14` | `<int:pk>/edit/` | stores, store-images | external_acceptance |
+| `stores/urls.py:15` | `<int:pk>/delete/` | stores | implementation_present |
+| `stores/urls.py:16` | `<int:pk>/activate/` | stores | implementation_present |
 | `stores/urls.py:17` | `slack/connect/` | store-slack-oauth | external_acceptance |
 | `stores/urls.py:18` | `slack/callback/` | store-slack-oauth | external_acceptance |
 | `stores/urls.py:21` | `storages` | storage | implementation_present |
@@ -677,11 +677,11 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/templates/product/product_inventory.html` | `report/templates/product/product_inventory.html` | inventory-workbooks, catalog-read | external_acceptance |
 | `report/templates/sales/index.html` | `report/templates/sales/index.html` | operational-reports | external_acceptance |
 | `stores/templates/counters/index.html` | `stores/templates/counters/index.html` | counters | implementation_present |
-| `stores/templates/stores/_form.html` | `stores/templates/stores/_form.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/create.html` | `stores/templates/stores/create.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/edit.html` | `stores/templates/stores/edit.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/index.html` | `stores/templates/stores/index.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/show.html` | `stores/templates/stores/show.html` | stores, store-images, location-codes, country-search | partial |
+| `stores/templates/stores/_form.html` | `stores/templates/stores/_form.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/create.html` | `stores/templates/stores/create.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/edit.html` | `stores/templates/stores/edit.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/index.html` | `stores/templates/stores/index.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/show.html` | `stores/templates/stores/show.html` | stores, store-images, location-codes, country-search | external_acceptance |
 | `stores/templates/stores/slack_callback.html` | `stores/templates/stores/slack_callback.html` | store-slack-oauth | external_acceptance |
 | `stores/templates/stores/storage/create.html` | `stores/templates/stores/storage/create.html` | storage | implementation_present |
 | `stores/templates/stores/storage/edit.html` | `stores/templates/stores/storage/edit.html` | storage | implementation_present |
@@ -712,7 +712,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 
 | Source | Surface | Families | Implementation disposition |
 | --- | --- | --- | --- |
-| `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | partial |
+| `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | external_acceptance |
 | `users/admin.py:20` | `User, UserAdmin` | operators, operator-administrative-profile, operator-mfa, model-administration-access, inherited-administration-history, inherited-model-add-forms | external_acceptance |
 
 ## Reproducibility and limits

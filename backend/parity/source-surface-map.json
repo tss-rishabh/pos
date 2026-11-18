@@ -18,16 +18,16 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 271,
-      "implementation_present": 94,
-      "partial": 27,
+      "external_acceptance": 279,
+      "implementation_present": 100,
+      "partial": 13,
       "missing": 4
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 177,
-        "implementation_present": 62,
-        "partial": 16
+        "external_acceptance": 179,
+        "implementation_present": 68,
+        "partial": 8
       },
       "jobs": {
         "external_acceptance": 31,
@@ -35,20 +35,19 @@
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 61,
+        "external_acceptance": 66,
         "missing": 3,
-        "partial": 10
+        "partial": 5
       },
       "websockets": {
         "external_acceptance": 1
       },
       "administration": {
-        "partial": 1,
-        "external_acceptance": 1
+        "external_acceptance": 2
       }
     },
     "families": 76,
-    "code_task_groups": 3,
+    "code_task_groups": 2,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -228,7 +227,7 @@
     "backend/parity/administration-feature-map.json": "8777d8b63679ec26e452956a1ede56edc69ce86eb63548fbcc0d1a45d5752cb1",
     "backend/parity/administration-model-accounts.md": "c58cf3e4938137ee1a90f220506e965226f1366ffe3836163feb8e9277e61848",
     "backend/parity/administration-settings.md": "dcc60ce8b79eeef09887da482873a3ffd6de2dfb2885ea1178b4629b9927a79e",
-    "backend/parity/administration.md": "bed0fc1992cdc0dd52905a360304d03059bab4eb75c0229899883c9c058ed643",
+    "backend/parity/administration.md": "699fd4eddcbdd86168ddc3a4cd501d0d24bec077099b974bd945c952b6ae1252",
     "backend/parity/business-metrics-prototype.md": "660c2e93228a914be1d6479be3c1b58e344b95f4a50375f046116861b3ea06ff",
     "backend/parity/cashier-shortcuts.md": "94b147529890df6fcbd953df0b8c41408d3c8fb86ef5504cf3daaaccbb44136f",
     "backend/parity/catalog-details.md": "029db5d4a19e4709e5e1231b13803a6904207833742dbbe58ad80e5645400e22",
@@ -279,7 +278,7 @@
     "backend/parity/terminal-directory.md": "0bbad19dd32bf37159f2cfe579928cf48819d786aa5ff68b55d28786cd5a1ff8",
     "backend/parity/wallet-adjustments.md": "ab1929b2ac1af5bad8d3a2992b76bb659c5cad867fb7a414d968a8c6d2004bb0",
     "backend/parity/whole-order-status.md": "ec8786bd7e804bf9fcb370a737bbcdf1dce99913ae20010215a99d0d043e5206",
-    "backend/src/app.ts": "a03288e58cd6a68deb8e7d25448a5272837711d23304869a6034566c12a9cf1c",
+    "backend/src/app.ts": "2041df4949077acd89054ef2c55e7eef4068b1485f1adee6c3ff773e4dd9cc57",
     "backend/src/auth/delivery.ts": "b813640dcda4f8fe910d29cd8d471d03fe2d452ab931c3f45c19cdb342a43d63",
     "backend/src/auth/device-handoff-routes.ts": "ad454f2c02ed3af385118b68fada5eb654f1888fb741e2cd29c3afb601fa0001",
     "backend/src/auth/device-handoff-store.ts": "7b0c168f550954a66a257bb514eeed9f805d6733e76807f138aedac9d3a2f76d",
@@ -328,7 +327,7 @@
     "backend/src/modules/administration/import-profile.ts": "42faf0b387d1823717ffaed54409740edda35b974d0cf67826d611a82878ef4a",
     "backend/src/modules/administration/import-schema.ts": "2cae25a8927a8ee58485b5229a5f45f162d00166a57259f1cdec9de307862432",
     "backend/src/modules/administration/imports.ts": "3ce797b2f5856d53db1f6757f435fae7a93a283d6b31c5f851a37679e82dcdea",
-    "backend/src/modules/administration/index.ts": "f662af7b7ce79091129eaf1b37bfa394afb216cdbb4cd5d3e0ca2445fca42c79",
+    "backend/src/modules/administration/index.ts": "7d3c00103732cae1cec50d1cba3a7ac29ed1c8c34101dc99051a7968b46d5b22",
     "backend/src/modules/administration/inventory-synchronization.ts": "f55707812c84755566782efe080e2e1d612a1a2e6915006d10b7f7058fcda5a2",
     "backend/src/modules/administration/inventory.ts": "f66a2dd03886c109ec508bedb4838953b5aaac0375a9c2c4c299b0ec174641c9",
     "backend/src/modules/administration/location-schema.ts": "ed1c17292af020edd75de409ef8f6ed9731f45d844db6938bbe1786a82ed78cb",
@@ -356,7 +355,7 @@
     "backend/src/modules/administration/parent-store-imports/service.ts": "2013b1344b83feedb429dc586a0aeae635507de9f20c91c231d9009977615e4a",
     "backend/src/modules/administration/parent-store-imports/types.ts": "be3e9e88affe8e8726c1fe870ebad2ecc6932c182ff4b35fdf0a12b370d17b17",
     "backend/src/modules/administration/policies.ts": "469b899743eed839f52c8bba1b5cda598b10d8107f1c786dca11ad8e9c8e5879",
-    "backend/src/modules/administration/service.ts": "133dc0fc029546bf7a3602f72390ec87720542d87f3ecaa39e4bb993d090df72",
+    "backend/src/modules/administration/service.ts": "b666f09b5033fcb9b4693b2811501ba0cd07c9633e2c5686c2b7bebdc0e798c8",
     "backend/src/modules/administration/settings-adapters.ts": "fb957a93a5c10d11446c17313ae23bc5b946a980ddd3f93849b12dff139fcc99",
     "backend/src/modules/administration/settings-domain.ts": "dd89515dab32f68571bc20812b73bf56d716c199e5105239c77768ad39396502",
     "backend/src/modules/administration/settings-outbox.ts": "0df976ae17c3e678cb26e857df3f2080fdc1d5e8a1992216c8f68e81b619e8a1",
@@ -1020,6 +1019,19 @@
     "backend/src/modules/order-history/cursor.ts": "c4b5bac604c930f97bc1a2285eb688e4280bb3f39afdd588f12cced9db92bb59",
     "backend/src/modules/order-history/hashes.ts": "80c38449e2a3d5155ddb3c0e091f444802f506973bebd089750bb3a451c6b688",
     "backend/src/modules/order-history/index.ts": "206931781c5fb1eedba3dc1b844558ac207cf288131e1ec8efba450da9e7a845",
+    "backend/src/modules/order-history/online-detail/SOURCE.md": "5b35b39533d1da35de7e1111b0ef802b23af24ea8647aa32100d1b343244c7b7",
+    "backend/src/modules/order-history/online-detail/authority.ts": "92015baa8e0adc17c6e351b51b4be473c3b75e2faad3472d74bbe8c78a7f0a4d",
+    "backend/src/modules/order-history/online-detail/contracts.ts": "d2c3987f757c0c68b5b89a253951b6ee9246e4354763ea23e36b40936709cda9",
+    "backend/src/modules/order-history/online-detail/errors.ts": "20fcf704cf9c327f86b7875bc12a0a859f938dea780e83a29212258626a416aa",
+    "backend/src/modules/order-history/online-detail/native.ts": "47b3f5f01769b9686fc098b3b6e528ebfcaaf16fccd4eb74bf0ad7059e895a86",
+    "backend/src/modules/order-history/online-detail/options.ts": "670ae6fe069912fd413dc39a7fadbc4affbcdd90c9f31c91ec2f6940af8c32e1",
+    "backend/src/modules/order-history/online-detail/qualification.ts": "b93beb1ee7f736eba80ed3473a90522730129cc84ec1f884201efda8630cd855",
+    "backend/src/modules/order-history/online-detail/reader.ts": "856e4bf314a20c7efdf37fc47fa4328cca23c1d2765d3d8c0ac01cab223077ac",
+    "backend/src/modules/order-history/online-detail/receipt.json": "143c467900acd3762b3bcadfd5228f1cab6754b1d175e9405296184470358cd2",
+    "backend/src/modules/order-history/online-detail/routes.ts": "2271f98ac6e147d69d7814d68fc311fb33cb641c23409363dd1882e5d04901d7",
+    "backend/src/modules/order-history/online-detail/service.ts": "4c8c52d05a33a76dd7146dc090b3525a11e14163007a46cc1475177e344aa2c0",
+    "backend/src/modules/order-history/online-detail/values.ts": "bc7e62ec074d82eeaa4bb65ef283b7d4b9aa7824eeff819d4fad528fdc354ecd",
+    "backend/src/modules/order-history/online-detail/warehouse-schema.sql": "49ca65a350bfbecef36f82a9b9e3cbe356316cfeee80eaf85bdae94c0c7c6862",
     "backend/src/modules/order-history/options.ts": "8d36554c0c98ee3390ac1a53c1075bf5685accffd8808d2261c2771f0983cdc7",
     "backend/src/modules/order-history/reader.ts": "e39975db34ebff9b64700d9ffb4dbc378b6819e562d3876fcd6c9ef2f72231cd",
     "backend/src/modules/order-history/routes.ts": "f5de2b66c09f80fc28a3b0c406cef0187490f32245cd7e88148cc22dd6cc11a6",
@@ -1075,6 +1087,7 @@
     "backend/tests/administration/policies.test.ts": "f2d5fb89af72c6a1b433893c128b6c779264c6663b41c6df3eb715d69f362794",
     "backend/tests/administration/settings.test.ts": "9297e21624686910162485ae03674cddf5034175fd1c22e80e9a37e521f3d365",
     "backend/tests/administration/slack-location.test.ts": "650ee4ef7723f92a1c4690bf6cb09df176e01bd2db531db25f7d920325095b99",
+    "backend/tests/administration/store-default-operators.mysql.test.ts": "e330316b175330b0bbfebb9ac6fc93d3ffcdf17b047ebd5a899959874a6a031c",
     "backend/tests/administration/terminal-directory.mysql.test.ts": "20f03f16e6b0a5632a2e08600c8185a2a3db7467688d963237b97ad9b63d57fd",
     "backend/tests/administration/tsconfig.checkin-lock-order.json": "87f1837b8c9984e51ef6e1110ea7e17378b83db8261a952d31d771dd3e52c308",
     "backend/tests/administration/tsconfig.collections.json": "af8bb1e3f2aea5b15f2c8813e8b36a7b1c16a4c8dfdc77539d60d15dc4e7e2e8",
@@ -1314,6 +1327,10 @@
     "backend/tests/order-history/fixtures.ts": "076ccb1d2345b8708fd3f5f6935720454abf75dd4828f7e110a92714235d7175",
     "backend/tests/order-history/identifiers.test.ts": "e9308f793017594c85c21ef22fdb8c1dc104fe8178571f57267f808d8bbdd610",
     "backend/tests/order-history/mysql-fixture.ts": "de731d0b8236df79423bb16d25311faef2b1b01a879034cc6c8c55c247d57269",
+    "backend/tests/order-history/online-detail-publication.test.ts": "8f6e631ec4a6c957008a8bb65576ebbf71f8f948308593cdd38b6f1ac305e066",
+    "backend/tests/order-history/online-detail-source.py": "267b05f7268499743dd659597efbf9d0e370c4d551ad4c49ad8026f55901bc7b",
+    "backend/tests/order-history/online-detail-values.test.ts": "06689caf11c9f7aead4ed9a49f7d6f52014a607164f927fe057af4827ef6cc35",
+    "backend/tests/order-history/online-detail.mysql.test.ts": "92a0424d4d33d3f1208dde47f0b18825006e34ddf1657e7022c8814a58d22fcb",
     "backend/tests/order-history/orders.mysql.test.ts": "80528a347dd8d0e3c046dfae85598dddc5a0d55a349efb715d520631d65d5728",
     "backend/tests/order-history/private-output.test.ts": "7ec008225362bc43aa8eeed939410d04b4cd25ca7b3bcd19a51fcca412fb659f",
     "backend/tests/order-history/reader.test.ts": "00e0a629c75f2a85f70abf1b4c023c1622e4a6350f9c3d682d8c172ee84aef1f",
@@ -1361,7 +1378,7 @@
     "frontend/e2e/checkout/product-feedback.spec.ts": "ea4472b0f05ada86a836e7772dbedc9a59a9634b999cc3366deb66e723b3c963",
     "frontend/e2e/checkout/wallet-adjustments.spec.ts": "4316c31ee98c66ed3c6f293f6827d5f67a0f4e17055114078f40938e5ac4312d",
     "frontend/e2e/motivational-quotes.spec.ts": "4451358d1f5915a1368ee58940fb9a6ea2f3510a34fb56e6e72dbd99643f7bf3",
-    "frontend/src/app.tsx": "2db5184cf0d74d13e0d43783c07363b5dd8d6bf726171a54e1cdc487ae19c375",
+    "frontend/src/app.tsx": "713540ee88a078b1e89f5617dc104dc95f2ee0dd4bc42d74a1c02ab92b86bc0d",
     "frontend/src/components/common.tsx": "91b559434cf73ef433e191ed9157c8a381b49acbfa55cc5528314a609c7f11f4",
     "frontend/src/components/error-boundary.tsx": "068a7926f94588d641584e72e1589902be6134394b7aab971ca8866dfef7a13c",
     "frontend/src/components/motivational-quote.tsx": "c5ae3992a5beb1ff2b3e1ba3a4060159220811961158d8f2613d1ed3c7e02d50",
@@ -1594,8 +1611,10 @@
     "frontend/src/pages/order-copy/client.ts": "0a979a8870cf6d7748c44a3ae21d08a0a8136de5eaf5de10035d701cdf74fe5f",
     "frontend/src/pages/order-copy/index.tsx": "bc0ebf6be1f3e9b3b62d09dd949f6c017357264a744dfd06f8662ac2bb1ebdff",
     "frontend/src/pages/order-copy/marker.ts": "3ae37435c7da14a69bcbce1ec158e14ca168b6733b5c22527d2835c81bcbc2d9",
-    "frontend/src/pages/order-history/SourceOrderList.tsx": "bca6b2cf7a3bb258cb90e72c8bb2a7cde7c06d7433eb37d758a59c76f723f6e4",
+    "frontend/src/pages/order-history/OnlineOrderDetail.tsx": "fcf25c4c84a3d6309d4544c767681fac07d3420b6279708f99d7fe193c91c095",
+    "frontend/src/pages/order-history/SourceOrderList.tsx": "162738dc75b6d2b295afd68a6569918b2a0214db0b0205b20013110dec78ac5e",
     "frontend/src/pages/order-history/client.ts": "7ef8170b3bd31a960ab4dd4c5b4fdde26f3ce171f5297e38d2c930fb7f518297",
+    "frontend/src/pages/order-history/online-detail-client.ts": "64f8eea9a6c424a7db5e4fd10aed88fbe650c384bcf63fbe17fab679fc2ce78b",
     "frontend/src/pages/order-history/order-search.css": "9a36776bb40d132c7833bef9c38f320899ecea2c78d652284c50958395d1f1cf",
     "frontend/src/pages/order-history/search-client.ts": "01eecb2a6948882226da3a08db5a02b14a63c3c498acc017572dd06cd98d5314",
     "frontend/src/pages/order-status/ReturnRepairObligations.tsx": "10dd7e54fb5f159eb5e4cfb13ad3199834536971d312a4bc70c63a04a9c46a9a",
@@ -1622,7 +1641,9 @@
     "frontend/src/pages/returns/ReturnWindowExtension.tsx": "331326ebfa2c71a1a031cfc4efb2e95255e25a34f246489b3b41f39d322635a1",
     "frontend/src/pages/returns/SalespersonSelect.tsx": "41e64ea8ef25219eb9967299af3fb67f427e3317483559149a68c08183542924",
     "frontend/src/pages/returns/client.ts": "345045dbbb7948a086a0a5dee52580bd5ad27c2df7e9ddf85f460b165f486c33",
-    "frontend/src/pages/returns/index.tsx": "8cd2afdd59f491e95a8531cd0e2490d78abbc8d7b1b79a6207eb715788210c03",
+    "frontend/src/pages/returns/entry-page.tsx": "6501c01ae781de93b7c5567f0ee48f0f9f969f25f8c0708d66933b0b5809c3ba",
+    "frontend/src/pages/returns/index.tsx": "0e8f3fd3423773f23c2c3052e833f60b365e0611996befdee186b4b7401c2cfa",
+    "frontend/src/pages/returns/order-entry.ts": "e74690dae1b25262c4202b908f6be625a5ea6b11d892b144b2328c13f270fe82",
     "frontend/src/pages/returns/style.css": "450e48e772a3ba5c1f08dc30c446b4ac7120492e7f54a9efe95bffe3eefd5e79",
     "frontend/tests/administration/archival-workflow-tsconfig.json": "882f8cccaf84ae864d78d2f2f21d3f6fecaa80b8495c5720a63f23fde4406210",
     "frontend/tests/administration/archival-workflow.ts": "1c238ba1b06a4beddde9eaaf0548fc45f982341011302b217167976dfdcce5d4",
@@ -1770,6 +1791,7 @@
     "frontend/tests/order-history/client.test.ts": "915ab1f0337094314550af3f6698419e60e0502799d3bf9d457ac650a8c50362",
     "frontend/tests/order-history/fixture.html": "8d3a37f11ec80e65b249e0af08225f3ecc88a5e505fe1125c84c0ffffc5a7127",
     "frontend/tests/order-history/fixture.tsx": "915556e81d0d8eb3193e8f8b82e4d0544495762e7e2bfd73e63b1f15c58f5365",
+    "frontend/tests/order-history/online-detail-client.test.ts": "bb1157626f497695bc8e6fad32fcebc9f4e48a1f1178bd408e22a5c2a0ac2e04",
     "frontend/tests/order-history/tsconfig.json": "519a2838358fb05aaf371ed08cab3549bebb524fafccdf43d5a5d06ab2650325",
     "frontend/tests/order-history/vitest.config.ts": "7caa4d8e01bfbfe6a9f64951a3e7133c33f347ddd9c061bd1cb85d3210548648",
     "frontend/tests/order-imports/README.md": "9053b8087c16484e82b734ca7a07dcfe8bec2aeec828d0e6d708e6e676290285",
@@ -1788,7 +1810,7 @@
     "frontend/tests/order-payments/harness.tsx": "843f6c37d07496fa5dab6b746d5f3f261bed4297cbe1b5fef760bb23907b8953",
     "frontend/tests/order-payments/order-payments.browser.test.ts": "b25bf213f6a1b106192fd4b9ec93a4cbbf87b55df15be9d291bd4315523fa53e",
     "frontend/tests/order-payments/tsconfig.json": "6828059d4b954f138c989febde69a1b920ed8916eecc99000b6fb940822a6b85",
-    "frontend/tests/order-search/browser-check.mjs": "57aebaedbb9c60d95bba392949433337ec39ba8622d2362060eebe41ed6127c0",
+    "frontend/tests/order-search/browser-check.mjs": "84a47fa0c106c254479fd2774f246c1181cd6cb807c1c02726120f4a642e9df5",
     "frontend/tests/order-search/client.test.ts": "74b551092f99024cf4b3cf39dff6056d9b9022a489303fa0fc47903ba3e7d7c0",
     "frontend/tests/order-search/fixture.html": "f9e11be81f6fad549aeb14257ce50cec4be4932d7a531e21a5a9b952f72e16c8",
     "frontend/tests/order-search/fixture.tsx": "a0edceedec89875415f8b8c8e3966696617ad59c7c9cb02ff8ff4d3427cbf8f5",
@@ -1825,6 +1847,7 @@
     "frontend/tests/return-window/harness.tsx": "2d58f4d0b626cbe294024fc2e6614ddbc5836c0c37d20371412bf93190fb522f",
     "frontend/tests/return-window/tsconfig.json": "32df523d74b127ee8fc0dac5c7b9d88fd6bbe66bb0a0fd2330a471ebbbecbcb0",
     "frontend/tests/return-window/window.browser.test.ts": "e8e9792e40e4e01e39a41c050753f69859c3b753db22638e6cab95bcbedb22fb",
+    "frontend/tests/returns/order-entry.test.ts": "7ea7f255116c82044143a63a8dbabc053ae527bb6cd12a1150f4e22efd402b3f",
     "frontend/tests/review-snapshot.test.ts": "7f5bb0fd0588abb1fdde23d1815800cbcf3ea576c931652d5dd952d4913fcb72",
     "frontend/tests/screening-writer/harness.tsx": "d8520b44fd699e5d23901e97cc0c5f7d4dfc26ac0106bb551ec521b742a8cd4f",
     "frontend/tests/screening-writer/recovery.browser.test.ts": "b3a5a087eb0c056bf5fd0e7c9ad9801c750a2cf8b83f6f729009e3a683e7de65",
@@ -1903,6 +1926,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -1922,7 +1946,7 @@
     },
     {
       "id": "stores",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/administration/service.ts",
         "backend/src/modules/administration/index.ts"
@@ -1938,9 +1962,7 @@
         "backend/parity/administration.md"
       ],
       "implemented_scope": "Store CRUD/status, franchise details, initial counter and configured default operator access; reader/writer role and store checks. Slack incoming-webhook replacement/removal is write-only, safe reads expose only a configured flag, and blank updates preserve credentials. Server-side actor/session/store-bound OAuth connection now has separate evidence; real configured Slack acceptance remains required. Actual collection controls now bind page size, server sort, visible columns and loaded-page CSV; full export is a distinct private queued action.",
-      "remaining_code": [
-        "Wire the real App store creator to configured source default-operator contact identities. Resolve them under current writer authority; missing and explicit-empty configuration must differ, and the native-cookie application path must create stores without fixture-only options injection."
-      ],
+      "remaining_code": [],
       "external_acceptance": [],
       "code_task_required": true,
       "notes": [
@@ -1985,72 +2007,72 @@
         {
           "kind": "routes",
           "id": "stores/urls.py:8",
-          "disposition": "partial"
+          "disposition": "implementation_present"
         },
         {
           "kind": "routes",
           "id": "stores/urls.py:9",
-          "disposition": "partial"
+          "disposition": "implementation_present"
         },
         {
           "kind": "routes",
           "id": "stores/urls.py:10",
-          "disposition": "partial"
+          "disposition": "implementation_present"
         },
         {
           "kind": "routes",
           "id": "stores/urls.py:11",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "routes",
           "id": "stores/urls.py:13",
-          "disposition": "partial"
+          "disposition": "implementation_present"
         },
         {
           "kind": "routes",
           "id": "stores/urls.py:14",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "routes",
           "id": "stores/urls.py:15",
-          "disposition": "partial"
+          "disposition": "implementation_present"
         },
         {
           "kind": "routes",
           "id": "stores/urls.py:16",
-          "disposition": "partial"
+          "disposition": "implementation_present"
         },
         {
           "kind": "templates",
           "id": "stores/templates/stores/_form.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "stores/templates/stores/create.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "stores/templates/stores/edit.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "stores/templates/stores/index.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
           "id": "stores/templates/stores/show.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "administration",
           "id": "stores/admin.py:6",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         }
       ],
       "test_files": [
@@ -2081,6 +2103,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2160,6 +2183,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2237,6 +2261,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2310,6 +2335,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2386,6 +2412,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2465,6 +2492,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2541,6 +2569,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2618,6 +2647,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2690,6 +2720,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2844,6 +2875,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -2973,6 +3005,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3127,6 +3160,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3282,6 +3316,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3354,6 +3389,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3428,6 +3464,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3506,6 +3543,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3577,6 +3615,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3652,6 +3691,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3731,6 +3771,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3804,6 +3845,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3880,6 +3922,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -3928,7 +3971,7 @@
       "implementation_review": [
         {
           "path": "backend/src/modules/administration/index.ts",
-          "line": 113,
+          "line": 114,
           "anchor": "registerTerminalDirectory(app, db);",
           "scope": "Actual administration registrar mounts the credential-free EDC directory."
         },
@@ -4025,6 +4068,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -4184,6 +4228,7 @@
         "backend/tests/administration/policies.test.ts",
         "backend/tests/administration/settings.test.ts",
         "backend/tests/administration/slack-location.test.ts",
+        "backend/tests/administration/store-default-operators.mysql.test.ts",
         "backend/tests/administration/terminal-directory.mysql.test.ts",
         "backend/tests/administration/worker.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -4568,6 +4613,7 @@
         "frontend/tests/order-copy/marker.test.ts",
         "frontend/tests/order-copy/operation-reference.test.ts",
         "frontend/tests/order-history/client.test.ts",
+        "frontend/tests/order-history/online-detail-client.test.ts",
         "frontend/tests/order-imports/approval-browser.test.ts",
         "frontend/tests/order-imports/approval-client.test.ts",
         "frontend/tests/order-imports/approval-journal.test.ts",
@@ -4589,6 +4635,7 @@
         "frontend/tests/product-read-performance.test.ts",
         "frontend/tests/report-export.test.ts",
         "frontend/tests/return-window/window.browser.test.ts",
+        "frontend/tests/returns/order-entry.test.ts",
         "frontend/tests/review-snapshot.test.ts",
         "frontend/tests/screening-writer/recovery.browser.test.ts",
         "frontend/tests/shipping-label/document.test.ts",
@@ -4902,6 +4949,7 @@
         "frontend/tests/order-copy/marker.test.ts",
         "frontend/tests/order-copy/operation-reference.test.ts",
         "frontend/tests/order-history/client.test.ts",
+        "frontend/tests/order-history/online-detail-client.test.ts",
         "frontend/tests/order-imports/approval-browser.test.ts",
         "frontend/tests/order-imports/approval-client.test.ts",
         "frontend/tests/order-imports/approval-journal.test.ts",
@@ -4923,6 +4971,7 @@
         "frontend/tests/product-read-performance.test.ts",
         "frontend/tests/report-export.test.ts",
         "frontend/tests/return-window/window.browser.test.ts",
+        "frontend/tests/returns/order-entry.test.ts",
         "frontend/tests/review-snapshot.test.ts",
         "frontend/tests/screening-writer/recovery.browser.test.ts",
         "frontend/tests/shipping-label/document.test.ts",
@@ -5068,7 +5117,7 @@
       ],
       "implemented_scope": "Full ST/HL/HE/N/queue/explicit-ID order list, contact/payment/status filters, source search/sort/page and formatter/actions are integrated with 43 pinned-Django vectors and 12 browser workflows. Existing detail/paid/invoice/cancellation guards remain. PRIMARY interactive/DATA today/BigQuery old or mixed facts, live-only queue discovery, private HMAC comparisons and post-read session revocation are enforced. Demo uses an explicit synthetic adapter without a database port.",
       "remaining_code": [
-        "Implement authorized N/HL/HE online-detail entry, complete read fields and lines from the reachable ShowOnlineOrderDetailsView. Current N summary has no line-item detail; HL/HE links lead only to operational queues. Preserve real ownership/global-reader checks and qualified historical facts without fabricated store associations or historical MySQL fallback."
+        "Finish original online-detail per-line return/exchange eligibility, manager extension/override and failed-exchange discovery/retry entry. Authorized N/HL/HE read details and order/mode-bound receiving-store links are integrated; generic links do not establish the original per-line action behavior."
       ],
       "external_acceptance": [
         "Accept both complete common-checkpoint historical order/search publications, private contact-key generation/collation identity, real queue/current-source lifecycle and representative workload performance. Native source vectors and local browser checks are not complete production workflow certification."
@@ -5079,6 +5128,12 @@
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
       "implementation_review": [
+        {
+          "path": "backend/src/modules/order-history/online-detail/service.ts",
+          "line": 22,
+          "anchor": "export function onlineOrderDetailService(",
+          "scope": "Authorized N/HL/HE details bind native current authority to complete primary or qualified BigQuery facts, then hydrate explicitly current customer/product dimensions. Source/native/routed-App proof is scoped; complete historical transport and per-line actions remain separate."
+        },
         {
           "path": "backend/src/modules/order-history/search/default-ranges.ts",
           "line": 8,
@@ -5099,7 +5154,7 @@
         },
         {
           "path": "frontend/src/pages/order-history/SourceOrderList.tsx",
-          "line": 191,
+          "line": 211,
           "anchor": "function exportPage()",
           "scope": "Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired."
         },
@@ -5196,6 +5251,9 @@
         "backend/tests/checkout/service.test.ts",
         "backend/tests/order-history/copy-adapter.test.ts",
         "backend/tests/order-history/identifiers.test.ts",
+        "backend/tests/order-history/online-detail-publication.test.ts",
+        "backend/tests/order-history/online-detail-values.test.ts",
+        "backend/tests/order-history/online-detail.mysql.test.ts",
         "backend/tests/order-history/orders.mysql.test.ts",
         "backend/tests/order-history/private-output.test.ts",
         "backend/tests/order-history/reader.test.ts",
@@ -5210,6 +5268,7 @@
         "backend/tests/order-search/warehouse.test.ts",
         "backend/tools/order-search/source_oracle.py",
         "frontend/tests/order-history/client.test.ts",
+        "frontend/tests/order-history/online-detail-client.test.ts",
         "frontend/tests/order-search/client.test.ts"
       ]
     },
@@ -5448,6 +5507,7 @@
         "frontend/tests/order-copy/marker.test.ts",
         "frontend/tests/order-copy/operation-reference.test.ts",
         "frontend/tests/order-history/client.test.ts",
+        "frontend/tests/order-history/online-detail-client.test.ts",
         "frontend/tests/order-imports/approval-browser.test.ts",
         "frontend/tests/order-imports/approval-client.test.ts",
         "frontend/tests/order-imports/approval-journal.test.ts",
@@ -5469,6 +5529,7 @@
         "frontend/tests/product-read-performance.test.ts",
         "frontend/tests/report-export.test.ts",
         "frontend/tests/return-window/window.browser.test.ts",
+        "frontend/tests/returns/order-entry.test.ts",
         "frontend/tests/review-snapshot.test.ts",
         "frontend/tests/screening-writer/recovery.browser.test.ts",
         "frontend/tests/shipping-label/document.test.ts",
@@ -5905,7 +5966,7 @@
         },
         {
           "path": "frontend/src/pages/returns/index.tsx",
-          "line": 566,
+          "line": 577,
           "anchor": "<ReturnWindowExtension",
           "scope": "Actual return and exchange page mounts the bound source-role manager control for the selected verified line."
         },
@@ -7664,7 +7725,7 @@
         },
         {
           "path": "backend/src/app.ts",
-          "line": 362,
+          "line": 363,
           "anchor": "configuredLegacyOrderImports(config, db, {",
           "scope": "Actual application registration invokes the production import factory; the profile is not a standalone unused constructor."
         },
@@ -8192,17 +8253,10 @@
   ],
   "remaining_code_tasks": [
     {
-      "family": "stores",
-      "state": "partial",
-      "tasks": [
-        "Wire the real App store creator to configured source default-operator contact identities. Resolve them under current writer authority; missing and explicit-empty configuration must differ, and the native-cookie application path must create stores without fixture-only options injection."
-      ]
-    },
-    {
       "family": "orders-read",
       "state": "partial",
       "tasks": [
-        "Implement authorized N/HL/HE online-detail entry, complete read fields and lines from the reachable ShowOnlineOrderDetailsView. Current N summary has no line-item detail; HL/HE links lead only to operational queues. Preserve real ownership/global-reader checks and qualified historical facts without fabricated store associations or historical MySQL fallback."
+        "Finish original online-detail per-line return/exchange eligibility, manager extension/override and failed-exchange discovery/retry entry. Authorized N/HL/HE read details and order/mode-bound receiving-store links are integrated; generic links do not establish the original per-line action behavior."
       ]
     },
     {
@@ -14592,7 +14646,7 @@
       "families": [
         "stores"
       ],
-      "status": "partial",
+      "status": "implementation_present",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14624,7 +14678,7 @@
       "families": [
         "stores"
       ],
-      "status": "partial",
+      "status": "implementation_present",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14654,7 +14708,7 @@
       "families": [
         "stores"
       ],
-      "status": "partial",
+      "status": "implementation_present",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14685,7 +14739,7 @@
         "stores",
         "store-images"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14747,7 +14801,7 @@
       "families": [
         "stores"
       ],
-      "status": "partial",
+      "status": "implementation_present",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14780,7 +14834,7 @@
         "stores",
         "store-images"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14812,7 +14866,7 @@
       "families": [
         "stores"
       ],
-      "status": "partial",
+      "status": "implementation_present",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14842,7 +14896,7 @@
       "families": [
         "stores"
       ],
-      "status": "partial",
+      "status": "implementation_present",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -18389,7 +18443,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -18410,7 +18464,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -18431,7 +18485,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -18452,7 +18506,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -18473,7 +18527,7 @@
         "location-codes",
         "country-search"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -18864,7 +18918,7 @@
         "inherited-administration-history",
         "inherited-model-add-forms"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_framework_capabilities": [

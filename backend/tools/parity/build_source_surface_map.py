@@ -153,9 +153,6 @@ def define_families():
                 route_groups[route['id']].append(key)
             continue
         state, gaps, external = 'implementation_present', [], []
-        if key == 'stores':
-            state = 'partial'
-            gaps = ['Wire the real App store creator to configured source default-operator contact identities. Resolve them under current writer authority; missing and explicit-empty configuration must differ, and the native-cookie application path must create stores without fixture-only options injection.']
         if key in ['store-images', 'documentation']:
             external = ['Accept configured private S3/CORS and physical supported files; synthetic storage tests are not live storage acceptance.']
         if key in ['store-slack-oauth']:
@@ -281,10 +278,11 @@ def define_families():
     family('orders-read', ['src/modules/orders.ts', 'src/modules/order-history', 'src/modules/checkout/returns.ts'], ['src/pages/operations.tsx', 'src/pages/order-history'],
            ['tests/order-history', 'tests/order-search', 'tools/order-search/source_oracle.py', 'frontend/tests/order-history', 'frontend/tests/order-search', 'tests/checkout'], ['parity/order-history.md', 'parity/order-search.md', 'parity/checkout.md'],
            state='partial',
-           gaps=['Implement authorized N/HL/HE online-detail entry, complete read fields and lines from the reachable ShowOnlineOrderDetailsView. Current N summary has no line-item detail; HL/HE links lead only to operational queues. Preserve real ownership/global-reader checks and qualified historical facts without fabricated store associations or historical MySQL fallback.'],
+           gaps=['Finish original online-detail per-line return/exchange eligibility, manager extension/override and failed-exchange discovery/retry entry. Authorized N/HL/HE read details and order/mode-bound receiving-store links are integrated; generic links do not establish the original per-line action behavior.'],
            scope='Full ST/HL/HE/N/queue/explicit-ID order list, contact/payment/status filters, source search/sort/page and formatter/actions are integrated with 43 pinned-Django vectors and 12 browser workflows. Existing detail/paid/invoice/cancellation guards remain. PRIMARY interactive/DATA today/BigQuery old or mixed facts, live-only queue discovery, private HMAC comparisons and post-read session revocation are enforced. Demo uses an explicit synthetic adapter without a database port.',
            external=['Accept both complete common-checkpoint historical order/search publications, private contact-key generation/collation identity, real queue/current-source lifecycle and representative workload performance. Native source vectors and local browser checks are not complete production workflow certification.'])
     families['orders-read']['implementation_review'] = [
+        review_reference('backend/src/modules/order-history/online-detail/service.ts', 'export function onlineOrderDetailService(', 'Authorized N/HL/HE details bind native current authority to complete primary or qualified BigQuery facts, then hydrate explicitly current customer/product dimensions. Source/native/routed-App proof is scoped; complete historical transport and per-line actions remain separate.'),
         review_reference('backend/src/modules/order-history/search/default-ranges.ts', 'export function sourceOrderDefaults(', 'Server-authoritative rolling five-day store-page bounds include its extra ending minute and bounded midnight fraction without a future warehouse publication. Active type switching must retain this same window; separate online-prefix arithmetic does not establish rendered online-entry behavior.'),
         review_reference('frontend/src/pages/operations.tsx', 'export function OrdersPage(', 'Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission.'),
         review_reference('frontend/src/pages/operations.tsx', '<SourceOrderList', 'Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls.'),
