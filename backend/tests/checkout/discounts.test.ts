@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   approverSelection,
+  assertDiscountApplyPermission,
   discountMetadataSchema,
   discountPolicy,
   discountTerms,
@@ -8,8 +9,6 @@ import {
 import {
   approvalCode,
   codeDigest,
-  decryptCode,
-  encryptCode,
   matchesCode,
 } from '../../src/modules/checkout/discounts/crypto.js';
 import { assertDiscountDeliveryReady } from '../../src/modules/checkout/discounts/delivery.js';
@@ -163,21 +162,37 @@ describe('manager discount approval source contract and security bindings', () =
       false,
     );
   });
-  it('stores manager codes as hashes and authenticated ciphertext bound to the delivery identity', () => {
+  it('stores manager codes only as hashes bound to the challenge and manager', () => {
     const id = crypto.randomUUID(),
       manager = '45',
       code = approvalCode(),
-      digest = codeDigest(secret, id, manager, code),
-      sealed = encryptCode(secret, id, code);
+      digest = codeDigest(secret, id, manager, code);
     expect(code).toMatch(/^[1-9]{6}$/);
     expect(digest).toMatch(/^[a-f0-9]{64}$/);
-    expect(sealed).not.toContain(code);
-    expect(decryptCode(secret, id, sealed)).toBe(code);
+    expect(digest).not.toContain(code);
     expect(matchesCode(secret, id, manager, code, digest)).toBe(true);
     expect(matchesCode(secret, crypto.randomUUID(), manager, code, digest)).toBe(false);
     expect(matchesCode(secret, id, '46', code, digest)).toBe(false);
-    expect(() => decryptCode(secret, crypto.randomUUID(), sealed)).toThrow();
-    expect(() => encryptCode('short', id, code)).toThrow('not configured');
+    expect(() => codeDigest('short', id, manager, code)).toThrow('not configured');
+  });
+  it('gates only old-PG apply by PG_DISC_ROLE_PERM, as the legacy markup does', () => {
+    const policy = discountPolicy({}),
+      user = (role: 1 | 2 | 3 | 4 | 5) => ({
+        id: '9',
+        name: 'Operator',
+        email: 'operator@example.test',
+        role,
+        userType: 1 as const,
+        storeIds: ['1'],
+      });
+    expect(() => assertDiscountApplyPermission(policy, user(5), 'pg', true)).toThrow(
+      'You do not have permission.',
+    );
+    expect(() => assertDiscountApplyPermission(policy, user(4), 'pg', true)).not.toThrow();
+    // AjaxStoreDiscountPGView (order/views.py:2237) and every removal have no role gate.
+    expect(() => assertDiscountApplyPermission(policy, user(5), 'store', true)).not.toThrow();
+    expect(() => assertDiscountApplyPermission(policy, user(5), 'pg', false)).not.toThrow();
+    expect(() => assertDiscountApplyPermission(policy, user(5), 'store', false)).not.toThrow();
   });
   it('fails closed for missing or insecure approval delivery configuration', () => {
     for (const environment of [

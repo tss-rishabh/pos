@@ -1,6 +1,6 @@
 import { Decimal } from 'decimal.js';
 import { z } from 'zod';
-import type { Role } from '../../../domain/access.js';
+import { requireRole, type Principal, type Role } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
 import type { CheckoutState } from '../contracts.js';
 import { operationHash } from '../crypto.js';
@@ -22,8 +22,18 @@ export const discountRemark = z
   .min(3)
   .max(35)
   .refine((value) => /[^\s.]/u.test(value), 'Enter a meaningful discount remark.');
+/**
+ * Old PG remark (`create_order.html:5061-5136`): at least 3 characters and not only spaces or
+ * dots; legacy has no maximum. 255 bounds the request (orders.pg_disc_comment via API-v2).
+ */
+export const pgDiscountRemark = z
+  .string()
+  .trim()
+  .min(3)
+  .max(255)
+  .refine((value) => /[^\s.]/u.test(value), 'Enter a meaningful discount remark.');
 export const discountMetadataSchema = z.object({
-  pg: z.object({ remark: discountRemark }).nullable(),
+  pg: z.object({ remark: pgDiscountRemark }).nullable(),
   store: z.object({ remark: discountRemark, reason: z.enum(storeDiscountReasons) }).nullable(),
 });
 export type DiscountMetadata = z.infer<typeof discountMetadataSchema>;
@@ -136,14 +146,9 @@ export function discountTerms(state: CheckoutState, secret: string): DiscountTer
       'DISCOUNT_REMARK_REQUIRED',
       'Save a remark and the store discount reason before submitting this sale.',
     );
+  // AjaxOrderView (order/views.py:2706-2707): pg comment, then "|" + store comment.
   const storeComment = store.isZero() ? '' : metadata.store!.remark,
     comment = (pg.isZero() ? '' : metadata.pg!.remark) + (storeComment ? '|' + storeComment : '');
-  if (comment.length > 45)
-    throw new AppError(
-      422,
-      'DISCOUNT_REMARK_TOO_LONG',
-      'The combined discount remarks must fit within 45 characters.',
-    );
   const productsTotal = amount(calculations.products_total);
   if (!total.isZero() && productsTotal.plus(total).isZero())
     throw new AppError(502, 'INVALID_DISCOUNT_QUOTE', 'The checkout discount quote is invalid.');
@@ -194,4 +199,25 @@ export function approverSelection(
     fallback: !emails.length && policy.sendToAllManagers,
     exempt: !emails.length && !policy.sendToAllManagers,
   };
+}
+
+/**
+ * Old PG discount (`create_order.html:303-328`): amount, Apply and remark are disabled with
+ * "You do not have permission." unless the operator role is in PG_DISC_ROLE_PERM. Legacy
+ * `AjaxPgDiscountView` (`order/views.py:2190`) does not recheck it; the API enforces the same
+ * rule server-side (security decision). Removal and the store discount (PG)
+ * (`AjaxStoreDiscountPGView`, `order/views.py:2237-2283`) have no role gate, as in legacy.
+ */
+export function assertDiscountApplyPermission(
+  policy: Pick<DiscountPolicy, 'permittedRoles'>,
+  user: Principal,
+  kind: 'pg' | 'store',
+  apply: boolean,
+): void {
+  if (kind !== 'pg' || !apply) return;
+  try {
+    requireRole(user, policy.permittedRoles);
+  } catch {
+    throw new AppError(403, 'PG_DISCOUNT_PERMISSION_DENIED', 'You do not have permission.');
+  }
 }
