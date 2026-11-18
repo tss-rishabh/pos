@@ -77,20 +77,50 @@ export function goldenInputSha256(input: string | Uint8Array | undefined): strin
     .digest('hex');
 }
 
+/**
+ * Per-run fixture identifiers (an isolated MySQL schema name or URL) that the
+ * oracle saw. Captures store them as placeholder tokens; the live values are
+ * substituted out of the input before hashing and back into the replayed
+ * output, in insertion order (put a URL before the schema it contains).
+ */
+export type GoldenPlaceholders = Readonly<Record<string, string>>;
+export interface GoldenOptions {
+  placeholders?: GoldenPlaceholders;
+}
+
+function toPlaceholders(text: string, placeholders: GoldenPlaceholders | undefined): string {
+  let value = text;
+  for (const [token, live] of Object.entries(placeholders ?? {}))
+    if (live) value = value.split(live).join(token);
+  return value;
+}
+
+function fromPlaceholders(text: string, placeholders: GoldenPlaceholders | undefined): string {
+  let value = text;
+  for (const [token, live] of Object.entries(placeholders ?? {}).reverse())
+    value = value.split(token).join(live);
+  return value;
+}
+
 /** Find the recorded invocation for the exact stdin bytes and logical args. */
 export function goldenInvocation(
   area: string,
   name: string,
   input?: string | Uint8Array,
   args?: readonly string[],
+  options?: GoldenOptions,
 ): GoldenInvocation {
   const golden = loadGolden(area, name);
-  const sha = goldenInputSha256(input);
+  const placeholders = options?.placeholders;
+  const sha = goldenInputSha256(
+    typeof input === 'string' ? toPlaceholders(input, placeholders) : input,
+  );
+  const keyArgs = args?.map((arg) => toPlaceholders(arg, placeholders));
   const match = golden.invocations.find(
     (entry) =>
       entry.inputSha256 === sha &&
-      (args === undefined ||
-        (entry.args.length === args.length && entry.args.every((arg, i) => arg === args[i]))),
+      (keyArgs === undefined ||
+        (entry.args.length === keyArgs.length && entry.args.every((arg, i) => arg === keyArgs[i]))),
   );
   if (!match)
     throw new Error(
@@ -99,12 +129,13 @@ export function goldenInvocation(
   return match;
 }
 
-function stdoutText(entry: GoldenInvocation): string {
-  if (entry.stdout !== undefined) return entry.stdout;
-  if (entry.stdoutBase64 !== undefined)
-    return Buffer.from(entry.stdoutBase64, 'base64').toString('utf8');
-  if (entry.output !== undefined) return JSON.stringify(entry.output);
-  return '';
+function stdoutText(entry: GoldenInvocation, options?: GoldenOptions): string {
+  let text = '';
+  if (entry.stdout !== undefined) text = entry.stdout;
+  else if (entry.stdoutBase64 !== undefined)
+    text = Buffer.from(entry.stdoutBase64, 'base64').toString('utf8');
+  else if (entry.output !== undefined) text = JSON.stringify(entry.output);
+  return fromPlaceholders(text, options?.placeholders);
 }
 
 /** Recorded stdout as text, as `execFileSync(..., { encoding: 'utf8' })` returned it. */
@@ -113,11 +144,12 @@ export function goldenStdout(
   name: string,
   input?: string | Uint8Array,
   args?: readonly string[],
+  options?: GoldenOptions,
 ): string {
-  const entry = goldenInvocation(area, name, input, args);
+  const entry = goldenInvocation(area, name, input, args, options);
   if (entry.status !== 0)
     throw new Error(`Golden ${area}/${name} recorded a failed oracle run (${entry.status}).`);
-  return stdoutText(entry);
+  return stdoutText(entry, options);
 }
 
 /** Recorded stdout bytes, as `execFileSync(...)` without an encoding returned it. */
@@ -140,7 +172,12 @@ export function goldenSpawnResult(
   name: string,
   input?: string | Uint8Array,
   args?: readonly string[],
+  options?: GoldenOptions,
 ): { status: number | null; stdout: string; stderr: string } {
-  const entry = goldenInvocation(area, name, input, args);
-  return { status: entry.status, stdout: stdoutText(entry), stderr: entry.stderr ?? '' };
+  const entry = goldenInvocation(area, name, input, args, options);
+  return {
+    status: entry.status,
+    stdout: stdoutText(entry, options),
+    stderr: fromPlaceholders(entry.stderr ?? '', options?.placeholders),
+  };
 }
