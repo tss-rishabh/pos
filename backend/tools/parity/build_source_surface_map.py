@@ -167,20 +167,33 @@ def define_families():
             external = ['Accept actual encrypted ZIP recipient clients, private storage/mail, external issuance fencing and missing historical warehouse publication.']
         if key in ['special-permission-history', 'inherited-administration-history', 'inventory-imports']:
             external += ['Publish missing historical tables with exact source collation/provenance/freshness contracts; never historical MySQL fallback.']
-        if key in ['stores', 'operators', 'salespeople', 'counters', 'storage', 'documentation']:
-            state = 'partial'
-            gaps = ['Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.']
-            if key == 'stores':
-                gaps.append('Selected-store read-only details and static marketing https://thesouledstore.com/?store_id=<id> PNG QR download remain under implementation; checked-in customer application handoff is a separate action.')
-        if key == 'terminals':
-            state = 'partial'
-            gaps = ['Active EDC provider filtering, complete noncredential detail columns, page-size/sort/visibility and visible/all CSV actions remain under implementation. Original Paytm merchant_key and Pine security_token exposure is deliberately excluded; these must remain write-only instead of being added to response or export parity.']
         family(key, row['implementation'], ADMIN_FRONT[key],
                ['tests/administration', 'frontend/tests/administration'], ['parity/administration.md'],
                state=state, gaps=gaps, external=external, scope=row['scope'],
                notes=['Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged.'])
         for route in row['source_route_declarations']:
             route_groups[route['id']].append(key)
+        if key in ['stores', 'operators', 'salespeople', 'counters', 'storage', 'documentation']:
+            page = {'stores': 'stores.tsx', 'operators': 'people.tsx', 'salespeople': 'people.tsx', 'counters': 'store-resources.tsx', 'storage': 'store-resources.tsx', 'documentation': 'documentation.tsx'}[key]
+            anchor = "useAdministrationView(kind === 'counters' ? 'counters' : 'storage'" if key in ['counters', 'storage'] else "useAdministrationView('" + key + "'"
+            families[key]['implementation_review'] = [
+                review_reference('frontend/src/pages/administration/' + page, anchor, 'Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls.'),
+                review_reference('frontend/src/pages/administration/collection-table.tsx', 'export function AdministrationCollectionTable', 'Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.'),
+                review_reference('backend/src/modules/administration/collection-export.ts', 'export function administrationCollectionExport(', 'Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.'),
+            ]
+            families[key]['implemented_scope'] += ' Actual collection controls now bind page size, server sort, visible columns and loaded-page CSV; full export is a distinct private queued action.'
+        if key == 'stores':
+            families[key]['implementation_review'] += [
+                review_reference('backend/src/modules/administration/store-detail-routes.ts', 'export function registerAdministrationStoreDetails(', 'Actual selected-store detail/PNG endpoints recheck current native scope and encode only the exact static public marketing URL, not a login/application capability.'),
+                review_reference('frontend/src/pages/administration/stores.tsx', '<StoreDetailDialog', 'Actual store row opens its selected-store detail/marketing QR action; checked-in application handoff remains separate.'),
+            ]
+        if key == 'terminals':
+            families[key]['implementation_review'] = [
+                review_reference('backend/src/modules/administration/index.ts', 'registerTerminalDirectory(app, db);', 'Actual administration registrar mounts the credential-free EDC directory.'),
+                review_reference('backend/src/modules/administration/terminal-directory.ts', 'export function registerTerminalDirectory(', 'Pine/Paytm union applies fresh role/current assigned-store authority, finite provider/search/sort and bounded primary paging; credential fields are not selected.'),
+                review_reference('frontend/src/pages/administration/terminal-directory.tsx', 'export function TerminalDirectory(', 'Actual provider directory offers nonsecret columns, visibility/page choices and page/full CSV while preserving the independent write-only editor.'),
+            ]
+            families[key]['parity_documents'] += references(['parity/terminal-directory.md'])
 
     family('system-health', ['src/app.ts'], ['src/components/error-boundary.tsx'],
            ['tests/api.test.ts', 'tests/logging.test.ts'], scope='Liveness/readiness and safe application error boundary.')
@@ -261,6 +274,11 @@ def define_families():
            ['tests/order-history', 'tests/order-search', 'tools/order-search/source_oracle.py', 'frontend/tests/order-history', 'frontend/tests/order-search', 'tests/checkout'], ['parity/order-history.md', 'parity/order-search.md', 'parity/checkout.md'],
            scope='Full ST/HL/HE/N/queue/explicit-ID order list, contact/payment/status filters, source search/sort/page and formatter/actions are integrated with 43 pinned-Django vectors and 12 browser workflows. Existing detail/paid/invoice/cancellation guards remain. PRIMARY interactive/DATA today/BigQuery old or mixed facts, live-only queue discovery, private HMAC comparisons and post-read session revocation are enforced. Demo uses an explicit synthetic adapter without a database port.',
            external=['Accept both complete common-checkpoint historical order/search publications, private contact-key generation/collation identity, real queue/current-source lifecycle and representative workload performance. Native source vectors and local browser checks are not complete production workflow certification.'])
+    families['orders-read']['implementation_review'] = [
+        review_reference('frontend/src/pages/operations.tsx', '<SourceOrderList', 'Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls.'),
+        review_reference('frontend/src/pages/order-history/SourceOrderList.tsx', 'function exportPage()', 'Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired.'),
+        review_reference('frontend/src/pages/order-history/search-client.ts', 'export function sourcePageCsv(', 'Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes.'),
+    ]
     bind('orders-read', ['OrdersView', 'OnlineOrdersView', 'AjaxOrderListView', 'ShowOrderDetailsView', 'ShowOnlineOrderDetailsView'])
     family('checkout-cart', ['src/modules/checkout/routes.ts', 'src/modules/checkout/service.ts', 'src/modules/checkout/customers'],
            ['src/pages/counter.tsx', 'src/pages/checkout/CheckoutReview.tsx', 'src/offline'], ['tests/checkout', 'frontend/tests', 'frontend/e2e/checkout'],
@@ -290,10 +308,19 @@ def define_families():
            external=['Deploy and accept coordinated source membership producers/revision fences and shared wallet/stock writer cutover, real provider state and independently proved old funding. Reviewed compatibility patches and local source execution do not establish deployed acceptance; no fabricated historical backfill.'])
     bind('pending-order-cancellation', ['AjaxOrderCancelView'])
     family('returns-exchanges', ['src/modules/checkout/return-workflow', 'src/modules/checkout/returns.ts'],
-           ['src/pages/returns'], ['tests/checkout', 'frontend/tests/customer-otp'], ['parity/checkout.md'], state='partial',
-           scope='Reason/subreason/size/payable choices, order-bound verification, accepted return/exchange saga, stock/hold/refund proof and GET recovery.',
-           gaps=['Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control.'],
+           ['src/pages/returns'], ['tests/checkout', 'tests/return-window', 'frontend/tests/customer-otp', 'frontend/tests/return-window'], ['parity/checkout.md', 'parity/review-checkout-financial.md'],
+           scope='Reason/subreason/size/payable choices, order-bound verification, accepted return/exchange saga, stock/hold/refund proof and GET recovery. Actual manager roles1-3 extension is wired in return/exchange UI to a current-authority exact order/product/HP native writer, end-of-day date, source shortening/reactivation semantics and CAS/GET recovery; changing a date never dispatches a refund.',
            external=['Accept deployed source refund/atomic exchange/stock/ledger contracts and legal credit-note provider output.'])
+    families['returns-exchanges']['implementation_review'] = [
+        review_reference('order/views.py', 'class AjaxExtendReturnView(', 'Active source exact order/product/HP create/update, native administrator provenance, end-of-day date and reactivation; empty date is not a clear operation.', source=True),
+        review_reference('order/templates/order/show.html', 'btn btn-sm btn-danger btn-extend-return-time', 'Active source closed-window Extend Date action belongs to roles1-3; the manager action is separate from role1 cash/eligibility override.', source=True),
+        review_reference('backend/src/modules/checkout/return-workflow/extensions.ts', 'export function returnWindowExtensions(', 'Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts.'),
+        review_reference('backend/src/modules/checkout/return-workflow/repository.ts', 'async extensionScope(', 'Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction.'),
+        review_reference('backend/src/modules/checkout/return-workflow/routes.ts', 'const extensions = returnWindowExtensions(', 'Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor.'),
+        review_reference('frontend/src/pages/returns/index.tsx', '<ReturnWindowExtension', 'Actual return and exchange page mounts the bound source-role manager control for the selected verified line.'),
+        review_reference('frontend/src/pages/returns/client.ts', 'export async function setReturnWindow(', 'Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields.'),
+        review_reference('frontend/src/pages/returns/ReturnWindowExtension.tsx', 'async function refresh()', 'Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only.'),
+    ]
     bind('returns-exchanges', ['AjaxGetSubReasonView', 'AjaxGetPayAmtView', 'AjaxProductReturnView', 'AjaxProductExchangeView', 'AjaxGetExchangeSizesView', 'AjaxGetExchangeReasonsView', 'AjaxExtendReturnView'])
     family('purchased-gift-cards', ['src/modules/checkout/gift-cards.ts', 'src/modules/checkout/payments'], ['src/pages/checkout/CheckoutReview.tsx'],
            ['tests/checkout'], ['parity/checkout.md'], scope='Saved physical gift-card serials/default/custom values/date fields with exact source Hashids and collection/funding fences.',
@@ -363,18 +390,33 @@ def define_families():
            external=['Accept production Redis/pubsub/websocket gateway and original consumer cutover.'])
     bind('notifications', ['AjaxNotificationUpdateView'])
     family('finance-day-close', ['src/modules/finance'], ['src/pages/finance'], ['tests/finance', 'frontend/tests/finance'],
-           ['parity/finance.md'], scope='Day-close state/revisions/nag/pending alerts, cash-ledger/history and exact Glassbox orders feed; pending offline cash retained.',
+           ['parity/finance.md', 'parity/export-history-controls.md'], scope='Day-close state/revisions/nag/pending alerts, cash-ledger/history and exact Glassbox orders feed; pending offline cash retained.',
            external=['Accept generation/CDC warehouse financial publication, source timezone/rollout and actual scheduled notices.'])
+    families['finance-day-close']['implementation_review'] = [
+        review_reference('frontend/src/pages/finance/ledger.tsx', '[pageSize, setPageSize] = useState(31)', 'Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations.'),
+        review_reference('frontend/src/pages/finance/history.tsx', 'const pageCsv = useMutation(', 'Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page.'),
+    ]
     bind('finance-day-close', ['GlassboxFinanceFeedView', 'DayCloseView', 'AjaxDayCloseStateView', 'AjaxDayCloseSubmitView', 'AjaxDayCloseNagView', 'DayClosePendingAlertView', 'DayCloseLogsView', 'AjaxDayCloseLogsView', 'CashBalanceView', 'AjaxCashBalanceView'])
     family('daily-store-report', ['src/modules/reports.ts', 'src/modules/daily-report-offline.ts', 'src/modules/daily-report-warehouse.ts'],
            ['src/pages/reports.tsx'], ['tests/finance', 'tests/mysql.integration.test.ts'], ['parity/daily-report-offline.md'],
            scope='Source DSR calculations, current DATA vs historical BigQuery and offline cash/footfall/target integration.',
            external=['Accept complete financial publication/lineage and warehouse auxiliary input contracts.'])
+    families['daily-store-report']['implementation_review'] = [
+        review_reference('frontend/src/pages/reports.tsx', 'const totalPages = Math.max(1, Math.ceil(matchingRows.length / pageSize))', 'Actual DSR client table filters/sorts/pages loaded rows; server-calculated totals remain authoritative.'),
+        review_reference('frontend/src/pages/reports.tsx', 'function download(visibleOnly = false)', 'Actual visible-column CSV is distinct from the retained complete CSV and preserves the original server totals rather than recalculating financial amounts.'),
+    ]
     bind('daily-store-report', ['DailyStoreReportView', 'AjaxDailyStoreReportView'])
     family('operational-reports', ['src/modules/operational-reports'], ['src/pages/operational-reports'], ['tests/operational-reports', 'frontend/tests/operational-reports'],
-           ['parity/operational-reports.md'], state='partial', scope='NPS, returned orders, transactions, acceptance, staff performance, flash sales and hyperlocal daily profiles with complete source CSV columns.',
-           gaps=['Active performance and hyperlocal acceptance CSV actions and source visible-column controls remain under implementation. Returned-order/flash visible-column CSV and export binding to current selected columns/sort need their end-to-end UI/worker path; existing full export does not substitute for these source actions.'],
+           ['parity/operational-reports.md', 'parity/review-report-finance.md'], scope='NPS, returned orders, transactions, acceptance, staff performance, flash sales and hyperlocal daily profiles with complete source CSV columns. Active performance/acceptance CSV, shared column visibility and immutable submitted column/sort export bindings are wired through the real private queue/builder. Returned/flash and order-transactions retain distinct visible-column and unchanged full CSV actions. The explicitly requested all-matching-row replacement is not a claim of identical source browser-loaded-page export scope.',
            external=['Accept exact warehouse views/collations/source dimensions and actual historical data completeness.'])
+    families['operational-reports']['implementation_review'] = [
+        review_reference('frontend/src/pages/operational-reports/performance.tsx', 'exportKind="salesperson-performance"', 'Actual performance page selects the queued source-screen CSV kind; cashier has its distinct registered kind.'),
+        review_reference('frontend/src/pages/operational-reports/acceptance.tsx', 'exportKind="hyperlocal-acceptance"', 'Actual hyperlocal acceptance page exposes the source CSV action through the common private queue.'),
+        review_reference('frontend/src/pages/operational-reports/report-view.tsx', "mutationFn: (variant: 'visible' | 'full')", 'Actual visible-column export binds the submitted result filters/sort and current finite column selection; complete CSV remains a distinct action.'),
+        review_reference('backend/src/modules/operational-reports/export-presentation.ts', 'export function reportColumnSelection(', 'Finite per-screen presentation allowlists reject arbitrary SQL/unknown/duplicate columns and preserve source column order.'),
+        review_reference('backend/src/modules/operational-reports/export-service.ts', 'export function reportExportBuilder(', 'Actual worker builder dispatches performance/acceptance and selected-screen variants; unmarked full export retains its original query/layout.'),
+        review_reference('backend/src/modules/operational-reports/screen-report-csv.ts', 'export function screenReportCsv(', 'Bounded UTF-8 CSV includes all matching rows in selected sort and original visible-column order; no truncated artifact is published.'),
+    ]
     bind('operational-reports', ['ReturnOrderView', 'AjaxReturnOrderListView', 'OrdersDataView', 'AjaxOrdersDataListView', 'AjaxNpsDataListView', 'HyperlocalOrderAcceptReport', 'AjaxHyperlocalOrderAcceptReport', 'SalespersonPerformanceReport', 'AjaxSalespersonPerformanceReport', 'CashierPerformanceReport', 'AjaxCashierPerformanceReport', 'SalesDataView', 'AjaxSalesDataView', 'HyperlocalDailyReportView', 'AjaxHyperlocalDailyExportView'])
     family('inventory-parent-repair', ['src/modules/operational-reports/inventory.ts'], ['src/pages/operational-reports/inventory.tsx'],
            ['tests/operational-reports'], ['parity/operational-reports.md'], scope='Bounded writer-current missing-parent associations preserving existing stock and source child-selection semantics.')
@@ -386,8 +428,12 @@ def define_families():
     bind('scheduled-reports', ['HyperlocalSlackReport', 'HyperlocalAvailabilityReport', 'HyperlocalStoreStatusReport', 'HyperlocalDeliveryReport', 'HyperlocalCancellationReport', 'CrmTicketStatus', 'StoreHyperlocalRecord'])
     family('report-exports', ['src/modules/operational-reports/export-service.ts', 'src/modules/operational-reports/export-storage.ts', 'src/modules/operational-reports/export-worker.ts'],
            ['src/pages/operational-reports/exports.tsx'], ['tests/operational-reports', 'tests/inventory-workbooks', 'frontend/tests/operational-reports'],
-           ['parity/report-exports.md', 'parity/export-history.md'], scope='Existing durable queue/HEAD-only unknown upload recovery, current/legacy history and protected CSV/XLSX downloads.',
+           ['parity/report-exports.md', 'parity/export-history.md', 'parity/export-history-controls.md', 'parity/administration-collection-exports.md'], scope='Existing durable queue/HEAD-only unknown upload recovery, current/legacy history and protected CSV/XLSX downloads.',
            external=['Accept private bucket and missing historical export metadata publication; safe legacy package subset is not every old file.'])
+    families['report-exports']['implementation_review'] = [
+        review_reference('frontend/src/pages/operational-reports/exports.tsx', 'const metadataCsv = useMutation(', 'Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job.'),
+        review_reference('frontend/src/pages/operational-reports/export-metadata.ts', 'export function exportMetadataCsv(', 'Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded.'),
+    ]
     bind('report-exports', ['ExportLogsView', 'AjaxExportLogsView'])
     family('inventory-workbooks', ['src/modules/inventory-workbooks'], ['src/pages/operational-reports/exports.tsx'], ['tests/inventory-workbooks', 'frontend/tests/inventory-workbooks'],
            ['parity/inventory-workbooks.md'], scope='Literal nine-column per-selected-store workbook pipeline, bounded DATA snapshot, streaming private spool and queued lifecycle; debug task is inlined pass-through.',
@@ -406,7 +452,7 @@ def define_families():
         review_reference('backend/src/modules/legacy-order-imports/worker-main.ts', 'const registration = configuredLegacyOrderImports(config, db, {', 'Standalone production worker uses that same configured import factory and its selected/blocked profile decisions.'),
         review_reference('backend/src/modules/legacy-order-imports/runtime.ts', 'export function configuredLegacyOrderImports(', 'Actual server and worker registration composes preparation, benefits, approvals, corrections and the selected screening profile.'),
         review_reference('backend/src/modules/legacy-order-imports/worker.ts', 'export function legacyOrderImportWorker(', 'Bounded production worker replaces the offline/Shopify source task entry points; original operation outcomes remain durable.'),
-        review_reference('frontend/src/pages/administration/order-imports/index.tsx', 'export default function OrderImportsPage(', 'Current role-bound offline/Shopify import, saved job/results and recovery UI replaces the three import/log template surfaces.'),
+        review_reference('frontend/src/pages/administration/order-imports/index.tsx', 'export default function OrderImportsPage(', 'Actual role-bound offline/Shopify forms and saved job/results recovery implement the requested import workflow; the separate commented upload-log page has its explicit inactive disposition below.'),
         review_reference('backend/src/modules/legacy-order-imports/financial-adapter-profiles.ts', 'export function financialAdapterProfiles(', 'Actual financial dispatch hooks compose selected membership/benefit and screening reservation/receipt/completion gates.'),
         review_reference('backend/compatibility/upstream/legacy-order-imports/source_runtime.py', 'self.membership=MembershipProfile(source_root,self.settings) if membership_selected() else None', 'Private source installs the real membership writer and PosOrder staging composition, including Shopify pending semantics.'),
         review_reference('backend/compatibility/upstream/legacy-order-imports/membership_profile.py', 'def membership_order_tree(root):', 'Pinned membership setters run through the existing stage/provenance producer; free membership additions/replacements require source causality.'),
@@ -433,6 +479,16 @@ def define_families():
            external=['Accept selected atomic stock projection and replay-safe product synchronization, reconcile old pending source uploads/tasks at cutover and publish missing immutable parent-store historical job/row versions. No historical MySQL fallback.'],
            notes=['Actual source upload caller is executable. Pinned source/native/component tests do not establish deployed routine or full provider workflow certification.'])
     bind('parent-store-assignment-csv',['ProductsStoreBulkUploadView'])
+    family('inactive-upload-logs', docs=['parity/review-checkout-financial.md'], state='missing', required=False,
+           scope='Inactive pinned upload-log template: both list/AJAX routes and view/datatable classes are commented; the original failed-record download route and handler are also commented. The active CsvUpload model/named import tasks do not render this page.',
+           notes=['No additional legacy/modern log-list or arbitrary legacy-file proxy is required by the inactive page. Existing modern exact-UUID recovery and implemented named tasks/forms remain unchanged. Preserve the source template ID and shared import-family associations without claiming a replacement history UI.'])
+    families['inactive-upload-logs']['implementation_review'] = [
+        review_reference('core/urls.py', '# path("upload-logs/"', 'Both upload-log list/AJAX routes are commented at the source pin; no active source page request reaches the retained template.', source=True),
+        review_reference('core/views.py', '# class UploadLogsView(', 'The source list/render class is commented rather than an executable leaf.', source=True),
+        review_reference('core/datatables/upload_logs_datatable.py', '# class AjaxUploadLogsView(', 'The entire retained source datatable class is commented.', source=True),
+        review_reference('core/urls.py', '# path("order-punch/<int:pk>/failed-reocrds/"', 'Independent failed-record download route is also commented; it is not an active leaf hidden behind an inactive page.', source=True),
+        review_reference('core/views.py', '# class DownloadFailedRecordView(', 'The failed-record download handler is commented; the retained template link does not establish executable download behavior.', source=True),
+    ]
     family('source-diagnostic-task', state='missing', required=False,
            scope='create_random_user_accounts_new prints random credentials; actual User.objects.create_user is commented out.',
            notes=['No source account is created. A replacement must not print credentials or invent a new bulk-account feature; retain this diagnostic-only disposition explicitly in the job inventory.'])
@@ -500,7 +556,7 @@ def template_families(path):
     if local.startswith('user_to_app/'): return ['customer-application-handoff']
     if local.startswith('offline_billing/'): return ['offline-scratch-invoice']
     if local.startswith(('order_punch/', 'shopify_order_punch/')): return ['legacy-order-imports']
-    if local.startswith('upload_logs/'): return ['inventory-imports', 'legacy-order-imports', 'parent-store-assignment-csv']
+    if local.startswith('upload_logs/'): return ['inventory-imports', 'legacy-order-imports', 'parent-store-assignment-csv', 'inactive-upload-logs']
     if local.startswith('salespersons/'): return ['salespeople']
     if local.startswith('special_permission/'): return ['special-permission-history', 'wallet-adjustments', 'global-vouchers', 'global-barcode-assignment']
     if local.startswith('settings/'): return ['support']
@@ -565,6 +621,10 @@ def source_definition(route):
 
 
 def surface_status(keys):
+    # This retained template has only commented routes/classes. Shared task-family
+    # associations preserve lineage; they do not make the inactive page partial.
+    if 'inactive-upload-logs' in keys:
+        return 'missing'
     states = [families[key]['implementation_status'] for key in keys]
     if all(state == 'missing' for state in states): return 'missing'
     if any(state in ['partial', 'missing'] for state in states): return 'partial'
@@ -655,7 +715,7 @@ def markdown(result):
         lines.append('No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.')
     for gap in result['remaining_code_tasks']:
         lines.append(f"- **{gap['family']} ({gap['state']})**: " + ' '.join(gap['tasks']))
-    lines += ['', '## Line-bound implementation review', '', 'These reviewed code paths explain the formerly partial import family and preserve the explicitly excluded source diagnostics/prototype. Line anchors are regenerated from current implementation or pinned source; test presence does not establish these claims.', '']
+    lines += ['', '## Line-bound implementation review', '', 'These reviewed code paths bind actual import/manager/table controls and preserve the explicitly excluded source diagnostics/prototype and inactive upload-log/download. Line anchors are regenerated from current implementation or pinned source; test presence does not establish these claims.', '']
     for item in result['families']:
         if not item.get('implementation_review'):
             continue

@@ -16,23 +16,152 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **stores (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute. Selected-store read-only details and static marketing https://thesouledstore.com/?store_id=<id> PNG QR download remain under implementation; checked-in customer application handoff is a separate action.
-- **storage (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
-- **counters (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
-- **salespeople (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
-- **operators (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
-- **terminals (partial)**: Active EDC provider filtering, complete noncredential detail columns, page-size/sort/visibility and visible/all CSV actions remain under implementation. Original Paytm merchant_key and Pine security_token exposure is deliberately excluded; these must remain write-only instead of being added to response or export parity.
-- **documentation (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
-- **returns-exchanges (partial)**: Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control.
-- **operational-reports (partial)**: Active performance and hyperlocal acceptance CSV actions and source visible-column controls remain under implementation. Returned-order/flash visible-column CSV and export binding to current selected columns/sort need their end-to-end UI/worker path; existing full export does not substitute for these source actions.
+No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.
 
 ## Line-bound implementation review
 
-These reviewed code paths explain the formerly partial import family and preserve the explicitly excluded source diagnostics/prototype. Line anchors are regenerated from current implementation or pinned source; test presence does not establish these claims.
+These reviewed code paths bind actual import/manager/table controls and preserve the explicitly excluded source diagnostics/prototype and inactive upload-log/download. Line anchors are regenerated from current implementation or pinned source; test presence does not establish these claims.
+
+### stores
+
+Mapped surfaces: `stores/urls.py:8` (implementation_present), `stores/urls.py:9` (implementation_present), `stores/urls.py:10` (implementation_present), `stores/urls.py:11` (external_acceptance), `stores/urls.py:13` (implementation_present), `stores/urls.py:14` (external_acceptance), `stores/urls.py:15` (implementation_present), `stores/urls.py:16` (implementation_present), `stores/templates/stores/_form.html` (external_acceptance), `stores/templates/stores/create.html` (external_acceptance), `stores/templates/stores/edit.html` (external_acceptance), `stores/templates/stores/index.html` (external_acceptance), `stores/templates/stores/show.html` (external_acceptance), `stores/admin.py:6` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/administration/stores.tsx:179` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
+| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+| `backend/src/modules/administration/store-detail-routes.ts:14` | Actual selected-store detail/PNG endpoints recheck current native scope and encode only the exact static public marketing URL, not a login/application capability. |
+| `frontend/src/pages/administration/stores.tsx:444` | Actual store row opens its selected-store detail/marketing QR action; checked-in application handoff remains separate. |
+
+### storage
+
+Mapped surfaces: `stores/urls.py:21` (implementation_present), `stores/urls.py:22` (implementation_present), `stores/urls.py:23` (implementation_present), `stores/urls.py:24` (implementation_present), `stores/urls.py:25` (implementation_present), `stores/urls.py:26` (implementation_present), `stores/urls.py:27` (implementation_present), `stores/urls.py:28` (implementation_present), `stores/templates/stores/storage/create.html` (implementation_present), `stores/templates/stores/storage/edit.html` (implementation_present), `stores/templates/stores/storage/index.html` (implementation_present), `stores/templates/stores/storage/show.html` (implementation_present).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/administration/store-resources.tsx:28` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
+| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+
+### counters
+
+Mapped surfaces: `stores/urls.py:31` (implementation_present), `stores/urls.py:32` (implementation_present), `stores/urls.py:33` (implementation_present), `stores/urls.py:34` (implementation_present), `stores/urls.py:35` (implementation_present), `stores/urls.py:36` (implementation_present), `stores/templates/counters/index.html` (implementation_present).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/administration/store-resources.tsx:28` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
+| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+
+### salespeople
+
+Mapped surfaces: `core/urls.py:53` (implementation_present), `core/urls.py:54` (implementation_present), `core/urls.py:55` (implementation_present), `core/urls.py:56` (implementation_present), `core/urls.py:57` (implementation_present), `core/urls.py:58` (implementation_present), `core/urls.py:59` (implementation_present), `core/urls.py:60` (implementation_present), `core/templates/salespersons/_form.html` (implementation_present), `core/templates/salespersons/create.html` (implementation_present), `core/templates/salespersons/edit.html` (implementation_present), `core/templates/salespersons/index.html` (implementation_present).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/administration/people.tsx:372` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
+| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+
+### operators
+
+Mapped surfaces: `users/urls.py:14` (implementation_present), `users/urls.py:15` (implementation_present), `users/urls.py:16` (implementation_present), `users/urls.py:17` (implementation_present), `users/urls.py:18` (implementation_present), `users/urls.py:19` (implementation_present), `users/urls.py:20` (implementation_present), `users/urls.py:21` (implementation_present), `users/templates/auth/create.html` (implementation_present), `users/templates/auth/edit.html` (implementation_present), `users/templates/auth/index.html` (implementation_present), `users/admin.py:20` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/administration/people.tsx:92` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
+| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+
+### terminals
+
+Mapped surfaces: `core/urls.py:131` (implementation_present), `core/urls.py:132` (implementation_present), `core/urls.py:135` (implementation_present), `core/urls.py:136` (implementation_present), `core/urls.py:137` (implementation_present), `core/urls.py:140` (implementation_present), `core/urls.py:141` (implementation_present), `core/urls.py:144` (implementation_present), `core/urls.py:145` (implementation_present), `core/templates/edc_edit/edc_detail_and_edit.html` (implementation_present).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `backend/src/modules/administration/index.ts:113` | Actual administration registrar mounts the credential-free EDC directory. |
+| `backend/src/modules/administration/terminal-directory.ts:27` | Pine/Paytm union applies fresh role/current assigned-store authority, finite provider/search/sort and bounded primary paging; credential fields are not selected. |
+| `frontend/src/pages/administration/terminal-directory.tsx:58` | Actual provider directory offers nonsecret columns, visibility/page choices and page/full CSV while preserving the independent write-only editor. |
+
+### documentation
+
+Mapped surfaces: `core/urls.py:123` (external_acceptance), `core/urls.py:124` (external_acceptance), `core/urls.py:125` (external_acceptance), `core/urls.py:126` (external_acceptance), `core/urls.py:127` (external_acceptance), `core/urls.py:129` (external_acceptance), `core/templates/documentation/_detail.html` (external_acceptance), `core/templates/documentation/_form.html` (external_acceptance), `core/templates/documentation/create.html` (external_acceptance), `core/templates/documentation/documentation_lists.html` (external_acceptance), `core/templates/documentation/index.html` (external_acceptance), `core/templates/documentation/show.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/administration/documentation.tsx:119` | Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls. |
+| `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
+| `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
+
+### orders-read
+
+Mapped surfaces: `order/urls.py:8` (external_acceptance), `order/urls.py:9` (external_acceptance), `order/urls.py:10` (external_acceptance), `order/urls.py:11` (external_acceptance), `order/urls.py:12` (external_acceptance), `order/templates/order/index.html` (external_acceptance), `order/templates/order/online/_return_exchange_cells.html` (external_acceptance), `order/templates/order/online/show.html` (external_acceptance), `order/templates/order/show.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/operations.tsx:279` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
+| `frontend/src/pages/order-history/SourceOrderList.tsx:180` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
+| `frontend/src/pages/order-history/search-client.ts:120` | Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes. |
+
+### returns-exchanges
+
+Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (external_acceptance), `order/urls.py:18` (external_acceptance), `order/urls.py:19` (external_acceptance), `order/urls.py:20` (external_acceptance), `order/urls.py:21` (external_acceptance), `order/urls.py:43` (external_acceptance), `order/templates/order/_exchange_js.html` (external_acceptance), `order/templates/order/index.html` (external_acceptance), `order/templates/order/online/_return_exchange_cells.html` (external_acceptance), `order/templates/order/online/show.html` (external_acceptance), `order/templates/order/show.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `order/views.py:4449` | Active source exact order/product/HP create/update, native administrator provenance, end-of-day date and reactivation; empty date is not a clear operation. |
+| `order/templates/order/show.html:247` | Active source closed-window Extend Date action belongs to roles1-3; the manager action is separate from role1 cash/eligibility override. |
+| `backend/src/modules/checkout/return-workflow/extensions.ts:19` | Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts. |
+| `backend/src/modules/checkout/return-workflow/repository.ts:619` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
+| `backend/src/modules/checkout/return-workflow/routes.ts:77` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
+| `frontend/src/pages/returns/index.tsx:566` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
+| `frontend/src/pages/returns/client.ts:243` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
+| `frontend/src/pages/returns/ReturnWindowExtension.tsx:48` | Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only. |
+
+### finance-day-close
+
+Mapped surfaces: `report/urls.py:16` (external_acceptance), `report/urls.py:73` (external_acceptance), `report/urls.py:74` (external_acceptance), `report/urls.py:75` (external_acceptance), `report/urls.py:76` (external_acceptance), `report/urls.py:77` (external_acceptance), `report/urls.py:78` (external_acceptance), `report/urls.py:79` (external_acceptance), `report/urls.py:80` (external_acceptance), `report/urls.py:81` (external_acceptance), `report/datatables/cash_balance_datatable.py:83` (external_acceptance), `report/datatables/day_close_datatable.py:216` (external_acceptance), `report/templates/day_close/cash_balance.html` (external_acceptance), `report/templates/day_close/index.html` (external_acceptance), `report/templates/day_close/logs.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/finance/ledger.tsx:33` | Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations. |
+| `frontend/src/pages/finance/history.tsx:148` | Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page. |
+
+### daily-store-report
+
+Mapped surfaces: `report/urls.py:69` (external_acceptance), `report/urls.py:70` (external_acceptance), `report/templates/daily_store_report/index.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/reports.tsx:181` | Actual DSR client table filters/sorts/pages loaded rows; server-calculated totals remain authoritative. |
+| `frontend/src/pages/reports.tsx:191` | Actual visible-column CSV is distinct from the retained complete CSV and preserves the original server totals rather than recalculating financial amounts. |
+
+### operational-reports
+
+Mapped surfaces: `report/urls.py:19` (external_acceptance), `report/urls.py:20` (external_acceptance), `report/urls.py:21` (external_acceptance), `report/urls.py:22` (external_acceptance), `report/urls.py:31` (external_acceptance), `report/urls.py:36` (external_acceptance), `report/urls.py:37` (external_acceptance), `report/urls.py:51` (external_acceptance), `report/urls.py:52` (external_acceptance), `report/urls.py:53` (external_acceptance), `report/urls.py:54` (external_acceptance), `report/urls.py:65` (external_acceptance), `report/urls.py:66` (external_acceptance), `report/urls.py:87` (external_acceptance), `report/urls.py:88` (external_acceptance), `report/datatables/hyperlocal_daily_datatable.py:40` (external_acceptance), `report/datatables/return_orders_datatable.py:63` (external_acceptance), `report/datatables/return_orders_datatable.py:328` (external_acceptance), `report/datatables/sales_data.py:66` (external_acceptance), `report/templates/orders/daily_tracker.html` (external_acceptance), `report/templates/orders/hyperlocal_daily_report.html` (external_acceptance), `report/templates/orders/hyperlocal_data.html` (external_acceptance), `report/templates/orders/hyperlocal_order_accept_report.html` (external_acceptance), `report/templates/orders/nps_data.html` (external_acceptance), `report/templates/orders/orders_data.html` (external_acceptance), `report/templates/orders/return_orders.html` (external_acceptance), `report/templates/performance_report/cashier_performance.html` (external_acceptance), `report/templates/performance_report/salesperson_performance.html` (external_acceptance), `report/templates/sales/index.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/operational-reports/performance.tsx:47` | Actual performance page selects the queued source-screen CSV kind; cashier has its distinct registered kind. |
+| `frontend/src/pages/operational-reports/acceptance.tsx:30` | Actual hyperlocal acceptance page exposes the source CSV action through the common private queue. |
+| `frontend/src/pages/operational-reports/report-view.tsx:140` | Actual visible-column export binds the submitted result filters/sort and current finite column selection; complete CSV remains a distinct action. |
+| `backend/src/modules/operational-reports/export-presentation.ts:68` | Finite per-screen presentation allowlists reject arbitrary SQL/unknown/duplicate columns and preserve source column order. |
+| `backend/src/modules/operational-reports/export-service.ts:98` | Actual worker builder dispatches performance/acceptance and selected-screen variants; unmarked full export retains its original query/layout. |
+| `backend/src/modules/operational-reports/screen-report-csv.ts:10` | Bounded UTF-8 CSV includes all matching rows in selected sort and original visible-column order; no truncated artifact is published. |
+
+### report-exports
+
+Mapped surfaces: `report/urls.py:91` (external_acceptance), `report/urls.py:92` (external_acceptance), `report/datatables/cash_balance_datatable.py:83` (external_acceptance), `report/datatables/day_close_datatable.py:216` (external_acceptance), `report/datatables/hyperlocal_daily_datatable.py:40` (external_acceptance), `report/datatables/inventory_datatable.py:60` (external_acceptance), `report/datatables/return_orders_datatable.py:63` (external_acceptance), `report/datatables/return_orders_datatable.py:328` (external_acceptance), `report/datatables/sales_data.py:66` (external_acceptance), `report/templates/export/index.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/operational-reports/exports.tsx:115` | Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job. |
+| `frontend/src/pages/operational-reports/export-metadata.ts:48` | Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded. |
 
 ### legacy-order-imports
 
-Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (external_acceptance), `core/templates/order_punch/index.html` (external_acceptance), `core/templates/shopify_order_punch/index.html` (external_acceptance), `core/templates/upload_logs/index.html` (external_acceptance).
+Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (external_acceptance), `core/templates/order_punch/index.html` (external_acceptance), `core/templates/shopify_order_punch/index.html` (external_acceptance), `core/templates/upload_logs/index.html` (missing).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -40,7 +169,7 @@ Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (e
 | `backend/src/modules/legacy-order-imports/worker-main.ts:72` | Standalone production worker uses that same configured import factory and its selected/blocked profile decisions. |
 | `backend/src/modules/legacy-order-imports/runtime.ts:23` | Actual server and worker registration composes preparation, benefits, approvals, corrections and the selected screening profile. |
 | `backend/src/modules/legacy-order-imports/worker.ts:20` | Bounded production worker replaces the offline/Shopify source task entry points; original operation outcomes remain durable. |
-| `frontend/src/pages/administration/order-imports/index.tsx:45` | Current role-bound offline/Shopify import, saved job/results and recovery UI replaces the three import/log template surfaces. |
+| `frontend/src/pages/administration/order-imports/index.tsx:45` | Actual role-bound offline/Shopify forms and saved job/results recovery implement the requested import workflow; the separate commented upload-log page has its explicit inactive disposition below. |
 | `backend/src/modules/legacy-order-imports/financial-adapter-profiles.ts:129` | Actual financial dispatch hooks compose selected membership/benefit and screening reservation/receipt/completion gates. |
 | `backend/compatibility/upstream/legacy-order-imports/source_runtime.py:270` | Private source installs the real membership writer and PosOrder staging composition, including Shopify pending semantics. |
 | `backend/compatibility/upstream/legacy-order-imports/membership_profile.py:130` | Pinned membership setters run through the existing stage/provenance producer; free membership additions/replacements require source causality. |
@@ -60,6 +189,18 @@ Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (e
 | `backend/src/modules/legacy-order-imports/correction-repository.ts:57` | Approved manager workflow retains immutable original input/no-effect proof and records the corrected successor under current manager authority. |
 | `backend/compatibility/upstream/legacy-order-imports/correction_profile.py:43` | Private source independently authenticates the retained correction/calculation and definite original no-effect boundary before using corrected tender. |
 | `frontend/src/pages/administration/order-imports/ImportCorrectionPanel.tsx:81` | Actual manager review/attestation/recovery UI is integrated; the alternate dual-value review candidate does not execute financial work. |
+
+### inactive-upload-logs
+
+Mapped surfaces: `core/templates/upload_logs/index.html` (missing).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `core/urls.py:49` | Both upload-log list/AJAX routes are commented at the source pin; no active source page request reaches the retained template. |
+| `core/views.py:744` | The source list/render class is commented rather than an executable leaf. |
+| `core/datatables/upload_logs_datatable.py:11` | The entire retained source datatable class is commented. |
+| `core/urls.py:73` | Independent failed-record download route is also commented; it is not an active leaf hidden behind an inactive page. |
+| `core/views.py:1137` | The failed-record download handler is commented; the retained template link does not establish executable download behavior. |
 
 ### source-diagnostic-task
 
@@ -85,11 +226,11 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 23 | 75 | 0 | 157 |
-| jobs | 0 | 4 | 1 | 27 |
-| templates | 19 | 39 | 2 | 46 |
+| routes | 68 | 0 | 0 | 187 |
+| jobs | 0 | 0 | 1 | 31 |
+| templates | 32 | 0 | 3 | 71 |
 | websockets | 0 | 0 | 0 | 1 |
-| administration | 0 | 2 | 0 | 0 |
+| administration | 0 | 0 | 0 | 2 |
 
 “External acceptance” means code exists and the named real dependency remains unaccepted. It does not turn a missing callback/financial adapter into a deployed feature. Warehouse absence, source collation/generation proofs, shared writer patches, physical printers, real OAuth/SMS/mail and SDD/legal rendering are carried at their specific family boundaries in the JSON; they are not hundreds of invented code tasks.
 
@@ -117,14 +258,14 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:43` | `ajax-product-stock-list/` | inventory | external_acceptance |
 | `core/urls.py:45` | `ajax-order-product-stock-list/` | pos-catalog | external_acceptance |
 | `core/urls.py:47` | `assign-product-stock/` | inventory | external_acceptance |
-| `core/urls.py:53` | `salespersons/` | salespeople | partial |
-| `core/urls.py:54` | `ajax-salespersons-list/` | salespeople | partial |
-| `core/urls.py:55` | `ajax-archived-salespersons-list/` | salespeople | partial |
-| `core/urls.py:56` | `salespersons/create/` | salespeople | partial |
-| `core/urls.py:57` | `salespersons/<int:pk>/edit/` | salespeople | partial |
-| `core/urls.py:58` | `salesperson/<int:pk>/delete/` | salespeople | partial |
-| `core/urls.py:59` | `salesperson/<int:pk>/activate/` | salespeople | partial |
-| `core/urls.py:60` | `salesperson/<int:pk>/assign-store/` | salespeople | partial |
+| `core/urls.py:53` | `salespersons/` | salespeople | implementation_present |
+| `core/urls.py:54` | `ajax-salespersons-list/` | salespeople | implementation_present |
+| `core/urls.py:55` | `ajax-archived-salespersons-list/` | salespeople | implementation_present |
+| `core/urls.py:56` | `salespersons/create/` | salespeople | implementation_present |
+| `core/urls.py:57` | `salespersons/<int:pk>/edit/` | salespeople | implementation_present |
+| `core/urls.py:58` | `salesperson/<int:pk>/delete/` | salespeople | implementation_present |
+| `core/urls.py:59` | `salesperson/<int:pk>/activate/` | salespeople | implementation_present |
+| `core/urls.py:60` | `salesperson/<int:pk>/assign-store/` | salespeople | implementation_present |
 | `core/urls.py:62` | `spl-permission/` | special-permission-history, global-barcode-assignment | external_acceptance |
 | `core/urls.py:63` | `special_permission_data/` | special-permission-history | external_acceptance |
 | `core/urls.py:66` | `ajax-get-quotes/` | motivational-quotes | implementation_present |
@@ -157,21 +298,21 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:114` | `ajax-storage-stock-inventory-list/` | inventory-audit | external_acceptance |
 | `core/urls.py:119` | `ajax-get-checkin-data/` | check-in | implementation_present |
 | `core/urls.py:120` | `ajax-set-checkin-data/` | check-in | implementation_present |
-| `core/urls.py:123` | `documentation-lists/` | documentation | partial |
-| `core/urls.py:124` | `documentation-detail/` | documentation | partial |
-| `core/urls.py:125` | `documentation-datatable-lists/` | documentation | partial |
-| `core/urls.py:126` | `ajax-documentation-lists/` | documentation | partial |
-| `core/urls.py:127` | `upload-or-edit-tutorial/` | documentation | partial |
-| `core/urls.py:129` | `disable-tutorial/` | documentation | partial |
-| `core/urls.py:131` | `edc-machine-edit-detail/` | terminals | partial |
-| `core/urls.py:132` | `ajax-edc-machine-edit-detail/` | terminals | partial |
-| `core/urls.py:135` | `add-paytm-machine/` | terminals | partial |
-| `core/urls.py:136` | `add_pinelab_machine/` | terminals | partial |
-| `core/urls.py:137` | `ajax-next-edc-machine-name/` | terminals | partial |
-| `core/urls.py:140` | `edit-paytm-machine/<int:pk>/` | terminals | partial |
-| `core/urls.py:141` | `edit-pinelab-machine/<int:pk>/` | terminals | partial |
-| `core/urls.py:144` | `delete-paytm-machine/<int:pk>/` | terminals | partial |
-| `core/urls.py:145` | `delete-pinelab-machine/<int:pk>/` | terminals | partial |
+| `core/urls.py:123` | `documentation-lists/` | documentation | external_acceptance |
+| `core/urls.py:124` | `documentation-detail/` | documentation | external_acceptance |
+| `core/urls.py:125` | `documentation-datatable-lists/` | documentation | external_acceptance |
+| `core/urls.py:126` | `ajax-documentation-lists/` | documentation | external_acceptance |
+| `core/urls.py:127` | `upload-or-edit-tutorial/` | documentation | external_acceptance |
+| `core/urls.py:129` | `disable-tutorial/` | documentation | external_acceptance |
+| `core/urls.py:131` | `edc-machine-edit-detail/` | terminals | implementation_present |
+| `core/urls.py:132` | `ajax-edc-machine-edit-detail/` | terminals | implementation_present |
+| `core/urls.py:135` | `add-paytm-machine/` | terminals | implementation_present |
+| `core/urls.py:136` | `add_pinelab_machine/` | terminals | implementation_present |
+| `core/urls.py:137` | `ajax-next-edc-machine-name/` | terminals | implementation_present |
+| `core/urls.py:140` | `edit-paytm-machine/<int:pk>/` | terminals | implementation_present |
+| `core/urls.py:141` | `edit-pinelab-machine/<int:pk>/` | terminals | implementation_present |
+| `core/urls.py:144` | `delete-paytm-machine/<int:pk>/` | terminals | implementation_present |
+| `core/urls.py:145` | `delete-pinelab-machine/<int:pk>/` | terminals | implementation_present |
 | `core/urls.py:148` | `mpos-download-qr/` | staff-installer-handoff | external_acceptance |
 | `core/urls.py:149` | `ajax-gen-mpos-download-qr/` | staff-installer-handoff | external_acceptance |
 | `core/urls.py:150` | `mpos-download-thank-you/` | staff-installer-handoff | external_acceptance |
@@ -198,12 +339,12 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:13` | `store/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:14` | `online/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:15` | `online_sdd/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
-| `order/urls.py:16` | `ajax-get-sub-reasons/` | returns-exchanges | partial |
-| `order/urls.py:17` | `ajax-get-pay-amt/` | returns-exchanges | partial |
-| `order/urls.py:18` | `ajax-product-return/` | returns-exchanges | partial |
-| `order/urls.py:19` | `ajax-product-exchange/` | returns-exchanges | partial |
-| `order/urls.py:20` | `ajax-get-exchange-sizes/` | returns-exchanges | partial |
-| `order/urls.py:21` | `ajax-get-exchange-reasons/` | returns-exchanges | partial |
+| `order/urls.py:16` | `ajax-get-sub-reasons/` | returns-exchanges | external_acceptance |
+| `order/urls.py:17` | `ajax-get-pay-amt/` | returns-exchanges | external_acceptance |
+| `order/urls.py:18` | `ajax-product-return/` | returns-exchanges | external_acceptance |
+| `order/urls.py:19` | `ajax-product-exchange/` | returns-exchanges | external_acceptance |
+| `order/urls.py:20` | `ajax-get-exchange-sizes/` | returns-exchanges | external_acceptance |
+| `order/urls.py:21` | `ajax-get-exchange-reasons/` | returns-exchanges | external_acceptance |
 | `order/urls.py:22` | `tab/` | motivational-quotes, checkout-cart | external_acceptance |
 | `order/urls.py:23` | `create-order/<int:store_id>/<int:counter_id>/<int:tab_id>/` | motivational-quotes, checkout-cart, cashier-shortcuts, order-to-cart-copy, customer-website-handoff | external_acceptance |
 | `order/urls.py:24` | `ajax-cart/` | checkout-cart | external_acceptance |
@@ -225,7 +366,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | external_acceptance |
 | `order/urls.py:41` | `ajax-check-save-gc/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:42` | `ajax-save-gc-date/` | purchased-gift-cards | external_acceptance |
-| `order/urls.py:43` | `ajax-extend-return/` | returns-exchanges | partial |
+| `order/urls.py:43` | `ajax-extend-return/` | returns-exchanges | external_acceptance |
 | `order/urls.py:46` | `ajax-transaction-upload/` | payments | external_acceptance |
 | `order/urls.py:47` | `ajax-transaction-cancel/` | payments | external_acceptance |
 | `order/urls.py:48` | `ajax-transaction-status-check/` | payments | external_acceptance |
@@ -270,26 +411,26 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:112` | `ajax-hl-admin-edit/` | express-fulfillment | external_acceptance |
 | `order/urls.py:113` | `ship-express-order/` | express-fulfillment | external_acceptance |
 | `report/urls.py:16` | `api/v1/reconciliation/<str:feed_type>/` | finance-day-close | external_acceptance |
-| `report/urls.py:19` | `return-orders/` | operational-reports | partial |
-| `report/urls.py:20` | `ajax-return-order-list/` | operational-reports | partial |
-| `report/urls.py:21` | `orders-data/` | operational-reports | partial |
-| `report/urls.py:22` | `ajax-orders-data-list/` | operational-reports | partial |
+| `report/urls.py:19` | `return-orders/` | operational-reports | external_acceptance |
+| `report/urls.py:20` | `ajax-return-order-list/` | operational-reports | external_acceptance |
+| `report/urls.py:21` | `orders-data/` | operational-reports | external_acceptance |
+| `report/urls.py:22` | `ajax-orders-data-list/` | operational-reports | external_acceptance |
 | `report/urls.py:27` | `ajax-troubleshoot-inventory/` | inventory-parent-repair | implementation_present |
-| `report/urls.py:31` | `ajax-nps-data-list/` | operational-reports | partial |
-| `report/urls.py:36` | `order-hyperlocal-accept-report/` | operational-reports | partial |
-| `report/urls.py:37` | `ajax-hyperlocal-order-accept-report/` | operational-reports | partial |
+| `report/urls.py:31` | `ajax-nps-data-list/` | operational-reports | external_acceptance |
+| `report/urls.py:36` | `order-hyperlocal-accept-report/` | operational-reports | external_acceptance |
+| `report/urls.py:37` | `ajax-hyperlocal-order-accept-report/` | operational-reports | external_acceptance |
 | `report/urls.py:40` | `hyperlocal-slack-report/` | scheduled-reports | external_acceptance |
 | `report/urls.py:41` | `hyperlocal-availability-report/` | scheduled-reports | external_acceptance |
 | `report/urls.py:42` | `hyperlocal-store-status-report/` | scheduled-reports | external_acceptance |
 | `report/urls.py:43` | `hyperlocal-delivery-report` | scheduled-reports | external_acceptance |
 | `report/urls.py:44` | `hyperlocal-cancellation-report/` | scheduled-reports | external_acceptance |
 | `report/urls.py:45` | `crm-ticket-status/` | scheduled-reports | external_acceptance |
-| `report/urls.py:51` | `salesperson-performance-report/` | operational-reports | partial |
-| `report/urls.py:52` | `ajax-salesperson-performance-report/` | operational-reports | partial |
-| `report/urls.py:53` | `cashier-performance-report/` | operational-reports | partial |
-| `report/urls.py:54` | `ajax-cashier-performance-report/` | operational-reports | partial |
-| `report/urls.py:65` | `sales-data/` | operational-reports | partial |
-| `report/urls.py:66` | `ajax-sales-data/` | operational-reports | partial |
+| `report/urls.py:51` | `salesperson-performance-report/` | operational-reports | external_acceptance |
+| `report/urls.py:52` | `ajax-salesperson-performance-report/` | operational-reports | external_acceptance |
+| `report/urls.py:53` | `cashier-performance-report/` | operational-reports | external_acceptance |
+| `report/urls.py:54` | `ajax-cashier-performance-report/` | operational-reports | external_acceptance |
+| `report/urls.py:65` | `sales-data/` | operational-reports | external_acceptance |
+| `report/urls.py:66` | `ajax-sales-data/` | operational-reports | external_acceptance |
 | `report/urls.py:69` | `daily-store-report/` | daily-store-report | external_acceptance |
 | `report/urls.py:70` | `ajax-daily-store-report/` | daily-store-report | external_acceptance |
 | `report/urls.py:73` | `day-close/` | finance-day-close | external_acceptance |
@@ -302,49 +443,49 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/urls.py:80` | `day-close-cash-balance/` | finance-day-close | external_acceptance |
 | `report/urls.py:81` | `ajax-day-close-cash-balance/` | finance-day-close | external_acceptance |
 | `report/urls.py:84` | `store-hyperlocal-record/` | scheduled-reports | external_acceptance |
-| `report/urls.py:87` | `hyperlocal-reports/daily-report/` | operational-reports | partial |
-| `report/urls.py:88` | `ajax-hyperlocal-daily-export/` | operational-reports | partial |
+| `report/urls.py:87` | `hyperlocal-reports/daily-report/` | operational-reports | external_acceptance |
+| `report/urls.py:88` | `ajax-hyperlocal-daily-export/` | operational-reports | external_acceptance |
 | `report/urls.py:91` | `export-logs/` | report-exports | external_acceptance |
 | `report/urls.py:92` | `ajax-export-logs/` | report-exports | external_acceptance |
-| `stores/urls.py:8` | `stores` | stores | partial |
-| `stores/urls.py:9` | `ajax-store-list/` | stores | partial |
-| `stores/urls.py:10` | `ajax-archived-store-list/` | stores | partial |
-| `stores/urls.py:11` | `create/` | stores, store-images | partial |
+| `stores/urls.py:8` | `stores` | stores | implementation_present |
+| `stores/urls.py:9` | `ajax-store-list/` | stores | implementation_present |
+| `stores/urls.py:10` | `ajax-archived-store-list/` | stores | implementation_present |
+| `stores/urls.py:11` | `create/` | stores, store-images | external_acceptance |
 | `stores/urls.py:12` | `add-location/` | location-codes | implementation_present |
-| `stores/urls.py:13` | `<int:pk>/view/` | stores | partial |
-| `stores/urls.py:14` | `<int:pk>/edit/` | stores, store-images | partial |
-| `stores/urls.py:15` | `<int:pk>/delete/` | stores | partial |
-| `stores/urls.py:16` | `<int:pk>/activate/` | stores | partial |
+| `stores/urls.py:13` | `<int:pk>/view/` | stores | implementation_present |
+| `stores/urls.py:14` | `<int:pk>/edit/` | stores, store-images | external_acceptance |
+| `stores/urls.py:15` | `<int:pk>/delete/` | stores | implementation_present |
+| `stores/urls.py:16` | `<int:pk>/activate/` | stores | implementation_present |
 | `stores/urls.py:17` | `slack/connect/` | store-slack-oauth | external_acceptance |
 | `stores/urls.py:18` | `slack/callback/` | store-slack-oauth | external_acceptance |
-| `stores/urls.py:21` | `storages` | storage | partial |
-| `stores/urls.py:22` | `ajax-store-storage-list/` | storage | partial |
-| `stores/urls.py:23` | `ajax-archived-store-storage-list/` | storage | partial |
-| `stores/urls.py:24` | `storage/create/` | storage | partial |
-| `stores/urls.py:25` | `storage/<int:pk>/view/` | storage | partial |
-| `stores/urls.py:26` | `storage/<int:pk>/edit/` | storage | partial |
-| `stores/urls.py:27` | `storage/<int:pk>/delete/` | storage | partial |
-| `stores/urls.py:28` | `storage/<int:pk>/activate/` | storage | partial |
-| `stores/urls.py:31` | `counters` | counters | partial |
-| `stores/urls.py:32` | `ajax-counters-list/` | counters | partial |
-| `stores/urls.py:33` | `ajax-archived-counters-list/` | counters | partial |
-| `stores/urls.py:34` | `counters/create/` | counters | partial |
-| `stores/urls.py:35` | `counters/<int:pk>/delete/` | counters | partial |
-| `stores/urls.py:36` | `counters/<int:pk>/activate/` | counters | partial |
+| `stores/urls.py:21` | `storages` | storage | implementation_present |
+| `stores/urls.py:22` | `ajax-store-storage-list/` | storage | implementation_present |
+| `stores/urls.py:23` | `ajax-archived-store-storage-list/` | storage | implementation_present |
+| `stores/urls.py:24` | `storage/create/` | storage | implementation_present |
+| `stores/urls.py:25` | `storage/<int:pk>/view/` | storage | implementation_present |
+| `stores/urls.py:26` | `storage/<int:pk>/edit/` | storage | implementation_present |
+| `stores/urls.py:27` | `storage/<int:pk>/delete/` | storage | implementation_present |
+| `stores/urls.py:28` | `storage/<int:pk>/activate/` | storage | implementation_present |
+| `stores/urls.py:31` | `counters` | counters | implementation_present |
+| `stores/urls.py:32` | `ajax-counters-list/` | counters | implementation_present |
+| `stores/urls.py:33` | `ajax-archived-counters-list/` | counters | implementation_present |
+| `stores/urls.py:34` | `counters/create/` | counters | implementation_present |
+| `stores/urls.py:35` | `counters/<int:pk>/delete/` | counters | implementation_present |
+| `stores/urls.py:36` | `counters/<int:pk>/activate/` | counters | implementation_present |
 | `users/urls.py:8` | `login/` | identity | external_acceptance |
 | `users/urls.py:9` | `ajax-send-login-otp/` | identity | external_acceptance |
 | `users/urls.py:10` | `ajax-mfa-login/` | identity | external_acceptance |
 | `users/urls.py:11` | `logout/` | identity | external_acceptance |
 | `users/urls.py:12` | `profile/` | self-profile | external_acceptance |
 | `users/urls.py:13` | `password-change/` | self-profile | external_acceptance |
-| `users/urls.py:14` | `users_list_view` | operators | partial |
-| `users/urls.py:15` | `ajax-users-list/` | operators | partial |
-| `users/urls.py:16` | `ajax-archived-users-list/` | operators | partial |
-| `users/urls.py:17` | `create/` | operators | partial |
-| `users/urls.py:18` | `<int:pk>/edit/` | operators | partial |
-| `users/urls.py:19` | `<int:pk>/delete/` | operators | partial |
-| `users/urls.py:20` | `<int:pk>/activate/` | operators | partial |
-| `users/urls.py:21` | `<int:user_id>/assign-store` | operators | partial |
+| `users/urls.py:14` | `users_list_view` | operators | implementation_present |
+| `users/urls.py:15` | `ajax-users-list/` | operators | implementation_present |
+| `users/urls.py:16` | `ajax-archived-users-list/` | operators | implementation_present |
+| `users/urls.py:17` | `create/` | operators | implementation_present |
+| `users/urls.py:18` | `<int:pk>/edit/` | operators | implementation_present |
+| `users/urls.py:19` | `<int:pk>/delete/` | operators | implementation_present |
+| `users/urls.py:20` | `<int:pk>/activate/` | operators | implementation_present |
+| `users/urls.py:21` | `<int:user_id>/assign-store` | operators | implementation_present |
 | `users/urls.py:22` | `get-user-details` | customer-workspace | external_acceptance |
 | `users/urls.py:23` | `update-user` | customer-workspace | external_acceptance |
 | `users/urls.py:24` | `get-user-behaviour` | customer-workspace | external_acceptance |
@@ -382,11 +523,11 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/views.py:4482` | `advance_order_notification` | local-deliveries | external_acceptance |
 | `report/datatables/cash_balance_datatable.py:83` | `do_cash_balance_export` | finance-day-close, report-exports | external_acceptance |
 | `report/datatables/day_close_datatable.py:216` | `do_day_close_export` | finance-day-close, report-exports | external_acceptance |
-| `report/datatables/hyperlocal_daily_datatable.py:40` | `do_hyperlocal_daily_export` | operational-reports, report-exports | partial |
+| `report/datatables/hyperlocal_daily_datatable.py:40` | `do_hyperlocal_daily_export` | operational-reports, report-exports | external_acceptance |
 | `report/datatables/inventory_datatable.py:60` | `do_return_export` | inventory-workbooks, report-exports | external_acceptance |
-| `report/datatables/return_orders_datatable.py:63` | `do_return_export` | operational-reports, report-exports | partial |
-| `report/datatables/return_orders_datatable.py:328` | `do_order_export` | operational-reports, report-exports | partial |
-| `report/datatables/sales_data.py:66` | `do_sales_export` | operational-reports, report-exports | partial |
+| `report/datatables/return_orders_datatable.py:63` | `do_return_export` | operational-reports, report-exports | external_acceptance |
+| `report/datatables/return_orders_datatable.py:328` | `do_order_export` | operational-reports, report-exports | external_acceptance |
+| `report/datatables/sales_data.py:66` | `do_sales_export` | operational-reports, report-exports | external_acceptance |
 | `report/tasks.py:25` | `process_export_master` | inventory-workbooks | external_acceptance |
 | `report/tasks.py:87` | `generate_store_excel_chunk` | inventory-workbooks | external_acceptance |
 | `report/tasks.py:134` | `debug_print_result` | inventory-workbooks | external_acceptance |
@@ -405,14 +546,14 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/delivery_timing/edit.html` | `core/templates/delivery_timing/edit.html` | support | implementation_present |
 | `core/templates/delivery_timing/edit_form.html` | `core/templates/delivery_timing/edit_form.html` | support | implementation_present |
 | `core/templates/delivery_timing/index.html` | `core/templates/delivery_timing/index.html` | support | implementation_present |
-| `core/templates/documentation/_detail.html` | `core/templates/documentation/_detail.html` | documentation | partial |
-| `core/templates/documentation/_form.html` | `core/templates/documentation/_form.html` | documentation | partial |
-| `core/templates/documentation/create.html` | `core/templates/documentation/create.html` | documentation | partial |
-| `core/templates/documentation/documentation_lists.html` | `core/templates/documentation/documentation_lists.html` | documentation | partial |
-| `core/templates/documentation/index.html` | `core/templates/documentation/index.html` | documentation | partial |
-| `core/templates/documentation/show.html` | `core/templates/documentation/show.html` | documentation | partial |
+| `core/templates/documentation/_detail.html` | `core/templates/documentation/_detail.html` | documentation | external_acceptance |
+| `core/templates/documentation/_form.html` | `core/templates/documentation/_form.html` | documentation | external_acceptance |
+| `core/templates/documentation/create.html` | `core/templates/documentation/create.html` | documentation | external_acceptance |
+| `core/templates/documentation/documentation_lists.html` | `core/templates/documentation/documentation_lists.html` | documentation | external_acceptance |
+| `core/templates/documentation/index.html` | `core/templates/documentation/index.html` | documentation | external_acceptance |
+| `core/templates/documentation/show.html` | `core/templates/documentation/show.html` | documentation | external_acceptance |
 | `core/templates/ecom_delivery/index.html` | `core/templates/ecom_delivery/index.html` | support, ecommerce-inventory-sync | external_acceptance |
-| `core/templates/edc_edit/edc_detail_and_edit.html` | `core/templates/edc_edit/edc_detail_and_edit.html` | terminals | partial |
+| `core/templates/edc_edit/edc_detail_and_edit.html` | `core/templates/edc_edit/edc_detail_and_edit.html` | terminals | implementation_present |
 | `core/templates/gift_card/index.html` | `core/templates/gift_card/index.html` | gift-card-batches | external_acceptance |
 | `core/templates/mpos_download/index.html` | `core/templates/mpos_download/index.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/mpos_download/thank_you.html` | `core/templates/mpos_download/thank_you.html` | staff-installer-handoff | external_acceptance |
@@ -429,18 +570,18 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/products/storage_stock/storage_inventory_logs.html` | `core/templates/products/storage_stock/storage_inventory_logs.html` | inventory-audit | external_acceptance |
 | `core/templates/products/store/index.html` | `core/templates/products/store/index.html` | catalog-read, parent-store-assignment-csv | external_acceptance |
 | `core/templates/products/store/show.html` | `core/templates/products/store/show.html` | catalog-read, parent-store-assignment-csv | external_acceptance |
-| `core/templates/salespersons/_form.html` | `core/templates/salespersons/_form.html` | salespeople | partial |
-| `core/templates/salespersons/create.html` | `core/templates/salespersons/create.html` | salespeople | partial |
-| `core/templates/salespersons/edit.html` | `core/templates/salespersons/edit.html` | salespeople | partial |
-| `core/templates/salespersons/index.html` | `core/templates/salespersons/index.html` | salespeople | partial |
+| `core/templates/salespersons/_form.html` | `core/templates/salespersons/_form.html` | salespeople | implementation_present |
+| `core/templates/salespersons/create.html` | `core/templates/salespersons/create.html` | salespeople | implementation_present |
+| `core/templates/salespersons/edit.html` | `core/templates/salespersons/edit.html` | salespeople | implementation_present |
+| `core/templates/salespersons/index.html` | `core/templates/salespersons/index.html` | salespeople | implementation_present |
 | `core/templates/settings/index.html` | `core/templates/settings/index.html` | support | implementation_present |
 | `core/templates/shopify_order_punch/index.html` | `core/templates/shopify_order_punch/index.html` | legacy-order-imports | external_acceptance |
 | `core/templates/special_permission/index.html` | `core/templates/special_permission/index.html` | special-permission-history, wallet-adjustments, global-vouchers, global-barcode-assignment | external_acceptance |
-| `core/templates/upload_logs/index.html` | `core/templates/upload_logs/index.html` | inventory-imports, legacy-order-imports, parent-store-assignment-csv | external_acceptance |
+| `core/templates/upload_logs/index.html` | `core/templates/upload_logs/index.html` | inventory-imports, legacy-order-imports, parent-store-assignment-csv, inactive-upload-logs | missing |
 | `core/templates/user_to_app/index.html` | `core/templates/user_to_app/index.html` | customer-application-handoff | external_acceptance |
 | `dashboard/templates/dashboard/dashboard.html` | `dashboard/templates/dashboard/dashboard.html` | dashboard-summary | external_acceptance |
 | `dashboard/templates/dashboard/main_dashboard.html` | `dashboard/templates/dashboard/main_dashboard.html` | shared-shell, motivational-quotes | implementation_present |
-| `order/templates/order/_exchange_js.html` | `order/templates/order/_exchange_js.html` | returns-exchanges | partial |
+| `order/templates/order/_exchange_js.html` | `order/templates/order/_exchange_js.html` | returns-exchanges | external_acceptance |
 | `order/templates/order/_hl_banner.html` | `order/templates/order/_hl_banner.html` | express-fulfillment, notifications | external_acceptance |
 | `order/templates/order/add_order_feedback.html` | `order/templates/order/add_order_feedback.html` | product-feedback | implementation_present |
 | `order/templates/order/basic_error.html` | `order/templates/order/basic_error.html` | system-health | implementation_present |
@@ -453,13 +594,13 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/hyperlocal/_progress_content.html` | `order/templates/order/hyperlocal/_progress_content.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/all_stores_dashboard.html` | `order/templates/order/hyperlocal/all_stores_dashboard.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/progress.html` | `order/templates/order/hyperlocal/progress.html` | express-fulfillment | external_acceptance |
-| `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | partial |
+| `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | external_acceptance |
 | `order/templates/order/invoice.html` | `order/templates/order/invoice.html` | invoice-documents | external_acceptance |
-| `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | partial |
-| `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | partial |
+| `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
+| `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
 | `order/templates/order/shipping.html` | `order/templates/order/shipping.html` | shipping-labels | external_acceptance |
 | `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
-| `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | partial |
+| `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | external_acceptance |
 | `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | external_acceptance |
 | `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |
 | `report/templates/bd_report/daily_report_matric_upload.html` | `report/templates/bd_report/daily_report_matric_upload.html` | business-metrics-upload | missing |
@@ -468,28 +609,28 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/templates/day_close/index.html` | `report/templates/day_close/index.html` | finance-day-close | external_acceptance |
 | `report/templates/day_close/logs.html` | `report/templates/day_close/logs.html` | finance-day-close | external_acceptance |
 | `report/templates/export/index.html` | `report/templates/export/index.html` | report-exports | external_acceptance |
-| `report/templates/orders/daily_tracker.html` | `report/templates/orders/daily_tracker.html` | operational-reports | partial |
-| `report/templates/orders/hyperlocal_daily_report.html` | `report/templates/orders/hyperlocal_daily_report.html` | operational-reports | partial |
-| `report/templates/orders/hyperlocal_data.html` | `report/templates/orders/hyperlocal_data.html` | operational-reports | partial |
-| `report/templates/orders/hyperlocal_order_accept_report.html` | `report/templates/orders/hyperlocal_order_accept_report.html` | operational-reports | partial |
-| `report/templates/orders/nps_data.html` | `report/templates/orders/nps_data.html` | operational-reports | partial |
-| `report/templates/orders/orders_data.html` | `report/templates/orders/orders_data.html` | operational-reports | partial |
-| `report/templates/orders/return_orders.html` | `report/templates/orders/return_orders.html` | operational-reports | partial |
-| `report/templates/performance_report/cashier_performance.html` | `report/templates/performance_report/cashier_performance.html` | operational-reports | partial |
-| `report/templates/performance_report/salesperson_performance.html` | `report/templates/performance_report/salesperson_performance.html` | operational-reports | partial |
+| `report/templates/orders/daily_tracker.html` | `report/templates/orders/daily_tracker.html` | operational-reports | external_acceptance |
+| `report/templates/orders/hyperlocal_daily_report.html` | `report/templates/orders/hyperlocal_daily_report.html` | operational-reports | external_acceptance |
+| `report/templates/orders/hyperlocal_data.html` | `report/templates/orders/hyperlocal_data.html` | operational-reports | external_acceptance |
+| `report/templates/orders/hyperlocal_order_accept_report.html` | `report/templates/orders/hyperlocal_order_accept_report.html` | operational-reports | external_acceptance |
+| `report/templates/orders/nps_data.html` | `report/templates/orders/nps_data.html` | operational-reports | external_acceptance |
+| `report/templates/orders/orders_data.html` | `report/templates/orders/orders_data.html` | operational-reports | external_acceptance |
+| `report/templates/orders/return_orders.html` | `report/templates/orders/return_orders.html` | operational-reports | external_acceptance |
+| `report/templates/performance_report/cashier_performance.html` | `report/templates/performance_report/cashier_performance.html` | operational-reports | external_acceptance |
+| `report/templates/performance_report/salesperson_performance.html` | `report/templates/performance_report/salesperson_performance.html` | operational-reports | external_acceptance |
 | `report/templates/product/product_inventory.html` | `report/templates/product/product_inventory.html` | inventory-workbooks, catalog-read | external_acceptance |
-| `report/templates/sales/index.html` | `report/templates/sales/index.html` | operational-reports | partial |
-| `stores/templates/counters/index.html` | `stores/templates/counters/index.html` | counters | partial |
-| `stores/templates/stores/_form.html` | `stores/templates/stores/_form.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/create.html` | `stores/templates/stores/create.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/edit.html` | `stores/templates/stores/edit.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/index.html` | `stores/templates/stores/index.html` | stores, store-images, location-codes, country-search | partial |
-| `stores/templates/stores/show.html` | `stores/templates/stores/show.html` | stores, store-images, location-codes, country-search | partial |
+| `report/templates/sales/index.html` | `report/templates/sales/index.html` | operational-reports | external_acceptance |
+| `stores/templates/counters/index.html` | `stores/templates/counters/index.html` | counters | implementation_present |
+| `stores/templates/stores/_form.html` | `stores/templates/stores/_form.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/create.html` | `stores/templates/stores/create.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/edit.html` | `stores/templates/stores/edit.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/index.html` | `stores/templates/stores/index.html` | stores, store-images, location-codes, country-search | external_acceptance |
+| `stores/templates/stores/show.html` | `stores/templates/stores/show.html` | stores, store-images, location-codes, country-search | external_acceptance |
 | `stores/templates/stores/slack_callback.html` | `stores/templates/stores/slack_callback.html` | store-slack-oauth | external_acceptance |
-| `stores/templates/stores/storage/create.html` | `stores/templates/stores/storage/create.html` | storage | partial |
-| `stores/templates/stores/storage/edit.html` | `stores/templates/stores/storage/edit.html` | storage | partial |
-| `stores/templates/stores/storage/index.html` | `stores/templates/stores/storage/index.html` | storage | partial |
-| `stores/templates/stores/storage/show.html` | `stores/templates/stores/storage/show.html` | storage | partial |
+| `stores/templates/stores/storage/create.html` | `stores/templates/stores/storage/create.html` | storage | implementation_present |
+| `stores/templates/stores/storage/edit.html` | `stores/templates/stores/storage/edit.html` | storage | implementation_present |
+| `stores/templates/stores/storage/index.html` | `stores/templates/stores/storage/index.html` | storage | implementation_present |
+| `stores/templates/stores/storage/show.html` | `stores/templates/stores/storage/show.html` | storage | implementation_present |
 | `users/templates/admin/includes/footer.html` | `users/templates/admin/includes/footer.html` | shared-shell | implementation_present |
 | `users/templates/admin/includes/header.html` | `users/templates/admin/includes/header.html` | shared-shell | implementation_present |
 | `users/templates/admin/includes/navbar.html` | `users/templates/admin/includes/navbar.html` | shared-shell | implementation_present |
@@ -499,9 +640,9 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `users/templates/admin/layouts/base_create_order.html` | `users/templates/admin/layouts/base_create_order.html` | shared-shell | implementation_present |
 | `users/templates/admin/layouts/base_no_sidebar_navbar.html` | `users/templates/admin/layouts/base_no_sidebar_navbar.html` | shared-shell | implementation_present |
 | `users/templates/auth/auth_qr.html` | `users/templates/auth/auth_qr.html` | device-signin | external_acceptance |
-| `users/templates/auth/create.html` | `users/templates/auth/create.html` | operators | partial |
-| `users/templates/auth/edit.html` | `users/templates/auth/edit.html` | operators | partial |
-| `users/templates/auth/index.html` | `users/templates/auth/index.html` | operators | partial |
+| `users/templates/auth/create.html` | `users/templates/auth/create.html` | operators | implementation_present |
+| `users/templates/auth/edit.html` | `users/templates/auth/edit.html` | operators | implementation_present |
+| `users/templates/auth/index.html` | `users/templates/auth/index.html` | operators | implementation_present |
 | `users/templates/auth/login.html` | `users/templates/auth/login.html` | identity | external_acceptance |
 | `users/templates/auth/profile.html` | `users/templates/auth/profile.html` | self-profile | external_acceptance |
 
@@ -515,8 +656,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 
 | Source | Surface | Families | Implementation disposition |
 | --- | --- | --- | --- |
-| `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | partial |
-| `users/admin.py:20` | `User, UserAdmin` | operators, operator-administrative-profile, operator-mfa, model-administration-access, inherited-administration-history, inherited-model-add-forms | partial |
+| `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | external_acceptance |
+| `users/admin.py:20` | `User, UserAdmin` | operators, operator-administrative-profile, operator-mfa, model-administration-access, inherited-administration-history, inherited-model-add-forms | external_acceptance |
 
 ## Reproducibility and limits
 
