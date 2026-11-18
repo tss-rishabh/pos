@@ -65,6 +65,7 @@ if (flags.has('--mysql')) {
     AUTH_MYSQL_TEST_URL: 'pos_rewrite_auth_test',
     ADMINISTRATION_MYSQL_TEST_URL: 'pos_rewrite_administration_test',
     CHECKOUT_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
+    ORIGIN_PREVIEW_MYSQL_TEST_URL: 'pos_rewrite_origin_preview_test',
     MIGRATION_MYSQL_TEST_URL: 'pos_rewrite_migrations_test',
     SPECIAL_PERMISSION_MYSQL_TEST_URL: 'pos_rewrite_activity_history_test',
     APPLICATION_LINK_MYSQL_TEST_URL: 'pos_rewrite_application_links_test',

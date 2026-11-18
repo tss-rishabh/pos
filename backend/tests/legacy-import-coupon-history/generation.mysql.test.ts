@@ -5,7 +5,6 @@ import { benefitDigest } from '../../src/modules/legacy-order-imports/benefit-pr
 import { couponControlHashSql } from '../../src/modules/legacy-order-imports/benefit-profile/native.js';
 import { generationControlDataSchema } from '../../src/modules/legacy-order-imports/benefit-profile/history-generation-control.js';
 import { couponHistoryWritersDefinitionHash } from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
-import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { splitMigration } from '../../src/db/migrations.js';
 import {

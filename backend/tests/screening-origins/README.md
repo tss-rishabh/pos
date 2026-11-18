@@ -10,8 +10,12 @@ Set `POS_LEGACY_IMPORT_SOURCE_ROOT` to the immutable API commit
 `2960acbea10c4eaf16b6d99e15ff6e03ef7724c5`. The fixture checks original source
 hashes before compiling Cart, middleware, cart persistence/serializer, JWT
 verification, original CartController, Order/PosOrder and CSK prefix code. The
-existing source Python environment needs SQLAlchemy/PyMySQL/cryptography plus
-the original requests/PyJWT dependencies; no fixture installs packages.
+owned fixture runner uses the frozen `origin-source-fixtures` dependency group
+in a separate temporary environment. It pins Requests 2.34.2 and PyJWT 2.15.1
+alongside the existing SQLAlchemy/PyMySQL/cryptography lock. This executes the
+original source classes with current fixture dependencies; it does not certify
+the dependencies inside an externally deployed original API image. The runner
+does not mutate the shared source `.venv` or forward service credentials.
 
 The native cases prove cart hydration waits for genuine current authority,
 history providers execute after every SQL connection is released, current
@@ -52,5 +56,5 @@ Example from `backend/`:
 POS_LEGACY_IMPORT_SOURCE_ROOT=/immutable/api-2960 \
 ORIGIN_PREVIEW_MYSQL_TEST_URL=mysql+pymysql://root@127.0.0.1:54566/pos_rewrite_origin_preview_test \
 TZ=Asia/Kolkata \
-compatibility/upstream/offline-cash-pricing/.venv/bin/python -B tests/screening-origins/test_preview.py -v
+tools/screening-origins/run-fixture.sh -B tests/screening-origins/test_preview.py -v
 ```
