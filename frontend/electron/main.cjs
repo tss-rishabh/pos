@@ -1,4 +1,5 @@
 const { app, BrowserWindow, session, dialog, shell } = require('electron');
+const path = require('node:path');
 const { readWorkspaceConfiguration } = require('./workspace-config.cjs');
 
 // One web application and persistent Chromium profile provide the same offline
@@ -39,6 +40,7 @@ else
         show: false,
         webPreferences: {
           partition,
+          preload: path.join(__dirname, 'preload.cjs'),
           sandbox: true,
           contextIsolation: true,
           nodeIntegration: false,
@@ -180,6 +182,15 @@ else
       );
       window.webContents.on('will-attach-webview', (event) => event.preventDefault());
       window.once('ready-to-show', () => window.show());
+      // Desktop offline billing (encrypted SQLite, main process only). A
+      // failure here never blocks the online workspace.
+      try {
+        void require('./dist/offline-billing.cjs')
+          .startOfflineBilling({ window, workspaceOrigin: url.origin, profile })
+          .catch(() => undefined);
+      } catch {
+        /* Offline billing bundle unavailable; the online workspace continues. */
+      }
       window.loadURL(url.href).catch(() => {
         dialog.showErrorBox(
           'Workspace unavailable',
