@@ -64,6 +64,7 @@ import {
   readSlackOAuthOptions,
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
+import { registerOfflineSync } from './modules/offline-sync/index.js';
 import { registerLegacyOrderImports } from './modules/legacy-order-imports/index.js';
 import { configuredLegacyOrderImports } from './modules/legacy-order-imports/runtime.js';
 import { readLegacyOrderImportOptions } from './modules/legacy-order-imports/options.js';
@@ -381,7 +382,7 @@ export async function buildApp(
       readLegacyOrderImportOptions(config.DEMO_MODE ? {} : process.env)
         .LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1 ?? '',
   });
-  await registerCheckout(app, config, db, {
+  const checkout = await registerCheckout(app, config, db, {
     environment: checkoutRuntime,
     paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
     customerOtp,
@@ -392,6 +393,7 @@ export async function buildApp(
       ? { inventoryProcedureVerified: true, stockProcedure: stockProjection }
       : {}),
   });
+  registerOfflineSync(app, config, db, { checkout, identity, environment: checkoutRuntime });
   registerPaymentReversals(app, config, db, {
     ...paymentReversalOptions(),
     hashSecret: paymentCorrections.proofKey ?? '',

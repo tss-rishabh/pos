@@ -38,7 +38,7 @@ import { useCheckoutPerformance } from './hooks/use-checkout-performance';
 import { useWorkspace } from './state/workspace';
 import { request, setRequestOperator } from './api/client';
 import { clearLocalIdentity } from './offline/clear-identity';
-import { useOfflineCashSync } from './offline/cash/use-sync';
+import { useOfflineBillingAutoSwitch } from './offline/billing/auto-switch';
 import { Login } from './pages/login';
 import { Empty, ErrorState, Loading } from './components/common';
 import { RealtimeClock } from './components/realtime-clock';
@@ -52,6 +52,7 @@ import { pendingSlackConnection } from './pages/administration/slack-return';
 const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default: m.CounterPage })));
 const ShortcutReferencePage = lazy(() => import('./pages/cashier-shortcuts/reference'));
 const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
+const OfflineBillingPage = lazy(() => import('./pages/offline-billing'));
 const DashboardPage = lazy(() => import('./pages/dashboard'));
 const BarcodeAssignmentsPage = lazy(() => import('./pages/administration/barcodes'));
 const ParentStoreImportsPage = lazy(() => import('./pages/administration/parent-store-imports'));
@@ -207,6 +208,7 @@ const links = [
   { to: '/dashboard', name: 'Dashboard', icon: ChartNoAxesCombined, internalOnly: true },
   { to: '/orders', name: 'Orders', icon: ReceiptText },
   { to: '/offline-worksheet', name: 'Invoice worksheet', icon: ReceiptText },
+  { to: '/offline-billing', name: 'Offline billing', icon: CloudOff },
   { to: '/returns', name: 'Returns', icon: Undo2 },
   { to: '/inventory', name: 'Inventory', icon: Package },
   { to: '/catalog', name: 'Product catalog', icon: Package },
@@ -322,14 +324,7 @@ function Workspace({ user }: { user: Principal }) {
     counters = useCounters(user.id, state.storeId),
     sync = useSync(user.id);
   useCheckoutPerformance(user.id, state.storeId, state.counterId, sync.online);
-  useOfflineCashSync(
-    user,
-    state.storeId,
-    state.counterId,
-    sync.online &&
-      Boolean(stores.data?.some((store) => store.id === state.storeId)) &&
-      Boolean(counters.data?.some((counter) => counter.id === state.counterId)),
-  );
+  useOfflineBillingAutoSwitch(sync.online);
   const [logoutError, setLogoutError] = useState<unknown>(null);
   const capabilities = useQuery({
     queryKey: ['capabilities'],
@@ -665,6 +660,7 @@ function Workspace({ user }: { user: Principal }) {
                   }
                 />
                 <Route path="/sync" element={<SyncPage {...sync} />} />
+                <Route path="/offline-billing" element={<OfflineBillingPage />} />
                 <Route
                   path="/profile"
                   element={<ProfilePage key={user.id} user={user} online={sync.online} />}

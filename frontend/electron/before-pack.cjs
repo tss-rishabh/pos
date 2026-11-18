@@ -16,6 +16,7 @@ module.exports = async function beforePack(context) {
     typeof packager.disposeOnBuildFinish !== 'function'
   )
     throw new Error('Desktop workspace packaging is not configured.');
+  await verifyOfflineBilling(packager.appDir, context);
   // Build artifacts always require HTTPS; the runtime's explicit development
   // loopback override remains separate from a distributable deployment config.
   const bytes = Buffer.from(JSON.stringify(workspaceFromEnvironment(process.env)) + '\n');
@@ -31,6 +32,36 @@ module.exports = async function beforePack(context) {
   owned.ready = prepare(packager, bytes);
   return owned.ready;
 };
+
+const ARCHES = { 1: 'x64', 3: 'arm64' };
+/** Offline billing needs the bundled main-process module and the N-API
+ * SQLCipher prebuild for this exact target (copied to resources/offline-sqlite
+ * by extraResources). N-API binaries are Electron-ABI independent, so no
+ * rebuild runs; an unsupported target fails the package instead of shipping a
+ * desktop app that cannot store offline sales. */
+async function verifyOfflineBilling(appDir, context) {
+  const platform = context?.electronPlatformName,
+    arch = ARCHES[context?.arch];
+  if (!['darwin', 'win32', 'linux'].includes(platform) || !arch)
+    throw new Error('Desktop offline billing supports x64 and arm64 desktop packages only.');
+  const required = [
+    path.join(appDir, 'electron', 'dist', 'offline-billing.cjs'),
+    path.join(appDir, 'electron', 'preload.cjs'),
+    path.join(appDir, 'node_modules', 'better-sqlite3-multiple-ciphers', 'lib', 'index.js'),
+    path.join(
+      appDir,
+      'node_modules',
+      'better-sqlite3-multiple-ciphers',
+      'prebuilds',
+      `${platform}-${arch}.node`,
+    ),
+  ];
+  for (const file of required) {
+    const stat = await fs.stat(file).catch(() => null);
+    if (!stat?.isFile())
+      throw new Error('Desktop offline billing is not built. Run npm run build before packaging.');
+  }
+}
 
 async function prepare(packager, bytes) {
   const filename = path.join(packager.appDir, 'electron', 'workspace.json');
