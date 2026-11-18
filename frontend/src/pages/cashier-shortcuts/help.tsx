@@ -1,5 +1,5 @@
 import { cashierShortcutDescriptions } from './shortcuts';
-export function CashierShortcutHelp({
+export function CashierShortcutReferenceContent({
   enabled,
   onChange,
 }: {
@@ -7,8 +7,7 @@ export function CashierShortcutHelp({
   onChange: (enabled: boolean) => void;
 }) {
   return (
-    <details className="cashier-shortcut-help">
-      <summary>Keyboard shortcuts</summary>
+    <>
       <label>
         <input
           type="checkbox"
@@ -33,6 +32,18 @@ export function CashierShortcutHelp({
         Shortcuts pause while you type or use another dialog. Payment still requires its existing
         checks and confirmation.
       </p>
+    </>
+  );
+}
+
+export function CashierShortcutHelp(props: {
+  enabled: boolean;
+  onChange: (enabled: boolean) => void;
+}) {
+  return (
+    <details className="cashier-shortcut-help">
+      <summary>Keyboard shortcuts</summary>
+      <CashierShortcutReferenceContent {...props} />
     </details>
   );
 }

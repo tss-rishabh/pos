@@ -40,6 +40,7 @@ import {
   type AutomaticInvoiceRequest,
 } from './invoice-documents';
 import { CashierShortcutHelp } from './cashier-shortcuts/help';
+import { useCashierShortcutPreference } from './cashier-shortcuts/preference';
 import { MotivationalQuote } from '../components/motivational-quote';
 import { clearOrderCopyOrigin, orderCopyRequiresOnlineReview } from './order-copy';
 import {
@@ -122,13 +123,7 @@ export function CounterPage({
   const [recoveryNotice, setRecoveryNotice] = useState<string>();
   const [lastPaid, setLastPaid] = useState<{ storeId: string; orderId: string } | null>(null);
   const [automaticInvoice, setAutomaticInvoice] = useState<AutomaticInvoiceRequest | null>(null);
-  const [shortcutsEnabled, setShortcutsEnabled] = useState(() => {
-    try {
-      return localStorage.getItem('pos-letter-shortcuts') !== 'off';
-    } catch {
-      return true;
-    }
-  });
+  const [shortcutsEnabled, setShortcutsEnabled] = useCashierShortcutPreference(user.id);
   const [shortcutRequest, setShortcutRequest] = useState<CashierShortcutRequest>();
   const [, refreshCopyOrigin] = useState(0);
   useEffect(() => {
@@ -488,17 +483,7 @@ export function CounterPage({
   return (
     <div ref={shortcutRoot} className="counter-workspace">
       <PageTitle eyebrow="YOUR STORE, IN FLOW" title="The counter">
-        <CashierShortcutHelp
-          enabled={shortcutsEnabled}
-          onChange={(enabled) => {
-            setShortcutsEnabled(enabled);
-            try {
-              localStorage.setItem('pos-letter-shortcuts', enabled ? 'on' : 'off');
-            } catch {
-              /* Session preference remains effective without storage. */
-            }
-          }}
-        />
+        <CashierShortcutHelp enabled={shortcutsEnabled} onChange={setShortcutsEnabled} />
         <div className="date-label">
           {new Intl.DateTimeFormat('en-IN', {
             weekday: 'short',

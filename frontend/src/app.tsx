@@ -38,6 +38,7 @@ import { NotificationsPanel } from './pages/fulfillment/notifications';
 import { pendingSlackConnection } from './pages/administration/slack-return';
 
 const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default: m.CounterPage })));
+const ShortcutReferencePage = lazy(() => import('./pages/cashier-shortcuts/reference'));
 const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
 const DashboardPage = lazy(() => import('./pages/dashboard'));
 const BarcodeAssignmentsPage = lazy(() => import('./pages/administration/barcodes'));
@@ -185,6 +186,7 @@ const FlashSalesPage = lazy(() =>
 
 const links = [
   { to: '/', name: 'The counter', icon: LayoutGrid },
+  { to: '/shortcut-reference', name: 'Shortcut reference', icon: BookOpen },
   { to: '/dashboard', name: 'Dashboard', icon: ChartNoAxesCombined, internalOnly: true },
   { to: '/orders', name: 'Orders', icon: ReceiptText },
   { to: '/offline-worksheet', name: 'Invoice worksheet', icon: ReceiptText },
@@ -284,6 +286,7 @@ function OperatorWorkspace() {
   );
 }
 function Workspace({ user }: { user: Principal }) {
+  const shortcutReference = useLocation().pathname === '/shortcut-reference';
   const client = useQueryClient(),
     navigate = useNavigate();
   useEffect(() => {
@@ -474,7 +477,11 @@ function Workspace({ user }: { user: Principal }) {
         )}
         <main className="main-content" id="workspace-main">
           {logoutError !== null && <ErrorState error={logoutError} />}{' '}
-          {stores.isError ? (
+          {shortcutReference ? (
+            <Suspense fallback={<Loading />}>
+              <ShortcutReferencePage key={user.id} operatorId={user.id} />
+            </Suspense>
+          ) : stores.isError ? (
             <ErrorState error={stores.error} retry={() => void stores.refetch()} />
           ) : stores.isPending ? (
             <Loading />

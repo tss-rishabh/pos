@@ -1,8 +1,13 @@
 #!/bin/sh
 set -eu
-if [ "$#" -ne 1 ]; then
-  echo 'Usage: run-joined.sh /absolute/pinned/backend-pos-web' >&2
+if [ "$#" -lt 1 ] || [ "$#" -gt 2 ] || { [ "$#" -eq 2 ] && [ "$2" != --native-reference ]; }; then
+  echo 'Usage: run-joined.sh /absolute/pinned/backend-pos-web [--native-reference]' >&2
   exit 2
+fi
+task_native=false
+if [ "${2:-}" = --native-reference ]; then
+  : "${SHORTCUT_REFERENCE_MYSQL_TEST_URL:?An owned localhost shortcut database is required}"
+  task_native=true
 fi
 task_root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 task_temporary=$(mktemp -d "${TMPDIR:-/tmp}/pos-shortcut-help-proof.XXXXXX")
@@ -22,3 +27,10 @@ env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" NODE_ENV=test \
   node --import ./backend/node_modules/tsx/dist/loader.mjs \
   frontend/tools/cashier-shortcuts/joined-help.ts "$task_temporary/source.json" > "$task_temporary/workflow.json"
 cat "$task_temporary/source.json" "$task_temporary/workflow.json"
+if [ "$task_native" = true ]; then
+  cd "$task_root/backend"
+  env -i PATH="$PATH" HOME="$HOME" TMPDIR="${TMPDIR:-/tmp}" NODE_ENV=test \
+    SHORTCUT_REFERENCE_MYSQL_TEST_URL="$SHORTCUT_REFERENCE_MYSQL_TEST_URL" \
+    node --import ./node_modules/tsx/dist/loader.mjs \
+    ../frontend/tools/cashier-shortcuts/native-reference.ts "$task_temporary/source.json"
+fi

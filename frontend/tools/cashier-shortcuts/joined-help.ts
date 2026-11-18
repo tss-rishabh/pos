@@ -235,6 +235,24 @@ try {
   await expect(page.getByRole('checkbox', { name: 'Enable letter shortcuts' })).not.toBeChecked();
   checks.push('off-preference-persists-across-production-ui-reload');
 
+  await page.getByRole('link', { name: 'Shortcut reference', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Shortcut reference.' })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: 'Enable letter shortcuts' })).not.toBeChecked();
+  await press('t');
+  await expect(page.locator('.sale-tabs')).toHaveCount(0);
+  await page.getByRole('checkbox', { name: 'Enable letter shortcuts' }).check();
+  await press('t');
+  await expect(page.locator('.sale-tabs')).toHaveCount(0);
+  await page.getByRole('link', { name: 'The counter', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();
+  await expect(page.locator('.sale-tabs > button:not(.new-tab)')).toHaveCount(restored);
+  const returned = await tabCount(page);
+  await press('t');
+  await expect(page.locator('.sale-tabs > button:not(.new-tab)')).toHaveCount(returned + 1);
+  checks.push(
+    'standalone-and-counter-share-operator-preference-with-no-reference-page-letter-binding',
+  );
+
   const cookies = await context.cookies();
   const cookie = cookies.find((value) => value.httpOnly && value.value.length > 30);
   assert(cookie);
