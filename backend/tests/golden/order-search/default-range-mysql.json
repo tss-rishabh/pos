@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/order-search/source_oracle.py",
+  "runtime": "tools/order-search/run-oracle.sh",
+  "capturedAt": "2026-11-18T19:13:19Z",
+  "test": "tests/order-search/default-range.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "271f75ab36539d56ad12b65ed70d2a8cd60fec6556e758353f8e3596a01e577d",
+      "args": ["tools/order-search/source_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "response": {
+            "draw": 1,
+            "recordsTotal": "1",
+            "recordsFiltered": "1",
+            "data": [
+              {
+                "id": "502",
+                "user_id": "7",
+                "user__firstname": "Synthetic Midnight",
+                "payment_statuses__payment_status": "Paid",
+                "payment_methods__name": "Cash",
+                "payment_methods__id": "14",
+                "order_amt": 120.0,
+                "order_statuses": "Delivered",
+                "created_at": "2027-01-01 00:00:00",
+                "store_name": "",
+                "counter_id": "0",
+                "location_code": "Transferred from Unknown",
+                "is_manually_paid": true,
+                "is_offline_order": false,
+                "is_shopify_order": false,
+                "is_uploaded": 0,
+                "transaction_id": "SYN-ONLINE-FUTURE",
+                "plutus_id": "0",
+                "paytm_mid": "0",
+                "pay_amount": 119.0,
+                "is_revert": true,
+                "DT_RowId": "502",
+                "is_global_order": 0
+              }
+            ]
+          },
+          "queries": 24
+        }
+      ]
+    },
+    {
+      "inputSha256": "502ae6f99c0623ca8716dc1fadea502e8947bd0452edaf85bec2b55dab834b8c",
+      "args": ["tools/order-search/source_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "response": {
+            "draw": 1,
+            "recordsTotal": "4",
+            "recordsFiltered": "4",
+            "data": [
+              {
+                "id": "501",
+                "user_id": "7",
+                "user__firstname": "Synthetic Midnight",
+                "payment_statuses__payment_status": "Paid",
+                "payment_methods__name": "Cash: CASH  ",
+                "payment_methods__id": "14",
+                "order_amt": 120.0,
+                "order_statuses": "Delivered",
+                "created_at": "2027-01-01 00:00:00",
+                "store_name": "Synthetic midnight (Synthetic counter)",
+                "counter_id": "1",
+                "location_code": "Transferred from Unknown",
+                "is_manually_paid": true,
+                "is_offline_order": false,
+                "is_shopify_order": false,
+                "is_uploaded": 0,
+                "transaction_id": "SYN-FUTURE",
+                "plutus_id": "0",
+                "paytm_mid": "0",
+                "pay_amount": 119.0,
+                "is_revert": true,
+                "DT_RowId": "501",
+                "is_global_order": 0
+              },
+              {
+                "id": "501",
+                "user_id": "7",
+                "user__firstname": "Synthetic Midnight",
+                "payment_statuses__payment_status": "Paid",
+                "payment_methods__name": "Cash: CASH  ",
+                "payment_methods__id": "14",
+                "order_amt": 120.0,
+                "order_statuses": "Delivered",
+                "created_at": "2027-01-01 00:00:00",
+                "store_name": "Synthetic midnight (Synthetic counter)",
+                "counter_id": "1",
+                "location_code": "Transferred from Unknown",
+                "is_manually_paid": true,
+                "is_offline_order": false,
+                "is_shopify_order": false,
+                "is_uploaded": 0,
+                "transaction_id": "SYN-FUTURE",
+                "plutus_id": "0",
+                "paytm_mid": "0",
+                "pay_amount": 119.0,
+                "is_revert": true,
+                "DT_RowId": "501",
+                "is_global_order": 0
+              },
+              {
+                "id": "501",
+                "user_id": "7",
+                "user__firstname": "Synthetic Midnight",
+                "payment_statuses__payment_status": "Paid",
+                "payment_methods__name": "Cash: CASH  ",
+                "payment_methods__id": "14",
+                "order_amt": 120.0,
+                "order_statuses": "Delivered",
+                "created_at": "2027-01-01 00:00:00",
+                "store_name": "Synthetic midnight (Synthetic counter)",
+                "counter_id": "1",
+                "location_code": "Transferred from Unknown",
+                "is_manually_paid": true,
+                "is_offline_order": false,
+                "is_shopify_order": false,
+                "is_uploaded": 0,
+                "transaction_id": "SYN-FUTURE",
+                "plutus_id": "0",
+                "paytm_mid": "0",
+                "pay_amount": 119.0,
+                "is_revert": true,
+                "DT_RowId": "501",
+                "is_global_order": 0
+              },
+              {
+                "id": "501",
+                "user_id": "7",
+                "user__firstname": "Synthetic Midnight",
+                "payment_statuses__payment_status": "Paid",
+                "payment_methods__name": "Cash: CASH  ",
+                "payment_methods__id": "14",
+                "order_amt": 120.0,
+                "order_statuses": "Delivered",
+                "created_at": "2027-01-01 00:00:00",
+                "store_name": "Synthetic midnight (Synthetic counter)",
+                "counter_id": "1",
+                "location_code": "Transferred from Unknown",
+                "is_manually_paid": true,
+                "is_offline_order": false,
+                "is_shopify_order": false,
+                "is_uploaded": 0,
+                "transaction_id": "SYN-FUTURE",
+                "plutus_id": "0",
+                "paytm_mid": "0",
+                "pay_amount": 119.0,
+                "is_revert": true,
+                "DT_RowId": "501",
+                "is_global_order": 0
+              }
+            ]
+          },
+          "queries": 128
+        }
+      ]
+    }
+  ]
+}

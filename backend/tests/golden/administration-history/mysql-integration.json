@@ -1,0 +1,4288 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration-history/mysql-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pymysql==1.1.1",
+  "capturedAt": "2026-11-18T19:13:18Z",
+  "test": "tests/administration-history/mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "8c88ea51cac484a88d83a4cd295f6765a449d8d8805367332cbe6682ec428a0b",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration-history/mysql-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "adminOptionsSha256": "6ec6f17f63b5d59e6c98091e2d0459d75234d12ee3adfa8343a7c48e5ec090f9",
+        "cases": [
+          {
+            "total": "205",
+            "page": "1",
+            "pages": "3",
+            "data": [
+              {
+                "id": "1",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed email.",
+                "actionFlag": 2
+              },
+              {
+                "id": "2",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "3",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "4",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "5",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "6",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "7",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "8",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "9",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "10",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "11",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "12",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "13",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "14",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "15",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "16",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "17",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "18",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "19",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "20",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "21",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "22",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "23",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "24",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "25",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "26",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "27",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "28",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "29",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "30",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "31",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "32",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "33",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "34",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "35",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "36",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "37",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "38",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "39",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "40",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "41",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "42",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "43",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "44",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "45",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "46",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "47",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "48",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "49",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "50",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "51",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "52",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "53",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "54",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "55",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "56",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "57",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "58",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "59",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "60",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "61",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "62",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "63",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "64",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "65",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "66",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "67",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "68",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "69",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "70",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "71",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "72",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "73",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "74",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "75",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "76",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "77",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "78",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "79",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "80",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "81",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "82",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "83",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "84",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "85",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "86",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "87",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "88",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "89",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "90",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "91",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "92",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "93",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "94",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "95",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "96",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "97",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "98",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "99",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "100",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          },
+          {
+            "total": "205",
+            "page": "2",
+            "pages": "3",
+            "data": [
+              {
+                "id": "101",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "102",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "103",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "104",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "105",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "106",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "107",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "108",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "109",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "110",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "111",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "112",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "113",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "114",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "115",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "116",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "117",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "118",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "119",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "120",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "121",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "122",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "123",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "124",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "125",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "126",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "127",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "128",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "129",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "130",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "131",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "132",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "133",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "134",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "135",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "136",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "137",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "138",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "139",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "140",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "141",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "142",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "143",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "144",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "145",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "146",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "147",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "148",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "149",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "150",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "151",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "152",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "153",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "154",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "155",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "156",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "157",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "158",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "159",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "160",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "161",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "162",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "163",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "164",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "165",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "166",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "167",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "168",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "169",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "170",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "171",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "172",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "173",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "174",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "175",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "176",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "177",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "178",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "179",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "180",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "181",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "182",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "183",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "184",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "185",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "186",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "187",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "188",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "189",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "190",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "191",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "192",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "193",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "194",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "195",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "196",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "197",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "198",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "199",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "200",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          },
+          {
+            "total": "205",
+            "page": "3",
+            "pages": "3",
+            "data": [
+              {
+                "id": "201",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "202",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "203",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "204",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "205",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          },
+          {
+            "total": "205",
+            "page": "3",
+            "pages": "3",
+            "data": [
+              {
+                "id": "201",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "202",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "203",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "204",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "205",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          },
+          {
+            "total": "205",
+            "page": "3",
+            "pages": "3",
+            "data": [
+              {
+                "id": "201",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "202",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "203",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "204",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "205",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          },
+          {
+            "total": "205",
+            "page": "3",
+            "pages": "3",
+            "data": [
+              {
+                "id": "201",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "202",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "203",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "204",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "205",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          },
+          {
+            "total": "205",
+            "page": "1",
+            "pages": "3",
+            "data": [
+              {
+                "id": "1",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed email.",
+                "actionFlag": 2
+              },
+              {
+                "id": "2",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "3",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "4",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "5",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "6",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "7",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "8",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "9",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "10",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "11",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "12",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "13",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "14",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "15",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "16",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "17",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "18",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "19",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "20",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "21",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "22",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "23",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "24",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "25",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "26",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "27",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "28",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "29",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "30",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "31",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "32",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "33",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "34",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "35",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "36",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "37",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "38",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "39",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "40",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "41",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "42",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "43",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "44",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "45",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "46",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "47",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "48",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "49",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "50",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "51",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "52",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "53",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "54",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "55",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "56",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "57",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "58",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "59",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "60",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "61",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "62",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "63",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "64",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "65",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "66",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "67",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "68",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "69",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "70",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "71",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "72",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "73",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "74",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "75",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "76",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "77",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "78",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "79",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "80",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "81",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "82",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "83",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "84",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "85",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "86",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "87",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "88",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "89",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "90",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "91",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "92",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "93",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "94",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "95",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "96",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "97",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "98",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "99",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "100",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          },
+          {
+            "total": "205",
+            "page": "2",
+            "pages": "3",
+            "data": [
+              {
+                "id": "101",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "102",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "103",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "104",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "105",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "106",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "107",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "108",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "109",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "110",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "111",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "112",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "113",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "114",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "115",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "116",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "117",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "118",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "119",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "120",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "121",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "122",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "123",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "124",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "125",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "126",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "127",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "128",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "129",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "130",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "131",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "132",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "133",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "134",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "135",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "136",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "137",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "138",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "139",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "140",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "141",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "142",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "143",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "144",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "145",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "146",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "147",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "148",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "149",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "150",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "151",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "152",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "153",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "154",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "155",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "156",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "157",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "158",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "159",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "160",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "161",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "162",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "163",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "164",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "165",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "166",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "167",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "168",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "169",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "170",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "171",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "172",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "173",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "174",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "175",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "176",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "177",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "178",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "179",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "180",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "181",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "182",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "183",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "184",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "185",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "186",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "187",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "188",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "189",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "190",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "191",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "192",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "193",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "194",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "195",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "196",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "197",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "198",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "199",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "200",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          },
+          {
+            "total": "205",
+            "page": "2",
+            "pages": "3",
+            "data": [
+              {
+                "id": "101",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "102",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "103",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "104",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "105",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "106",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "107",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "108",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "109",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "110",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "111",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "112",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "113",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "114",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "115",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "116",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "117",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "118",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "119",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:01 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "120",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "121",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "122",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "123",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "124",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "125",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "126",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "127",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "128",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "129",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "130",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "131",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "132",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "133",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "134",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "135",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "136",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "137",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "138",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "139",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "140",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "141",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "142",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "143",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "144",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "145",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "146",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "147",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "148",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "149",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "150",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "151",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "152",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "153",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "154",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "155",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "156",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "157",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "158",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "159",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "160",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "161",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "162",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "163",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "164",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "165",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "166",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "167",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "168",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "169",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "170",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "171",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "172",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "173",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "174",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "175",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "176",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "177",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "178",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "179",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:02 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "180",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "181",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "182",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "183",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "184",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "185",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "186",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "187",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "188",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "189",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "190",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "191",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "192",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "193",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "194",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "195",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "196",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "197",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "198",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "199",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              },
+              {
+                "id": "200",
+                "actorId": "1",
+                "actor": "auth-admin (Historical Auth)",
+                "actionTimeLabel": "Nov. 16, 2026, 10:03 a.m.",
+                "action": "Changed role.",
+                "actionFlag": 2
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "04441befc38dbc0abb71c816d28b513643d81f0e668beb20c6ca6bf82c4974a3",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration-history/mysql-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "adminOptionsSha256": "6ec6f17f63b5d59e6c98091e2d0459d75234d12ee3adfa8343a7c48e5ec090f9",
+        "cases": [
+          {
+            "total": "1",
+            "page": "1",
+            "pages": "1",
+            "data": [
+              {
+                "id": "208",
+                "actorId": "7",
+                "actor": "source-author (Saved Actor)",
+                "actionTimeLabel": "Nov. 16, 2026, midnight",
+                "action": "Changed store name.",
+                "actionFlag": 2
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

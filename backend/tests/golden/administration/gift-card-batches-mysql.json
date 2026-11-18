@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/gift-card-view-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pymysql==1.1.2",
+  "capturedAt": "2026-11-18T19:13:18Z",
+  "test": "tests/administration/gift-card-batches.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "61da1dfddbf92e26d3147e4c2cb44ff9f81458a13dedddb033e9bfb5bb744808",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.2",
+        "python",
+        "tools/administration/gift-card-view-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceHashes": {
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+          "core/datatables/gift_card_datatable.py": "b0329532280c88881b5a313a0eb32a1b5f1a877f6fe28e16dc3f29c3cfadf52a",
+          "core/views.py": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349"
+        },
+        "cases": [
+          {
+            "draw": 1,
+            "recordsTotal": "3",
+            "recordsFiltered": "3",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "size": 3,
+                "message": null,
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": [],
+                "created_at": "2026-11-16 12:00:00"
+              },
+              {
+                "id": "12",
+                "size": 3,
+                "message": "Beta",
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": "Second Operator",
+                "created_at": "2026-11-16 12:00:00"
+              }
+            ]
+          },
+          {
+            "draw": 1,
+            "recordsTotal": "3",
+            "recordsFiltered": "3",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "size": 3,
+                "message": null,
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": [],
+                "created_at": "2026-11-16 12:00:00"
+              },
+              {
+                "id": "12",
+                "size": 3,
+                "message": "Beta",
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": "Second Operator",
+                "created_at": "2026-11-16 12:00:00"
+              }
+            ]
+          },
+          {
+            "draw": 1,
+            "recordsTotal": "3",
+            "recordsFiltered": "3",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "size": 3,
+                "message": null,
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": [],
+                "created_at": "2026-11-16 12:00:00"
+              },
+              {
+                "id": "12",
+                "size": 3,
+                "message": "Beta",
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": "Second Operator",
+                "created_at": "2026-11-16 12:00:00"
+              }
+            ]
+          },
+          {
+            "draw": 1,
+            "recordsTotal": "3",
+            "recordsFiltered": "3",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "size": 3,
+                "message": null,
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": [],
+                "created_at": "2026-11-16 12:00:00"
+              },
+              {
+                "id": "12",
+                "size": 3,
+                "message": "Beta",
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": "Second Operator",
+                "created_at": "2026-11-16 12:00:00"
+              }
+            ]
+          },
+          {
+            "draw": 1,
+            "recordsTotal": "3",
+            "recordsFiltered": "3",
+            "data": [
+              {
+                "id": "11",
+                "size": 3,
+                "message": "Alpha",
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": "Owner   Operator",
+                "created_at": "2026-11-16 12:00:00"
+              },
+              {
+                "id": "12",
+                "size": 3,
+                "message": "Beta",
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": "Second Operator",
+                "created_at": "2026-11-16 12:00:00"
+              },
+              {
+                "id": "9007199254740993",
+                "size": 3,
+                "message": null,
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "created_by": [],
+                "created_at": "2026-11-16 12:00:00"
+              }
+            ]
+          },
+          {
+            "error": "FieldError"
+          }
+        ]
+      }
+    }
+  ]
+}

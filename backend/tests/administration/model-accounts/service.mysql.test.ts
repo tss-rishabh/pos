@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { Temporal } from '@js-temporal/polyfill';
 import Fastify from 'fastify';
 import type { RowDataPacket } from 'mysql2/promise';
@@ -15,6 +14,8 @@ import {
 import { modelAccountInput } from '../../../src/modules/administration/model-accounts/domain.js';
 import { storePublicUrl } from '../../../src/modules/administration/policies.js';
 import { modelAccountFixture } from '../../../tools/administration/model-accounts/fixture.js';
+import { goldenSpawnResult } from '../../golden/load.js';
+import { fixturePlaceholders } from '../../golden/fixture-placeholders.js';
 const connection = process.env.MODEL_ACCOUNTS_MYSQL_TEST_URL;
 const actor: Principal = {
   id: '900001',
@@ -81,24 +82,12 @@ describe.skipIf(!connection)(
       storeUrls: string[] = [],
       extra: { minimalStore?: boolean } = {},
     ) {
-      const result = spawnSync(
-        'uv',
-        [
-          'run',
-          '--no-project',
-          '--with',
-          'django==4.2.5',
-          '--with',
-          'pymysql==1.1.1',
-          'python',
-          'tools/administration/model-accounts/source-oracle.py',
-        ],
-        {
-          input: JSON.stringify({ database: fixture.url, users, storeUrls, ...extra }),
-          encoding: 'utf8',
-          timeout: 25000,
-          maxBuffer: 2 * 1024 * 1024,
-        },
+      const result = goldenSpawnResult(
+        'administration',
+        'model-accounts-service-mysql',
+        JSON.stringify({ database: fixture.url, users, storeUrls, ...extra }),
+        undefined,
+        fixturePlaceholders(fixture.url),
       );
       if (result.status !== 0)
         throw new Error('Model-add source oracle failed: ' + result.stdout.slice(0, 400));

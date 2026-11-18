@@ -1,5 +1,4 @@
 import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { z } from 'zod';
 import { createServer } from 'node:net';
 import { existsSync } from 'node:fs';
@@ -16,6 +15,8 @@ import { seal } from '../../src/auth/crypto.js';
 import { buildApp } from '../../src/app.js';
 import { readNativeOnlineDetail } from '../../src/modules/order-history/online-detail/native.js';
 import { orderRange } from '../../src/modules/order-history/contracts.js';
+import { goldenStdout } from '../golden/load.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 const connection = process.env.ORDER_SEARCH_MYSQL_TEST_URL;
 describe.skipIf(!connection)('native source-family order details', () => {
@@ -276,74 +277,67 @@ describe.skipIf(!connection)('native source-family order details', () => {
       { method: 'tss money', value: '1.0' },
     ]);
   });
-  it.skipIf(!process.env.ORDER_SEARCH_ORACLE_PYTHON)(
-    'matches literal original timeline and native source line/wallet values on the same physical fixture',
-    async () => {
-      const detail = await onlineOrderDetailService(native.config, native.db, {
-        clock: () => now,
-      }).read(user, '1', '501', { type: 'N' });
-      const result = z
-        .object({
-          amount: z.number(),
-          payAmount: z.number(),
-          customerId: z.string(),
-          wallet: z.object({ money: z.string(), points: z.string() }),
-          lines: z.array(z.record(z.string(), z.unknown())),
-          timeline: z.array(
-            z.object({
-              comment: z.string(),
-              createdAt: z.string(),
-              payments: z.record(z.string(), z.unknown()),
-            }),
+  it('matches literal original timeline and native source line/wallet values on the same physical fixture', async () => {
+    const detail = await onlineOrderDetailService(native.config, native.db, {
+      clock: () => now,
+    }).read(user, '1', '501', { type: 'N' });
+    const result = z
+      .object({
+        amount: z.number(),
+        payAmount: z.number(),
+        customerId: z.string(),
+        wallet: z.object({ money: z.string(), points: z.string() }),
+        lines: z.array(z.record(z.string(), z.unknown())),
+        timeline: z.array(
+          z.object({
+            comment: z.string(),
+            createdAt: z.string(),
+            payments: z.record(z.string(), z.unknown()),
+          }),
+        ),
+      })
+      .parse(
+        JSON.parse(
+          goldenStdout(
+            'order-history',
+            'online-detail-mysql.timeline',
+            JSON.stringify({ url: native.url, orderId: '501' }),
+            undefined,
+            fixturePlaceholders(native.url),
           ),
-        })
-        .parse(
-          JSON.parse(
-            execFileSync(
-              process.env.ORDER_SEARCH_ORACLE_PYTHON!,
-              ['-B', 'tests/order-history/online-detail-source.py'],
-              {
-                input: JSON.stringify({ url: native.url, orderId: '501' }),
-                encoding: 'utf8',
-                timeout: 30000,
-              },
-            ),
-          ) as unknown,
-        );
-      expect(Number(detail.fact.amount)).toBe(result.amount);
-      expect(Number(detail.fact.payAmount)).toBe(result.payAmount);
-      expect(detail.fact.customerId).toBe(result.customerId);
-      expect({ money: detail.customer.money, points: detail.customer.points }).toEqual(
-        result.wallet,
+        ) as unknown,
       );
-      expect(
-        detail.fact.lines.map(({ express: _express, ...line }) => ({
-          ...line,
-          parentProductId: detail.products.items.find((product) => product.id === line.productId)!
-            .parentId,
-          name: detail.products.items.find((product) => product.id === line.productId)!.name,
-          amount: Number(line.amount),
-          gst: Number(line.gst),
-        })),
-      ).toEqual(result.lines);
-      expect(
-        detail.fact.timeline.map((event) => ({
-          comment: event.comment,
-          createdAt: event.createdAt,
-          payments: Object.fromEntries(
-            event.payments.map((payment) => [
-              payment.method,
-              payment.value === null
-                ? null
-                : /^-?[0-9]+(?:\.[0-9]+)?$/.test(payment.value)
-                  ? Number(payment.value)
-                  : payment.value,
-            ]),
-          ),
-        })),
-      ).toEqual(result.timeline);
-    },
-  );
+    expect(Number(detail.fact.amount)).toBe(result.amount);
+    expect(Number(detail.fact.payAmount)).toBe(result.payAmount);
+    expect(detail.fact.customerId).toBe(result.customerId);
+    expect({ money: detail.customer.money, points: detail.customer.points }).toEqual(result.wallet);
+    expect(
+      detail.fact.lines.map(({ express: _express, ...line }) => ({
+        ...line,
+        parentProductId: detail.products.items.find((product) => product.id === line.productId)!
+          .parentId,
+        name: detail.products.items.find((product) => product.id === line.productId)!.name,
+        amount: Number(line.amount),
+        gst: Number(line.gst),
+      })),
+    ).toEqual(result.lines);
+    expect(
+      detail.fact.timeline.map((event) => ({
+        comment: event.comment,
+        createdAt: event.createdAt,
+        payments: Object.fromEntries(
+          event.payments.map((payment) => [
+            payment.method,
+            payment.value === null
+              ? null
+              : /^-?[0-9]+(?:\.[0-9]+)?$/.test(payment.value)
+                ? Number(payment.value)
+                : payment.value,
+          ]),
+        ),
+      })),
+    ).toEqual(result.timeline);
+  });
   it('reads current product names/parent SKU separately from qualified historical and HP financial values', async () => {
     const range = orderRange({ from: yesterday, to: yesterday }, 'Asia/Kolkata', now);
     // Owned publication snapshot preparation, not an application historical fallback.
@@ -401,38 +395,34 @@ describe.skipIf(!connection)('native source-family order details', () => {
         payAmount: '119.49',
         lines: [{ amount: '59.745', gst: '5' }],
       });
-      if (process.env.ORDER_SEARCH_ORACLE_PYTHON) {
-        const source = z
-          .object({
-            lines: z.array(
-              z.object({
-                name: z.string(),
-                parentProductId: z.string(),
-                amount: z.number(),
-                gst: z.number(),
-              }),
+      const source = z
+        .object({
+          lines: z.array(
+            z.object({
+              name: z.string(),
+              parentProductId: z.string(),
+              amount: z.number(),
+              gst: z.number(),
+            }),
+          ),
+        })
+        .parse(
+          JSON.parse(
+            goldenStdout(
+              'order-history',
+              'online-detail-mysql.current-names',
+              JSON.stringify({ url: native.url, orderId: '501' }),
+              undefined,
+              fixturePlaceholders(native.url),
             ),
-          })
-          .parse(
-            JSON.parse(
-              execFileSync(
-                process.env.ORDER_SEARCH_ORACLE_PYTHON,
-                ['-B', 'tests/order-history/online-detail-source.py'],
-                {
-                  input: JSON.stringify({ url: native.url, orderId: '501' }),
-                  encoding: 'utf8',
-                  timeout: 30000,
-                },
-              ),
-            ) as unknown,
-          );
-        expect(source.lines[0]).toEqual({
-          name: 'Renamed current product',
-          parentProductId: '102',
-          amount: 59.745,
-          gst: 5,
-        });
-      }
+          ) as unknown,
+        );
+      expect(source.lines[0]).toEqual({
+        name: 'Renamed current product',
+        parentProductId: '102',
+        amount: 59.745,
+        gst: 5,
+      });
     } finally {
       await native.connection.query(
         "UPDATE products SET product='Synthetic detail product',parent_prod_id=0,price=0,gst=0 WHERE id=101",

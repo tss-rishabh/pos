@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import type { RowDataPacket } from 'mysql2/promise';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -21,6 +20,8 @@ import {
   type SettingsEffectDelivery,
 } from '../../../src/modules/administration/settings-domain.js';
 import { ecommerceFixture } from '../../../tools/administration/ecommerce-sync/fixture.js';
+import { goldenSpawnResult } from '../../golden/load.js';
+import { fixturePlaceholders } from '../../golden/fixture-placeholders.js';
 const connection = process.env.ECOMMERCE_SYNC_MYSQL_TEST_URL;
 const user: Principal = {
   id: '900001',
@@ -127,24 +128,12 @@ describe.skipIf(!connection)('ecommerce stock refresh through the existing setti
     return Number(result[0]?.n);
   }
   async function oracle(extra: { storeId?: string; failAfter?: number; httpStatus?: number } = {}) {
-    const result = spawnSync(
-      'uv',
-      [
-        'run',
-        '--no-project',
-        '--with',
-        'django==4.2.5',
-        '--with',
-        'pymysql==1.1.1',
-        'python',
-        'tools/administration/ecommerce-sync/source-oracle.py',
-      ],
-      {
-        input: JSON.stringify({ database: fixture.url, ...extra }),
-        encoding: 'utf8',
-        timeout: 20000,
-        maxBuffer: 1024 * 1024,
-      },
+    const result = goldenSpawnResult(
+      'administration',
+      'ecommerce-sync-service-mysql',
+      JSON.stringify({ database: fixture.url, ...extra }),
+      undefined,
+      fixturePlaceholders(fixture.url),
     );
     if (result.status !== 0)
       throw new Error('Ecommerce source oracle failed: ' + result.stdout.slice(0, 200));

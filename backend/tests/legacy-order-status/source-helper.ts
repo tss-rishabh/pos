@@ -1,6 +1,5 @@
-import { execFileSync } from 'node:child_process';
 import { z } from 'zod';
-import { goldenStdout } from '../golden/load.js';
+import { goldenStdout, type GoldenOptions } from '../golden/load.js';
 
 const sourceStatusSchema = z.array(
   z.object({
@@ -19,25 +18,11 @@ const sourceStatusSchema = z.array(
     ),
   }),
 );
-export function sourceStatusOracle(input: unknown) {
+/** Replays the captured pinned-source oracle output recorded for the same input. */
+export function goldenSourceStatusOracle(name: string, input: unknown, options?: GoldenOptions) {
   return sourceStatusSchema.parse(
     JSON.parse(
-      execFileSync(
-        process.env.WHOLE_ORDER_STATUS_ORACLE_PYTHON ?? 'python3',
-        ['tools/legacy-order-status/source_oracle.py'],
-        {
-          input: JSON.stringify(input),
-          encoding: 'utf8',
-          stdio: ['pipe', 'pipe', 'pipe'],
-          timeout: 15000,
-        },
-      ),
+      goldenStdout('legacy-order-status', name, JSON.stringify(input), undefined, options),
     ) as unknown,
-  );
-}
-/** Replays the captured pinned-source oracle output recorded for the same input. */
-export function goldenSourceStatusOracle(name: string, input: unknown) {
-  return sourceStatusSchema.parse(
-    JSON.parse(goldenStdout('legacy-order-status', name, JSON.stringify(input))) as unknown,
   );
 }
