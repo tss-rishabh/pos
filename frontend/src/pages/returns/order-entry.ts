@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { ReturnLine, ReverseKind } from './client';
 
 const identifier = z
   .string()
@@ -10,6 +11,7 @@ const entrySchema = z
     storeId: identifier,
     counterId: identifier,
     orderId: identifier,
+    lineId: identifier.optional(),
     kind: z.enum(['return', 'exchange']),
   })
   .strict();
@@ -24,7 +26,7 @@ export type ParsedReturnEntry =
 
 /** Navigation selects an order; the server still verifies every action and customer proof. */
 export function returnOrderLink(entry: ReturnOrderEntry): string {
-  return `/returns?${new URLSearchParams(entrySchema.parse(entry)).toString()}`;
+  return `/returns?${new URLSearchParams(Object.entries(entrySchema.parse(entry)).filter((pair): pair is [string, string] => typeof pair[1] === 'string')).toString()}`;
 }
 
 export function readReturnOrderEntry(
@@ -34,12 +36,12 @@ export function readReturnOrderEntry(
   if (!search || search === '?') return { status: 'absent' };
   if (search.length > 512) return { status: 'invalid' };
   const params = new URLSearchParams(search);
-  const values: Record<string, string> = {};
+  const values = new Map<string, string>();
   for (const [key, value] of params) {
-    if (Object.hasOwn(values, key)) return { status: 'invalid' };
-    values[key] = value;
+    if (values.has(key)) return { status: 'invalid' };
+    values.set(key, value);
   }
-  const parsed = entrySchema.safeParse(values);
+  const parsed = entrySchema.safeParse(Object.fromEntries(values));
   if (!parsed.success) return { status: 'invalid' };
   const entry = parsed.data;
   if (
@@ -49,4 +51,22 @@ export function readReturnOrderEntry(
   )
     return { status: 'mismatch' };
   return { status: 'ready', entry };
+}
+
+/** URL identifiers are only a selection hint; customer-proof rows remain authoritative. */
+export function matchingReturnEntryLine(
+  entry: ReturnOrderEntry | undefined,
+  verifiedOrderId: string | undefined,
+  mode: ReverseKind,
+  lines: readonly ReturnLine[],
+): ReturnLine | null {
+  if (!entry?.lineId || entry.orderId !== verifiedOrderId || entry.kind !== mode) return null;
+  const matches = lines.filter((line) => line.id === entry.lineId);
+  const line = matches.length === 1 ? matches[0] : undefined;
+  return line &&
+    line.status === 'DELIVERED' &&
+    line.returnStatus === 0 &&
+    (mode !== 'exchange' || line.parentId !== '0')
+    ? line
+    : null;
 }

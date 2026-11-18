@@ -45,3 +45,22 @@ The source comparison executes pinned real helper/native ORM bodies, not the who
 ## Contextual returns navigation follow-up
 
 After merging `1947373`, the detail page provides return/exchange navigation only when an explicit, valid counter belongs to the current selected detail store. Links bind operator/store/counter/order/mode through `returnOrderLink`; they do not preselect a product, issue an OTP or start a mutation. The returns entry wrapper validates reload/new-tab context, and the existing workflow retains current check-in, verification and uncertain recovery requirements. Frontend strict, changed-file ESLint and production build passed for this follow-up. The earlier nine-case read receipt is retained unchanged and does not claim execution of this later action navigation or its financial effects.
+
+## Reachable action inventory
+
+| Original control | Reachable behavior | Rewrite implementation / remaining boundary |
+| --- | --- | --- |
+| `online/show.html:71` `.user-data` anchor | No matching handler exists anywhere in pinned HTML/JS, including inherited shell; no actual edit or popup request | Current order-bound profile shown; do not invent customer editing from this inert anchor |
+| Payment/order status cells `:215–217` | Display only; the money icon `:223–227` invokes local-delivery acceptance | Current statuses displayed; real local acceptance/lifecycle panels, no invented generic payment/status editor |
+| Full/SDD invoice `:233–243` | Paid-only documents, SDD from source split/platform predicate | Owned HL/HE document workflow; genuine global N adapter separately in implementation |
+| Shipping label `:249` | Local warehouse order after ACCEPTED | Existing authorized label control; no N owner invented |
+| Product SKU/name `:312–316` | Open current parent/Product | Current dimension-bound catalog link |
+| Parent/child `:19–34` | Navigate related order | Operator/store-bound typed detail URLs |
+| `_return_exchange_cells.html` normal/merged cells | Exact HP-line return or exchange, provider eligibility and date | Exact-line navigation now carries only validated line ID; selection happens only from verified server-returned matching line, never from raw URL values |
+| Manager Extend Date | Roles 1/2/3, closed return period, explicit date and acknowledgement | Existing scoped `ReturnWindowExtension` after verified line selection; keeps revision/read-after-uncertain guards |
+| Super-admin override | Role 1, source helper policy; not arbitrary status bypass | Explicit role1-only checkbox wired to existing server `overrideEligibility`; provider date/native/refund/check-in/customer proofs remain required |
+| Failed exchange | Same receiving store, stored replacement/reason/comment, fresh salesperson; no duplicate return leg | Existing durable UUID recovery supports retry/reconcile; verified discovery and legacy-log adoption still need implementation, not certified by generic links |
+| Local accept/pass/convert/decline/pack/cancel/RTO | Source target store/status/time authority | Existing real local fulfillment/lifecycle panels embedded; provider effects have separate proof |
+| Express handling | Source inline body has no Express mutation JS | Existing Express queue entry preserved; no claimed full queue/provider certification |
+
+Line-selection follow-up retains existing local recovery as the first authority, never sends an OTP or mutation automatically, and refuses duplicate/unknown/prototype-name query fields. A link for an absent, duplicate, returned or non-replaceable verified line does not select it. N/HL/HE line buttons open eligibility review rather than promising approval.

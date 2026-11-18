@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { readReturnOrderEntry, returnOrderLink } from '../../src/pages/returns/order-entry';
+import {
+  matchingReturnEntryLine,
+  readReturnOrderEntry,
+  returnOrderLink,
+} from '../../src/pages/returns/order-entry';
 
 const context = { operatorId: '1', storeId: '2', counterId: '3' };
 const entry = { ...context, orderId: '9007199254740993', kind: 'exchange' as const };
@@ -29,6 +33,8 @@ describe('order-bound return navigation', () => {
     for (const value of [
       '?orderId=1',
       `${search}&customerEmail=example`,
+      `${search}&__proto__=example`,
+      `${search}&constructor=example`,
       search.replace('exchange', 'refund'),
     ]) {
       expect(readReturnOrderEntry(value, context)).toEqual({ status: 'invalid' });
@@ -36,5 +42,44 @@ describe('order-bound return navigation', () => {
   });
   it('keeps ordinary returns available without a linked selection', () => {
     expect(readReturnOrderEntry('', context)).toEqual({ status: 'absent' });
+  });
+});
+
+describe('verified line selection hints', () => {
+  const linked = { ...entry, lineId: '9007199254740995' };
+  const line = {
+    id: linked.lineId,
+    productId: '8',
+    name: 'Synthetic',
+    parentId: '7',
+    quantity: '1',
+    status: 'DELIVERED',
+    returnStatus: 0,
+  };
+  it('retains exact wide line IDs in a reloadable bound URL', () => {
+    expect(readReturnOrderEntry(returnOrderLink(linked).slice('/returns'.length), context)).toEqual(
+      { status: 'ready', entry: linked },
+    );
+  });
+  it('selects only a matching line returned for the verified order and mode', () => {
+    expect(matchingReturnEntryLine(linked, entry.orderId, 'exchange', [line])).toBe(line);
+    expect(matchingReturnEntryLine(linked, '2', 'exchange', [line])).toBeNull();
+    expect(matchingReturnEntryLine(linked, entry.orderId, 'return', [line])).toBeNull();
+    expect(matchingReturnEntryLine(linked, entry.orderId, 'exchange', [])).toBeNull();
+    expect(matchingReturnEntryLine(linked, entry.orderId, 'exchange', [line, line])).toBeNull();
+  });
+  it('refuses returned or unbound replacement lines', () => {
+    for (const invalid of [
+      { ...line, status: 'PRODUCT_RETURNED' },
+      { ...line, returnStatus: 1 },
+      { ...line, parentId: '0' },
+    ])
+      expect(matchingReturnEntryLine(linked, entry.orderId, 'exchange', [invalid])).toBeNull();
+  });
+  it('rejects invalid line hints without throwing', () => {
+    for (const id of ['0', '1e3', '9223372036854775808'])
+      expect(readReturnOrderEntry(`${search}&lineId=${id}`, context)).toEqual({
+        status: 'invalid',
+      });
   });
 });

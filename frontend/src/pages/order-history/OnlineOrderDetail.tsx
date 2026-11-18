@@ -259,6 +259,7 @@ function OnlineOrderDetailContent({
                 <th>Status</th>
                 <th>Quantity</th>
                 <th>GST (%)</th>
+                <th>Return / exchange</th>
               </tr>
             </thead>
             <tbody>
@@ -299,6 +300,26 @@ function OnlineOrderDetailContent({
                     <td>{line.status}</td>
                     <td>{line.quantity}</td>
                     <td>{line.gst}</td>
+                    <td>
+                      {counterId
+                        ? (['return', 'exchange'] as const).map((kind) => (
+                            <NavLink
+                              key={kind}
+                              className="button secondary"
+                              to={returnOrderLink({
+                                operatorId: user.id,
+                                storeId: value.storeId,
+                                counterId,
+                                orderId: fact.orderId,
+                                lineId: line.id,
+                                kind,
+                              })}
+                            >
+                              {kind === 'return' ? 'Return this line' : 'Exchange this line'}
+                            </NavLink>
+                          ))
+                        : 'Select a counter and check in to review eligibility.'}
+                    </td>
                   </tr>
                 );
               })}

@@ -37,7 +37,7 @@ import {
 import './style.css';
 import { SalespersonSelect } from './SalespersonSelect';
 import { ReturnWindowExtension } from './ReturnWindowExtension';
-import type { ReturnOrderEntry } from './order-entry';
+import { matchingReturnEntryLine, type ReturnOrderEntry } from './order-entry';
 
 const reasonList = z.object({ data: z.array(z.object({ id: z.string(), reason: z.string() })) });
 const subReasonList = z.object({
@@ -75,6 +75,7 @@ export function ReturnsPage({
     [quality, setQuality] = useState(false),
     [tag, setTag] = useState(false),
     [saleable, setSaleable] = useState(false),
+    [overrideEligibility, setOverrideEligibility] = useState(false),
     [refundMode, setRefundMode] = useState<'tss-money' | 'cash'>('tss-money'),
     [replacementId, setReplacement] = useState(''),
     [salespersonId, setSalesperson] = useState(''),
@@ -128,6 +129,21 @@ export function ReturnsPage({
       ),
     getNextPageParam: (page) => page.nextCursor || undefined,
   });
+  const linkedLine = useRef(recovery ? undefined : entry);
+  const linkedLineApplied = useRef(false);
+  useEffect(() => {
+    if (!verified || busy || recovery?.returnId || linkedLineApplied.current) return;
+    const selected = matchingReturnEntryLine(
+      linkedLine.current,
+      proof.data?.orderId,
+      mode,
+      lines.data?.pages.flatMap((page) => page.data) || [],
+    );
+    if (selected) {
+      linkedLineApplied.current = true;
+      setLine(selected);
+    }
+  }, [verified, busy, recovery?.returnId, proof.data?.orderId, mode, lines.data]);
   const operationKind = recovery?.kind || mode;
   const operationKey = (id: string, kind: ReverseKind) =>
     [user.id, 'reverse-operation', storeId, kind, id] as const;
@@ -286,7 +302,7 @@ export function ReturnsPage({
           saleable,
           ...(mode === 'exchange'
             ? { replacementProductId: replacementId, salespersonId }
-            : { refundMode, overrideEligibility: false }),
+            : { refundMode, overrideEligibility: user.role === 1 && overrideEligibility }),
         },
         returnSchema,
         user.id,
@@ -360,6 +376,8 @@ export function ReturnsPage({
               setMode(value);
               if (recovery) remember({ ...recovery, kind: value });
               setLine(null);
+              linkedLine.current = undefined;
+              setOverrideEligibility(false);
               setReason('');
               setSubReason('');
               setReplacement('');
@@ -531,7 +549,9 @@ export function ReturnsPage({
                       (mode === 'exchange' && item.parentId === '0')
                     }
                     onClick={() => {
+                      linkedLineApplied.current = true;
                       setLine(item);
+                      setOverrideEligibility(false);
                       setReason('');
                       setSubReason('');
                       setQuality(false);
@@ -684,6 +704,17 @@ export function ReturnsPage({
                   onChange={(event) => setComment(event.target.value)}
                 />
               </label>
+              {mode === 'return' && user.role === 1 && (
+                <label className="return-check">
+                  <input
+                    type="checkbox"
+                    checked={overrideEligibility}
+                    onChange={(event) => setOverrideEligibility(event.target.checked)}
+                  />
+                  Request super-admin return eligibility override. The server still requires the
+                  permitted return date, customer verification and valid line.
+                </label>
+              )}
               <label className="return-check">
                 <input
                   type="checkbox"
