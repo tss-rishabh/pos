@@ -31,11 +31,12 @@ function GiftCardItem({
   act,
   mutate,
 }: GiftCardControls & { item: GiftItem }) {
-  const saved = checkout.giftCards[item.gv_id],
-    dates = checkout.giftCardDates?.[item.gv_id];
+  const saved = checkout.giftCards[item.gv_id];
+  // Legacy dates are optional: blank start is "Today's", blank end is "No Expiry"
+  // (create_order.html:205-206); an unpicked date is sent to API-v2 as "".
   const [number, setNumber] = useState(saved?.number || ''),
-    [startDate, setStartDate] = useState(saved?.startDate || dates?.startDate || ''),
-    [endDate, setEndDate] = useState(saved?.endDate || dates?.endDate || ''),
+    [startDate, setStartDate] = useState(saved?.startDate || ''),
+    [endDate, setEndDate] = useState(saved?.endDate || ''),
     [customValue, setCustomValue] = useState(String(checkout.giftCardValues?.[item.gv_id] ?? ''));
   const value = item.gvamount ?? item.price,
     name = typeof item.product === 'string' ? item.product : 'Physical gift card',
@@ -75,25 +76,23 @@ function GiftCardItem({
         </label>
         <div className="checkout-split">
           <label>
-            Valid from
+            Valid from {startDate ? '' : "(Today's)"}
             <input
               type="date"
               value={startDate}
               onChange={(event) => setStartDate(event.target.value)}
               min="0001-01-01"
               max="9999-12-31"
-              required
             />
           </label>
           <label>
-            Valid until
+            Valid until {endDate ? '' : '(No Expiry)'}
             <input
               type="date"
               value={endDate}
               onChange={(event) => setEndDate(event.target.value)}
               min={startDate || '0001-01-01'}
               max="9999-12-31"
-              required
             />
           </label>
         </div>
