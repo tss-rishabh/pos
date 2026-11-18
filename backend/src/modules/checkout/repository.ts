@@ -353,16 +353,27 @@ export function checkoutRepository(
       });
     },
     async checkpoint(state, operationId) {
-      await sessions.exclusive(state.operatorId, state.storeId, state.id, async (current) => {
-        if (!currentCheckoutOperation(current, state, operationId)) throw operationChanged();
-        return {
-          state: { ...state, busyOperationId: operationId, updatedAt: Date.now() },
-          value: undefined,
-        };
-      });
+      const previous = await sessions.exclusive(
+        state.operatorId,
+        state.storeId,
+        state.id,
+        async (current) => {
+          if (!currentCheckoutOperation(current, state, operationId)) throw operationChanged();
+          return {
+            state: { ...state, busyOperationId: operationId, updatedAt: Date.now() },
+            value: current,
+          };
+        },
+      );
       if (state.phase === 'cleared') {
-        if (state.customerId) await sessions.releaseLease('customer', state.customerId, state.id);
-        for (const card of Object.values(state.giftCards))
+        // Detach clears customerId before this checkpoint; release whichever customer and
+        // cards the stored sale still held.
+        for (const customerId of new Set([state.customerId, previous.customerId]))
+          if (customerId) await sessions.releaseLease('customer', customerId, state.id);
+        for (const card of [
+          ...Object.values(state.giftCards),
+          ...Object.values(previous.giftCards),
+        ])
           await sessions.releaseLease('gift-card', card.number, state.id);
       }
     },

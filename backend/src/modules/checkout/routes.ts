@@ -535,7 +535,11 @@ export function registerCheckout(
     const user = authenticated(request),
       p = sessionScope.parse(request.params),
       body = mutationSchema
-        .extend({ salespersonId: identifier, productId: identifier.optional() })
+        // 0 is the legacy "Not Selected" option (removal).
+        .extend({
+          salespersonId: z.union([identifier, z.literal('0')]),
+          productId: identifier.optional(),
+        })
         .strict()
         .parse(request.body);
     return response(
@@ -597,7 +601,8 @@ export function registerCheckout(
       const user = authenticated(request),
         p = sessionScope.parse(request.params),
         body = mutationSchema
-          .extend({ otp: z.string().regex(/^\d{6}$/) })
+          // Legacy customer OTP is 4 digits (order/views.py:2536-2597, create_order.html:4758).
+          .extend({ otp: z.string().regex(/^\d{4}$/) })
           .strict()
           .parse(request.body);
       return response(await service.verify(user, p.storeId, p.checkoutId, body, body.otp));

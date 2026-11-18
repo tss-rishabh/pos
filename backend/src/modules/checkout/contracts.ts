@@ -167,7 +167,8 @@ export const checkoutStateSchema: z.ZodType<CheckoutState> = z.object({
     .nullable()
     .default(null),
   salespersonId: identifier.nullable(),
-  lineSalespersons: z.record(identifier, identifier),
+  // '0' is legacy "Not Selected" on a line (AjaxAddSalesPersonPerProductView sets the key to 0).
+  lineSalespersons: z.record(identifier, z.union([identifier, z.literal('0')])),
   giftCards: z.record(
     z.string(),
     z.object({ number: z.string(), startDate: z.string(), endDate: z.string() }),

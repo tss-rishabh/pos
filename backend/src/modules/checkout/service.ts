@@ -1375,6 +1375,28 @@ export function checkoutService(
         { salespersonId, productId },
         async (state) => {
           editable(state);
+          // AjaxAddSalesPersonView / AjaxAddSalesPersonPerProductView (order/views.py:2969-3019).
+          if (salespersonId === '0') {
+            const current = productId ? state.lineSalespersons[productId] : state.salespersonId;
+            if (!current || current === '0')
+              throw new AppError(
+                422,
+                'SALESPERSON_NOT_SELECTED',
+                'Please Select Valid Salesperson.',
+              );
+            return {
+              state: productId
+                ? { ...state, lineSalespersons: { ...state.lineSalespersons, [productId]: '0' } }
+                : {
+                    ...state,
+                    salespersonId: null,
+                    lineSalespersons: Object.fromEntries(
+                      Object.keys(state.lineSalespersons).map((key) => [key, '0']),
+                    ),
+                  },
+              result: { salespersonId: null, productId: productId || null, removed: true },
+            };
+          }
           if (!/^[1-9]\d{0,9}$/.test(salespersonId) || BigInt(salespersonId) > 2147483647n)
             throw new AppError(
               422,
@@ -1401,13 +1423,20 @@ export function checkoutService(
               'Select an active salesperson assigned to this store.',
             );
           return {
-            state: {
-              ...state,
-              ...(productId
-                ? { lineSalespersons: { ...state.lineSalespersons, [productId]: salespersonId } }
-                : { salespersonId }),
-            },
-            result: { salespersonId, productId: productId || null },
+            state: productId
+              ? {
+                  ...state,
+                  lineSalespersons: { ...state.lineSalespersons, [productId]: salespersonId },
+                }
+              : {
+                  // The sale-level choice overwrites every per-line choice (legacy scan_iter set).
+                  ...state,
+                  salespersonId,
+                  lineSalespersons: Object.fromEntries(
+                    Object.keys(state.lineSalespersons).map((key) => [key, salespersonId]),
+                  ),
+                },
+            result: { salespersonId, productId: productId || null, removed: false },
           };
         },
       );

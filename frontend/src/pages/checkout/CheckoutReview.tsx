@@ -1184,8 +1184,8 @@ export function CheckoutReview({
                             onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                             inputMode="numeric"
                             autoComplete="one-time-code"
-                            pattern="[0-9]{6}"
-                            maxLength={6}
+                            pattern="[0-9]{4}"
+                            maxLength={4}
                             required
                             disabled={
                               disabled ||
@@ -1200,7 +1200,7 @@ export function CheckoutReview({
                           className="button secondary"
                           disabled={
                             disabled ||
-                            otp.length !== 6 ||
+                            otp.length !== 4 ||
                             !(
                               checkout.verificationChallenge?.sent ||
                               checkout.verificationChallenge?.deliveryStatus === 'uncertain'
