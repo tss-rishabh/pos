@@ -82,6 +82,7 @@ export const salespersonSchema = z
     is_active: z.number(),
     user_type: z.number(),
     storeIds: z.array(id),
+    storeNames: z.array(z.string()).default([]),
     activeStoreId: id.nullable(),
   })
   .transform((value) => ({
@@ -94,6 +95,7 @@ export const salespersonSchema = z
     active: value.is_active === 1,
     userType: value.user_type,
     storeIds: value.storeIds,
+    storeNames: value.storeNames,
     activeStoreId: value.activeStoreId,
   }));
 export type AdministrationSalesperson = z.infer<typeof salespersonSchema>;
@@ -111,6 +113,7 @@ export const operatorSchema = z.object({
   mfa: z.boolean().nullable(),
   active: z.boolean(),
   storeIds: z.array(id),
+  storeNames: z.array(z.string()).default([]),
 });
 export type AdministrationOperator = z.infer<typeof operatorSchema>;
 export const counterSchema = z
@@ -183,6 +186,7 @@ export function useAdministrationCollection<T>(
   search = '',
   active = 'true',
   cursorSchema: z.ZodType<string> = id,
+  view?: { pageSize: number; sort: string; direction: 'asc' | 'desc' },
 ) {
   const [settledSearch, setSettledSearch] = useState(search);
   useEffect(() => {
@@ -190,11 +194,12 @@ export function useAdministrationCollection<T>(
     return () => clearTimeout(timeout);
   }, [search]);
   return useInfiniteQuery({
-    queryKey: [ownerId, 'administration', path, settledSearch, active],
+    queryKey: [ownerId, 'administration', path, settledSearch, active, view],
     enabled: !!path,
     initialPageParam: '0',
     queryFn: ({ pageParam, signal }) => {
       const bodySearch =
+        Boolean(view) ||
         ['/api/v1/admin/operators', '/api/v1/admin/salespeople'].includes(path) ||
         /^\/api\/v1\/stores\/\d+\/salespeople$/.test(path);
       return bodySearch
@@ -204,14 +209,26 @@ export function useAdministrationCollection<T>(
               method: 'POST',
               operatorId: ownerId,
               signal,
-              body: JSON.stringify({ after: pageParam, limit: 30, search: settledSearch, active }),
+              body: JSON.stringify({
+                after: pageParam,
+                limit: view?.pageSize ?? 30,
+                search: settledSearch,
+                active,
+                ...(view ? { sort: view.sort, direction: view.direction } : {}),
+              }),
             },
-            pageSchema(schema, cursorSchema),
+            pageSchema(
+              schema,
+              view ? z.string().regex(/^c1\.[A-Za-z0-9_-]{1,4096}$/) : cursorSchema,
+            ),
           )
         : request(
-            `${path}?${params({ after: pageParam, limit: '30', search: settledSearch, active })}`,
+            `${path}?${params({ after: pageParam, limit: String(view?.pageSize ?? 30), search: settledSearch, active, ...(view ? { sort: view.sort, direction: view.direction } : {}) })}`,
             { signal, operatorId: ownerId },
-            pageSchema(schema, cursorSchema),
+            pageSchema(
+              schema,
+              view ? z.string().regex(/^c1\.[A-Za-z0-9_-]{1,4096}$/) : cursorSchema,
+            ),
           );
     },
     getNextPageParam: (page) => page.nextCursor || undefined,

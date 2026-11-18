@@ -1,9 +1,10 @@
+import { AdministrationCollectionTable, useAdministrationView } from './collection-table';
 import { useEffect, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Download, Plus, X } from 'lucide-react';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { ErrorState, Loading, PageTitle } from '../../components/common';
 import { mutateAdministration, useAdministrationCollection } from './api';
 import { DocumentationEditor } from './documentation-editor';
 import {
@@ -115,6 +116,7 @@ function GuideReader({
 }
 
 export function DocumentationPage({ user }: { user: Principal }) {
+  const view = useAdministrationView('documentation', user.id);
   const client = useQueryClient();
   const [search, setSearch] = useState(''),
     [status, setStatus] = useState('true'),
@@ -129,8 +131,8 @@ export function DocumentationPage({ user }: { user: Principal }) {
     search,
     status,
     guideCursorSchema,
+    view.options,
   );
-  const rows = collection.data?.pages.flatMap((page) => page.data) || [];
   const refresh = async () => {
     await client.invalidateQueries({ queryKey: [user.id] });
   };
@@ -204,44 +206,60 @@ export function DocumentationPage({ user }: { user: Principal }) {
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (
-          <div className="administration-guides">
-            {rows.map((guide) => (
-              <article key={guide.id}>
-                <div className="administration-heading">
-                  <h3>{guide.title}</h3>
-                  {user.role === 1 && (
-                    <div className="administration-actions">
-                      <button className="button secondary" onClick={() => void edit(guide.id)}>
-                        Edit
-                      </button>
-                      <button className="button secondary" onClick={() => void toggle(guide)}>
-                        {guide.active === 1 ? 'Archive' : 'Activate'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <p>{guide.summary}</p>
-                <div className="administration-guide-footer">
-                  <small>
-                    Updated <time>{guide.updatedAt}</time> by {guide.uploaderName}
-                  </small>
-                  <button className="button secondary" onClick={() => setReading(guide)}>
-                    <BookOpen size={14} />
-                    Read guide
-                  </button>
-                </div>
-              </article>
-            ))}
-            {!rows.length && <Empty title="No guides found" />}
-          </div>
-        )}
-        {collection.hasNextPage && (
-          <button
-            className="button secondary load-more"
-            onClick={() => void collection.fetchNextPage()}
-          >
-            Load more guides
-          </button>
+          <AdministrationCollectionTable
+            ownerId={user.id}
+            view={view}
+            collection={collection}
+            search={search}
+            active={status}
+            columns={[
+              { key: 'id', label: 'ID', sort: 'id', value: (row: Guide) => row.id },
+              { key: 'title', label: 'Title', sort: 'title', value: (row) => row.title },
+              { key: 'summary', label: 'Summary', sort: 'summary', value: (row) => row.summary },
+              {
+                key: 'uploader',
+                label: 'Uploaded by',
+                sort: 'uploader',
+                value: (row) => row.uploaderName,
+              },
+              {
+                key: 'updatedAt',
+                label: 'Updated at',
+                sort: 'updatedAt',
+                value: (row) => row.updatedAt,
+              },
+              {
+                key: 'sortOrder',
+                label: 'Sort order',
+                sort: 'sortOrder',
+                value: (row) => row.sortOrder,
+              },
+              {
+                key: 'active',
+                label: 'Status',
+                sort: 'active',
+                value: (row) => (row.active === 1 ? 'Active' : 'Archived'),
+              },
+            ]}
+            actions={(guide) => (
+              <>
+                <button className="button secondary" onClick={() => setReading(guide)}>
+                  <BookOpen size={14} />
+                  Read guide
+                </button>
+                {user.role === 1 && (
+                  <>
+                    <button className="button secondary" onClick={() => void edit(guide.id)}>
+                      Edit
+                    </button>
+                    <button className="button secondary" onClick={() => void toggle(guide)}>
+                      {guide.active === 1 ? 'Archive' : 'Activate'}
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          />
         )}
       </section>
       {reading && (

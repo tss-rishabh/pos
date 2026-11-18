@@ -1,8 +1,9 @@
+import { AdministrationCollectionTable, useAdministrationView } from './collection-table';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import type { Principal } from '../../api/types';
-import { Empty, ErrorState, Loading } from '../../components/common';
+import { ErrorState, Loading } from '../../components/common';
 import { AdministrationEditor, type AdministrationField } from './editor';
 import { AssignmentEditor } from './assignments';
 import { OperatorMfaButton } from './mfa';
@@ -88,6 +89,7 @@ function canManageOperator(user: Principal, target: AdministrationOperator) {
 }
 
 export function OperatorAdministration({ user }: { user: Principal }) {
+  const view = useAdministrationView('operators', user.id);
   const client = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('true');
@@ -101,8 +103,9 @@ export function OperatorAdministration({ user }: { user: Principal }) {
     operatorSchema,
     search,
     status,
+    undefined,
+    view.options,
   );
-  const rows = collection.data?.pages.flatMap((page) => page.data) || [];
   const changed = () => client.invalidateQueries({ queryKey: [user.id] });
   const creating = editing === 'new';
   const roleOptions = roles.filter(
@@ -211,106 +214,102 @@ export function OperatorAdministration({ user }: { user: Principal }) {
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (
-          <div className="table-wrap">
-            <table className="administration-table">
-              <thead>
-                <tr>
-                  <th>Operator</th>
-                  <th>Role</th>
-                  <th>OTP</th>
-                  <th>Stores</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((target) => (
-                  <tr key={target.id}>
-                    <td>
-                      <strong>
-                        {target.firstName} {target.lastName}
-                      </strong>
-                      <small>{target.email}</small>
-                      {target.username && target.username !== target.email && (
-                        <small>{target.username}</small>
-                      )}
-                    </td>
-                    <td>
-                      {roles.find((role) => Number(role.value) === target.role)?.label || 'Unknown'}
-                    </td>
-                    <td>
-                      {target.otpMethod === 1 ? 'Mobile' : 'Email'}
-                      <small>MFA {target.mfa ? 'enabled' : 'disabled'}</small>
-                    </td>
-                    <td>{target.role === 1 ? 'All stores' : target.storeIds.length}</td>
-                    <td>
-                      <span className={`badge ${target.active ? 'green' : 'neutral'}`}>
-                        {target.active ? 'Active' : 'Archived'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="administration-table-actions">
-                        {user.role === 1 && (
-                          <OperatorAdministrativeButton
-                            user={user}
-                            operatorId={target.id}
-                            operatorName={`${target.firstName} ${target.lastName}`}
-                          />
-                        )}
-                        {user.role === 1 && (
-                          <OperatorAccessButton
-                            user={user}
-                            operatorId={target.id}
-                            operatorName={`${target.firstName} ${target.lastName}`}
-                          />
-                        )}
-                        {target.active &&
-                          (target.id === user.id || canManageOperator(user, target)) && (
-                            <OperatorMfaButton
-                              actorId={user.id}
-                              operatorId={target.id}
-                              operatorName={`${target.firstName} ${target.lastName}`}
-                              self={target.id === user.id}
-                              onChanged={changed}
-                            />
-                          )}
-                        {canManageOperator(user, target) && (
-                          <>
-                            <button className="button secondary" onClick={() => setEditing(target)}>
-                              Edit
-                            </button>
-                            {target.role !== 1 && (
-                              <button
-                                className="button secondary"
-                                onClick={() => setAssigning(target)}
-                              >
-                                Stores
-                              </button>
-                            )}
-                            <button
-                              className="button secondary"
-                              onClick={() => void toggle(target)}
-                            >
-                              {target.active ? 'Archive' : 'Activate'}
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!rows.length && <Empty title="No matching operators" />}
-          </div>
-        )}
-        {collection.hasNextPage && (
-          <button
-            className="button secondary load-more"
-            onClick={() => void collection.fetchNextPage()}
-          >
-            Load more operators
-          </button>
+          <AdministrationCollectionTable
+            ownerId={user.id}
+            view={view}
+            collection={collection}
+            search={search}
+            active={status}
+            columns={[
+              {
+                key: 'id',
+                label: 'ID',
+                sort: 'id',
+                value: (row: AdministrationOperator) => row.id,
+              },
+              {
+                key: 'name',
+                label: 'Name',
+                sort: 'name',
+                value: (row) => `${row.firstName} ${row.lastName}`,
+              },
+              { key: 'email', label: 'Email', sort: 'email', value: (row) => row.email },
+              { key: 'phone', label: 'Phone', sort: 'phone', value: (row) => row.phone },
+              {
+                key: 'role',
+                label: 'Role',
+                sort: 'role',
+                value: (row) =>
+                  roles.find((role) => role.value === String(row.role))?.label ?? String(row.role),
+              },
+              {
+                key: 'userType',
+                label: 'Ownership',
+                sort: 'userType',
+                value: (row) => (row.userType === 2 ? 'Franchise' : 'In house'),
+              },
+              { key: 'contactEmail', label: 'OTP email', value: (row) => row.contactEmail },
+              {
+                key: 'otpMethod',
+                label: 'OTP method',
+                value: (row) => (row.otpMethod === 1 ? 'SMS' : 'Email'),
+              },
+              { key: 'mfa', label: 'MFA', value: (row) => (row.mfa ? 'Enabled' : 'Disabled') },
+              {
+                key: 'stores',
+                label: 'Stores',
+                value: (row) => (row.storeNames.length ? row.storeNames : row.storeIds).join(', '),
+              },
+              {
+                key: 'active',
+                label: 'Status',
+                sort: 'active',
+                value: (row) => (row.active ? 'Active' : 'Archived'),
+              },
+            ]}
+            actions={(target) => (
+              <>
+                {user.role === 1 && (
+                  <OperatorAdministrativeButton
+                    user={user}
+                    operatorId={target.id}
+                    operatorName={`${target.firstName} ${target.lastName}`}
+                  />
+                )}
+                {user.role === 1 && (
+                  <OperatorAccessButton
+                    user={user}
+                    operatorId={target.id}
+                    operatorName={`${target.firstName} ${target.lastName}`}
+                  />
+                )}
+                {target.active && (target.id === user.id || canManageOperator(user, target)) && (
+                  <OperatorMfaButton
+                    actorId={user.id}
+                    operatorId={target.id}
+                    operatorName={`${target.firstName} ${target.lastName}`}
+                    self={target.id === user.id}
+                    onChanged={changed}
+                  />
+                )}
+                {canManageOperator(user, target) && (
+                  <>
+                    <button className="button secondary" onClick={() => setEditing(target)}>
+                      Edit
+                    </button>
+                    {target.role !== 1 && (
+                      <button className="button secondary" onClick={() => setAssigning(target)}>
+                        Stores
+                      </button>
+                    )}
+                    <button className="button secondary" onClick={() => void toggle(target)}>
+                      {target.active ? 'Archive' : 'Activate'}
+                    </button>
+                  </>
+                )}
+              </>
+            )}
+          />
         )}
       </section>
       {editing && (
@@ -370,6 +369,7 @@ export function OperatorAdministration({ user }: { user: Principal }) {
 }
 
 export function SalespersonAdministration({ user }: { user: Principal }) {
+  const view = useAdministrationView('salespeople', user.id);
   const client = useQueryClient();
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('true');
@@ -383,8 +383,9 @@ export function SalespersonAdministration({ user }: { user: Principal }) {
     salespersonSchema,
     search,
     status,
+    undefined,
+    view.options,
   );
-  const rows = collection.data?.pages.flatMap((page) => page.data) || [];
   const changed = () => client.invalidateQueries({ queryKey: [user.id] });
   const selected = editing && editing !== 'new' ? editing : null;
   const fields: AdministrationField[] = [
@@ -444,62 +445,66 @@ export function SalespersonAdministration({ user }: { user: Principal }) {
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (
-          <div className="table-wrap">
-            <table className="administration-table">
-              <thead>
-                <tr>
-                  <th>Salesperson</th>
-                  <th>Employee ID</th>
-                  <th>Ownership</th>
-                  <th>Stores</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((target) => (
-                  <tr key={target.id}>
-                    <td>
-                      <strong>
-                        {target.firstName} {target.lastName}
-                      </strong>
-                      <small>{target.email}</small>
-                    </td>
-                    <td className="administration-value">{target.employeeId}</td>
-                    <td>{target.userType === 2 ? 'Franchise' : 'In house'}</td>
-                    <td>{target.storeIds.length}</td>
-                    <td>
-                      <span className={`badge ${target.active ? 'green' : 'neutral'}`}>
-                        {target.active ? 'Active' : 'Archived'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="administration-table-actions">
-                        <button className="button secondary" onClick={() => setEditing(target)}>
-                          Edit
-                        </button>
-                        <button className="button secondary" onClick={() => setAssigning(target)}>
-                          Stores
-                        </button>
-                        <button className="button secondary" onClick={() => void toggle(target)}>
-                          {target.active ? 'Archive' : 'Activate'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!rows.length && <Empty title="No matching salespeople" />}
-          </div>
-        )}
-        {collection.hasNextPage && (
-          <button
-            className="button secondary load-more"
-            onClick={() => void collection.fetchNextPage()}
-          >
-            Load more salespeople
-          </button>
+          <AdministrationCollectionTable
+            ownerId={user.id}
+            view={view}
+            collection={collection}
+            search={search}
+            active={status}
+            columns={[
+              {
+                key: 'id',
+                label: 'ID',
+                sort: 'id',
+                value: (row: AdministrationSalesperson) => row.id,
+              },
+              {
+                key: 'name',
+                label: 'Name',
+                sort: 'name',
+                value: (row) => `${row.firstName} ${row.lastName}`,
+              },
+              { key: 'email', label: 'Email', sort: 'email', value: (row) => row.email },
+              { key: 'phone', label: 'Phone', sort: 'phone', value: (row) => row.phone },
+              {
+                key: 'employeeId',
+                label: 'Employee ID',
+                sort: 'employeeId',
+                value: (row) => row.employeeId,
+              },
+              {
+                key: 'userType',
+                label: 'Ownership',
+                sort: 'userType',
+                value: (row) => (row.userType === 2 ? 'Franchise' : 'In house'),
+              },
+              { key: 'activeStore', label: 'Active store ID', value: (row) => row.activeStoreId },
+              {
+                key: 'stores',
+                label: 'Stores',
+                value: (row) => (row.storeNames.length ? row.storeNames : row.storeIds).join(', '),
+              },
+              {
+                key: 'active',
+                label: 'Status',
+                sort: 'active',
+                value: (row) => (row.active ? 'Active' : 'Archived'),
+              },
+            ]}
+            actions={(target) => (
+              <>
+                <button className="button secondary" onClick={() => setEditing(target)}>
+                  Edit
+                </button>
+                <button className="button secondary" onClick={() => setAssigning(target)}>
+                  Stores
+                </button>
+                <button className="button secondary" onClick={() => void toggle(target)}>
+                  {target.active ? 'Archive' : 'Activate'}
+                </button>
+              </>
+            )}
+          />
         )}
       </section>
       {editing && (

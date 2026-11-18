@@ -1,3 +1,4 @@
+import { AdministrationCollectionTable, useAdministrationView } from './collection-table';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
@@ -24,6 +25,7 @@ export function StoreResourceAdministration({
 }) {
   const client = useQueryClient();
   const [kind, setKind] = useState<'counters' | 'storages'>('counters');
+  const view = useAdministrationView(kind === 'counters' ? 'counters' : 'storage', user.id);
   const [status, setStatus] = useState('true');
   const [creating, setCreating] = useState(false);
   const [editingStorage, setEditingStorage] = useState<z.infer<typeof storageSchema> | null>(null);
@@ -36,6 +38,8 @@ export function StoreResourceAdministration({
     counterSchema,
     '',
     status,
+    undefined,
+    view.options,
   );
   const storages = useAdministrationCollection(
     user.id,
@@ -43,6 +47,8 @@ export function StoreResourceAdministration({
     storageSchema,
     '',
     status,
+    undefined,
+    view.options,
   );
   const stores = useQuery({
     queryKey: [user.id, 'administration', 'assignable-stores'],
@@ -54,10 +60,6 @@ export function StoreResourceAdministration({
       ),
   });
   const collection = kind === 'counters' ? counters : storages;
-  const rows =
-    kind === 'counters'
-      ? counters.data?.pages.flatMap((page) => page.data) || []
-      : storages.data?.pages.flatMap((page) => page.data) || [];
   const fields: AdministrationField[] = [
     ...(kind === 'storages'
       ? [
@@ -152,62 +154,53 @@ export function StoreResourceAdministration({
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (
-          <div className="table-wrap">
-            <table className="administration-table">
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Type</th>
-                  <th>Description</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr key={row.id}>
-                    <td>
-                      <strong>{row.name}</strong>
-                    </td>
-                    <td>{row.type}</td>
-                    <td>{row.description || '—'}</td>
-                    <td>
-                      <span className={`badge ${row.active ? 'green' : 'neutral'}`}>
-                        {row.active ? 'Active' : 'Archived'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="administration-table-actions">
-                        {kind === 'storages' && row.active && (
-                          <button
-                            className="button secondary"
-                            onClick={() => setEditingStorage(row)}
-                          >
-                            Edit
-                          </button>
-                        )}
-                        <button
-                          className="button secondary"
-                          onClick={() => void toggle(row.id, row.active)}
-                        >
-                          {row.active ? 'Archive' : 'Activate'}
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!rows.length && <Empty title={`No ${kind} found`} />}
-          </div>
-        )}
-        {collection.hasNextPage && (
-          <button
-            className="button secondary load-more"
-            onClick={() => void collection.fetchNextPage()}
-          >
-            Load more
-          </button>
+          <AdministrationCollectionTable
+            key={`${kind}:${storeId}`}
+            ownerId={user.id}
+            view={view}
+            collection={collection}
+            search=""
+            active={status}
+            storeId={storeId}
+            columns={[
+              {
+                key: 'id',
+                label: 'ID',
+                sort: 'id',
+                value: (row: z.infer<typeof storageSchema>) => row.id,
+              },
+              { key: 'storeId', label: 'Store ID', value: (row) => row.storeId },
+              { key: 'name', label: 'Name', sort: 'name', value: (row) => row.name },
+              { key: 'type', label: 'Type', sort: 'type', value: (row) => row.type },
+              {
+                key: 'description',
+                label: 'Description',
+                sort: 'description',
+                value: (row) => row.description,
+              },
+              {
+                key: 'active',
+                label: 'Status',
+                sort: 'active',
+                value: (row) => (row.active ? 'Active' : 'Archived'),
+              },
+            ]}
+            actions={(row) => (
+              <>
+                {kind === 'storages' && row.active && (
+                  <button className="button secondary" onClick={() => setEditingStorage(row)}>
+                    Edit
+                  </button>
+                )}
+                <button
+                  className="button secondary"
+                  onClick={() => void toggle(row.id, row.active)}
+                >
+                  {row.active ? 'Archive' : 'Activate'}
+                </button>
+              </>
+            )}
+          />
         )}
       </section>
       <TerminalAdministration user={user} storeId={storeId} />

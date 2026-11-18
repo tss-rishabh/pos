@@ -1,10 +1,12 @@
+import { AdministrationCollectionTable, useAdministrationView } from './collection-table';
+import { StoreDetailDialog } from './store-detail';
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { Empty, ErrorState, Loading } from '../../components/common';
+import { ErrorState, Loading } from '../../components/common';
 import { AdministrationEditor, type AdministrationField } from './editor';
 import { StoreImageDialog } from './store-images';
 import { postalCodeFields } from './locations';
@@ -174,6 +176,8 @@ function storeBody(values: Record<string, string>, imagePath?: string) {
   };
 }
 export function StoreAdministration({ user }: { user: Principal }) {
+  const view = useAdministrationView('stores', user.id),
+    [viewing, setViewing] = useState<string | null>(null);
   const client = useQueryClient(),
     [search, setSearch] = useState(''),
     [status, setStatus] = useState('true'),
@@ -188,6 +192,8 @@ export function StoreAdministration({ user }: { user: Principal }) {
     storeSchema,
     search,
     status,
+    undefined,
+    view.options,
   );
   const franchises = useAdministrationCollection(
     user.id,
@@ -219,7 +225,6 @@ export function StoreAdministration({ user }: { user: Principal }) {
         z.object({ data: z.array(z.object({ id: z.string(), name: z.string() })) }),
       ),
   });
-  const rows = collection.data?.pages.flatMap((page) => page.data) || [];
   const changed = async () => {
     await client.invalidateQueries({ queryKey: [user.id] });
   };
@@ -360,69 +365,89 @@ export function StoreAdministration({ user }: { user: Principal }) {
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (
-          <div className="table-wrap">
-            <table className="administration-table">
-              <thead>
-                <tr>
-                  <th>Store</th>
-                  <th>Location</th>
-                  <th>Ownership</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((store) => (
-                  <tr key={store.id}>
-                    <td>
-                      <strong>{store.name}</strong>
-                      <small>{store.city}</small>
-                    </td>
-                    <td className="administration-value">{store.locationCode}</td>
-                    <td>{store.category === 'FRANCHISE' ? 'Franchise' : 'In house'}</td>
-                    <td>
-                      <span className={`badge ${store.active ? 'green' : 'neutral'}`}>
-                        {store.active ? 'Active' : 'Archived'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="administration-table-actions">
-                        {store.active && [1, 3].includes(user.role) && (
-                          <StoreSlackButton user={user} storeId={store.id} storeName={store.name} />
-                        )}
-                        {store.active && [1, 3].includes(user.role) && (
-                          <button className="button secondary" onClick={() => setImageStore(store)}>
-                            Image
-                          </button>
-                        )}
-                        {store.active && [1, 3].includes(user.role) && (
-                          <button className="button secondary" onClick={() => void edit(store.id)}>
-                            Edit
-                          </button>
-                        )}
-                        {user.role === 1 && (
-                          <button className="button secondary" onClick={() => void toggle(store)}>
-                            {store.active ? 'Archive' : 'Activate'}
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!rows.length && <Empty title="No matching stores" />}
-          </div>
-        )}
-        {collection.hasNextPage && (
-          <button
-            className="button secondary load-more"
-            onClick={() => void collection.fetchNextPage()}
-          >
-            Load more stores
-          </button>
+          <AdministrationCollectionTable
+            ownerId={user.id}
+            view={view}
+            collection={collection}
+            search={search}
+            active={status}
+            columns={[
+              { key: 'id', label: 'ID', sort: 'id', value: (row: AdministrationStore) => row.id },
+              { key: 'name', label: 'Store', sort: 'name', value: (row) => row.name },
+              {
+                key: 'locationCode',
+                label: 'Location code',
+                sort: 'locationCode',
+                value: (row) => row.locationCode,
+              },
+              { key: 'type', label: 'Type', sort: 'type', value: (row) => row.type },
+              {
+                key: 'category',
+                label: 'Ownership',
+                sort: 'category',
+                value: (row) => row.category,
+              },
+              { key: 'phone', label: 'Phone', sort: 'phone', value: (row) => row.phone },
+              { key: 'email', label: 'Email', sort: 'email', value: (row) => row.email },
+              { key: 'city', label: 'City', sort: 'city', value: (row) => row.city },
+              { key: 'state', label: 'State', value: (row) => row.state },
+              { key: 'address', label: 'Address', sort: 'address', value: (row) => row.address },
+              {
+                key: 'alternateAddress',
+                label: 'Alternate address',
+                value: (row) => row.alternateAddress,
+              },
+              {
+                key: 'pincode',
+                label: 'Postal code',
+                sort: 'pincode',
+                value: (row) => row.pincode,
+              },
+              { key: 'gstin', label: 'GSTIN', value: (row) => row.gstin },
+              { key: 'shortName', label: 'Short name', value: (row) => row.shortName },
+              {
+                key: 'active',
+                label: 'Status',
+                sort: 'active',
+                value: (row) => (row.active ? 'Active' : 'Archived'),
+              },
+            ]}
+            actions={(store) => (
+              <>
+                <button className="button secondary" onClick={() => setViewing(store.id)}>
+                  Details and QR
+                </button>
+                {store.active && [1, 3].includes(user.role) && (
+                  <StoreSlackButton user={user} storeId={store.id} storeName={store.name} />
+                )}
+                {store.active && [1, 3].includes(user.role) && (
+                  <button className="button secondary" onClick={() => setImageStore(store)}>
+                    Image
+                  </button>
+                )}
+                {store.active && [1, 3].includes(user.role) && (
+                  <button className="button secondary" onClick={() => void edit(store.id)}>
+                    Edit
+                  </button>
+                )}
+                {user.role === 1 && (
+                  <button className="button secondary" onClick={() => void toggle(store)}>
+                    {store.active ? 'Archive' : 'Activate'}
+                  </button>
+                )}
+              </>
+            )}
+          />
         )}
       </section>
+      {viewing && (
+        <StoreDetailDialog
+          key={`${user.id}:${viewing}`}
+          operatorId={user.id}
+          storeId={viewing}
+          onClose={() => setViewing(null)}
+        />
+      )}
       {editing && (
         <AdministrationEditor
           description={
