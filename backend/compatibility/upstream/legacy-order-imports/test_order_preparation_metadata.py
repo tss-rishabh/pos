@@ -24,6 +24,10 @@ class PreparationMetadata(unittest.TestCase):
             'SELECT 1 FROM `orders` WHERE FALSE',
             'SELECT 1 FROM `pos_rewrite_coupon_history_heads` WHERE FALSE',
             'SHOW CREATE TABLE `orders`',
+            'SHOW CREATE TABLE `user_eav`',
+            'SHOW CREATE TABLE `pos_rewrite_membership_versions`',
+            'SELECT 1 FROM `user_eav` WHERE FALSE',
+            'SELECT 1 FROM `pos_rewrite_membership_versions` WHERE FALSE',
             'SHOW CREATE TABLE `sys`.`sys_config`',
         ):
             with self.subTest(statement=statement):
@@ -32,6 +36,10 @@ class PreparationMetadata(unittest.TestCase):
             "SHOW GRANTS FOR 'other'@'%'", 'SHOW GRANTS',
             'SHOW CREATE TABLE `other_schema`.`orders`',
             'SHOW CREATE TABLE `unknown`', 'SHOW CREATE FUNCTION `untrusted`',
+            'SHOW CREATE TABLE `other_schema`.`user_eav`',
+            'SHOW CREATE TABLE `pos_rewrite_membership_versions`; DELETE FROM users',
+            'SELECT 1 FROM `user_eav` WHERE FALSE UNION SELECT value FROM user_eav',
+            'SELECT COUNT(*) FROM `pos_rewrite_membership_versions` WHERE FALSE',
             'SHOW CREATE TABLE `orders`; DELETE FROM orders',
             'SELECT 1 FROM `orders` WHERE FALSE UNION SELECT id FROM orders',
             'SELECT 1 FROM `orders` WHERE TRUE',

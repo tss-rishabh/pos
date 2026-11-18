@@ -115,6 +115,7 @@ _METADATA_TABLES = (
     'pos_rewrite_screening_origin_history_heads',
     'pos_rewrite_screening_origin_history_changes',
     'pos_rewrite_membership_history_heads', 'pos_rewrite_coupon_history_heads',
+    'user_eav', 'pos_rewrite_membership_versions',
     'pos_rewrite_screening_counter_heads', 'pos_rewrite_screening_counters',
     'pos_rewrite_screening_contributions',
 )
