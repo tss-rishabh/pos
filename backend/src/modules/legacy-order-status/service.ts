@@ -1,83 +1,142 @@
+import { and, eq, inArray } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
+import {
+  HasProduct,
+  Order,
+  OrderStatus,
+  OrderStore,
+  Store,
+  UserStore,
+} from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
-import { wholeOrderStatusRepository, publicStatusCommand } from './repository.js';
-import { readWholeOrderStatusOptions, type WholeOrderStatusOptions } from './options.js';
-import { wholeOrderStatusTransport, type WholeOrderStatusTransport } from './transport.js';
-import { wholeOrderStatusWorker } from './worker.js';
-import { rejectedReturnRepairs } from './repair-obligations.js';
+import {
+  queuedMessage,
+  sourceStatusPresentation,
+  unprocessedLabels,
+  type StatusPlatform,
+} from './domain.js';
+import {
+  readWholeOrderStatusOptions,
+  syncRepoBaseUrl,
+  type WholeOrderStatusOptions,
+} from './options.js';
+import { wholeOrderStatusLogs } from './schema.js';
+import { syncRepoStatusApi, type CallStatusApi, type SyncRepoOutcome } from './transport.js';
+
+const notFound = () =>
+  new AppError(404, 'ORDER_NOT_FOUND', 'This order was not found for this store.');
+
+/** Sync-repo status adapter shared by the push route and the C12 job. */
+export function statusApiFromOptions(
+  config: Pick<Config, 'NODE_ENV'>,
+  options: WholeOrderStatusOptions,
+  log: (outcome: SyncRepoOutcome, hyperlocal: boolean) => void = () => {},
+  fetcher: typeof fetch = fetch,
+): CallStatusApi {
+  return syncRepoStatusApi(
+    {
+      BACKEND_SYNC_API_BASE_URL: syncRepoBaseUrl(config, options),
+      BACKEND_SYNC_REPO_API_KEY: options.BACKEND_SYNC_REPO_API_KEY,
+    },
+    fetcher,
+    log,
+  );
+}
+
+/** Line ids for the whole order: `HasProduct.objects.filter(order_id=…).values_list('id')`. */
+export async function orderLineIds(db: Databases, orderId: string): Promise<string[]> {
+  const rows = await db
+    .get('writer')
+    .select({ id: HasProduct.id })
+    .from(HasProduct)
+    .where(eq(HasProduct.order, BigInt(orderId)));
+  return rows.map((row) => String(row.id));
+}
+
 export function wholeOrderStatusService(
   config: Config,
   db: Databases,
   options: WholeOrderStatusOptions = readWholeOrderStatusOptions(),
-  dependencies: {
-    transport?: WholeOrderStatusTransport;
-    clock?: () => number;
-  } = {},
+  dependencies: { callStatusApi?: CallStatusApi } = {},
 ) {
-  const repository = wholeOrderStatusRepository(config, db, dependencies.clock),
-    transport = dependencies.transport ?? wholeOrderStatusTransport(config, options);
-  const configured = () => {
-    transport.configured();
-  };
-  const repairs = rejectedReturnRepairs(config, db, repository, {
-    enabled: options.WHOLE_ORDER_STATUS_WORKER_ENABLED && !config.DEMO_MODE,
-    configured,
-    clock: dependencies.clock,
-    readReceipt: (row) => transport.read(row),
-  });
+  const callStatusApi = dependencies.callStatusApi ?? statusApiFromOptions(config, options);
+  /**
+   * Legacy `ShowOrderDetailsView` store scope (`order/views.py:355-369`): the order needs an
+   * `order_stores` row in the user's stores (`user_stores`, or every active store for role 1).
+   * The `cr=1` cross-store bypass is not offered here (security decision, see report).
+   */
+  async function authorize(user: Principal, storeId: string, orderId: string) {
+    const reader = db.get('primary');
+    const allowed =
+      user.role === 1
+        ? reader
+            .select({ id: Store.id })
+            .from(Store)
+            .where(and(eq(Store.id, BigInt(storeId)), eq(Store.is_active, true)))
+        : reader
+            .select({ id: UserStore.store_id })
+            .from(UserStore)
+            .where(
+              and(
+                eq(UserStore.django_user_id, BigInt(user.id)),
+                eq(UserStore.store_id, BigInt(storeId)),
+              ),
+            );
+    const [row] = await reader
+      .select({ id: OrderStore.id })
+      .from(OrderStore)
+      .where(
+        and(
+          eq(OrderStore.order, BigInt(orderId)),
+          eq(OrderStore.store, BigInt(storeId)),
+          inArray(OrderStore.store, allowed),
+        ),
+      )
+      .limit(1);
+    if (!row) throw notFound();
+  }
   return {
-    configured,
-    repairs,
-    repository,
-    worker: wholeOrderStatusWorker(repository, transport),
-    async submit(
-      user: Principal,
-      storeId: string,
-      orderId: string,
-      input: unknown,
-      requestId?: string,
-    ) {
-      configured();
-      return repository.submit(user, storeId, orderId, input, requestId);
-    },
-    async repair(
-      user: Principal,
-      storeId: string,
-      orderId: string,
-      input: { operationId: string; returnOperationId: string },
-      requestId?: string,
-    ) {
-      return repository.repair(user, storeId, orderId, input, requestId);
-    },
+    /** "Vinculum Status" tab data (`order/views.py:451-464`, `show.html:303-340`). */
     async status(user: Principal, storeId: string, orderId: string) {
-      const value = await repository.status(user, storeId, orderId);
-      let adapterReady = true;
-      try {
-        configured();
-      } catch {
-        adapterReady = false;
-      }
-      return { ...value, adapterReady };
+      await authorize(user, storeId, orderId);
+      const reader = db.get('primary');
+      const [order] = await reader
+        .select({ label: OrderStatus.order_status })
+        .from(Order)
+        .leftJoin(OrderStatus, eq(OrderStatus.id, Order.order_statuses))
+        .where(eq(Order.id, BigInt(orderId)))
+        .limit(1);
+      if (!order) throw notFound();
+      const logs = await reader
+        .select({
+          id: wholeOrderStatusLogs.id,
+          platform: wholeOrderStatusLogs.platform,
+          status: wholeOrderStatusLogs.status,
+          updatedAt: wholeOrderStatusLogs.updatedAt,
+        })
+        .from(wholeOrderStatusLogs)
+        .where(eq(wholeOrderStatusLogs.orderId, BigInt(orderId)))
+        .orderBy(wholeOrderStatusLogs.id);
+      return {
+        orderId,
+        storeId,
+        processed: !unprocessedLabels.includes(order.label ?? ''),
+        stages: sourceStatusPresentation(logs.map((row) => ({ ...row, id: String(row.id) }))),
+      };
     },
-    async read(user: Principal, storeId: string, orderId: string, id: string) {
-      const initial = await repository.recoveryContext(user, storeId, orderId, id);
-      if (['SENDING', 'UNCERTAIN', 'QUEUED'].includes(initial.row.state)) {
-        const receipt = await transport.read(initial.row),
-          fresh = await repository.recoveryContext(user, storeId, orderId, id);
-        if (fresh.binding !== initial.binding)
-          throw new AppError(
-            403,
-            'WHOLE_ORDER_STATUS_SCOPE_CHANGED',
-            'Your status-viewing permissions changed.',
-          );
-        // A missing remote receipt never proves an in-flight request was not sent.
-        if (receipt) await repository.complete(fresh.row, receipt);
-      }
-      return repository.read(user, storeId, orderId, id);
+    /**
+     * Legacy `AjaxUpdateStatusVincView.post` (`order/views.py:4427-4445`): POST every line of
+     * the order to the sync-repo `/store-order/status` once, synchronously, and answer
+     * "Request has been queued for processing" whatever the outcome (legacy only logs).
+     */
+    async push(user: Principal, storeId: string, orderId: string, stage: StatusPlatform) {
+      await authorize(user, storeId, orderId);
+      const ids = await orderLineIds(db, orderId);
+      const outcome = await callStatusApi(orderId, ids, stage, false);
+      return { message: queuedMessage, outcome };
     },
-    publicStatusCommand,
   };
 }
 export type WholeOrderStatusService = ReturnType<typeof wholeOrderStatusService>;

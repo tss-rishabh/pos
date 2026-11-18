@@ -372,8 +372,6 @@ export async function buildApp(
     paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
     customerOtp,
     orderCopy: { history: historicalOrderCopyFacts(orderHistory) },
-    rejectedInboundRepairDispatcherEnabled:
-      !config.DEMO_MODE && wholeOrderOptions.WHOLE_ORDER_STATUS_WORKER_ENABLED,
     ...(stockProjection
       ? { inventoryProcedureVerified: true, stockProcedure: stockProjection }
       : {}),
