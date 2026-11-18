@@ -1,63 +1,149 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Bell, Check, CloudOff } from 'lucide-react';
-import { z } from 'zod';
+import { NavLink } from 'react-router-dom';
+import { Bell, Check, CloudOff, Truck, Volume2, VolumeX } from 'lucide-react';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
 import { Empty, ErrorState, Loading } from '../../components/common';
+import { useOnline } from '../../hooks/use-pos';
+import {
+  notificationEventSchema,
+  storeNoticesSchema,
+  type IncomingNotificationAlert,
+  type StoreNotice,
+} from './notification-contracts';
+import { IncomingNotificationAlerts } from './notification-alerts';
+import { isNewOrderNotice, notificationDestination } from './notification-links';
+import { useNotificationSound } from './notification-sound';
+import { useFulfillmentExpiryAlerts } from './expiry-alerts';
 import './style.css';
 
-const notices = z.object({
-  data: z.array(
-    z.object({
-      id: z.string(),
-      title: z.string(),
-      url: z.string().nullable(),
-      orderId: z.string().nullable(),
-      isViewed: z.boolean(),
-      createdAt: z.string(),
-    }),
-  ),
-  unreadCount: z.number(),
-  hasMore: z.boolean(),
-});
-const eventSchema = z.object({
-  event: z.enum(['notification.created', 'notification.read']),
-  notificationId: z.string(),
-  storeId: z.string(),
-  isNewOrder: z.boolean(),
-});
 export function NotificationsPanel({ user, storeId }: { user: Principal; storeId: string }) {
   const client = useQueryClient(),
     [open, setOpen] = useState(false),
     [connected, setConnected] = useState(false),
     [accessChanged, setAccessChanged] = useState(false),
-    [reconnectVersion, setReconnectVersion] = useState(0);
+    [reconnectVersion, setReconnectVersion] = useState(0),
+    [alerts, setAlerts] = useState<IncomingNotificationAlert[]>([]);
+  const online = useOnline();
+  const sound = useNotificationSound(user.id, storeId);
   const seen = useRef(new Set<string>());
+  const knownNotices = useRef(new Set<string>());
+  const pendingNotices = useRef(new Map<string, boolean>());
+  const incomingKinds = useRef(new Map<string, boolean>());
+  const initialized = useRef(false);
   const feed = useQuery({
     queryKey: [user.id, 'notifications', storeId],
-    enabled: !!storeId,
-    queryFn: () => request(`/api/v1/stores/${storeId}/notifications`, {}, notices),
+    enabled: !!storeId && online && !accessChanged,
+    queryFn: ({ signal }) =>
+      request(
+        `/api/v1/stores/${encodeURIComponent(storeId)}/notifications`,
+        { operatorId: user.id, signal },
+        storeNoticesSchema,
+      ),
     staleTime: 30000,
   });
+  const expiry = useFulfillmentExpiryAlerts(
+    user.id,
+    storeId,
+    connected && online && !accessChanged,
+  );
+  const queueCount = expiry.data?.bannerCounts.unaccepted ?? 0;
+  const scope = { operatorId: user.id, storeId };
+  const dismiss = useCallback((id: string) => {
+    setAlerts((current) => current.filter((alert) => alert.notice.id !== id));
+  }, []);
   const markRead = useMutation({
     mutationFn: (id: string) =>
-      request(`/api/v1/stores/${storeId}/notifications/${id}/read-receipt`, {
-        method: 'PUT',
-        operatorId: user.id,
-      }),
+      request(
+        `/api/v1/stores/${encodeURIComponent(storeId)}/notifications/${encodeURIComponent(id)}/read-receipt`,
+        {
+          method: 'PUT',
+          operatorId: user.id,
+        },
+      ),
     onSuccess: async () => {
       await client.invalidateQueries({ queryKey: [user.id, 'notifications', storeId] });
     },
   });
+  const resetRead = markRead.reset;
+  const visit = (notice: StoreNotice) => {
+    if (!notice.isViewed && online && !accessChanged) markRead.mutate(notice.id);
+    setOpen(false);
+  };
+  const unreadCount = online && !accessChanged && !feed.isError ? (feed.data?.unreadCount ?? 0) : 0;
   useEffect(() => {
-    if (!storeId) return;
+    if (!online || accessChanged || feed.isError) {
+      setAlerts([]);
+      return;
+    }
+    const data = feed.data;
+    if (!connected || !data) return;
+    const arrived: IncomingNotificationAlert[] = [];
+    for (const notice of data.data) {
+      const unseen = !knownNotices.current.has(notice.id);
+      const incoming = pendingNotices.current.get(notice.id);
+      if (!notice.isViewed && unseen && (initialized.current || incoming !== undefined))
+        arrived.push({ notice, isNewOrder: isNewOrderNotice(notice, incoming) });
+      knownNotices.current.add(notice.id);
+      pendingNotices.current.delete(notice.id);
+    }
+    initialized.current = true;
+    while (knownNotices.current.size > 1000) {
+      const id = knownNotices.current.values().next().value!;
+      knownNotices.current.delete(id);
+      incomingKinds.current.delete(id);
+    }
+    // Notifications are pointers. Titles, actions and read state come only from
+    // the authenticated native feed, including after reconnecting past a gap.
+    if (arrived.length) {
+      setAlerts((current) => {
+        const merged = new Map<string, IncomingNotificationAlert>();
+        for (const alert of [...arrived, ...current]) {
+          if (!merged.has(alert.notice.id)) merged.set(alert.notice.id, alert);
+          if (merged.size === 3) break;
+        }
+        return [...merged.values()];
+      });
+      sound.play();
+    }
+    setAlerts((current) =>
+      current.filter(
+        (alert) => !data.data.some((notice) => notice.id === alert.notice.id && notice.isViewed),
+      ),
+    );
+    if (
+      markRead.isError &&
+      data.data.some((notice) => notice.id === markRead.variables && notice.isViewed)
+    )
+      resetRead();
+  }, [
+    accessChanged,
+    connected,
+    feed.data,
+    feed.isError,
+    online,
+    sound.play,
+    markRead.isError,
+    markRead.variables,
+    resetRead,
+  ]);
+  useEffect(() => {
     let stopped = false,
       socket: WebSocket | undefined,
       timer: ReturnType<typeof setTimeout> | undefined,
       attempt = 0;
     seen.current.clear();
+    knownNotices.current.clear();
+    pendingNotices.current.clear();
+    incomingKinds.current.clear();
+    initialized.current = false;
+    setAlerts([]);
     setAccessChanged(false);
+    if (!storeId) {
+      setConnected(false);
+      return;
+    }
     const refreshFulfillment = () =>
       client.invalidateQueries({
         predicate: (query) =>
@@ -73,15 +159,17 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
       url.protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       socket = new WebSocket(url);
       socket.onopen = () => {
+        if (stopped) return;
         setConnected(true);
         attempt = 0;
         void client.invalidateQueries({ queryKey: [user.id, 'notifications', storeId] });
         void refreshFulfillment();
       };
       socket.onmessage = (event) => {
+        if (stopped) return;
         let parsed;
         try {
-          parsed = eventSchema.safeParse(JSON.parse(String(event.data)) as unknown);
+          parsed = notificationEventSchema.safeParse(JSON.parse(String(event.data)) as unknown);
         } catch {
           return;
         }
@@ -90,12 +178,21 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
         if (seen.current.has(key)) return;
         seen.current.add(key);
         if (seen.current.size > 500) seen.current.delete(seen.current.values().next().value!);
+        if (parsed.data.event === 'notification.created') {
+          pendingNotices.current.set(parsed.data.notificationId, parsed.data.isNewOrder);
+          incomingKinds.current.set(parsed.data.notificationId, parsed.data.isNewOrder);
+          if (pendingNotices.current.size > 100) {
+            const oldest = pendingNotices.current.keys().next().value!;
+            pendingNotices.current.delete(oldest);
+            if (!knownNotices.current.has(oldest)) incomingKinds.current.delete(oldest);
+          }
+        }
         void client.invalidateQueries({ queryKey: [user.id, 'notifications', storeId] });
         if (parsed.data.isNewOrder) void refreshFulfillment();
       };
       socket.onclose = (event) => {
-        setConnected(false);
         if (stopped) return;
+        setConnected(false);
         if (event.code === 1008) {
           setAccessChanged(true);
           void client.invalidateQueries({ queryKey: ['operator'] });
@@ -114,15 +211,65 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
   }, [user.id, storeId, client, reconnectVersion]);
   return (
     <div className="notification-widget">
-      <button
-        className="icon-button notification-trigger"
-        aria-label="Notifications"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
-      >
-        <Bell size={18} />
-        {Boolean(feed.data?.unreadCount) && <span>{feed.data!.unreadCount}</span>}
-      </button>
+      <div className="notification-controls">
+        {queueCount > 0 && (
+          <NavLink
+            className="notification-queue-indicator"
+            to="/fulfillment?tab=in_queue"
+            aria-label={`${queueCount} ${queueCount === 1 ? 'order' : 'orders'} awaiting acceptance. View order queue.`}
+          >
+            <Truck size={15} />
+            <span>{queueCount} in queue</span>
+          </NavLink>
+        )}
+        <button
+          className="icon-button notification-trigger"
+          aria-label="Notifications"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          <Bell size={18} />
+          {unreadCount > 0 && <span>{unreadCount}</span>}
+        </button>
+        <button
+          className="notification-sound-control"
+          type="button"
+          disabled={sound.unavailable}
+          aria-label={
+            sound.unavailable
+              ? 'Notification sound unavailable'
+              : sound.enabled && sound.ready
+                ? 'Mute notification sound'
+                : 'Enable notification sound'
+          }
+          onClick={() => {
+            if (sound.enabled && sound.ready) sound.mute();
+            else void sound.enable();
+          }}
+          title={
+            sound.unavailable
+              ? 'Sound is unavailable in this window.'
+              : sound.enabled && sound.ready
+                ? 'Mute notification sound'
+                : 'Enable notification sound'
+          }
+        >
+          {sound.enabled && sound.ready ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          <span>
+            {sound.unavailable
+              ? 'Sound unavailable'
+              : sound.enabled && sound.ready
+                ? 'Sound on'
+                : 'Enable sound'}
+          </span>
+        </button>
+      </div>
+      <IncomingNotificationAlerts
+        alerts={online && !accessChanged && !feed.isError ? alerts : []}
+        scope={scope}
+        dismiss={dismiss}
+        visit={visit}
+      />
       {open && (
         <section className="surface notification-panel" aria-label="Store notifications">
           <header>
@@ -146,33 +293,58 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
               Reconnect after checking store access
             </button>
           )}
-          {feed.isPending ? (
+          {accessChanged ? (
+            <p className="notification-access-note">
+              Check the current store and check-in before reconnecting.
+            </p>
+          ) : !online ? (
+            <p className="notification-access-note">Notifications refresh when you reconnect.</p>
+          ) : feed.isPending ? (
             <Loading />
           ) : feed.isError ? (
             <ErrorState error={feed.error} />
           ) : feed.data.data.length === 0 ? (
             <Empty title="All quiet for now" />
           ) : (
-            feed.data.data.map((notice) => (
-              <article key={notice.id} className={notice.isViewed ? 'viewed' : ''}>
-                <strong>{notice.title}</strong>
-                <small>{notice.createdAt}</small>
-                <div>
-                  {notice.url && <a href={notice.url}>View details</a>}
-                  {!notice.isViewed && (
-                    <button
-                      className="text-button"
-                      disabled={markRead.isPending}
-                      onClick={() => markRead.mutate(notice.id)}
-                    >
-                      <Check size={12} />
-                      Mark read
-                    </button>
+            feed.data.data.map((notice) => {
+              const destination = notificationDestination(
+                notice,
+                scope,
+                incomingKinds.current.get(notice.id),
+              );
+              return (
+                <article key={notice.id} className={notice.isViewed ? 'viewed' : ''}>
+                  <strong>{notice.title}</strong>
+                  {notice.orderId && (
+                    <span className="notification-order-reference">Order {notice.orderId}</span>
                   )}
-                </div>
-              </article>
-            ))
+                  <small>{notice.createdAt}</small>
+                  <div>
+                    {destination && (
+                      <NavLink
+                        to={destination.to}
+                        state={destination.state}
+                        onClick={() => visit(notice)}
+                      >
+                        View details
+                      </NavLink>
+                    )}
+                    {!notice.isViewed && (
+                      <button
+                        className="text-button"
+                        disabled={markRead.isPending || !online || accessChanged}
+                        onClick={() => markRead.mutate(notice.id)}
+                      >
+                        <Check size={12} />
+                        Mark read
+                      </button>
+                    )}
+                  </div>
+                </article>
+              );
+            })
           )}
+          {markRead.isError && <ErrorState error={markRead.error} />}
         </section>
       )}
     </div>

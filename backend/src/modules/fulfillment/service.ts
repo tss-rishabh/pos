@@ -33,6 +33,25 @@ import {
 } from './domain.js';
 import { fulfillmentCommands, fulfillmentEffects, type ActionReceipt } from './schema.js';
 
+function safeNotificationUrl(value: string | null): string | null {
+  if (
+    !value ||
+    !value.startsWith('/') ||
+    value.startsWith('//') ||
+    /[\\\u0000-\u001f\u007f]/.test(value)
+  )
+    return null;
+  try {
+    // WHATWG parsing normalizes slash/backslash prefixes into network URLs.
+    // Validate the actual destination rather than a leading-slash regex alone.
+    const origin = 'https://pos.invalid';
+    const parsed = new URL(value, origin);
+    return parsed.origin === origin && !parsed.username && !parsed.password ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export const lineSelection = {
   id: ExpressLineItem.id,
   orderId: ExpressLineItem.order,
@@ -666,7 +685,7 @@ export function fulfillmentService(
           id: String(row.id),
           orderId: row.orderId === null ? null : String(row.orderId),
           isViewed: row.isViewed === 1,
-          url: row.url && /^\/(?!\/)/.test(row.url) ? row.url : null,
+          url: safeNotificationUrl(row.url),
         })),
         unreadCount: Number(count?.count || 0),
         hasMore: rows.length > limit,

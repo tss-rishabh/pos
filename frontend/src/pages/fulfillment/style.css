@@ -218,6 +218,105 @@
 .notification-widget {
   position: relative;
 }
+.notification-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.notification-trigger {
+  position: relative;
+}
+.notification-sound-control,
+.notification-queue-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 7px 9px;
+  color: #526b48;
+  background: white;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.notification-sound-control {
+  cursor: pointer;
+}
+.notification-sound-control:disabled {
+  cursor: default;
+  color: var(--muted);
+}
+.notification-queue-indicator {
+  background: #fff3d8;
+  border-color: #e8d1a6;
+  color: #765321;
+}
+.notification-access-note {
+  padding: 12px 20px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.notification-order-reference {
+  display: block;
+  font-size: 10px;
+  margin-top: 4px;
+}
+.notification-toast-stack {
+  position: fixed;
+  top: 86px;
+  right: 24px;
+  z-index: 45;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+}
+.notification-toast {
+  border: 1px solid #c5d5b9;
+  border-radius: 8px;
+  background: white;
+  box-shadow: 0 8px 30px #1e301b24;
+  padding: 14px;
+  overflow-wrap: anywhere;
+}
+.notification-toast > header,
+.notification-toast > header > strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.notification-toast > header {
+  justify-content: space-between;
+}
+.notification-toast strong {
+  font-size: 12px;
+}
+.notification-toast p {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 8px 0;
+}
+.notification-toast small {
+  display: block;
+  font-size: 10px;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+.notification-toast a {
+  font-size: 11px;
+  font-weight: 600;
+  color: #526b48;
+}
+@media (max-width: 900px) {
+  .notification-sound-control > span,
+  .notification-queue-indicator > span {
+    display: none;
+  }
+  .notification-toast-stack {
+    right: 16px;
+  }
+}
 .notification-trigger > span {
   position: absolute;
   top: 0;

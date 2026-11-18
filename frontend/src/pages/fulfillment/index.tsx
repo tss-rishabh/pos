@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import { AlertCircle, Box, Check, Clock3, PackageCheck, RefreshCw, Truck, X } from 'lucide-react';
@@ -11,6 +11,7 @@ import { useOnline } from '../../hooks/use-pos';
 import './style.css';
 import { sendFulfillmentCommand } from './commands';
 import { ShippingLabelAction } from './shipping-label';
+import { useFulfillmentExpiryAlerts } from './expiry-alerts';
 
 const tabs = [
   ['in_queue', 'In queue'],
@@ -61,15 +62,27 @@ type Tab = (typeof tabs)[number][0];
 export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: string }) {
   const client = useQueryClient();
   const online = useOnline();
-  const [tab, setTab] = useState<Tab>('in_queue'),
-    [offset, setOffset] = useState(0),
+  const [search, setSearch] = useSearchParams();
+  const requested = search.getAll('tab');
+  const tab: Tab =
+    requested.length === 1
+      ? (tabs.find(([value]) => value === requested[0])?.[0] ?? 'in_queue')
+      : 'in_queue';
+  const setTab = (value: Tab) => {
+    const next = new URLSearchParams(search);
+    next.set('tab', value);
+    setSearch(next);
+  };
+  const [offset, setOffset] = useState(0),
     [notice, setNotice] = useState(''),
     [reject, setReject] = useState(''),
     [reason, setReason] = useState('');
   useEffect(() => {
     setOffset(0);
     setNotice('');
-  }, [storeId, tab]);
+    setReject('');
+    setReason('');
+  }, [user.id, storeId, tab]);
   const summary = useQuery({
     queryKey: [user.id, 'fulfillment-summary', storeId],
     enabled: !!storeId,
@@ -97,30 +110,7 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
         z.object({ data: z.array(z.object({ id: z.string(), reason: z.string() })) }),
       ),
   });
-  const alerts = useQuery({
-    queryKey: [user.id, 'fulfillment-expiry-alerts', storeId],
-    enabled: !!storeId,
-    queryFn: () =>
-      request(
-        `/api/v1/stores/${storeId}/fulfillment/expiry-alerts`,
-        {},
-        z.object({
-          expiringSoon: z.array(
-            z.object({
-              orderId: z.string(),
-              type: z.enum(['pending', 'accepted']),
-              expiresAt: z.string(),
-            }),
-          ),
-          bannerCounts: z.object({
-            unaccepted: z.number(),
-            unpacked: z.number(),
-            packed: z.number(),
-          }),
-        }),
-      ),
-    refetchInterval: 15000,
-  });
+  const alerts = useFulfillmentExpiryAlerts(user.id, storeId, !!storeId && online);
   const action = useMutation({
     mutationFn: async ({
       orderId,
