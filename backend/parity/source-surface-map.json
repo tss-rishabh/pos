@@ -19,15 +19,15 @@
     "total": 396,
     "by_status": {
       "external_acceptance": 231,
-      "implementation_present": 52,
-      "partial": 110,
+      "implementation_present": 42,
+      "partial": 120,
       "missing": 3
     },
     "by_kind": {
       "routes": {
         "external_acceptance": 157,
-        "implementation_present": 32,
-        "partial": 66
+        "implementation_present": 23,
+        "partial": 75
       },
       "jobs": {
         "external_acceptance": 27,
@@ -35,9 +35,9 @@
         "missing": 1
       },
       "templates": {
-        "implementation_present": 20,
+        "implementation_present": 19,
         "external_acceptance": 46,
-        "partial": 38,
+        "partial": 39,
         "missing": 2
       },
       "websockets": {
@@ -48,7 +48,7 @@
       }
     },
     "families": 75,
-    "code_task_groups": 8,
+    "code_task_groups": 9,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -1721,6 +1721,9 @@
     "frontend/tests/report-export.test.ts": "345b2199868bc16ce91bb236300d9d4d5467a28a40b63f384f5bf0790f3ffc4f",
     "frontend/tests/reports/browser-check.mjs": "41010775af8e4d1b0365d8938b7dd8ce0ad9d6ec457a7f4a21c562f103e695d9",
     "frontend/tests/reports/browser-entry.tsx": "1f0f1239c1ba98ff5596956cecf393f92af3def96a9b9a2ff5204c28a01e529e",
+    "frontend/tests/return-window/harness.tsx": "2d58f4d0b626cbe294024fc2e6614ddbc5836c0c37d20371412bf93190fb522f",
+    "frontend/tests/return-window/tsconfig.json": "32df523d74b127ee8fc0dac5c7b9d88fd6bbe66bb0a0fd2330a471ebbbecbcb0",
+    "frontend/tests/return-window/window.browser.test.ts": "e8e9792e40e4e01e39a41c050753f69859c3b753db22638e6cab95bcbedb22fb",
     "frontend/tests/review-snapshot.test.ts": "7f5bb0fd0588abb1fdde23d1815800cbcf3ea576c931652d5dd952d4913fcb72",
     "frontend/tests/screening-writer/harness.tsx": "d8520b44fd699e5d23901e97cc0c5f7d4dfc26ac0106bb551ec521b742a8cd4f",
     "frontend/tests/screening-writer/recovery.browser.test.ts": "b3a5a087eb0c056bf5fd0e7c9ad9801c750a2cf8b83f6f729009e3a683e7de65",
@@ -3329,7 +3332,7 @@
     },
     {
       "id": "terminals",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/administration/terminals.ts",
         "backend/src/modules/administration/support.ts"
@@ -3345,7 +3348,9 @@
         "backend/parity/administration.md"
       ],
       "implemented_scope": "Provider/store-specific serial naming, create/read/update/delete, write-only credentials, safe bigint device serials, scoped moves and credential-free DTOs. Full legacy workflows are not certified.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Active EDC provider filtering, complete noncredential detail columns, page-size/sort/visibility and visible/all CSV actions remain under implementation. Original Paytm merchant_key and Pine security_token exposure is deliberately excluded; these must remain write-only instead of being added to response or export parity."
+      ],
       "external_acceptance": [],
       "code_task_required": true,
       "notes": [
@@ -3853,6 +3858,7 @@
         "frontend/tests/product-feedback/browser.test.ts",
         "frontend/tests/product-read-performance.test.ts",
         "frontend/tests/report-export.test.ts",
+        "frontend/tests/return-window/window.browser.test.ts",
         "frontend/tests/review-snapshot.test.ts",
         "frontend/tests/screening-writer/recovery.browser.test.ts",
         "frontend/tests/shipping-label/document.test.ts",
@@ -4095,6 +4101,7 @@
         "frontend/tests/product-feedback/browser.test.ts",
         "frontend/tests/product-read-performance.test.ts",
         "frontend/tests/report-export.test.ts",
+        "frontend/tests/return-window/window.browser.test.ts",
         "frontend/tests/review-snapshot.test.ts",
         "frontend/tests/screening-writer/recovery.browser.test.ts",
         "frontend/tests/shipping-label/document.test.ts",
@@ -4453,6 +4460,7 @@
         "frontend/tests/product-feedback/browser.test.ts",
         "frontend/tests/product-read-performance.test.ts",
         "frontend/tests/report-export.test.ts",
+        "frontend/tests/return-window/window.browser.test.ts",
         "frontend/tests/review-snapshot.test.ts",
         "frontend/tests/screening-writer/recovery.browser.test.ts",
         "frontend/tests/shipping-label/document.test.ts",
@@ -6356,6 +6364,13 @@
       "state": "partial",
       "tasks": [
         "Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute."
+      ]
+    },
+    {
+      "family": "terminals",
+      "state": "partial",
+      "tasks": [
+        "Active EDC provider filtering, complete noncredential detail columns, page-size/sort/visibility and visible/all CSV actions remain under implementation. Original Paytm merchant_key and Pine security_token exposure is deliberately excluded; these must remain write-only instead of being added to response or export parity."
       ]
     },
     {
@@ -8314,7 +8329,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8346,7 +8361,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8376,7 +8391,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8406,7 +8421,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8436,7 +8451,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8466,7 +8481,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8496,7 +8511,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8526,7 +8541,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -8556,7 +8571,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -15291,7 +15306,7 @@
       "families": [
         "terminals"
       ],
-      "status": "implementation_present",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

@@ -172,6 +172,9 @@ def define_families():
             gaps = ['Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.']
             if key == 'stores':
                 gaps.append('Selected-store read-only details and static marketing https://thesouledstore.com/?store_id=<id> PNG QR download remain under implementation; checked-in customer application handoff is a separate action.')
+        if key == 'terminals':
+            state = 'partial'
+            gaps = ['Active EDC provider filtering, complete noncredential detail columns, page-size/sort/visibility and visible/all CSV actions remain under implementation. Original Paytm merchant_key and Pine security_token exposure is deliberately excluded; these must remain write-only instead of being added to response or export parity.']
         family(key, row['implementation'], ADMIN_FRONT[key],
                ['tests/administration', 'frontend/tests/administration'], ['parity/administration.md'],
                state=state, gaps=gaps, external=external, scope=row['scope'],

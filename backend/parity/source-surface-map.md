@@ -21,6 +21,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 - **counters (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
 - **salespeople (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
 - **operators (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
+- **terminals (partial)**: Active EDC provider filtering, complete noncredential detail columns, page-size/sort/visibility and visible/all CSV actions remain under implementation. Original Paytm merchant_key and Pine security_token exposure is deliberately excluded; these must remain write-only instead of being added to response or export parity.
 - **documentation (partial)**: Required active/archived collection controls are being implemented: source page-size/server-sort, visible-column selection and visible-page CSV need their actual UI/export bindings; full report export does not substitute.
 - **returns-exchanges (partial)**: Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control.
 - **operational-reports (partial)**: Active performance and hyperlocal acceptance CSV actions and source visible-column controls remain under implementation. Returned-order/flash visible-column CSV and export binding to current selected columns/sort need their end-to-end UI/worker path; existing full export does not substitute for these source actions.
@@ -84,9 +85,9 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 32 | 66 | 0 | 157 |
+| routes | 23 | 75 | 0 | 157 |
 | jobs | 0 | 4 | 1 | 27 |
-| templates | 20 | 38 | 2 | 46 |
+| templates | 19 | 39 | 2 | 46 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 2 | 0 | 0 |
 
@@ -162,15 +163,15 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:126` | `ajax-documentation-lists/` | documentation | partial |
 | `core/urls.py:127` | `upload-or-edit-tutorial/` | documentation | partial |
 | `core/urls.py:129` | `disable-tutorial/` | documentation | partial |
-| `core/urls.py:131` | `edc-machine-edit-detail/` | terminals | implementation_present |
-| `core/urls.py:132` | `ajax-edc-machine-edit-detail/` | terminals | implementation_present |
-| `core/urls.py:135` | `add-paytm-machine/` | terminals | implementation_present |
-| `core/urls.py:136` | `add_pinelab_machine/` | terminals | implementation_present |
-| `core/urls.py:137` | `ajax-next-edc-machine-name/` | terminals | implementation_present |
-| `core/urls.py:140` | `edit-paytm-machine/<int:pk>/` | terminals | implementation_present |
-| `core/urls.py:141` | `edit-pinelab-machine/<int:pk>/` | terminals | implementation_present |
-| `core/urls.py:144` | `delete-paytm-machine/<int:pk>/` | terminals | implementation_present |
-| `core/urls.py:145` | `delete-pinelab-machine/<int:pk>/` | terminals | implementation_present |
+| `core/urls.py:131` | `edc-machine-edit-detail/` | terminals | partial |
+| `core/urls.py:132` | `ajax-edc-machine-edit-detail/` | terminals | partial |
+| `core/urls.py:135` | `add-paytm-machine/` | terminals | partial |
+| `core/urls.py:136` | `add_pinelab_machine/` | terminals | partial |
+| `core/urls.py:137` | `ajax-next-edc-machine-name/` | terminals | partial |
+| `core/urls.py:140` | `edit-paytm-machine/<int:pk>/` | terminals | partial |
+| `core/urls.py:141` | `edit-pinelab-machine/<int:pk>/` | terminals | partial |
+| `core/urls.py:144` | `delete-paytm-machine/<int:pk>/` | terminals | partial |
+| `core/urls.py:145` | `delete-pinelab-machine/<int:pk>/` | terminals | partial |
 | `core/urls.py:148` | `mpos-download-qr/` | staff-installer-handoff | external_acceptance |
 | `core/urls.py:149` | `ajax-gen-mpos-download-qr/` | staff-installer-handoff | external_acceptance |
 | `core/urls.py:150` | `mpos-download-thank-you/` | staff-installer-handoff | external_acceptance |
@@ -411,7 +412,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/documentation/index.html` | `core/templates/documentation/index.html` | documentation | partial |
 | `core/templates/documentation/show.html` | `core/templates/documentation/show.html` | documentation | partial |
 | `core/templates/ecom_delivery/index.html` | `core/templates/ecom_delivery/index.html` | support, ecommerce-inventory-sync | external_acceptance |
-| `core/templates/edc_edit/edc_detail_and_edit.html` | `core/templates/edc_edit/edc_detail_and_edit.html` | terminals | implementation_present |
+| `core/templates/edc_edit/edc_detail_and_edit.html` | `core/templates/edc_edit/edc_detail_and_edit.html` | terminals | partial |
 | `core/templates/gift_card/index.html` | `core/templates/gift_card/index.html` | gift-card-batches | external_acceptance |
 | `core/templates/mpos_download/index.html` | `core/templates/mpos_download/index.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/mpos_download/thank_you.html` | `core/templates/mpos_download/thank_you.html` | staff-installer-handoff | external_acceptance |
