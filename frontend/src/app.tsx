@@ -41,6 +41,7 @@ import { clearLocalIdentity } from './offline/clear-identity';
 import { useOfflineCashSync } from './offline/cash/use-sync';
 import { Login } from './pages/login';
 import { Empty, ErrorState, Loading } from './components/common';
+import { RealtimeClock } from './components/realtime-clock';
 import type { Principal } from './api/types';
 import { NotificationsPanel } from './pages/fulfillment/notifications';
 import { GlobalFulfillmentExpiryAlerts } from './pages/fulfillment/global-expiry-alerts';
@@ -405,6 +406,7 @@ function Workspace({ user }: { user: Principal }) {
           <div className="sidebar-version">
             <span className="status-dot" /> Desktop & web<span>v0.1</span>
           </div>
+          <RealtimeClock />
         </div>
       </aside>
       <div className="workspace">
