@@ -6,7 +6,7 @@ import { couponControlHashSql } from '../../src/modules/legacy-order-imports/ben
 import { generationControlDataSchema } from '../../src/modules/legacy-order-imports/benefit-profile/history-generation-control.js';
 import { couponHistoryWritersDefinitionHash } from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { splitMigration } from '../../src/db/migrations.js';
+import { installNativeHeadFixture } from '../native-head-metadata/fixture.js';
 import {
   generationSourceOrigin,
   type GenerationSourceOrigin,
@@ -14,18 +14,22 @@ import {
 import { couponGenerationSource } from '../../src/modules/legacy-order-imports/benefit-profile/history-generation-source.js';
 import {
   generationScopeFor,
+  bindGenerationHistory,
   verifyGenerationCapture,
 } from '../../src/modules/legacy-order-imports/benefit-profile/history-generation-contracts.js';
 import { generationAccumulator } from '../../src/modules/legacy-order-imports/benefit-profile/history-generation-projections.js';
 import {
-  couponHistoryWriterDefinitions,
-  couponHistoryWritersReviewSql,
-} from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
-import { couponComparisonFingerprint } from '../../src/modules/legacy-order-imports/benefit-profile/history-warehouse-contracts.js';
+  couponComparisonSchema,
+  couponComparisonFingerprint,
+} from '../../src/modules/legacy-order-imports/benefit-profile/history-warehouse-contracts.js';
 import type { CouponHistoryScope } from '../../src/modules/legacy-order-imports/benefit-profile/history.js';
 import { importFinancialFixture } from '../legacy-import-financial/fixture.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
-import { comparison } from './warehouse-fixtures.js';
+
+import { couponHistoryWitnessSchema } from '../../src/modules/legacy-order-imports/benefit-profile/bridge.js';
+import { membershipHistoryWriters } from '../../src/modules/checkout/screening-writer/membership-history-writers.js';
+import { qualifyGenerationPublication } from '../../src/modules/legacy-order-imports/benefit-profile/history-generation-candidate.js';
+import { literalCouponFacts } from './warehouse-fixtures.js';
 const clock = Date.parse('2026-06-15T06:30:00.500Z');
 const template = process.env.CHECKOUT_MYSQL_TEST_URL,
   key = 'native-generic-generation-key-'.repeat(3);
@@ -33,6 +37,8 @@ describe.skipIf(!template)(
   'generic publisher native snapshot, never a runtime historical reader',
   () => {
     let origin: GenerationSourceOrigin;
+    let comparison: ReturnType<typeof couponComparisonSchema.parse>;
+    let heads: Awaited<ReturnType<typeof installNativeHeadFixture>>;
     let f: Awaited<ReturnType<typeof importFinancialFixture>>,
       native: ReturnType<typeof verifiedMysqlFixture>,
       scope: CouponHistoryScope;
@@ -74,7 +80,7 @@ describe.skipIf(!template)(
           comparisonFingerprint: couponComparisonFingerprint(comparison),
           sourceTimeZone: 'Asia/Kolkata',
         },
-        { clock: () => clock, ...options },
+        { clock: () => clock, headMetadata: heads.headMetadata, ...options },
       );
       return {
         capture: async (input: Parameters<typeof p.capture>[0]) =>
@@ -86,8 +92,22 @@ describe.skipIf(!template)(
       const [identity] = await f.connection.query(
         'SELECT @@server_uuid AS serverUuid,DATABASE() AS sourceSchema',
       );
+      heads = await installNativeHeadFixture(f.connection, template!, {
+        families: ['membership', 'coupon'],
+      });
+      const [columns] = await f.connection.query(
+        "SELECT c.COLUMN_NAME AS `column`,c.DATA_TYPE AS dataType,c.CHARACTER_SET_NAME AS characterSet,c.COLLATION_NAME AS collation,k.PAD_ATTRIBUTE AS padAttribute FROM information_schema.COLUMNS c JOIN information_schema.COLLATIONS k ON k.COLLATION_NAME=c.COLLATION_NAME WHERE c.TABLE_SCHEMA=DATABASE() AND c.TABLE_NAME='coupons' AND c.COLUMN_NAME IN('coupon_lot_no','voucher_code')",
+      );
+      const columnRows = z.array(z.record(z.string(), z.unknown())).parse(columns);
+      comparison = couponComparisonSchema.parse({
+        contract: 'pos-native-coupon-comparisons-v1',
+        lot: columnRows.find((v) => v.column === 'coupon_lot_no'),
+        code: columnRows.find((v) => v.column === 'voucher_code'),
+        lotComparison: 'native-column-equality-and-nonempty',
+        codeComparison: 'python-decoded-exact-utf8',
+      });
       origin = generationSourceOrigin(
-        () => f.db.get('writer'),
+        () => heads.sourceDb.get('writer'),
         (identity as { serverUuid: string; sourceSchema: string }[])[0]!,
       );
       native = verifiedMysqlFixture(f.connection, [
@@ -95,24 +115,9 @@ describe.skipIf(!template)(
         'evidence/mysql-customer-contact-schema.json',
         'evidence/mysql-global-benefits-schema.json',
       ]);
-      await native.create(['coupons', 'order_coupon_log']);
-      for (const statement of splitMigration(
-        couponHistoryWritersReviewSql().split('DELIMITER $$')[0]!,
-      ))
-        await f.connection.query(statement);
-      for (const row of couponHistoryWriterDefinitions)
-        await f.connection.query(
-          'CREATE TRIGGER ' +
-            row.name +
-            ' AFTER ' +
-            row.event +
-            ' ON ' +
-            row.table +
-            ' FOR EACH ROW ' +
-            row.statement,
-        );
     }, 30000);
     afterAll(async () => {
+      await heads?.close();
       await f?.close();
     });
     beforeEach(async () => {
@@ -234,6 +239,98 @@ describe.skipIf(!template)(
       expect(value.capture.projections.orders).toEqual(generationAccumulator('order').finish());
       expect(value.logs).toEqual([]);
     });
+    it('publishes independent literal warehouse facts from a genuine source snapshot and rejects mismatched or stale evidence', async () => {
+      await order('5011', '222');
+      await log('111', '222');
+      const snapshot = await producer().capture(generationScopeFor(scope));
+      const capture = snapshot.capture;
+      const facts = literalCouponFacts(
+        scope,
+        [{ orderId: '5011', userId: '77', couponId: '222', status: 1, createdAt: scope.asOf }],
+        [{ logId: '111', userId: '77', couponId: '222', status: 1, createdAt: scope.asOf }],
+        snapshot.controls,
+      );
+      const orders = generationAccumulator('order'),
+        logs = generationAccumulator('log');
+      orders.add({ id: '5011', userId: '77', couponId: '222', status: 1, createdAt: scope.asOf });
+      logs.add({ id: '111', userId: '77', couponId: '222', status: 1, createdAt: scope.asOf });
+      const candidate = {
+        capture,
+        controls: snapshot.controls,
+        facts,
+        projections: { orders: orders.finish(), logs: logs.finish() },
+        materializedAt: clock,
+        publication: null,
+      };
+      const authority = {
+        sourceKey: key,
+        publicationKey: 'native-coupon-pub-key-'.repeat(3),
+        historyKey: 'native-coupon-history-key-'.repeat(3),
+      };
+      const publication = await qualifyGenerationPublication(
+        capture,
+        { read: async () => candidate },
+        authority,
+        couponComparisonFingerprint(comparison),
+        { signal: new AbortController().signal, clock: () => clock },
+      );
+      const witness = {
+        writersContract: capture.writersContract,
+        writersDefinitionHash: capture.writersDefinitionHash,
+        serverUuid: capture.serverUuid,
+        sourceSchema: capture.sourceSchema,
+        heads: capture.heads,
+      };
+      const qualified = bindGenerationHistory(
+        { ...candidate, publication },
+        scope,
+        witness,
+        authority,
+        couponComparisonFingerprint(comparison),
+        clock,
+      );
+      expect(qualified.generationId).toBe(capture.generationId);
+      expect(qualified.globalUsage).toBe('1');
+      await expect(
+        qualifyGenerationPublication(
+          capture,
+          { read: async () => ({ ...candidate, facts: { ...facts, globalUsage: '0' } }) },
+          authority,
+          couponComparisonFingerprint(comparison),
+          { signal: new AbortController().signal, clock: () => clock },
+        ),
+      ).rejects.toThrow();
+      await order('5012', '222');
+      const [heads] = await f.connection.query(
+        "SELECT kind,scope_id AS scopeId,CAST(revision AS CHAR) AS revision FROM pos_rewrite_coupon_history_heads WHERE (kind='controls' AND scope_id='0') OR (kind='coupon' AND scope_id='222') OR (kind='customer' AND scope_id='77') ORDER BY kind,scope_id",
+      );
+      expect(() =>
+        bindGenerationHistory(
+          { ...candidate, publication },
+          scope,
+          couponHistoryWitnessSchema.parse({ ...witness, heads }),
+          authority,
+          couponComparisonFingerprint(comparison),
+          clock,
+        ),
+      ).toThrow();
+    });
+    it('refuses coupon history when an installed membership writer is removed', async () => {
+      const trigger = membershipHistoryWriters.definitions[0]!.name;
+      const [rows] = await f.connection.query<import('mysql2/promise').RowDataPacket[]>(
+        'SHOW CREATE TRIGGER ' + trigger,
+      );
+      const original = String(rows[0]!['SQL Original Statement']);
+      await f.connection.query('DROP TRIGGER ' + trigger);
+      try {
+        await expect(producer().capture(generationScopeFor(scope))).rejects.toThrow();
+      } finally {
+        await f.connection.query(original);
+      }
+      await expect(producer().capture(generationScopeFor(scope))).resolves.toHaveProperty(
+        'capture',
+      );
+    });
     it('bounds native rows/log export and constructs without I/O', async () => {
       const get = vi.spyOn(f.db, 'get');
       producer();
@@ -254,7 +351,7 @@ describe.skipIf(!template)(
       ).rejects.toMatchObject({ code: 'ORDER_IMPORT_COUPON_PUBLICATION_GENERATION_SOURCE_BYTES' });
     });
     it('refuses a physical replica/different origin before scanning source history', async () => {
-      const mismatched = generationSourceOrigin(() => f.db.get('writer'), {
+      const mismatched = generationSourceOrigin(() => heads.sourceDb.get('writer'), {
         ...origin.expected,
         serverUuid: randomUUID(),
       });
@@ -266,7 +363,7 @@ describe.skipIf(!template)(
             comparisonFingerprint: couponComparisonFingerprint(comparison),
             sourceTimeZone: 'Asia/Kolkata',
           },
-          { clock: () => clock },
+          { clock: () => clock, headMetadata: heads.headMetadata },
         ).capture(generationScopeFor(scope), await descriptor()),
       ).rejects.toMatchObject({
         code: 'ORDER_IMPORT_COUPON_PUBLICATION_GENERATION_ORIGIN_CHANGED',
