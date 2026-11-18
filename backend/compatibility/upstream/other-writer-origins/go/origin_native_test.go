@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"os"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func originFixture(t *testing.T) *sql.DB {
 		t.Fatal("isolated origin MySQL fixture is required")
 	}
 	config, err := mysql.ParseDSN(raw)
-	if err != nil || config.Net != "tcp" || config.Addr != "mysql:3306" || config.DBName != "pos_origin_contract_test" {
+	if err != nil || config.Net != "tcp" || config.Addr != "mysql:3306" || (config.DBName != "pos_origin_contract_test" && !(os.Getenv("POS_ORIGIN_PREPARED_HEAD_FIXTURE") == "1" && config.DBName == "native_head_go_validation")) {
 		t.Fatal("refusing non-isolated origin database")
 	}
 	db, err := sql.Open("mysql", raw)
@@ -35,7 +36,10 @@ func originFixture(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
-	for _, table := range []string{"users", "orders", "pos_rewrite_screening_origin_commands", "pos_rewrite_screening_origin_creations", "pos_rewrite_screening_origin_payments", "pos_rewrite_screening_origin_payment_attempts", "pos_rewrite_screening_origin_go_effects", "pos_rewrite_screening_origin_stage_recoveries", "pos_rewrite_screening_origin_stage_recovery_uses", "pos_rewrite_screening_origin_services", "pos_rewrite_screening_origin_system_authorities", "pos_rewrite_screening_origin_funding_declarations", "pos_rewrite_screening_origin_exchange_funding"} {
+	for _, table := range []string{"users", "orders", "pos_rewrite_screening_origin_commands", "pos_rewrite_screening_origin_creations", "pos_rewrite_screening_origin_payments", "pos_rewrite_screening_origin_payment_attempts", "pos_rewrite_screening_origin_go_effects", "pos_rewrite_screening_origin_stage_recoveries", "pos_rewrite_screening_origin_stage_recovery_uses", "pos_rewrite_screening_origin_services", "pos_rewrite_screening_origin_system_authorities", "pos_rewrite_screening_origin_funding_declarations", "pos_rewrite_screening_origin_exchange_funding", "pos_rewrite_screening_origin_payment_no_effects"} {
+		if os.Getenv("POS_ORIGIN_PREPARED_HEAD_FIXTURE") == "1" && (table == "users" || table == "orders") {
+			continue
+		}
 		originExec(t, db, "DROP TABLE IF EXISTS "+table)
 	}
 	for _, ddl := range []string{
@@ -50,11 +54,15 @@ func originFixture(t *testing.T) *sql.DB {
 		`CREATE TABLE pos_rewrite_screening_origin_stage_recovery_uses(recovery_id VARCHAR(36) PRIMARY KEY,command_id VARCHAR(36),order_id BIGINT,data JSON,proof_hash VARCHAR(64))`,
 		`CREATE TABLE pos_rewrite_screening_origin_services(id VARCHAR(16) PRIMARY KEY,data JSON,proof_hash VARCHAR(64),revoked INT)`,
 		`CREATE TABLE pos_rewrite_screening_origin_system_authorities(command_id VARCHAR(36) PRIMARY KEY,data JSON,proof_hash VARCHAR(64))`,
+		`CREATE TABLE pos_rewrite_screening_origin_payment_no_effects(command_id VARCHAR(36) PRIMARY KEY,order_id BIGINT,data JSON,proof_hash VARCHAR(64))`,
 		`CREATE TABLE pos_rewrite_screening_origin_funding_declarations(command_id VARCHAR(36) PRIMARY KEY,order_id BIGINT,data JSON,proof_hash VARCHAR(64))`,
 		`CREATE TABLE pos_rewrite_screening_origin_exchange_funding(command_id VARCHAR(36) PRIMARY KEY,order_id BIGINT,data JSON,proof_hash VARCHAR(64))`,
 		`INSERT INTO users VALUES(77,1,0,0,0,'fixture@example.test','9000000000')`,
 		`INSERT INTO orders VALUES(700,77,3,'INR',500.00)`,
 	} {
+		if os.Getenv("POS_ORIGIN_PREPARED_HEAD_FIXTURE") == "1" && (strings.HasPrefix(ddl, "CREATE TABLE users(") || strings.HasPrefix(ddl, "CREATE TABLE orders(") || strings.HasPrefix(ddl, "INSERT INTO users ") || strings.HasPrefix(ddl, "INSERT INTO orders ")) {
+			continue
+		}
 		originExec(t, db, ddl)
 	}
 	return db
@@ -279,5 +287,215 @@ func TestOriginProofKeyBounds(t *testing.T) {
 		if originKey.MatchString(entry.value) != entry.valid {
 			t.Fatalf("proof key length=%d", len(entry.value))
 		}
+	}
+}
+
+type originDurableStartProvider struct {
+	t             *testing.T
+	db            *sql.DB
+	starts, reads int
+}
+
+func (p *originDurableStartProvider) Start(_ context.Context, r OriginProviderRequest) (OriginProviderResponse, error) {
+	p.starts++
+	var phase string
+	if err := p.db.QueryRow(`SELECT phase FROM pos_rewrite_screening_origin_payment_attempts WHERE command_id=?`, originTestCommand).Scan(&phase); err != nil || phase != "SENDING" {
+		p.t.Fatalf("provider invoked before durable SENDING: %s %v", phase, err)
+	}
+	return OriginProviderResponse{}, errors.New("fixture provider accepted request but lost ACK")
+}
+func (p *originDurableStartProvider) Recover(context.Context, OriginProviderRequest) (OriginProviderResponse, error) {
+	p.reads++
+	return OriginProviderResponse{}, errors.New("fixture read remains uncertain")
+}
+func TestOriginNativePrepareFullHeadSourceTables(t *testing.T) {
+	if os.Getenv("POS_ORIGIN_PREPARE_HEAD_FIXTURE") != "1" {
+		t.Skip("dedicated full-head fixture preparation")
+	}
+	db, err := sql.Open("mysql", "root@tcp(mysql:3306)/native_head_go_validation?parseTime=true")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	for _, table := range []string{"users", "pos_rewrite_screening_origin_history_heads", "pos_rewrite_screening_origin_history_changes"} {
+		originExec(t, db, "DROP TABLE IF EXISTS "+table)
+	}
+	originExec(t, db, `CREATE TABLE users(id BIGINT PRIMARY KEY,status INT,is_block INT,is_disabled INT,is_two_fa INT,email VARCHAR(96),telephone VARCHAR(32)) ENGINE=InnoDB`)
+	originExec(t, db, `INSERT INTO users VALUES(77,1,0,0,0,'fixture@example.test','9000000000')`)
+	// Real source physical SQL leaves and all nine maintained quota triggers.
+	originExec(t, db, `DROP TABLE orders`)
+	fields := map[string]bool{}
+	for _, pair := range regexp.MustCompile(`orders\.([a-z_][a-z_0-9]*)`).FindAllStringSubmatch(OriginHeaderSQL+OriginAllocationSQL, -1) {
+		fields[pair[1]] = true
+	}
+	fields["order_status"] = true
+	fields["payment_status"] = true
+	columns := []string{}
+	for field := range fields {
+		kind := "DOUBLE DEFAULT 0"
+		if field == "id" {
+			kind = "BIGINT PRIMARY KEY"
+		} else if field == "created_at" {
+			kind = "DATETIME DEFAULT '2026-11-18 00:00:00'"
+		} else if strings.Contains(" currency first_name last_name address1 address2 address3 phone_no postal_code city ", " "+field+" ") {
+			kind = "VARCHAR(96) DEFAULT ''"
+		} else if strings.HasSuffix(field, "_id") || field == "payment_method" || field == "order_status" || field == "payment_status" {
+			kind = "BIGINT DEFAULT 0"
+		}
+		columns = append(columns, "`"+field+"` "+kind)
+	}
+	originExec(t, db, "CREATE TABLE orders("+strings.Join(columns, ",")+") ENGINE=InnoDB")
+	for _, table := range []string{"has_products", "spiderman_screening_orders", "order_stores", "pos_rewrite_screening_counter_heads", "pos_rewrite_screening_counters", "pos_rewrite_screening_contributions"} {
+		originExec(t, db, "DROP TABLE IF EXISTS "+table)
+	}
+	hpColumns := []string{}
+	hpFields := map[string]bool{"order_id": true}
+	for _, pair := range regexp.MustCompile(`has_products\.([a-z_][a-z_0-9]*)`).FindAllStringSubmatch(OriginLineSQL, -1) {
+		hpFields[pair[1]] = true
+	}
+	for field := range hpFields {
+		kind := "DOUBLE DEFAULT 0"
+		if field == "id" {
+			kind = "BIGINT PRIMARY KEY"
+		} else if strings.HasSuffix(field, "_id") || field == "qty" {
+			kind = "BIGINT DEFAULT 0"
+		}
+		hpColumns = append(hpColumns, "`"+field+"` "+kind)
+	}
+	hpColumns = append(hpColumns, "KEY hp_order(order_id)")
+	originExec(t, db, "CREATE TABLE has_products("+strings.Join(hpColumns, ",")+") ENGINE=InnoDB")
+	for _, ddl := range []string{`CREATE TABLE spiderman_screening_orders(id INT PRIMARY KEY,user_id BIGINT,order_id BIGINT,has_product_id BIGINT,KEY idx_order_id(order_id),KEY idx_user_id(user_id),KEY idx_hp(has_product_id)) ENGINE=InnoDB`, `CREATE TABLE order_stores(order_id BIGINT,store_id BIGINT,counter_id BIGINT) ENGINE=InnoDB`} {
+		originExec(t, db, ddl)
+	}
+	originExec(t, db, `INSERT INTO orders(id,user_id,payment_method) VALUES(700,77,10)`)
+	originExec(t, db, `INSERT INTO has_products(id,order_id,prod_id,qty) VALUES(701,700,390238,1)`)
+	originExec(t, db, `INSERT INTO spiderman_screening_orders VALUES(702,77,700,701)`)
+}
+func TestOriginNativeFirstStartHasDurableCheckpointAndBaselineFence(t *testing.T) {
+	if os.Getenv("POS_ORIGIN_PREPARED_HEAD_FIXTURE") != "1" {
+		t.Skip("dedicated full-head fixture required")
+	}
+	for _, mode := range []string{"invalid-baseline", "late-authority", "valid-lost-ack"} {
+		t.Run(mode, func(t *testing.T) { originFirstStartCase(t, mode) })
+	}
+}
+func originFirstStartCase(t *testing.T, mode string) {
+	if os.Getenv("POS_ORIGIN_PREPARED_HEAD_FIXTURE") != "1" {
+		t.Skip("dedicated full-head fixture required")
+	}
+	db := originFixture(t)
+	ctx := context.Background()
+	var owner, server, schema string
+	if err := db.QueryRow(`SELECT DEFINER,@@server_uuid,DATABASE() FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'`).Scan(&owner, &server, &schema); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("POS_SCREENING_COUNTER_TRIGGER_DEFINER", owner)
+	t.Setenv("POS_SCREENING_COUNTER_CONTRACT", ScreeningCounterContract)
+	t.Setenv("POS_SCREENING_COUNTER_PUBLICATION_KEY", "fixture-independent-counter-key-0123456789")
+	definition, _ := counterDefinition()
+	baseline := map[string]interface{}{"contract": definition.PublicationContract, "sourceCommit": definition.SourceCommit, "writersContract": definition.WritersContract, "scope": map[string]string{"customerId": "77", "sku": "390238"}, "snapshotId": originTestRecovery, "serverUuid": server, "sourceSchema": schema, "generationId": originTestHash, "headRevision": "0", "writersDefinitionHash": definition.DefinitionHash, "writersOwner": owner, "rows": "0", "count": "0", "rowsHash": originTestHash, "sourceCaptureHash": originTestHash, "sourceCapturedAt": originTestNow - 1000, "sourceFinishedAt": originTestNow - 900, "sourceCdcThrough": originTestNow - 800, "publishedAt": originTestNow - 700, "complete": true}
+	baselineSeal, err := importMAC(os.Getenv("POS_SCREENING_COUNTER_PUBLICATION_KEY"), "screening-counter.publication.v1", baseline)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline["signature"] = baselineSeal
+	originExec(t, db, `DELETE FROM pos_rewrite_screening_counter_heads`)
+	originExec(t, db, `DELETE FROM pos_rewrite_screening_counters`)
+	originExec(t, db, `INSERT INTO pos_rewrite_screening_counter_heads VALUES(77,0)`)
+	originExec(t, db, `INSERT INTO pos_rewrite_screening_counters VALUES(77,390238,0,0,?,?)`, originBytes(t, baseline), baselineSeal)
+
+	for _, sql := range []string{`CREATE TABLE IF NOT EXISTS gift_vouchers(id BIGINT,collection_no BIGINT,order_id BIGINT,gv_type VARCHAR(32))`, `CREATE TABLE IF NOT EXISTS gift_card_collection(id BIGINT)`, `CREATE TABLE IF NOT EXISTS tss_money_history(id BIGINT,user_id BIGINT,added_amt DOUBLE,is_expired INT)`, `CREATE TABLE IF NOT EXISTS tss_point_history(id BIGINT,user_id BIGINT,added_amt DOUBLE,is_expired INT)`, `CREATE TABLE IF NOT EXISTS user_eav(id BIGINT,entity VARCHAR(96),attribute VARCHAR(64))`, `CREATE TABLE IF NOT EXISTS product_stocks(prod_id BIGINT)`, `CREATE TABLE IF NOT EXISTS product_store(id BIGINT,store_id BIGINT,product_id BIGINT)`, `CREATE TABLE IF NOT EXISTS pos_rewrite_screening_origin_coupons(command_id VARCHAR(36))`, `CREATE TABLE IF NOT EXISTS pos_rewrite_screening_origin_payment_no_effects(command_id VARCHAR(36),order_id BIGINT,data JSON,proof_hash VARCHAR(64))`} {
+		originExec(t, db, sql)
+	}
+	e, c, source, _, cap, caller := originSeed(t, db)
+	source.Method = 10
+	tx, _ := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	principal, err := OriginCurrentAuthority(ctx, tx, c, caller, e.Key, e.now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx.Rollback()
+	c.AuthorityHash = originSign(t, "authority", principal)
+	source.AuthorityHash = c.AuthorityHash
+	if err = db.QueryRow(`SELECT `+OriginHeaderSQL+`,`+OriginAllocationSQL+` FROM orders WHERE id=700`).Scan(&source.HeaderHash, &source.AllocationHash); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.QueryRow(`SELECT ` + OriginLineSQL + ` FROM has_products WHERE id=701`).Scan(&source.Lines[0].InputHash); err != nil {
+		t.Fatal(err)
+	}
+	creationSeal := originSign(t, "creation", source)
+	c.CreationHash = &creationSeal
+	cap.CreationHash = creationSeal
+	cap.AuthorityHash = c.AuthorityHash
+	originExec(t, db, `UPDATE pos_rewrite_screening_origin_commands SET data=?,proof_hash=?`, originBytes(t, c), originSign(t, "command", c))
+	originExec(t, db, `UPDATE pos_rewrite_screening_origin_creations SET data=?,proof_hash=?`, originBytes(t, source), creationSeal)
+	originExec(t, db, `DELETE FROM pos_rewrite_screening_origin_payment_attempts`)
+	// MySQL locking reads require explicit UPDATE on these native writer
+	// tables. The account receives no schema DML or head projection authority.
+	for _, table := range []string{"users", "orders", "has_products", "spiderman_screening_orders", "pos_rewrite_screening_origin_commands", "pos_rewrite_screening_origin_creations", "pos_rewrite_screening_origin_payment_attempts", "gift_vouchers", "gift_card_collection", "tss_money_history", "tss_point_history", "user_eav", "product_stocks", "product_store", "order_stores"} {
+		originExec(t, db, "GRANT UPDATE ON native_head_go_validation.`"+table+"` TO 'origin_go_app'@'%'")
+	}
+	originExec(t, db, `GRANT INSERT ON native_head_go_validation.pos_rewrite_screening_origin_payment_no_effects TO 'origin_go_app'@'%'`)
+	app, err := sql.Open("mysql", os.Getenv("POS_ORIGIN_HEAD_DSN"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer app.Close()
+	e.DB = app
+	e.LegacyKey = "fixture-other-legacy-import-key-0123456789"
+	e.Selected = true
+	e.Apply = func(context.Context, *sql.Tx, OriginApplyContext, *OriginEffectCollector) error {
+		return errors.New("unexpected apply")
+	}
+	e.Decline = e.Apply
+	e.BuildRequest = func(context.Context, *sql.Tx, OriginCommand, OriginCreation, OriginPaymentInput) (OriginProviderRequest, error) {
+		return OriginProviderRequest{Provider: "juspay", OrderID: "700", CustomerID: "77", StockMode: "legacy", CustomerFields: map[string]string{}, OrderFields: map[string]string{}}, nil
+	}
+	provider := &originDurableStartProvider{t: t, db: db}
+	e.Provider = provider
+	input := OriginPaymentInput{Order: 700, Method: 10}
+	cap.PaymentRequestHash, err = OriginPaymentRequestHash(e.Key, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mode == "invalid-baseline" {
+		originExec(t, db, `UPDATE pos_rewrite_screening_counters SET baseline_hash=? WHERE customer_id=77`, originTestHash)
+		view, err := e.Start(ctx, cap, caller, input, "fixture")
+		if err != nil || view.Status != "NO_EFFECT" || view.NoEffect == nil || !view.NoEffect.Data.NoProviderDispatch || provider.starts != 0 {
+			t.Fatalf("bad baseline did not produce genuine no-dispatch proof: %s %v", view.Status, err)
+		}
+		if replay, err := e.Start(ctx, cap, caller, input, "fixture"); err != nil || replay.Status != "NO_EFFECT" || provider.starts != 0 {
+			t.Fatal("rejected admission replay dispatched provider")
+		}
+		return
+	}
+	if mode == "late-authority" {
+		originExec(t, db, `GRANT CREATE ON *.* TO 'origin_go_unknown'@'%'`)
+		view, authorityErr := e.Start(ctx, cap, caller, input, "fixture")
+		originExec(t, db, `REVOKE CREATE ON *.* FROM 'origin_go_unknown'@'%'`)
+		if authorityErr != nil || view.Status != "NO_EFFECT" || view.NoEffect == nil || !view.NoEffect.Data.NoProviderDispatch || provider.starts != 0 {
+			t.Fatalf("late global writer did not produce genuine no-dispatch proof: %s %v", view.Status, authorityErr)
+		}
+		return
+	}
+	assetTx, assetErr := app.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if assetErr != nil {
+		t.Fatal(assetErr)
+	}
+	assetErr = originLockAssets(ctx, assetTx, c)
+	assetTx.Rollback()
+	if assetErr != nil {
+		t.Fatal("fixture native asset locking reads", assetErr)
+	}
+	view, err := e.Start(ctx, cap, caller, input, "fixture")
+	if err != nil || view.Status != "UNCERTAIN" || provider.starts != 1 {
+		reason := ""
+		if view.NoEffect != nil {
+			reason = view.NoEffect.Data.Reason
+		}
+		t.Fatalf("initial Start checkpoint: status=%s reason=%s error=%v starts=%d", view.Status, reason, err, provider.starts)
+	}
+	if _, err = e.Start(ctx, cap, caller, input, "fixture"); err != nil || provider.starts != 1 {
+		t.Fatalf("POST replay started provider again: %v", err)
 	}
 }

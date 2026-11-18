@@ -112,7 +112,7 @@ func headPrelude(ctx context.Context, tx *sql.Tx) (*headAudit, error) {
 	if raw == "" {
 		raw = "[]"
 	}
-	if json.Unmarshal([]byte(raw), &admins) != nil || len(admins) > 32 {
+	if json.Unmarshal([]byte(raw), &admins) != nil || admins == nil || len(admins) > 32 {
 		return nil, ErrReview
 	}
 	for _, v := range admins {
