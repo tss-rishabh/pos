@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { describe, it, expect } from 'vitest';
 import { z } from 'zod';
 import { benefitDigest } from '../../src/modules/legacy-order-imports/benefit-profile/crypto.js';
+import { goldenStdout } from '../golden/load.js';
 const vector = z.object({
   label: z.string(),
   applied: z.boolean(),
@@ -57,18 +57,7 @@ const output = z.object({
 });
 describe('pinned original CSV birthday coupon/POS selection oracle', () => {
   const result = output.parse(
-    JSON.parse(
-      execFileSync(
-        'compatibility/upstream/offline-cash-pricing/.venv/bin/python',
-        ['-B', 'tools/legacy-import-benefits/source_oracle.py'],
-        {
-          encoding: 'utf8',
-          timeout: 10000,
-          maxBuffer: 1000000,
-          env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
-        },
-      ),
-    ) as unknown,
+    JSON.parse(goldenStdout('legacy-import-benefits', 'source')) as unknown,
   );
   it('retains the original declared tender and emits a qualified no-effect calculation instead of silently accepting a discount', () => {
     expect(result.admission.tender).toEqual({

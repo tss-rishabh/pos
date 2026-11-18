@@ -1,0 +1,136 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/legacy-order-status/source_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:59Z",
+  "test": "tests/legacy-order-status/source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "651413415ac598ad3c87c17a8483b75646f14b83b55b29e7168e32add2e2d263",
+      "args": ["tools/legacy-order-status/source_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "callback": {
+            "status": 200,
+            "message": "Request has been queued for processing"
+          },
+          "requests": [
+            {
+              "path": "/store-order/status",
+              "body": {
+                "orderId": "9007199254740993",
+                "has_product_ids": ["9007199254741001", "9007199254741002", "9007199254741003"],
+                "platform": "PACK"
+              },
+              "timeout": 10,
+              "headerNames": ["Content-Type", "x-api-key"]
+            }
+          ]
+        },
+        {
+          "callback": {
+            "status": 200,
+            "message": "Request has been queued for processing"
+          },
+          "requests": [
+            {
+              "path": "/store-order/status",
+              "body": {
+                "orderId": "9007199254740993",
+                "has_product_ids": ["9007199254741001", "9007199254741002", "9007199254741003"],
+                "platform": "SHIP"
+              },
+              "timeout": 10,
+              "headerNames": ["Content-Type", "x-api-key"]
+            }
+          ]
+        },
+        {
+          "callback": {
+            "status": 200,
+            "message": "Request has been queued for processing"
+          },
+          "requests": [
+            {
+              "path": "/store-order/status",
+              "body": {
+                "orderId": "9007199254740993",
+                "has_product_ids": ["9007199254741001", "9007199254741002", "9007199254741003"],
+                "platform": "DELIVER"
+              },
+              "timeout": 10,
+              "headerNames": ["Content-Type", "x-api-key"]
+            }
+          ]
+        },
+        {
+          "callback": null,
+          "requests": [
+            {
+              "path": "/store-order/status",
+              "body": {
+                "orderId": "9007199254740993",
+                "has_product_ids": ["9007199254741001", "9007199254741002", "9007199254741003"],
+                "platform": "PACK"
+              },
+              "timeout": 10,
+              "headerNames": ["Content-Type", "x-api-key"]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "inputSha256": "500b21e1650f4b08fdaa8f74f2741b9b0ad6d7bb8b6d26b41bfc4fdb1afd1da7",
+      "args": ["tools/legacy-order-status/source_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "callback": {
+            "status": 200,
+            "message": "Request has been queued for processing"
+          },
+          "requests": []
+        },
+        {
+          "callback": {
+            "status": 200,
+            "message": "Request has been queued for processing"
+          },
+          "requests": [
+            {
+              "path": "/store-order/status",
+              "body": {
+                "orderId": "9007199254740993",
+                "has_product_ids": ["9007199254741001", "9007199254741002", "9007199254741003"],
+                "platform": "PACK"
+              },
+              "timeout": 10,
+              "headerNames": ["Content-Type", "x-api-key"]
+            }
+          ]
+        },
+        {
+          "callback": {
+            "status": 200,
+            "message": "Request has been queued for processing"
+          },
+          "requests": [
+            {
+              "path": "/store-order/status",
+              "body": {
+                "orderId": "9007199254740993",
+                "has_product_ids": ["9007199254741001", "9007199254741002", "9007199254741003"],
+                "platform": "PACK"
+              },
+              "timeout": 10,
+              "headerNames": ["Content-Type", "x-api-key"]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

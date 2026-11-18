@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/order-history/source_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:59Z",
+  "test": "tests/order-history/source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/order-history/source_oracle.py"],
+      "status": 0,
+      "output": {
+        "pin": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "calls": [
+          ["filter", {}],
+          [
+            "exclude",
+            {
+              "order_statuses__in": [0]
+            }
+          ],
+          [
+            "filter",
+            {
+              "order_store__isnull": false
+            }
+          ],
+          [
+            "filter",
+            {
+              "order_store__store_id__in": [1]
+            }
+          ],
+          [
+            "filter",
+            {
+              "created_at__gte": "2026-11-16 00:00:00",
+              "created_at__lte": "2026-11-16 23:59:00"
+            }
+          ],
+          ["sort", "-id"]
+        ],
+        "result": {
+          "draw": 1,
+          "recordsTotal": 0,
+          "recordsFiltered": 0,
+          "data": []
+        }
+      }
+    }
+  ]
+}

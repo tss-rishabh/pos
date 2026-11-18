@@ -1,5 +1,3 @@
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import {
@@ -8,24 +6,8 @@ import {
 } from '../../src/modules/order-history/search/default-ranges.js';
 import { orderSearchInput } from '../../src/modules/order-history/search/contracts.js';
 import { orderRange } from '../../src/modules/order-history/contracts.js';
+import { goldenStdout } from '../golden/load.js';
 
-const original = String.raw`
-import ast, datetime, json, subprocess, sys, types
-body=json.load(sys.stdin)
-def text(path):return subprocess.check_output(['git','-C',body['root'],'show','78d5b63d6a149a6bf2c748fa1d191799c59ecb8a:'+path],text=True)
-class Frozen(datetime.datetime):
- @classmethod
- def now(cls):return cls.fromisoformat(body['local'])
-clock=types.SimpleNamespace(datetime=Frozen,timedelta=datetime.timedelta)
-helpers=next(n for n in ast.parse(text('helpers/helpers.py')).body if isinstance(n,ast.ClassDef) and n.name=='Helpers')
-helpers.body=[n for n in helpers.body if isinstance(n,ast.FunctionDef) and n.name=='get_days_before_after_datetime']
-view=next(n for n in ast.parse(text('order/views.py')).body if isinstance(n,ast.ClassDef) and n.name==('OnlineOrdersView' if body['online'] else 'OrdersView'))
-method=next(n for n in view.body if isinstance(n,ast.FunctionDef) and n.name=='get')
-namespace={'datetime':clock}
-exec(compile(ast.fix_missing_locations(ast.Module(body=[helpers,*method.body[:3 if body['online'] else 4]],type_ignores=[])),'<original-order-date-prefix>','exec'),namespace)
-canonical=lambda field:datetime.datetime.strptime(namespace[field],'%m/%d/%Y %I:%M %p').strftime('%Y-%m-%d %H:%M:00')
-print(json.dumps({'placedFrom':canonical('StartDateTimeFormat'),'placedTo':canonical('EndDateTimeFormat')}))
-`;
 const vectors = [
   ['2026-11-18T12:03:45.678Z', 'Asia/Kolkata'],
   ['2026-12-31T18:29:59.999Z', 'Asia/Kolkata'],
@@ -47,16 +29,9 @@ describe('source-authoritative rolling order defaults', () => {
         .toString();
       for (const online of [false]) {
         const expected: unknown = JSON.parse(
-          execFileSync('python3', ['-B', '-c', original], {
-            input: JSON.stringify({
-              root:
-                process.env.ORDER_DEFAULT_SOURCE_ROOT ??
-                resolve(process.cwd(), '../../backend-pos-web'),
-              local,
-              online,
-            }),
-            encoding: 'utf8',
-          }),
+          // Captured from the literal pinned helper and store-view prefix (see the
+          // golden file's recorded program); the checkout path is not part of the key.
+          goldenStdout('order-search', 'default-ranges', JSON.stringify({ local, online })),
         );
         expect(defaults.store).toEqual(expected);
       }

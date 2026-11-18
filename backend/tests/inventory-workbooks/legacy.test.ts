@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,16 +21,16 @@ import {
   workbookXmlValidator,
   type WorkbookXmlState,
 } from '../../src/modules/inventory-workbooks/xml-validation.js';
+import { goldenStdout } from '../golden/load.js';
 
 const directories: string[] = [];
 const signal = () => new AbortController().signal;
-const python =
-  process.env.INVENTORY_WORKBOOK_ORACLE_PYTHON || 'tools/inventory-workbooks/.venv/bin/python';
 function source(product = 'Safe shirt') {
   const raw: unknown = JSON.parse(
-    execFileSync(python, ['tools/inventory-workbooks/source-oracle.py'], {
-      encoding: 'utf8',
-      input: JSON.stringify({
+    goldenStdout(
+      'inventory-workbooks',
+      'legacy',
+      JSON.stringify({
         stores: [
           {
             id: '1',
@@ -52,7 +51,7 @@ function source(product = 'Safe shirt') {
           },
         ],
       }),
-    }),
+    ),
   );
   return Buffer.from(z.object({ artifactBase64: z.string() }).parse(raw).artifactBase64, 'base64');
 }

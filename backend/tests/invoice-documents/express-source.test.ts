@@ -1,9 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
 import { sanitizeInvoiceHtml } from '../../src/modules/checkout/invoices.js';
+import { goldenStdout } from '../golden/load.js';
 const row = z.object({
   name: z.string(),
   sameHtml: z.boolean(),
@@ -23,24 +23,7 @@ const row = z.object({
   html: z.string(),
 });
 it('executes original shop tax math/template and proves selection before grouping plus scoped gift/points/store corrections', async () => {
-  const raw = execFileSync(
-    'uv',
-    [
-      'run',
-      '--frozen',
-      '--project',
-      resolve('compatibility/upstream/invoice-security/runtime'),
-      'python',
-      resolve('tools/invoice-documents/express-oracle.py'),
-    ],
-    {
-      encoding: 'utf8',
-      timeout: 20000,
-      maxBuffer: 512 * 1024,
-      env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    },
-  );
+  const raw = goldenStdout('invoice-documents', 'express-source.express-oracle');
   const result = z
     .object({
       sourceCommit: z.literal('2960acbea10c4eaf16b6d99e15ff6e03ef7724c5'),
@@ -89,11 +72,7 @@ it('executes original shop tax math/template and proves selection before groupin
   await rename(directory + '/express-source.json.tmp', directory + '/express-source.json');
 }, 30000);
 it('executes the active source SDD handler and preserves its zero shipment flag while removing query credentials', () => {
-  const raw = execFileSync('python3', [resolve('tools/invoice-documents/sdd-oracle.py')], {
-    encoding: 'utf8',
-    timeout: 10000,
-    stdio: ['pipe', 'pipe', 'pipe'],
-  });
+  const raw = goldenStdout('invoice-documents', 'express-source.sdd-oracle');
   expect(
     z
       .object({

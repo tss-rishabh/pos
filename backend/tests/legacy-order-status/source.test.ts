@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { sourceStatusOracle } from './source-helper.js';
+import { goldenSourceStatusOracle } from './source-helper.js';
 import { sourceStatusBody } from '../../src/modules/legacy-order-status/domain.js';
 import { command, snapshot } from './fixtures.js';
 describe('original whole-order callback/task contract', () => {
@@ -11,7 +11,7 @@ describe('original whole-order callback/task contract', () => {
         })),
         { orderId: command.orderId, kind: 'task' },
       ],
-      result = sourceStatusOracle({
+      result = goldenSourceStatusOracle('source', {
         lines: snapshot.lines.map((row) => ({ ...row, orderId: command.orderId })),
         cases,
       });
@@ -28,7 +28,7 @@ describe('original whole-order callback/task contract', () => {
     }
   });
   it('records the source false-queue acknowledgement hazard on missing config, HTTP failure and timeout', () => {
-    const result = sourceStatusOracle({
+    const result = goldenSourceStatusOracle('source', {
       lines: snapshot.lines.map((row) => ({ ...row, orderId: command.orderId })),
       cases: [
         { orderId: command.orderId, platform: 'PACK', missingEndpoint: true },

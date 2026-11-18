@@ -1,5 +1,3 @@
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { LegacyImportGroup } from '../../src/modules/legacy-order-imports/csv.js';
 import {
@@ -7,10 +5,8 @@ import {
   offlineOrderImportPlan,
   shopifyOrderImportPlan,
 } from '../../src/modules/legacy-order-imports/plans.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
-const oracle = fileURLToPath(
-  new URL('../../tools/legacy-order-imports/source_order.py', import.meta.url),
-);
 function group(kind: 'offline' | 'shopify' = 'offline'): LegacyImportGroup {
   return {
     sequence: 1,
@@ -60,8 +56,10 @@ interface SourceCall {
   kwargs: Record<string, unknown>;
 }
 function source(kind: 'offline' | 'shopify', input: LegacyImportGroup) {
-  const result = spawnSync('python3', [oracle], {
-    input: JSON.stringify({
+  const result = goldenSpawnResult(
+    'legacy-order-imports',
+    'plans',
+    JSON.stringify({
       kind,
       group: {
         order_details: [input.details],
@@ -73,9 +71,7 @@ function source(kind: 'offline' | 'shopify', input: LegacyImportGroup) {
         ...(input.address ? { address: [input.address] } : {}),
       },
     }),
-    encoding: 'utf8',
-    maxBuffer: 1024 * 1024,
-  });
+  );
   expect(result.status, 'The exact source order body must execute against isolated captors.').toBe(
     0,
   );

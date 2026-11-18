@@ -1,0 +1,88 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "inline python -c program (recorded verbatim in each invocation's args); stdin root (pinned source checkout path) excluded from inputSha256",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:59Z",
+  "test": "tests/order-search/default-ranges.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "1181d886e6774d83c7c399df440387783dc394d39a5cdb18500ef10eb704cb85",
+      "args": [
+        "-B",
+        "-c",
+        "\nimport ast, datetime, json, subprocess, sys, types\nbody=json.load(sys.stdin)\ndef text(path):return subprocess.check_output(['git','-C',body['root'],'show','78d5b63d6a149a6bf2c748fa1d191799c59ecb8a:'+path],text=True)\nclass Frozen(datetime.datetime):\n @classmethod\n def now(cls):return cls.fromisoformat(body['local'])\nclock=types.SimpleNamespace(datetime=Frozen,timedelta=datetime.timedelta)\nhelpers=next(n for n in ast.parse(text('helpers/helpers.py')).body if isinstance(n,ast.ClassDef) and n.name=='Helpers')\nhelpers.body=[n for n in helpers.body if isinstance(n,ast.FunctionDef) and n.name=='get_days_before_after_datetime']\nview=next(n for n in ast.parse(text('order/views.py')).body if isinstance(n,ast.ClassDef) and n.name==('OnlineOrdersView' if body['online'] else 'OrdersView'))\nmethod=next(n for n in view.body if isinstance(n,ast.FunctionDef) and n.name=='get')\nnamespace={'datetime':clock}\nexec(compile(ast.fix_missing_locations(ast.Module(body=[helpers,*method.body[:3 if body['online'] else 4]],type_ignores=[])),'<original-order-date-prefix>','exec'),namespace)\ncanonical=lambda field:datetime.datetime.strptime(namespace[field],'%m/%d/%Y %I:%M %p').strftime('%Y-%m-%d %H:%M:00')\nprint(json.dumps({'placedFrom':canonical('StartDateTimeFormat'),'placedTo':canonical('EndDateTimeFormat')}))\n"
+      ],
+      "status": 0,
+      "output": {
+        "placedFrom": "2026-11-13 17:33:00",
+        "placedTo": "2026-11-18 17:34:00"
+      }
+    },
+    {
+      "inputSha256": "b0adccb066a098136e4dd149c9a26a309a9b08750702b0283bd1319fbcd14909",
+      "args": [
+        "-B",
+        "-c",
+        "\nimport ast, datetime, json, subprocess, sys, types\nbody=json.load(sys.stdin)\ndef text(path):return subprocess.check_output(['git','-C',body['root'],'show','78d5b63d6a149a6bf2c748fa1d191799c59ecb8a:'+path],text=True)\nclass Frozen(datetime.datetime):\n @classmethod\n def now(cls):return cls.fromisoformat(body['local'])\nclock=types.SimpleNamespace(datetime=Frozen,timedelta=datetime.timedelta)\nhelpers=next(n for n in ast.parse(text('helpers/helpers.py')).body if isinstance(n,ast.ClassDef) and n.name=='Helpers')\nhelpers.body=[n for n in helpers.body if isinstance(n,ast.FunctionDef) and n.name=='get_days_before_after_datetime']\nview=next(n for n in ast.parse(text('order/views.py')).body if isinstance(n,ast.ClassDef) and n.name==('OnlineOrdersView' if body['online'] else 'OrdersView'))\nmethod=next(n for n in view.body if isinstance(n,ast.FunctionDef) and n.name=='get')\nnamespace={'datetime':clock}\nexec(compile(ast.fix_missing_locations(ast.Module(body=[helpers,*method.body[:3 if body['online'] else 4]],type_ignores=[])),'<original-order-date-prefix>','exec'),namespace)\ncanonical=lambda field:datetime.datetime.strptime(namespace[field],'%m/%d/%Y %I:%M %p').strftime('%Y-%m-%d %H:%M:00')\nprint(json.dumps({'placedFrom':canonical('StartDateTimeFormat'),'placedTo':canonical('EndDateTimeFormat')}))\n"
+      ],
+      "status": 0,
+      "output": {
+        "placedFrom": "2026-12-26 23:59:00",
+        "placedTo": "2027-01-01 00:00:00"
+      }
+    },
+    {
+      "inputSha256": "6945f8b3ac8844c8d07e2c759997677456bcbfe5d51078c26726362110cf73d0",
+      "args": [
+        "-B",
+        "-c",
+        "\nimport ast, datetime, json, subprocess, sys, types\nbody=json.load(sys.stdin)\ndef text(path):return subprocess.check_output(['git','-C',body['root'],'show','78d5b63d6a149a6bf2c748fa1d191799c59ecb8a:'+path],text=True)\nclass Frozen(datetime.datetime):\n @classmethod\n def now(cls):return cls.fromisoformat(body['local'])\nclock=types.SimpleNamespace(datetime=Frozen,timedelta=datetime.timedelta)\nhelpers=next(n for n in ast.parse(text('helpers/helpers.py')).body if isinstance(n,ast.ClassDef) and n.name=='Helpers')\nhelpers.body=[n for n in helpers.body if isinstance(n,ast.FunctionDef) and n.name=='get_days_before_after_datetime']\nview=next(n for n in ast.parse(text('order/views.py')).body if isinstance(n,ast.ClassDef) and n.name==('OnlineOrdersView' if body['online'] else 'OrdersView'))\nmethod=next(n for n in view.body if isinstance(n,ast.FunctionDef) and n.name=='get')\nnamespace={'datetime':clock}\nexec(compile(ast.fix_missing_locations(ast.Module(body=[helpers,*method.body[:3 if body['online'] else 4]],type_ignores=[])),'<original-order-date-prefix>','exec'),namespace)\ncanonical=lambda field:datetime.datetime.strptime(namespace[field],'%m/%d/%Y %I:%M %p').strftime('%Y-%m-%d %H:%M:00')\nprint(json.dumps({'placedFrom':canonical('StartDateTimeFormat'),'placedTo':canonical('EndDateTimeFormat')}))\n"
+      ],
+      "status": 0,
+      "output": {
+        "placedFrom": "2028-02-24 23:59:00",
+        "placedTo": "2028-03-01 00:00:00"
+      }
+    },
+    {
+      "inputSha256": "9bd36d345181e190c7e0d141eed24ec213f97f69825825cb2baa5dbae2cab7cb",
+      "args": [
+        "-B",
+        "-c",
+        "\nimport ast, datetime, json, subprocess, sys, types\nbody=json.load(sys.stdin)\ndef text(path):return subprocess.check_output(['git','-C',body['root'],'show','78d5b63d6a149a6bf2c748fa1d191799c59ecb8a:'+path],text=True)\nclass Frozen(datetime.datetime):\n @classmethod\n def now(cls):return cls.fromisoformat(body['local'])\nclock=types.SimpleNamespace(datetime=Frozen,timedelta=datetime.timedelta)\nhelpers=next(n for n in ast.parse(text('helpers/helpers.py')).body if isinstance(n,ast.ClassDef) and n.name=='Helpers')\nhelpers.body=[n for n in helpers.body if isinstance(n,ast.FunctionDef) and n.name=='get_days_before_after_datetime']\nview=next(n for n in ast.parse(text('order/views.py')).body if isinstance(n,ast.ClassDef) and n.name==('OnlineOrdersView' if body['online'] else 'OrdersView'))\nmethod=next(n for n in view.body if isinstance(n,ast.FunctionDef) and n.name=='get')\nnamespace={'datetime':clock}\nexec(compile(ast.fix_missing_locations(ast.Module(body=[helpers,*method.body[:3 if body['online'] else 4]],type_ignores=[])),'<original-order-date-prefix>','exec'),namespace)\ncanonical=lambda field:datetime.datetime.strptime(namespace[field],'%m/%d/%Y %I:%M %p').strftime('%Y-%m-%d %H:%M:00')\nprint(json.dumps({'placedFrom':canonical('StartDateTimeFormat'),'placedTo':canonical('EndDateTimeFormat')}))\n"
+      ],
+      "status": 0,
+      "output": {
+        "placedFrom": "2026-03-03 01:59:00",
+        "placedTo": "2026-03-08 02:00:00"
+      }
+    },
+    {
+      "inputSha256": "07774d26ffa674afe9ed7019e55d232e85e7d12cb57f368db7cf84736103d769",
+      "args": [
+        "-B",
+        "-c",
+        "\nimport ast, datetime, json, subprocess, sys, types\nbody=json.load(sys.stdin)\ndef text(path):return subprocess.check_output(['git','-C',body['root'],'show','78d5b63d6a149a6bf2c748fa1d191799c59ecb8a:'+path],text=True)\nclass Frozen(datetime.datetime):\n @classmethod\n def now(cls):return cls.fromisoformat(body['local'])\nclock=types.SimpleNamespace(datetime=Frozen,timedelta=datetime.timedelta)\nhelpers=next(n for n in ast.parse(text('helpers/helpers.py')).body if isinstance(n,ast.ClassDef) and n.name=='Helpers')\nhelpers.body=[n for n in helpers.body if isinstance(n,ast.FunctionDef) and n.name=='get_days_before_after_datetime']\nview=next(n for n in ast.parse(text('order/views.py')).body if isinstance(n,ast.ClassDef) and n.name==('OnlineOrdersView' if body['online'] else 'OrdersView'))\nmethod=next(n for n in view.body if isinstance(n,ast.FunctionDef) and n.name=='get')\nnamespace={'datetime':clock}\nexec(compile(ast.fix_missing_locations(ast.Module(body=[helpers,*method.body[:3 if body['online'] else 4]],type_ignores=[])),'<original-order-date-prefix>','exec'),namespace)\ncanonical=lambda field:datetime.datetime.strptime(namespace[field],'%m/%d/%Y %I:%M %p').strftime('%Y-%m-%d %H:%M:00')\nprint(json.dumps({'placedFrom':canonical('StartDateTimeFormat'),'placedTo':canonical('EndDateTimeFormat')}))\n"
+      ],
+      "status": 0,
+      "output": {
+        "placedFrom": "2026-10-27 01:59:00",
+        "placedTo": "2026-11-01 02:00:00"
+      }
+    },
+    {
+      "inputSha256": "a7b5da2c8bad01f46d4caadc0f88131ec107af281574205e0e9f10b30d4705d5",
+      "args": [
+        "-B",
+        "-c",
+        "\nimport ast, datetime, json, subprocess, sys, types\nbody=json.load(sys.stdin)\ndef text(path):return subprocess.check_output(['git','-C',body['root'],'show','78d5b63d6a149a6bf2c748fa1d191799c59ecb8a:'+path],text=True)\nclass Frozen(datetime.datetime):\n @classmethod\n def now(cls):return cls.fromisoformat(body['local'])\nclock=types.SimpleNamespace(datetime=Frozen,timedelta=datetime.timedelta)\nhelpers=next(n for n in ast.parse(text('helpers/helpers.py')).body if isinstance(n,ast.ClassDef) and n.name=='Helpers')\nhelpers.body=[n for n in helpers.body if isinstance(n,ast.FunctionDef) and n.name=='get_days_before_after_datetime']\nview=next(n for n in ast.parse(text('order/views.py')).body if isinstance(n,ast.ClassDef) and n.name==('OnlineOrdersView' if body['online'] else 'OrdersView'))\nmethod=next(n for n in view.body if isinstance(n,ast.FunctionDef) and n.name=='get')\nnamespace={'datetime':clock}\nexec(compile(ast.fix_missing_locations(ast.Module(body=[helpers,*method.body[:3 if body['online'] else 4]],type_ignores=[])),'<original-order-date-prefix>','exec'),namespace)\ncanonical=lambda field:datetime.datetime.strptime(namespace[field],'%m/%d/%Y %I:%M %p').strftime('%Y-%m-%d %H:%M:00')\nprint(json.dumps({'placedFrom':canonical('StartDateTimeFormat'),'placedTo':canonical('EndDateTimeFormat')}))\n"
+      ],
+      "status": 0,
+      "output": {
+        "placedFrom": "2026-12-26 23:59:00",
+        "placedTo": "2027-01-01 00:00:00"
+      }
+    }
+  ]
+}

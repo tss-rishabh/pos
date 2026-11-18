@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tests/return-window/source-oracle.py",
+  "runtime": "CPython 3.12.15 (compatibility/upstream/offline-cash-pricing/.venv)",
+  "capturedAt": "2026-11-18T19:04:59Z",
+  "test": "tests/return-window/source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["-B", "tests/return-window/source-oracle.py", "<backend-pos-web>"],
+      "status": 0,
+      "output": {
+        "pin": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "line": 4449,
+        "created": {
+          "order_id": 100,
+          "prod_id": 123,
+          "extended_date": "2026-12-20 23:59:59",
+          "created_by": 88,
+          "updated_by": 88,
+          "is_active": 1,
+          "has_product_id": 1000
+        },
+        "updated": {
+          "order_id": 100,
+          "prod_id": 123,
+          "extended_date": "2026-11-18 23:59:59",
+          "created_by": 88,
+          "updated_by": 88,
+          "is_active": 1,
+          "has_product_id": 1000
+        },
+        "rows": 1,
+        "emptyDateRefused": true
+      }
+    }
+  ]
+}
