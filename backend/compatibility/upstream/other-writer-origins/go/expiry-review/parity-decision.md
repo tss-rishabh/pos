@@ -1,6 +1,10 @@
-# Pending decision: calendar date comparison on payment-failure wallet restoration
+# Approved correction: calendar date comparison on payment-failure wallet restoration
 
-Status: review candidate only. The active source predicates remain unchanged.
+Status: user approved **Use correct calendar-date ordering** on 2026-11-18.
+The reviewed correction is active in both owned producers. Fresh native
+verification of this activation remains pending until implementation is complete
+and the native verification slot is available; the evidence below remains the
+historical scratch-candidate result, not a new execution receipt.
 
 Pinned payments `434f3e438d1cb48c64e5723222c6efda506db571`, `juspay/model.go` lines1677 and1763, calls **Format**, not Parse:
 
@@ -24,7 +28,38 @@ These outcomes apply separately to TSS Money and TSS Points. Cashback remains un
 
 The selected Node/Python source-origin paths delegate this failure restoration to Go; they do not independently compare this Go layout. Independent Node cancellation restoration uses calendar dates and its own allocation policy. Python source history/preview has no replacement of this payment-failure predicate. Those independent paths should remain unchanged, with no broad expiry restoration introduced. A search for the swapped Go/Python layout found no literal counterpart in owned Node/Python sources; it is inherited by the Go producer from the pinned source.
 
-Acceptance needed: change the two original and two generated failure-restoration predicates together to calendar DateOnly. The default Go vet gate presently identifies this existing source defect. Its warning will remain reported until the decision is resolved; no dynamic-string workaround will conceal it.
+The two original and two generated failure-restoration predicates now compose
+together to calendar DateOnly. The swapped literal remains only in immutable
+pinned source and as an explicit, checked input seam to the producers. No
+dynamic-string workaround or vet suppression is introduced. The earlier default
+vet failure remains historical evidence until a fresh default-gate run verifies
+the activated output.
+
+## Activation provenance
+
+The exact reviewed `calendar-expiry-candidate.patch` is now applied to
+`../compose.py` and `../transform_source.go`; the patch is retained unchanged as
+the historical activation input. No external source repository is modified.
+
+- `compose_payments()` changes the four exact `.Format("2006-02-01")`
+  occurrences in the owned composed `juspay/model.go` to
+  `.Format("2006-01-02")`, refusing a changed pinned occurrence count. These
+  belong to the original `RevertTssMoney` and `RevertTssPoints` predicates.
+- The pinned AST transformer changes exactly two string literals in each
+  selected original method before writing `juspay/origin_source.go`, yielding
+  `revertOtherOriginMoney` and `revertOtherOriginPoints` with the same calendar
+  comparison. A changed count in either selected function fails generation.
+- Those two Go files are generated owned build outputs. Checking in or editing
+  the external pinned payments tree would bypass the composition contract.
+  Native expiry values, `IsExpired`, inclusive expiry day, allocation mappings,
+  rounding, ledger behavior, cashback preservation and independent cancellation
+  policies retain their existing implementation.
+
+The follow-up verification remains the same ten native Money/Points expiry
+subcases and two real TLS gateway recovery cases with default vet and the race
+detector. Use the calendar expectation mode
+`POS_ORIGIN_EXPIRY_CANDIDATE=1` in the retained review fixture; its original
+expectation mode remains available to reproduce the historical source defect.
 
 
 ## Native fixture evidence (2026-11-18)
@@ -40,5 +75,6 @@ platforms/deltas and unchanged cashback7 matched the table above for both
 assets. No source/production schema or provider was contacted.
 
 Review fixture: `expiry_candidate_test.go`; scratch candidate output:
-`/tmp/pos-origin-expiry-candidate-native-20261118.log`. The original expiry
-predicate remains active in the owned producer until the requested decision.
+`/tmp/pos-origin-expiry-candidate-native-20261118.log`. This evidence preceded
+the user approval and activation above. It does not replace fresh native
+verification of the activated owned build outputs.

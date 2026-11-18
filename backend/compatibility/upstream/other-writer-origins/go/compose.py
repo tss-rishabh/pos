@@ -150,6 +150,13 @@ def compose_payments(target: Path | str, reference: Path | str,
         path.write_bytes(private)
 
     format_source_logs(target)
+    # Calendar DateOnly correction approved separately; original source expiry
+    # date and IsExpired predicates remain inclusive and otherwise unchanged.
+    expiry_path = target / 'juspay/model.go'
+    expiry_source = expiry_path.read_text()
+    if expiry_source.count('.Format("2006-02-01")') != 4:
+        raise RuntimeError('Pinned wallet expiry date boundary changed')
+    expiry_path.write_text(expiry_source.replace('.Format("2006-02-01")', '.Format("2006-01-02")'))
 
     # Existing public/CSV confirmation remains intact. The extra credit is
     # computed under its already-held global customer lock, using only the
