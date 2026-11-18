@@ -96,6 +96,9 @@ export class MemoryCheckoutRepository implements CheckoutRepository {
   async operatorIdentity(operatorId: string) {
     return operatorId === '44' ? identity('777') : null;
   }
+  async storefrontIdentity(operatorId: string) {
+    return operatorId === '44' ? identity('777') : null;
+  }
   async customer(customerId: string) {
     return this.customers.get(customerId) || null;
   }
