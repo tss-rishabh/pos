@@ -19,3 +19,10 @@ func createOriginalFailurePointsHistory(db *gorm.DB, row *TssPointHistory) *gorm
 	}
 	return db.Create(row)
 }
+
+func createOriginalFailureRewardHistory(db *gorm.DB, row *RewardPointHistory) *gorm.DB {
+	if row.Expiry.IsZero() {
+		return db.Omit("expiry").Create(row)
+	}
+	return db.Create(row)
+}

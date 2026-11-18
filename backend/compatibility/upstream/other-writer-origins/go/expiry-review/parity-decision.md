@@ -109,8 +109,9 @@ Points history expiry columns are nullable DATETIME with DEFAULT NULL; both
 original and generated methods share the original Go models' `time.Time` expiry.
 The generated negative-history helper already omits an unset expiry.
 
-The composer now redirects only the two original Money-history and two original
-Points-history Create sites, under exact pinned method/count guards, to typed
+The composer redirects only the two original Money-history, two original
+Points-history and two retained reward-history Create sites, under exact pinned
+method/count guards, to typed
 helpers in `payload/juspay/origin_failure_history.go`. Only `Expiry.IsZero()`
 omits SQL expiry; a real earning expiry uses the original full Create unchanged.
 Amounts, native expiry values, mappings, cashback7 and `IsExpired` remain intact.
@@ -122,8 +123,12 @@ as an unset original Go field. A nonzero earning expiry must retain its actual
 time value and representation. Those assertions have not yet executed for this
 correction. They do not prove Django/frontend or another consumer's serialization.
 
-The separate original Money reward-history mirror policy is awaiting the user's
-explicit answer. Its current writes and fixture assertions remain unchanged;
-there is no Reward-history NULL wrapper or silent mirror removal in this
-independent correction. Full native execution and new assembly generation wait
-for that decision. Earlier failed artifacts remain immutable.
+The optional question about removing the separate original Money reward-history
+entry remains unanswered. Baseline source parity therefore preserves that entry,
+its amounts/platform and its count. The same typed zero-expiry mapping now applies
+only to its two pinned Create sites, allowing the existing entry to persist under
+the actual nullable expiry contract. No runtime policy flag or mirror removal is
+introduced. SQL NULL/Go-zero/Go-JSON representation assertions cover that model
+too. New assembly/native verification can proceed on this preserved baseline;
+an explicit later answer may authorize a separate policy change. Earlier failed
+artifacts remain immutable.

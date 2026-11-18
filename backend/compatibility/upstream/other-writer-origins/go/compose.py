@@ -174,6 +174,10 @@ def compose_payments(target: Path | str, reference: Path | str,
         raise RuntimeError('Pinned original Money history boundary changed')
     money_body = money_body.replace('utils.Db.Create(&tm)',
                                     'createOriginalFailureMoneyHistory(utils.Db, &tm)')
+    if money_body.count('utils.Db.Create(&rh)') != 2:
+        raise RuntimeError('Pinned original reward-history write count changed')
+    money_body = money_body.replace('utils.Db.Create(&rh)',
+                                    'createOriginalFailureRewardHistory(utils.Db, &rh)')
     points_tail = expiry_source[money_end:]
     voucher_signature = 'func (o *Order) RevertGiftVoucher(Db *gorm.DB) {'
     if points_tail.count(voucher_signature) != 1:

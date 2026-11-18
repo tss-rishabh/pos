@@ -220,6 +220,19 @@ func TestOriginActiveOriginalCalendarWallets(t *testing.T) {
 					if err := db.QueryRow("SELECT COUNT(*) FROM reward_point_history WHERE order_id=700").Scan(&count); err != nil || count != 1 {
 						t.Fatal("original reward mirror missing or duplicated", err)
 					}
+					var mirrorExpiryNull bool
+					if err := db.QueryRow("SELECT expiry IS NULL FROM reward_point_history WHERE order_id=700").Scan(&mirrorExpiryNull); err != nil || !mirrorExpiryNull {
+						t.Fatal("unset original reward-history expiry must map to SQL NULL", err)
+					}
+					var mirror RewardPointHistory
+					if err := orm.Where("order_id=?", 700).First(&mirror).Error; err != nil || !mirror.Expiry.IsZero() {
+						t.Fatal("SQL NULL must retain original reward-history Go zero expiry", err)
+					}
+					mirrorJSON, mirrorErr := json.Marshal(mirror.Expiry)
+					zeroJSON, zeroErr := json.Marshal(time.Time{})
+					if mirrorErr != nil || zeroErr != nil || string(mirrorJSON) != string(zeroJSON) {
+						t.Fatal("reward NULL mapping changed original Go JSON expiry representation")
+					}
 				} else if err := db.QueryRow("SELECT COUNT(*) FROM reward_point_history").Scan(&count); err != nil || count != 0 {
 					t.Fatal("Points restoration manufactured a reward mirror", err)
 				}

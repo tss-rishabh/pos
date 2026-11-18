@@ -83,7 +83,10 @@ for name, selected in methods.items():
             check(body.count('"UPDATE users SET tss_money=? WHERE id=? LIMIT 1"') == 1)
             check('"UPDATE users SET cashback' not in body)
         if method == 'RevertTssMoney':
-            check(body.count('rh := RewardPointHistory{') == 2 and body.count('utils.Db.Create(&rh)') == 2)
+            check(body.count('rh := RewardPointHistory{') == 2 and body.count('createOriginalFailureRewardHistory(utils.Db, &rh)') == 2)
+            check(body.count('createOriginalFailureMoneyHistory(utils.Db, &tm)') == 2)
+        if method == 'RevertTssPoints':
+            check(body.count('createOriginalFailurePointsHistory(utils.Db, &tp)') == 2)
         if method == 'revertOtherOriginMoney':
             check('RewardPointHistory' not in body)
         sites[method] = {'sha256':hashlib.sha256(body.encode()).hexdigest(),'calendarLiterals':2,'clockSites':1}
