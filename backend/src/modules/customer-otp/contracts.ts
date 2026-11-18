@@ -25,29 +25,32 @@ export const customerOtpViewSchema = z
   })
   .strict();
 export type CustomerOtpView = z.infer<typeof customerOtpViewSchema>;
+export const customerOtpErrorSchema = z.enum([
+  'CUSTOMER_OTP_INVALID',
+  'CUSTOMER_OTP_ATTEMPT_LIMIT',
+  'CUSTOMER_OTP_NOT_SENT',
+]);
 export const customerOtpOperationViewSchema = z
   .object({
     kind: z.enum(['request', 'verify']),
     result: customerOtpViewSchema.nullable(),
-    error: z.enum(['CUSTOMER_OTP_INVALID', 'CUSTOMER_OTP_ATTEMPT_LIMIT']).nullable(),
+    error: customerOtpErrorSchema.nullable(),
   })
   .strict();
 export type CustomerOtpOperationView = z.infer<typeof customerOtpOperationViewSchema>;
-export const customerOtpPayloadSchema = z
-  .object({
-    contract: z.literal('pos-customer-otp-delivery-v1'),
-    purpose: z.enum(['checkout-benefits', 'order-return']),
-    channel: z.enum(['sms', 'email', 'whatsapp']),
-    destination: z.string().min(1).max(96),
-    code: z.string().regex(/^\d{6}$/),
-  })
-  .strict();
-export type CustomerOtpPayload = z.infer<typeof customerOtpPayloadSchema>;
-export interface CustomerOtpDelivery {
-  assertReady(purpose: CustomerOtpPurpose, channel: 'sms' | 'email' | 'whatsapp'): void;
-  send(
-    id: string,
-    payload: CustomerOtpPayload,
-    signal: AbortSignal,
-  ): Promise<'accepted' | 'rejected' | 'uncertain'>;
+
+/**
+ * One API-v2 answer. `null` means no readable answer arrived (network error, timeout, redirect
+ * or unreadable body), so the outcome is unknown.
+ */
+export type CustomerOtpApiReply = { status: number; body: unknown } | null;
+/**
+ * API-v2 `omnichannel-sendotp` / `omnichannel-verifyotp`, called synchronously as legacy
+ * `order/views.py:2549-2560` and `:2584-2597` do. Tests replace it with a fake.
+ */
+export interface CustomerOtpApi {
+  /** Throws 503 when the API-v2 base URL is missing or not HTTPS. */
+  assertReady(): void;
+  sendOtp(userId: number | bigint): Promise<CustomerOtpApiReply>;
+  verifyOtp(userId: number | bigint, otp: number): Promise<CustomerOtpApiReply>;
 }
