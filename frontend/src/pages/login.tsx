@@ -7,7 +7,6 @@ import { capabilitiesSchema, loginChallengeSchema, sessionSchema } from '../api/
 import { ErrorState } from '../components/common';
 import { useWorkspace } from '../state/workspace';
 
-
 type Challenge = z.infer<typeof loginChallengeSchema>;
 export function Login() {
   const client = useQueryClient(),
@@ -17,7 +16,8 @@ export function Login() {
     [challenge, setChallenge] = useState<Challenge | null>(null),
     [code, setCode] = useState(''),
     [factor, setFactor] = useState<'otp' | 'totp'>('otp'),
-    [storeId, setStore] = useState('');
+    [storeId, setStore] = useState(''),
+    [notice, setNotice] = useState('');
   const options = useQuery({
     queryKey: ['login-options'],
     queryFn: () => request('/api/v1/auth/capabilities', {}, capabilitiesSchema),
@@ -29,6 +29,7 @@ export function Login() {
     setChallenge(value);
     setFactor(value.method);
     setStore(value.stores.length === 1 ? value.stores[0]!.id : '');
+    setNotice(value.message);
     setCode('');
   }
   useEffect(() => {
@@ -93,7 +94,8 @@ export function Login() {
         sessionSchema,
       );
       setCode('');
-      workspace.setStore(storeId);
+      // Store 0 is legacy "Not at the store": signed in without a store check-in.
+      if (storeId !== '0') workspace.setStore(storeId);
       await complete();
     } catch (error) {
       setCode('');
@@ -108,6 +110,7 @@ export function Login() {
     try {
       const value = await post('/api/v1/auth/challenges/current/resends', {}, loginChallengeSchema);
       setChallenge(value);
+      setNotice(value.message);
       setFactor('otp');
       setCode('');
     } catch (error) {
@@ -176,6 +179,7 @@ export function Login() {
                       {store.name}
                     </option>
                   ))}
+                  <option value="0">Not at the store</option>
                 </select>
               </label>
               <label>
@@ -192,15 +196,10 @@ export function Login() {
                   onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
                 />
               </label>
-              {challenge.delivery === 'uncertain' && (
-                <p role="status">
-                  Delivery could not be confirmed. If the code arrives, you can use it; otherwise
-                  request a new one after the cooldown.
-                </p>
-              )}
+              {notice && <p role="status">{notice}</p>}
               <button
                 className="button primary full"
-                disabled={busy || code.length !== 6 || !storeId}
+                disabled={busy || challenge.locked || code.length !== 6 || !storeId}
               >
                 Verify & check in
                 <ArrowRight size={17} />
@@ -208,7 +207,7 @@ export function Login() {
             </form>
             <button
               className="button secondary full"
-              disabled={busy}
+              disabled={busy || challenge.locked}
               onClick={() => void resend()}
             >
               {factor === 'totp' ? 'Send a login OTP' : 'Resend OTP'}
@@ -253,7 +252,7 @@ export function Login() {
                     disabled={busy}
                     autoComplete="username"
                     required
-                    maxLength={254}
+                    maxLength={150}
                     placeholder="you@thesouledstore.com"
                   />
                 </label>
@@ -265,7 +264,7 @@ export function Login() {
                     type="password"
                     autoComplete="current-password"
                     required
-                    maxLength={512}
+                    maxLength={4096}
                     placeholder="Enter your password"
                   />
                 </label>

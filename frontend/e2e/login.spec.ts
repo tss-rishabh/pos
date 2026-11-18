@@ -20,7 +20,9 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
       method: 'otp',
       expiresAt: Date.now() + 300000,
       stores: [{ id: '1', name: 'Fixture Store' }],
-      delivery: 'submitted',
+      otpChannel: 'sms',
+      message: 'One Time Password (OTP) has been sent on your registered mobile number',
+      locked: false,
     });
     const principal = {
       id: '900001',

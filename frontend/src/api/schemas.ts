@@ -21,8 +21,10 @@ export const loginChallengeSchema = z.object({
   authentication: z.literal('challenge'),
   method: z.enum(['otp', 'totp']),
   expiresAt: z.number().int().positive(),
+  otpChannel: z.enum(['sms', 'email']),
+  message: z.string().max(500),
+  locked: z.boolean(),
   stores: z.array(z.object({ id, name: z.string() })),
-  delivery: z.enum(['not-needed', 'submitted', 'existing', 'uncertain']),
 });
 export const capabilitiesSchema = z.object({
   password: z.boolean(),
