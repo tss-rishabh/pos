@@ -122,6 +122,8 @@ import { routeRead } from './domain/routing.js';
 import { mergeDailyRows, dailyTotals } from './modules/daily-report.js';
 import { scopedStores } from './domain/access.js';
 import { sql } from 'drizzle-orm';
+import type { JobProducer } from './jobs/contract.js';
+import { memoryOrderRedis, nodeOrderRedis } from './modules/fulfillment/order-redis.js';
 
 const id = identifier;
 const scope = z.object({ storeId: id });
@@ -132,7 +134,11 @@ class PrivateLogController extends LogController {
 }
 export async function buildApp(
   config: Config,
-  options: { logger?: FastifyServerOptions['logger'] } = {},
+  options: {
+    logger?: FastifyServerOptions['logger'];
+    /** Redis job-queue producer (phase-c-legacy-jobs.md §4); wired by the jobs workstream. */
+    jobs?: JobProducer;
+  } = {},
 ) {
   const logger = options.logger
     ? ({
@@ -181,8 +187,10 @@ export async function buildApp(
         orders: ordersService(db, config, orderHistory),
         drafts: draftService(db),
       };
+  const orderRedis = config.DEMO_MODE ? memoryOrderRedis() : nodeOrderRedis(config);
   app.addHook('onClose', async () => {
     await identity.close();
+    await orderRedis.close();
     await db.close();
   });
   app.addHook('onRequest', async (request, reply) => {
