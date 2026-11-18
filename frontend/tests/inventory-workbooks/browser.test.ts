@@ -3,15 +3,19 @@ import { chromium, expect as browserExpect, type Browser, type Page } from '@pla
 import { createServer, type ViteDevServer } from 'vite';
 import react from '@vitejs/plugin-react';
 import { z } from 'zod';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
   'inventory workbook export UI in isolated Chromium',
   () => {
-    let server: ViteDevServer, browser: Browser, origin: string;
+    let server: ViteDevServer, browser: Browser, origin: string, cacheDir: string;
     beforeAll(async () => {
+      cacheDir = await mkdtemp(join(tmpdir(), 'pos-inventory-workbook-browser-'));
       server = await createServer({
         configFile: false,
-        cacheDir: 'node_modules/.vite-inventory-workbook-tests',
+        cacheDir,
         plugins: [react()],
         appType: 'custom',
         server: { host: '127.0.0.1', port: 0 },
@@ -46,6 +50,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
     afterAll(async () => {
       await browser?.close();
       await server?.close();
+      if (cacheDir) await rm(cacheDir, { recursive: true, force: true });
     });
     async function fixture(page: Page) {
       page.setDefaultTimeout(6000);
@@ -193,7 +198,12 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       };
     }
     async function choose(page: Page) {
-      await page.getByLabel('Report', { exact: true }).selectOption('current-inventory-workbook');
+      await browserExpect(
+        page.getByRole('checkbox', { name: 'Report', exact: true, includeHidden: true }),
+      ).toBeChecked();
+      await page
+        .getByRole('combobox', { name: 'Report', exact: true })
+        .selectOption('current-inventory-workbook');
       await page.getByLabel('Export name', { exact: true }).fill('Fixture workbook');
       await page.getByLabel(/^Stores/).selectOption(['1', '2']);
     }
