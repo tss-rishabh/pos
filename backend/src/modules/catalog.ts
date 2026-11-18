@@ -59,7 +59,9 @@ export function catalogService(databases: Databases) {
       return rows.map((r) => ({
         id: String(r.id),
         name: r.name || String(r.id),
-        locationCode: r.location,
+        // Legacy physical rows permit NULL despite the source model declaration.
+        // The bootstrap DTO uses a display label; inventory uses its native data.
+        locationCode: r.location ?? '',
         city: r.city || '',
         active: Boolean(r.active),
       }));
