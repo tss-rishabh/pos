@@ -6,12 +6,24 @@ for manager return-window extensions, report presentation/export variants,
 selected-store static QR/details and administration list controls. Preserve all
 396 source IDs and external release gates; code presence is not certification.
 
-Report controls are integrated on `e6f4a09`: performance and acceptance exports,
-source column visibility, and separate visible-column/full transaction exports.
-The administration list/shared export hookup and store QR controls are still
-being completed in parallel with return-window extensions. Reconcile the map
-after those commits are integrated, then resume consolidated validation. Do not
-restart the broad gate while known implementation gaps remain.
+Report controls are integrated on `e6f4a09`, with separate full/visible actions
+on flash-sales and returned-orders on `387cd7b`. Administration collection
+controls and selected-store details/QR are on `3e66758`/`377d3a3`/`4ff5e24`;
+the existing durable export queue is connected on `9b9da87`/`f45065a`.
+Return-window GET/PUT and return/exchange UI controls are on `a7a92d6`.
+The credential-free terminal directory, provider/scope filters, pagination,
+column visibility and both CSV actions are on `9ec375b`. The integrated
+backend/frontend strict programs compile; this is not workflow certification.
+
+Still being implemented: source export-history table controls and cash-ledger
+row options (reporting owner), and the original upload-log list/protected file
+and failed-record downloads (payment owner). The administration owner is
+reviewing catalogue/gift/special-permission controls against actual source.
+The pinned static candidate inventory is
+`backend/parity/legacy-template-controls.review.json` (106 templates); its
+finite control names/locations are an audit aid, not coverage certification.
+Reconcile the source map after actual deliveries, then resume consolidated
+validation. Do not restart the broad gate while known code gaps remain.
 
 The `fde67f5` verifier was intentionally interrupted after two completed checks
 when the active return-window gap was confirmed. Its partial report is retained

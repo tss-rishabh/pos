@@ -12,10 +12,10 @@
     },
     "changed": false
   },
-  "recordedAt": "2026-11-18T00:45:42.293Z",
+  "recordedAt": "2026-11-18T02:21:11.150Z",
   "command": "node --import tsx tools/verify-project.ts --mysql --browser",
   "exitCode": 1,
-  "nodeVersion": "24.22.1",
+  "nodeVersion": "24.22.3",
   "scope": {
     "localMySql": true,
     "browser": true
@@ -25,776 +25,20 @@
     {
       "id": "backend-build",
       "exitCode": 0,
-      "durationMs": 18244,
+      "durationMs": 17817,
       "log": "backend/evidence/private/verification-backend-build.log"
     },
     {
       "id": "backend-lint",
       "exitCode": 0,
-      "durationMs": 7166,
+      "durationMs": 7046,
       "log": "backend/evidence/private/verification-backend-lint.log"
-    },
-    {
-      "id": "source-pricing-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3655,
-      "log": "backend/evidence/private/verification-source-pricing-fixture-typecheck.log"
-    },
-    {
-      "id": "shipping-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17872,
-      "log": "backend/evidence/private/verification-shipping-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-profile-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3296,
-      "log": "backend/evidence/private/verification-customer-profile-fixture-typecheck.log"
-    },
-    {
-      "id": "global-benefits-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 2318,
-      "log": "backend/evidence/private/verification-global-benefits-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-context-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 5168,
-      "log": "backend/evidence/private/verification-customer-context-fixture-typecheck.log"
-    },
-    {
-      "id": "google-sso-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 4869,
-      "log": "backend/evidence/private/verification-google-sso-fixture-typecheck.log"
-    },
-    {
-      "id": "gift-issuance-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 7156,
-      "log": "backend/evidence/private/verification-gift-issuance-fixture-typecheck.log"
-    },
-    {
-      "id": "global-vouchers-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16584,
-      "log": "backend/evidence/private/verification-global-vouchers-fixture-typecheck.log"
-    },
-    {
-      "id": "pending-cancellations-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 7225,
-      "log": "backend/evidence/private/verification-pending-cancellations-fixture-typecheck.log"
-    },
-    {
-      "id": "dashboard-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17529,
-      "log": "backend/evidence/private/verification-dashboard-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-website-handoff-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17662,
-      "log": "backend/evidence/private/verification-customer-website-handoff-fixture-typecheck.log"
-    },
-    {
-      "id": "fast-cash-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 599,
-      "log": "backend/evidence/private/verification-fast-cash-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-contacts-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17798,
-      "log": "backend/evidence/private/verification-customer-contacts-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-otp-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16820,
-      "log": "backend/evidence/private/verification-customer-otp-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-history-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17914,
-      "log": "backend/evidence/private/verification-customer-history-fixture-typecheck.log"
-    },
-    {
-      "id": "warehouse-parameters-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1000,
-      "log": "backend/evidence/private/verification-warehouse-parameters-fixture-typecheck.log"
-    },
-    {
-      "id": "product-feedback-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3328,
-      "log": "backend/evidence/private/verification-product-feedback-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-consent-proof-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 879,
-      "log": "backend/evidence/private/verification-customer-consent-proof-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-verification-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 7450,
-      "log": "backend/evidence/private/verification-customer-verification-fixture-typecheck.log"
-    },
-    {
-      "id": "order-messages-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 7177,
-      "log": "backend/evidence/private/verification-order-messages-fixture-typecheck.log"
-    },
-    {
-      "id": "checkout-performance-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16964,
-      "log": "backend/evidence/private/verification-checkout-performance-fixture-typecheck.log"
-    },
-    {
-      "id": "invoice-security-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 796,
-      "log": "backend/evidence/private/verification-invoice-security-fixture-typecheck.log"
-    },
-    {
-      "id": "invoice-documents-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17080,
-      "log": "backend/evidence/private/verification-invoice-documents-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-delivery-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17486,
-      "log": "backend/evidence/private/verification-legacy-delivery-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-order-imports-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 7201,
-      "log": "backend/evidence/private/verification-legacy-order-imports-fixture-typecheck.log"
-    },
-    {
-      "id": "whole-order-status-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17041,
-      "log": "backend/evidence/private/verification-whole-order-status-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-financial-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 6033,
-      "log": "backend/evidence/private/verification-legacy-import-financial-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-source-boundary-tests",
-      "exitCode": 0,
-      "durationMs": 2167,
-      "log": "backend/evidence/private/verification-legacy-import-source-boundary-tests.log"
-    },
-    {
-      "id": "legacy-import-preparation-core-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16970,
-      "log": "backend/evidence/private/verification-legacy-import-preparation-core-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-preparation-source-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 6436,
-      "log": "backend/evidence/private/verification-legacy-import-preparation-source-fixture-typecheck.log"
-    },
-    {
-      "id": "public-screening-writer-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16982,
-      "log": "backend/evidence/private/verification-public-screening-writer-fixture-typecheck.log"
-    },
-    {
-      "id": "source-runtime-acceptance-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 5704,
-      "log": "backend/evidence/private/verification-source-runtime-acceptance-fixture-typecheck.log"
-    },
-    {
-      "id": "coupon-history-publication-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17014,
-      "log": "backend/evidence/private/verification-coupon-history-publication-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-native-esm-typecheck",
-      "exitCode": 0,
-      "durationMs": 3123,
-      "log": "backend/evidence/private/verification-legacy-import-native-esm-typecheck.log"
-    },
-    {
-      "id": "coupon-history-bigquery-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16882,
-      "log": "backend/evidence/private/verification-coupon-history-bigquery-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-native-esm-startup",
-      "exitCode": 0,
-      "durationMs": 21852,
-      "log": "backend/evidence/private/verification-legacy-import-native-esm-startup.log"
-    },
-    {
-      "id": "screening-recovery-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3090,
-      "log": "backend/evidence/private/verification-screening-recovery-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-coupon-go-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16682,
-      "log": "backend/evidence/private/verification-legacy-import-coupon-go-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-tender-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 4003,
-      "log": "backend/evidence/private/verification-legacy-import-tender-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-membership-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 6796,
-      "log": "backend/evidence/private/verification-legacy-import-membership-fixture-typecheck.log"
-    },
-    {
-      "id": "checkin-lock-order-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1785,
-      "log": "backend/evidence/private/verification-checkin-lock-order-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-benefits-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 6731,
-      "log": "backend/evidence/private/verification-legacy-import-benefits-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-membership-publication-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 4756,
-      "log": "backend/evidence/private/verification-legacy-import-membership-publication-fixture-typecheck.log"
-    },
-    {
-      "id": "import-correction-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1775,
-      "log": "backend/evidence/private/verification-import-correction-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "whole-order-status-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 905,
-      "log": "backend/evidence/private/verification-whole-order-status-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "import-order-holds-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17098,
-      "log": "backend/evidence/private/verification-import-order-holds-fixture-typecheck.log"
-    },
-    {
-      "id": "inventory-workbooks-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16929,
-      "log": "backend/evidence/private/verification-inventory-workbooks-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-order-import-history-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16662,
-      "log": "backend/evidence/private/verification-legacy-order-import-history-fixture-typecheck.log"
-    },
-    {
-      "id": "bigquery-tools-typecheck",
-      "exitCode": 0,
-      "durationMs": 16816,
-      "log": "backend/evidence/private/verification-bigquery-tools-typecheck.log"
-    },
-    {
-      "id": "gift-card-batches-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16839,
-      "log": "backend/evidence/private/verification-gift-card-batches-fixture-typecheck.log"
-    },
-    {
-      "id": "backend-tests",
-      "exitCode": 1,
-      "durationMs": 215579,
-      "log": "backend/evidence/private/verification-backend-tests.log"
-    },
-    {
-      "id": "frontend-typecheck",
-      "exitCode": 0,
-      "durationMs": 8965,
-      "log": "backend/evidence/private/verification-frontend-typecheck.log"
-    },
-    {
-      "id": "frontend-lint",
-      "exitCode": 0,
-      "durationMs": 3046,
-      "log": "backend/evidence/private/verification-frontend-lint.log"
-    },
-    {
-      "id": "cash-manager-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3469,
-      "log": "backend/evidence/private/verification-cash-manager-fixture-typecheck.log"
-    },
-    {
-      "id": "shipping-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 938,
-      "log": "backend/evidence/private/verification-shipping-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "owner-cash-import-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3084,
-      "log": "backend/evidence/private/verification-owner-cash-import-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-profile-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1773,
-      "log": "backend/evidence/private/verification-customer-profile-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "product-feedback-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1555,
-      "log": "backend/evidence/private/verification-product-feedback-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "wallet-adjustments-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1139,
-      "log": "backend/evidence/private/verification-wallet-adjustments-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "gift-card-batches-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3548,
-      "log": "backend/evidence/private/verification-gift-card-batches-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "frontend-tests",
-      "exitCode": 0,
-      "durationMs": 4765,
-      "log": "backend/evidence/private/verification-frontend-tests.log"
-    },
-    {
-      "id": "fast-cash-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 2407,
-      "log": "backend/evidence/private/verification-fast-cash-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "order-payments-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 4735,
-      "log": "backend/evidence/private/verification-order-payments-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "global-vouchers-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1590,
-      "log": "backend/evidence/private/verification-global-vouchers-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "invoice-documents-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1201,
-      "log": "backend/evidence/private/verification-invoice-documents-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "inventory-workbooks-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 9029,
-      "log": "backend/evidence/private/verification-inventory-workbooks-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "cashier-shortcuts-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3388,
-      "log": "backend/evidence/private/verification-cashier-shortcuts-fixture-typecheck.log"
-    },
-    {
-      "id": "desktop-sso-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1593,
-      "log": "backend/evidence/private/verification-desktop-sso-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-delivery-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1584,
-      "log": "backend/evidence/private/verification-legacy-delivery-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-contacts-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1541,
-      "log": "backend/evidence/private/verification-customer-contacts-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-otp-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3298,
-      "log": "backend/evidence/private/verification-customer-otp-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "performance-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1160,
-      "log": "backend/evidence/private/verification-performance-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "performance-review-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1013,
-      "log": "backend/evidence/private/verification-performance-review-fixture-typecheck.log"
-    },
-    {
-      "id": "performance-runner-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 971,
-      "log": "backend/evidence/private/verification-performance-runner-fixture-typecheck.log"
-    },
-    {
-      "id": "performance-production-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 669,
-      "log": "backend/evidence/private/verification-performance-production-fixture-typecheck.log"
-    },
-    {
-      "id": "frontend-build",
-      "exitCode": 0,
-      "durationMs": 517,
-      "log": "backend/evidence/private/verification-frontend-build.log"
-    },
-    {
-      "id": "dashboard-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 8943,
-      "log": "backend/evidence/private/verification-dashboard-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "customer-website-handoff-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 862,
-      "log": "backend/evidence/private/verification-customer-website-handoff-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "offline-worksheet-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 9018,
-      "log": "backend/evidence/private/verification-offline-worksheet-fixture-typecheck.log"
-    },
-    {
-      "id": "barcode-assignments-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 17176,
-      "log": "backend/evidence/private/verification-barcode-assignments-fixture-typecheck.log"
-    },
-    {
-      "id": "barcode-assignments-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 9288,
-      "log": "backend/evidence/private/verification-barcode-assignments-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "order-copy-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 8120,
-      "log": "backend/evidence/private/verification-order-copy-fixture-typecheck.log"
-    },
-    {
-      "id": "order-search-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16815,
-      "log": "backend/evidence/private/verification-order-search-fixture-typecheck.log"
-    },
-    {
-      "id": "order-search-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1698,
-      "log": "backend/evidence/private/verification-order-search-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "payment-reversals-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 6137,
-      "log": "backend/evidence/private/verification-payment-reversals-fixture-typecheck.log"
-    },
-    {
-      "id": "payment-reversals-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1421,
-      "log": "backend/evidence/private/verification-payment-reversals-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "payment-correction-finance-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 7110,
-      "log": "backend/evidence/private/verification-payment-correction-finance-fixture-typecheck.log"
-    },
-    {
-      "id": "ecommerce-sync-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16406,
-      "log": "backend/evidence/private/verification-ecommerce-sync-fixture-typecheck.log"
-    },
-    {
-      "id": "ecommerce-sync-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 9112,
-      "log": "backend/evidence/private/verification-ecommerce-sync-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-order-import-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 1745,
-      "log": "backend/evidence/private/verification-legacy-order-import-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "model-accounts-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16366,
-      "log": "backend/evidence/private/verification-model-accounts-fixture-typecheck.log"
-    },
-    {
-      "id": "model-accounts-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 9054,
-      "log": "backend/evidence/private/verification-model-accounts-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "parent-store-import-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16847,
-      "log": "backend/evidence/private/verification-parent-store-import-fixture-typecheck.log"
-    },
-    {
-      "id": "parent-store-import-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 8990,
-      "log": "backend/evidence/private/verification-parent-store-import-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "order-history-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 16563,
-      "log": "backend/evidence/private/verification-order-history-fixture-typecheck.log"
-    },
-    {
-      "id": "order-copy-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3635,
-      "log": "backend/evidence/private/verification-order-copy-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "order-history-browser-fixture-typecheck",
-      "exitCode": 0,
-      "durationMs": 3415,
-      "log": "backend/evidence/private/verification-order-history-browser-fixture-typecheck.log"
-    },
-    {
-      "id": "legacy-import-confirmation-native-tests",
-      "exitCode": 1,
-      "durationMs": 42997,
-      "log": "backend/evidence/private/verification-legacy-import-confirmation-native-tests.log"
-    },
-    {
-      "id": "legacy-import-corrected-source-go-tests",
-      "exitCode": 1,
-      "durationMs": 6207,
-      "log": "backend/evidence/private/verification-legacy-import-corrected-source-go-tests.log"
-    },
-    {
-      "id": "legacy-import-benefits-native-tests",
-      "exitCode": 1,
-      "durationMs": 39994,
-      "log": "backend/evidence/private/verification-legacy-import-benefits-native-tests.log"
-    },
-    {
-      "id": "legacy-import-benefits-composed-source-native-tests",
-      "exitCode": 1,
-      "durationMs": 18778,
-      "log": "backend/evidence/private/verification-legacy-import-benefits-composed-source-native-tests.log"
-    },
-    {
-      "id": "legacy-import-coupon-consumption-native-tests",
-      "exitCode": 1,
-      "durationMs": 44001,
-      "log": "backend/evidence/private/verification-legacy-import-coupon-consumption-native-tests.log"
-    },
-    {
-      "id": "public-screening-writer-native-tests",
-      "exitCode": 1,
-      "durationMs": 105064,
-      "log": "backend/evidence/private/verification-public-screening-writer-native-tests.log"
-    },
-    {
-      "id": "membership-native-producer-tests",
-      "exitCode": 0,
-      "durationMs": 28729,
-      "log": "backend/evidence/private/verification-membership-native-producer-tests.log"
-    },
-    {
-      "id": "customer-website-receiver-tests",
-      "exitCode": 0,
-      "durationMs": 998,
-      "log": "backend/evidence/private/verification-customer-website-receiver-tests.log"
-    },
-    {
-      "id": "order-search-browser-tests",
-      "exitCode": 0,
-      "durationMs": 9198,
-      "log": "backend/evidence/private/verification-order-search-browser-tests.log"
-    },
-    {
-      "id": "payment-reversals-browser-tests",
-      "exitCode": 0,
-      "durationMs": 9783,
-      "log": "backend/evidence/private/verification-payment-reversals-browser-tests.log"
-    },
-    {
-      "id": "whole-order-status-browser-tests",
-      "exitCode": 0,
-      "durationMs": 2292,
-      "log": "backend/evidence/private/verification-whole-order-status-browser-tests.log"
-    },
-    {
-      "id": "rejected-return-repair-browser-tests",
-      "exitCode": 0,
-      "durationMs": 2287,
-      "log": "backend/evidence/private/verification-rejected-return-repair-browser-tests.log"
-    },
-    {
-      "id": "legacy-order-import-browser-tests",
-      "exitCode": 0,
-      "durationMs": 27728,
-      "log": "backend/evidence/private/verification-legacy-order-import-browser-tests.log"
-    },
-    {
-      "id": "import-correction-browser-tests",
-      "exitCode": 0,
-      "durationMs": 13024,
-      "log": "backend/evidence/private/verification-import-correction-browser-tests.log"
-    },
-    {
-      "id": "order-copy-browser-tests",
-      "exitCode": 0,
-      "durationMs": 12528,
-      "log": "backend/evidence/private/verification-order-copy-browser-tests.log"
-    },
-    {
-      "id": "order-history-browser-tests",
-      "exitCode": 0,
-      "durationMs": 2821,
-      "log": "backend/evidence/private/verification-order-history-browser-tests.log"
-    },
-    {
-      "id": "offline-worksheet-browser-tests",
-      "exitCode": 0,
-      "durationMs": 1941,
-      "log": "backend/evidence/private/verification-offline-worksheet-browser-tests.log"
-    },
-    {
-      "id": "global-vouchers-browser-tests",
-      "exitCode": 0,
-      "durationMs": 3823,
-      "log": "backend/evidence/private/verification-global-vouchers-browser-tests.log"
-    },
-    {
-      "id": "order-payments-browser-tests",
-      "exitCode": 0,
-      "durationMs": 16195,
-      "log": "backend/evidence/private/verification-order-payments-browser-tests.log"
-    },
-    {
-      "id": "screening-recovery-browser-tests",
-      "exitCode": 0,
-      "durationMs": 3474,
-      "log": "backend/evidence/private/verification-screening-recovery-browser-tests.log"
-    },
-    {
-      "id": "product-feedback-browser-tests",
-      "exitCode": 0,
-      "durationMs": 4961,
-      "log": "backend/evidence/private/verification-product-feedback-browser-tests.log"
-    },
-    {
-      "id": "desktop-sso-browser-tests",
-      "exitCode": 0,
-      "durationMs": 8292,
-      "log": "backend/evidence/private/verification-desktop-sso-browser-tests.log"
-    },
-    {
-      "id": "customer-profile-browser-tests",
-      "exitCode": 0,
-      "durationMs": 17095,
-      "log": "backend/evidence/private/verification-customer-profile-browser-tests.log"
-    },
-    {
-      "id": "cash-manager-browser-tests",
-      "exitCode": 0,
-      "durationMs": 4617,
-      "log": "backend/evidence/private/verification-cash-manager-browser-tests.log"
-    },
-    {
-      "id": "shipping-label-browser-tests",
-      "exitCode": 0,
-      "durationMs": 3193,
-      "log": "backend/evidence/private/verification-shipping-label-browser-tests.log"
-    },
-    {
-      "id": "invoice-documents-browser-tests",
-      "exitCode": 0,
-      "durationMs": 2665,
-      "log": "backend/evidence/private/verification-invoice-documents-browser-tests.log"
-    },
-    {
-      "id": "administration-browser-tests",
-      "exitCode": 0,
-      "durationMs": 50112,
-      "log": "backend/evidence/private/verification-administration-browser-tests.log"
-    },
-    {
-      "id": "legacy-delivery-browser-tests",
-      "exitCode": 0,
-      "durationMs": 5206,
-      "log": "backend/evidence/private/verification-legacy-delivery-browser-tests.log"
-    },
-    {
-      "id": "legacy-delivery-lifecycle-browser-tests",
-      "exitCode": 0,
-      "durationMs": 5319,
-      "log": "backend/evidence/private/verification-legacy-delivery-lifecycle-browser-tests.log"
     }
   ],
   "releaseGate": {
     "id": "release-gate",
     "exitCode": 1,
-    "durationMs": 245,
+    "durationMs": 182,
     "log": "backend/evidence/private/verification-release-gate.log"
   },
   "changedInputs": [],
@@ -803,7 +47,7 @@
     ".nvmrc": "584f19ccde29925286e32f566a2aa06c89efb4e2eb2bb2fc9ea5d56e2d190ac4",
     ".prettierrc.json": "eb62569ed54f3159a91e5d00a79cc03814f0f7032bc9c16282d3c4fafd441fe5",
     "AGENTS.md": "ca109a25c38cd4ef3c7f8e3146cdc58b2020291f2119ac3dc220f9ab7b6883d3",
-    "CHECKPOINT.md": "310912b26fdbe359bb351e059d72927cf244e1a9c8a09a94cd1687be515e0c37",
+    "CHECKPOINT.md": "7928817097f0d9ae3f601229e5e20a138440bbdb4d745b02126556f4bdd62c84",
     "README.md": "dd79e74048ba798fbeda0430f0f44f94912f455e43a07284186752bf114d471c",
     "backend/.dockerignore": "ab7993d4349242576397c360ed0a427542c78f84fa35b123a82e435ef9831e46",
     "backend/.env.example": "adb3dd0ae070ac1c8c0524bb5751e32256430a8e3c17b7a33e64e5a30483ba10",
@@ -960,7 +204,7 @@
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/coupon_generation_controls.py": "466ded658f371f9a1ba4ef79d38e6506e184a3a09456f5371c8dd26b990694b3",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/coupon_generation_resource.py": "161a594919d3f3d3247e735dedbd0825b52c7ed48bc7635ab5b04503ed212c61",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/coupon_handoff.py": "c9839eef3216ed9a4ffda2693b9fef0508931b8b6bd86741c26fe37adb99bd25",
-    "backend/compatibility/upstream/legacy-order-imports/benefit-profile/history_heads_driver.py": "7b161a36b3103ffe2e562bb33d86fe76cfe4e756910e3989a4cd39c5a64e3706",
+    "backend/compatibility/upstream/legacy-order-imports/benefit-profile/history_heads_driver.py": "8ef8e0e6beb9d69dc23fb9e3c2b6d092f887879730dff2ab2dfed77e633c9034",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql": "f92598819256cf9193bb720d9dd6b7e6566257ecedbbbd1a17fdf9816d144720",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/run-native-tests.sh": "30efe0e049fa43c0c3cf4b97ba599f53dc4f808cecd24eb99bf6b0665ceca670",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/source-manifest.json": "0611f9abde9c816a70698ff0fd974f9de2ee782899807dac86efc1e4237e0e27",
@@ -983,7 +227,7 @@
     "backend/compatibility/upstream/legacy-order-imports/legacy_import.go": "7064f775b0ca5465f33e2c117dccd64f923ff1a151d8ef2dfd43433d880ff65e",
     "backend/compatibility/upstream/legacy-order-imports/legacy_import_membership_reference.go": "990a97f2fa13adbee7c81891a11b1f765970b8e36d56bb27376aafc1462e34b5",
     "backend/compatibility/upstream/legacy-order-imports/legacy_import_succession.go": "692bf0fd6cd4112bcc01433106cd33f2eaeb81833b684b2a0441938a22111610",
-    "backend/compatibility/upstream/legacy-order-imports/manifest.json": "650cc3d56ca3d78e56806ae67e270b08f0716711aa1a01d99f85be55ec97eaf8",
+    "backend/compatibility/upstream/legacy-order-imports/manifest.json": "272a3f86e94e50ba59ca3da764032395b56075c959f2b75a5be1766bc2e5161f",
     "backend/compatibility/upstream/legacy-order-imports/membership-history-publication.review.sql": "1b81ff4adb42d9dc14963d8276c4e0c7f9c25b65aea93be5012cd3432b0c9691",
     "backend/compatibility/upstream/legacy-order-imports/membership_cache.py": "c161c922d3cc962bf0e86dfa155b1afa34b54e3ab8e78566ff14cd3765b8d5af",
     "backend/compatibility/upstream/legacy-order-imports/membership_consumer.py": "f5aa3b57a44c5679a2cfdb1aaf15e7783d59d74024f87f58ed355965ebf42567",
@@ -994,12 +238,13 @@
     "backend/compatibility/upstream/legacy-order-imports/membership_staged_reference.py": "b37b17878e907833661a839a0b324ed0d109d8da30f6a5920d63aee00c2b4e4c",
     "backend/compatibility/upstream/legacy-order-imports/model_compat.py": "3492926c4c12afba4094a016befb6b6b48d47afdc80b237204a4dd7d6174af65",
     "backend/compatibility/upstream/legacy-order-imports/native.py": "9ee9d380c9197236e61f3fb3b0483b4ac932edf4b8fd1472d9eecd26caa6f9be",
+    "backend/compatibility/upstream/legacy-order-imports/native_head_limits.py": "e5b6911bba2622e46bd19627ae4c9e28e20f105c1802316f20bc53c28dce3f8b",
     "backend/compatibility/upstream/legacy-order-imports/native_membership_profile.py": "bac6dde0c3e00937a21f91c639573277fbac73f22e8ff343bd7b4e4263e17a96",
     "backend/compatibility/upstream/legacy-order-imports/native_source_driver.py": "ab183d016e9424258a84ce332ee2b1bfc95364c9c8b164bdedde340daec88692",
     "backend/compatibility/upstream/legacy-order-imports/order_guard.py": "1c82e092914b5797f3a18629016443739c272a73a406240d29bb148a8ff5ab71",
     "backend/compatibility/upstream/legacy-order-imports/order_preparation.py": "3f160d908b3f7fd26efe49deeaedc0ecb32cc2ee472bd16510269156761c762a",
-    "backend/compatibility/upstream/legacy-order-imports/payments-import-overlay.patch": "5b8b1b6e2df1aa0e528828d9c8d81447d01881d7866eb490c7efcdb4afd6497b",
-    "backend/compatibility/upstream/legacy-order-imports/prepare.py": "f96d2d9f026e3037ec73a9429ef64ffaa13cdd200558b771263db9c115f09b41",
+    "backend/compatibility/upstream/legacy-order-imports/payments-import-overlay.patch": "022cfce1ba93b8b0559532998cbc1bacaf3c94137b68a88944b6e2cb525b295d",
+    "backend/compatibility/upstream/legacy-order-imports/prepare.py": "8cc0a225755da434290cede1fc7312ccd09034553d0dd5bd16499379bcb700ef",
     "backend/compatibility/upstream/legacy-order-imports/private_cache.py": "9d8013157dc4e6c8babbe13a9dc20afba63229c5b4a7295ff0a0737d38a1d6ff",
     "backend/compatibility/upstream/legacy-order-imports/private_celery.py": "4a53f09a5e2669fc0e2cd95335b6cb3a6b342c6944c0dc7eed46ae4fea2cc987",
     "backend/compatibility/upstream/legacy-order-imports/profiles.py": "a39be566a97ec67c071e5643cc89a847645a32f5a6e66ca351a45ac68ceb4fd8",
@@ -1013,22 +258,23 @@
     "backend/compatibility/upstream/legacy-order-imports/run-go-tests.sh": "beb7021cdfa563e84fcf3e53f57974378e79d511fcd0065bc6df0873c93decf5",
     "backend/compatibility/upstream/legacy-order-imports/run-membership-tests.sh": "fc484e9182b3a18fa88c8e1ece654773bc9f32ad3a4d2ebf3ee32b859609e5fe",
     "backend/compatibility/upstream/legacy-order-imports/run-source-tests.sh": "96f45c6b75c6f220e8d3975852f90e082a64e27e77cf5d7b9c8a6352342b73bc",
-    "backend/compatibility/upstream/legacy-order-imports/runtime.py": "df3318372d13bb8ef25e2dda95081c6f91c67268601834eb50a19d252cac310f",
+    "backend/compatibility/upstream/legacy-order-imports/runtime.py": "bf7eff6bc5127d74cda9760157c639f6fdcb05d06a0b7a95b3ed0cdf97ed7551",
     "backend/compatibility/upstream/legacy-order-imports/screening-counter-bigquery.review.sql": "8a579c405a63ae0078d1771cda1f00e5b0cd0ee8065613a2111fba52ef8cac3c",
     "backend/compatibility/upstream/legacy-order-imports/screening-counter-definition.json": "ffbd319e6e885a7dbd5387d64bda91aa31ca311460483aaea4430eb566e0e2e2",
-    "backend/compatibility/upstream/legacy-order-imports/screening-counter-grants.review.sql": "fdbac3c35dabc3141bf9845829f92f0e90f6360e60fdff5395f4f063e1efe118",
+    "backend/compatibility/upstream/legacy-order-imports/screening-counter-grants.review.sql": "e1085e14d2ef94baff1bac96fb32f26bfbeed60aa8b40192a9ac2cd73e3b7f54",
     "backend/compatibility/upstream/legacy-order-imports/screening-counter-writers.review.sql": "edf42ac7124f4ef5a088e3b6d081f6c542d4f6cba999af87c18d887f4070e24c",
     "backend/compatibility/upstream/legacy-order-imports/screening-counter.review.sql": "31bc97aff3151c25ce45393e8b0062b7c1ef10e68cea17ea4fc6b537f0b894ee",
     "backend/compatibility/upstream/legacy-order-imports/screening.go": "e8f46630a87b5ddfc2721df96fd623862246e24def235aeb09376a65684993d3",
-    "backend/compatibility/upstream/legacy-order-imports/screening_counter.go": "b5707b310b6b2734cfc80f158d38f999bdd8725eddb05b5e00fe5c47bff0b5e4",
-    "backend/compatibility/upstream/legacy-order-imports/screening_counter.py": "c006c933a810d4aba50c5ab7cb3706bc0d38ca850c951cb47a8112c2c0e8e6d1",
+    "backend/compatibility/upstream/legacy-order-imports/screening_counter.go": "56fd725c20c4347726057b305aa216dd8ca9edb63a86e65969e3e38be052e36b",
+    "backend/compatibility/upstream/legacy-order-imports/screening_counter.py": "710ea39b574c275cfc453e91dc3926216d577b9fc19f8bf73d416077f64c1cf9",
     "backend/compatibility/upstream/legacy-order-imports/screening_counter_definition.go": "894373a498e90ef1da8ac98e3c160d4e78e97d9e1181158b612a5165492c772a",
-    "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go": "2dd647cf3fc1ce0868d3eab121afa8393d23435f379b9b6254f034fc3fbb9f38",
-    "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata_definition.go": "89d9a38bf5a845c60ba8c639795638e52027151e31fbe5036a2a08aff0351a3e",
+    "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go": "8826c9373a29c0915373e13c959807599677ae975e632ac65a6e0b38a69f898d",
+    "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata_definition.go": "7204aaaaa62198bc46e74fd0a5f77d83e978e843c3ee027a74f6919facdad099",
     "backend/compatibility/upstream/legacy-order-imports/screening_native_test.go": "019bc48a905a3785fd6eb3474d6060bdf9b4b0016ce40adc121f50adf60f9bb5",
     "backend/compatibility/upstream/legacy-order-imports/screening_origin_pending.py": "f173d528df7208fc9f05c8a1ce410dd604c551ebc7738fe7beb040a8c5055413",
     "backend/compatibility/upstream/legacy-order-imports/screening_preparation.py": "99a9bbc48f1eafa10d68ebfeb266b7cc262f7d86323884e8f4f1b9257c032762",
-    "backend/compatibility/upstream/legacy-order-imports/screening_profile.py": "b1bccfc7f2a5b1ee199da693541b692571ee18acd5c330bf49c3e3c7e1086f6d",
+    "backend/compatibility/upstream/legacy-order-imports/screening_profile.py": "4075eba8794152791a8773a93b5c5dcfa6cfc39f52444d5f7f6e1fda10dd2932",
+    "backend/compatibility/upstream/legacy-order-imports/screening_runtime.py": "5bc850e02f931368c4b918e9f549e2263bbfe93c079cbc4003ca71712b9c88da",
     "backend/compatibility/upstream/legacy-order-imports/screening_transaction.py": "819fc74d0755b31cb5cfac0464553bb4cdcbb74db42699fffd9479830bf00122",
     "backend/compatibility/upstream/legacy-order-imports/source_lock_driver.py": "aea2c3cadefcf5bc35ebb9e32b5116df1512576cacec207cdba405d995f7400b",
     "backend/compatibility/upstream/legacy-order-imports/source_runtime.py": "4a7f90777feb49a8a356981ebe3805e08a3b0fe0b9de6e346dbd599ff0fa401d",
@@ -1041,6 +287,7 @@
     "backend/compatibility/upstream/legacy-order-imports/test_membership_history.py": "761fcaa824adaa3274ce19372bcbc52f8bfc81ae528d431375729148f5e92a3f",
     "backend/compatibility/upstream/legacy-order-imports/test_membership_profile.py": "93d926d73c4b2f561779c576403446c57e49f4e0e7d908a1a6a891ba7eb24f76",
     "backend/compatibility/upstream/legacy-order-imports/test_protocol.py": "291aa48765f38d44291af1dd4e0e798dcebf428d7ee3c4edac36f4e55a916b24",
+    "backend/compatibility/upstream/legacy-order-imports/test_screening_runtime.py": "855256f2e1df6947df177d9281c229c451bf9fe8d0940d6723348cf769f62e9a",
     "backend/compatibility/upstream/legacy-order-imports/test_source_sessions.py": "b9847facde116f2f1ea2fc58be71e1e601a919502da8687842b514845c0edc20",
     "backend/compatibility/upstream/legacy-order-imports/tracing.py": "3edad482a78bd58b943e70eba28ed5230ab695004b8599e724bec1dcb35b03eb",
     "backend/compatibility/upstream/legacy-order-imports/transaction.py": "00f4487027742a96fc1f330187a065504e96a48bfe2dc9df110745cabb07658b",
@@ -1087,8 +334,11 @@
     "backend/compatibility/upstream/other-writer-origins/go/expiry-review/expiry_candidate_test.go": "6b999641bf6493ca2bfd5a05c9ed2cc3250d434d9f4a6f5f2eb2436cb97eb789",
     "backend/compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md": "77daba99e580370d0ce575267febb777283f9fbc230252950b7212251e42df10",
     "backend/compatibility/upstream/other-writer-origins/go/migration.review.sql": "dcbdce5dbd2486d4be4967bd087e1a325a0fbdd45a1f7b14bf4c3a875097900e",
+    "backend/compatibility/upstream/other-writer-origins/go/native-validation.md": "17daefb8351e486fc86fe462b5afdb03e0422c0199dbc184372612c85cd79618",
     "backend/compatibility/upstream/other-writer-origins/go/origin_gateway_test.go": "bc0557d49cfaf925b59ab6546cbb3852fc4a0c515d3fd208d107a6d6a822422e",
-    "backend/compatibility/upstream/other-writer-origins/go/origin_native_test.go": "ceeaed9b6633cc32bb87317966b0fe4b0bca40d1c1cfdbe1a9ef2d94c97aafca",
+    "backend/compatibility/upstream/other-writer-origins/go/origin_head_capacity_native_test.go": "ca80f80b3d265e991d156c326ab3cfd7b85e870df506142819958301f3ab1db0",
+    "backend/compatibility/upstream/other-writer-origins/go/origin_head_metadata_native_test.go": "a3069d6bfb6e755b6b9a35b04793785941d5dfb22adbb4522926410fc9267bee",
+    "backend/compatibility/upstream/other-writer-origins/go/origin_native_test.go": "dfd3e64f19a378cdb6c33927a32e2db003a832dea70125e7f7a86f4ab5e3e2f8",
     "backend/compatibility/upstream/other-writer-origins/go/payload/cmd/screening-origin-effects/main.go": "c689120e9bc838a163a5a82aa49905f24cc2e3cc1e3afd27756873aceccaaa94",
     "backend/compatibility/upstream/other-writer-origins/go/payload/internal/poscheckout/origin_admission.go": "c52a099a31b779501c351410be586771d0c7be6b965311b044a39001bf7659bc",
     "backend/compatibility/upstream/other-writer-origins/go/payload/internal/poscheckout/origin_assets.go": "c851e925ce0656f792cb138ae3d2c7db167d3bf51acc12688cb9ef79d4abf4ad",
@@ -1113,6 +363,7 @@
     "backend/compatibility/upstream/other-writer-origins/go/payload/juspay/origin_gokwik_native.go": "3fd33b995a9f5504b0b47f1114c8aeb4c25dec2521cee54be43fd63c29cbc070",
     "backend/compatibility/upstream/other-writer-origins/go/payload/juspay/origin_provider.go": "6a1e2476faaf55036c10f845913e78c9ee3285d6560eb01ed2b182d6f2049073",
     "backend/compatibility/upstream/other-writer-origins/go/provider-migration.review.sql": "c4807115c52856b861f031376f61033fdb68b46d418192b08ff617dc4504661b",
+    "backend/compatibility/upstream/other-writer-origins/go/run-head-native-tests.mjs": "0feee51099b12cbb1b2e6afba82fb2aa24f5d2344372bfaaf74208352d862036",
     "backend/compatibility/upstream/other-writer-origins/go/run-native-tests.sh": "b44ae5db9439688172dd4bcab285b44820d20e700821dced3ed0ee0aad14826c",
     "backend/compatibility/upstream/other-writer-origins/go/stage-recovery-migration.review.sql": "0b04dffa2a920f800bc0bcb6326e8dfa089f1eeaac432423b053f4655bffa841",
     "backend/compatibility/upstream/other-writer-origins/go/transform_source.go": "1e36373025e1d99ce5ff075318368a09a0faf67f18044cd8d5a8e3132fbdbb64",
@@ -1127,7 +378,7 @@
     "backend/compatibility/upstream/payload/juspay/pos_checkout_records.go": "a769052dc8049e96ba7e7dd0114ce00af314dc9f50ce5acd6d15c9edbea702b9",
     "backend/compatibility/upstream/payload/juspay/pos_checkout_source.go": "bdc6d957804896867277655eb55436bfd3822bded9d99fd1042427203a26864a",
     "backend/compatibility/upstream/payload/juspay/pos_exchange_http.go": "00d4a4591c108a73c60ce40bdb2686f00befd51e3f906d44d3b5872e43700100",
-    "backend/compatibility/upstream/payments-assembly-manifest.json": "b64cded0e4b81c54588b9f0a15d35444edc851bed674935982d687f4071bd477",
+    "backend/compatibility/upstream/payments-assembly-manifest.json": "a0ff8c7eeac253894a5cb89c2af4f917f1e58ac9e2228b622404ad09dfb9694e",
     "backend/compatibility/upstream/payments-assembly.md": "cd5ae0228e614b72baa58bf57ac376020db4574287a77b5aa51cf724cb920430",
     "backend/compatibility/upstream/pending-cancellation/api-v2-membership-producers.patch": "8ab4fbb2a54bf8cdce938947cf7edf887f872dbc6c630356c075466c540e6c58",
     "backend/compatibility/upstream/pending-cancellation/api-v2-membership-reader.patch": "d6465e61ee512dee0a4c84325a5714fa8768c7738b33b8e6893bd628ab98f8bb",
@@ -1154,7 +405,7 @@
     "backend/compatibility/upstream/public-screening-writer/benefit_preparation.py": "e462a824af865a5e3dc9bd564bd709c14b8ae30ad2079ab4dcf0cb53cf31a79b",
     "backend/compatibility/upstream/public-screening-writer/bootstrap.py": "f2d84f7d4896e75f529582bc27f5e614c27546e62776ce0c36d0d05084f063b9",
     "backend/compatibility/upstream/public-screening-writer/creation.py": "2ff2ffcbe3186c8f6c151fac8e842a2ac4846e11e5f5f170e4e56c586375e859",
-    "backend/compatibility/upstream/public-screening-writer/manifest.json": "6c8cecbf7b83202708d2ea01cf3d156b93e2a7ef30e522393c9556b9f66964fb",
+    "backend/compatibility/upstream/public-screening-writer/manifest.json": "690112b4b49788ac1b998f6b06c75f4fc766b92b0c175d5144ccf365b5183418",
     "backend/compatibility/upstream/public-screening-writer/membership-history-deployment.md": "9789329ac3ef358adb743ee42d1774e06564d0d89cfb47723c63d981d5f48671",
     "backend/compatibility/upstream/public-screening-writer/membership-history-writers.review.json": "6c4a523bbf70737f9ca50b00417cb6db4c2a8afb72639469f72a07f875bf832a",
     "backend/compatibility/upstream/public-screening-writer/membership-history-writers.review.sql": "f21fd440ef9f3704e807e53d1b714939336d40964300ee0c26b16befb8367c93",
@@ -1164,7 +415,7 @@
     "backend/compatibility/upstream/public-screening-writer/native_authority.py": "6735ea187883428567ecf2a112aea5282106d08daf474219554eeee1bffac3ea",
     "backend/compatibility/upstream/public-screening-writer/negative.py": "9c465693c75a6e91263b9f496153b1d10657d4203433376ef81416605d4a7add",
     "backend/compatibility/upstream/public-screening-writer/negative_resource.py": "6b10360ecb3a09cef4e36510c8401824b3ec393e33ba845e15c1a2799029afcc",
-    "backend/compatibility/upstream/public-screening-writer/prepare.py": "386614be80da5a7c193bb9a9a4d5edfc11d29678a6b99b2b2e45b4f9fab5f752",
+    "backend/compatibility/upstream/public-screening-writer/prepare.py": "d3a9e5bf37148b74555938f9a7f46e8e1fd7b32772eb391e72b4f013d972ed73",
     "backend/compatibility/upstream/public-screening-writer/prepare_membership_history_heads.py": "48dc3fb00a76bf4da08de39bfd48ec46d5890f6d014e54d7b3b63da11be2a8e8",
     "backend/compatibility/upstream/public-screening-writer/private-receiver-deployment.md": "452d7ea3ce21d9c3d4f64f215cc4393b2180c850fa85a390269f08de833d624e",
     "backend/compatibility/upstream/public-screening-writer/protocol_driver.py": "e4c93e6176cc350dfd8f6474c331283a87a50f30bd4357ece65b99561b397f1b",
@@ -1198,12 +449,12 @@
     "backend/compatibility/upstream/screening-origins/history-heads.review.sql": "db19d1bb551e45b450b1d3e9b737987d9f73d42c8e26ddcaa9cf3275333cfa98",
     "backend/compatibility/upstream/screening-origins/history-publication.review.sql": "3721385bdba584320a064341583706f9242bda8e8d86ce9f7dd4fca8a2da8613",
     "backend/compatibility/upstream/screening-origins/history-publisher-deployment.md": "34ec851b6919a4d50c8d27616ea18c34d2547bba241adb4418b9bd97d0f68abb",
-    "backend/compatibility/upstream/screening-origins/history-security.review.sql": "6921babcc92bea80de831692367be3cdf9f9946b5f19b4728d7af340778f0b64",
+    "backend/compatibility/upstream/screening-origins/history-security.review.sql": "54a7f2a37973a1d101ab6647a28f760a5ad0f77f0c2bb784ec2c056eb2de7c4c",
     "backend/compatibility/upstream/screening-origins/history-versions-migration.sql": "d8494d5152aa4d4ba47de10d88fedb2257426fc9f0813a8d2706d00ccd8501d6",
-    "backend/compatibility/upstream/screening-origins/history_capture.py": "2ebed1736133c870e16009a8f4fb85ae87e2cfc471617f378ee611211d5410d6",
+    "backend/compatibility/upstream/screening-origins/history_capture.py": "ebf73a8de2bb0d9658ad8f18261532a0ce37a6a9315eda9045e479e083b37158",
     "backend/compatibility/upstream/screening-origins/legacy-assets-migration.sql": "882ef2edd0419268f62d7d73b963d939ba7ffbd08b45493e73b2c9cc55920e4f",
     "backend/compatibility/upstream/screening-origins/legacy-effects-migration.sql": "702e2fe71be3c380a58bc4e51cdb68e5ab2807cf06d34489bd0c93e20343fcb8",
-    "backend/compatibility/upstream/screening-origins/legacy-manifest.json": "08e456754f0b48cbba94746a7f86ee73f1f2775559c1d21e992671c1b646567f",
+    "backend/compatibility/upstream/screening-origins/legacy-manifest.json": "e024694a53caf695177dfea8db2588ac0f3b482a8e11030fd5b4b327ba2eaef1",
     "backend/compatibility/upstream/screening-origins/legacy-nonce.mjs": "0cee864fbf5f26cbe7c094d8924b51ff5285ba26885e1127a658948473adda98",
     "backend/compatibility/upstream/screening-origins/legacy-pos-origin.patch": "6e875d860ec6065f4aec68b60fae33888f8f8daedebf9580f85195c08dc7e9f8",
     "backend/compatibility/upstream/screening-origins/legacy-worker-deployment.md": "0fed32d2dd3e08af23162001a427776f4b7dbb506cd97099f010a6789c44ced1",
@@ -1217,6 +468,8 @@
     "backend/compatibility/upstream/screening-origins/legacy_worker.py": "fde76292f5c03c38067920d102228e434f403359fed7b32260a6d49e72e1e12b",
     "backend/compatibility/upstream/screening-origins/migration.sql": "c284515eeaa25c2999a3d4126e6a557c57586b5392dadc938808e2d94afc8ffa",
     "backend/compatibility/upstream/screening-origins/mpos-command.mjs": "14dc1bdaf771c85975d2ebd657aa60535918922921b67a049f1bff031270ba27",
+    "backend/compatibility/upstream/screening-origins/native-head-limits.json": "51b2908e34a3d5253f47de2fa904ba0218de5bcfc461e6716c09858a15681a71",
+    "backend/compatibility/upstream/screening-origins/native_head_limits.py": "e5b6911bba2622e46bd19627ae4c9e28e20f105c1802316f20bc53c28dce3f8b",
     "backend/compatibility/upstream/screening-origins/origin-coupon-generation-migration.sql": "c659410f0a91186b9178a2e2362a267bdfd4d56ef7a5ae8ec14aefa7231cf882",
     "backend/compatibility/upstream/screening-origins/origin-coupon-generation.md": "277b606d21a98dc65dec33f31bc0f969d0bc8aeb0df3fe83ce53632fde5a3073",
     "backend/compatibility/upstream/screening-origins/origin-coupon-migration.sql": "47078a10dcb5ae387179f24fb5161ea89a71e3232ccbada094a3412d0c115bf9",
@@ -1241,7 +494,7 @@
     "backend/compatibility/upstream/screening-origins/origin_frame.py": "1d39b4edabbea9a1a3b267d26084ed1a3a7e947cccb82b1b6b984ecfb8af6ee2",
     "backend/compatibility/upstream/screening-origins/origin_history.py": "c83a5bd94a95ea33bd7c475ba1311a36822a35e200b4b4513fee18f0008d1025",
     "backend/compatibility/upstream/screening-origins/origin_history_http.py": "caa4e05a1cf7da887ce70e0a1d258c52a0e56bedffa1db43b7ab54904d4dc7bd",
-    "backend/compatibility/upstream/screening-origins/origin_history_privileges.py": "145e4397940e9cda0b9b92ea191af59b217c6f42a2286f094638986889c1c71c",
+    "backend/compatibility/upstream/screening-origins/origin_history_privileges.py": "570105ea8029a3bfb58242e33e20796e22a1c9ed64015c505f52e2be26721d6b",
     "backend/compatibility/upstream/screening-origins/origin_ledger.py": "c79bec54e7d3cba8cd135901d2c64d7f2a6de73877e2545e6541c1adb9bbac5a",
     "backend/compatibility/upstream/screening-origins/origin_membership.py": "74e4378b54d75583d68849e8f9772c03437a06442ac1cbeccddc0bcd249a0bec",
     "backend/compatibility/upstream/screening-origins/origin_membership_history.py": "adf53a4dfdec4244ef2f865dc0bc4887471c60f7b4e03f0d3581d970d2618f4a",
@@ -1252,7 +505,7 @@
     "backend/compatibility/upstream/screening-origins/origin_stage_recovery_resource.py": "9dad7aed338e8c281fe9e3e7af9373690c89321efdd51cce52fef8155da26925",
     "backend/compatibility/upstream/screening-origins/origin_system.py": "de1a12807f3148dfd8b71ab5bf57e6d2051810f0865466c0397abda57c55b842",
     "backend/compatibility/upstream/screening-origins/origin_system_preview.py": "2ad26afec26c5dc8ba5bda54931b5945540c60813bd52e6dbed7659115c80395",
-    "backend/compatibility/upstream/screening-origins/prepare.py": "a0f534a8ce705876b50b20e56ba7d2fde7ae3f5e1ed44f8a79b973bc4bb786e2",
+    "backend/compatibility/upstream/screening-origins/prepare.py": "fbdb5d83339cb5f19dce516943caf50b04dc2a1ca709971fe0a26e6233250d5f",
     "backend/compatibility/upstream/screening-origins/preview-migration.sql": "eeba1af40b557b9f5a81d0d4e15d7b6c01b1ba0cfcc0d27efde1f34e7c272426",
     "backend/compatibility/upstream/screening-origins/preview_contracts.py": "223a6866c06e982fd8d9754c714cac276ed536863de2d8dfc7d77190e16d390b",
     "backend/compatibility/upstream/screening-origins/screening-counter-generation-deployment.md": "904bc43f9d97ff9993cfa30b4209a71d5085134090a70a77c49a6f7d22478099",
@@ -1390,6 +643,7 @@
     "backend/parity/csv-membership-handoff.md": "e5770d65d573aa308d4bf18fb0d64fe396b0b576e6c5054f72c98a59813e87a6",
     "backend/parity/csv-membership-profile.md": "680ad05a39746708e9a68351f6b31cd668030089d81040097a3d0b5701b166e2",
     "backend/parity/csv-membership-replacement.md": "c504e6d281bbd4c1827d9fd850f6b58918e9d3f2f1e679d370e9481d54cb5e79",
+    "backend/parity/csv-screening-runtime.md": "275fa39f2b82cb40d33de457b058509403b085b5d67786569e6ff72a3c3555a3",
     "backend/parity/csv-tender-decision.md": "91d6713740bfa87ea859451cdb8d6c696e05407ccf0128e7020dbcc125995af8",
     "backend/parity/customer-consent-proof.md": "def36ac65a0f8718af764208759f8f51af3317121a17911bc642b48288c83019",
     "backend/parity/customer-contact-query-improvements.md": "2c5b20cf367f3eef0ba41ce96a35cb2e8c25f9702a975e005176a03c4122f09b",
@@ -1410,13 +664,13 @@
     "backend/parity/feedback-history-projection-review.sql": "3c1020e52f3b7dbb3e7194b41e889b27681d185afe5fafc3a9ee7d30a98aaa90",
     "backend/parity/feedback-history-query-proposals.md": "113bcf3cd6ea2453522565b350ae6e098424a41a10babc46316142e9028ca0c1",
     "backend/parity/feedback-history.md": "2c81590eff27220350f48e27db159dd9786097e902f253580206f58b98d3a63a",
-    "backend/parity/finance.md": "e4b76bf163230867ccafacb16d46398dd09c29946453608e19b8fdef3cb38255",
-    "backend/parity/flash-sales.md": "02e8518e4abb6d98ae28f0d7669af20e46a5cc69e9924491149822906550efb2",
+    "backend/parity/finance.md": "2c3ec9980227273d9b4a1dd9445db65d97ec1b74305ff916f56a5f634669a77f",
+    "backend/parity/flash-sales.md": "d733ba7b378303fd02f7d2ce8b034c13e04f5aba2a7c6c9a6d33dbf8de0ce34e",
     "backend/parity/fulfillment-query-improvements.md": "2ec867f28560a65848f5dc2b9999d41a75c458ca7fd8e71f0f2534b4a2e976a4",
     "backend/parity/fulfillment-shipping.md": "fc258cf5779abe6de81c1945cd78c666d568b672635190f0250a17db097e2f91",
-    "backend/parity/fulfillment.md": "224c67570315912448bb33db2bf7b769df82bf9e2d30201d7344a0cf4df88180",
+    "backend/parity/fulfillment.md": "38ef683e6d58bde79bc3e418f403e974732d6f76323418dbd799cdbe2c1c839e",
     "backend/parity/global-vouchers.md": "460d458c2c37445dc45313ed697b6ce3f3d5bd3f6d7d9ec092b03e27d77a9ab6",
-    "backend/parity/hyperlocal-daily.md": "630dfe8f29c6e4424df9484852a2d28cf93d2f8d67fb9d08eb1b8b4a3adbfb28",
+    "backend/parity/hyperlocal-daily.md": "a5a67f48ff65fe75e6c21dd51ff73280cc86c9c70ad028183e16565db07a5af7",
     "backend/parity/import-app-recovery.md": "ee6707918f085cb05ff813de83f3a5878b8b35f7ba1ad3fc4ac9d86ec5dd6d8d",
     "backend/parity/import-correction-source.md": "5506edc5e19a75664224f4d1345852275d50b5388a63650da4e2e4c5bcd0c4d3",
     "backend/parity/import-esm-startup.md": "8841ccd2c6be0e511457c977d15e99b7ea8d4cae2cc946cc7082e826b87ff17d",
@@ -1444,6 +698,7 @@
     "backend/parity/membership-history-publication.md": "5633711c2a581de1fe73135f7901c01f6751ece2b61b4c03a6ef0d4959dba9af",
     "backend/parity/motivational-quotes.md": "cd9e379b901520f63c0285e7a146ff4a667d80a8f8e801bb5c5071fdf53265ca",
     "backend/parity/native-browser-readiness.md": "4d3d55542e2266f60250df166e6d0491ed69c99a78a3821168fd77aee7ce14c7",
+    "backend/parity/native-head-capacity.md": "bb54c33b257d7c42a806c5347d07973c0e60f55804ea26956768be4f60cf3f96",
     "backend/parity/offline-cash-refund-query.md": "3c8b5dac29d6c2922fc3d7f6a03df7dc7336ee9601f05e309500f3907ebf9da5",
     "backend/parity/offline-cash.md": "d479fad5bf6caf9be7ed5711252b70701121d691ecc72fadab9837a0c7e48200",
     "backend/parity/offline-invoice-worksheet.md": "019677536db53a0cea5a1dc775c992cceeb6e36c5dcd93e1804e27403684a4a3",
@@ -1458,7 +713,7 @@
     "backend/parity/order-payments.md": "546228744d2ac60b40d4974348f2ca2c3d0cec900af0073d3c757e19aa89f299",
     "backend/parity/order-search-query-proposal.md": "cdc6bd6f85d7a1c9b9de030c3c2e2289d64c493a5489b42e626a96ffdff98c64",
     "backend/parity/order-search.md": "d79f98f07f282da5d410233ab5d5a42622aab1e2dc762e7ae0ada95749098cf1",
-    "backend/parity/order-transactions.md": "c64abbf00fc304c896833471a89e37230a1d88fe70afae4ebc7d06ba33a66875",
+    "backend/parity/order-transactions.md": "4bcb9e8bec1700fe8cc03125100112ccba3a0befefae9d0984821c87249521a0",
     "backend/parity/origin-coupon-integration.md": "931c35c2b043d126e379dff2d50668c9e47ed5f85c8076aaed5db0a2f3b89b01",
     "backend/parity/origin-coupons.md": "a852de6633c73a07b80f08221b6f432e4c7b560fc4a960457a610eb713970301",
     "backend/parity/orm-unmapped.json": "37517e5f3dc66819f61f5a7bb8ace1921282415f10551d2defa5c3eb0985b570",
@@ -1476,9 +731,10 @@
     "backend/parity/release-coverage.json": "f0b07426a56b0787c1ebba40fb2d8baf00817a7cc1176a81847ab3bf1d7029a1",
     "backend/parity/remaining-owned-source-audit.md": "9157c7a5338a0b70975849793ecf7e4c813659e206c42e62a858db1c092c89a4",
     "backend/parity/report-exports.md": "fc6e51d06dc0656132102a3ad32f67781700deaab87915fd89a0ef9e2d98b47f",
-    "backend/parity/returned-orders.md": "76f7d31f81fdbd93c9cdec310d3d642cf155f2703e33a64f6ef39e9a620594ed",
+    "backend/parity/report-fact-routing.md": "1ba407ba56d1c1446e3e6ea1690ff79eb2f987d146e2a8d3cafeeb478a0ad5fd",
+    "backend/parity/returned-orders.md": "c1ab338dad1cb95b4a60a24654dd6bf3619581998ad7c5dbe8ec8956b10e9b2f",
     "backend/parity/rewrite-status.md": "3f9dbd339c13344fef985ab0393c0fc019e539e440381f83990e3f2b0e4ef648",
-    "backend/parity/scheduled-reports.md": "309be1084c4e01a3fbafd868e1bb830cf136ec26c0fe22c4b77a804d42191504",
+    "backend/parity/scheduled-reports.md": "83594610d2451dd56c1b0a4324af29182f1a865ff389db5a84d4d449dd7e25c2",
     "backend/parity/screening-cancellation.md": "c0873d75d55438ff6621497fd38168ed4bf6a1f45cf1415feedd7f905b58c2e5",
     "backend/parity/screening-count-locks.md": "79f409215d7d542dc2c4e691eadeb2c5385d4cb15d4d25bbd858901e5ea855a6",
     "backend/parity/screening-current-counter.md": "18313dff8d3f3c1585d7124a80368ab2cb19d1a64230e1b32fc26ebc88ffc1bf",
@@ -1494,8 +750,8 @@
     "backend/parity/screening-system-successors.md": "f6854cc83c631aa74096aaa3ea3b34a246ab9706e45f9e1f5c577f2a23655876",
     "backend/parity/source-order-preparation.md": "b348b62b86f209bd8c22ee475c76acf7f702cb6fa7b1dcd256fefe5f64ff33d1",
     "backend/parity/source-private-runtime.md": "360cb849cc487542a422ec9ed6d2a0c6eeca8252171c96a049c099fb7978bdaf",
-    "backend/parity/source-surface-map.json": "6ab1f7a42844dc0bd1cde33cf881dddec6ce1172d2841707622de124201ca5f5",
-    "backend/parity/source-surface-map.md": "47f25ba139623071c771f8c0a91c5cb0bce3db2dfda120cc8f7cdc8c53190c16",
+    "backend/parity/source-surface-map.json": "814d49cc7a179a4b5aa000f9bc95c7c7c23acb4aadcb3613f8fa93d991e1c28e",
+    "backend/parity/source-surface-map.md": "dd2df32bf143cad21fea72b23b3a0354db2c6ecb40c267ebafabbae8038d66cb",
     "backend/parity/staff-performance.md": "314fcefe1864290830651ed2b88f599db125c20803a6d35cd677c4a98317c57b",
     "backend/parity/stock-projection.md": "65a5722001f2b09ddecb4e5d5f33cb15e5f9397fac0b2a1bac12d1684aec76eb",
     "backend/parity/wallet-adjustments.md": "ab1929b2ac1af5bad8d3a2992b76bb659c5cad867fb7a414d968a8c6d2004bb0",
@@ -1995,10 +1251,10 @@
     "backend/src/modules/finance/feed-domain.ts": "4b3c5bac018dd840792e946135abe52443c36ad8c2badb50049639f1982acf1c",
     "backend/src/modules/finance/feed-query.ts": "30c584017c1edd24f0993e04625dbb8907bb4ebb516283164d8fccc320c343cb",
     "backend/src/modules/finance/feed-sql.ts": "5117e1e145a03cf4e9b0a048c36e633f24e2b12707d915a37c18692fc05fe84a",
-    "backend/src/modules/finance/feed.ts": "72fdd3fca797912547aaaa5ee581e33a1f375f52f69d778464a8f19144a4b8ef",
-    "backend/src/modules/finance/history.ts": "a2f7ced872cedb249a94398857e59d8343e68c99d0529768223ed5e73d98b022",
+    "backend/src/modules/finance/feed.ts": "5f85ad9cffa4947e890279bde2c845bb3754efbe5ac0257c13f224270775aabc",
+    "backend/src/modules/finance/history.ts": "249c033b33a7edad52a137805a9fb815a03e8df8538fd848dd4266ace94168c1",
     "backend/src/modules/finance/index.ts": "36a935af167f810926cc5a3338294fec43bcf85b5d59d40f9ca66c69dc93e088",
-    "backend/src/modules/finance/ledger.ts": "3848e8dd5f00f178ba71674f04589855e280926c0f9f606aff89c794141e9a81",
+    "backend/src/modules/finance/ledger.ts": "e210194b1057c5f198dd1e37a105fc6ab66fef3c74097cc81e3d7e09e7de23bc",
     "backend/src/modules/finance/migration.sql": "4a26e5d1864ffdeabc710ce58fe09271d1d3f3fd68e3a9fc220744a89a683f10",
     "backend/src/modules/finance/offline-cash.ts": "4acb0e954d7cbf0ef5fe7b7552a377904d55da93249c458d83b97465c24d3835",
     "backend/src/modules/finance/payment-correction-publication.ts": "b2ae0cae3a8286d02b05e43ce0955f855467704a27962810844b25124130f92f",
@@ -2011,7 +1267,7 @@
     "backend/src/modules/fulfillment/maintenance.ts": "4c434a4b1522f3c6ae4b84c1ccad18414729832b7238e07bfe31ba8d73602f83",
     "backend/src/modules/fulfillment/migration.sql": "386060f0a67a145f53d58bab280a571de3ea2b20ef49c461922befc9ea9ffb38",
     "backend/src/modules/fulfillment/monitoring-options.ts": "1341299be08fa59c8b1d3febefb422e05f1eab61b0747d42ff8dec7d19e12a21",
-    "backend/src/modules/fulfillment/monitoring.ts": "ac483472f3f1a0c7e589632b280389a49b029e0a14c007e26dc95995a6ce0611",
+    "backend/src/modules/fulfillment/monitoring.ts": "f7d24f6d8037cfaf6fa32b7509f44d26811f9c8a5958306fc3798c38c8798480",
     "backend/src/modules/fulfillment/notification-bus.ts": "cfb943621814feb833b2fa0aa117e51ff6e6abc1685bc0309e1fe35e516784c5",
     "backend/src/modules/fulfillment/notifications.ts": "242ebc5438b9c84260ee8a76f0aa20474c38f676ec92d603144dc7cef87237c9",
     "backend/src/modules/fulfillment/options.ts": "a00725308fd05b7dad04e42a545680c90a03d5b600e1290815de80a12f5b2ac4",
@@ -2146,13 +1402,13 @@
     "backend/src/modules/legacy-order-imports/benefit-profile/history-generation-worker.ts": "9ddeb4abda27ff15b9184f6a48c8aaf8f9e679ac760f4d20a7efa7051e818904",
     "backend/src/modules/legacy-order-imports/benefit-profile/history-generation-writer.ts": "f058ce2dc08a2233db434dbbeca55dc53acd17ed43d1e36191dd784dfd438370",
     "backend/src/modules/legacy-order-imports/benefit-profile/history-publication.ts": "34efb27a53e9df96f2626aefef7110ae0d3936556d742649c5e1bef2eef8483c",
-    "backend/src/modules/legacy-order-imports/benefit-profile/history-source.ts": "d310da05b940b40d1082ada6ddfe8e313554e8793773ffba67cc7d12e8404601",
+    "backend/src/modules/legacy-order-imports/benefit-profile/history-source.ts": "fb76031c5cdd64007f8d537f1ec4b187534d712c7bb06ca481632ae6a617d0ce",
     "backend/src/modules/legacy-order-imports/benefit-profile/history-warehouse-contracts.ts": "5400099d52406fc01d744bc257eb31f2eb9d194753739f90524fca18d5ef0d0b",
     "backend/src/modules/legacy-order-imports/benefit-profile/history-warehouse-publication.ts": "df6df430ed5e47c93f0130f36c02fd7fd0e94bb20736b6f575bf5877b2d690ed",
     "backend/src/modules/legacy-order-imports/benefit-profile/history-warehouse-query.ts": "ddc01faf1829c9dab26f89046beb17ad7a8695af1f4ea2f91bb8ec4a0b2cb5cc",
     "backend/src/modules/legacy-order-imports/benefit-profile/history-warehouse-read.ts": "e71b4b569adc1ba45d6eb98d2e2e29845f0da33f579f969e37dbc9f8e9600479",
-    "backend/src/modules/legacy-order-imports/benefit-profile/history-warehouse-source.ts": "6a6ffdc7d0da7efb32c228b050198c2e075798810658f74f82d4a66cf2805928",
-    "backend/src/modules/legacy-order-imports/benefit-profile/history-writers.ts": "1d737bf9fcb57208453efa1dc6ff20b7c1c915071f8aec0c7f67803643b6427c",
+    "backend/src/modules/legacy-order-imports/benefit-profile/history-warehouse-source.ts": "09ea939b4b559da2e70fc468d58e3fa94010632edfbcafb32d6d0c86cdf7217f",
+    "backend/src/modules/legacy-order-imports/benefit-profile/history-writers.ts": "436fee1769c21ae3d1417d928bcd69ed2b7f83fb949800f47dc489a73eb8de43",
     "backend/src/modules/legacy-order-imports/benefit-profile/history.ts": "32afa2c2fe0b0bc6f40dbd1a1d7e454aab135662bbee702d82cfb9f2e9faefbb",
     "backend/src/modules/legacy-order-imports/benefit-profile/native.ts": "9a92e2a87a5632d2a271bb14150735ff1d12b1e4858c06a13fe13d834708d324",
     "backend/src/modules/legacy-order-imports/benefit-profile/options.ts": "83946da829a324f45bfe97a8f67a8fe96183bac5f91fa27e065d46dc6b3cfc99",
@@ -2226,10 +1482,10 @@
     "backend/src/modules/legacy-order-imports/repository.ts": "46684fabc256a592f40ccb0498e813a2296dfb0d6ef77cfb348fba008b821f1c",
     "backend/src/modules/legacy-order-imports/resumption-migration.sql": "335055db902fa88f865327449c0e9de4af60b210d62e7176d5fbc6f1ef8166ac",
     "backend/src/modules/legacy-order-imports/resumptions.ts": "d010fa2159ccecda5b11a5958518cd4ca5150ad05f114554040e315b7933df4c",
-    "backend/src/modules/legacy-order-imports/runtime.ts": "cb6fc85f07f93462007f9b61ee86818cc783d925bc1dadb53cfc2787610173b8",
+    "backend/src/modules/legacy-order-imports/runtime.ts": "6c628dacfd91cc76f205c97e7275a388c320f6f7f2ed5e5a633bc685b8f9f35e",
     "backend/src/modules/legacy-order-imports/schema.ts": "e35b35a69ba7343dbaaeedf231f5d334c3bfee60c7cf789fcbb801671d561138",
     "backend/src/modules/legacy-order-imports/screening-contracts.ts": "15ec7e21bbd1a4c7cf6d5958d9ab79492c38dadf20f83d4880e7e85f2107f67d",
-    "backend/src/modules/legacy-order-imports/screening-counter/contracts.ts": "888f9a17d51445c81e707e490c86970196474b31b81ba65559c905b2ac325159",
+    "backend/src/modules/legacy-order-imports/screening-counter/contracts.ts": "32061d08165d7055b02ea4d0d27b0115be61b748bc398bc4fd62db1e72ae51ff",
     "backend/src/modules/legacy-order-imports/screening-counter/counter-generation-contracts.ts": "25156dc162782562955956f0ea24990313382d2f4954d53ca2d7e6102dd28dc4",
     "backend/src/modules/legacy-order-imports/screening-counter/counter-generation-demands.ts": "9cb5cb54891985cca8ce8bdf2e319a7d27e81c4b96b2599c9ecdd84579dcedce",
     "backend/src/modules/legacy-order-imports/screening-counter/counter-generation-discovery.ts": "6c270ab0ae8377c93dfddc1ed2472bcac9c2a9c57d10b7c29a434f2a59da109a",
@@ -2241,12 +1497,13 @@
     "backend/src/modules/legacy-order-imports/screening-counter/entry.ts": "a73ab8d4feb2bba25bf25aa25ce95c965961dd76855880b202825a1970ade225",
     "backend/src/modules/legacy-order-imports/screening-counter/migration.sql": "a9af2c50ec37245392730be3ed8e388daf9a76f3bff63b0d1e3e2934bee3c65b",
     "backend/src/modules/legacy-order-imports/screening-counter/options.ts": "101e30e43e553c3ffe8ab438db441d3836996164b50c410cc056f8ac12d4059d",
-    "backend/src/modules/legacy-order-imports/screening-counter/privileges.ts": "dd7e09cad454a2fd2a929291beb787f0b7b2c747f118afc0fbd54590aba64155",
+    "backend/src/modules/legacy-order-imports/screening-counter/privileges.ts": "7a79efccdc54c46b68e048ead90b763f051f774def72d0e44ac3bbe6a953e661",
     "backend/src/modules/legacy-order-imports/screening-counter/publisher.ts": "f7eda55c6589afb927cbe54e7a9d93ff525b3559a40f223d7f2b4323026736a5",
     "backend/src/modules/legacy-order-imports/screening-counter/reader.ts": "7270d2078a97e0b5109f70265a15e963db75b32e9b1c22261d3bfe32cd1293e2",
     "backend/src/modules/legacy-order-imports/screening-counter/warehouse.ts": "0d9e28aa1a8c54613e9292eb5edd7975239684008c277001f2bbbea2642f6552",
     "backend/src/modules/legacy-order-imports/screening-counter/writers.ts": "f0ccbd2152c40d1a02ddd7417063dad85f4a5366c613ca78b1eb447d11a9bc07",
-    "backend/src/modules/legacy-order-imports/screening-profile.ts": "0e1034dcce4dccab78dc8086ed48974771123a7346ac8d3b4732247b142539d0",
+    "backend/src/modules/legacy-order-imports/screening-profile.ts": "4c31b7cc91ee1f99468770a31a0dabd9e679e7e1fd002be530e2d48cd95b122b",
+    "backend/src/modules/legacy-order-imports/screening-runtime.ts": "3657a298d87c4453065f82828942751c27c5758bc1fcb44dd05270c3de18b38f",
     "backend/src/modules/legacy-order-imports/screening-shared-migration.sql": "afadd624b25f10437404f045bf1c2503f21847ea556ac32f2409d6dbfc4bcb5c",
     "backend/src/modules/legacy-order-imports/screening-transactions.ts": "ff4f9cc7be9ccdd8c9239cdd6d99a73ff59e1f55c65af8b9660fa209bc4e6762",
     "backend/src/modules/legacy-order-imports/sealed-groups.ts": "6ca20486dd793df0413bbf31aaccffcf70743313a6444659343213d28cfe19d9",
@@ -2288,11 +1545,11 @@
     "backend/src/modules/legacy-report-sql.ts": "795d5db239e5e9e1f68cf700473834355ec4660f7a798e89532967d2ca03528f",
     "backend/src/modules/motivational-quotes/index.ts": "81777fdeaee4da255376ab5c91fd03ccbe78d0e13a78532db4415714e9552b33",
     "backend/src/modules/motivational-quotes/pool.ts": "f11cf91915267ec9c8db94bd894099a018536d1b5ab6b2f0c77f22ff76a1bd8b",
-    "backend/src/modules/operational-reports/acceptance.ts": "7607a2a9b81815d485ea645fc211688e1adc391c6d007ef84765c65a95fd8212",
+    "backend/src/modules/operational-reports/acceptance.ts": "59807b78166dd60425a22190a409b21c9130c8879898f5e55a00e86391f56083",
     "backend/src/modules/operational-reports/export-artifact.ts": "6c2dbfaf0407868b5312e3258213e0095fa10b34f723eeba5868bc2b5b76051d",
     "backend/src/modules/operational-reports/export-domain.ts": "3bf8a3de813df419ece42947dc8e45d71b0b120499bc0e0cdf0a7863040684a0",
     "backend/src/modules/operational-reports/export-format.ts": "f593584e8408f7996efcecebbfde294493739411c3bdb4bb2a9317ac6b6135e9",
-    "backend/src/modules/operational-reports/export-history.ts": "31fbd4e6f45747c678644cc33f1eb3dd26dea9c04ddcff2693b5a0ff7af9567d",
+    "backend/src/modules/operational-reports/export-history.ts": "f17fcfe108f8584e70d2da073b8de3cd4309dd66a610a08ccf3a6520486fa78c",
     "backend/src/modules/operational-reports/export-routes.ts": "452042a7c94ea744c544a0be2b2c7fc6963eb42d85720108fe8a57be9bde85d6",
     "backend/src/modules/operational-reports/export-schema.ts": "3cedf2bd1f1516aa3f384a064e63aa6749d3fe7225a4337fb7cbdd6d6f1f1232",
     "backend/src/modules/operational-reports/export-service.ts": "6e38144b6abba28d780d00181fc4b3342dec6df1fe1c613165f3cfc484e63327",
@@ -2307,8 +1564,8 @@
     "backend/src/modules/operational-reports/feedback.ts": "8a05a13562529a61a9e89fcf3becd2f82a3f14a318baca554130cdd33f35dea0",
     "backend/src/modules/operational-reports/flash-sales-query.ts": "6531a207a04e3e34e47015bfffcff03ca92dc64a7a91e3ae7c5ca57231bd6616",
     "backend/src/modules/operational-reports/flash-sales-sql.ts": "8179be1cb940074738d1fd711c822ac4af0501df6e3be3aa856478047333cddb",
-    "backend/src/modules/operational-reports/flash-sales.ts": "a1d1fd6486f12fbfdc0402dfe25034518d01aaa723637e7914289e8495cfe77f",
-    "backend/src/modules/operational-reports/hyperlocal-daily.ts": "2d4aa10d447fe9fa01766594e3822e9d5f8dcd291a6fe00e203a6ea2ae2444ae",
+    "backend/src/modules/operational-reports/flash-sales.ts": "c0d3fed6d8fd517dd36921c85c5b3acd5067041a82f8c8e01bbf19210d7f31f5",
+    "backend/src/modules/operational-reports/hyperlocal-daily.ts": "b3dee4bf305beb48a85a7d2547a3a88400815473cff04a6c750a149f57340a1c",
     "backend/src/modules/operational-reports/index.ts": "54c705f4730748d32a5b9c2d6da53821f371ecb4aa8491c35c8043262d339f00",
     "backend/src/modules/operational-reports/inventory.ts": "64da95fef0188b3f4e171762cfd134ad235bcb7dbf81cfb563755e8b337dadbd",
     "backend/src/modules/operational-reports/job-worker.ts": "9ec1542bce47719f756141f620ace1ca2fe0cb7f248cdbb66a2570d022eb53d4",
@@ -2317,16 +1574,16 @@
     "backend/src/modules/operational-reports/order-report-domain.ts": "f0feb802169de814cbf9bd2e1e197932d865ca54bd03027a21ecaec6f5e7686d",
     "backend/src/modules/operational-reports/order-report-query.ts": "d3aae6f2db8691bad7f050620ecefe6d0bc3e36ab97c87efa1053bb8822542d9",
     "backend/src/modules/operational-reports/order-report-sql.ts": "a6b29876e1b4463ad4a0b05bc0cb13bc4b83aca09ccf2cc00d443f6b705f108c",
-    "backend/src/modules/operational-reports/order-transactions.ts": "f0bb502f0583258a3825c8f7101bf0beaee505d61b9a2836a531b5d0f90f0960",
+    "backend/src/modules/operational-reports/order-transactions.ts": "3fd568af19f2e2f35a9b27a723feed7853aa1a37e80a5eea44ef75632d8d6a04",
     "backend/src/modules/operational-reports/performance-domain.ts": "b3e00fbdab566c7cc905823f66c746e809cd49d859bdc7e8a4770656a3ee40c4",
     "backend/src/modules/operational-reports/performance-schema.ts": "2ac38cbf78217f8cfa638aa448e9d59f675a5fdc247effc96aa290dfd0f811bd",
     "backend/src/modules/operational-reports/performance.ts": "83dd23c8768b77f7ddbdda53e23b072ea2c50636c75e436c2b50bb86c68e75fd",
     "backend/src/modules/operational-reports/privacy.ts": "e625f6df883f74440e7f47dd8d7ba33949958a999914cb4c18862a63e97775c6",
     "backend/src/modules/operational-reports/raw-legacy-export.ts": "c4750ba2eef8a6510ec783e235d49c07a7a66536f9a0a2cf63428ffb09acffdf",
-    "backend/src/modules/operational-reports/report-inputs.ts": "de220e426e23a23228d448d9493c898d79096c36afde12f326e12965b7d3b1ad",
+    "backend/src/modules/operational-reports/report-inputs.ts": "78d433fdc4a7cc3d4a67fe8773f999d512d57caa01863782dbe799e17b9bbf42",
     "backend/src/modules/operational-reports/return-report-schema.ts": "77ea0fd21d72e1715dd8631594d92fbfb60399b27e28339b34f207382f9527bc",
-    "backend/src/modules/operational-reports/returned-orders.ts": "934bbd0ce347d88a88206c3340a8f3d2fb01f6a728ab85a9cc25634be05451ce",
-    "backend/src/modules/operational-reports/scheduled-data.ts": "9b3c4f704517ba81d87cb292cf2a4319d41ff817f7a182261c1c46041ff3631e",
+    "backend/src/modules/operational-reports/returned-orders.ts": "9bac95983c982f33c0a2ba5755802d2baa843a38e11e98db85757fe195373cdd",
+    "backend/src/modules/operational-reports/scheduled-data.ts": "ab018d89765519031c9c750811d68ffe43d07cfa5b537ab31d92a2783d27a0c1",
     "backend/src/modules/operational-reports/scheduled-domain.ts": "c75d6282d789f51b3532fd5a513496ec6839dcdd51c5fbdb6d7c7ef3f32724f1",
     "backend/src/modules/operational-reports/scheduled-migration.sql": "08a8199fa7cd6aeee511d2a1b932426746f2fb269209a52e332c02a50bed9927",
     "backend/src/modules/operational-reports/scheduled-options.ts": "9a6114184b2e11c9ffa6850e7f109d98a88613779bc87f0aa84500ab628bb0b8",
@@ -2390,8 +1647,9 @@
     "backend/src/modules/screening-origins/membership-history-routes.ts": "416e2aca0a818e46c94a7128d57dd60f6b2c2fab8267fd808d916145b73b8008",
     "backend/src/modules/screening-origins/membership-history.ts": "3f24e26e08017655b33c5fc306dc4af314fd327276398194aac4d0ea6a59f5ba",
     "backend/src/modules/screening-origins/membership-runtime.ts": "14e5e2ea50f6ae81c4482c8d4f5a3b060cdc889be57d7924347cacc2fb9bed58",
-    "backend/src/modules/screening-origins/native-head-metadata.generated.ts": "af73939873b8e66368858579dc7ba149db96a7d15ebb41ed210dc7f563fab265",
-    "backend/src/modules/screening-origins/native-head-metadata.ts": "14fdd5f1ceca3bc1815c58f0a99ce66f8a80577597785f5f5dcb5d91a26f0059",
+    "backend/src/modules/screening-origins/native-head-capacity.ts": "98f968f3d5572ea205a5481821eeae6659a136c2cae43cca9493192144d95146",
+    "backend/src/modules/screening-origins/native-head-metadata.generated.ts": "2521777aedbd3187f860b07241c459378882876c417d7c9577151e9e57b6ecee",
+    "backend/src/modules/screening-origins/native-head-metadata.ts": "67061c55492793e50aeef229f0170d84aed6359bfead28f2271e56ed3175c6b1",
     "backend/src/modules/screening-origins/pending.ts": "85e2310d3ec08f939411475f5262b5207d7a78a3706d7d261201352071f6266f",
     "backend/src/modules/screening-origins/preview-contracts.ts": "af354e4130bc8f50e3dac061caa97ff7f4be0c4343e1500bf6cba4d66a0a606f",
     "backend/src/modules/special-permission-history/contracts.ts": "c024f048916bd63126fba7d63a5be4ecf3454b53ac24549f5fcd50a3f8dfd88d",
@@ -2528,18 +1786,18 @@
     "backend/tests/domain.test.ts": "a7fd3563b5f59dd57d0ce1722f169619229a4e128f92ee5aede59d5287942c76",
     "backend/tests/finance/domain.test.ts": "409eaff4a843dacada9b2b854d392fe90cc729d45c6835720e8de2f76ca5ecc4",
     "backend/tests/finance/feed-domain.test.ts": "fa3937436d0e48b3b4e3143dbc95c67d46a22ad5e4956144f4e602439301a745",
-    "backend/tests/finance/feed-mysql.integration.test.ts": "3d99baa2da8e202703f913fe99d988ebf3f6cc9e6d3a21dfe656561a94f31074",
-    "backend/tests/finance/feed-routing.test.ts": "76997caadb2c269a3bf27ec681bf8e2e41d76fd55af88152bf363f14b29f8d5d",
+    "backend/tests/finance/feed-mysql.integration.test.ts": "d9000ea59812404e6eac786abb4a44babef6c7098d915ef42ca8387c482dbf3c",
+    "backend/tests/finance/feed-routing.test.ts": "ed769b7393e15888b9af99c8c475bdf8a4b7da0620ac8d7abedda0b5d640c6d8",
     "backend/tests/finance/feed-security.test.ts": "1f42f2a2fa64d54a6983e133882545025b0412c5e01e3961a71abd702748815a",
     "backend/tests/finance/ledger.test.ts": "babd7f1cf0ec13e2cf2afbf0c8333a6f366e387c643363193e4421b0e446f875",
-    "backend/tests/finance/mysql.integration.test.ts": "4b9da710df65d4db27edb1c4684a509b4b8d10c4c5090d627af30487586b6a20",
+    "backend/tests/finance/mysql.integration.test.ts": "e5b82abdb1c130e078ab1847a3691019eeee24bc452b1756e89ad5d6cc3683b0",
     "backend/tests/finance/offline-cash.mysql.integration.test.ts": "931fefdd53f2fe265ae0f336e490f06c124aa872a9d80e02b7e6b08c1397b599",
     "backend/tests/finance/payment-correction-publication.test.ts": "c2a3209b77ee180def9838a7ec31c9b31b30c28b9dc841117b00d9e93370a5a8",
     "backend/tests/fixtures/profile-image.png": "4ff6ab670a58c14270e034e2090d9a432caa263a14e0a25785386b0c12f880b5",
     "backend/tests/fulfillment/domain.test.ts": "6c267307b435cd95ae5dfe8cf9b506b29a3a5a2110d38d69f68eb16e46d63f61",
     "backend/tests/fulfillment/integrations.test.ts": "1bdc2e1ca187b7837fd5b48c6dcf3818f6c84f13e4e7794fd9a38e586297326b",
-    "backend/tests/fulfillment/monitoring.test.ts": "463a55b5f9eb24c92e16fe48cf35bd2445fa432838758f9fe1634eaa1e05dca8",
-    "backend/tests/fulfillment/mysql.integration.test.ts": "34216ddee5760e639d054a771d9a02609e11fc8284f95405be9cb4b7aef28300",
+    "backend/tests/fulfillment/monitoring.test.ts": "3075ed1cb4798bea5b6b7a350a6fbdef4e2753a9dc7bc99ed741278111ca6aa0",
+    "backend/tests/fulfillment/mysql.integration.test.ts": "87d5d836656e9ab1fae0bb01aacbebffe9c221bd0dfc71d159f8dd6246d50fbc",
     "backend/tests/fulfillment/notification-bus.test.ts": "28dbf0011eb34940be66da136773555fcc35548d5d6a86a1ed5e3e5d508145aa",
     "backend/tests/fulfillment/security.test.ts": "fce2568df1e48a783c1b57f120bce7b2baba3634b032a5e9777bcde39944b809",
     "backend/tests/fulfillment/shipping-label-address.test.ts": "05642f2f6d8c2fbb5c80346f04d91594b477d4198bb597f1a1e8492fa6c7a590",
@@ -2602,13 +1860,13 @@
     "backend/tests/legacy-import-coupon-history/generation-fixtures.ts": "fd9e430a5977df333273ecf982dcdacc1385be3261b954168921bdc07a783bf8",
     "backend/tests/legacy-import-coupon-history/generation-publisher.mysql.test.ts": "ebd0c4eb3302d093cb1ec1ef44a0a74693a10f00d9a3d38280e43ae8cf42be04",
     "backend/tests/legacy-import-coupon-history/generation-writer.test.ts": "a56367bf4d1fd3dd29ee72cfbd49de3dbfbb0dbe22756d2f11a7a19bf984972a",
-    "backend/tests/legacy-import-coupon-history/generation.mysql.test.ts": "d05da39c462277e3afc42e5b1bf40fc1f0705c792bc54a058ae11b318b4aca5c",
+    "backend/tests/legacy-import-coupon-history/generation.mysql.test.ts": "48ea106781aa11f647ec159d2b077206ad437029ded1e5011a93573c5bf68420",
     "backend/tests/legacy-import-coupon-history/generation.test.ts": "bc0a1dbc5ebabf53d9bc5b16828361fa6570528036f214157f4ddff4df044221",
-    "backend/tests/legacy-import-coupon-history/heads.mysql.test.ts": "fa166d04804cd5ab8616f3f8c54500cfb4a3e409fa8350e741beb93fcd63ceb3",
+    "backend/tests/legacy-import-coupon-history/heads.mysql.test.ts": "12c645f7fa20a0a1e6f1e0835841c4768e099b14e6b953db1d1b744cc23e3325",
     "backend/tests/legacy-import-coupon-history/publication.test.ts": "23a041224c82dc1680ae9b88add31db0896ed808fd88726b6fde151eb983d9b7",
-    "backend/tests/legacy-import-coupon-history/source.mysql.test.ts": "6666db3b6baa6ea8d89ef16df40b9702bf67223123a62839e0b11608c56b7d15",
+    "backend/tests/legacy-import-coupon-history/source.mysql.test.ts": "eda20bd79d7550f341f70b938f3c7eb19830e6f00954daf0d85c829898acc389",
     "backend/tests/legacy-import-coupon-history/warehouse-fixtures.ts": "ee3dc40ff17c85c7000459c90d4b446b96708dec55001842dc8114d646609fae",
-    "backend/tests/legacy-import-coupon-history/warehouse-source.mysql.test.ts": "3fc25b709974f5a4d23bef0929cc2ce0c5ffaf6cc9797783fb700a2c56ae8402",
+    "backend/tests/legacy-import-coupon-history/warehouse-source.mysql.test.ts": "e51dcd0353d25c06ab22598e27e4cf535e9abccf3c88aeb139627ce567382bf3",
     "backend/tests/legacy-import-esm/compatibility.test.ts": "88c6abcff939a9915acf4f70ae91f10d700c1907160e8520b72b6dea9a8854f4",
     "backend/tests/legacy-import-financial/adapter.mysql.test.ts": "f1b12e512765a98b2ba194e5e8b888c728b79d83897f2d4a2bb3ee510ffeae37",
     "backend/tests/legacy-import-financial/approval-recovery.mysql.test.ts": "57796a71245aafbdea8bcba07cc700a2679539e53c3d971d21ebc21ef71c9c12",
@@ -2637,13 +1895,14 @@
     "backend/tests/legacy-import-preparation/ledger.mysql.test.ts": "d9cb7d9854043500a48d53ea0851da9244aa9a902aa10c1ca44192ea2033ca71",
     "backend/tests/legacy-import-preparation/receiver.mysql.test.ts": "5916343498f0d6293253eda436a1d78e085f92d46dcde9d83bbb12bfb386df96",
     "backend/tests/legacy-import-preparation/runtime.mysql.test.ts": "1525232bcdf0ea3c05c2d29bf183298617be04480497ac03493b0a1641f19fc4",
-    "backend/tests/legacy-import-preparation/screening.mysql.test.ts": "0e8610e857a70a2c76d340805c77bf3b4c60f1097fcea56c90dccd1f031154fc",
+    "backend/tests/legacy-import-preparation/screening.mysql.test.ts": "9b4030e748584840b2b0c237c69daa54ff4fbe8bf08eba5c351ecf746551ea3c",
     "backend/tests/legacy-import-preparation/source.test.ts": "c8d77baef6264bb1944b4044a4d5264dd8df546c9cc9a11a9ea8efc8bc573da1",
     "backend/tests/legacy-import-preparation/tsconfig.json": "2caee39583c9c90ef5b10485b3f7de15816191a89826c2d6a763570972f212c7",
     "backend/tests/legacy-import-screening-go/source-locks.mysql.test.ts": "a8da26639717d5ff45c267ac54c3089c310512482993da616b1f2a7037719ed1",
     "backend/tests/legacy-import-screening/.gitignore": "046032151fe6113c18a8d7d9971c557e81129ca1ba244e5263d54b7e0e6f9643",
-    "backend/tests/legacy-import-screening/native_source_driver.py": "650209a796d5c2d4f568274b7d2236f27f23afe69d8e57177627c341240486dc",
-    "backend/tests/legacy-import-screening/profile.mysql.test.ts": "522510584ee9db2c2ad1629a15e27fd0445fa984afc1c8718072f3e20ff0e535",
+    "backend/tests/legacy-import-screening/native-counter-fixture.ts": "9c05e196ff14d5bf425b9d86afbcaab27ed8e566f2d212b9429a6e72a3476a2b",
+    "backend/tests/legacy-import-screening/native_source_driver.py": "8afb365b0d9e5020a788265f7e968a8af6957b79adcd2c396008a826afbcb0b9",
+    "backend/tests/legacy-import-screening/profile.mysql.test.ts": "ff32645ab59e1ed440db99ceb5048c8e4278c1700a29150781c6e5e3238965ee",
     "backend/tests/legacy-import-screening/source.test.ts": "66541f33868ada66ac080623899c88184e4e9a9ec16c62c22147b8531725f625",
     "backend/tests/legacy-import-screening/source.ts": "658271e0ad44900d60b97cc4e7f04caa3ceac004c1d5dcc068eeaa3af46a59ec",
     "backend/tests/legacy-import-screening/source_oracle.py": "19f7cb1d19c9a452f14350e5a736d08da1b4b22920db9fc428eed8eeded7abac",
@@ -2663,14 +1922,15 @@
     "backend/tests/legacy-order-imports/membership-bridge.test.ts": "9a5aa7713bd36e1e0bbb5019a04bc5d4c2e0cac2dc577888df83d917da0e06c1",
     "backend/tests/legacy-order-imports/membership-publication-fixtures.ts": "1f87dd56f239249bb1e0dace7affc96200f9e230caa821d539c35c458e333fa2",
     "backend/tests/legacy-order-imports/membership-publication-transaction.test.ts": "beb5af37cfc3c4ec200da02949c2351b9ac9cd61fcb3702aeb243768b0f3fdcc",
-    "backend/tests/legacy-order-imports/membership-publication.mysql.test.ts": "04681642d401adcdf44780ed59e790153863033ec427041f8222fa2d9265a773",
+    "backend/tests/legacy-order-imports/membership-publication.mysql.test.ts": "96dd197ff98dfad27ee18824a05361a332813ace51e8b4fcae69f5857faae7ea",
     "backend/tests/legacy-order-imports/membership-publication.test.ts": "491291fd4b5aef0580cac7e4d8ae1e8ff06d0bee4b522e72131e37163ff2bb45",
     "backend/tests/legacy-order-imports/plans.test.ts": "cfd56e5d1d18999a98515dfa6884dd96af04d6737a011a990e9653b09e5c0277",
     "backend/tests/legacy-order-imports/repository.mysql.test.ts": "0ff91f85556a2f9b3fef015aa6dd990e6359ab258c23ca4e35df8b3d4634c689",
     "backend/tests/legacy-order-imports/resumptions.mysql.test.ts": "ef786df953e2229049f838a7e81b15cb96cb4a95624c22052193263e0a722b94",
-    "backend/tests/legacy-order-imports/runtime-fixture.ts": "fdcd30d7a6e0146d0393ef38e995076d70d96f76b17b8e6a0db1b24e71f8e636",
+    "backend/tests/legacy-order-imports/runtime-fixture.ts": "de1cab3e14697e5b8afba90a7f1f4df7ee76dcb1b46457964919baf8084174b0",
     "backend/tests/legacy-order-imports/runtime-options.test.ts": "eb87d569a662face1b81a16df863266beb55f271f73c500d3d1dd75b0b707b04",
-    "backend/tests/legacy-order-imports/runtime.mysql.test.ts": "a445270e5759d6582b5c1786e23cdc0e9dbcce89979bdade8710e82f2ec10ae5",
+    "backend/tests/legacy-order-imports/runtime.mysql.test.ts": "deb5a19d567a33ec2e009b013ab14f902b94174c2c658e0ffb12218ff35cf9bb",
+    "backend/tests/legacy-order-imports/screening-runtime.test.ts": "ce63df1f204ef91e0f5374d914d035c356d5fca93e02d4a0a6be7e4cb888df3c",
     "backend/tests/legacy-order-status/background.test.ts": "568bfa4394990dd5357f278e96f3c0b8c857423e3dc5c465e4c74900f29f6b57",
     "backend/tests/legacy-order-status/commands.mysql.test.ts": "03a20aa6f7bb96081d831ea2c9065cb6ad532f8a5cbb8e3bb59457d2d61625e2",
     "backend/tests/legacy-order-status/fixtures.ts": "d48022d1f6f702ae553836979a672c95b1b9fbffab35be43cf957bedc2615b3c",
@@ -2687,35 +1947,40 @@
     "backend/tests/legacy-order-status/startup.test.ts": "f6b3a0590f165b16e1e55220dc8af6b10f583be9cdb92e4225433a2bd9755fd5",
     "backend/tests/legacy-order-status/transport.test.ts": "997f063c7679863094dceb8005011259578efce55ca45c013a9bf82c463553b6",
     "backend/tests/logging.test.ts": "6f762bc7a1cabc37a7b6c6011d8a2f1169bd0421127bc406a380e4aafb1460de",
-    "backend/tests/migrations.mysql.integration.test.ts": "339f8f8cb6ee50e11473e33e73e6550855212d4c774d7df0ba17b4eff22ed5f9",
+    "backend/tests/migrations.mysql.integration.test.ts": "e86cb2341840d768b89cff14a6a9b364245bbe682709d48dcdae3c7571f2caeb",
     "backend/tests/migrations.test.ts": "b0735969008d03af228a752a73eb981d8b842785e7f3d2917f8e48e8a6e88000",
     "backend/tests/motivational-quotes.test.ts": "50bb7ba3065fffbf362434b3f08d3178bf4520dcf10c830ab08b4ec4047e584b",
-    "backend/tests/mysql.integration.test.ts": "c5935de791e5123bc19239dc13c9e2366eaea225164ead1d74da8435fec90dc6",
-    "backend/tests/native-head-metadata/counter.mysql.test.ts": "e467c3b0eacf095a295cd11cf2cef533620dfcb00ff9f0f7fe17e03aeba6571d",
+    "backend/tests/mysql.integration.test.ts": "10692955cb67b5cb8388a669f12c3a58bff7b43e930c05cb286075de960de846",
+    "backend/tests/native-head-metadata/capacity.mysql.test.ts": "7dd45f1cd4bb5ead5e492f6f98552915c21ae12f9031bd430e5a49a252519c76",
+    "backend/tests/native-head-metadata/capacity.test.ts": "f6024bb95588d7f7b015cf4105285a55293036645e2de2f857fc7eababc33029",
+    "backend/tests/native-head-metadata/counter.mysql.test.ts": "63b8bf9172a9babfb560f3c34d79a4c10a11dbb27ac869ae031132435a31e015",
     "backend/tests/native-head-metadata/fixture.ts": "fbc7f959ae6b477eaf9f84b2d6761368d7365eb380f260f8c8357f56c474e9fd",
+    "backend/tests/native-head-metadata/membership.mysql.test.ts": "1fdbcb669f182e46dd0b64ea206bc70f5742ce024e7b60395e6479923b3bc1ac",
     "backend/tests/observability-context.test.ts": "d96c2afa0f7da8b0528c44b39ffddf3c3c4554a7a7ffdbdbe5f72bfbfc97b863",
+    "backend/tests/observability/request-privacy.test.ts": "04fdcb5154d680761f3f012c0d237506ac98f355acb24227e171592d9b4b65f3",
     "backend/tests/operational-reports/acceptance.test.ts": "8857d9dad2728fe8fbcfca195930422ff4675382d404233cbb5ddff435864d8b",
     "backend/tests/operational-reports/export-history.test.ts": "f78b927b91a4f37059b9faaf702d14f19420e948dae84e6fdc06836481a4a26e",
     "backend/tests/operational-reports/export-mysql.integration.test.ts": "c8a13ab2ff59b18c12228408c67d23c9716c77238db4d5e8f8eb39e51b66643a",
     "backend/tests/operational-reports/export-storage.test.ts": "9449a872de61efe561f81e767c1726cfc31421cad4b5e11b24db5eb62a5dab04",
     "backend/tests/operational-reports/export-worker.test.ts": "3e2bff099b21d3b4586b151a6cf88c23e6fc226ed9046877b906a7d695423d24",
+    "backend/tests/operational-reports/fact-routing.test.ts": "686afb15191f2bd08f66ea45b6ee638eaff47db9c48b4f095cedce021a2cacac",
     "backend/tests/operational-reports/feedback-history.mysql.integration.test.ts": "4e145e6163604c746eab42c41b403a1ce68dd0c2ec312ebe2d1fed6575aea095",
     "backend/tests/operational-reports/feedback.test.ts": "dacfe879d573575d3fcef1f0456e4c3b3bd1d932c596cea91f451d609ebbbd9e",
     "backend/tests/operational-reports/fixtures/order-report.ts": "d3586d13bda14cfe73ddbdfcb1ad6a810fea2e95578c2fa3be93fac09cd913e8",
-    "backend/tests/operational-reports/flash-sales.mysql.integration.test.ts": "265637106d3ffe95354df51699e9d776cfd0f7be6bb13742229e8754e8b18473",
+    "backend/tests/operational-reports/flash-sales.mysql.integration.test.ts": "a4531544176b81a4124cdabdc904f73e6469b980878e742a9b1880cbfb713b36",
     "backend/tests/operational-reports/flash-sales.test.ts": "c62f4d94b7d94e77f322a9f253a5ee159d37d8f987f56236992e2348af620717",
-    "backend/tests/operational-reports/hyperlocal-daily.mysql.integration.test.ts": "f9c6c532c04578593b17c01775c8036e6f3c6f6d207b56c8ad6e2cfd05eefb98",
+    "backend/tests/operational-reports/hyperlocal-daily.mysql.integration.test.ts": "1a305a01af2153868bfc56d51e3e1da360a829739019cee6b4a2aa15e946512a",
     "backend/tests/operational-reports/hyperlocal-daily.test.ts": "dfd91ea3efd34b11c554280072b233e4c9911d0bec4dfc79c2bef43dab1db147",
-    "backend/tests/operational-reports/mysql.integration.test.ts": "17f3f7f5116d43ceb86c9db48cc71db873c69de6653e27e0db2319117458016e",
+    "backend/tests/operational-reports/mysql.integration.test.ts": "a13ef134a72af4aa7cf658cd2580ca68a83e9a2834da59b02a82ebd08ac57fb1",
     "backend/tests/operational-reports/order-report-domain.test.ts": "939088808fa996ef2b6f9f6279db1ae8cc545a99f22d76f70027f7d572499bca",
-    "backend/tests/operational-reports/order-report-mysql.integration.test.ts": "4c58c57a3b559804f440165067ee2163438213b75b98a848a1a80a9559a043fd",
+    "backend/tests/operational-reports/order-report-mysql.integration.test.ts": "1e2305e23afae3cbafb72b5264e63c7fa0f9c2fb0c6ccfa0639fd86ffbddf59e",
     "backend/tests/operational-reports/order-report-query.test.ts": "4339de5d279dd9813de17024e4cd46bfb90540036565eaa608297cb7b41907a2",
     "backend/tests/operational-reports/order-transactions.test.ts": "3955e924d8ec2319bf5b878479246287e27f9427e77511ac8cb4df1088ce377d",
     "backend/tests/operational-reports/performance-domain.test.ts": "c4da99bbd68257e6eb4a6ea10717227b6853898afd2b9ce14cd48be4c77cf174",
     "backend/tests/operational-reports/performance.test.ts": "17c9931a06aab8b66b3e6faa9a9dbda2b65e57b7e34bac87502e36bb453b4b3d",
     "backend/tests/operational-reports/privacy.test.ts": "1789325acc1079ffe127c2aca46f19f4a847954794bd5d35297076ca0f3dc502",
     "backend/tests/operational-reports/returned-orders.test.ts": "7e19b6367bb61f80368d7d77e361ad111b45ace756434d2c1f3027d14c0443f5",
-    "backend/tests/operational-reports/scheduled-data.mysql.integration.test.ts": "95f0680cf3af9c90b6a23fae74d57e8e0bf372ded47a5e4b35156eee07095aba",
+    "backend/tests/operational-reports/scheduled-data.mysql.integration.test.ts": "e8e7cd341db47b92f7131fb5d277adb4b055cd7d02c40fdefbb6380e6646485d",
     "backend/tests/operational-reports/scheduled-data.test.ts": "251f50df21e507d8ee6bc507301145e6d6dfc26612f8fcaf5847ef2a79136a6e",
     "backend/tests/operational-reports/scheduled-domain.test.ts": "463584775850bfe9601496c90c257b2598c039d1ebfab335aad9d2b9606322a6",
     "backend/tests/operational-reports/scheduled-security.test.ts": "aabc102cc78ddd4a5f4297487b8c8fcc8e20c6441adec956434acd11c27af236",
@@ -2743,23 +2008,23 @@
     "backend/tests/product-feedback.mysql.integration.test.ts": "def8b526bc46d0700787a5db14bbd8596c11754bb10074e5c9054a23c6baa385",
     "backend/tests/product-feedback.test.ts": "ee3059ec37baa5123a5bf6e7838f11cd8fd24f1767c52634066684b33e0b114c",
     "backend/tests/profile-image-validation.test.ts": "166eb873bde4b7ba2f4909ed68ec131b1e208fc89ddf14e6f2419e3b43882636",
-    "backend/tests/public-screening-writer/api-fixture.ts": "20431f6565cd04e2e3d5f00cfc21b12bf72a08442dcb56cd762ddf42c6826454",
+    "backend/tests/public-screening-writer/api-fixture.ts": "ffec9a0716fa561e29700c5a27601522b3eb3a9678af90fcd65df2dcf0eb99e4",
     "backend/tests/public-screening-writer/api.mysql.test.ts": "8fd860ab77df795160f24064607dc3ccf233312fd6c6b355c402958400c5252e",
     "backend/tests/public-screening-writer/authority.mysql.test.ts": "465d24f5d50130c21ae2cc4916f8d7f2a3abaccf3307e2eb6eab89b96b5a1906",
     "backend/tests/public-screening-writer/boundaries.mysql.test.ts": "927fb966387c03963d1cf6404148612951e051b5db3d56c57ed337218bf3b2f3",
     "backend/tests/public-screening-writer/capability.test.ts": "5f1c1cd5a11bf3a9af31fe883fd797d81b9d90aa4e159cc887ef14330ee5930f",
     "backend/tests/public-screening-writer/checkout-api.mysql.test.ts": "bee151a90e59985e5feca6a5953ef484ec3f2b0e4ee92f2fb7775e404e5f69f5",
-    "backend/tests/public-screening-writer/effects.mysql.test.ts": "1b29db50d1972e49beaa09ebc466ceb03e3a88f01d79ded72fe198b6a94771aa",
+    "backend/tests/public-screening-writer/effects.mysql.test.ts": "c5b280027a751f914e35e6375d269b3e6ba01a4fce76d5712424efe358a85a99",
     "backend/tests/public-screening-writer/gateway.test.ts": "1d2f4ab4e8e069490fa749059fcdb8254a2c3b6f51f2fb04d2d3264abb64f1de",
-    "backend/tests/public-screening-writer/native-fixture.ts": "e2222488d5d7bc478a48f3970a26c96355c477abf7dbe0a1ba8c58d054e345cb",
-    "backend/tests/public-screening-writer/native_source_driver.py": "7eba7ae4b2d9de741c51b3ffc5a5dc0dde9aea5621137446ac34854f4888fd5d",
+    "backend/tests/public-screening-writer/native-fixture.ts": "9627129534e8d3bd713fcedc716f1cc6a608a03d636c675994b5b6cac20c1051",
+    "backend/tests/public-screening-writer/native_source_driver.py": "3d79d9df42d8797f3e8925a26f5894dde608bd8878002e50e7033ee959cf62e0",
     "backend/tests/public-screening-writer/negative.mysql.test.ts": "679f6d29db2b2bcb2362eebbfb3012d54d533f952228eb5d9d11f418fa612499",
     "backend/tests/public-screening-writer/negative_driver.py": "292557544f86fcd5095a282c0fcdb87f3242683571b9260e42f9d22a29510489",
     "backend/tests/public-screening-writer/provider-recovery.mysql.test.ts": "afe595763bfabcabe9b876a30838c144a3d2a6d94efb91ab0eee48d7b33f95bb",
     "backend/tests/public-screening-writer/publication-resource.mysql.test.ts": "88018acdbfd5d113ae7763043544d4c0a32deeecae61198f57ceebabed576ea8",
     "backend/tests/public-screening-writer/races.mysql.test.ts": "8e67f80aa8352cd2237a3963beba312c8b8d6bcef405e3c48a347d090f2b9927",
     "backend/tests/public-screening-writer/session-scope.mysql.test.ts": "031f5c5820011ccb9aa87f303005bd2eaa8762f653d1d363ca3fc9ea88f86447",
-    "backend/tests/public-screening-writer/source.mysql.test.ts": "ee2abfacd689b8ab933d8e4cf2d317edec60ce484246cd3deb48916f8c097be4",
+    "backend/tests/public-screening-writer/source.mysql.test.ts": "d0887304275a06a19bb358dd42016c4fa28b2a221197e8a8aabfa507be933eab",
     "backend/tests/public-screening-writer/test_frame.py": "05e6cb6fb0f197ec5f207de2c822a1ea72521cf63d7e84a5734d745ea7739ed3",
     "backend/tests/public-screening-writer/test_negative.py": "a49c7eb12c6f9ecbb327cc70f1cbe5738fd7580de112374319741390e6a9cf94",
     "backend/tests/release.test.ts": "d7d1cfc2146b3453c46de79b3dd1c844befa952a9de5ce96a0d9c7575437b8fb",
@@ -2767,13 +2032,14 @@
     "backend/tests/reports/warehouse-parameters.test.ts": "619490880732fff383c8d2ff9164b5e9e7939850f934cfd43da9c7a89b591ad8",
     "backend/tests/reports/warehouse-publication.test.ts": "1246ca11ff924514a3c7644aaca905ef1bcf47df1720a948e7b2fb21d0c97baa",
     "backend/tests/rollout.test.ts": "9530ebf100095e64730ec5398136553fcec6f33d6d87a00541b51038123476e3",
+    "backend/tests/screening-counter/canonical.test.ts": "99ea6df2ac27da1ee4934ee71c435435893252480a5a2407fa39b6bbc40ec0ce",
     "backend/tests/screening-counter/contributions.mysql.test.ts": "613f854ab8c660444c0346b63d519b5e30af28607c57715a834130b5dc08bcb8",
     "backend/tests/screening-counter/current.mysql.test.ts": "d174c68716d1d52a48397ed8a4e026bdc7fcf59d8b6a51c2242766bff35052d2",
-    "backend/tests/screening-counter/fixture.ts": "373626630aed73f3e17e923c32ca93075a315be832a5283cbaf9d5e9c403b1bc",
+    "backend/tests/screening-counter/fixture.ts": "644426b421aac3f769c0245a7d116729600cc71bc2e4510806b8dc4b17efc978",
     "backend/tests/screening-counter/generation-demands.mysql.test.ts": "85b7deee4d994952c35b497efd5176bbef3d72819947912e112315abeaf14d2a",
     "backend/tests/screening-counter/generation-discovery.mysql.test.ts": "d20c0a0cae58efa26fbbeb7d603450e0f14642f29e7697e5ca8d3f393f70bccb",
     "backend/tests/screening-counter/generation-fixture.ts": "12ea769dedb40163910d89cfe3575e751b2e6290f9b5bde9937ccbb5b96d9d46",
-    "backend/tests/screening-counter/generation-native-fixture.ts": "767b042e5df5c94d32e46e68975bf096fc2d733b0ae499499516fab511e5313d",
+    "backend/tests/screening-counter/generation-native-fixture.ts": "81b9f09384f3537560ce26e0381eb5fe1a86bc645e0ced6e4c16ed8a087d425e",
     "backend/tests/screening-counter/generation-options.test.ts": "dc741539ff105ed44aa1885782fc625830d5212991478e5e4fb12199a1a379c9",
     "backend/tests/screening-counter/generation-private-output.test.ts": "ced62a5160ea275c1804734c25f551d205017b037df8083620ad1d8bfbf2d5ee",
     "backend/tests/screening-counter/generation-warehouse.test.ts": "0ddabcf34cb5171812f9a454cd6c2fcf8d81048a91c2706486c8633511b3df8b",
@@ -2788,8 +2054,8 @@
     "backend/tests/screening-origins/test_preview.py": "89423431b26f5e3b40ea1381bd68c339789da6e00c01c5604fbb0e542dfbf4a4",
     "backend/tests/screening-origins/test_resources.py": "165cd86c4257ab002a3549883a9d9db3c929d93a2c048449888e7caef64d2077",
     "backend/tests/sessions.test.ts": "5a82325a7cf7b75f63ce1fb0692bd00520bb2da2a2403d2c59a4f129eb108218",
-    "backend/tests/source-runtime-acceptance/pipeline.mysql.test.ts": "8d4693299042b8bf0c77e2c36ea02acf580c09bd7569a27046a31233546ece33",
-    "backend/tests/source-runtime-acceptance/publication.mysql.test.ts": "a6db4a6c50029da5a1f74aaa45f71464a071cc1f477d80ab62696c7bcf24859a",
+    "backend/tests/source-runtime-acceptance/pipeline.mysql.test.ts": "a7f0a368044f6cf6509eba1cd94de40f88b7dc64b8663d2fed1a7857926ed846",
+    "backend/tests/source-runtime-acceptance/publication.mysql.test.ts": "d59f850371687a864016f0db8489f6bc39e2f80973dd18099f225fd6ebc89207",
     "backend/tests/source-runtime-acceptance/source.test.ts": "ee0c5e62bfe987217108d08abf28d45f6c7c8dabbbfe02adfb4be5911d931da5",
     "backend/tests/special-permission-history/domain.test.ts": "187302917e60dc9521fc588edee2af9e0b73db64018ef1c28d3bde8bb6df188a",
     "backend/tests/special-permission-history/mysql.integration.test.ts": "9edbf3868b65b505d103f80eb53520e108db8251bf09fa974bd83ae366c8d0ca",
@@ -2889,6 +2155,21 @@
     "backend/tools/dashboard/publication-projection.sql": "e22413881cfc61cc928695163bd46a5813345e1fc6041775cbefeef824b9a8e4",
     "backend/tools/dashboard/source-oracle.py": "e7a56fb6a0952ebd7e4de6f364216fa49f858023bb21488d62852bfb198707dc",
     "backend/tools/dashboard/tsconfig.tests.json": "4a1c4443bff4a98a41a8b3d39f620c32d785107119985f3e8872f81471b07df7",
+    "backend/tools/dependency-security/LICENSE.picomatch": "d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9",
+    "backend/tools/dependency-security/README.md": "9c96546a06bef2c44b41df4bb3969430d66f8228a236a4a908fcf34f148037e1",
+    "backend/tools/dependency-security/candidate.patch": "7d93137063c8ca90bcffbe9977e176e2df488176c43f8cc07c4e1b8b53a12245",
+    "backend/tools/dependency-security/child.cjs": "8fcc47cce5b1e8a56d84d92cb9014b192aaaff86f113e20e6ffdcc6a22fdea15",
+    "backend/tools/dependency-security/exposure.json": "614e58fc08dededcfe6da2a2392300f0e5e7b8f71e8b73892e4bfddd9d9bb2b1",
+    "backend/tools/dependency-security/integration-smoke.mjs": "9a5d29d355316bde9e80e815859cad39529a5455284659ba5f1b62385b13f2cd",
+    "backend/tools/dependency-security/inventory.mjs": "8cfe3158a623f3bbe5a457213e8b437c63e77bb3a2178dd5c97c400f952e9f03",
+    "backend/tools/dependency-security/manifest.json": "04cb69a6024a708df52cc432a715e723639cec15261f274aaeba6012f162b6e3",
+    "backend/tools/dependency-security/picomatch-4.0.7-pos-review.tgz": "33cac3937347df24b2c9e03fc163fe62357829b4a5ca1675807c0d7af499184f",
+    "backend/tools/dependency-security/prepare.mjs": "ec11e11b08abd15bf54c0f2eafecca9592a78949618420339b2bc0f115b7b3d1",
+    "backend/tools/dependency-security/repeated-extglob-guard.inc": "2dd18a9caed1e50cea92640eb142e6253e9d325193bd4e1449941936760fb392",
+    "backend/tools/dependency-security/results.json": "2c4c00588a2a5a3130461d24c7ebd602375fd789a060eee24221aa47d9fc6d49",
+    "backend/tools/dependency-security/review-upstream254.mjs": "eab310b66082a0b96f4799d00ba10fe764f2230f11d0527f9adc418d221681e7",
+    "backend/tools/dependency-security/review.mjs": "e7f1f8b54d56579528cb00a29c61eb3ca5ba4519410a1c47813ead1c900eec66",
+    "backend/tools/dependency-security/upstream-files.json": "251882dec25a8783dfbbd21524019706d846d78b82d5e594d1a563612413f479",
     "backend/tools/finance/feed-oracle.py": "4a3ca84bdf004351f520055200a605f88b30c9e37b82c5b221910f6b89aa6b38",
     "backend/tools/finance/generate-feed-sql.py": "98021382a532d2c90cf41ddcae847d53e62b33bb1e0e6bfce3881f23b871bfc6",
     "backend/tools/finance/ledger-oracle.py": "acc14db24fb84cdfd44f1f35ae69cf92de2c0d210ea0e403a4aff50bfe5d5a09",
@@ -2992,7 +2273,10 @@
     "backend/tools/legacy-order-status/vitest.config.ts": "f4606fb11396b855d0f5eed940530a46a1e9abff86e9d4bce65e81b0ea4c0802",
     "backend/tools/legacy_oracle.py": "834e57b2411ce4c927305d75bdd18eeec73fee44fd3c7879bc78d9582d48b77d",
     "backend/tools/local-reader-preview.ts": "3498c6f259e6d538482a418042477811d46b02ba5c4dd09501d3154d096b74a7",
-    "backend/tools/native-head-metadata/generate.py": "0badd7b7939a542ec0627d2d1f23493d058f382b683f644f84cf65cd2673ef67",
+    "backend/tools/native-head-metadata/capacity-native.py": "0f03a2fb8633008c0a2e3650e5e76d88c80003d27e2ccba245ce7722e92b9788",
+    "backend/tools/native-head-metadata/capacity-vectors.py": "e21e9e3605bde75b1f5407115891020805ff020a03aab2534d0f161676ee404a",
+    "backend/tools/native-head-metadata/generate.py": "9b4890c000f656582c40b89f981bfc61be99afb2ab338ceae21d340ce1bac278",
+    "backend/tools/native-head-metadata/node-writer-minimum.review.json": "5316955814ea9985a314da8af338290351be635e1ca56bd3126e2a2b8c40cb39",
     "backend/tools/operational-reports/acceptance-oracle.py": "ee3aa98a95e4c1a908777597e7183eee7309bc38a781beb9351b4bfa3fa5a4b2",
     "backend/tools/operational-reports/benchmark-flag-query.mjs": "0513a0973aa06872b35648b3ab7e66ed2c3e3a953f2f3669dc867db36b5a7a9e",
     "backend/tools/operational-reports/build-bigquery-deployment-plan.ts": "d3241e7ef56770d55770de90d9cc3fe8680f981622459e6a6c165ef8ea089d39",
@@ -3035,7 +2319,7 @@
     "backend/tools/order-search/source_oracle.py": "e51847adbae48cdff60394d43f6c62e9d2d67ed530a6362e12e68a859ee21ac2",
     "backend/tools/order-search/vitest.config.ts": "7f6ee397bef81a73230c638855d140d8b307a2e33dc99a536cd2371071548687",
     "backend/tools/parity-gate.ts": "da0080c81c8d405db3fefd3760784986210bedf7c27f63d14251a8f05091d1d0",
-    "backend/tools/parity/build_source_surface_map.py": "53debbc6529f386240d645e2efb4665fbea922a11d1895f9a2290b41efdc9749",
+    "backend/tools/parity/build_source_surface_map.py": "3d1d12ad5f5ab46c139f3721e865f03647ed2151476faf9f43845c0bb7a7550d",
     "backend/tools/parity/check_business_metrics_reachability.py": "17aef4f9622964313a7a92c1c83f1a0df3124c5bc652839f3ae641670a21c0df",
     "backend/tools/payment-correction-finance/tsconfig.json": "9244201cbdd4867d1057cfd4038b9e1b79ef036515c99382e82ed2ad45995a7f",
     "backend/tools/payment-reversals/source_oracle.py": "b610bcf2c43101876eec940227610e77e056adb7ef718c6907c7ebdfbd0445c4",
@@ -3053,7 +2337,7 @@
     "backend/tools/screening-origins/run-fixture.sh": "94719bdb3c43da52fc88619f3acbcfa178585e67b4cd296264b39adac994da65",
     "backend/tools/smoke-containers.cjs": "2b78aa639467cdb8d4e15b2039b1431b58a8dd686110f9e4818ff978c763c8a9",
     "backend/tools/source-runtime-acceptance/bootstrap_probe.py": "21862d5e44722389abceb0e0cf8d7bb03238a99d1351f3e5e28d204dfc5130e6",
-    "backend/tools/source-runtime-acceptance/pipeline_native_driver.py": "00854d0a1ee7ff708c17db2d52bf851f1c4cde8457b7fb2b515e14a02aaa7478",
+    "backend/tools/source-runtime-acceptance/pipeline_native_driver.py": "f9354a43e37fc8b265c28aa2117580dce67d395d4c2eeed728c854913cff782e",
     "backend/tools/source-runtime-acceptance/publication_native_driver.py": "680a6ebefcb3fdc27fb173aaad4f959956a45fffdbca4288b15647d65310d29a",
     "backend/tools/source-runtime-acceptance/test_catalog_pipeline.py": "ba046d424fb98d73aca0d41fd34f2ba5f3cf86123538ed28edd9a55702ac3253",
     "backend/tools/source-runtime-acceptance/test_effects.py": "0fc80d827a39b254393b969a1f03b48ff0dbef259760ff2e2f203f07c6d4bfab",
@@ -3063,7 +2347,7 @@
     "backend/tools/special-permission-history/source-oracle.py": "2f6343a33492ea3acbecd533f92c632013d64be5c65f351bbb3daf7064dd7567",
     "backend/tools/stock-projection/source-oracle.ts": "8f8c95b2fa3e2f5c8e476c5fe65898a8b40f271ed5a1a378a0fdbe1aebb323f1",
     "backend/tools/verify-mysql.cjs": "b4444d77fc17be5b2ddfdddc24d8cb3e6b22911b15caf00a66f1b65848a45fcb",
-    "backend/tools/verify-project.ts": "3c4e39425809f649a9d0d2aea5e4a6e12988e719af0f8c8429afe959b3acb683",
+    "backend/tools/verify-project.ts": "a38450483ec5cf5446974a885ef32fdd9b6782d9494c5794eeb5fefc070538bc",
     "backend/tools/verify-schema.cjs": "4a551c476d98f80d7fb7db2d0f22f011ca01bc00f1ddc11f04d7355217938cb0",
     "backend/tools/warehouse/tsconfig.tests.json": "51b7bc522bbcfb67b7ba0a63088f0f0224e1fe4cb4086fadd6042783bf702d0a",
     "backend/tools/warehouse/verify-parameters.ts": "232d8cad65d7302c88035616eefcf2c68513e486d81b81e0b18854bb1eabfd3f",
@@ -3075,7 +2359,7 @@
     "frontend/desktop-deployment.md": "e48a72bd90b1acbb6279823b9e5b76345838a87895b6e0b5ecf2ad7f115d1a30",
     "frontend/e2e/application-links.spec.ts": "78690ce921d685c14fdafff1216daf65258af1288a149a569812e95779c2789d",
     "frontend/e2e/checkout-recovery.spec.ts": "2bfd348e2411ba2004cf7a677e8255bc0fb027c07dee3c4ef9414476e2af04be",
-    "frontend/e2e/checkout/cashier-shortcuts.spec.ts": "8dd7deb674330d1c795594030d1114e9dd7a35e57f608aa5d63e47f5b7b909d5",
+    "frontend/e2e/checkout/cashier-shortcuts.spec.ts": "2b3e0b10e6d98868009aeef6f1dc80a00d33caea892a55eb58aac9618db3bfdd",
     "frontend/e2e/checkout/checkout-performance.spec.ts": "7b97900410df31a4b0951f7add8eb4da140752027410bc576803bc7d589fd515",
     "frontend/e2e/checkout/clearance.spec.ts": "e6aab53a65c18590750215df7f3879ef1a34c77ab4cbb0e8975ae1c35a0b4f84",
     "frontend/e2e/checkout/customers.spec.ts": "d4434bda041f6bd040c7ee8060b4e41911f79492578e2bf3a69e089457f66991",
@@ -3086,7 +2370,7 @@
     "frontend/e2e/checkout/invoice-feedback.spec.ts": "f503d5d7d56a33a90e2d233468880aaee0b8774db0acbe082fc55c6751023a99",
     "frontend/e2e/checkout/invoice-print-probe.ts": "e890a31e7e1485c08f50cc9547a481cecd681f967613c62104b5074dddb5610b",
     "frontend/e2e/checkout/invoice.spec.ts": "f7c88ee260218702348f5fa5e077472a3b55608aafc31bdb7b56f7bb6014bb7d",
-    "frontend/e2e/checkout/offline-cash.spec.ts": "805669b97b94ca412f0fdef8397536cc0d3167d0ab77538287fe126b75f0edea",
+    "frontend/e2e/checkout/offline-cash.spec.ts": "232d3a6194420088bfbe8d3b77790efad041db17c72c0c887b39bbdb66d4a6db",
     "frontend/e2e/checkout/order-link.spec.ts": "6c981142d6b245adc6d87b230a50ccebe1e1e68effbbc0d05a8b21ea69dfd493",
     "frontend/e2e/checkout/order-payments.spec.ts": "2ebbc660f6c775d173694f16347e6702257d8896ed469af7ad4280704557c532",
     "frontend/e2e/checkout/product-feedback.spec.ts": "ea4472b0f05ada86a836e7772dbedc9a59a9634b999cc3366deb66e723b3c963",
@@ -3505,7 +2789,7 @@
     "frontend/tests/order-history/vitest.config.ts": "7caa4d8e01bfbfe6a9f64951a3e7133c33f347ddd9c061bd1cb85d3210548648",
     "frontend/tests/order-imports/.gitignore": "70a213afeabe5ac38ae4c88b2c7002ce5068b91a3e57a032245ab809dc6fa460",
     "frontend/tests/order-imports/README.md": "9053b8087c16484e82b734ca7a07dcfe8bec2aeec828d0e6d708e6e676290285",
-    "frontend/tests/order-imports/approval-browser.test.ts": "a5842f3cb3793764acf63633dc938bc2e4079f9bb1b29550af33c3bef9ba32bd",
+    "frontend/tests/order-imports/approval-browser.test.ts": "001a2e8085b8da416132087677ea38ecc74a17fa8fa6808eda427b2efbf127f9",
     "frontend/tests/order-imports/approval-client.test.ts": "ee0664fe4e874e80d9fac446c06e38a9942dd238528fb597928194051fa08521",
     "frontend/tests/order-imports/approval-fixtures.ts": "b54d4777e3d6fd5c56fcc83a251da09651f73c235be18857675178a5b51b60d7",
     "frontend/tests/order-imports/approval-journal.test.ts": "b2b6ba9ecbc8dd415b357232db0ed676d48c8a5432a6d881ced6ec33caaacec8",
