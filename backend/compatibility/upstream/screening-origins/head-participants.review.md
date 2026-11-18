@@ -75,3 +75,23 @@ Final validation must exercise these account boundaries, denied bypasses,
 concurrent mutations and publication invalidation in an isolated MySQL
 installation before deployment. That validation remains deferred until feature
 implementation is complete.
+
+## Closed stock platform metadata
+
+A MySQL 8.0.39 installation may retain the two stock `sys.sys_config` BEFORE
+INSERT/UPDATE triggers `sys_config_insert_set_user` and
+`sys_config_update_set_user`. The fixed metadata function now returns a bounded
+`platformTriggers` hash-only section. Both complete identities, events, timing,
+locked `mysql.sys@localhost` owner and canonical body hashes must match the
+closed registry; that owner must also be an explicit reviewed administrator.
+A partial, renamed, re-owned or changed body refuses qualification. Absence is
+accepted only when the platform table itself is absent. These triggers only
+fill the inserted/updated `set_by` column; the exception grants no permission
+for unknown DBA triggers, events or privileged views.
+
+Give source/application/projection callers SELECT on this one platform table
+when present so they can retain metadata locks and SHOW CREATE its actual base
+InnoDB object. No schema-wide platform privilege or DML is required. The closed
+registry is inline in the Python qualifier and copied by the descriptor generator
+into the Node and common-Go descriptors, so its code/body is bound by the normal
+qualifier and metadata hashes. Runtime performs no platform DDL or grants.

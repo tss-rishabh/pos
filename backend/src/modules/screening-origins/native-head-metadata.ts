@@ -142,6 +142,24 @@ const documentSchema = z
           .strict(),
       )
       .max(1000),
+    platformTriggers: z
+      .array(
+        z
+          .object({
+            schema: z.literal('sys'),
+            name: z.string(),
+            tableName: z.literal('sys_config'),
+            event: z.enum(['INSERT', 'UPDATE']),
+            timing: z.literal('BEFORE'),
+            definer: account,
+            hash,
+            locked: z.literal('Y'),
+            tableKind: z.literal('BASE TABLE'),
+            tableEngine: z.literal('InnoDB'),
+          })
+          .strict(),
+      )
+      .max(1000),
     membershipTriggers: z.array(trigger).max(1000),
     couponTriggers: z.array(trigger).max(1000),
     counterTriggers: z.array(trigger).max(1000),
@@ -406,6 +424,23 @@ export async function readNativeHeadMetadata(
   }
   for (const table of [...declared].sort())
     await tx.execute(sql.raw('SELECT 1 FROM `' + table + '` WHERE FALSE'));
+  const platformRows = await query(
+    tx,
+    "SELECT TABLE_TYPE AS kind,ENGINE AS engine FROM information_schema.TABLES WHERE TABLE_SCHEMA='sys' AND TABLE_NAME='sys_config' LIMIT 2",
+  );
+  if (platformRows.length > 1) return refuse();
+  const platformPresent = platformRows.length === 1;
+  if (platformPresent) {
+    if (
+      !z
+        .object({ kind: z.literal('BASE TABLE'), engine: z.literal('InnoDB') })
+        .strict()
+        .safeParse(platformRows[0]).success
+    )
+      return refuse();
+    // Pin the known platform base table before reading attached trigger hashes.
+    await tx.execute(sql.raw('SELECT 1 FROM `sys`.`sys_config` WHERE FALSE'));
+  }
   const routine = await one(
     tx,
     "SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_history_metadata' AND ROUTINE_TYPE='FUNCTION'",
@@ -546,6 +581,32 @@ export async function readNativeHeadMetadata(
     [...administrators].some((owner) => !accounts.has(owner))
   )
     return refuse();
+  const platformObjects = new Set<string>();
+  if (data.platformTriggers.length !== (platformPresent ? descriptor.platformTriggers.length : 0))
+    return refuse();
+  for (const expected of platformPresent ? descriptor.platformTriggers : []) {
+    const matching = data.platformTriggers.filter((row) => row.name === expected.name);
+    if (
+      matching.length !== 1 ||
+      Object.entries(expected).some(
+        ([key, value]) => matching[0]![key as keyof (typeof matching)[number]] !== value,
+      ) ||
+      !administrators.has(expected.definer) ||
+      accounts.get(expected.definer) !== 'Y'
+    )
+      return refuse();
+    platformObjects.add(canonicalNativeHeadJson([expected.schema, expected.name, 'TRIGGER']));
+  }
+  if (platformPresent) {
+    const actual = await one(tx, 'SHOW CREATE TABLE `sys`.`sys_config`');
+    if (
+      actual.Table !== 'sys_config' ||
+      typeof actual['Create Table'] !== 'string' ||
+      Buffer.byteLength(actual['Create Table']) > 200000 ||
+      !/^CREATE TABLE\s+`sys_config`\s*\(/.test(actual['Create Table'])
+    )
+      return refuse();
+  }
   const isolated = new Set([...owners.keys(), audit, current.data]);
   for (const item of data.roles)
     if (
@@ -602,14 +663,19 @@ export async function readNativeHeadMetadata(
             ? sourceRead
             : spec.publisher &&
                 item.scope === 'table' &&
-                item.schema === schema &&
-                WATCHED.includes(item.table)
+                item.schema === 'sys' &&
+                item.table === 'sys_config'
               ? ['SELECT']
-              : item.scope === 'table' && item.schema === schema && spec.watched.has(item.table)
-                ? ['SELECT', 'TRIGGER']
-                : item.scope === 'table' && item.schema === schema
-                  ? (spec.heads[item.table] ?? [])
-                  : [];
+              : spec.publisher &&
+                  item.scope === 'table' &&
+                  item.schema === schema &&
+                  WATCHED.includes(item.table)
+                ? ['SELECT']
+                : item.scope === 'table' && item.schema === schema && spec.watched.has(item.table)
+                  ? ['SELECT', 'TRIGGER']
+                  : item.scope === 'table' && item.schema === schema
+                    ? (spec.heads[item.table] ?? [])
+                    : [];
       if (item.grantable !== 'NO' || !allowed.includes(item.privilege)) return refuse();
     } else if (owner === audit) {
       if (
@@ -678,13 +744,22 @@ export async function readNativeHeadMetadata(
         return refuse();
     } else if (administrators.has(item.owner)) {
       if (
-        ['TRIGGER', 'EVENT'].includes(item.kind) ||
+        (['TRIGGER', 'EVENT'].includes(item.kind) &&
+          !(
+            platformObjects.has(id) &&
+            item.owner === 'mysql.sys@localhost' &&
+            item.security === 'DEFINER'
+          )) ||
         (item.kind === 'VIEW' && item.security === 'DEFINER' && item.usesRoutines === 1)
       )
         return refuse();
     }
   }
-  if (!objects.has(identity(schema, INFO, 'FUNCTION'))) return refuse();
+  if (
+    !objects.has(identity(schema, INFO, 'FUNCTION')) ||
+    [...platformObjects].some((id) => !objects.has(id))
+  )
+    return refuse();
   for (const spec of owners.values()) {
     for (const name of spec.names)
       if (!objects.has(identity(schema, name, 'TRIGGER'))) return refuse();

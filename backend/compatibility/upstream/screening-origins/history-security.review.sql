@@ -42,6 +42,13 @@ RETURN JSON_OBJECT(
   FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_screening_sync_marker'
   ORDER BY ROUTINE_NAME LIMIT 1001
  ) counter_procedure_rows),JSON_ARRAY()),
+ 'platformTriggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('schema',schemaName,'name',name,'tableName',tableName,'event',eventName,'timing',timing,'definer',owner,'hash',bodyHash,'locked',locked,'tableKind',tableKind,'tableEngine',tableEngine)) FROM (
+  SELECT r.TRIGGER_SCHEMA AS schemaName,r.TRIGGER_NAME AS name,r.EVENT_OBJECT_TABLE AS tableName,r.EVENT_MANIPULATION AS eventName,r.ACTION_TIMING AS timing,r.DEFINER AS owner,
+   LOWER(SHA2(TRIM(REGEXP_REPLACE(r.ACTION_STATEMENT,'[[:space:]]+',' ')),256)) AS bodyHash,u.account_locked AS locked,t.TABLE_TYPE AS tableKind,t.ENGINE AS tableEngine
+  FROM INFORMATION_SCHEMA.TABLES t LEFT JOIN INFORMATION_SCHEMA.TRIGGERS r ON r.TRIGGER_SCHEMA=t.TABLE_SCHEMA AND r.TRIGGER_NAME IN ('sys_config_insert_set_user','sys_config_update_set_user')
+  LEFT JOIN mysql.user u ON CONCAT(u.User,'@',u.Host)=r.DEFINER
+  WHERE t.TABLE_SCHEMA='sys' AND t.TABLE_NAME='sys_config' ORDER BY r.TRIGGER_NAME LIMIT 1001
+ ) platform_trigger_rows),JSON_ARRAY()),
  'accounts',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'locked',account_locked)) FROM (
   SELECT User,Host,account_locked FROM mysql.user ORDER BY User,Host LIMIT 1001
  ) account_rows),JSON_ARRAY()),

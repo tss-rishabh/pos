@@ -43,3 +43,13 @@ GRANT EXECUTE ON FUNCTION SOURCE_SCHEMA.pos_rewrite_origin_history_metadata TO '
 -- admissions also check the actual protected objects with SHOW CREATE TABLE.
 -- DBA maintenance/failover/plugins/replication need reviewed requalification;
 -- this function cannot defend against a malicious unrestricted administrator.
+
+-- When the stock sys.sys_config table is installed, source/app/projection
+-- callers additionally need this one readonly metadata pin (never sys.*):
+-- GRANT SELECT ON sys.sys_config TO 'ACTUAL_APP'@'ACTUAL_HOST';
+-- Its two builtin mysql.sys@localhost BEFORE triggers are accepted only under
+-- the closed 8.0.39 registry in origin_history_privileges.py: exact schema,
+-- names/table/events/timing, normalized body SHA, locked owner and InnoDB base
+-- table pinned with MDL+SHOW CREATE. mysql.sys@localhost must be explicitly
+-- reviewed in ADMIN_GRANTEES, not inferred from the current caller. All other
+-- DBA-owned implicit triggers/events/definer views with routines still refuse.

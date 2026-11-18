@@ -313,6 +313,10 @@ export async function installNativeHeadFixture(
       ...(families.has('counter') ? [names.publisher] : []),
     ]) {
       await grant('SELECT', scope + '.*', name);
+      const [platform] = await admin.query<mysql.RowDataPacket[]>(
+        "SELECT TABLE_NAME name FROM information_schema.TABLES WHERE TABLE_SCHEMA='sys' AND TABLE_NAME='sys_config'",
+      );
+      if (platform.length) await grant('SELECT', '`sys`.`sys_config`', name);
       await grant('SHOW_ROUTINE', '*.*', name);
       await grant('EXECUTE', 'FUNCTION ' + scope + '.pos_rewrite_origin_history_metadata', name);
     }
@@ -349,6 +353,13 @@ export async function installNativeHeadFixture(
       pools.push(pool);
       return { get: () => drizzle(pool), close: async () => undefined };
     }
+    const connectionUrl = (name: string) => {
+      const value = new URL(template);
+      value.username = name;
+      value.password = password;
+      value.pathname = '/' + schema;
+      return value.href;
+    };
     const sourceDb = database(names.source),
       appDb = database(names.app),
       publisherDb = families.has('counter') ? database(names.publisher) : undefined;
@@ -364,6 +375,9 @@ export async function installNativeHeadFixture(
     return {
       headMetadata,
       sourceDb,
+      sourceUrl: connectionUrl(names.source),
+      appUrl: connectionUrl(names.app),
+      publisherUrl: families.has('counter') ? connectionUrl(names.publisher) : undefined,
       appDb,
       publisherDb,
       environment,

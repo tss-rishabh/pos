@@ -25,6 +25,13 @@ TABLE_WRITE={'SELECT','SHOW VIEW','INSERT','UPDATE','DELETE','REFERENCES','INDEX
 AUDIT_RIGHTS={'SELECT','SHOW VIEW','SHOW_ROUTINE','TRIGGER','EVENT'}
 FK_RULES={'CASCADE','SET NULL','SET DEFAULT','RESTRICT','NO ACTION'}
 POLICY='pos-screening-origin-history-head-integrity-v3'
+# Closed MySQL 8.0.39 platform registry, verified from the pinned native image.
+# These BEFORE triggers only fill NEW.set_by on sys.sys_config; every identity,
+# body digest, locked owner and base-table property is mandatory when present.
+PLATFORM_TRIGGERS=[
+ {'schema':'sys','name':'sys_config_insert_set_user','tableName':'sys_config','event':'INSERT','timing':'BEFORE','definer':'mysql.sys@localhost','hash':'cf07439335981952c2c5929cdbedb3580c464e3b5458c1a458052f8e2f95d39c','locked':'Y','tableKind':'BASE TABLE','tableEngine':'InnoDB'},
+ {'schema':'sys','name':'sys_config_update_set_user','tableName':'sys_config','event':'UPDATE','timing':'BEFORE','definer':'mysql.sys@localhost','hash':'cf07439335981952c2c5929cdbedb3580c464e3b5458c1a458052f8e2f95d39c','locked':'Y','tableKind':'BASE TABLE','tableEngine':'InnoDB'},
+]
 
 
 def refused():fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
@@ -101,6 +108,11 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     from sqlalchemy import text
     for table in sorted(declared):
         session.execute(text('SELECT 1 FROM `'+table+'` WHERE FALSE')).close()
+    platform_table=rows(session,"SELECT TABLE_TYPE AS kind,ENGINE AS engine FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA='sys' AND TABLE_NAME='sys_config' LIMIT 2",limit=2)
+    if len(platform_table)>1:refused()
+    if platform_table:
+        if platform_table!=[{'kind':'BASE TABLE','engine':'InnoDB'}]:refused()
+        session.execute(text('SELECT 1 FROM `sys`.`sys_config` WHERE FALSE')).close()
     definition=Path(__file__).with_name('history-security.review.sql').read_text()
     match=re.search(r'\nRETURN (.*?)\n\$\$',definition,re.S)
     if match is None:refused()
@@ -112,7 +124,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     if len(str(result['document']).encode())>500000:refused()
     data=json_value(result['document'])
     sections={'triggers','accounts','roles','proxies','privileges','routineGrants','objects','aliases','tables','foreignKeys','replicationChannels',
-              'membershipTriggers','couponTriggers','counterTriggers','counterProcedures'}
+              'membershipTriggers','couponTriggers','counterTriggers','counterProcedures','platformTriggers'}
     if (not isinstance(data,dict) or set(data)!=sections
             or any(not isinstance(data[name],list) or len(data[name])>1000 for name in sections)):refused()
     additional,families=participants(data,trigger_owner)
@@ -131,6 +143,20 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
         accounts[name]=item['locked']
     if (any(accounts.get(owner)!=('N' if spec.get('publisher') else 'Y') for owner,spec in owner_specs.items()) or accounts.get(audit)!='Y' or accounts.get(current)!='N'
             or not administrators.issubset(accounts)):refused()
+    platform_objects=set()
+    platform=data['platformTriggers']
+    if len(platform)!=(len(PLATFORM_TRIGGERS) if platform_table else 0):refused()
+    for expected_platform in PLATFORM_TRIGGERS if platform_table else []:
+        matching=[item for item in platform if isinstance(item,dict) and item.get('name')==expected_platform['name']]
+        if (len(matching)!=1 or matching[0]!=expected_platform
+                or expected_platform['definer'] not in administrators
+                or accounts.get(expected_platform['definer'])!='Y'):refused()
+        platform_objects.add((expected_platform['schema'],expected_platform['name'],'TRIGGER'))
+    if platform_table:
+        actual=one(session,'SHOW CREATE TABLE `sys`.`sys_config`')
+        ddl=actual.get('Create Table')
+        if (actual.get('Table')!='sys_config' or not isinstance(ddl,str) or len(ddl.encode())>200000
+                or not re.match(r'^CREATE TABLE\s+`sys_config`\s*\(',ddl)):refused()
     isolated=set(owner_specs)|{audit,current}
     for raw in data['roles']:
         item=fields(raw,{'name','role'});left=account(item['name']);right=account(item['role'])
@@ -167,7 +193,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             spec=owner_specs[owner]
             allowed=({'USAGE','SHOW_ROUTINE','SHOW ROUTINE'} if spec.get('publisher') else {'USAGE'}) if scope=='global' else (
                 SOURCE_READ if spec.get('publisher') and scope=='schema' and target_schema==schema else
-                {'SELECT'} if spec.get('publisher') and scope=='table' and target_schema==schema and table in WATCHED else
+                {'SELECT'} if spec.get('publisher') and scope=='table' and ((target_schema==schema and table in WATCHED) or (target_schema=='sys' and table=='sys_config')) else
                 {'SELECT','TRIGGER'} if scope=='table' and target_schema==schema and table in spec['watched'] else
                 spec['heads'].get(table,set()) if scope=='table' and target_schema==schema else set())
             if item['grantable']!='NO' or privilege not in allowed:refused()
@@ -228,9 +254,9 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             # Routines cannot be executed by a source caller (grants checked
             # above). Implicit triggers/events and definer views calling stored
             # functions would provide another route into those DBA routines.
-            if item['kind'] in ('TRIGGER','EVENT'):refused()
+            if item['kind'] in ('TRIGGER','EVENT') and not (identity in platform_objects and owner=='mysql.sys@localhost' and item['security']=='DEFINER'):refused()
             if item['kind']=='VIEW' and item['security']=='DEFINER' and item['usesRoutines']==1:refused()
-    required={(schema,INFO,'FUNCTION')}
+    required={(schema,INFO,'FUNCTION')}|platform_objects
     for spec in owner_specs.values():
         required|={(schema,name,'TRIGGER') for name in spec['names']}
         required|={(schema,name,kind) for name,kind in spec['procedures'].items()}
