@@ -109,3 +109,11 @@ These supersede earlier WIP patterns. Every agent must follow them.
 - Evidence, 19 November 2026: legacy `settings.py` sets `STRICT_TRANS_TABLES` per connection.
   Production nevertheless holds 478 `gift_voucher_history` rows with comment `GV ADD…` and
   `platform=''`, up to 2026-11-17, so the effective legacy outcome is non-strict. Keep writing `''` explicitly.
+- **Background jobs, 19 November 2026 (user):** follow strict legacy behaviour:
+  - Order SMS goes through API-v2 `omnichannel-sms`.
+  - Hyperlocal expiry is processed when the progress page is opened, with no timer.
+  - Scheduled Slack reports run inline.
+  - Delete the 4 rewrite-only exports: current-inventory workbook, salesperson performance,
+    cashier performance and hyperlocal acceptance.
+  - **Exception:** gift-card batch generation runs on the Redis job queue, not inline.
+  The queue design is in `backend/parity/phase-c-legacy-jobs.md`.
