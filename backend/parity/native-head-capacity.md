@@ -65,3 +65,18 @@ financial receipt reads retain their frozen proof semantics. This review neither
 changes source business effects nor authorizes live grants/DDL. Actual complete
 production grant counts, account topology, metadata size and runtime remain
 external installation qualification.
+
+Local evidence: `capacity.test.ts` compares the actual Node/Python helpers on
+16 grant vectors and seven metadata UTF-8/JSON vectors, including exact byte
+limits, malformed rows, EOF boundary, empty values and complete result overflow.
+`capacity.mysql.test.ts` installs the real reviewed metadata function and all
+origin/member/coupon/counter families on digest-pinned MySQL 8.0.39. It applies
+the measured Node catalog's actual table rights plus two explicitly declared
+readonly test participants. Their combined metadata exceeds 1,000 cells and
+qualifies; source/Python and Node both accept exactly 512 caller rows and 4,096
+global cells, and refuse the 513th/4,097th intact sentinel. Protected-head DML,
+schema DML and a granted-but-inactive role still refuse inside the permitted
+capacity. The test does not claim that the two readonly participants are a
+minimal read-pool permission set. It uses existing `CHECKOUT_MYSQL_TEST_URL`, or
+the explicit `NATIVE_HEAD_CAPACITY_MYSQL_TEST_URL`, and a guarded disposable local
+schema. No production grants, data or provider effects are used.
