@@ -332,7 +332,11 @@ def run_phase(phase, source, modules_source, docker, before_source, before_produ
             result['excludedBootstrapBoundary'] = {
                 'path': 'config/env.go', 'originalSha256': original_loader_hash,
                 'runtimeSha256': digest(loader), 'scope': 'fixture loader only; original startup not exercised'}
-            network = 'pos-origin-verifier-' + nonce.lower()
+            # The retained head runner accepts lowercase alphanumeric/hyphen
+            # network names; tempfile nonces may additionally contain '_'.
+            # Keep the exact nonce on ownership labels and normalize only this
+            # independently prefixed network name.
+            network = 'pos-origin-verifier-' + re.sub(r'[^a-z0-9]', '', nonce.lower())
             capture([str(proxy), 'network', 'create', network], env=environment)
             identifier = capture([str(proxy), 'run', '-d', '--name', network, '--network', network,
                                   '--network-alias', 'mysql', '-p', '127.0.0.1::3306',
