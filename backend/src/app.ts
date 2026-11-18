@@ -65,9 +65,6 @@ import {
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
 import { registerOfflineSync } from './modules/offline-sync/index.js';
-import { registerLegacyOrderImports } from './modules/legacy-order-imports/index.js';
-import { configuredLegacyOrderImports } from './modules/legacy-order-imports/runtime.js';
-import { readLegacyOrderImportOptions } from './modules/legacy-order-imports/options.js';
 import { orderMutationGuards } from './modules/checkout/order-mutation-guards.js';
 import {
   readWholeOrderStatusOptions,
@@ -359,15 +356,6 @@ export async function buildApp(
     );
   registerBarcodeAssignments(app, config, db);
   registerOperatorModelAccounts(app, config, db);
-  registerLegacyOrderImports(
-    app,
-    config,
-    db,
-    configuredLegacyOrderImports(config, db, {
-      stockProcedure: stockProjection ?? undefined,
-      observe: (event) => app.log.info(event, 'Historical financial import stage recorded.'),
-    }),
-  );
   registerSecondaryCountrySearch(app, db);
   registerParentStoreImports(app, config, db, {
     stockProcedure: stockProjection,
@@ -378,9 +366,6 @@ export async function buildApp(
   const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
   const financialGuards = orderMutationGuards({
     cashReturnProofKey: paymentCorrections.proofKey ?? '',
-    importProofKey:
-      readLegacyOrderImportOptions(config.DEMO_MODE ? {} : process.env)
-        .LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1 ?? '',
   });
   const checkout = await registerCheckout(app, config, db, {
     environment: checkoutRuntime,

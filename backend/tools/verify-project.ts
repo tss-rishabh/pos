@@ -36,7 +36,7 @@ for (const name of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'COMS
   if (process.env[name]) childEnvironment[name] = process.env[name];
 // Only local source roots are forwarded, never arbitrary service environment or
 // credentials. Every source consumer still validates its immutable byte pins.
-for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT', 'SCREENING_SOURCE_ROOT']) {
+for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT']) {
   const value = process.env[name];
   if (value) {
     const path = resolve(value);
@@ -45,17 +45,6 @@ for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT', 'SCREENING_SOURCE_ROOT']) {
     childEnvironment[name] = path;
   }
 }
-if (flags.has('--mysql'))
-  for (const name of ['POS_ORIGIN_PAYMENTS_SOURCE_ROOT', 'POS_ORIGIN_GO_MODULE_CACHE_SOURCE']) {
-    const value = process.env[name];
-    if (!value) continue;
-    const path = resolve(value);
-    if (!existsSync(path) || !statSync(path).isDirectory())
-      throw new Error(
-        'Other-origin verification requires an available local source/cache directory.',
-      );
-    childEnvironment[name] = path;
-  }
 // Reuse only an existing, caller-owned disposable runner cache. Go still runs
 // every test with -count=1; this retains compilation, never successful results.
 if (flags.has('--mysql') && process.env.POS_IMPORT_GO_BUILD_CACHE) {
@@ -108,8 +97,6 @@ if (flags.has('--mysql')) {
     ADMINISTRATION_CREATOR_MYSQL_URL: 'pos_rewrite_creator_authority_test',
     STORE_DEFAULT_OPERATORS_MYSQL_URL: 'pos_rewrite_store_defaults_test',
     CHECKOUT_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
-    MEMBERSHIP_HEAD_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
-    ORIGIN_PREVIEW_MYSQL_TEST_URL: 'pos_rewrite_origin_preview_test',
     MIGRATION_MYSQL_TEST_URL: 'pos_rewrite_migrations_test',
     SPECIAL_PERMISSION_MYSQL_TEST_URL: 'pos_rewrite_activity_history_test',
     APPLICATION_LINK_MYSQL_TEST_URL: 'pos_rewrite_application_links_test',
@@ -118,8 +105,6 @@ if (flags.has('--mysql')) {
     CUSTOMER_OTP_MYSQL_TEST_URL: 'pos_rewrite_customer_otp_test',
     CUSTOMER_WEBSITE_HANDOFF_MYSQL_TEST_URL: 'pos_rewrite_customer_website_handoff_test',
     GLOBAL_VOUCHERS_MYSQL_TEST_URL: 'pos_rewrite_global_vouchers_test',
-    LEGACY_ORDER_IMPORT_MYSQL_TEST_URL: 'pos_rewrite_legacy_order_imports_test',
-    MEMBERSHIP_PUBLICATION_MYSQL_TEST_URL: 'pos_rewrite_membership_publication_test',
     INVENTORY_WORKBOOK_MYSQL_TEST_URL: 'pos_rewrite_inventory_workbooks_test',
     DASHBOARD_MYSQL_TEST_URL: 'pos_rewrite_dashboard_test',
     BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
@@ -318,13 +303,6 @@ const checks: Check[] = [
   },
   ...(flags.has('--mysql')
     ? [
-        {
-          id: 'other-origin-go-prerequisites',
-          directory: 'backend' as const,
-          command: 'sh' as const,
-          args: ['tools/other-origin-verification/run.sh', 'preflight'],
-          prerequisite: true,
-        },
       ]
     : []),
   {
@@ -584,16 +562,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'legacy-order-imports-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-order-imports/tsconfig.tests.json',
-    ],
-  },
-  {
     id: 'whole-order-status-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -604,135 +572,10 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'legacy-import-financial-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-financial/tsconfig.json',
-    ],
-  },
-  {
     id: 'legacy-import-source-boundary-tests',
     directory: 'backend',
     command: 'sh',
     args: ['compatibility/upstream/legacy-order-imports/run-source-tests.sh'],
-  },
-  {
-    id: 'legacy-import-preparation-core-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/legacy-import-preparation/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-preparation-source-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-preparation/tsconfig.json',
-    ],
-  },
-  {
-    id: 'public-screening-writer-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/public-screening-writer/tsconfig.json',
-    ],
-  },
-  {
-    id: 'source-runtime-acceptance-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/source-runtime-acceptance/tsconfig.json',
-    ],
-  },
-  {
-    id: 'coupon-history-publication-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-coupon-history/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-native-esm-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-esm/tsconfig.json',
-    ],
-  },
-  {
-    id: 'coupon-history-bigquery-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-coupon-history/bigquery.tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-native-esm-startup',
-    directory: 'backend',
-    args: ['--import', 'tsx', 'tools/legacy-import-esm/check.ts'],
-  },
-  {
-    id: 'screening-recovery-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/screening-writer/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-coupon-go-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-coupon-go/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-tender-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-tender/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-membership-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-membership/tsconfig.json',
-    ],
   },
   {
     id: 'checkin-lock-order-fixture-typecheck',
@@ -742,36 +585,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tests/administration/tsconfig.checkin-lock-order.json',
-    ],
-  },
-  {
-    id: 'legacy-import-benefits-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-benefits/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-membership-publication-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-order-imports/membership-publication.tsconfig.json',
-    ],
-  },
-  {
-    id: 'import-correction-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/import-corrections/tsconfig.json',
     ],
   },
   {
@@ -785,16 +598,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'import-order-holds-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/import-order-holds/backend.tsconfig.json',
-    ],
-  },
-  {
     id: 'inventory-workbooks-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -802,16 +605,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tools/inventory-workbooks/tsconfig.tests.json',
-    ],
-  },
-  {
-    id: 'legacy-order-import-history-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-order-imports/history.tsconfig.json',
     ],
   },
   {
@@ -1188,16 +981,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'legacy-order-import-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/order-imports/tsconfig.json',
-    ],
-  },
-  {
     id: 'model-accounts-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -1319,13 +1102,6 @@ for (const [id, directory, config] of [
     args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', config],
   });
 if (flags.has('--mysql')) {
-  for (const phase of ['general', 'head', 'calendar'] as const)
-    checks.push({
-      id: `other-origin-go-${phase}-native-tests`,
-      directory: 'backend',
-      command: 'sh',
-      args: ['tools/other-origin-verification/run.sh', phase],
-    });
   checks.push(
     {
       id: 'legacy-import-confirmation-native-tests',
@@ -1344,21 +1120,6 @@ if (flags.has('--mysql')) {
       directory: 'backend',
       command: 'sh',
       args: ['compatibility/upstream/legacy-order-imports/benefit-profile/run-native-tests.sh'],
-    },
-    {
-      id: 'legacy-import-benefits-composed-source-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['tools/legacy-import-benefits/run-source-tests.sh'],
-    },
-    {
-      id: 'legacy-import-coupon-consumption-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: [
-        'compatibility/upstream/legacy-order-imports/run-coupon-tests.sh',
-        'tests/legacy-import-benefits/consumed-recovery.mysql.test.ts',
-      ],
     },
     {
       id: 'public-screening-writer-native-tests',
@@ -1499,28 +1260,6 @@ if (flags.has('--browser')) {
       args: ['tests/legacy-order-status/repair-browser-check.mjs'],
     },
     {
-      id: 'legacy-order-import-browser-tests',
-      directory: 'frontend',
-      args: [
-        'node_modules/vitest/vitest.mjs',
-        'run',
-        '--config',
-        'tests/order-imports/vitest.config.ts',
-      ],
-      environment: { ORDER_IMPORT_BROWSER_TESTS: 'true' },
-    },
-    {
-      id: 'import-correction-browser-tests',
-      directory: 'frontend',
-      args: [
-        'node_modules/vitest/vitest.mjs',
-        'run',
-        'tests/import-corrections/browser.test.ts',
-        '--maxWorkers=1',
-      ],
-      environment: { ORDER_IMPORT_BROWSER_TESTS: 'true' },
-    },
-    {
       id: 'order-copy-browser-tests',
       directory: 'frontend',
       args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/order-copy', '--maxWorkers=1'],
@@ -1566,17 +1305,6 @@ if (flags.has('--browser')) {
       'node_modules/vitest/vitest.mjs',
       'run',
       'tests/order-payments/order-payments.browser.test.ts',
-    ],
-    environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
-  });
-  checks.push({
-    id: 'screening-recovery-browser-tests',
-    directory: 'frontend',
-    args: [
-      'node_modules/vitest/vitest.mjs',
-      'run',
-      'tests/screening-writer/recovery.browser.test.ts',
-      '--maxWorkers=1',
     ],
     environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
   });

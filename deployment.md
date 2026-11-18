@@ -81,8 +81,8 @@ separate. Add `--release` to require that gate to pass too.
 
 Source oracles also require the reviewed API baseline
 `2960acbea10c4eaf16b6d99e15ff6e03ef7724c5`. When the developer's API checkout
-has moved on, use a separate, clean Git checkout of that commit and set both
-`POS_LEGACY_IMPORT_SOURCE_ROOT` and `SCREENING_SOURCE_ROOT` to its directory
+has moved on, use a separate, clean Git checkout of that commit and set
+`POS_LEGACY_IMPORT_SOURCE_ROOT` to its directory
 before starting verification. Do not reset or modify the developer's checkout.
 The alternate location preserves each consumer's original commit/byte checks;
 it does not select another source revision. Fixture launchers forward only
@@ -127,16 +127,6 @@ only caller-owned, nonsymlink `/tmp/pos-import-go.<id>/build-cache` directories
 under a private runner directory. The native command retains `-race -count=1`.
 This avoids repeating a cold compiler build; it does not reuse test results or
 convert an earlier timeout into a passing run.
-
-The complete `--mysql` run also requires
-`POS_ORIGIN_PAYMENTS_SOURCE_ROOT`, a clean payments checkout pinned to
-`434f3e438d1cb48c64e5723222c6efda506db571`, and
-`POS_ORIGIN_GO_MODULE_CACHE_SOURCE`, a caller-owned offline Go module cache.
-Its prerequisite verifies those inputs and the locally cached pinned Go/MySQL
-images before running the separate general, head and calendar phases. These
-phases create fresh private assemblies and fixture resources; the public
-screening checks do not replace them. Follow the
-[orchestration prerequisites and evidence boundaries](backend/tools/other-origin-verification/README.md).
 
 The workbook writer uses the existing durable report queue
 and private bounded spool; review `backend/parity/inventory-workbooks.md`.
@@ -236,28 +226,6 @@ import. The legacy unset-event date correction in
 `backend/compatibility/upstream/offline-cash-import/improve-query.md` is a separate
 writer schema review; `OFFLINE_CASH_ORDER_SCHEMA_CONTRACT=pos-offline-cash-order-schema-v1`
 must not be selected before that contract exists on the actual writer.
-
-Membership activation and restoration additionally require the reviewed native
-revision-fence contract in
-[`membership-revision-head-metadata.md`](backend/parity/membership-revision-head-metadata.md).
-Install the exact four source fences under a separate locked owner and configure
-`POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER` for every full metadata reader,
-independent publisher, API, producer adapter and source-capture worker whenever
-these fences are installed, including profiles that are not buying membership.
-An installed but undeclared family cannot qualify. The locked owner needs only the documented table rights
-and column-scoped `UPDATE(id)` on `users` for the original locking read; runtime
-accounts receive no `TRIGGER`, schema-changing or table-wide user-update grant
-for metadata discovery.
-
-The same two fixed readonly functions now return 17 sections and explicit column
-names in privilege rows. Regenerate and verify the source bundles/manifests,
-install the reviewed functions, and independently recapture/requalify before
-activating source profiles. Old function hashes/captures cannot qualify. Keep
-ingress and generation activation fenced during the coordinated upgrade; do not
-permit old root-owned triggers or restore stale captures as a rollback shortcut.
-Ordinary membership retains its actual RR/RC transaction contract; screening
-continues to require actual READ COMMITTED. None of these steps authorize writes
-or grants on the investigation reader supplied for this task.
 
 Run the financial outbox in a supervised process:
 

@@ -35,29 +35,8 @@ COPY src/modules/checkout/order-messages/*.sql ./src/modules/checkout/order-mess
 COPY src/modules/checkout/order-copy/*.sql ./src/modules/checkout/order-copy/
 COPY src/modules/checkout/payment-reversals/*.sql ./src/modules/checkout/payment-reversals/
 COPY src/modules/checkout/payments/*.sql ./src/modules/checkout/payments/
-COPY src/modules/checkout/screening-writer/*.sql ./src/modules/checkout/screening-writer/
 COPY src/modules/checkout/cancellations/*.sql ./src/modules/checkout/cancellations/
-COPY src/modules/legacy-order-imports/*.sql ./src/modules/legacy-order-imports/
-COPY src/modules/legacy-order-imports/screening-counter/*.sql ./src/modules/legacy-order-imports/screening-counter/
-COPY src/modules/legacy-order-imports/authority-succession/*.sql ./src/modules/legacy-order-imports/authority-succession/
-COPY src/modules/legacy-order-imports/membership-profile/*.sql ./src/modules/legacy-order-imports/membership-profile/
-COPY compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql ./compatibility/upstream/legacy-order-imports/benefit-profile/migration.sql
 COPY compatibility/upstream/ordinary/migration.sql ./compatibility/upstream/ordinary/migration.sql
-COPY compatibility/upstream/screening-origins/migration.sql ./compatibility/upstream/screening-origins/migration.sql
-COPY compatibility/upstream/screening-origins/history-versions-migration.sql ./compatibility/upstream/screening-origins/history-versions-migration.sql
-COPY compatibility/upstream/screening-origins/system-migration.sql ./compatibility/upstream/screening-origins/system-migration.sql
-COPY compatibility/upstream/screening-origins/legacy-effects-migration.sql ./compatibility/upstream/screening-origins/legacy-effects-migration.sql
-COPY compatibility/upstream/screening-origins/assets-migration.sql ./compatibility/upstream/screening-origins/assets-migration.sql
-COPY compatibility/upstream/screening-origins/effects-migration.sql ./compatibility/upstream/screening-origins/effects-migration.sql
-COPY compatibility/upstream/screening-origins/system-preparation-migration.sql ./compatibility/upstream/screening-origins/system-preparation-migration.sql
-COPY compatibility/upstream/screening-origins/legacy-assets-migration.sql ./compatibility/upstream/screening-origins/legacy-assets-migration.sql
-COPY compatibility/upstream/screening-origins/system-successor-migration.sql ./compatibility/upstream/screening-origins/system-successor-migration.sql
-COPY compatibility/upstream/screening-origins/origin-coupon-migration.sql ./compatibility/upstream/screening-origins/origin-coupon-migration.sql
-COPY compatibility/upstream/screening-origins/origin-coupon-generation-migration.sql ./compatibility/upstream/screening-origins/origin-coupon-generation-migration.sql
-COPY compatibility/upstream/screening-origins/screening-counter-generation-migration.sql ./compatibility/upstream/screening-origins/screening-counter-generation-migration.sql
-COPY compatibility/upstream/screening-origins/stage-recovery-migration.sql ./compatibility/upstream/screening-origins/stage-recovery-migration.sql
-COPY compatibility/upstream/screening-origins/preview-migration.sql ./compatibility/upstream/screening-origins/preview-migration.sql
-COPY src/modules/screening-origins/*.sql ./src/modules/screening-origins/
 COPY src/modules/fulfillment/migration.sql ./src/modules/fulfillment/migration.sql
 COPY src/modules/fulfillment/trace-migration.sql ./src/modules/fulfillment/trace-migration.sql
 COPY src/modules/legacy-fulfillment/migration.sql ./src/modules/legacy-fulfillment/migration.sql
@@ -75,21 +54,6 @@ ENV WHOLE_ORDER_STATUS_RECEIVER_HOST=0.0.0.0 WHOLE_ORDER_STATUS_RECEIVER_PORT=44
 EXPOSE 4422
 HEALTHCHECK --interval=30s --timeout=8s --start-period=30s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:4422/health/live',{signal:AbortSignal.timeout(6000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
 CMD ["node","dist/modules/legacy-order-status/receiver-main.js"]
-
-FROM runtime-base AS coupon-history-worker
-CMD ["node","dist/modules/legacy-order-imports/benefit-profile/history-generation-worker-main.js"]
-
-FROM runtime-base AS origin-history-receiver
-ENV POS_SCREENING_ORIGIN_HISTORY_BRIDGE_HOST=0.0.0.0 POS_SCREENING_ORIGIN_HISTORY_BRIDGE_PORT=4424
-EXPOSE 4424
-HEALTHCHECK --interval=30s --timeout=8s --start-period=30s --retries=3 CMD ["node","-e","fetch('http://127.0.0.1:4424/health/live',{signal:AbortSignal.timeout(6000)}).then(r=>process.exit(r.ok?0:1),()=>process.exit(1))"]
-CMD ["node","dist/modules/screening-origins/bridge-main.js"]
-
-FROM runtime-base AS membership-history-worker
-CMD ["node","dist/modules/checkout/screening-writer/membership-generation-main.js"]
-
-FROM runtime-base AS screening-counter-worker
-CMD ["node","dist/modules/legacy-order-imports/screening-counter/counter-generation-main.js"]
 
 FROM runtime-base AS runtime
 EXPOSE 4410

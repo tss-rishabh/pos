@@ -12,7 +12,6 @@ import {
 import { paymentEnvironment, terminalGateway } from './gateway.js';
 import { paymentRepository, type PaymentRepositoryOptions } from './repository.js';
 import { paymentService } from './service.js';
-import { publicScreeningRequest } from '../screening-writer/request-scope.js';
 
 export interface PaymentRegistrationOptions extends PaymentRepositoryOptions {
   gateway?: PaymentGateway;
@@ -41,9 +40,7 @@ export function registerPayments(
     async (request) => {
       const p = scope.parse(request.params);
       const user = authenticated(request);
-      return publicScreeningRequest(request, user, () =>
-        service.paymentContext(user, p.storeId, p.orderId),
-      );
+      return service.paymentContext(user, p.storeId, p.orderId);
     },
   );
   app.post(
@@ -58,13 +55,11 @@ export function registerPayments(
       return reply
         .code(202)
         .send(
-          await publicScreeningRequest(request, authenticated(request), () =>
-            service.adoptLegacy(
-              authenticated(request),
-              p.storeId,
-              p.orderId,
-              legacyPaymentRecoverySchema.parse(request.body),
-            ),
+          await service.adoptLegacy(
+            authenticated(request),
+            p.storeId,
+            p.orderId,
+            legacyPaymentRecoverySchema.parse(request.body),
           ),
         );
     },
@@ -75,35 +70,27 @@ export function registerPayments(
     async (request) => {
       const p = scope.parse(request.params);
       const user = authenticated(request);
-      return publicScreeningRequest(request, user, () =>
-        service.options(user, p.storeId, p.orderId),
-      );
+      return service.options(user, p.storeId, p.orderId);
     },
   );
   app.post(base, trace('create'), async (request, reply) => {
     const user = authenticated(request),
       p = scope.parse(request.params),
       body = paymentInputSchema.parse(request.body);
-    const result = await publicScreeningRequest(request, user, () =>
-      service.start(user, p.storeId, p.orderId, body),
-    );
+    const result = await service.start(user, p.storeId, p.orderId, body);
     return reply.code(result.status === 'paid' ? 201 : 202).send(result);
   });
   app.get(base, trace('list'), async (request) => {
     const p = scope.parse(request.params);
     const user = authenticated(request);
     return {
-      data: await publicScreeningRequest(request, user, () =>
-        service.list(user, p.storeId, p.orderId),
-      ),
+      data: await service.list(user, p.storeId, p.orderId),
     };
   });
   app.get(base + '/:attemptId', trace('read'), async (request) => {
     const p = attemptScope.parse(request.params);
     const user = authenticated(request);
-    return publicScreeningRequest(request, user, () =>
-      service.get(user, p.storeId, p.orderId, p.attemptId),
-    );
+    return service.get(user, p.storeId, p.orderId, p.attemptId);
   });
   app.post(base + '/:attemptId/reconciliations', trace('reconcile'), async (request) => {
     const p = attemptScope.parse(request.params);
@@ -111,9 +98,7 @@ export function registerPayments(
       .strict()
       .parse(request.body || {});
     const user = authenticated(request);
-    return publicScreeningRequest(request, user, () =>
-      service.reconcile(user, p.storeId, p.orderId, p.attemptId),
-    );
+    return service.reconcile(user, p.storeId, p.orderId, p.attemptId);
   });
   app.post(base + '/:attemptId/cancellations', trace('cancel'), async (request) => {
     const p = attemptScope.parse(request.params);
@@ -121,9 +106,7 @@ export function registerPayments(
       .strict()
       .parse(request.body || {});
     const user = authenticated(request);
-    return publicScreeningRequest(request, user, () =>
-      service.cancel(user, p.storeId, p.orderId, p.attemptId),
-    );
+    return service.cancel(user, p.storeId, p.orderId, p.attemptId);
   });
   return service;
 }

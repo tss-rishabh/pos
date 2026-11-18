@@ -66,12 +66,6 @@ describe('private whole-order receiver process composition', () => {
   });
   it.each([
     { POS_PAYMENT_CORRECTION_PROOF_KEY_V1: undefined },
-    { LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: undefined },
-    { LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: 'bad key with spaces' },
-    {
-      LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1:
-        privateRuntimeEnv().POS_PAYMENT_CORRECTION_PROOF_KEY_V1,
-    },
     { WHOLE_ORDER_STATUS_CONTRACT: undefined },
     { WHOLE_ORDER_STATUS_RECEIPT_KEY: undefined },
     { WHOLE_ORDER_STATUS_VENDOR_API_KEY: undefined },

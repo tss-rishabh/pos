@@ -1,4 +1,3 @@
-import { assertImportOrderMutationAvailable } from '../../legacy-order-imports/financial-adapter-proof.js';
 import {
   and,
   asc,
@@ -102,8 +101,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       ((user, store, counter, tx) => checkIns.assertCheckIn(user, store, counter, tx)),
     now = () => Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDateTime(),
     timestamp = () => now().toString({ smallestUnit: 'second' }).replace('T', ' ');
-  // Evidence mode is confined to preserving a remote response/failed attempt.
-  // Every effect/checkpoint authority retains the imported-order hold check.
   async function context(
     tx: AdministrationTransaction,
     user: Principal,
@@ -111,7 +108,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     orderId: string,
     lineId: string,
     counterId: string,
-    purpose: 'authority' | 'evidence' = 'authority',
     relatedOrderIds: readonly string[] = [],
   ) {
     requireStore(user, storeId);
@@ -149,8 +145,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       .from(Order)
       .where(eq(Order.id, BigInt(orderId)))
       .for('update');
-    if (order && purpose === 'authority')
-      for (const id of lockIds) await assertImportOrderMutationAvailable(tx, String(id));
     const [line] = await tx
       .select()
       .from(HasProduct)
@@ -402,7 +396,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       initial.orderId,
       initial.lineId,
       initial.authorityCounterId ?? initial.input.counterId,
-      purpose,
       initial.exchange?.childOrderId ? [initial.exchange.childOrderId] : [],
     );
     const [locked] = await tx
@@ -2164,7 +2157,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           .for('update');
         if (rows.length !== 1) return operation;
         const child = rows[0]!;
-        await assertImportOrderMutationAvailable(tx, String(child.childId));
         if (
           child.parentId !== BigInt(operation.orderId) ||
           String(child.customerId) !== operation.customerId ||
@@ -2332,7 +2324,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             .where(eq(HasProduct.order, BigInt(childId)))
             .orderBy(asc(HasProduct.id))
             .for('update');
-        if (child) await assertImportOrderMutationAvailable(tx, String(child.id));
         const replacement = childLines.find(
           (row) =>
             String(row.productId) === exchange.newProductId &&

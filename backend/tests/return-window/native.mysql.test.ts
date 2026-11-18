@@ -26,7 +26,7 @@ import {
   type CustomerOtpDelivery,
 } from '../../src/modules/customer-otp/index.js';
 import { requestEvent } from '../../src/observability/events.js';
-import { importFinancialFixture } from '../legacy-import-financial/fixture.js';
+import { returnWindowNativeFixture } from './native-fixture.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 const secret = 'return-window-native-customer-and-revision-proof-'.repeat(2);
@@ -74,7 +74,7 @@ const sink: ReturnGateway = {
   },
 };
 describe.skipIf(!template)('manager return date on verified native source tables', () => {
-  let f: Awaited<ReturnType<typeof importFinancialFixture>>;
+  let f: Awaited<ReturnType<typeof returnWindowNativeFixture>>;
   let proofId: string,
     currentActor: Principal = actor;
   let otp: ReturnType<typeof customerOtpService>, api: FastifyInstance;
@@ -82,7 +82,7 @@ describe.skipIf(!template)('manager return date on verified native source tables
     repository: ReturnType<typeof returnRepository>;
   const events: unknown[] = [];
   beforeAll(async () => {
-    f = await importFinancialFixture(template!);
+    f = await returnWindowNativeFixture(template!);
     await f.fixture.create(['extend_applicability_for_return_exchange', 'reverse_pickup_reason']);
     for (const file of [
       'src/modules/administration/migration.sql',

@@ -76,12 +76,9 @@ import {
   wireId,
   type Payload,
 } from './payloads.js';
-import { requiresPublicScreening, publicScreeningOrderPayload } from './screening-writer/native.js';
-import type { PublicScreeningCoordinator } from './screening-writer/coordinator.js';
 
 export interface CheckoutServiceOptions {
   cashbackCreditMessage?: string;
-  screening?: PublicScreeningCoordinator['service'];
   verifyCopyCancellationClear?: (state: CheckoutState) => Promise<void>;
   orderCopyHashSecret?: string;
   assertCheckIn(userId: string, storeId: string, counterId?: string): Promise<void>;
@@ -442,13 +439,7 @@ export function checkoutService(
     const submitted = { ...state, phase: 'submitted' as const },
       settlement = options.prepaidSettlement ? await options.prepaidSettlement(submitted) : null;
     return {
-      state:
-        settlement && submitted.screeningAdmission
-          ? {
-              ...submitted,
-              screeningAdmission: { ...submitted.screeningAdmission, status: 'completed' as const },
-            }
-          : submitted,
+      state: submitted,
       result: { orderId, ...finalized, paymentStatus: settlement ? 'paid' : 'pending', settlement },
     };
   }
@@ -1920,21 +1911,8 @@ export function checkoutService(
         const approval = options.discounts
           ? await options.discounts.authorize(user, freshState)
           : null;
-        const acceptedQuote = state.quote,
-          screening = requiresPublicScreening(freshState.cart);
-        if (screening && !options.screening)
-          throw new AppError(
-            503,
-            'SCREENING_WRITER_UNAVAILABLE',
-            'Screening requires its qualified shared writer.',
-          );
-        const selectedState: CheckoutState = screening
-          ? {
-              ...freshState,
-              screeningAdmission: { operationId: input.operationId, status: 'pending' },
-            }
-          : state;
-        const ordinaryPayload = orderPayload(
+        const acceptedQuote = state.quote;
+        const payload = orderPayload(
           c,
           state.counterId,
           state.operatorCustomerId,
@@ -1942,20 +1920,9 @@ export function checkoutService(
           quotePayable(acceptedQuote),
           giftCardWireData(state.giftCards),
         );
-        const payload = screening ? publicScreeningOrderPayload(ordinaryPayload) : ordinaryPayload;
-        let screeningHeader: string | undefined;
-        if (screening) {
-          await repository.checkpoint(selectedState, input.operationId);
-          screeningHeader = (
-            await options.screening!.issue(user, selectedState, input.operationId, payload)
-          ).header;
-          await options.screening!.beforeDispatch(user, selectedState, input.operationId);
-        }
         const dispatchOrder = async () => {
           try {
-            return await (screeningHeader
-              ? gateway.api('pos/order', payload, auth, { screeningWriter: screeningHeader })
-              : gateway.api('pos/order', payload, auth));
+            return await gateway.api('pos/order', payload, auth);
           } catch (error) {
             // The pinned PosOrder commits its header/store before later card
             // validation. Even 4xx can follow a partial order with no returned
@@ -1982,8 +1949,6 @@ export function checkoutService(
             created.name,
             c.storeId,
           );
-        if (screening)
-          await options.screening!.created(user, selectedState, input.operationId, orderId);
         const orderCustomerConsent: CustomerConsent | null = consentAuthority
           ? {
               v: 1,
@@ -1998,16 +1963,13 @@ export function checkoutService(
             }
           : null;
         const checkpoint: CheckoutState = {
-          ...selectedState,
+          ...state,
           orderId,
           orderSubmissionOperationId: input.operationId,
           phase: 'order-created',
           paymentConfirmation: confirmation,
           confirmationPhase: 'not-dispatched',
           orderCustomerConsent,
-          ...(screening
-            ? { screeningAdmission: { operationId: input.operationId, status: 'created' as const } }
-            : {}),
         };
         // A process crash after this point retains the created order identity. It
         // never reissues pos/order or silently treats an unconfirmed call as paid.

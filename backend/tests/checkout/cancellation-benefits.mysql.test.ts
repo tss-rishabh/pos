@@ -3,8 +3,8 @@ import { sql } from 'drizzle-orm';
 import { readFileSync } from 'node:fs';
 import mysql, { type Connection, type RowDataPacket } from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { Databases } from '../../src/db/pools.js';
-import { installNativeHeadFixture } from '../native-head-metadata/fixture.js';
+import { readConfig } from '../../src/config.js';
+import { createDatabases, type Databases } from '../../src/db/pools.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 import {
   giftCardIssuanceContract,
@@ -48,8 +48,6 @@ describe.skipIf(!template)(
       db: Databases,
       schemaName: string,
       fixture: ReturnType<typeof verifiedMysqlFixture>;
-    let heads: Awaited<ReturnType<typeof installNativeHeadFixture>>;
-    let previousEnvironment: Record<string, string | undefined> = {};
     let next = 8000;
     beforeAll(async () => {
       const url = new URL(template!);
@@ -117,43 +115,20 @@ describe.skipIf(!template)(
         ),
       );
       await connection.query('CREATE INDEX fixture_users_email ON users(email)');
-      heads = await installNativeHeadFixture(connection, template!, {
-        families: ['membershipRevision'],
-      });
-      previousEnvironment = Object.fromEntries(
-        Object.keys(heads.environment).map((key) => [key, process.env[key]]),
+      const schemaUrl = new URL(template!);
+      schemaUrl.pathname = '/' + schemaName;
+      db = createDatabases(
+        readConfig({
+          NODE_ENV: 'test',
+          SESSION_SECRET: secret,
+          MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
+          MYSQL_WRITER_URL: schemaUrl.href,
+          MYSQL_PRIMARY_READER_URL: schemaUrl.href,
+        }),
       );
-      Object.assign(process.env, heads.environment);
-      for (const table of [
-        'pos_rewrite_cancellation_membership_provenance',
-        'gift_vouchers',
-        'gift_voucher_history',
-        'gift_card_collection',
-        'pos_rewrite_gift_card_issuances',
-        'order_tss_money',
-        'order_tss_point',
-        'tss_money_history',
-        'tss_point_history',
-        'amount_to_be_refunded_log',
-      ])
-        await connection.query(
-          'GRANT INSERT, UPDATE, DELETE ON ' +
-            mysql.escapeId(schemaName) +
-            '.' +
-            mysql.escapeId(table) +
-            ' TO ' +
-            mysql.escape(heads.names.app) +
-            "@'%'",
-        );
-      db = heads.appDb;
     }, 30_000);
     afterAll(async () => {
       await db?.close();
-      await heads?.close();
-      for (const [key, value] of Object.entries(previousEnvironment)) {
-        if (value === undefined) delete process.env[key];
-        else process.env[key] = value;
-      }
       if (connection) {
         await connection.query(`DROP DATABASE ${mysql.escapeId(schemaName)}`);
         await connection.end();

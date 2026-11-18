@@ -1,4 +1,3 @@
-import { assertImportOrderMutationAvailable } from '../../legacy-order-imports/financial-adapter-proof.js';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Config } from '../../../config.js';
@@ -62,7 +61,6 @@ import { pendingOrderCancellations } from '../cancellations/schema.js';
 import type { PaymentCorrectionPort } from '../payment-reversals/evidence.js';
 import { assertCurrentStoreAccess } from '../../administration/authorization.js';
 import { retryTransaction } from '../../../db/retry.js';
-import type { PublicScreeningCoordinator } from '../screening-writer/coordinator.js';
 import { readPaymentProviderFact, retainPaymentProviderFact } from './provider-evidence.js';
 import type { PaymentDispatchFrame } from './dispatch-evidence.js';
 
@@ -115,7 +113,6 @@ export function validatePaymentSplit(input: PaymentInput, payable: string) {
 }
 export type PaymentTransaction = AdministrationTransaction;
 export interface PaymentRepositoryOptions {
-  screening?: PublicScreeningCoordinator['payments'];
   corrections?: PaymentCorrectionPort;
   clock?: () => Temporal.Instant;
   hashSecret: string;
@@ -257,9 +254,7 @@ export function paymentRepository(
 ) {
   // Only database work is retried here; all provider calls remain in the service outside these transactions.
   const transact = <T>(work: (tx: PaymentTransaction) => Promise<T>) =>
-    options.screening?.requiresCurrentReads
-      ? options.screening.transaction(work)
-      : retryTransaction(() => db.get('writer').transaction(work));
+    retryTransaction(() => db.get('writer').transaction(work));
   async function rejectCancelledOrder(tx: PaymentTransaction, orderId: string) {
     const [cancelled] = await tx
       .select({ id: pendingOrderCancellations.id })
@@ -298,14 +293,11 @@ export function paymentRepository(
   const assertCheckIn =
     options.assertCheckIn ||
     ((userId, storeId, counterId, tx) => checkIns.assertCheckIn(userId, storeId, counterId, tx));
-  // Evidence mode is private to recording an already-dispatched provider reply.
-  // It never authorizes a charge, cancellation or native settlement.
   async function order(
     tx: PaymentTransaction,
     user: Principal,
     storeId: string,
     orderId: string,
-    purpose: 'authority' | 'evidence' = 'authority',
   ) {
     requireStore(user, storeId);
     // Check-in/current actor/store precede financial order locks, matching cancellation/day-close.
@@ -319,7 +311,6 @@ export function paymentRepository(
       .from(Store)
       .where(eq(Store.id, BigInt(storeId)))
       .for('update');
-    await options.screening?.lockOrder(tx, user, storeId, orderId, purpose);
     const [record] = await tx
       .select({
         mappingId: OrderStore.id,
@@ -342,7 +333,6 @@ export function paymentRepository(
       .where(and(eq(OrderStore.store, BigInt(storeId)), eq(OrderStore.order, BigInt(orderId))))
       .for('update');
     if (!record) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order was not found in this store.');
-    if (purpose === 'authority') await assertImportOrderMutationAvailable(tx, orderId);
     await assertCheckIn(user.id, storeId, String(record.counter), tx);
     return record;
   }
@@ -374,7 +364,6 @@ export function paymentRepository(
   ) {
     await rejectCancelledOrder(tx, orderId);
     await rejectOfflineCashSettlement(tx, orderId);
-    await options.screening?.available(tx, orderId);
     assertUnpaid(mapping);
     assertCheckoutProjectionReady(options.projection);
     assertRefundAllocationReady(options.projection);
@@ -404,7 +393,6 @@ export function paymentRepository(
       storeId: attempt.storeId,
       counterId: String(mapping.counter),
     });
-    await options.screening?.readPaid(tx, attempt);
   }
   async function terminal(
     tx: PaymentTransaction,
@@ -477,7 +465,7 @@ export function paymentRepository(
     id: string,
     purpose: 'authority' | 'evidence' = 'authority',
   ) {
-    const mapping = await order(tx, user, storeId, orderId, purpose);
+    const mapping = await order(tx, user, storeId, orderId);
     const [row] = await tx
       .select()
       .from(paymentAttempts)
@@ -1039,7 +1027,6 @@ export function paymentRepository(
           createdAt: timestamp,
           updatedAt: timestamp,
         });
-        await options.screening?.intent(tx, attempt, input, options.hashSecret);
         return { attempt, machine, replay: false };
       });
     },
@@ -1212,31 +1199,6 @@ export function paymentRepository(
             'PAYMENT_REPLY_PROVENANCE_REQUIRED',
             'The saved provider decision changed.',
           );
-        try {
-          await assertImportOrderMutationAvailable(tx, orderId);
-          await options.screening?.available(tx, orderId);
-        } catch (error: unknown) {
-          // Preserve the factual response independently of financial completion.
-          // Even a missing control table is a block, never proof of no hold.
-          if (['paid', 'failed', 'cancelled', 'reversed'].includes(attempt.status)) throw error;
-          if (attempt.busyOperationId !== busyOperationId)
-            throw new AppError(
-              409,
-              'PAYMENT_OPERATION_CHANGED',
-              'A newer payment reconciliation superseded this provider response.',
-            );
-          return save(tx, {
-            ...attempt,
-            status: 'uncertain',
-            busyOperationId: null,
-            providerReference: decision.reference || attempt.providerReference,
-            heldProviderDecision: attempt.heldProviderDecision ?? { ...decision },
-            errorCode:
-              error instanceof AppError && error.code.startsWith('SCREENING_')
-                ? 'SCREENING_PAYMENT_HELD_AFTER_DISPATCH'
-                : 'ORDER_IMPORT_HELD_AFTER_DISPATCH',
-          });
-        }
         if (attempt.legacySource) await history(tx, orderId);
         await assertPaid(tx, mapping, attempt);
         if (['paid', 'cancelled', 'failed', 'reversed'].includes(attempt.status)) return attempt;
@@ -1285,7 +1247,6 @@ export function paymentRepository(
               );
         }
         const saved = await save(tx, next, completedAt);
-        if (saved.status === 'paid') await options.screening?.paid(tx, saved, options.hashSecret);
         return saved;
       }).catch(async (error: unknown) => {
         if (!dispatchFrame) throw error;

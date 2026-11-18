@@ -8,8 +8,8 @@ release gate intentionally fails while any legacy feature lacks evidence. The
 source contains 263 route declarations, 106 templates, 32 background jobs and
 one WebSocket route. New REST endpoint counts do not establish legacy parity.
 
-Offline cash completion, receipt printing/reprinting, durable manager handoff
-and atomic order import are implemented with isolated verification. The
+Offline cash completion, receipt printing/reprinting and durable manager handoff
+are implemented with isolated verification. The
 confirmed policy permits sales using cached stock, with conflicts routed to a
 manager after reconnecting. Real source/provider/schema acceptance and physical
 printer checks on Windows and macOS remain release requirements.

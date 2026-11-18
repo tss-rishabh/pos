@@ -11,7 +11,6 @@ import { cashReturnIntents } from '../../src/modules/checkout/payment-reversals/
 import { cashReturnClaims } from '../../src/modules/checkout/payment-reversals/intent-claim-schema.js';
 import { cashReturnClaimBody } from '../../src/modules/checkout/payment-reversals/intent-claim-contracts.js';
 import { claimHash } from '../../src/modules/checkout/payment-reversals/intent-claim-evidence.js';
-import { financialImportOrderBindings } from '../../src/modules/legacy-order-imports/financial-adapter-schema.js';
 import { buildPrivateWholeOrderStatusRuntime } from '../../src/modules/legacy-order-status/runtime.js';
 import { wholeOrderStatusRepository } from '../../src/modules/legacy-order-status/repository.js';
 import {
@@ -40,7 +39,6 @@ const template = process.env.WHOLE_ORDER_STATUS_MYSQL_TEST_URL,
   },
   keys = {
     cashReturnProofKey: privateRuntimeEnv().POS_PAYMENT_CORRECTION_PROOF_KEY_V1!,
-    importProofKey: privateRuntimeEnv().LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1!,
   };
 
 describe.skipIf(!template)('standalone private runtime with real shared financial barriers', () => {
@@ -180,20 +178,7 @@ describe.skipIf(!template)('standalone private runtime with real shared financia
     if (!row || row.state !== 'SENDING') throw new Error('Expected the real authorized command.');
     return row;
   }
-  async function held(kind: 'cash' | 'import') {
-    if (kind === 'import') {
-      await native.db
-        .get('writer')
-        .insert(financialImportOrderBindings)
-        .values({
-          orderId: snapshot.orderId,
-          operationId: randomUUID(),
-          requestHash: 'a'.repeat(64),
-          proofHash: 'b'.repeat(64),
-          status: 'pending',
-        });
-      return;
-    }
+  async function held(_kind: 'cash') {
     // A retained already-returned claim is intentionally accepted independently
     // of new handover eligibility. Seal a valid fixture claim; do not forge a paid
     // flag or pretend this test certifies its separate original-funding producer.
@@ -284,7 +269,7 @@ describe.skipIf(!template)('standalone private runtime with real shared financia
     expect(await native.db.get('writer').select().from(statusAttempts)).toHaveLength(1);
     expect(fetcher).not.toHaveBeenCalled();
   });
-  it.each(['cash', 'import'] as const)(
+  it.each(['cash'] as const)(
     'refuses a %s hold at private HTTP acceptance under the shared current locks',
     async (kind) => {
       const row = await createCommand();
@@ -292,7 +277,7 @@ describe.skipIf(!template)('standalone private runtime with real shared financia
       const result = await accept(row);
       expect(result.statusCode).toBe(409);
       expect(result.json<unknown>()).toMatchObject({
-        code: kind === 'cash' ? 'CASH_RETURN_RECONCILIATION_REQUIRED' : 'ORDER_IMPORT_ORDER_HELD',
+        code: 'CASH_RETURN_RECONCILIATION_REQUIRED',
       });
       expect(await native.db.get('writer').select().from(statusReceivers)).toHaveLength(0);
       expect(await native.db.get('writer').select().from(statusAttempts)).toHaveLength(0);
@@ -300,7 +285,7 @@ describe.skipIf(!template)('standalone private runtime with real shared financia
       expect(fetcher).not.toHaveBeenCalled();
     },
   );
-  it.each(['cash', 'import'] as const)(
+  it.each(['cash'] as const)(
     'rechecks a later %s hold at private worker dispatch and freezes the original attempt',
     async (kind) => {
       const row = await createCommand();

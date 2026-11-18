@@ -54,15 +54,8 @@ function privateConfiguration(env: NodeJS.ProcessEnv) {
             .max(65535)
             .default(4422),
           POS_PAYMENT_CORRECTION_PROOF_KEY_V1: z.string().min(32).max(4096),
-          LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1: z
-            .string()
-            .min(32)
-            .max(4096)
-            .regex(/^[\x21-\x7e]+$/),
         })
         .parse(env);
-    if (bind.POS_PAYMENT_CORRECTION_PROOF_KEY_V1 === bind.LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1)
-      throw configurationRequired();
     receiverEndpoints(config, options, receiverOptions);
     const base = qualifiedStatusEndpoint(config, options),
       rawPath =
@@ -105,7 +98,6 @@ function privateConfiguration(env: NodeJS.ProcessEnv) {
       prefix: base.pathname.replace(/\/$/, ''),
       keys: {
         cashReturnProofKey: bind.POS_PAYMENT_CORRECTION_PROOF_KEY_V1,
-        importProofKey: bind.LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1,
       },
     } as const;
   } catch {
