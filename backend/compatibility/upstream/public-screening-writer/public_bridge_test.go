@@ -44,6 +44,8 @@ func TestPublicScreeningExistingSource(t *testing.T){
    if len(missing)==2{t.Fatalf("local screening SQL code %d table %s",native.Number,missing[1])}
    column:=regexp.MustCompile(`(?i)Unknown column '([a-z0-9_.]+)'`).FindStringSubmatch(native.Message)
    if len(column)==2{t.Fatalf("local screening SQL code %d column %s, callbacks %d",native.Number,column[1],called)}
+   denied:=regexp.MustCompile(`(?i)^(SELECT|INSERT|UPDATE|DELETE)(?: with locking clause)? command denied .* for table '([a-z0-9_]+)'$`).FindStringSubmatch(native.Message)
+   if native.Number==1142&&len(denied)==3 {t.Fatalf("local screening SQL code %d verb %s table %s, callbacks %d",native.Number,strings.ToUpper(denied[1]),denied[2],called)}
    t.Fatalf("local screening SQL code %d, callbacks %d",native.Number,called)
   };t.Fatalf("local screening confirmation refused (%T), callbacks %d",e,called)}
   if result.Created!=(attempt==0){t.Fatal("local screening proof replay changed")}
