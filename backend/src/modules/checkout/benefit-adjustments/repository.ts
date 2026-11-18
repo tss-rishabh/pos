@@ -208,15 +208,21 @@ export function walletAdjustmentRepository(
           );
         return settled(existing, user);
       }
-      let result: WalletAdjustmentReceipt;
+      let result: WalletAdjustmentReceipt,
+        bodyCompleted = false;
       try {
         result = await retryTransaction(() =>
-          db.get('writer').transaction((tx) => write(tx, user, input)),
+          db.get('writer').transaction(async (tx) => {
+            bodyCompleted = false;
+            const value = await write(tx, user, input);
+            bodyCompleted = true;
+            return value;
+          }),
         );
       } catch (error) {
-        // A validation failure rolled everything back: release the claim so the same command can
-        // be corrected. Anything else may have committed and stays frozen for reconciliation.
-        if (error instanceof AppError && error.status < 500)
+        // A failure inside the transaction body rolled everything back: release the claim so the
+        // same command can run again. A failure at COMMIT may have committed and stays frozen.
+        if (!bodyCompleted || (error instanceof AppError && error.status < 500))
           await store.deleteIfEquals(key, serialized).catch(() => false);
         else
           await store
