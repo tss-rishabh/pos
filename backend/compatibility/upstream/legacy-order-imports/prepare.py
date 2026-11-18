@@ -76,8 +76,8 @@ def outputs():
     changes['internal/poscheckout/screening.go']=('',(HERE/'screening.go').read_text())
     changes['internal/poscheckout/screening_counter.go']=('',(HERE/'screening_counter.go').read_text())
     changes['internal/poscheckout/screening_counter_definition.go']=('',(HERE/'screening_counter_definition.go').read_text())
-    changes['internal/poscheckout/screening_head_metadata.go']=('',(HERE/'screening_head_metadata.go').read_text())
-    changes['internal/poscheckout/screening_head_metadata_definition.go']=('',(HERE/'screening_head_metadata_definition.go').read_text())
+    # Generic native-head qualification is owned by the base ordinary package
+    # and shared with membership; do not duplicate its definitions in overlays.
     changes['internal/poscheckout/public_screening.go']=('',(HERE/'public_screening.go').read_text())
     changes['internal/poscheckout/public_screening_benefits.go']=('',(HERE/'public_screening_benefits.go').read_text())
     changes['internal/poscheckout/legacy_import_succession.go']=('',(HERE/'legacy_import_succession.go').read_text())

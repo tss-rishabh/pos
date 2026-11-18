@@ -141,6 +141,10 @@ def outputs():
         .replace(
             "from membership_fence_contract import", "from middleware.PosMembershipFence import"
         )
+        .replace(
+            "from origin_history_privileges import qualified_head_metadata",
+            "from pos_screening_origins import qualified_head_metadata",
+        )
     )
     patch = "".join(
         "".join(
@@ -167,6 +171,16 @@ def outputs():
         "stagedContract": "pos-cancellation-membership-staged-v2",
         "activatedContract": "pos-cancellation-membership-provenance-v2",
         "nativeFence": CONTRACT,
+        "nativeFenceMetadata": {
+            "entry": "pos_screening_origins.qualified_head_metadata",
+            "family": "membershipRevisionTriggers",
+            "ownerEnvironment": "POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER",
+            "metadataFunction": "pos_rewrite_origin_history_metadata",
+            "transactionFunction": "pos_rewrite_origin_transaction_metadata",
+            "modulesRootEnvironment": "POS_NODE_SCREENING_MODULE_ROOT",
+            "requires": ["screening-origins", "legacy-order-imports", "public-screening-writer"],
+            "applicationTriggerGrant": False,
+        },
         "sourceSha256": {
             path: hashlib.sha256(before.encode()).hexdigest()
             for path, (before, _) in changes.items()

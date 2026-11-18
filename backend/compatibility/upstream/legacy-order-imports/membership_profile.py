@@ -66,6 +66,10 @@ def producer():
     # Each private composition has its own globals. Never monkey-patch the
     # ordinary producer used by another worker/thread or its existing tests.
     sys.path.insert(0, str(PRODUCER))
+    # Private process resolves the authenticated reader from the same packaged
+    # compatibility root; the deployed source uses its explicit stable entry.
+    for directory in ('public-screening-writer','screening-origins'):
+        sys.path.insert(0, str(HERE.parent / directory))
     module = ModuleType('pos_private_import_membership_producer')
     filename = PRODUCER / 'membership_provenance.py'
     tree = ast.parse(filename.read_text())
