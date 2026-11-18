@@ -33,8 +33,8 @@ function fakeServer(): ServerApi {
     }),
     checkIn: async () => ({ storeId: '12', counterId: '3', expiresAt: clock.wall + 8 * 3600_000 }),
     settings: async () => ({ maxMinutes: 120, maxOrders: 3 }),
-    stores: async () => [],
-    counters: async () => [],
+    stores: async () => [{ id: '12', name: 'Bandra Flagship' }],
+    counters: async () => [{ id: '3', name: 'Counter 3' }],
     catalogPage: async () => ({
       data: [
         { id: '1001', name: 'Tee', barcode: '8901', price: '499.50', stock: 5 },
@@ -102,6 +102,7 @@ describe('device offline billing and sync', () => {
       status: 'queued',
     });
     expect(first.receipt.provisionalNotice).toBe('Provisional — final invoice issued on sync');
+    expect(first.receipt).toMatchObject({ storeName: 'Bandra Flagship', counterName: 'Counter 3' });
     const second = await billing.createSale(
       sale([{ productId: '1002', quantity: 1 }]),
       randomUUID(),
@@ -210,6 +211,24 @@ describe('device offline billing and sync', () => {
     expect(uploads.at(-1)).toMatchObject({
       tender: { mode: 'card', reference: 'RRN99999' },
       resolution: { action: 'correct-tender', managerId: '5' },
+    });
+  });
+
+  it('never resends a sale whose server outcome is unknown', async () => {
+    const billing = service();
+    await billing.heartbeat(randomUUID());
+    net = false;
+    await billing.heartbeat(randomUUID());
+    await billing.createSale(sale(), randomUUID());
+    respond = () => ({ kind: 'conflict', code: 'OUTCOME_UNKNOWN', message: 'Check Orders.' });
+    net = true;
+    await billing.heartbeat(randomUUID());
+    clock.wall += 600_000;
+    await billing.heartbeat(randomUUID());
+    expect(uploads).toHaveLength(1);
+    expect(billing.list({ limit: 10 })[0]).toMatchObject({
+      status: 'needs_manager',
+      conflict: { code: 'OUTCOME_UNKNOWN' },
     });
   });
 

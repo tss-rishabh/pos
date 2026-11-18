@@ -27,7 +27,7 @@ describe('provisional reference', () => {
       sequence: 123456,
     });
   });
-  it('never exceeds the 55-character order_ref_no budget', () => {
+  it('never exceeds 55 characters', () => {
     const longest = provisionalReference({
       storeId: '9999999999',
       counterId: '9999999999',

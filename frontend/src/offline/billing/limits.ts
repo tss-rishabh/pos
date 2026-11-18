@@ -10,29 +10,15 @@ export interface OfflineLimits {
   maxMinutes: number;
   maxOrders: number;
 }
+/** Used until the device first receives the backend's OFFLINE_BILLING_MAX_*
+ * environment values (GET /api/v1/offline-billing/settings). */
 export const DEFAULT_LIMITS: Readonly<OfflineLimits> = Object.freeze({
   maxMinutes: 120,
   maxOrders: 10,
 });
-export const LIMIT_SETTING_KEYS = Object.freeze({
-  maxMinutes: 'POS_OFFLINE_BILLING_MAX_MINUTES',
-  maxOrders: 'POS_OFFLINE_BILLING_MAX_ORDERS',
-});
 /** NTP slews and suspend/resume jitter stay below this; larger backwards
  * movement is treated as tampering. */
 export const BACKWARD_TOLERANCE_MS = 120_000;
-const MAX_MINUTES = 24 * 60,
-  MAX_ORDERS = 500;
-
-/** Parse a tss_settings value. Absent, blank or invalid values use the code
- * default; values are bounded so a mistyped row cannot disable the limit. */
-export function limitSetting(value: string | null | undefined, key: keyof OfflineLimits): number {
-  const fallback = DEFAULT_LIMITS[key],
-    max = key === 'maxMinutes' ? MAX_MINUTES : MAX_ORDERS;
-  if (typeof value !== 'string' || !/^\s*\d{1,6}\s*$/.test(value)) return fallback;
-  const parsed = Number(value.trim());
-  return parsed >= 1 && parsed <= max ? parsed : fallback;
-}
 
 export interface WindowState {
   startedAtWallMs: number;

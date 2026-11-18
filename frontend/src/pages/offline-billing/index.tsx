@@ -559,9 +559,11 @@ function ReceiptDialog({ receipt, onClose }: { receipt: OfflineReceipt; onClose:
         <div className="eyebrow">THE SOULED STORE</div>
         <h2 id="offline-receipt-title">{receipt.heading}</h2>
         <p className="offline-provisional">{receipt.provisionalNotice}</p>
-        <p className="mono">
-          {receipt.provisionalRef} · Store {receipt.storeId} · Counter {receipt.counterId}
+        <p>
+          {receipt.storeName ?? `Store ${receipt.storeId}`} ·{' '}
+          {receipt.counterName ?? `Counter ${receipt.counterId}`}
         </p>
+        <p className="mono">{receipt.provisionalRef}</p>
         <p>{new Date(receipt.createdAt).toLocaleString()}</p>
         {receipt.lines.map((line) => (
           <div className="receipt-line" key={line.productId}>
@@ -669,7 +671,11 @@ function ResolveDialog({
             }
           >
             <option value="correct-tender">Correct the tender</option>
-            <option value="accept">Accept the store’s current price/stock and sync</option>
+            <option value="accept">
+              {sale.conflict?.code === 'OUTCOME_UNKNOWN'
+                ? 'The order exists in Orders — record it'
+                : 'Accept the store’s current price/stock and sync'}
+            </option>
             <option value="void">Void this sale (goods returned)</option>
           </select>
         </label>

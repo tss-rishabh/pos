@@ -1,5 +1,6 @@
-/** Provisional offline receipt reference stored in orders.order_ref_no
- * (varchar 55) at sync: OFF-<storeId>-<counterId>-<deviceShort>-<seq>. */
+/** Provisional offline receipt reference, recorded at sync in a legacy-style
+ * comments row on the created order (the order's own reference number belongs
+ * to API-v2): OFF-<storeId>-<counterId>-<deviceShort>-<seq>, at most 55 chars. */
 export const MAX_REFERENCE_LENGTH = 55;
 export const DEVICE_SHORT_PATTERN = /^[A-Z0-9]{8}$/;
 export const PROVISIONAL_REFERENCE_PATTERN =
