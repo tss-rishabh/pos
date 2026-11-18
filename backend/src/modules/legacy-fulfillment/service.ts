@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, gt, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
@@ -21,7 +21,7 @@ import { identifier } from '../../domain/validation.js';
 import { assertCurrentStoreAccess } from '../administration/authorization.js';
 import { checkInService, type AdministrationTransaction } from '../administration/checkins.js';
 import { enqueueInventorySynchronization } from '../administration/inventory-synchronization.js';
-import { administrationOutbox, operatorCheckIns } from '../administration/schema.js';
+import { administrationOutbox } from '../administration/schema.js';
 import type { StockProcedure } from '../administration/stock-procedure.js';
 import {
   legacyActionSchema,
@@ -63,17 +63,11 @@ export function legacyFulfillmentService(
     checkins = checkInService(db, config),
     rtoReady = !!options.stockProcedure && options.synchronizationAvailable === true;
   const timestamp = () =>
-      clock()
-        .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
-        .toPlainDateTime()
-        .toString({ smallestUnit: 'second' })
-        .replace('T', ' '),
-    utcNow = () =>
-      clock()
-        .toZonedDateTimeISO('UTC')
-        .toPlainDateTime()
-        .toString({ smallestUnit: 'millisecond' })
-        .replace('T', ' ');
+    clock()
+      .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
+      .toPlainDateTime()
+      .toString({ smallestUnit: 'second' })
+      .replace('T', ' ');
   async function storeAccess(
     tx: AdministrationTransaction,
     user: Principal,
@@ -236,17 +230,7 @@ export function legacyFulfillmentService(
             .from(legacyRtoReceipts)
             .where(eq(legacyRtoReceipts.orderId, order.id))
             .limit(1),
-          [checkin] = await tx
-            .select({ id: operatorCheckIns.operatorId })
-            .from(operatorCheckIns)
-            .where(
-              and(
-                eq(operatorCheckIns.operatorId, user.id),
-                eq(operatorCheckIns.storeId, BigInt(storeId)),
-                gt(operatorCheckIns.expiresAt, utcNow()),
-              ),
-            )
-            .limit(1),
+          checkin = (await checkins.checkedInStore(user.id)) === storeId,
           [operator] = await tx
             .select({ firstName: PosUser.first_name })
             .from(PosUser)

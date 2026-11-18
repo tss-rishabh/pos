@@ -30,6 +30,8 @@ import {
 } from './contracts.js';
 import { administrationService, type AdministrationOptions } from './service.js';
 import { checkInService } from './checkins.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
+import { administrationEphemeralStore } from './ephemeral-runtime.js';
 import { inventoryService } from './inventory.js';
 import { supportService } from './support.js';
 import { registerTerminalDirectory } from './terminal-directory.js';
@@ -109,8 +111,9 @@ export function registerAdministration(
     StoreImageOptions &
     OperatorAdminOptions &
     SlackConnectionOptions &
-    SettingsOptions = {},
+    SettingsOptions & { ephemeral?: EphemeralStore } = {},
 ) {
+  const ephemeral = options.ephemeral ?? administrationEphemeralStore(config);
   registerTerminalDirectory(app, db);
   const storeDefaults =
     options.defaultStoreOperatorIds !== undefined ||
@@ -118,7 +121,7 @@ export function registerAdministration(
       ? {}
       : readStoreDefaultOperatorOptions();
   const service = administrationService(config, db, { ...storeDefaults, ...options }),
-    checkins = checkInService(db, config),
+    checkins = checkInService(db, config, ephemeral),
     inventory = inventoryService(config, db, options),
     support = supportService(config, db);
   const createOperator = operatorCreator(config, db);
