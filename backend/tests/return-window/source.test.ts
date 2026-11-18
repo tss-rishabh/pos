@@ -1,20 +1,9 @@
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { goldenStdout } from '../golden/load.js';
 
 describe('pinned return-window date and update semantics', () => {
   it('preserves exact tuple, end-of-day, native audit actor, shortening/reactivation and empty-date refusal', () => {
-    const result = JSON.parse(
-      execFileSync(
-        resolve('compatibility/upstream/offline-cash-pricing/.venv/bin/python'),
-        [
-          '-B',
-          resolve('tests/return-window/source-oracle.py'),
-          process.env.POS_LEGACY_ORIGIN_SOURCE_ROOT ?? resolve('../../backend-pos-web'),
-        ],
-        { encoding: 'utf8', timeout: 10000 },
-      ),
-    ) as {
+    const result = JSON.parse(goldenStdout('return-window', 'source')) as {
       pin: string;
       line: number;
       created: unknown;

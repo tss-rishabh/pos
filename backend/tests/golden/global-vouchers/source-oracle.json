@@ -1,0 +1,252 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "oracle": "tools/global-vouchers/source-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:39Z",
+  "test": "tests/global-vouchers/source-oracle.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/global-vouchers/source-oracle.py"],
+      "status": 0,
+      "output": {
+        "parentCommit": "02bfa5902f06faa5e648c4d5ad64c2e72646853e",
+        "removalCommit": "51107a870c56928cad88f181dd6806a1f5539a31",
+        "sourceSha256": "c885119baa3a3af684babb8949abae7ac8e907cb57f831556eebb09238ed8b6e",
+        "currentApiPin": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+        "currentRoutePresent": false,
+        "posIssuerSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "cases": [
+          {
+            "kind": "GIFT_VOUCHER",
+            "requiresPin": false,
+            "pinEnabled": true,
+            "amount": 25.5,
+            "outcomes": [
+              "voucher has been converted to tss money",
+              "Insufficient Voucher Balance, please try again"
+            ],
+            "voucherBalance": 0,
+            "voucherStatus": 1,
+            "money": 125.5,
+            "commits": 3,
+            "histories": [
+              {
+                "kind": "gift",
+                "added": -25.5,
+                "before": 25.5,
+                "after": 0,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "reward",
+                "added": 25.5,
+                "before": 100,
+                "after": 125.5,
+                "platform": "CASHBACK_EARNED"
+              },
+              {
+                "kind": "money",
+                "added": 25.5,
+                "before": 100,
+                "after": 125.5,
+                "platform": "MISC_COMPENSATION"
+              }
+            ]
+          },
+          {
+            "kind": "GIFT_CARD",
+            "requiresPin": false,
+            "pinEnabled": true,
+            "amount": 25.5,
+            "outcomes": [
+              "voucher has been converted to tss money",
+              "voucher has been converted to tss money"
+            ],
+            "voucherBalance": 25.5,
+            "voucherStatus": 1,
+            "money": 151.0,
+            "commits": 4,
+            "histories": [
+              {
+                "kind": "gift",
+                "added": -25.5,
+                "before": 25.5,
+                "after": 0,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "reward",
+                "added": 25.5,
+                "before": 100,
+                "after": 125.5,
+                "platform": "CASHBACK_EARNED"
+              },
+              {
+                "kind": "money",
+                "added": 25.5,
+                "before": 100,
+                "after": 125.5,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "gift",
+                "added": -25.5,
+                "before": 25.5,
+                "after": 0,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "reward",
+                "added": 25.5,
+                "before": 125.5,
+                "after": 151.0,
+                "platform": "CASHBACK_EARNED"
+              },
+              {
+                "kind": "money",
+                "added": 25.5,
+                "before": 125.5,
+                "after": 151.0,
+                "platform": "MISC_COMPENSATION"
+              }
+            ]
+          },
+          {
+            "kind": "GIFT_CARD",
+            "requiresPin": true,
+            "pinEnabled": true,
+            "amount": 25.5,
+            "outcomes": [
+              "voucher has been converted to tss money",
+              "This voucher code is deactivated."
+            ],
+            "voucherBalance": 0,
+            "voucherStatus": 0,
+            "money": 125.5,
+            "commits": 3,
+            "histories": [
+              {
+                "kind": "gift",
+                "added": -25.5,
+                "before": 25.5,
+                "after": 0,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "reward",
+                "added": 25.5,
+                "before": 100,
+                "after": 125.5,
+                "platform": "CASHBACK_EARNED"
+              },
+              {
+                "kind": "money",
+                "added": 25.5,
+                "before": 100,
+                "after": 125.5,
+                "platform": "MISC_COMPENSATION"
+              }
+            ]
+          },
+          {
+            "kind": "GIFT_CARD",
+            "requiresPin": true,
+            "pinEnabled": false,
+            "amount": 25.5,
+            "outcomes": [
+              "voucher has been converted to tss money",
+              "voucher has been converted to tss money"
+            ],
+            "voucherBalance": 25.5,
+            "voucherStatus": 1,
+            "money": 151.0,
+            "commits": 4,
+            "histories": [
+              {
+                "kind": "gift",
+                "added": -25.5,
+                "before": 25.5,
+                "after": 0,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "reward",
+                "added": 25.5,
+                "before": 100,
+                "after": 125.5,
+                "platform": "CASHBACK_EARNED"
+              },
+              {
+                "kind": "money",
+                "added": 25.5,
+                "before": 100,
+                "after": 125.5,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "gift",
+                "added": -25.5,
+                "before": 25.5,
+                "after": 0,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "reward",
+                "added": 25.5,
+                "before": 125.5,
+                "after": 151.0,
+                "platform": "CASHBACK_EARNED"
+              },
+              {
+                "kind": "money",
+                "added": 25.5,
+                "before": 125.5,
+                "after": 151.0,
+                "platform": "MISC_COMPENSATION"
+              }
+            ]
+          },
+          {
+            "kind": "GIFT_VOUCHER",
+            "requiresPin": false,
+            "pinEnabled": true,
+            "amount": 25.555,
+            "outcomes": [
+              "voucher has been converted to tss money",
+              "Insufficient Voucher Balance, please try again"
+            ],
+            "voucherBalance": 0,
+            "voucherStatus": 1,
+            "money": 125.555,
+            "commits": 3,
+            "histories": [
+              {
+                "kind": "gift",
+                "added": -25.56,
+                "before": 25.56,
+                "after": 0,
+                "platform": "MISC_COMPENSATION"
+              },
+              {
+                "kind": "reward",
+                "added": 25.555,
+                "before": 100,
+                "after": 125.555,
+                "platform": "CASHBACK_EARNED"
+              },
+              {
+                "kind": "money",
+                "added": 25.555,
+                "before": 100,
+                "after": 125.555,
+                "platform": "MISC_COMPENSATION"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

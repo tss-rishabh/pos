@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { Temporal } from '@js-temporal/polyfill';
 import { MySqlDialect } from 'drizzle-orm/mysql-core';
 import { sql } from 'drizzle-orm';
@@ -12,6 +11,8 @@ import { dashboardAuthority } from '../../src/modules/dashboard/authority.js';
 import { currentDashboardQuery, dailyDashboardQuery } from '../../src/modules/dashboard/queries.js';
 import { readDashboardOptions } from '../../src/modules/dashboard/options.js';
 import { dashboardFixture } from '../../tools/dashboard/fixture.js';
+import { goldenSpawnResult } from '../golden/load.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 const connection = process.env.DASHBOARD_MYSQL_TEST_URL;
 const now = Temporal.Instant.from('2026-06-15T06:30:00Z');
@@ -59,27 +60,16 @@ describe.skipIf(!connection)('source dashboard on isolated verified MySQL', () =
   });
 
   async function source(
+    golden: 'source-counts' | 'orphan-association' | 'zero-date-association' | 'month-overwrite',
     cases: { operatorId: string; role: number }[],
     groupCases: { year: number; month: number; count: string }[][] = [],
   ) {
-    const result = spawnSync(
-      'uv',
-      [
-        'run',
-        '--no-project',
-        '--with',
-        'django==4.2.5',
-        '--with',
-        'pymysql==1.1.1',
-        'python',
-        'tools/dashboard/source-oracle.py',
-      ],
-      {
-        input: JSON.stringify({ database: fixture.url, now: now.toString(), cases, groupCases }),
-        encoding: 'utf8',
-        timeout: 20000,
-        maxBuffer: 2 * 1024 * 1024,
-      },
+    const result = goldenSpawnResult(
+      'dashboard',
+      'service-mysql.' + golden,
+      JSON.stringify({ database: fixture.url, now: now.toString(), cases, groupCases }),
+      undefined,
+      fixturePlaceholders(fixture.url),
     );
     if (result.status !== 0)
       throw new Error('Pinned dashboard oracle failed: ' + result.stdout.slice(0, 500));
@@ -127,7 +117,7 @@ describe.skipIf(!connection)('source dashboard on isolated verified MySQL', () =
     await fixture.stock('9007199254740993');
     await fixture.stock('999');
     await seedOrders();
-    const oracle = await source([
+    const oracle = await source('source-counts', [
       { operatorId: user.id, role: 4 },
       { operatorId: '900002', role: 1 },
     ]);
@@ -196,14 +186,14 @@ describe.skipIf(!connection)('source dashboard on isolated verified MySQL', () =
 
   it('pins the source handling of a physically possible orphan association', async () => {
     await fixture.association('1', '999999', '1');
-    const original = await source([{ operatorId: user.id, role: 4 }]);
+    const original = await source('orphan-association', [{ operatorId: user.id, role: 4 }]);
     expect(original.cases[0]!.order_count).toBe('0');
   }, 30000);
 
   it('keeps source zero-date associations in all-history totals while excluding them from month/day series', async () => {
     await fixture.order('201', '0000-00-00 00:00:00');
     await fixture.association('1', '201');
-    const original = await source([{ operatorId: user.id, role: 4 }]);
+    const original = await source('zero-date-association', [{ operatorId: user.id, role: 4 }]);
     expect(original.cases[0]!.order_count).toBe('1');
     expect(
       original.cases[0]!.graph_data.dataset_list.every((store) =>
@@ -223,6 +213,7 @@ describe.skipIf(!connection)('source dashboard on isolated verified MySQL', () =
     const current = { year: 2026, month: 1, count: '2' },
       future = { year: 2027, month: 1, count: '3' };
     const original = await source(
+      'month-overwrite',
       [],
       [
         [current, future],

@@ -1,0 +1,1350 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/finance/oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/finance/domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "ac8967111cbebb4b61fa16b5159b3831b1a3aa66554e4eabc8a0efad2aba2b8c",
+      "args": ["tools/finance/oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "WINDOW",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "WINDOW",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "WINDOW",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "WINDOW",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "WINDOW",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "REVISION",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": "WINDOW",
+            "message": ""
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "The window for this day closed on 17-11-2026 21:00. An OPM can still close it."
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "The window for this day closed on 17-11-2026 21:00. An OPM can still close it."
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day can be closed from 16-11-2026 22:00."
+          },
+          "state": "PENDING",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": true,
+            "override": null,
+            "message": ""
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "The window for this day closed on 17-11-2026 21:00. An OPM can still close it."
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "This day was already closed at 16-11-2026 22:15. Only an OPM or above can revise it."
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "The window for this day closed on 17-11-2026 21:00. An OPM can still close it."
+          },
+          "state": "EXPIRED",
+          "defaultDate": "2026-11-17",
+          "nagDate": null,
+          "lastExpiredDate": "2026-11-16"
+        },
+        {
+          "permission": {
+            "allowed": false,
+            "override": null,
+            "message": "Day Close is not switched on for this store yet."
+          },
+          "state": "OPEN",
+          "defaultDate": "2026-11-16",
+          "nagDate": "2026-11-16",
+          "lastExpiredDate": "2026-11-15"
+        }
+      ]
+    },
+    {
+      "inputSha256": "a07c1fe80b39cee0d21e1a36ded13d987ab4a75e8330d63ffa193d4396c753f3",
+      "args": ["tools/finance/oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "cash": "-5.00",
+          "card": "-7.91"
+        },
+        {
+          "cash": "5.00",
+          "card": "2.09"
+        },
+        {
+          "cash": "15.00",
+          "card": "12.09"
+        },
+        {
+          "cash": "25.00",
+          "card": "22.09"
+        },
+        {
+          "cash": "35.00",
+          "card": "32.09"
+        },
+        {
+          "cash": "45.00",
+          "card": "42.09"
+        },
+        {
+          "cash": "55.00",
+          "card": "52.09"
+        },
+        {
+          "cash": "65.00",
+          "card": "62.09"
+        },
+        {
+          "cash": "75.00",
+          "card": "72.09"
+        },
+        {
+          "cash": "85.00",
+          "card": "82.09"
+        },
+        {
+          "cash": "95.00",
+          "card": "92.09"
+        },
+        {
+          "cash": "105.00",
+          "card": "102.09"
+        },
+        {
+          "cash": "115.00",
+          "card": "112.09"
+        },
+        {
+          "cash": "125.00",
+          "card": "122.09"
+        },
+        {
+          "cash": "135.00",
+          "card": "132.09"
+        },
+        {
+          "cash": "145.00",
+          "card": "142.09"
+        },
+        {
+          "cash": "155.00",
+          "card": "152.09"
+        },
+        {
+          "cash": "165.00",
+          "card": "162.09"
+        },
+        {
+          "cash": "175.00",
+          "card": "172.09"
+        },
+        {
+          "cash": "185.00",
+          "card": "182.09"
+        },
+        {
+          "cash": "195.00",
+          "card": "192.09"
+        },
+        {
+          "cash": "205.00",
+          "card": "202.09"
+        },
+        {
+          "cash": "215.00",
+          "card": "212.09"
+        },
+        {
+          "cash": "225.00",
+          "card": "222.09"
+        },
+        {
+          "cash": "235.00",
+          "card": "232.09"
+        },
+        {
+          "cash": "245.00",
+          "card": "242.09"
+        },
+        {
+          "cash": "255.00",
+          "card": "252.09"
+        },
+        {
+          "cash": "265.00",
+          "card": "262.09"
+        },
+        {
+          "cash": "275.00",
+          "card": "272.09"
+        },
+        {
+          "cash": "285.00",
+          "card": "282.09"
+        },
+        {
+          "cash": "295.00",
+          "card": "292.09"
+        },
+        {
+          "cash": "305.00",
+          "card": "302.09"
+        },
+        {
+          "cash": "315.00",
+          "card": "312.09"
+        },
+        {
+          "cash": "325.00",
+          "card": "322.09"
+        },
+        {
+          "cash": "335.00",
+          "card": "332.09"
+        },
+        {
+          "cash": "345.00",
+          "card": "342.09"
+        },
+        {
+          "cash": "355.00",
+          "card": "352.09"
+        },
+        {
+          "cash": "365.00",
+          "card": "362.09"
+        },
+        {
+          "cash": "375.00",
+          "card": "372.09"
+        },
+        {
+          "cash": "385.00",
+          "card": "382.09"
+        }
+      ]
+    }
+  ]
+}

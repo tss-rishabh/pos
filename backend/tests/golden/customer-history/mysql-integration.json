@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/customer-history/source-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:07:36Z",
+  "test": "tests/customer-history/mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/customer-history/source-oracle.py"],
+      "status": 0,
+      "output": {
+        "source": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "queries": {
+          "get_lifetime_exclusive_savings": "\n            SELECT IFNULL(round(sum((pap.price * hp.qty) - hp.price ),0),0) as exclusive_savings\n            FROM users u\n            LEFT JOIN  orders o on o.order_status not in (0, 4, 7, 10, 17, 22)  AND  u.id = o.user_id\n            LEFT JOIN has_products hp ON o.id = hp.order_id\n            LEFT JOIN products p ON p.id = (CASE WHEN hp.sub_prod_id>0 THEN hp.sub_prod_id ELSE hp.prod_id END)\n            LEFT JOIN products pap ON pap.id = (CASE WHEN p.parent_prod_id>0 THEN p.parent_prod_id ELSE p.id END)\n            WHERE u.id in (7) GROUP BY u.id;\n        ",
+          "get_last_orders": "\n                            SELECT\n                                COUNT(oo.id)\n                            FROM\n                                orders oo\n                            WHERE\n                                oo.user_id = 7\n                                AND oo.order_status NOT IN (0 , 17)\n                                AND oo.created_at > NOW() - INTERVAL 30 DAY\n                            ",
+          "get_total_orders": "\n                            SELECT\n                                COUNT(os.id) AS TotalStoreOrder,\n                                COUNT(o.id) AS TotalOrder\n                            FROM\n                                orders o\n                                    LEFT JOIN\n                                order_stores os ON os.order_id = o.id\n                            WHERE\n                                o.order_status NOT IN (0 , 17)\n                                    AND o.user_id = 7\n                            ",
+          "get_nps_score": "\n                    SELECT\n                        AVG(feedback_answer) as NPS\n                    FROM\n                        nps_feedback nf\n                            LEFT JOIN\n                        orders o ON o.id = nf.order_id\n                    WHERE\n                        o.user_id = 7\n                "
+        }
+      }
+    }
+  ]
+}

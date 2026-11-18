@@ -1,0 +1,597 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/checkout/parity.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "867565a9e53d8459b4b75c0c9805e23e7bc2f65b1e43bbf4758c96ea19189369",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "url": "https://api.example.test/omnichannel-sms",
+          "payload": {
+            "order_id": 8401
+          }
+        }
+      ]
+    },
+    {
+      "inputSha256": "044f214241dfecbabd8b6d6a983f1a68a5783e07efd9d470d4d2c13298f26367",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "path": "cart",
+          "payload": {
+            "payload": {
+              "operation": "delete",
+              "type": "meta",
+              "data": {
+                "name": "coupon"
+              },
+              "localcart": {
+                "products": {
+                  "items": []
+                }
+              }
+            },
+            "is_pos": true,
+            "store_id": 1,
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "cart",
+          "payload": {
+            "payload": {
+              "operation": "delete",
+              "type": "meta",
+              "data": {
+                "name": "gift_voucher"
+              }
+            },
+            "is_pos": true,
+            "store_id": 1,
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "pos/product",
+          "payload": {
+            "store_id": 1,
+            "barcode": "8900000000010",
+            "is_pos": true,
+            "auto_add_to_cart": 1,
+            "custom_data": {
+              "gvprice": 1234
+            },
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "cart",
+          "payload": {
+            "payload": {
+              "operation": "delete",
+              "type": "meta",
+              "data": {
+                "name": "coupon"
+              },
+              "localcart": {
+                "products": {
+                  "items": []
+                }
+              }
+            },
+            "is_pos": true,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "cart",
+          "payload": {
+            "payload": {
+              "operation": "delete",
+              "type": "meta",
+              "data": {
+                "name": "gift_voucher"
+              }
+            },
+            "is_pos": true,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "pos/product",
+          "payload": {
+            "store_id": 1,
+            "barcode": "8900000000010",
+            "is_pos": true,
+            "auto_add_to_cart": 1,
+            "custom_data": {
+              "gvprice": 1234
+            }
+          }
+        }
+      ]
+    },
+    {
+      "inputSha256": "6c9081690d0a96023b644c28ecdb89b40ef6ca22b12b69dbc1c13ca068731a63",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "path": "wallet",
+          "payload": {
+            "localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "state": true,
+            "tss_points_status": false,
+            "is_pos": true,
+            "applied_money": 12.34,
+            "custom_tss_money": 1,
+            "store_id": 1,
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "pg",
+          "payload": {
+            "localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "pg_discount": 25.5,
+            "apply": 1,
+            "is_pos": true,
+            "store_id": 1,
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "store-discount-pg",
+          "payload": {
+            "localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "store_discount_pg": 13.25,
+            "apply": 0,
+            "is_pos": true,
+            "store_id": 1,
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "cart",
+          "payload": {
+            "payload": {
+              "operation": "get"
+            },
+            "is_pos": true,
+            "store_id": 1,
+            "store_exclusive": {
+              "operation": "add"
+            },
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "giftvoucher",
+          "payload": {
+            "voucher_code": "GC-fixture",
+            "gc_pin": "123456",
+            "is_pos": true,
+            "store_id": 1,
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "coupon",
+          "payload": {
+            "coupon": "COUPON",
+            "localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "is_pos": true,
+            "store_id": 1,
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "pos/order",
+          "payload": {
+            "payment_method": "coc",
+            "is_pos": true,
+            "store_id": 1,
+            "counter_id": 3,
+            "salesperson_id": 0,
+            "admin_user_id": 777,
+            "custom_data": null,
+            "custom_created_at": null,
+            "gc_data": {},
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "pos/order",
+          "payload": {
+            "payment_method": "prepaid",
+            "is_pos": true,
+            "store_id": 1,
+            "counter_id": 3,
+            "salesperson_id": 0,
+            "admin_user_id": 777,
+            "custom_data": null,
+            "custom_created_at": null,
+            "gc_data": {},
+            "tab_id": 2
+          }
+        },
+        {
+          "path": "payment-confirm",
+          "payload": {
+            "order": 5001,
+            "method": "coc",
+            "isValid": true,
+            "name": "Fixture",
+            "is_pos": true,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "wallet",
+          "payload": {
+            "localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "state": true,
+            "tss_points_status": false,
+            "is_pos": true,
+            "applied_money": 12.34,
+            "custom_tss_money": 1,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "pg",
+          "payload": {
+            "localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "pg_discount": 25.5,
+            "apply": 1,
+            "is_pos": true,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "store-discount-pg",
+          "payload": {
+            "localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "store_discount_pg": 13.25,
+            "apply": 0,
+            "is_pos": true,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "cart",
+          "payload": {
+            "payload": {
+              "operation": "get"
+            },
+            "is_pos": true,
+            "store_id": 1,
+            "store_exclusive": {
+              "operation": "add"
+            }
+          }
+        },
+        {
+          "path": "giftvoucher",
+          "payload": {
+            "voucher_code": "GC-fixture",
+            "gc_pin": "123456",
+            "is_pos": true,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "coupon",
+          "payload": {
+            "coupon": "COUPON",
+            "localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "is_pos": true,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "pos/order",
+          "payload": {
+            "payment_method": "coc",
+            "is_pos": true,
+            "store_id": 1,
+            "counter_id": 3,
+            "salesperson_id": 0,
+            "admin_user_id": 777,
+            "custom_data": null,
+            "custom_created_at": null,
+            "gc_data": {}
+          }
+        },
+        {
+          "path": "pos/order",
+          "payload": {
+            "payment_method": "prepaid",
+            "is_pos": true,
+            "store_id": 1,
+            "counter_id": 3,
+            "salesperson_id": 0,
+            "admin_user_id": 777,
+            "custom_data": null,
+            "custom_created_at": null,
+            "gc_data": {}
+          }
+        },
+        {
+          "path": "payment-confirm",
+          "payload": {
+            "order": 5001,
+            "method": "coc",
+            "isValid": true,
+            "name": "Fixture",
+            "is_pos": true,
+            "store_id": 1
+          }
+        },
+        {
+          "path": "syncart",
+          "payload": {
+            "token": "target-token",
+            "localcart": {},
+            "pos_localcart": {
+              "products": {
+                "items": []
+              }
+            },
+            "is_pos": true,
+            "store_id": 1
+          }
+        }
+      ]
+    },
+    {
+      "inputSha256": "721e34556150c1c55c83bd0f8469c4c0826886cb5434cdbf83ad8ade37bf67cb",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": {
+        "fiscal": ["2526", "2627", "2627", "9900"],
+        "transactions": [
+          "5001",
+          "5001",
+          "5001-2",
+          "50012",
+          "5001-3",
+          "50013",
+          "5001-2",
+          "50012",
+          "5001-4",
+          "50014",
+          "5001-5",
+          "50015",
+          "5001-4",
+          "50014",
+          "5001-6",
+          "50016",
+          "5001-7",
+          "50017",
+          "ABC-123456",
+          "ABC123456",
+          "ABC-123456-2",
+          "ABC1234562",
+          "ABC-123456-3",
+          "ABC1234563",
+          "ABC-123456-2",
+          "ABC1234562",
+          "ABC-123456-4",
+          "ABC1234564",
+          "ABC-123456-5",
+          "ABC1234565",
+          "ABC-123456-4",
+          "ABC1234564",
+          "ABC-123456-6",
+          "ABC1234566",
+          "ABC-123456-7",
+          "ABC1234567",
+          "5001",
+          "5001",
+          "123-2",
+          "1232",
+          "123-3",
+          "1233",
+          "123-2",
+          "1232",
+          "123-4",
+          "1234",
+          "123-5",
+          "1235",
+          "123-4",
+          "1234",
+          "123-6",
+          "1236",
+          "123-7",
+          "1237",
+          "12345678",
+          "12345678",
+          "12345678-2",
+          "123456782",
+          "12345678-3",
+          "123456783",
+          "12345678-2",
+          "123456782",
+          "12345678-4",
+          "123456784",
+          "12345678-5",
+          "123456785",
+          "12345678-4",
+          "123456784",
+          "12345678-6",
+          "123456786",
+          "12345678-7",
+          "123456787"
+        ]
+      }
+    },
+    {
+      "inputSha256": "c78174ffe62c9c55e14b874084dc22365010ea1551ae8938dd184884a01a30b2",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "pay_mode": "other",
+          "pay_amt": 99.87,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 2.54,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 133.0,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 99.87,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 2.54,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 133.0,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 99.87,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 2.54,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 133.0,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 99.87,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 2.54,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 133.0,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": false
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "prepaid",
+          "pay_amt": 0,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 99.88,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 2.55,
+          "is_exchange_order": true
+        },
+        {
+          "pay_mode": "other",
+          "pay_amt": 133.0,
+          "is_exchange_order": true
+        }
+      ]
+    }
+  ]
+}

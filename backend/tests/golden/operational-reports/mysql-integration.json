@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/operational-reports/acceptance-oracle.py; tools/operational-reports/inventory-oracle.py; tools/operational-reports/performance-oracle.py; tools/operational-reports/performance-query-oracle.py; tools/operational-reports/returned-orders-oracle.py",
+  "runtime": "CPython 3.10.22 (tools/inventory-workbooks/.venv: openpyxl 3.1.2, et-xmlfile 1.1.0)",
+  "capturedAt": "2026-11-18T19:11:08Z",
+  "test": "tests/operational-reports/mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/returned-orders-oracle.py",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59",
+        "1"
+      ],
+      "status": 0,
+      "stdout": "\n    SELECT\n        hp.id,\n        st.store_name,\n        ro.order_id,\n        ro.prod_id,\n        ro.qty,\n        MAX(CASE\n            WHEN hp.return_mode = 5 AND hp.status = 'EXCHANGE_COMPLETED' THEN tmh.added_amt\n            ELSE arl.refunded_amt\n        END) AS pay_amount_refunded,\n        CASE\n            WHEN hp.return_mode = 5 AND hp.status = 'EXCHANGE_COMPLETED' THEN 'TSS_MONEY'\n            ELSE arl.refund_mode\n        END AS pay_amount_refunded_mode,\n        rpr.reason,\n        sr.sub_reason,\n        ro.comment,\n        hp.created_at as order_date,\n        ro.created_at,\n        o.parent_order_id AS OriginalOrderId\n    FROM\n        has_products AS hp\n            LEFT JOIN\n        return_orders AS ro ON ro.order_id = hp.order_id\n            AND ro.prod_id = hp.prod_id AND ro.has_product_id = hp.id\n            LEFT JOIN\n        amount_to_be_refunded_log AS arl ON arl.order_id = ro.order_id\n            AND arl.prod_id = ro.prod_id AND arl.has_product_id = hp.id\n            LEFT JOIN\n        reverse_pickup_reason AS rpr ON rpr.id = ro.reason_id\n            LEFT JOIN\n        sub_reasons AS sr ON sr.id = ro.sub_reason_id\n            LEFT JOIN\n        stores AS st ON st.id = ro.store_id\n            LEFT JOIN\n        orders AS o ON o.id = hp.order_id\n            LEFT JOIN\n        tss_money_history tmh ON tmh.order_id = o.id AND tmh.has_product_id = hp.id\n                AND tmh.platform = 'EXCHANGE' AND tmh.added_amt > 0\n    WHERE\n        (hp.return_mode = 3 OR (hp.return_mode = 5 AND hp.status = 'EXCHANGE_COMPLETED'))\n            AND ro.store_id > 0\n AND ro.created_at BETWEEN '2026-11-16 00:00:00' AND '2026-11-16 23:59:59' AND ro.store_id IN (1) GROUP BY hp.id ORDER BY ro.created_at DESC,hp.id ASC\n"
+    },
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/performance-query-oracle.py",
+        "salesperson",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59",
+        "1"
+      ],
+      "status": 0,
+      "stdout": "SELECT\n                st.store_name AS Store_Name,\n                sp.employee_id AS employee_id,\n                CONCAT(sp.first_name, ' ', sp.last_name) AS salesperson_name,\n                SUM(hp.price) AS total_sales\n            FROM\n                order_stores os\n                    LEFT JOIN\n                has_products hp ON os.order_id = hp.order_id\n                    LEFT JOIN\n                salespersons sp ON sp.id = (\n                CASE WHEN hp.salesperson_id = 0 THEN os.salesperson_id\n                ELSE hp.salesperson_id\n                END)\n                    LEFT JOIN\n                stores st ON st.id = os.store_id\n            WHERE\n                hp.`status` = 'DELIVERED'\n                AND NULLIF(sp.employee_id, '') IS NOT NULL\n         AND hp.created_at BETWEEN '2026-11-16 00:00:00' AND '2026-11-16 23:59:59' AND os.store_id IN (1) GROUP BY employee_id ORDER BY total_sales DESC,employee_id ASC\n"
+    },
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/performance-query-oracle.py",
+        "cashier",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59",
+        "1"
+      ],
+      "status": 0,
+      "stdout": "SELECT \n                os.admin_user_id as pos_admin_id,\n                os.performance_json,\n                CONCAT(u.firstname, ' ', u.lastname) AS cashier_name,\n                sum(hp.qty) as qty,\n                os.order_id as oi\n            FROM\n                orders o\n                    LEFT JOIN\n                order_stores os ON os.order_id = o.id\n                    LEFT JOIN\n                users u on u.id = os.admin_user_id\n                    LEFT JOIN has_products hp on hp.order_id = o.id\n            WHERE\n                NULLIF(performance_json, '') IS NOT NULL\n         AND o.created_at BETWEEN '2026-11-16 00:00:00' AND '2026-11-16 23:59:59' AND os.store_id IN (1) GROUP BY os.order_id ORDER BY os.order_id ASC\n"
+    },
+    {
+      "inputSha256": "427bfb2f802960ada3c60bb87a263e710679759f22d54dec0a3007ef170e1b8a",
+      "args": ["-B", "tools/operational-reports/performance-oracle.py"],
+      "status": 0,
+      "output": [
+        [
+          {
+            "id": "41",
+            "cashier_name": "Fixture Cashier 41",
+            "product_sold": 6,
+            "time_taken": "00M 1S",
+            "score": 30
+          },
+          {
+            "id": "42",
+            "cashier_name": "Fixture Cashier 42",
+            "product_sold": 4,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ]
+      ]
+    },
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/acceptance-oracle.py",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59",
+        "1"
+      ],
+      "status": 0,
+      "stdout": "SELECT\n                    hol.id,\n                    s.store_name,\n                    hol.order_id,\n                    pos_admin_id,\n                    hol.created_at,\n                    CONCAT(\n                        CASE\n                            WHEN FLOOR(TIMESTAMPDIFF(SECOND, hol.created_at, hol.updated_at) / 86400) > 0\n                            THEN CONCAT(FLOOR(TIMESTAMPDIFF(SECOND, hol.created_at, hol.updated_at) / 86400), 'D ')\n                            ELSE ''\n                        END,\n                        FLOOR((TIMESTAMPDIFF(SECOND, hol.created_at, hol.updated_at) % 86400) / 3600), 'H ',\n                        FLOOR((TIMESTAMPDIFF(SECOND, hol.created_at, hol.updated_at) % 3600) / 60), 'M ',\n                        (TIMESTAMPDIFF(SECOND, hol.created_at, hol.updated_at) % 60), 'S'\n                    ) AS time_taken\n                FROM\n                    hyperlocal_order_log hol\n                        LEFT JOIN\n                    orders o ON o.id = hol.order_id\n                        Left JOIN\n                    stores s on s.id = o.location_id\n                WHERE\n                    hol.action = 'accepted'\n         AND hol.created_at BETWEEN '2026-11-16 00:00:00' AND '2026-11-16 23:59:59' AND o.location_id IN (1) ORDER BY hol.id\n"
+    },
+    {
+      "inputSha256": "522e325bec6ae5479c6ca9edb0a1b6ee8f8a57da106c047b66f94b3b2de803b8",
+      "args": ["-B", "tools/operational-reports/inventory-oracle.py"],
+      "status": 0,
+      "output": [
+        "\n                        SELECT\n                            id\n                        FROM\n                            products\n                        WHERE\n                            id IN (SELECT DISTINCT\n                                p.parent_prod_id\n                        FROM\n                            products AS p\n                                LEFT JOIN\n                            product_store AS ps ON ps.product_id = p.id\n                        WHERE\n                            ps.store_id = 1 AND p.prod_type = 1)\n                        AND id NOT IN (SELECT\n                            product_id\n                        FROM\n                            product_store\n                        WHERE\n                            product_id IN (SELECT DISTINCT\n                                    p.parent_prod_id\n                                FROM\n                                    products AS p\n                                        LEFT JOIN\n                                    product_store AS ps ON ps.product_id = p.id\n                                WHERE\n                            ps.store_id = 1 AND p.prod_type = 1)\n                        AND store_id = 1)"
+      ]
+    }
+  ]
+}

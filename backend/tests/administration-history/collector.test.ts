@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
 
 const outcome = z.object({
   kind: z.string(),
@@ -47,22 +47,7 @@ const evidence = z.object({
 });
 describe('pinned Django delete collector and administration contracts', () => {
   const source = () =>
-    evidence.parse(
-      JSON.parse(
-        execFileSync(
-          'uv',
-          [
-            'run',
-            '--no-project',
-            '--with',
-            'django==4.2.5',
-            'python',
-            'tools/administration-history/collector-oracle.py',
-          ],
-          { encoding: 'utf8', timeout: 30000 },
-        ),
-      ) as unknown,
-    );
+    evidence.parse(JSON.parse(goldenStdout('administration-history', 'collector')) as unknown);
   it('executes the source-pinned single/bulk paths and exposes committed false audit after a failed bulk delete', () => {
     const value = source(),
       cases = new Map(value.collectorCases.map((item) => [item.kind, item]));

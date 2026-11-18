@@ -1,0 +1,533 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/model-accounts/source-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pymysql==1.1.1",
+  "capturedAt": "2026-11-18T19:13:19Z",
+  "test": "tests/administration/model-accounts/service.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "629e9f5838abd6a98779f4dccc663deb7edbaa42b2c4e7902b04918df556eae8",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/model-accounts/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "users/admin.py": "b122d35abc3556090bb07eff70c6919097644a6442951bdce79d9e08d30c97e8",
+          "users/apps.py": "a198faa919ccef5a6862e9e521928683a2ddf9b92d19929bdbb14076da9931f7",
+          "users/signals.py": "e0635be5b099e14aa2dd3d19c9d96242ab1cdd33ba1bd98f22de2be3e5f949fe",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+          "stores/admin.py": "ae5cd836b7ad168fc5d242e41bffbaf76d510b25fd782dd8fa6e441b9231080b",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b"
+        },
+        "addFields": ["username", "password1", "password2"],
+        "users": [
+          {
+            "valid": true,
+            "codes": {},
+            "account": {
+              "id": "900008",
+              "last_login": null,
+              "is_superuser": false,
+              "username": "model-fixture-user",
+              "first_name": "",
+              "last_name": "",
+              "is_staff": false,
+              "is_active": true,
+              "date_joined": "2026-06-15T12:00:00",
+              "role": 1,
+              "gender": null,
+              "age": null,
+              "phone": null,
+              "email": "",
+              "is_mfa": false,
+              "mfa_hash": null,
+              "profile_image": "uploads/users/profile_image/default_profile_image.png",
+              "cover_image": "uploads/users/cover_image/default_cover_image.png",
+              "contact_email": null,
+              "otp_method": 2,
+              "user_type": 1
+            },
+            "passwordValid": true
+          }
+        ],
+        "stores": [],
+        "permissions": [
+          {
+            "add": false,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": false,
+            "change": true,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": true,
+            "sourceAllowed": true
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "26430debed7bbbe0621f1e828585cc8892e5081abaa20a73ea3f63730a02c83c",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/model-accounts/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "users/admin.py": "b122d35abc3556090bb07eff70c6919097644a6442951bdce79d9e08d30c97e8",
+          "users/apps.py": "a198faa919ccef5a6862e9e521928683a2ddf9b92d19929bdbb14076da9931f7",
+          "users/signals.py": "e0635be5b099e14aa2dd3d19c9d96242ab1cdd33ba1bd98f22de2be3e5f949fe",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+          "stores/admin.py": "ae5cd836b7ad168fc5d242e41bffbaf76d510b25fd782dd8fa6e441b9231080b",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b"
+        },
+        "addFields": ["username", "password1", "password2"],
+        "users": [],
+        "stores": [
+          {
+            "valid": false,
+            "urlRequired": true,
+            "codes": {
+              "url_key": ["required"]
+            }
+          },
+          {
+            "valid": true,
+            "urlRequired": true,
+            "codes": {},
+            "id": "1",
+            "url": "https://thesouledstore.com/?store_id=1",
+            "storeName": "Synthetic store 1",
+            "phone": "9000000001"
+          },
+          {
+            "valid": true,
+            "urlRequired": true,
+            "codes": {},
+            "id": "2",
+            "url": "https://thesouledstore.com/?store_id=2",
+            "storeName": "Synthetic store 2",
+            "phone": "9000000002"
+          }
+        ],
+        "permissions": [
+          {
+            "add": false,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": false,
+            "change": true,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": true,
+            "sourceAllowed": true
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "6fd7283b7762993566f245668154c69633de7a818062413a61c7060f36ee9e61",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/model-accounts/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "users/admin.py": "b122d35abc3556090bb07eff70c6919097644a6442951bdce79d9e08d30c97e8",
+          "users/apps.py": "a198faa919ccef5a6862e9e521928683a2ddf9b92d19929bdbb14076da9931f7",
+          "users/signals.py": "e0635be5b099e14aa2dd3d19c9d96242ab1cdd33ba1bd98f22de2be3e5f949fe",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+          "stores/admin.py": "ae5cd836b7ad168fc5d242e41bffbaf76d510b25fd782dd8fa6e441b9231080b",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b"
+        },
+        "addFields": ["username", "password1", "password2"],
+        "users": [],
+        "stores": [
+          {
+            "valid": true,
+            "urlRequired": true,
+            "codes": {},
+            "saveError": "IntegrityError"
+          }
+        ],
+        "permissions": [
+          {
+            "add": false,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": false,
+            "change": true,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": true,
+            "sourceAllowed": true
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "ea2f329a4cb7bdd201582c7faf682bcca52b05a3cda84c908bcdfcb0feda64e7",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/model-accounts/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "users/admin.py": "b122d35abc3556090bb07eff70c6919097644a6442951bdce79d9e08d30c97e8",
+          "users/apps.py": "a198faa919ccef5a6862e9e521928683a2ddf9b92d19929bdbb14076da9931f7",
+          "users/signals.py": "e0635be5b099e14aa2dd3d19c9d96242ab1cdd33ba1bd98f22de2be3e5f949fe",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+          "stores/admin.py": "ae5cd836b7ad168fc5d242e41bffbaf76d510b25fd782dd8fa6e441b9231080b",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b"
+        },
+        "addFields": ["username", "password1", "password2"],
+        "users": [
+          {
+            "valid": true,
+            "codes": {},
+            "account": {
+              "id": "900010",
+              "last_login": null,
+              "is_superuser": false,
+              "username": "Model-Pair",
+              "first_name": "",
+              "last_name": "",
+              "is_staff": false,
+              "is_active": true,
+              "date_joined": "2026-06-15T12:00:00",
+              "role": 1,
+              "gender": null,
+              "age": null,
+              "phone": null,
+              "email": "",
+              "is_mfa": false,
+              "mfa_hash": null,
+              "profile_image": "uploads/users/profile_image/default_profile_image.png",
+              "cover_image": "uploads/users/cover_image/default_cover_image.png",
+              "contact_email": null,
+              "otp_method": 2,
+              "user_type": 1
+            },
+            "passwordValid": true
+          },
+          {
+            "valid": false,
+            "codes": {
+              "username": ["unique"]
+            }
+          },
+          {
+            "valid": false,
+            "codes": {
+              "password2": ["password_mismatch"]
+            }
+          }
+        ],
+        "stores": [],
+        "permissions": [
+          {
+            "add": false,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": false,
+            "change": true,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": true,
+            "sourceAllowed": true
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "23e2a158426b144098384dc2be7bf7cb1b69a24a61bebe1f1317903ea8236b3f",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/model-accounts/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "users/admin.py": "b122d35abc3556090bb07eff70c6919097644a6442951bdce79d9e08d30c97e8",
+          "users/apps.py": "a198faa919ccef5a6862e9e521928683a2ddf9b92d19929bdbb14076da9931f7",
+          "users/signals.py": "e0635be5b099e14aa2dd3d19c9d96242ab1cdd33ba1bd98f22de2be3e5f949fe",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+          "stores/admin.py": "ae5cd836b7ad168fc5d242e41bffbaf76d510b25fd782dd8fa6e441b9231080b",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b"
+        },
+        "addFields": ["username", "password1", "password2"],
+        "users": [
+          {
+            "valid": true,
+            "codes": {},
+            "account": {
+              "id": "900012",
+              "last_login": null,
+              "is_superuser": false,
+              "username": "first-default",
+              "first_name": "",
+              "last_name": "",
+              "is_staff": false,
+              "is_active": true,
+              "date_joined": "2026-06-15T12:00:00",
+              "role": 1,
+              "gender": null,
+              "age": null,
+              "phone": null,
+              "email": "",
+              "is_mfa": false,
+              "mfa_hash": null,
+              "profile_image": "uploads/users/profile_image/default_profile_image.png",
+              "cover_image": "uploads/users/cover_image/default_cover_image.png",
+              "contact_email": null,
+              "otp_method": 2,
+              "user_type": 1
+            },
+            "passwordValid": true
+          },
+          {
+            "valid": true,
+            "codes": {},
+            "saveError": "IntegrityError"
+          }
+        ],
+        "stores": [],
+        "permissions": [
+          {
+            "add": false,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": false,
+            "change": true,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": true,
+            "sourceAllowed": true
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "e8c5df18c6d967aa9969804890677fd0b2002f329a10f91a76e8405cf9592a47",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/model-accounts/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "users/admin.py": "b122d35abc3556090bb07eff70c6919097644a6442951bdce79d9e08d30c97e8",
+          "users/apps.py": "a198faa919ccef5a6862e9e521928683a2ddf9b92d19929bdbb14076da9931f7",
+          "users/signals.py": "e0635be5b099e14aa2dd3d19c9d96242ab1cdd33ba1bd98f22de2be3e5f949fe",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+          "stores/admin.py": "ae5cd836b7ad168fc5d242e41bffbaf76d510b25fd782dd8fa6e441b9231080b",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b"
+        },
+        "addFields": ["username", "password1", "password2"],
+        "users": [],
+        "stores": [],
+        "permissions": [
+          {
+            "add": false,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": false,
+            "change": true,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": true,
+            "sourceAllowed": true
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "a053032ba7fa0ada2b24a84f6f6e6aaa58a4633c7c182558d82b7b222fb89764",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/model-accounts/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "hashes": {
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "users/admin.py": "b122d35abc3556090bb07eff70c6919097644a6442951bdce79d9e08d30c97e8",
+          "users/apps.py": "a198faa919ccef5a6862e9e521928683a2ddf9b92d19929bdbb14076da9931f7",
+          "users/signals.py": "e0635be5b099e14aa2dd3d19c9d96242ab1cdd33ba1bd98f22de2be3e5f949fe",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+          "stores/admin.py": "ae5cd836b7ad168fc5d242e41bffbaf76d510b25fd782dd8fa6e441b9231080b",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b"
+        },
+        "addFields": ["username", "password1", "password2"],
+        "users": [
+          {
+            "valid": true,
+            "codes": {},
+            "account": {
+              "id": "9007199254740994",
+              "last_login": null,
+              "is_superuser": false,
+              "username": "long-model-account",
+              "first_name": "",
+              "last_name": "",
+              "is_staff": false,
+              "is_active": true,
+              "date_joined": "2026-06-15T12:00:00",
+              "role": 1,
+              "gender": null,
+              "age": null,
+              "phone": null,
+              "email": "",
+              "is_mfa": false,
+              "mfa_hash": null,
+              "profile_image": "uploads/users/profile_image/default_profile_image.png",
+              "cover_image": "uploads/users/cover_image/default_cover_image.png",
+              "contact_email": null,
+              "otp_method": 2,
+              "user_type": 1
+            },
+            "passwordValid": true
+          }
+        ],
+        "stores": [],
+        "permissions": [
+          {
+            "add": false,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": false,
+            "change": true,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": false,
+            "sourceAllowed": false
+          },
+          {
+            "add": true,
+            "change": true,
+            "sourceAllowed": true
+          }
+        ]
+      }
+    }
+  ]
+}

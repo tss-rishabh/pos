@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import {
@@ -24,6 +23,7 @@ import {
   pineStatusPayload,
   pineCancelPayload,
 } from '../../src/modules/checkout/payloads.js';
+import { goldenStdout } from '../golden/load.js';
 
 const attempt: PaymentAttempt = paymentAttemptSchema.parse({
   id: crypto.randomUUID(),
@@ -57,10 +57,7 @@ const machine: PaytmTerminal = {
 describe('payment source parity and provider evidence', () => {
   it('matches six source-extracted Pine Labs and Paytm dispatch/status/cancel payloads', () => {
     const oracle: unknown = JSON.parse(
-      execFileSync('python3', ['tools/checkout/legacy_oracle.py'], {
-        input: JSON.stringify({ operation: 'terminal_payloads' }),
-        encoding: 'utf8',
-      }),
+      goldenStdout('checkout', 'payments', JSON.stringify({ operation: 'terminal_payloads' })),
     );
     const pine = {
         merchantId: 'fixture-merchant',

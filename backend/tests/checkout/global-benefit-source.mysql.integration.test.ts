@@ -2,7 +2,28 @@ import { randomUUID } from 'node:crypto';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
-import { benefitOracle, type BenefitOracleCase } from '../../tools/checkout/benefit-oracle.js';
+import {
+  benefitOracleResult,
+  type BenefitOracleCase,
+} from '../../tools/checkout/benefit-oracle.js';
+import { goldenStdout } from '../golden/load.js';
+
+/** Replays tools/checkout/benefit_oracle.py output captured from the pinned source. */
+function benefitOracle(
+  cases: readonly BenefitOracleCase[],
+  profile: 'legacy' | 'proposed-wallet-v1' = 'legacy',
+) {
+  if (!cases.length || cases.length > 1000) throw new Error('Bounded benefit cases required.');
+  return benefitOracleResult.parse(
+    JSON.parse(
+      goldenStdout(
+        'checkout',
+        'global-benefit-source-mysql-integration',
+        JSON.stringify({ cases, profile }),
+      ),
+    ) as unknown,
+  );
+}
 import { planWalletAdjustment } from '../../src/modules/checkout/benefit-adjustments/policy.js';
 
 const integration = process.env.CHECKOUT_MYSQL_TEST_URL;

@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { phoneOtpDelivery } from '../../src/auth/delivery.js';
 import {
@@ -15,14 +14,10 @@ import {
   assertRegistrationReady,
   registrationEnvironment,
 } from '../../src/modules/checkout/customers/service.js';
+import { goldenStdout } from '../golden/load.js';
 
 const oracle = (operation: string): unknown =>
-  JSON.parse(
-    execFileSync('python3', ['tools/checkout/legacy_oracle.py'], {
-      input: JSON.stringify({ operation }),
-      encoding: 'utf8',
-    }),
-  ) as unknown;
+  JSON.parse(goldenStdout('checkout', 'customers', JSON.stringify({ operation }))) as unknown;
 const details = {
   name: 'Fixture Customer',
   telephone: '9000000001',

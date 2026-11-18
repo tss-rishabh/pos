@@ -1,0 +1,64 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "compatibility/upstream/customer-website-handoff/source_oracle.py",
+  "runtime": "CPython 3.12.15 via uv --frozen --project compatibility/upstream/invoice-security/runtime",
+  "capturedAt": "2026-11-18T19:05:43Z",
+  "test": "tests/customer-website-handoff/source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "run",
+        "--frozen",
+        "--project",
+        "compatibility/upstream/invoice-security/runtime",
+        "python",
+        "compatibility/upstream/customer-website-handoff/source_oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "pin": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "sourceHashes": {
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+          "order/views.py": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea"
+        },
+        "vectors": [
+          {
+            "twoFactor": false,
+            "algorithm": "HS256",
+            "prefix": false,
+            "customerId": "7",
+            "expirySeconds": 300.0,
+            "path": "/pos/login/",
+            "queryKeys": ["api_key", "pos_store_id", "pos_user_id", "token"],
+            "storeId": "1",
+            "operatorCustomerId": "88"
+          },
+          {
+            "twoFactor": true,
+            "algorithm": "HS512",
+            "prefix": true,
+            "customerId": "7",
+            "expirySeconds": 300.0,
+            "path": "/pos/login/",
+            "queryKeys": ["api_key", "pos_store_id", "pos_user_id", "token"],
+            "storeId": "1",
+            "operatorCustomerId": "88"
+          },
+          {
+            "twoFactor": false,
+            "algorithm": "HS256",
+            "prefix": false,
+            "customerId": "7",
+            "expirySeconds": 300.0,
+            "path": "/pos/login/",
+            "queryKeys": ["api_key", "pos_store_id", "pos_user_id", "token"],
+            "storeId": "1",
+            "operatorCustomerId": "0"
+          }
+        ]
+      }
+    }
+  ]
+}

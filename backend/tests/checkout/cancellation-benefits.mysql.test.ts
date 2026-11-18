@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { z } from 'zod';
 import { sql } from 'drizzle-orm';
 import { readFileSync } from 'node:fs';
@@ -26,6 +25,7 @@ import {
   type CancellationBenefitProfile,
   type CancellationBenefitScope,
 } from '../../src/modules/checkout/cancellations/benefit-contracts.js';
+import { goldenStdout } from '../golden/load.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 const profile: CancellationBenefitProfile = {
@@ -592,13 +592,7 @@ describe.skipIf(!template)(
           }),
         ),
       })
-      .parse(
-        JSON.parse(
-          execFileSync('python3', ['tools/checkout/cancellation_membership_oracle.py'], {
-            encoding: 'utf8',
-          }),
-        ) as unknown,
-      );
+      .parse(JSON.parse(goldenStdout('checkout', 'cancellation-benefits-mysql')) as unknown);
     async function stagedMember(name: string) {
       const vector = membershipVectors.cases.find((row) => row.name === name)!;
       const scope = { ...(await order()), membership: true },

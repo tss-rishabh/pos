@@ -1,4 +1,3 @@
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { describe, expect, it } from 'vitest';
 import {
   cashierPerformance,
@@ -7,6 +6,7 @@ import {
   type CashierPerformanceRecord,
   type CashierSort,
 } from '../../src/modules/operational-reports/performance-domain.js';
+import { goldenStdout } from '../golden/load.js';
 function row(
   order: number,
   cashier: number,
@@ -67,10 +67,11 @@ describe('source staff performance arithmetic', () => {
         }),
       );
     const expected: unknown = JSON.parse(
-      executePosSourceOracle(['tools/operational-reports/performance-oracle.py'], {
-        input: JSON.stringify({ cases: [...cashierCases, ...salesCases] }),
-        encoding: 'utf8',
-      }),
+      goldenStdout(
+        'operational-reports',
+        'performance-domain',
+        JSON.stringify({ cases: [...cashierCases, ...salesCases] }),
+      ),
     );
     expect([
       ...cashierCases.map((value) => cashierPerformance(value.rows, value.sort, value.direction)),

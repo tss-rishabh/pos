@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import mysql from 'mysql2/promise';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -25,14 +24,10 @@ import { customerBriefingService } from '../src/modules/customer-insights/briefi
 import { customerBriefing } from '../src/modules/customer-insights/briefing-contracts.js';
 import { customerBenefitsService } from '../src/modules/customer-insights/benefits.js';
 import { benefitCustomers } from '../src/modules/customer-insights/benefits-schema.js';
+import { goldenStdout } from './golden/load.js';
 
 it('replays the actual pinned property and business-update methods without contact or wallet changes', () => {
-  const result: unknown = JSON.parse(
-    execFileSync('python3', ['tools/customer-insights/source_properties.py'], {
-      encoding: 'utf8',
-      timeout: 10000,
-    }),
-  );
+  const result: unknown = JSON.parse(goldenStdout('core', 'customer-profile-mysql-integration'));
   expect(result).toEqual({
     sourceSha256: '23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0',
     propertyVectors: 6,

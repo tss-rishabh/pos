@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
+import { goldenStdout } from '../golden/load.js';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { Temporal } from '@js-temporal/polyfill';
 import mysql from 'mysql2/promise';
@@ -20,6 +20,14 @@ import {
   feedbackHistoryFixture,
 } from '../../tools/operational-reports/feedback-history-fixtures.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
+
+/** Replays the pinned CPython 3.10 source oracles captured for this test (tests/golden). */
+function executePosSourceOracle(args: readonly string[], options: { input?: string }): string {
+  return goldenStdout('operational-reports', 'feedback-history-mysql-integration', options.input, [
+    '-B',
+    ...args,
+  ]);
+}
 
 describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
   'NPS history facts and current source dimensions',

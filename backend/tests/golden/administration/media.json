@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:34Z",
+  "test": "tests/administration/media.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "cb3d295d7b13859c7837b6fbd199671380bf6703eb0ca1cc317dccf76e8ea5ea",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        ["folder/one.png", "folder/two.png"],
+        ["folder/O'Brien.pdf", "folder/a\\b.pdf"],
+        ["folder/é.png", "folder/escaped'name.png"],
+        []
+      ]
+    }
+  ]
+}

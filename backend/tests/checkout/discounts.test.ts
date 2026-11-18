@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   approverSelection,
@@ -15,6 +14,7 @@ import {
 } from '../../src/modules/checkout/discounts/crypto.js';
 import { assertDiscountDeliveryReady } from '../../src/modules/checkout/discounts/delivery.js';
 import { checkoutStateSchema } from '../../src/modules/checkout/contracts.js';
+import { goldenStdout } from '../golden/load.js';
 
 const secret = 'isolated-discount-approval-secret-'.repeat(3);
 const state = () =>
@@ -81,10 +81,11 @@ describe('manager discount approval source contract and security bindings', () =
       { storeId: '2', amount: '10', productsTotal: '90', thresholds, sendAll: false },
     ];
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/checkout/legacy_oracle.py'], {
-        input: JSON.stringify({ operation: 'discount_policy', cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout(
+        'checkout',
+        'discounts',
+        JSON.stringify({ operation: 'discount_policy', cases }),
+      ),
     );
     expect(
       cases.map((item) =>

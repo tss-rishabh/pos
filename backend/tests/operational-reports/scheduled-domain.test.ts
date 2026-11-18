@@ -1,4 +1,3 @@
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import {
@@ -17,6 +16,7 @@ import {
   type ScheduledKind,
   type AvailabilityFact,
 } from '../../src/modules/operational-reports/scheduled-domain.js';
+import { goldenStdout } from '../golden/load.js';
 const now = Temporal.Instant.from('2026-11-17T08:00:00Z'),
   date = '2026-11-16',
   stores: StoreFact[] = [
@@ -235,12 +235,13 @@ describe('actual source scheduled-report method fixtures', () => {
             includeCompleted,
           });
     const expected = JSON.parse(
-      executePosSourceOracle(['tools/operational-reports/scheduled-oracle.py'], {
-        input: JSON.stringify({
+      goldenStdout(
+        'operational-reports',
+        'scheduled-domain',
+        JSON.stringify({
           cases: cases.map(({ artifact: _, ...value }) => ({ ...value, now: now.toString() })),
         }),
-        encoding: 'utf8',
-      }),
+      ),
     ) as {
       messages: ScheduledArtifact['messages'];
       updates: { ticketId: string; status: string; age: string }[];

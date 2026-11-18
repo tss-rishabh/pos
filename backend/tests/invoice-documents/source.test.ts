@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
 import { sanitizeInvoiceHtml } from '../../src/modules/checkout/invoices.js';
+import { goldenStdout } from '../golden/load.js';
 const numeric = z.record(z.string(), z.unknown());
 it('executes8 pinned original online grouping/calculation/template cases without replacing tax arithmetic', async () => {
   const result = z
@@ -46,34 +47,7 @@ it('executes8 pinned original online grouping/calculation/template cases without
         selectedRawPrice: z.number(),
       }),
     })
-    .parse(
-      JSON.parse(
-        execFileSync(
-          'uv',
-          [
-            'run',
-            '--frozen',
-            '--project',
-            resolve('compatibility/upstream/invoice-security/runtime'),
-            'python',
-            resolve('tools/invoice-documents/source-oracle.py'),
-          ],
-          {
-            encoding: 'utf8',
-            timeout: 20000,
-            maxBuffer: 1024 * 1024,
-            env: {
-              PATH: process.env.PATH,
-              HOME: process.env.HOME,
-              PYTHONDONTWRITEBYTECODE: '1',
-              UV_CACHE_DIR: process.env.UV_CACHE_DIR,
-              UV_OFFLINE: 'true',
-            },
-            stdio: ['pipe', 'pipe', 'pipe'],
-          },
-        ),
-      ) as unknown,
-    );
+    .parse(JSON.parse(goldenStdout('invoice-documents', 'source')) as unknown);
   expect(result.cases).toHaveLength(8);
   for (const proof of result.issuerContexts) {
     expect(proof.contextStoreIds).toEqual(['1', '2']);

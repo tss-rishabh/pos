@@ -1,0 +1,80 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/global-vouchers/compatibility-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:39Z",
+  "test": "tests/global-vouchers/compatibility.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/global-vouchers/compatibility-oracle.py"],
+      "status": 0,
+      "output": {
+        "patchesDryApplied": 3,
+        "ordinaryDatesSkipped": true,
+        "cart": [
+          {
+            "value": 25.5,
+            "hasDates": false
+          },
+          {
+            "value": 25,
+            "hasDates": false
+          },
+          {
+            "error": "No balance in applied voucher."
+          },
+          {
+            "value": 25.49,
+            "hasDates": false
+          },
+          {
+            "value": 0.01,
+            "hasDates": false
+          }
+        ],
+        "originalCheck": {
+          "voucher_validity": null,
+          "voucher_value": 25.49
+        },
+        "candidateCheck": {
+          "voucher_validity": "0000-00-00 00:00:00",
+          "voucher_value": 25.49
+        },
+        "enumHasGvAdd": true,
+        "genericCouponExcludesType3": true,
+        "pinPolicy": {
+          "limit": 6,
+          "ttlSeconds": 86400,
+          "sliding": [
+            {
+              "at": 0,
+              "failures": 1,
+              "expiresAt": 86400
+            },
+            {
+              "at": 1800,
+              "failures": 2,
+              "expiresAt": 88200
+            },
+            {
+              "at": 86400,
+              "failures": 3,
+              "expiresAt": 172800
+            },
+            {
+              "at": 172800,
+              "failures": 1,
+              "expiresAt": 259200
+            }
+          ],
+          "blockedValidBeforeExpiry": true,
+          "blockedAttemptExpiresAt": 86400,
+          "acceptedValidAtExpiry": true
+        },
+        "exactCandidateUsesInitial": true
+      }
+    }
+  ]
+}

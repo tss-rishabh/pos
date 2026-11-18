@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
@@ -8,6 +7,7 @@ import {
   voucherMinorUnits,
 } from '../../src/modules/global-vouchers/policy.js';
 import { readGlobalVoucherOptions } from '../../src/modules/global-vouchers/options.js';
+import { goldenStdout } from '../golden/load.js';
 
 describe('reviewed voucher consumer compatibility', () => {
   it('uses source six/86400 PIN defaults and refuses configuration that would loosen them', () => {
@@ -21,9 +21,7 @@ describe('reviewed voucher consumer compatibility', () => {
     ).toThrow();
   });
   it('dry-applies every pinned patch and executes original/current cart/check consumers with NULL nonexpiry', () => {
-    const raw = execFileSync('python3', ['tools/global-vouchers/compatibility-oracle.py'], {
-      encoding: 'utf8',
-    });
+    const raw = goldenStdout('global-vouchers', 'compatibility');
     const result = z
       .object({
         patchesDryApplied: z.number(),

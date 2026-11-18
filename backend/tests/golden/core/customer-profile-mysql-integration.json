@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/customer-insights/source_properties.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:07:36Z",
+  "test": "tests/customer-profile.mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/customer-insights/source_properties.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0",
+        "propertyVectors": 6,
+        "businessVectors": 2
+      }
+    }
+  ]
+}

@@ -1,14 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { inboundPayload } from '../../src/modules/checkout/return-workflow/gateway.js';
 import { exchangePayload } from '../../src/modules/checkout/payloads.js';
+import { goldenStdout } from '../golden/load.js';
 const oracle = (operation: string): unknown =>
-  JSON.parse(
-    execFileSync('python3', ['tools/checkout/legacy_oracle.py'], {
-      input: JSON.stringify({ operation }),
-      encoding: 'utf8',
-    }),
-  ) as unknown;
+  JSON.parse(goldenStdout('checkout', 'returns-parity', JSON.stringify({ operation }))) as unknown;
 describe('source-extracted return and exchange payload parity', () => {
   it('preserves the warehouse request fields and exchange Replacement category', () => {
     const input = {

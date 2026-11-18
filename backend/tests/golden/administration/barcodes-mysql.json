@@ -1,0 +1,220 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/barcodes/source-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pymysql==1.1.1",
+  "capturedAt": "2026-11-18T19:13:18Z",
+  "test": "tests/administration/barcodes/mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "15ca0d18c8d5ecbefafcd763aa0f8f0b9e0290645412a6332a3d2ca778fb5637",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/barcodes/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "hashes": {
+          "core/views.py": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0"
+        },
+        "barcodes": [
+          {
+            "status": "fail",
+            "message": "Invalid Product"
+          },
+          {
+            "status": "fail",
+            "message": "Product already belongs to another Barcode"
+          },
+          {
+            "status": "fail",
+            "message": "Barcode already belongs to another product, Product ID : 11"
+          },
+          {
+            "status": "success",
+            "message": "Barcode 555 has been added for product Id 13"
+          },
+          {
+            "status": "success",
+            "message": "Barcode 777 has been added for product Id 14"
+          }
+        ],
+        "countries": [],
+        "audits": [
+          {
+            "platform": "barcode",
+            "comment": "Barcode 555 has been added for product Id 13",
+            "recipient": "",
+            "pos_user_id": "900001"
+          },
+          {
+            "platform": "barcode",
+            "comment": "Barcode 777 has been added for product Id 14",
+            "recipient": "",
+            "pos_user_id": "900001"
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "7a4d684cdb4cbe3dc78e2cac84dbb242837c116669e1c3403549788c5b7dab0b",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/administration/barcodes/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "hashes": {
+          "core/views.py": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0"
+        },
+        "barcodes": [],
+        "countries": [
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {}
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {}
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": [
+                {
+                  "id": "1",
+                  "text": "India"
+                },
+                {
+                  "id": "3",
+                  "text": "Inactive India"
+                }
+              ]
+            }
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": [
+                {
+                  "id": "1",
+                  "text": "India"
+                },
+                {
+                  "id": "3",
+                  "text": "Inactive India"
+                }
+              ]
+            }
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": [
+                {
+                  "id": "4",
+                  "text": "Côte d'Ivoire"
+                }
+              ]
+            }
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": [
+                {
+                  "id": "5",
+                  "text": "Percent % land"
+                }
+              ]
+            }
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": [
+                {
+                  "id": "6",
+                  "text": "Under_score"
+                }
+              ]
+            }
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": [
+                {
+                  "id": "7",
+                  "text": "Back\\slash"
+                }
+              ]
+            }
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": [
+                {
+                  "id": "4",
+                  "text": "Côte d'Ivoire"
+                }
+              ]
+            }
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": [
+                {
+                  "id": "3",
+                  "text": "Inactive India"
+                },
+                {
+                  "id": "4",
+                  "text": "Côte d'Ivoire"
+                },
+                {
+                  "id": "5",
+                  "text": "Percent % land"
+                }
+              ]
+            }
+          },
+          {
+            "status": "success",
+            "message": "Country name",
+            "data": {
+              "country": []
+            }
+          }
+        ],
+        "audits": []
+      }
+    }
+  ]
+}

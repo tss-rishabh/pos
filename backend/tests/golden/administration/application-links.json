@@ -1,0 +1,1042 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/application-links-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:34Z",
+  "test": "tests/administration/application-links.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "b14476d55bf7f4a723dc39dec66faaee77a063ee5b212e29bf1df73e26fd6ddd",
+      "args": ["tools/administration/application-links-oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceHash": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "cases": [
+          {
+            "expiresAt": 30000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 30000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 30000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 30000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 30000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 30000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 30000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 30000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820830000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820830000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 31000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 31000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 31000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 31000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 31000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 31000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 31000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 31000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 62000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 62000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820826000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820826000,
+            "colorTimes": {
+              "1": 10000,
+              "2": 20000,
+              "3": 30000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 60000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820860000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820860000,
+            "colorTimes": {
+              "1": 20000,
+              "2": 40000,
+              "3": 60000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 90000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 90000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 90000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 90000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 90000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 90000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 90000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 90000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 180000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 180000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820860000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820860000,
+            "colorTimes": {
+              "1": 30000,
+              "2": 60000,
+              "3": 90000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 120000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 240000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 240000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820920000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794820920000,
+            "colorTimes": {
+              "1": 40000,
+              "2": 80000,
+              "3": 120000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 300000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 300000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 300000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 300000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 300000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 300000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 300000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 300000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 600000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 600000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794821100000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          },
+          {
+            "expiresAt": 1794821100000,
+            "colorTimes": {
+              "1": 100000,
+              "2": 200000,
+              "3": 300000
+            },
+            "colors": {
+              "1": "red",
+              "2": "orange",
+              "3": "green"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "eb60bd0b9f7f6403222ac2d3cb3614118f215b3e3e8a771fcb01f0849b77124b",
+      "args": ["tools/administration/application-links-oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceHash": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "cases": [
+          {
+            "destination": "https://www.thesouledstore.com/app/fixture",
+            "requests": [
+              {
+                "url": "https://api.example.test/v2/firebase-dynamic-link",
+                "body": {
+                  "link": "https://www.thesouledstore.com?store_id=1"
+                },
+                "headers": {
+                  "content-type": "application/json"
+                }
+              }
+            ],
+            "cacheSets": [
+              {
+                "key": "dynamic_short_link_s_id_1",
+                "value": "https://www.thesouledstore.com/app/fixture",
+                "seconds": 3600
+              }
+            ],
+            "loggedStore": "1",
+            "scannedAt": "2026-11-16 14:50:00"
+          },
+          {
+            "destination": "https://www.thesouledstore.com",
+            "requests": [
+              {
+                "url": "https://api.example.test/v2/firebase-dynamic-link",
+                "body": {
+                  "link": "https://www.thesouledstore.com?store_id=1"
+                },
+                "headers": {
+                  "content-type": "application/json"
+                }
+              }
+            ],
+            "cacheSets": [
+              {
+                "key": "dynamic_short_link_s_id_1",
+                "value": "https://www.thesouledstore.com",
+                "seconds": 3600
+              }
+            ],
+            "loggedStore": "1",
+            "scannedAt": "2026-11-16 09:20:00"
+          },
+          {
+            "destination": "https://www.thesouledstore.com",
+            "requests": [
+              {
+                "url": "https://api.example.test/v2/firebase-dynamic-link",
+                "body": {
+                  "link": "https://www.thesouledstore.com?store_id=1"
+                },
+                "headers": {
+                  "content-type": "application/json"
+                }
+              }
+            ],
+            "cacheSets": [
+              {
+                "key": "dynamic_short_link_s_id_1",
+                "value": "https://www.thesouledstore.com",
+                "seconds": 3600
+              }
+            ],
+            "loggedStore": "1",
+            "scannedAt": "2026-11-16 09:20:00"
+          },
+          {
+            "destination": "https://www.thesouledstore.com/app/cache",
+            "requests": [],
+            "cacheSets": [],
+            "loggedStore": "1",
+            "scannedAt": "2026-11-16 09:20:00"
+          }
+        ]
+      }
+    }
+  ]
+}

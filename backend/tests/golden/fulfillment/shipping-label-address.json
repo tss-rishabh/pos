@@ -1,0 +1,213 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/fulfillment/shipping-label-source-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:39Z",
+  "test": "tests/fulfillment/shipping-label-address.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "47a1b5d433307566f11795c98df48b27d0d404623a2869198105f8e77f29aa7b",
+      "args": ["tools/fulfillment/shipping-label-source-oracle.py"],
+      "status": 0,
+      "output": {
+        "query": "\n            SELECT\n                ha.firstname, ha.lastname,\n                ha.flat, ha.address1, ha.address2, ha.address3, ha.address4,\n                ha.city, ha.postcode, ha.phone_no,\n                z.name  AS zone_name,\n                ct.name AS country_name\n            FROM orders o\n            JOIN has_addresses ha ON ha.id = o.has_address_id\n            LEFT JOIN zones    z  ON z.id  = ha.zone_id\n            LEFT JOIN countries ct ON ct.id = ha.country_id\n            WHERE o.id = %s\n        ",
+        "addresses": [
+          null,
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": ""
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": ""
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "﻿ ﻿",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture state, Fixture country",
+            "phone_no": "0000000000"
+          },
+          {
+            "name": "",
+            "address_line": "",
+            "city_line": "",
+            "phone_no": ""
+          }
+        ]
+      }
+    }
+  ]
+}

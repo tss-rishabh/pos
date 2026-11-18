@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/checkout/customers.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "134e72e7e9120b253e48dbdc1f78389125ce13a901598ffcd4112c0c67bc168c",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "path": "store-register",
+          "payload": {
+            "first_name": "Fixture Customer",
+            "telephone": 9000000001,
+            "email": "9000000001@temp.id",
+            "customer_type": "B2C",
+            "gstin": "",
+            "birthdate": "1990-01-02",
+            "localcart": {},
+            "store_id": 1,
+            "pos_localcart": {}
+          }
+        },
+        {
+          "path": "store-register",
+          "payload": {
+            "first_name": "Fixture Customer",
+            "telephone": 9000000001,
+            "email": "fixture@example.com",
+            "customer_type": "B2B",
+            "gstin": "29ABCDE1234F1Z5",
+            "birthdate": "1990-01-02",
+            "localcart": {},
+            "store_id": 1,
+            "pos_localcart": {}
+          }
+        }
+      ]
+    },
+    {
+      "inputSha256": "0627c81ade622002a3e3a1a83f24a8f45b8389fde6cd30065653d20612d3774a",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": {
+        "deleted": ["777_2", 2, "1_2", "1_2_10"],
+        "status": "success",
+        "count": 0
+      }
+    },
+    {
+      "inputSha256": "d9a1f7e7d0c8e0483293cd9aaa2d04ec8d36fe036b0c352d5750b685f31da68f",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "url": "https://enterprise.smsgupshup.com/GatewayAPI/rest",
+          "payload": {
+            "msg": "111111 is your OTP to log in to The Souled Store.",
+            "v": 1.1,
+            "userid": "fixture-sms-user",
+            "password": "fixture-sms-secret",
+            "send_to": "9000000001",
+            "msg_type": "text",
+            "method": "sendMessage",
+            "mask": "TSSOUL"
+          }
+        },
+        {
+          "url": "https://whatsapp.example.test/",
+          "payload": {
+            "userid": "fixture-wa-user",
+            "password": "fixture-wa-secret",
+            "send_to": "9000000001",
+            "v": "1.1",
+            "format": "json",
+            "msg_type": "TEXT",
+            "method": "SENDMESSAGE",
+            "msg": "111111 is your verification code. For your security, do not share this code.",
+            "isTemplate": "true",
+            "footer": "This code expires in 10 minute."
+          }
+        }
+      ]
+    }
+  ]
+}

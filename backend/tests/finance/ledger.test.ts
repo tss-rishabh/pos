@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import {
@@ -10,6 +9,7 @@ import {
   type LedgerSales,
   type LedgerStore,
 } from '../../src/modules/finance/ledger.js';
+import { goldenStdout } from '../golden/load.js';
 interface Case {
   stores: LedgerStore[];
   anchors: LedgerAnchor[];
@@ -77,10 +77,7 @@ describe('cash ledger source parity', () => {
       },
     ];
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/finance/ledger-oracle.py'], {
-        input: JSON.stringify({ cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout('finance', 'ledger', JSON.stringify({ cases })),
     );
     expect(
       cases.map((test) =>

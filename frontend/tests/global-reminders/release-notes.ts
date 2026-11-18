@@ -3,7 +3,6 @@
  * Real timers, native authentication and the original assertion limits remain intact.
  */
 import assert from 'node:assert/strict';
-import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -15,6 +14,7 @@ import {
   remindersFixture,
 } from '../../../backend/tools/global-reminders/native.js';
 import { nativeUiServer } from '../../../backend/tools/global-reminders/native-ui-server.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const originalSchema = z.object({
@@ -33,13 +33,8 @@ const originalSchema = z.object({
     }),
   ),
 });
-const python = process.env.GLOBAL_REMINDERS_ORACLE_PYTHON;
-assert(python);
-const rendered = spawnSync(
-  python,
-  ['-B', 'tools/global-reminders/source-release-notes.py', process.argv[2] || ''],
-  { encoding: 'utf8' },
-);
+// Captured from tools/global-reminders/source-release-notes.py at the pinned source.
+const rendered = goldenSpawnResult('global-reminders', 'release-notes');
 assert.equal(rendered.status, 0, 'Pinned release-notes partial must render');
 const original = originalSchema.parse(JSON.parse(rendered.stdout) as unknown);
 const web = await nativeUiServer(resolve(root, 'frontend/dist'));

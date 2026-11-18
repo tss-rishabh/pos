@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "oracle": "tools/customer-otp/source-otp-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:26Z",
+  "test": "tests/customer-otp/source-otp.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/customer-otp/source-otp-oracle.py", "<backend-tss-api_v2>"],
+      "status": 0,
+      "output": {
+        "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+        "digits": 4,
+        "mobile": true,
+        "email": true,
+        "smsMethod": "GET",
+        "smsQueryKeys": ["mask", "method", "msg", "msg_type", "password", "send_to", "userid", "v"],
+        "redisExpirySupplied": false,
+        "wrongAttemptsBeforeCorrect": 20,
+        "correctAfterTwentyWrong": true,
+        "foreignStoreAccepted": true,
+        "proofReplayAccepted": true,
+        "globalCodeRetainedAfterVerify": true,
+        "fallbackDelay": [20],
+        "fallbackStillSendsAfterVerify": true,
+        "emailTemplate": "use-tss-points-and-money"
+      }
+    }
+  ]
+}

@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/checkout/returns-parity.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "a9ab3fe1490e0e80ee9381c02d3d6ef8d38492599f9bb5eacea5458a61f093e5",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "orderReturn": [
+            {
+              "requestType": "Request & Inbound",
+              "returnType": "Delivered Return",
+              "returnBin": "Saleable",
+              "order_location": "FST1",
+              "order_no": 9001,
+              "invoice_no": "",
+              "tracking_no": 9001,
+              "status": "Confirmed",
+              "custRetCode": "999999",
+              "return_date": "16/11/2026 12:00:00",
+              "customer_name": "Fixture",
+              "customer_address1": "Fixture address",
+              "customer_address2": "",
+              "customer_address3": "",
+              "customer_address4": "",
+              "customer_country": "India",
+              "customer_state": 19,
+              "customer_city": "Fixture city",
+              "customer_pincode": "400001",
+              "customer_email": "",
+              "remarks": "Size issue:Fixture",
+              "transporter": "fixture-transporter",
+              "items": [
+                {
+                  "lineno": "",
+                  "ext_lineno": 9101,
+                  "sku": 10,
+                  "return_qty": 2,
+                  "return_reason": "Size issue"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "orderReturn": [
+            {
+              "requestType": "Request & Inbound",
+              "returnType": "Delivered Return",
+              "returnBin": "Saleable",
+              "order_location": "FST1",
+              "order_no": 9001,
+              "invoice_no": "",
+              "tracking_no": 9001,
+              "status": "Confirmed",
+              "custRetCode": "999999",
+              "return_date": "16/11/2026 12:00:00",
+              "customer_name": "Fixture",
+              "customer_address1": "Fixture address",
+              "customer_address2": "",
+              "customer_address3": "",
+              "customer_address4": "",
+              "customer_country": "India",
+              "customer_state": 19,
+              "customer_city": "Fixture city",
+              "customer_pincode": "400001",
+              "customer_email": "",
+              "remarks": "Size issue:Fixture",
+              "category": "Replacement",
+              "transporter": "fixture-transporter",
+              "items": [
+                {
+                  "lineno": "",
+                  "ext_lineno": 9101,
+                  "sku": 10,
+                  "return_qty": 2,
+                  "return_reason": "Size issue"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "inputSha256": "61c6c8c4d864a759e1da0e373bc139016f70e2ff4759b656626c6205d0f0e40c",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": {
+        "order_id": 9001,
+        "has_prod_id": 9101,
+        "prod_id": 10,
+        "exchange_prod_id": 11,
+        "exchange_parent_prod_id": 100,
+        "size": "L",
+        "store_id": 1,
+        "counter_id": 3,
+        "saleable": false,
+        "reason_id": 1,
+        "sub_reason_id": 0,
+        "comment": "Fixture",
+        "admin_user_id": 777,
+        "salesperson_id": 5
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:34Z",
+  "test": "tests/administration/worker.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "9dc92fbf9dc4b40af36009689a0463ce3fff2cf91f46cd981ab1efe74a6c8ffb",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "url": "https://main.example.test/api/sync/products",
+          "body": "{\"product_id_list\":[1,9007199254740993,18446744073709551615]}",
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        },
+        {
+          "url": "https://main.example.test/api/sync/products",
+          "body": "{\"product_id_list\":[1,9007199254740993,18446744073709551615],\"is_troubleshoot\":true}",
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        },
+        {
+          "url": "https://legacy.example.test/api/sync/products",
+          "body": "{\"product_id_list\":[1,9007199254740993,18446744073709551615]}",
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        },
+        {
+          "url": "https://legacy.example.test/api/sync/products",
+          "body": "{\"product_id_list\":[1,9007199254740993,18446744073709551615],\"is_troubleshoot\":true}",
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        }
+      ]
+    }
+  ]
+}

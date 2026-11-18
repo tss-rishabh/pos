@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { and, eq } from 'drizzle-orm';
 import Fastify from 'fastify';
 import type { RowDataPacket } from 'mysql2/promise';
@@ -24,6 +23,8 @@ import type {
   StockProcedureInput,
 } from '../../../src/modules/administration/stock-procedure.js';
 import { parentStoreFixture } from '../../../tools/administration/parent-store-imports/fixture.js';
+import { goldenSpawnResult } from '../../golden/load.js';
+import { fixturePlaceholders } from '../../golden/fixture-placeholders.js';
 
 const connection = process.env.PARENT_STORE_IMPORTS_MYSQL_TEST_URL;
 const user: Principal = {
@@ -123,24 +124,12 @@ describe.skipIf(!connection)(
       records: string,
       extra: { operatorId?: string; role?: number; failProjection?: boolean } = {},
     ) {
-      const result = spawnSync(
-        'uv',
-        [
-          'run',
-          '--no-project',
-          '--with',
-          'django==4.2.5',
-          '--with',
-          'pymysql==1.1.1',
-          'python',
-          'tools/administration/parent-store-imports/source-oracle.py',
-        ],
-        {
-          input: JSON.stringify({ database: fixture.url, csv: csv(records), ...extra }),
-          encoding: 'utf8',
-          timeout: 25000,
-          maxBuffer: 2 * 1024 * 1024,
-        },
+      const result = goldenSpawnResult(
+        'administration',
+        'parent-store-imports-service-mysql',
+        JSON.stringify({ database: fixture.url, csv: csv(records), ...extra }),
+        undefined,
+        fixturePlaceholders(fixture.url),
       );
       if (result.status !== 0)
         throw new Error('Parent/store source oracle failed: ' + result.stdout.slice(0, 200));

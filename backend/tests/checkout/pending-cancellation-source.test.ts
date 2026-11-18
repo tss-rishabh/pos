@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { pendingCancellationOptions } from '../../src/modules/checkout/cancellations/options.js';
+import { goldenStdout } from '../golden/load.js';
 describe('pinned pending cash-on-counter cancellation boundaries', () => {
   it('executes the original web and API-v2 handlers with exact long line IDs, duplicate SKUs and no cash refund', () => {
     const parsed = z
@@ -26,9 +26,7 @@ describe('pinned pending cash-on-counter cancellation boundaries', () => {
       })
       .parse(
         JSON.parse(
-          execFileSync('python3', ['tools/checkout/pending_cancellation_oracle.py'], {
-            encoding: 'utf8',
-          }),
+          goldenStdout('checkout', 'pending-cancellation-source.pending-cancellation-oracle'),
         ) as unknown,
       );
     expect(parsed.cases).toHaveLength(6);
@@ -68,9 +66,7 @@ describe('pinned pending cash-on-counter cancellation boundaries', () => {
       })
       .parse(
         JSON.parse(
-          execFileSync('python3', ['tools/checkout/screening_cancellation_oracle.py'], {
-            encoding: 'utf8',
-          }),
+          goldenStdout('checkout', 'pending-cancellation-source.screening-cancellation-oracle'),
         ) as unknown,
       );
     expect(result.cases.map((row) => row.blocked)).toEqual([true, true, false, false]);

@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/catalog-details/source-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:34Z",
+  "test": "tests/catalog-details/domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "35de193f99096ca75a501bc2765c4f936098e1c979cec1b578574d95764dd6da",
+      "args": ["tools/catalog-details/source-oracle.py"],
+      "status": 0,
+      "output": [6, -10, 5, 4, null, 2.8499999999999996, 0, 0, 0, 0, 1, 1, 1]
+    }
+  ]
+}

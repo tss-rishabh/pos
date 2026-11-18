@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { mkdir, writeFile, rename } from 'node:fs/promises';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -9,6 +8,7 @@ import {
   customerHistoryFixtures,
   type HistoryFixture,
 } from '../../tools/customer-history/fixtures.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
 describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
   'pinned customer history on isolated native MySQL',
@@ -21,10 +21,7 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
         return { connection, fixture };
       },
       tables = ['nps_feedback', 'has_products', 'order_stores', 'orders', 'products', 'users'];
-    const source = spawnSync('python3', ['tools/customer-history/source-oracle.py'], {
-      encoding: 'utf8',
-      timeout: 20000,
-    });
+    const source = goldenSpawnResult('customer-history', 'mysql-integration');
     expect(source.status, source.stderr).toBe(0);
     const queries = z
       .object({ queries: z.record(z.string(), z.string()) })

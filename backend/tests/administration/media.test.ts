@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { Readable } from 'node:stream';
 import {
   S3Client,
@@ -23,6 +22,7 @@ import {
   utcMediaTimestamp,
 } from '../../src/modules/administration/media-domain.js';
 import { assertPrivateBucket } from '../../src/modules/administration/private-s3-client.js';
+import { goldenStdout } from '../golden/load.js';
 
 describe('private documentation media boundaries', () => {
   it('fails closed before new uploads when any bucket public-access protection or metadata verification is absent', async () => {
@@ -108,13 +108,14 @@ describe('private documentation media boundaries', () => {
       '[]',
     ];
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-        input: JSON.stringify({
+      goldenStdout(
+        'administration',
+        'media',
+        JSON.stringify({
           operation: 'asset-list',
           cases: values.map((value) => ({ value })),
         }),
-        encoding: 'utf8',
-      }),
+      ),
     ) as unknown;
     expect(values.map(parseLegacyAssetList)).toEqual(expected);
     for (const value of ["[__import__('os').system('whoami')]", '{}', '[1]', '["unterminated]'])

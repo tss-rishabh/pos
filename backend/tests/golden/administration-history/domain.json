@@ -1,0 +1,706 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration-history/source-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5",
+  "capturedAt": "2026-11-18T19:02:54Z",
+  "test": "tests/administration-history/domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b63652a93c0160ffb9543c029371594856e8fe9d43ae620510c4da475880c9",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "python",
+        "tools/administration-history/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "modelsSha256": "cbedaccad27557e2a784aa94cfc29f421a3fc33c4d6cd857437f151b8d4a6f4f",
+        "cases": [
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 0
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 99
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 1,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 2,
+            "pages": 2,
+            "start": 100,
+            "count": 1
+          },
+          {
+            "page": 2,
+            "pages": 2,
+            "start": 100,
+            "count": 1
+          },
+          {
+            "page": 2,
+            "pages": 2,
+            "start": 100,
+            "count": 1
+          },
+          {
+            "page": 2,
+            "pages": 2,
+            "start": 100,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 2,
+            "pages": 2,
+            "start": 100,
+            "count": 1
+          },
+          {
+            "page": 2,
+            "pages": 2,
+            "start": 100,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 2,
+            "pages": 2,
+            "start": 100,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 2,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 2,
+            "pages": 3,
+            "start": 100,
+            "count": 100
+          },
+          {
+            "page": 3,
+            "pages": 3,
+            "start": 200,
+            "count": 1
+          },
+          {
+            "page": 3,
+            "pages": 3,
+            "start": 200,
+            "count": 1
+          },
+          {
+            "page": 3,
+            "pages": 3,
+            "start": 200,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 2,
+            "pages": 3,
+            "start": 100,
+            "count": 100
+          },
+          {
+            "page": 3,
+            "pages": 3,
+            "start": 200,
+            "count": 1
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 2,
+            "pages": 3,
+            "start": 100,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          },
+          {
+            "page": 1,
+            "pages": 3,
+            "start": 0,
+            "count": 100
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "14dc1d181938496ced63bd0245652b8b0325101630d9a882cfb463f2abc9ecfa",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "python",
+        "tools/administration-history/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "modelsSha256": "cbedaccad27557e2a784aa94cfc29f421a3fc33c4d6cd857437f151b8d4a6f4f",
+        "cases": [
+          "Jan. 1, 2026, midnight",
+          "Feb. 2, 2026, noon",
+          "March 3, 2026, 1 a.m.",
+          "April 4, 2026, 1:01 p.m.",
+          "May 5, 2026, 11:59 p.m.",
+          "June 6, 2026, 12:01 a.m.",
+          "July 7, 2026, 12:05 p.m.",
+          "Aug. 8, 2026, 9:02 a.m.",
+          "Sept. 9, 2026, 6 p.m.",
+          "Oct. 10, 2026, 10 a.m.",
+          "Nov. 16, 2026, 5:30 p.m.",
+          "Dec. 31, 2026, 11 p.m."
+        ]
+      }
+    }
+  ]
+}

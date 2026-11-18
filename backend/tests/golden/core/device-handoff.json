@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/identity/handoff_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:33Z",
+  "test": "tests/device-handoff.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "03227e5caf0d18309fa9c802fbf33ba3fdd822177ceb083d1157b484374aedab",
+      "args": ["tools/identity/handoff_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "code": "220218",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "220218",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "204573",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "204573",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "763823",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "763823",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "489171",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "489171",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "524510",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "524510",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "655233",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "655233",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "334664",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "334664",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "702128",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "702128",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "014225",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "014225",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "061206",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "061206",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "843159",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "843159",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        },
+        {
+          "code": "487217",
+          "accepted": true,
+          "rotated": true,
+          "ttl": 1800
+        },
+        {
+          "code": "487217",
+          "accepted": false,
+          "rotated": false,
+          "ttl": null
+        }
+      ]
+    }
+  ]
+}

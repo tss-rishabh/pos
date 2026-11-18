@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout-performance/source-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:37Z",
+  "test": "tests/checkout-performance/contracts.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "cf29017c1ff679dd17a59ac8f14aad5aeed5725b0a5a046c521faa3ecd151875",
+      "args": ["tools/checkout-performance/source-oracle.py"],
+      "status": 0,
+      "output": {
+        "source": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "cases": [
+          {
+            "name": "empty-source-fields",
+            "serialized": "{\"product_main_list\": \"\", \"user_behaviour\": \"\", \"add_to_cart\": \"\", \"proceed_to_payment\": \"\", \"overall_performance_time\": \"\"}",
+            "updates": [
+              {
+                "where": {
+                  "order_id": "9007199254740993"
+                },
+                "data": {
+                  "performance_json": "{\"product_main_list\": \"\", \"user_behaviour\": \"\", \"add_to_cart\": \"\", \"proceed_to_payment\": \"\", \"overall_performance_time\": \"\"}"
+                }
+              }
+            ],
+            "report": [
+              {
+                "id": "7",
+                "cashier_name": "Fixture",
+                "product_sold": 2,
+                "time_taken": "00M 0S",
+                "score": 100
+              }
+            ],
+            "reportError": null
+          },
+          {
+            "name": "missing-connect-NaN",
+            "serialized": "{\"product_main_list\": \"\", \"user_behaviour\": \"\", \"add_to_cart\": \"\", \"proceed_to_payment\": \"\", \"overall_performance_time\": \"NaN\"}",
+            "updates": [
+              {
+                "where": {
+                  "order_id": "9007199254740993"
+                },
+                "data": {
+                  "performance_json": "{\"product_main_list\": \"\", \"user_behaviour\": \"\", \"add_to_cart\": \"\", \"proceed_to_payment\": \"\", \"overall_performance_time\": \"NaN\"}"
+                }
+              }
+            ],
+            "report": [
+              {
+                "id": "7",
+                "cashier_name": "Fixture",
+                "product_sold": 2,
+                "time_taken": "02M 0S",
+                "score": 30
+              },
+              {
+                "id": "8",
+                "cashier_name": "Baseline",
+                "product_sold": 1,
+                "time_taken": "01M 0S",
+                "score": 30
+              }
+            ],
+            "reportError": null
+          },
+          {
+            "name": "native-rpc-decimals",
+            "serialized": "{\"product_main_list\": \"10.25\", \"user_behaviour\": \"20.50\", \"add_to_cart\": \"30.75\", \"proceed_to_payment\": \"\", \"overall_performance_time\": \"1000\"}",
+            "updates": [
+              {
+                "where": {
+                  "order_id": "9007199254740993"
+                },
+                "data": {
+                  "performance_json": "{\"product_main_list\": \"10.25\", \"user_behaviour\": \"20.50\", \"add_to_cart\": \"30.75\", \"proceed_to_payment\": \"\", \"overall_performance_time\": \"1000\"}"
+                }
+              }
+            ],
+            "report": [
+              {
+                "id": "7",
+                "cashier_name": "Fixture",
+                "product_sold": 2,
+                "time_taken": "00M 1S",
+                "score": 30
+              }
+            ],
+            "reportError": null
+          },
+          {
+            "name": "previous-fast-payment",
+            "serialized": "{\"product_main_list\": \"\", \"user_behaviour\": \"\", \"add_to_cart\": \"\", \"proceed_to_payment\": \"\", \"fast_payment\": \"25.25\", \"overall_performance_time\": \"1234\"}",
+            "updates": [
+              {
+                "where": {
+                  "order_id": "9007199254740993"
+                },
+                "data": {
+                  "performance_json": "{\"product_main_list\": \"\", \"user_behaviour\": \"\", \"add_to_cart\": \"\", \"proceed_to_payment\": \"\", \"fast_payment\": \"25.25\", \"overall_performance_time\": \"1234\"}"
+                }
+              }
+            ],
+            "report": [
+              {
+                "id": "7",
+                "cashier_name": "Fixture",
+                "product_sold": 2,
+                "time_taken": "00M 1S",
+                "score": 30
+              }
+            ],
+            "reportError": null
+          },
+          {
+            "name": "legacy-negative-poisons-report",
+            "serialized": "{\"product_main_list\": \"\", \"user_behaviour\": \"\", \"add_to_cart\": \"\", \"proceed_to_payment\": \"\", \"overall_performance_time\": \"-100\"}",
+            "updates": [
+              {
+                "where": {
+                  "order_id": "9007199254740993"
+                },
+                "data": {
+                  "performance_json": "{\"product_main_list\": \"\", \"user_behaviour\": \"\", \"add_to_cart\": \"\", \"proceed_to_payment\": \"\", \"overall_performance_time\": \"-100\"}"
+                }
+              }
+            ],
+            "report": null,
+            "reportError": "ValueError"
+          }
+        ]
+      }
+    }
+  ]
+}

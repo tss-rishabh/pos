@@ -12,7 +12,8 @@ import type {
 } from '../../src/modules/legacy-order-status/transport.js';
 import { wholeStatusFixture } from './mysql-fixture.js';
 import { options, snapshot, queuedReceipt } from './fixtures.js';
-import { sourceStatusOracle } from './source-helper.js';
+import { goldenSourceStatusOracle } from './source-helper.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 const template = process.env.WHOLE_ORDER_STATUS_MYSQL_TEST_URL,
   actor: Principal = {
     id: '1',
@@ -122,15 +123,14 @@ describe.skipIf(!template)('durable whole-order status commands on isolated nati
     scopeHash,
   });
   it('matches real Django ALL HP selection including duplicate SKU, zero quantity and unavailable catalog IDs', async () => {
-    if (process.env.WHOLE_ORDER_STATUS_ORACLE_PYTHON) {
-      const source = sourceStatusOracle({
-        url: native.url,
-        cases: [{ orderId: snapshot.orderId, platform: 'PACK' }],
-      });
-      expect(source[0]!.requests[0]!.body.has_product_ids).toEqual(
-        snapshot.lines.map((row) => row.id),
-      );
-    }
+    const source = goldenSourceStatusOracle(
+      'commands',
+      { url: native.url, cases: [{ orderId: snapshot.orderId, platform: 'PACK' }] },
+      fixturePlaceholders(native.url),
+    );
+    expect(source[0]!.requests[0]!.body.has_product_ids).toEqual(
+      snapshot.lines.map((row) => row.id),
+    );
     const result = await service.submit(
       actor,
       '1',

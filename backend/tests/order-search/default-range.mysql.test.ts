@@ -16,9 +16,11 @@ import { sourceNativeRepository } from '../../src/modules/order-history/search/n
 import { sourceIndex, sourceSelect } from '../../src/modules/order-history/search/reducer.js';
 import { formatSourceOrder } from '../../src/modules/order-history/search/format.js';
 import { orderSearchFixture } from './mysql-fixture.js';
+import { goldenStdout } from '../golden/load.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 const template = process.env.ORDER_SEARCH_MYSQL_TEST_URL,
   python = process.env.ORDER_SEARCH_ORACLE_PYTHON;
-describe.skipIf(!template || !python)('native midnight source-window supplement', () => {
+describe.skipIf(!template)('native midnight source-window supplement', () => {
   let fixture: Awaited<ReturnType<typeof orderSearchFixture>>;
   beforeAll(async () => {
     fixture = await orderSearchFixture(template!);
@@ -91,7 +93,8 @@ describe.skipIf(!template || !python)('native midnight source-window supplement'
   afterAll(async () => {
     await fixture?.close();
   });
-  it.skipIf(!process.env.ORDER_DEFAULT_FORM_REDIS_URL)(
+  // The Redis-backed default-form oracle was not captured; it still needs the live interpreter.
+  it.skipIf(!process.env.ORDER_DEFAULT_FORM_REDIS_URL || !python)(
     'runs actual original GET/POST and rendered form with unchanged type-switch placement',
     async () => {
       const redis = createClient({ url: process.env.ORDER_DEFAULT_FORM_REDIS_URL! });
@@ -194,8 +197,10 @@ describe.skipIf(!template || !python)('native midnight source-window supplement'
       return value;
     });
     const original: unknown = JSON.parse(
-      execFileSync(python!, ['tools/order-search/source_oracle.py'], {
-        input: JSON.stringify({
+      goldenStdout(
+        'order-search',
+        'default-range-mysql',
+        JSON.stringify({
           url: fixture.url,
           cases: [
             {
@@ -211,9 +216,9 @@ describe.skipIf(!template || !python)('native midnight source-window supplement'
             },
           ],
         }),
-        encoding: 'utf8',
-        timeout: 30000,
-      }),
+        undefined,
+        fixturePlaceholders(fixture.url),
+      ),
     );
     const expected = z
       .array(
@@ -346,8 +351,10 @@ describe.skipIf(!template || !python)('native midnight source-window supplement'
       return value;
     });
     const original: unknown = JSON.parse(
-      execFileSync(python!, ['tools/order-search/source_oracle.py'], {
-        input: JSON.stringify({
+      goldenStdout(
+        'order-search',
+        'default-range-mysql',
+        JSON.stringify({
           url: fixture.url,
           cases: [
             {
@@ -364,9 +371,9 @@ describe.skipIf(!template || !python)('native midnight source-window supplement'
             },
           ],
         }),
-        encoding: 'utf8',
-        timeout: 30000,
-      }),
+        undefined,
+        fixturePlaceholders(fixture.url),
+      ),
     );
     const expected = z
       .array(

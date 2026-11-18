@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
 import mysql, { type Connection } from 'mysql2/promise';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { Temporal } from '@js-temporal/polyfill';
@@ -25,6 +24,8 @@ import {
   type AdministrationHistoryOptions,
 } from '../../src/modules/administration-history/contracts.js';
 import { administrationHistoryAuthActor } from '../../src/modules/administration-history/schema.js';
+import { goldenSpawnResult } from '../golden/load.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 const template = process.env.ADMINISTRATION_HISTORY_MYSQL_TEST_URL;
 const clock = () => Temporal.Instant.from('2026-11-16T12:00:00Z');
@@ -83,23 +84,12 @@ describe.skipIf(!template)('inherited model history against isolated MySQL', () 
     },
   });
   const source = (cases: unknown[], actorTable = 'auth_user') => {
-    const run = spawnSync(
-      'uv',
-      [
-        'run',
-        '--no-project',
-        '--with',
-        'django==4.2.5',
-        '--with',
-        'pymysql==1.1.1',
-        'python',
-        'tools/administration-history/mysql-oracle.py',
-      ],
-      {
-        input: JSON.stringify({ database: databaseUrl, actorTable, cases }),
-        encoding: 'utf8',
-        timeout: 30000,
-      },
+    const run = goldenSpawnResult(
+      'administration-history',
+      'mysql-integration',
+      JSON.stringify({ database: databaseUrl, actorTable, cases }),
+      undefined,
+      fixturePlaceholders(databaseUrl),
     );
     const value: unknown = JSON.parse(run.stdout);
     if (run.status !== 0)

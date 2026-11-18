@@ -1,6 +1,5 @@
 import { randomUUID, createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import mysql from 'mysql2/promise';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { Temporal } from '@js-temporal/polyfill';
@@ -25,6 +24,8 @@ import {
   type GiftCardBatchDeliveryOutcome,
 } from '../../src/modules/gift-card-batches/contracts.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
+import { goldenStdout } from '../golden/load.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 const template = process.env.GIFT_CARD_BATCH_MYSQL_TEST_URL;
 describe.skipIf(!template)('gift card batches against isolated physical MySQL fixtures', () => {
@@ -539,26 +540,15 @@ describe.skipIf(!template)('gift card batches against isolated physical MySQL fi
     ];
     const oracle = z.object({ cases: z.array(z.unknown()) }).parse(
       JSON.parse(
-        execFileSync(
-          'uv',
-          [
-            'run',
-            '--no-project',
-            '--with',
-            'django==4.2.5',
-            '--with',
-            'pymysql==1.1.2',
-            'python',
-            'tools/administration/gift-card-view-oracle.py',
-          ],
-          {
-            input: JSON.stringify({
-              database: databaseUrl,
-              cases: inputs.map((input) => ({ operation: 'list', ...input })),
-            }),
-            encoding: 'utf8',
-            timeout: 25000,
-          },
+        goldenStdout(
+          'administration',
+          'gift-card-batches-mysql',
+          JSON.stringify({
+            database: databaseUrl,
+            cases: inputs.map((input) => ({ operation: 'list', ...input })),
+          }),
+          undefined,
+          fixturePlaceholders(databaseUrl),
         ),
       ) as unknown,
     ).cases;

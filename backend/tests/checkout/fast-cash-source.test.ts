@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
 it('executes the pinned original fast cash helper and verifies portable vectors without writing', () => {
   const result = z
     .object({
@@ -9,16 +9,6 @@ it('executes the pinned original fast cash helper and verifies portable vectors 
       cases: z.literal(17),
     })
     .strict()
-    .parse(
-      JSON.parse(
-        execFileSync('python3', ['tools/checkout/fast_cash_oracle.py'], {
-          encoding: 'utf8',
-          timeout: 5000,
-          maxBuffer: 4096,
-          env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' },
-          stdio: ['pipe', 'pipe', 'pipe'],
-        }),
-      ) as unknown,
-    );
+    .parse(JSON.parse(goldenStdout('checkout', 'fast-cash-source')) as unknown);
   expect(result.cases).toBe(17);
 });

@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
@@ -9,15 +8,13 @@ import { localOrderMessageDelivery } from '../../src/modules/checkout/order-mess
 import { orderMessageOptions } from '../../src/modules/checkout/order-messages/options.js';
 import { feedbackVerifier } from '../../src/modules/checkout/feedback-proof.js';
 import { orderMessageFixtureEnvironment } from './fixtures.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
 const key = 'independent-feedback-fixture-key-0123456789',
   customerKey = 'independent-customer-fixture-key-0123456789';
 describe('source-derived private order SMS policy', () => {
   it('matches30 literal pinned normal/NPS/name vectors without executing source credentials or network', () => {
-    const result = spawnSync('python3', ['tools/checkout/legacy_order_sms_oracle.py'], {
-      encoding: 'utf8',
-      maxBuffer: 1000000,
-    });
+    const result = goldenSpawnResult('checkout', 'order-messages');
     expect(result.status, result.stderr).toBe(0);
     const vectors = z
       .array(

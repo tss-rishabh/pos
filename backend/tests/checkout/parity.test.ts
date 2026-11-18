@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   walletPayload,
@@ -17,14 +16,10 @@ import { refundPreview, exchangeRetryable } from '../../src/modules/checkout/ret
 import { issueCustomerToken } from '../../src/modules/checkout/crypto.js';
 import { createHmac } from 'node:crypto';
 import { addCartPayload } from '../../src/modules/upstream.js';
+import { goldenStdout } from '../golden/load.js';
 
 const oracle = (input: unknown): unknown =>
-  JSON.parse(
-    execFileSync('python3', ['tools/checkout/legacy_oracle.py'], {
-      input: JSON.stringify(input),
-      encoding: 'utf8',
-    }),
-  ) as unknown;
+  JSON.parse(goldenStdout('checkout', 'parity', JSON.stringify(input))) as unknown;
 describe('checkout source-extracted parity', () => {
   it('preserves the original queued order SMS job payload', () => {
     expect(oracle({ operation: 'order_sms_payload' })).toEqual([

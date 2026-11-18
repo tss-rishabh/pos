@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { ZipReader, Uint8ArrayReader, TextWriter } from '@zip.js/zip.js';
 import { describe, expect, it } from 'vitest';
@@ -16,24 +15,14 @@ import {
   openGiftCardSecrets,
   sealGiftCardSecrets,
 } from '../../src/modules/gift-card-batches/secrets.js';
+import { goldenStdout } from '../golden/load.js';
 
 const oracle = (cases: unknown[]) =>
   z
     .object({ sourceSha256: z.string().regex(/^[a-f0-9]{64}$/), cases: z.array(z.unknown()) })
     .parse(
       JSON.parse(
-        execFileSync(
-          'uv',
-          [
-            'run',
-            '--no-project',
-            '--with',
-            'hashids==1.3.1',
-            'python',
-            'tools/administration/gift-card-batch-oracle.py',
-          ],
-          { input: JSON.stringify({ cases }), encoding: 'utf8', timeout: 30000 },
-        ),
+        goldenStdout('administration', 'gift-card-batches', JSON.stringify({ cases })),
       ) as unknown,
     ).cases;
 describe('gift card batch source format and private archives', () => {

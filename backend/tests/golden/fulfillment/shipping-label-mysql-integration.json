@@ -1,0 +1,191 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/fulfillment/shipping-label-context-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:07:36Z",
+  "test": "tests/fulfillment/shipping-label-mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "3470bd0ad56dd75158b216de6601f66faa94a2cf32e60df004b93e9764f5b629",
+      "args": ["tools/fulfillment/shipping-label-context-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture zone, Fixture country",
+            "phone_no": "0000000000"
+          },
+          "payment_mode": "Prepaid",
+          "order_date": "2026-11-16 10:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": "FIXTURE-1001",
+          "awb": "AWB123456789012IN",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture zone, Fixture country",
+            "phone_no": "0000000000"
+          },
+          "payment_mode": "Prepaid",
+          "order_date": "2026-11-16 10:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": "FIXTURE-1001",
+          "awb": "AWB123456789012IN",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture zone, Fixture country",
+            "phone_no": "0000000000"
+          },
+          "payment_mode": "Prepaid",
+          "order_date": "2026-11-16 10:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": "FIXTURE-1001",
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": {
+            "name": "Fixture Recipient",
+            "address_line": "3B, Fixture road, Level 2, Landmark, Area",
+            "city_line": "Fixture city - 000001, Fixture zone, Fixture country",
+            "phone_no": "0000000000"
+          },
+          "payment_mode": "Prepaid",
+          "order_date": "2026-11-16 10:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": "FIXTURE-1001",
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": {
+            "name": "Fixture Recipient",
+            "address_line": "Fixture road, Level 2, Area only",
+            "city_line": "Fixture city - 000001, Fixture zone, Fixture country",
+            "phone_no": "0000000000"
+          },
+          "payment_mode": "Prepaid",
+          "order_date": "2026-11-16 10:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": "FIXTURE-1001",
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": {
+            "name": "",
+            "address_line": "Fixture road, Area only",
+            "city_line": "",
+            "phone_no": ""
+          },
+          "payment_mode": "Prepaid",
+          "order_date": "2026-11-16 10:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": "FIXTURE-1001",
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": null,
+          "payment_mode": "Prepaid",
+          "order_date": "2026-11-16 10:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": "FIXTURE-1001",
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": null,
+          "payment_mode": "Prepaid",
+          "order_date": "2026-11-16 10:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": "FIXTURE-1001",
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": null,
+          "payment_mode": "Prepaid",
+          "order_date": "2019-01-01 00:00:00",
+          "product": "Cloths",
+          "total_qty": "5",
+          "order_id": "1001",
+          "order_ref_no": null,
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": null,
+          "payment_mode": "Prepaid",
+          "order_date": "2019-01-01 00:00:00",
+          "product": "Cloths",
+          "total_qty": "9007199254740996",
+          "order_id": "1001",
+          "order_ref_no": null,
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": null,
+          "payment_mode": "Prepaid",
+          "order_date": "2019-01-01 00:00:00",
+          "product": "Cloths",
+          "total_qty": "0",
+          "order_id": "1001",
+          "order_ref_no": null,
+          "awb": "0",
+          "is_store": false
+        },
+        {
+          "store_address": "Fixture return road  Annex  0000000000",
+          "shipping_addr": null,
+          "payment_mode": "Prepaid",
+          "order_date": "2019-01-01 00:00:00",
+          "product": "Cloths",
+          "total_qty": "3",
+          "order_id": "1001",
+          "order_ref_no": null,
+          "awb": "0",
+          "is_store": false
+        }
+      ]
+    }
+  ]
+}

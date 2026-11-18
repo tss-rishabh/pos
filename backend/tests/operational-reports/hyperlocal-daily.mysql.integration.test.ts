@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
+import { goldenStdout } from '../golden/load.js';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -12,6 +12,14 @@ import {
   hyperlocalDailyOptions,
   hyperlocalDailyReportService,
 } from '../../src/modules/operational-reports/hyperlocal-daily.js';
+
+/** Replays the pinned CPython 3.10 source oracles captured for this test (tests/golden). */
+function executePosSourceOracle(args: readonly string[], options: { input?: string }): string {
+  return goldenStdout('operational-reports', 'hyperlocal-daily-mysql-integration', options.input, [
+    '-B',
+    ...args,
+  ]);
+}
 const connection = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema local MySQL', () => {
   const schema = `pos_rewrite_hyperlocal_daily_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`,

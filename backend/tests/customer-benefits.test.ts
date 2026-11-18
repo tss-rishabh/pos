@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -11,6 +10,7 @@ import {
   customerMembership,
   customerWalletDisplay,
 } from '../src/modules/customer-insights/benefits-values.js';
+import { goldenStdout } from './golden/load.js';
 
 const config = readConfig({
   NODE_ENV: 'test',
@@ -48,14 +48,7 @@ const oracle = z
       }),
     ),
   })
-  .parse(
-    JSON.parse(
-      execFileSync('python3', ['tools/customer-insights/source-benefits.py'], {
-        encoding: 'utf8',
-        timeout: 10000,
-      }),
-    ) as unknown,
-  );
+  .parse(JSON.parse(goldenStdout('core', 'customer-benefits')) as unknown);
 
 describe('pinned current customer benefit behavior', () => {
   it('matches the actual source membership helper across expiry formats and independent active flags', () => {

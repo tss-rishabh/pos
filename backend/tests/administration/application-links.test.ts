@@ -1,5 +1,4 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,14 +16,12 @@ import {
   scanWallTime,
 } from '../../src/modules/application-links/domain.js';
 import { createCustomerApplicationProvider } from '../../src/modules/application-links/provider.js';
+import { goldenStdout } from '../golden/load.js';
 
 const digest = (value: Uint8Array) => createHash('sha256').update(value).digest('hex');
 const oracle = (cases: readonly unknown[]) =>
   JSON.parse(
-    execFileSync('python3', ['tools/administration/application-links-oracle.py'], {
-      input: JSON.stringify({ cases }),
-      encoding: 'utf8',
-    }),
+    goldenStdout('administration', 'application-links', JSON.stringify({ cases })),
   ) as unknown;
 describe('application QR and download boundaries', () => {
   const directories: string[] = [];

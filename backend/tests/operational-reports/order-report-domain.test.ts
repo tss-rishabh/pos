@@ -1,4 +1,3 @@
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { describe, expect, it } from 'vitest';
 import {
   preparedOrderRecords,
@@ -8,6 +7,7 @@ import {
 } from '../../src/modules/operational-reports/order-report-domain.js';
 import { pythonFloatString } from '../../src/modules/operational-reports/number-format.js';
 import { sourceOrderLine as base } from './fixtures/order-report.js';
+import { goldenStdout } from '../golden/load.js';
 
 describe('combined order report financial shaping', () => {
   it('matches actual Python source for all tax branches, sale/return signs, ties and zero formatting', () => {
@@ -46,15 +46,13 @@ describe('combined order report financial shaping', () => {
       ],
     });
     const expected: unknown = JSON.parse(
-      executePosSourceOracle(['tools/operational-reports/order-report-oracle.py'], {
-        input: JSON.stringify({ cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout('operational-reports', 'order-report-domain', JSON.stringify({ cases })),
     );
     expect(cases.map((value) => preparedOrderRecords(value.rows))).toEqual(expected);
-    const headerSource = executePosSourceOracle(
-      ['tools/operational-reports/order-report-oracle.py'],
-      { input: JSON.stringify({ operation: 'headers' }), encoding: 'utf8' },
+    const headerSource = goldenStdout(
+      'operational-reports',
+      'order-report-domain',
+      JSON.stringify({ operation: 'headers' }),
     );
     expect(orderReportHeaders.map(([field, label]) => [label, field])).toEqual(
       JSON.parse(headerSource) as unknown,

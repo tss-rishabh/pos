@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { Temporal } from '@js-temporal/polyfill';
 import Fastify from 'fastify';
 import type { RowDataPacket } from 'mysql2/promise';
@@ -22,6 +21,8 @@ import { catalogMaintenanceService } from '../../../src/modules/catalog-details/
 import { catalogMaintenanceOptions } from '../../../src/modules/catalog-details/maintenance-options.js';
 import { catalogRepairPlan } from '../../../src/modules/catalog-details/maintenance-repair.js';
 import { barcodeFixture } from '../../../tools/administration/barcodes/fixture.js';
+import { goldenSpawnResult } from '../../golden/load.js';
+import { fixturePlaceholders } from '../../golden/fixture-placeholders.js';
 
 const connection = process.env.BARCODE_ASSIGNMENTS_MYSQL_TEST_URL;
 const user: Principal = {
@@ -73,24 +74,12 @@ describe.skipIf(!connection)(
       barcodes?: { productId: string; barcode: string; operatorId?: string }[];
       countries?: (string | null)[];
     }) {
-      const result = spawnSync(
-        'uv',
-        [
-          'run',
-          '--no-project',
-          '--with',
-          'django==4.2.5',
-          '--with',
-          'pymysql==1.1.1',
-          'python',
-          'tools/administration/barcodes/source-oracle.py',
-        ],
-        {
-          input: JSON.stringify({ database: fixture.url, ...input }),
-          encoding: 'utf8',
-          timeout: 20000,
-          maxBuffer: 1024 * 1024,
-        },
+      const result = goldenSpawnResult(
+        'administration',
+        'barcodes-mysql',
+        JSON.stringify({ database: fixture.url, ...input }),
+        undefined,
+        fixturePlaceholders(fixture.url),
       );
       if (result.status !== 0)
         throw new Error('Barcode/country source oracle failed: ' + result.stdout.slice(0, 300));
@@ -205,7 +194,7 @@ describe.skipIf(!connection)(
       const plan = await fixture.db
         .get('writer')
         .transaction((tx) => catalogRepairPlan(tx, '11', 'share'));
-      const temporary=plan.barcodeChanges[0]?.to;
+      const temporary = plan.barcodeChanges[0]?.to;
       expect(temporary).toBe('1230123');
       let sends = 0;
       const repair = catalogMaintenanceService(
@@ -236,7 +225,10 @@ describe.skipIf(!connection)(
         expect(repaired.reason).toMatchObject({ code: 'CATALOG_BARCODE_RECONCILIATION_REQUIRED' });
         expect(assigned.value.code).toBe('ASSIGNED');
       }
-      const [rows] = await fixture.admin.query<RowDataPacket[]>('SELECT COUNT(*) AS count FROM products_gs1 WHERE gtin=?',[temporary]);
+      const [rows] = await fixture.admin.query<RowDataPacket[]>(
+        'SELECT COUNT(*) AS count FROM products_gs1 WHERE gtin=?',
+        [temporary],
+      );
       expect(String(rows[0]?.count)).toBe('1');
       expect(sends).toBe(0);
     });

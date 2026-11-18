@@ -1,8 +1,8 @@
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { passwordProblems } from '../src/auth/password-policy.js';
+import { goldenSpawnResult } from './golden/load.js';
 
 describe('source-configured Django 4.2.5 password validation', () => {
   it('matches the original dependency validators over Unicode, common-password and similarity cases', () => {
@@ -55,12 +55,7 @@ describe('source-configured Django 4.2.5 password validation', () => {
     const cases = accounts.flatMap((account) =>
       passwords.map((password) => ({ account, password })),
     );
-    const original = spawnSync('python3', ['tools/identity/password_oracle.py'], {
-      input: JSON.stringify(cases),
-      encoding: 'utf8',
-      timeout: 10000,
-      maxBuffer: 1024 * 1024,
-    });
+    const original = goldenSpawnResult('core', 'password-policy', JSON.stringify(cases));
     expect(original.status, original.stderr).toBe(0);
     expect(cases.map(({ password, account }) => passwordProblems(password, account))).toEqual(
       JSON.parse(original.stdout) as unknown,

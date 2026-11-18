@@ -1,0 +1,292 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/legacy-fulfillment/source-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:39Z",
+  "test": "tests/legacy-fulfillment/domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "96049eb37b5497e5f849eb817dfe7b270f8e1bb2fcafe715f01061cd6143e386",
+      "args": ["tools/legacy-fulfillment/source-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order not created"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order not created"
+        },
+        {
+          "status": "200",
+          "message": "Order Created Succesfully at Borzo",
+          "error": ""
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order already canceled"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order already canceled"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order creation not attempted"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order creation not attempted"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order creation failed at borzo, error : provider raw fixture detail"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order creation failed at borzo, error : provider raw fixture detail"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order not created"
+        },
+        {
+          "status": "400",
+          "message": "Failed",
+          "error": "Order not created"
+        }
+      ]
+    },
+    {
+      "inputSha256": "560d94c51ba201e1b0a4f19c70dffb7f180103743fde652131f10c68157b0ef6",
+      "args": ["tools/legacy-fulfillment/source-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "flags": {
+            "is_pack": 1,
+            "rto_recieved": 0
+          },
+          "transactions": [[1, 0, 0, 44, {}, ", Order Packed By: Fixture"]],
+          "effects": [],
+          "stocks": []
+        },
+        {
+          "flags": {
+            "is_pack": 0,
+            "rto_recieved": 1
+          },
+          "transactions": [[1, 0, 0, 44, {}, ", RTO Package Recieved By: Fixture"]],
+          "effects": [],
+          "stocks": []
+        },
+        {
+          "flags": {
+            "is_pack": 1,
+            "rto_recieved": 0
+          },
+          "transactions": [[1, 0, 0, 44, {}, "Checked parcel, Order Packed By: Fixture"]],
+          "effects": [],
+          "stocks": []
+        },
+        {
+          "flags": {
+            "is_pack": 0,
+            "rto_recieved": 1
+          },
+          "transactions": [[1, 0, 0, 44, {}, "Checked parcel, RTO Package Recieved By: Fixture"]],
+          "effects": [],
+          "stocks": []
+        },
+        {
+          "flags": {
+            "is_pack": 1,
+            "rto_recieved": 0
+          },
+          "transactions": [[1, 0, 0, 44, {}, "Euro € note, Order Packed By: Fixture"]],
+          "effects": [],
+          "stocks": []
+        },
+        {
+          "flags": {
+            "is_pack": 0,
+            "rto_recieved": 1
+          },
+          "transactions": [[1, 0, 0, 44, {}, "Euro € note, RTO Package Recieved By: Fixture"]],
+          "effects": [],
+          "stocks": []
+        },
+        {
+          "flags": {
+            "is_pack": 1,
+            "rto_recieved": 0
+          },
+          "transactions": [
+            [1, 0, 0, 44, {}, "<script>literal text</script>, Order Packed By: Fixture"]
+          ],
+          "effects": [],
+          "stocks": []
+        },
+        {
+          "flags": {
+            "is_pack": 0,
+            "rto_recieved": 1
+          },
+          "transactions": [
+            [1, 0, 0, 44, {}, "<script>literal text</script>, RTO Package Recieved By: Fixture"]
+          ],
+          "effects": [],
+          "stocks": []
+        }
+      ]
+    },
+    {
+      "inputSha256": "ff3c02ed5a00e7ac008e3594b7c57394583f1cc8127438f545cb372a65e13b1a",
+      "args": ["tools/legacy-fulfillment/source-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "flags": {
+            "is_pack": 0,
+            "rto_recieved": 1
+          },
+          "transactions": [[1, 0, 0, 44, {}, "Package received, RTO Package Recieved By: Fixture"]],
+          "effects": [
+            {
+              "storeId": "1",
+              "productId": "10",
+              "before": 3,
+              "after": 5,
+              "type": 2
+            },
+            {
+              "storeId": "1",
+              "productId": "10",
+              "before": 5,
+              "after": 6,
+              "type": 2
+            },
+            {
+              "storeId": "1",
+              "productId": "11",
+              "before": 4,
+              "after": 9,
+              "type": 2
+            }
+          ],
+          "stocks": [
+            {
+              "productId": "10",
+              "stock": 6
+            },
+            {
+              "productId": "11",
+              "stock": 9
+            }
+          ]
+        },
+        {
+          "flags": {
+            "is_pack": 0,
+            "rto_recieved": 1
+          },
+          "transactions": [
+            [1, 0, 0, 44, {}, "Package received, RTO Package Recieved By: Fixture"],
+            [1, 0, 0, 44, {}, "Package received, RTO Package Recieved By: Fixture"]
+          ],
+          "effects": [
+            {
+              "storeId": "1",
+              "productId": "10",
+              "before": 3,
+              "after": 5,
+              "type": 2
+            },
+            {
+              "storeId": "1",
+              "productId": "10",
+              "before": 5,
+              "after": 6,
+              "type": 2
+            },
+            {
+              "storeId": "1",
+              "productId": "11",
+              "before": 4,
+              "after": 9,
+              "type": 2
+            },
+            {
+              "storeId": "1",
+              "productId": "10",
+              "before": 6,
+              "after": 8,
+              "type": 2
+            },
+            {
+              "storeId": "1",
+              "productId": "10",
+              "before": 8,
+              "after": 9,
+              "type": 2
+            },
+            {
+              "storeId": "1",
+              "productId": "11",
+              "before": 9,
+              "after": 14,
+              "type": 2
+            }
+          ],
+          "stocks": [
+            {
+              "productId": "10",
+              "stock": 9
+            },
+            {
+              "productId": "11",
+              "stock": 14
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "inputSha256": "860cc1fe8729d7d828b9e5e963bb0feb177df9af204e89754009e7c50126dfdd",
+      "args": ["tools/legacy-fulfillment/source-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "outcome": [true, {}],
+          "action": "ACCEPTED",
+          "transactions": [[1, 1, 0, 0, {}, "Hyperlocal Order Cancelled : Amount Refunded"]],
+          "effects": [
+            {
+              "storeId": "1",
+              "productId": "10",
+              "before": 5,
+              "after": 8
+            }
+          ],
+          "stocks": [
+            {
+              "productId": "10",
+              "stock": 8
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

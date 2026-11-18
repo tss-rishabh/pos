@@ -1,0 +1,74 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:34Z",
+  "test": "tests/administration/import-domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "5bad4ff0737f3998b673bde3242170a460e3880b32ae3ece6ebfced9a4ce010f",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        [
+          ["SkuId", "StoreId", "IsHold", "Hold/UnholdQty", "IsAvailable", "IsDelete"],
+          [
+            "Enter parent product ids only for simple products and for configurable only variant SKU ID will be used.)",
+            "For store ids please refer instructions on the store bulk upload page",
+            "1=>For Hold | 0=> For Unhold",
+            "Hold/Unhold Quantity",
+            "0=>Product listing off | 1=>Product listing on",
+            "0=>Activate Product | 1=>Deactivate Product"
+          ],
+          ["1234", "1", "1", "8", "1", "0"]
+        ]
+      ]
+    },
+    {
+      "inputSha256": "fb240ae3cb9693b0d3922a1bc4c2d78c85773ceb0663bfdad1196c2e5e745ca3",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        [
+          {
+            "IsDelete": "0",
+            "IsAvailable": "1",
+            "Hold/UnholdQty": "",
+            "IsHold": "",
+            "StoreId": "+1",
+            "SkuId": "001_234"
+          }
+        ]
+      ]
+    },
+    {
+      "inputSha256": "cf42e42746dcf2af3d1b2e2fdf1871ac2d6c33001984b065c2c431eef96bdd62",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "hold": true,
+          "unhold": false
+        }
+      ]
+    },
+    {
+      "inputSha256": "4abb4be3163d5d804b8a381df5cade23e5a86778d0039e0fc188e395279a0545",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        [
+          {
+            "SkuId": "'=HYPERLINK(\"https://example.invalid\")",
+            "StoreId": "1",
+            "IsHold": "",
+            "Hold/UnholdQty": "",
+            "IsAvailable": "1",
+            "IsDelete": "0"
+          }
+        ]
+      ]
+    }
+  ]
+}

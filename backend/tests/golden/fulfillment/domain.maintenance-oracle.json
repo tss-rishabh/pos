@@ -1,0 +1,465 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/fulfillment/maintenance-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/fulfillment/domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "2917ae083633cfa2c1fe50b104e3d11acfb7236e9b8270d3a52338b7a1e24f8c",
+      "args": ["tools/fulfillment/maintenance-oracle.py"],
+      "status": 0,
+      "output": [
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "REJECTED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "REJECTED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "REJECTED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "REJECTED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "REJECTED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "TIMED_OUT",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "REJECTED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "PENDING",
+            "to": "REJECTED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "PENDING",
+            "to": "REJECTED",
+            "ids": ["3", "4"]
+          }
+        ],
+        [
+          {
+            "orderId": "1",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["1", "2"]
+          },
+          {
+            "orderId": "2",
+            "from": "ACCEPTED",
+            "to": "PACKED",
+            "ids": ["3", "4"]
+          }
+        ]
+      ]
+    }
+  ]
+}

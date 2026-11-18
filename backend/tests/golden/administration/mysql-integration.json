@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:07:36Z",
+  "test": "tests/administration/mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "8503810e195be2f3a68ae2811d94f14b0e09b7aa75820e6022231eb7eeb03a61",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [260100]
+    },
+    {
+      "inputSha256": "d1c21c2ba56d20165c0869b45bc3d5ce01529e363aa434db9e39b6b53e208ce0",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "barcode": 9000000000001,
+          "price": "999.00",
+          "specialPrice": "899.00",
+          "exclusivePrice": "799.00",
+          "image": "https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/parent image.png"
+        }
+      ]
+    },
+    {
+      "inputSha256": "18ab0f4462d4ecbfef2186a5c785e0f3e4a7b908be50095ffc7c550a151c4ee1",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "response": {
+            "status": "success",
+            "message": "location fetched",
+            "data": {}
+          },
+          "statement": "\n                    SELECT dp.id,\n                           dp.pincode,\n                           dp.city,\n                           z.name as 'state',\n                           ct.name as 'country',\n                           dp.country_id as country_id,\n                           dp.latitude,\n                           dp.longitude,\n                           z.id as state_id\n                           \n                    FROM deliverable_pincodes as dp\n                    JOIN zones as z on(z.id=dp.state_id)\n                    JOIN countries ct on (ct.id=dp.country_id)\n                    WHERE dp.pincode = %s\n                    LIMIT 1\n                ",
+          "parameters": ["400001"]
+        }
+      ]
+    },
+    {
+      "inputSha256": "110bcff2c475048ff0f4323edbe4c17477f2c2c634d59263325ae9fec908e3fa",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "response": {
+            "status": "success",
+            "message": "location fetched",
+            "data": {
+              "pincode": "400001",
+              "city": "Straße",
+              "state": "Fixture state",
+              "country": "Fixture country",
+              "country_id": 99,
+              "latitude": "19.0000000000000001",
+              "longitude": "72.0000000000000001",
+              "state_id": 42
+            }
+          },
+          "statement": "\n                    SELECT dp.id,\n                           dp.pincode,\n                           dp.city,\n                           z.name as 'state',\n                           ct.name as 'country',\n                           dp.country_id as country_id,\n                           dp.latitude,\n                           dp.longitude,\n                           z.id as state_id\n                           \n                    FROM deliverable_pincodes as dp\n                    JOIN zones as z on(z.id=dp.state_id)\n                    JOIN countries ct on (ct.id=dp.country_id)\n                    WHERE dp.pincode = %s\n                    LIMIT 1\n                ",
+          "parameters": ["400001"]
+        }
+      ]
+    }
+  ]
+}

@@ -7,7 +7,24 @@ import {
   walletCorrectionPatchHash,
   type WalletAdjustmentFields,
 } from '../../src/modules/checkout/benefit-adjustments/policy.js';
-import { benefitOracle, type BenefitOracleCase } from '../../tools/checkout/benefit-oracle.js';
+import {
+  benefitOracleResult,
+  type BenefitOracleCase,
+} from '../../tools/checkout/benefit-oracle.js';
+import { goldenStdout } from '../golden/load.js';
+
+/** Replays tools/checkout/benefit_oracle.py output captured from the pinned source. */
+function benefitOracle(
+  cases: readonly BenefitOracleCase[],
+  profile: 'legacy' | 'proposed-wallet-v1' = 'legacy',
+) {
+  if (!cases.length || cases.length > 1000) throw new Error('Bounded benefit cases required.');
+  return benefitOracleResult.parse(
+    JSON.parse(
+      goldenStdout('checkout', 'global-benefit-policy', JSON.stringify({ cases, profile })),
+    ) as unknown,
+  );
+}
 
 const input: WalletAdjustmentFields = {
   asset: 'money',

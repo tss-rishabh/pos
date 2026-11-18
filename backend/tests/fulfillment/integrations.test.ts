@@ -1,9 +1,9 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import { effectRequest } from '../../src/modules/fulfillment/integrations.js';
 import { readFulfillmentOptions } from '../../src/modules/fulfillment/options.js';
 import type { EffectDelivery } from '../../src/modules/fulfillment/outbox.js';
+import { goldenStdout } from '../golden/load.js';
 const config = {
   ...readConfig({
     NODE_ENV: 'test',
@@ -55,12 +55,13 @@ describe('external fulfillment request contracts', () => {
       { kind: 'concurrency-sync' as const, payload: { storeId: '12', pending: 0, accepted: 0 } },
     ];
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/fulfillment/request-oracle.py'], {
-        input: JSON.stringify({
+      goldenStdout(
+        'fulfillment',
+        'integrations',
+        JSON.stringify({
           cases: cases.map((test) => ({ kind: test.kind, ...test.payload })),
         }),
-        encoding: 'utf8',
-      }),
+      ),
     );
     const actual = cases.map((test) => {
       const request = effectRequest(delivery(test.kind, test.payload), config, options);

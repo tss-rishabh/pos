@@ -1,10 +1,10 @@
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { describe, expect, it } from 'vitest';
 import {
   maskCustomerEmail,
   maskCustomerName,
   maskCustomerPhone,
 } from '../../src/modules/operational-reports/privacy.js';
+import { goldenStdout } from '../golden/load.js';
 describe('restricted-operator customer masking', () => {
   it('matches the actual source helpers for short, Unicode, malformed and international values', () => {
     const cases = [
@@ -21,10 +21,7 @@ describe('restricted-operator customer masking', () => {
         phone: '1'.repeat(index),
       });
     const expected: unknown = JSON.parse(
-      executePosSourceOracle(['tools/operational-reports/privacy-oracle.py'], {
-        input: JSON.stringify({ cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout('operational-reports', 'privacy', JSON.stringify({ cases })),
     );
     expect(
       cases.map((value) => ({

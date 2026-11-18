@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/dashboard/source-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pymysql==1.1.1",
+  "capturedAt": "2026-11-18T19:13:52Z",
+  "test": "tests/dashboard/service.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "880d251e91ee7aab325bf39139457ac01dc0d91d4efcba09e57c98a73b507a54",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/dashboard/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "sourceHash": "431c56565123c1db019c84b1cb9d987ebc7e055aa4fa6d0fb6bc87d757a7ab2b",
+        "decoratorHash": "dfe149174d73ff71ca7fb2854841566d1afdfd213e779f1adf89f68631e773af",
+        "permissions": {
+          "1": "allowed",
+          "2": "blocked:shortcut_dashboard"
+        },
+        "cases": [],
+        "queries": [],
+        "monthProjections": [
+          ["3", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"],
+          ["2", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]
+        ]
+      }
+    }
+  ]
+}

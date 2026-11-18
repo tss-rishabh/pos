@@ -1,0 +1,285 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/operational-reports/scheduled-oracle.py",
+  "runtime": "CPython 3.10.22 (tools/inventory-workbooks/.venv: openpyxl 3.1.2, et-xmlfile 1.1.0)",
+  "capturedAt": "2026-11-18T19:06:08Z",
+  "test": "tests/operational-reports/scheduled-domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "b3c3edae0e0d036fa7ace323de897395c95a5a13b8b140e141c60ffed9c0fe71",
+      "args": ["-B", "tools/operational-reports/scheduled-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\n\nFixture one - 1H 30M 0S - 1H 30M 0S\nNone - 0H 0M 0S - 0H 0M 0S\n"
+            },
+            {
+              "target": "demo",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\n\nFixture one - 1H 30M 0S - 1H 30M 0S\nNone - 0H 0M 0S - 0H 0M 0S\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\n\nFixture one - 1H 15M 0S - 1H 15M 0S\nNone - 0H 0M 0S - 0H 0M 0S\n"
+            },
+            {
+              "target": "demo",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\n\nFixture one - 1H 15M 0S - 1H 15M 0S\nNone - 0H 0M 0S - 0H 0M 0S\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\n\nFixture one - 12H 30M 0S - 12H 30M 0S\nNone - 0H 0M 0S - 0H 0M 0S\n"
+            },
+            {
+              "target": "demo",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\n\nFixture one - 12H 30M 0S - 12H 30M 0S\nNone - 0H 0M 0S - 0H 0M 0S\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\n\nFixture one - -25H 30M 0S - -25H 30M 0S\nNone - 0H 0M 0S - 0H 0M 0S\n"
+            },
+            {
+              "target": "demo",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\n\nFixture one - -25H 30M 0S - -25H 30M 0S\nNone - 0H 0M 0S - 0H 0M 0S\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "demo",
+              "text": "Store Hyperlocal Performance - 16 Nov 2026\n-------------------------------------------\nThere is no order yesterday"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "✨ *Stores Availability Status - 17 Nov 2026* ✨\n----------------------------------------------\n- *Total stores eligible for hyperlocal configuration:* `2`\n- *Stores successfully configured for hyperlocal orders:* `3`\n- *Stores pending hyperlocal configuration:* `-1`\n- *Stores currently closed for hyperlocal operations:* `1`\n- *Stores open and accepting hyperlocal orders today:* `2`\n\n🚫 *The following stores are CLOSED for hyperlocal orders today:*\n1. Fixture two\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "✨ *Stores Availability Status - 17 Nov 2026* ✨\n----------------------------------------------\n- *Total stores eligible for hyperlocal configuration:* `2`\n- *Stores successfully configured for hyperlocal orders:* `0`\n- *Stores pending hyperlocal configuration:* `2`\n- *Stores currently closed for hyperlocal operations:* `0`\n- *Stores open and accepting hyperlocal orders today:* `0`\n\n✅ *All stores are OPEN for hyperlocal orders today.*\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "*📊 Store-wise Order Summary & Acceptance Stats - 16 Nov 2026:*\n---------------------------------------------------------------------------\n*🏪 Fixture one*\n   ✅ Accepted: ` 1 ` |  ❌ Declined: ` 0` |  📊 Acceptance Rate: *100.00%* \n\n\n*🏪 Fixture two*\n   ✅ Accepted: ` 0 ` |  ❌ Declined: ` 2` |  📊 Acceptance Rate: *0.00%* 🚫\n\n\n------------------------------------------------\n*📈 Total Orders:* ` 3 `\n*✅ Accepted Orders:* ` 1 `\n*🔄 Converted Orders:* ` 1 `\n*❌ Conversion Failed:* ` 1 `\n\n*📊 Overall Accepted Rate:* *33.33%*\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "*📊 Store-wise Order Summary & Acceptance Stats - 16 Nov 2026:*\n---------------------------------------------------------------------------\n*🏪 Fixture one*\n   ✅ Accepted: ` 1 ` |  ❌ Declined: ` 3` |  📊 Acceptance Rate: *25.00%* \n\n\n*🏪 Fixture two*\n   ✅ Accepted: ` 0 ` |  ❌ Declined: ` 3` |  📊 Acceptance Rate: *0.00%* 🚫\n\n\n------------------------------------------------\n*📈 Total Orders:* ` 3 `\n*✅ Accepted Orders:* ` 1 `\n*🔄 Converted Orders:* ` 1 `\n*❌ Conversion Failed:* ` 1 `\n\n*📊 Overall Accepted Rate:* *33.33%*\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "*📊 Store-wise Order Summary & Acceptance Stats - 16 Nov 2026:*\n---------------------------------------------------------------------------\n------------------------------------------------\n*📈 Total Orders:* ` 0 `\n*✅ Accepted Orders:* ` 0 `\n*🔄 Converted Orders:* ` 0 `\n*❌ Conversion Failed:* ` 0 `\n\n*📊 Overall Accepted Rate:* *0.00%*\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "✨ *Hyperlocal Conversion Stats - 16 Nov 2026* ✨\n---------------------------------------------------\n🚫 *Orders not eligible for express delivery:* `1`\n🔄 *Mixed orders not eligible for express delivery:* `1`\n📉 *Valid/Mixed orders not eligible because of buffer inventory:* `2`\n\n🚀 *Express delivery option shown to customers (A):* `3` | *APP:* `1` | *WEB:* `1`\n📦 *Total hyperlocal orders received (B):* `2` | *APP:* `1` | *WEB:* `1`\n📊 *Opt-in rate (B/A):* `66.67%`\n\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "✨ *Hyperlocal Conversion Stats - 16 Nov 2026* ✨\n---------------------------------------------------\n🚫 *Orders not eligible for express delivery:* `0`\n🔄 *Mixed orders not eligible for express delivery:* `0`\n📉 *Valid/Mixed orders not eligible because of buffer inventory:* `0`\n\n🚀 *Express delivery option shown to customers (A):* `0` | *APP:* `0` | *WEB:* `0`\n📦 *Total hyperlocal orders received (B):* `2` | *APP:* `1` | *WEB:* `1`\n📊 *Opt-in rate (B/A):* `0%`\n\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "Borzo delivery issues - 16 Nov 2026\n-------------------------------------------\n\nOrder ID   │ Total Delay      \n9007199254740993| 05 minutes       \n1001       | 25:30 hours      \n\n"
+            },
+            {
+              "target": "demo",
+              "text": "Borzo delivery issues - 16 Nov 2026\n-------------------------------------------\n\nOrder ID   │ Total Delay      \n9007199254740993| 05 minutes       \n1001       | 25:30 hours      \n\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "demo",
+              "text": "Borzo delivery issues - 16 Nov 2026\n-------------------------------------------\nThere is no delay in delivery"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "✨ *Hyperlocal Daily Cancellation (Convert Online) - 16 Nov 2026* ✨\n-----------------------------------------------------------\n\n🏬 *Store Name:* Fixture one\n🆔 *Order ID:* 1001  |  📅 *Date:* 2026-11-16 12:30:00 \n📌 *Dropdown Selected:* Fixture reason\n💬 *Comment:* None\n\n\n"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "✨ *Hyperlocal Daily Cancellation (Convert Online) - 16 Nov 2026* ✨\n-----------------------------------------------------------\nThere is no cancellation in hyperlocal orders"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [],
+          "updates": [
+            {
+              "ticketId": "901",
+              "status": "OPEN",
+              "age": "172801000"
+            },
+            {
+              "ticketId": "902",
+              "status": "CLOSED",
+              "age": "1000"
+            }
+          ]
+        },
+        {
+          "messages": [],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "CRM Hyperlocal open tickets - 16 Nov 2026\n-----------------------------------------------------\n\nOrder ID   │ Ticket ID  │ Status           │ Ticket Age  \n1001       | 901        | OPEN             | 2D 0H 00M   \n\n"
+            },
+            {
+              "target": "demo",
+              "text": "CRM Hyperlocal open tickets - 16 Nov 2026\n-----------------------------------------------------\n\nOrder ID   │ Ticket ID  │ Status           │ Ticket Age  \n1001       | 901        | OPEN             | 2D 0H 00M   \n\n"
+            }
+          ],
+          "updates": [
+            {
+              "ticketId": "901",
+              "status": "OPEN",
+              "age": "172801000"
+            },
+            {
+              "ticketId": "902",
+              "status": "CLOSED",
+              "age": "1000"
+            }
+          ]
+        },
+        {
+          "messages": [
+            {
+              "target": "demo",
+              "text": "CRM Hyperlocal open tickets - 16 Nov 2026\n-----------------------------------------------------\nThere is no open ticket for last 3 days"
+            }
+          ],
+          "updates": []
+        },
+        {
+          "messages": [],
+          "updates": [
+            {
+              "ticketId": "901",
+              "status": "OPEN",
+              "age": "172801000"
+            },
+            {
+              "ticketId": "902",
+              "status": "CLOSED",
+              "age": "1000"
+            }
+          ]
+        },
+        {
+          "messages": [],
+          "updates": []
+        },
+        {
+          "messages": [
+            {
+              "target": "main",
+              "text": "CRM Hyperlocal open tickets - 16 Nov 2026\n-----------------------------------------------------\n\nOrder ID   │ Ticket ID  │ Status           │ Ticket Age  \n1001       | 901        | OPEN             | 2D 0H 00M   \n1002       | 902        | CLOSED           | 0H 00M      \n\n"
+            },
+            {
+              "target": "demo",
+              "text": "CRM Hyperlocal open tickets - 16 Nov 2026\n-----------------------------------------------------\n\nOrder ID   │ Ticket ID  │ Status           │ Ticket Age  \n1001       | 901        | OPEN             | 2D 0H 00M   \n1002       | 902        | CLOSED           | 0H 00M      \n\n"
+            }
+          ],
+          "updates": [
+            {
+              "ticketId": "901",
+              "status": "OPEN",
+              "age": "172801000"
+            },
+            {
+              "ticketId": "902",
+              "status": "CLOSED",
+              "age": "1000"
+            }
+          ]
+        },
+        {
+          "messages": [
+            {
+              "target": "demo",
+              "text": "CRM Hyperlocal open tickets - 16 Nov 2026\n-----------------------------------------------------\nThere is no open ticket for last 3 days"
+            }
+          ],
+          "updates": []
+        }
+      ]
+    }
+  ]
+}

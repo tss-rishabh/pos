@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   parseStockImport,
@@ -6,13 +5,11 @@ import {
   stockImportHeaders,
   stockTemplateRows,
 } from '../../src/modules/administration/import-domain.js';
+import { goldenStdout } from '../golden/load.js';
 
 const oracle = <T>(operation: string, cases: unknown[]): T[] =>
   JSON.parse(
-    execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-      input: JSON.stringify({ operation, cases }),
-      encoding: 'utf8',
-    }),
+    goldenStdout('administration', 'import-domain', JSON.stringify({ operation, cases })),
   ) as T[];
 describe('inventory CSV source and validation boundaries', () => {
   it('preserves the exact source template and header-based quoted-field reading', () => {

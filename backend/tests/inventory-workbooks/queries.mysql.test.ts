@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -10,10 +9,9 @@ import {
 } from '../../src/modules/inventory-workbooks/queries.js';
 import { inventoryWorkbookRowSchema } from '../../src/modules/inventory-workbooks/contracts.js';
 import { MySqlDialect } from 'drizzle-orm/mysql-core';
+import { goldenStdout } from '../golden/load.js';
 
 const connection = process.env.INVENTORY_WORKBOOK_MYSQL_TEST_URL;
-const python =
-  process.env.INVENTORY_WORKBOOK_ORACLE_PYTHON || 'tools/inventory-workbooks/.venv/bin/python';
 describe.skipIf(!connection)(
   'workbook bound SQL against pinned source on isolated physical MySQL schema',
   () => {
@@ -32,10 +30,7 @@ describe.skipIf(!connection)(
         );
     async function source(store: string, ids: readonly string[]) {
       const raw: unknown = JSON.parse(
-          execFileSync(python, ['tools/inventory-workbooks/source-oracle.py'], {
-            input: '{"action":"queries"}',
-            encoding: 'utf8',
-          }),
+          goldenStdout('inventory-workbooks', 'queries-mysql', '{"action":"queries"}'),
         ),
         query = z.object({ rows: z.string() }).parse(raw).rows;
       await fixture.admin.query("SET SESSION sql_mode='STRICT_TRANS_TABLES'");

@@ -1,5 +1,3 @@
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   groupOfflineOrderCsv,
@@ -8,10 +6,8 @@ import {
   shopifyOrderColumns,
   type LegacyImportGroup,
 } from '../../src/modules/legacy-order-imports/csv.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
-const oracle = fileURLToPath(
-  new URL('../../tools/legacy-order-imports/source_csv.py', import.meta.url),
-);
 function csv(columns: readonly string[], rows: Readonly<Record<string, string>>[]) {
   return [columns, ...rows.map((row) => columns.map((key) => row[key] ?? ''))]
     .map((row) => row.map((cell) => `"${cell.replaceAll('"', '""')}"`).join(','))
@@ -56,11 +52,11 @@ function shopify(values: Record<string, string> = {}) {
   };
 }
 function source(kind: 'offline' | 'shopify', text: string) {
-  const result = spawnSync('python3', [oracle], {
-    input: JSON.stringify({ kind, csv: text, storeId: '1' }),
-    encoding: 'utf8',
-    maxBuffer: 1024 * 1024,
-  });
+  const result = goldenSpawnResult(
+    'legacy-order-imports',
+    'csv',
+    JSON.stringify({ kind, csv: text, storeId: '1' }),
+  );
   expect(result.status, 'The pinned in-memory source grouping oracle must execute.').toBe(0);
   return JSON.parse(result.stdout) as { groups: unknown[]; failureCount: number };
 }

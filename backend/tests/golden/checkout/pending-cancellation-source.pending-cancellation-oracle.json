@@ -1,0 +1,334 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout/pending_cancellation_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/checkout/pending-cancellation-source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/checkout/pending_cancellation_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceCommits": {
+          "web": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+          "apiV2": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5"
+        },
+        "sourceHashes": {
+          "web": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+          "apiV2": "821ee475e4e19d0f48c1078e0eaf6dc0f17fbd57506d0e97f125be45b26746ad"
+        },
+        "cases": [
+          {
+            "name": "one-line",
+            "result": {
+              "status": 200,
+              "message": {
+                "message": "refund on order cancel"
+              }
+            },
+            "statuses": {
+              "order": 4,
+              "payment": 2
+            },
+            "lines": [
+              {
+                "id": "9007199254741000",
+                "productId": "10",
+                "quantity": 2,
+                "status": "CANCELLED"
+              }
+            ],
+            "stocks": {
+              "10": 12
+            },
+            "stockCalls": [
+              {
+                "storeId": "1",
+                "productIds": ["10"],
+                "after": 12
+              }
+            ],
+            "apiEffects": [
+              {
+                "kind": "mark-refunded",
+                "lineId": "9007199254741000"
+              },
+              {
+                "kind": "cashback-refunded",
+                "lineId": "9007199254741000"
+              }
+            ],
+            "logs": [
+              {
+                "payDict": {},
+                "comment": "Order Cancelled : No Transaction Made"
+              }
+            ]
+          },
+          {
+            "name": "duplicate-sku",
+            "result": {
+              "status": 200,
+              "message": {
+                "message": "refund on order cancel"
+              }
+            },
+            "statuses": {
+              "order": 4,
+              "payment": 2
+            },
+            "lines": [
+              {
+                "id": "9007199254741000",
+                "productId": "10",
+                "quantity": 2,
+                "status": "CANCELLED"
+              },
+              {
+                "id": "9007199254741001",
+                "productId": "10",
+                "quantity": 3,
+                "status": "CANCELLED"
+              }
+            ],
+            "stocks": {
+              "10": 15
+            },
+            "stockCalls": [
+              {
+                "storeId": "1",
+                "productIds": ["10"],
+                "after": 12
+              },
+              {
+                "storeId": "1",
+                "productIds": ["10"],
+                "after": 15
+              }
+            ],
+            "apiEffects": [
+              {
+                "kind": "mark-refunded",
+                "lineId": "9007199254741000"
+              },
+              {
+                "kind": "cashback-refunded",
+                "lineId": "9007199254741000"
+              },
+              {
+                "kind": "mark-refunded",
+                "lineId": "9007199254741001"
+              },
+              {
+                "kind": "cashback-refunded",
+                "lineId": "9007199254741001"
+              }
+            ],
+            "logs": [
+              {
+                "payDict": {},
+                "comment": "Order Cancelled : No Transaction Made"
+              }
+            ]
+          },
+          {
+            "name": "two-skus",
+            "result": {
+              "status": 200,
+              "message": {
+                "message": "refund on order cancel"
+              }
+            },
+            "statuses": {
+              "order": 4,
+              "payment": 2
+            },
+            "lines": [
+              {
+                "id": "9007199254741000",
+                "productId": "10",
+                "quantity": 2,
+                "status": "CANCELLED"
+              },
+              {
+                "id": "9007199254741001",
+                "productId": "11",
+                "quantity": 1,
+                "status": "CANCELLED"
+              }
+            ],
+            "stocks": {
+              "10": 12,
+              "11": 11
+            },
+            "stockCalls": [
+              {
+                "storeId": "1",
+                "productIds": ["10"],
+                "after": 12
+              },
+              {
+                "storeId": "1",
+                "productIds": ["11"],
+                "after": 11
+              }
+            ],
+            "apiEffects": [
+              {
+                "kind": "mark-refunded",
+                "lineId": "9007199254741000"
+              },
+              {
+                "kind": "cashback-refunded",
+                "lineId": "9007199254741000"
+              },
+              {
+                "kind": "mark-refunded",
+                "lineId": "9007199254741001"
+              },
+              {
+                "kind": "cashback-refunded",
+                "lineId": "9007199254741001"
+              }
+            ],
+            "logs": [
+              {
+                "payDict": {},
+                "comment": "Order Cancelled : No Transaction Made"
+              }
+            ]
+          },
+          {
+            "name": "long-identifiers",
+            "result": {
+              "status": 200,
+              "message": {
+                "message": "refund on order cancel"
+              }
+            },
+            "statuses": {
+              "order": 4,
+              "payment": 2
+            },
+            "lines": [
+              {
+                "id": "9007199254741000",
+                "productId": "9007199254740995",
+                "quantity": 2,
+                "status": "CANCELLED"
+              }
+            ],
+            "stocks": {
+              "9007199254740995": 12
+            },
+            "stockCalls": [
+              {
+                "storeId": "1",
+                "productIds": ["9007199254740995"],
+                "after": 12
+              }
+            ],
+            "apiEffects": [
+              {
+                "kind": "mark-refunded",
+                "lineId": "9007199254741000"
+              },
+              {
+                "kind": "cashback-refunded",
+                "lineId": "9007199254741000"
+              }
+            ],
+            "logs": [
+              {
+                "payDict": {},
+                "comment": "Order Cancelled : No Transaction Made"
+              }
+            ]
+          },
+          {
+            "name": "partial-source-error",
+            "result": {
+              "status": 400,
+              "message": "Something went wrong"
+            },
+            "statuses": {
+              "order": 1,
+              "payment": 1
+            },
+            "lines": [
+              {
+                "id": "9007199254741000",
+                "productId": "10",
+                "quantity": 2,
+                "status": "PLACED"
+              },
+              {
+                "id": "9007199254741001",
+                "productId": "11",
+                "quantity": 1,
+                "status": "DELIVERED"
+              }
+            ],
+            "stocks": {
+              "10": 10,
+              "11": 10
+            },
+            "stockCalls": [],
+            "apiEffects": [
+              {
+                "kind": "mark-refunded",
+                "lineId": "9007199254741000"
+              },
+              {
+                "kind": "cashback-refunded",
+                "lineId": "9007199254741000"
+              }
+            ],
+            "logs": []
+          },
+          {
+            "name": "missing-stock-source-success",
+            "result": {
+              "status": 200,
+              "message": {
+                "message": "refund on order cancel"
+              }
+            },
+            "statuses": {
+              "order": 4,
+              "payment": 2
+            },
+            "lines": [
+              {
+                "id": "9007199254741000",
+                "productId": "10",
+                "quantity": 2,
+                "status": "CANCELLED"
+              }
+            ],
+            "stocks": {},
+            "stockCalls": [],
+            "apiEffects": [
+              {
+                "kind": "mark-refunded",
+                "lineId": "9007199254741000"
+              },
+              {
+                "kind": "cashback-refunded",
+                "lineId": "9007199254741000"
+              }
+            ],
+            "logs": [
+              {
+                "payDict": {},
+                "comment": "Order Cancelled : No Transaction Made"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,377 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout/legacy_order_sms_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/checkout/order-messages.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/checkout/legacy_order_sms_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "orderId": "9007199254740993",
+          "firstName": "",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "",
+          "lastName": "Customer",
+          "feedbackUrl": "https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "message": "Hey Customer! Thank you for placing your order with The Souled Store. We’d love to know your shopping experience here: https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Fixture",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey FixtureCustomer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Fixture",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey FixtureCustomer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Fixture",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey FixtureCustomer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Fixture",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey FixtureCustomer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Fixture",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey FixtureCustomer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Fixture",
+          "lastName": "Customer",
+          "feedbackUrl": "https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "message": "Hey FixtureCustomer! Thank you for placing your order with The Souled Store. We’d love to know your shopping experience here: https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Café ",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Café Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Café ",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Café Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Café ",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Café Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Café ",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Café Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Café ",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey Café Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "Café ",
+          "lastName": "Customer",
+          "feedbackUrl": "https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "message": "Hey Café Customer! Thank you for placing your order with The Souled Store. We’d love to know your shopping experience here: https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "雪",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey 雪Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "雪",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey 雪Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "雪",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey 雪Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "雪",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey 雪Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "雪",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey 雪Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "雪",
+          "lastName": "Customer",
+          "feedbackUrl": "https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "message": "Hey 雪Customer! Thank you for placing your order with The Souled Store. We’d love to know your shopping experience here: https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "<script>fixture</script>",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey <script>fixture</script>Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "<script>fixture</script>",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey <script>fixture</script>Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "<script>fixture</script>",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey <script>fixture</script>Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "<script>fixture</script>",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey <script>fixture</script>Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 0,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "<script>fixture</script>",
+          "lastName": "Customer",
+          "feedbackUrl": null,
+          "message": "Hey <script>fixture</script>Customer! Your order (ID: 9007199254740993) has been placed & the details have been mailed to you. Thank you for shopping with a homegrown Indian brand.",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        },
+        {
+          "orderId": "9007199254740993",
+          "firstName": "<script>fixture</script>",
+          "lastName": "Customer",
+          "feedbackUrl": "https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "message": "Hey <script>fixture</script>Customer! Thank you for placing your order with The Souled Store. We’d love to know your shopping experience here: https://feedback.example.test/invoice-feedback#feedback_proof=SYNTHETIC-PURPOSE-PROOF",
+          "legacySignerCalls": 1,
+          "legacyMethod": "GET",
+          "response": {
+            "message": "SMS Sent"
+          }
+        }
+      ]
+    }
+  ]
+}

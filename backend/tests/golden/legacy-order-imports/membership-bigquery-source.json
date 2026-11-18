@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "oracle": "tools/legacy-order-imports/membership-bigquery-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:59Z",
+  "test": "tests/legacy-order-imports/membership-bigquery-source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "784f9b347a736508464ed5898f204204658aeef5d21383a64bd395815742bf8b",
+      "args": ["tools/legacy-order-imports/membership-bigquery-oracle.py", "<backend-tss-api_v2>/"],
+      "status": 0,
+      "output": {
+        "cases": [
+          {
+            "source": false,
+            "memory": false,
+            "same": true,
+            "sourceCalls": ["last", "recent"]
+          },
+          {
+            "source": true,
+            "memory": true,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent", "lines"]
+          },
+          {
+            "source": false,
+            "memory": false,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent", "lines"]
+          },
+          {
+            "source": true,
+            "memory": true,
+            "same": true,
+            "sourceCalls": ["last", "lines"]
+          },
+          {
+            "source": false,
+            "memory": false,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent"]
+          },
+          {
+            "source": false,
+            "memory": false,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent"]
+          },
+          {
+            "source": true,
+            "memory": true,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent", "lines"]
+          },
+          {
+            "source": true,
+            "memory": true,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent", "lines"]
+          },
+          {
+            "source": false,
+            "memory": false,
+            "same": true,
+            "sourceCalls": ["last", "recent"]
+          },
+          {
+            "source": false,
+            "memory": false,
+            "same": true,
+            "sourceCalls": ["last", "recent"]
+          },
+          {
+            "source": false,
+            "memory": false,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent", "lines"]
+          },
+          {
+            "source": true,
+            "memory": true,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent", "lines"]
+          },
+          {
+            "source": true,
+            "memory": true,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent", "lines"]
+          },
+          {
+            "source": true,
+            "memory": true,
+            "same": true,
+            "sourceCalls": ["last", "lines", "recent", "lines"]
+          },
+          {
+            "source": true,
+            "memory": true,
+            "same": true,
+            "sourceCalls": []
+          },
+          {
+            "source": false,
+            "memory": false,
+            "same": true,
+            "sourceCalls": ["last", "recent"]
+          }
+        ],
+        "sourcePins": {
+          "controllers/cart/Cart.py": "1f9eff0f1a4ea66f3cac8903d3c1cb9a5b39e2a3babd6dd6c8dcf192de7defd3",
+          "constants/StatusEnum.py": "42cb694ff628c61ef8a5ec169a4b319a8c1491ef2a698f93665348e6b22d0a06"
+        }
+      }
+    }
+  ]
+}

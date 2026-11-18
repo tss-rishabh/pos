@@ -1,0 +1,920 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/special-permission-history/source-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pymysql==1.1.1",
+  "capturedAt": "2026-11-18T19:13:19Z",
+  "test": "tests/special-permission-history/mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "8259c4da0f3a78b690f5cf9742eef213a452b190d274ecb3e2b353eaaf2594f7",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/special-permission-history/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "sourceHash": "a796ec00ecf7ad9f75ab8e76de8b117649903a1cc14430a06f90500ebd15554a",
+        "cases": [
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              },
+              {
+                "id": "9007199254740997",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Card",
+                "comment": "ordinary",
+                "created_at": "2026-11-16T20:00:00",
+                "recipient": "  "
+              }
+            ],
+            "queryCount": 7
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "2",
+            "recordsFiltered": "2",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 4
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "2",
+            "recordsFiltered": "2",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              }
+            ],
+            "queryCount": 4
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              },
+              {
+                "id": "9007199254740997",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Card",
+                "comment": "ordinary",
+                "created_at": "2026-11-16T20:00:00",
+                "recipient": "  "
+              }
+            ],
+            "queryCount": 8
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "2",
+            "recordsFiltered": "2",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              }
+            ],
+            "queryCount": 4
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "2",
+            "recordsFiltered": "2",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              }
+            ],
+            "queryCount": 4
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "1",
+            "recordsFiltered": "1",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "1",
+            "recordsFiltered": "1",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "2",
+            "recordsFiltered": "2",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              }
+            ],
+            "queryCount": 4
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "2",
+            "recordsFiltered": "2",
+            "data": [
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              }
+            ],
+            "queryCount": 4
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              },
+              {
+                "id": "9007199254740997",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Card",
+                "comment": "ordinary",
+                "created_at": "2026-11-16T20:00:00",
+                "recipient": "  "
+              }
+            ],
+            "queryCount": 8
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "1",
+            "recordsFiltered": "1",
+            "data": [
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "0",
+            "recordsFiltered": "0",
+            "data": [],
+            "queryCount": 2
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "0",
+            "recordsFiltered": "0",
+            "data": [],
+            "queryCount": 2
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "1",
+            "recordsFiltered": "1",
+            "data": [
+              {
+                "id": "9007199254740997",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Card",
+                "comment": "ordinary",
+                "created_at": "2026-11-16T20:00:00",
+                "recipient": "  "
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "1",
+            "recordsFiltered": "1",
+            "data": [
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              }
+            ],
+            "queryCount": 2
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "2",
+            "recordsFiltered": "2",
+            "data": [
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              },
+              {
+                "id": "9007199254740997",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Card",
+                "comment": "ordinary",
+                "created_at": "2026-11-16T20:00:00",
+                "recipient": "  "
+              }
+            ],
+            "queryCount": 7
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "0",
+            "recordsFiltered": "0",
+            "data": [],
+            "queryCount": 1
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "2",
+            "recordsFiltered": "2",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "3",
+            "recordsFiltered": "3",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 4
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              },
+              {
+                "id": "9007199254740997",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Card",
+                "comment": "ordinary",
+                "created_at": "2026-11-16T20:00:00",
+                "recipient": "  "
+              }
+            ],
+            "queryCount": 7
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "6",
+            "recordsFiltered": "6",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              },
+              {
+                "id": "9007199254740995",
+                "added_by": "unknown",
+                "platform": "Tss Points",
+                "comment": "ångström",
+                "created_at": "2026-11-16T12:00:00",
+                "recipient": "customer.fixture@example.test"
+              },
+              {
+                "id": "9007199254740996",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Voucher ",
+                "comment": "quoted ' value",
+                "created_at": "2026-11-16T23:59:59",
+                "recipient": "Änne"
+              },
+              {
+                "id": "9007199254740997",
+                "added_by": "Admin Fixture",
+                "platform": "Gift Card",
+                "comment": "ordinary",
+                "created_at": "2026-11-16T20:00:00",
+                "recipient": "  "
+              }
+            ],
+            "queryCount": 7
+          },
+          {
+            "draw": 7,
+            "recordsTotal": "0",
+            "recordsFiltered": "0",
+            "data": [],
+            "queryCount": 2
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "f69c559d5463b166f71f4927d5b30671d9b25fbe41e7f847fb7e272536945a33",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/special-permission-history/source-oracle.py"
+      ],
+      "status": 1,
+      "output": {
+        "error": "SOURCE_ACTIVITY_ORACLE_FAILED",
+        "kind": "OperationalError",
+        "caseIndex": 0
+      }
+    },
+    {
+      "inputSha256": "abed88deb11d045a90de99d462920f288de99b1b32be07a247cecb868e0174cf",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/special-permission-history/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "sourceHash": "a796ec00ecf7ad9f75ab8e76de8b117649903a1cc14430a06f90500ebd15554a",
+        "cases": [
+          {
+            "draw": 1,
+            "recordsTotal": "8",
+            "recordsFiltered": "8",
+            "data": [
+              {
+                "id": "-1",
+                "added_by": "Admin Fixture",
+                "platform": "barcode",
+                "comment": "start",
+                "created_at": "2026-11-16T00:00:00",
+                "recipient": "root-fixture"
+              },
+              {
+                "id": "9007199254740993",
+                "added_by": " ",
+                "platform": "barcode",
+                "comment": "percent% under_ slash\\ quote' Café ÅÄÖ",
+                "created_at": "2026-11-16T01:02:03",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 2,
+            "recordsTotal": "1",
+            "recordsFiltered": "1",
+            "data": [
+              {
+                "id": "9007199254740998",
+                "added_by": "Admin Fixture",
+                "platform": "CUSTOM",
+                "comment": "old row",
+                "created_at": "2026-11-15T23:59:59",
+                "recipient": "na"
+              }
+            ],
+            "queryCount": 2
+          },
+          {
+            "draw": 3,
+            "recordsTotal": "1",
+            "recordsFiltered": "1",
+            "data": [
+              {
+                "id": "9007199254740994",
+                "added_by": "  Saved Actor  ",
+                "platform": "Tss Money",
+                "comment": "CAFÉ",
+                "created_at": "2026-11-16T10:00:00",
+                "recipient": "NA"
+              }
+            ],
+            "queryCount": 3
+          },
+          {
+            "draw": 4,
+            "recordsTotal": "0",
+            "recordsFiltered": "0",
+            "data": [],
+            "queryCount": 2
+          }
+        ]
+      }
+    }
+  ]
+}

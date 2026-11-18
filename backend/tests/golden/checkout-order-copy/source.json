@@ -1,0 +1,107 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/order-copy/source_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:37Z",
+  "test": "tests/checkout-order-copy/source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["-B", "tools/order-copy/source_oracle.py"],
+      "status": 0,
+      "output": {
+        "normal": {
+          "status": 200,
+          "message": "Cart Synced",
+          "calls": 2,
+          "productIds": [10, 11],
+          "syncs": 1,
+          "clears": 1,
+          "syncedItems": [
+            {
+              "prod_id": 10,
+              "quantity": 1
+            },
+            {
+              "prod_id": 10,
+              "quantity": 1
+            },
+            {
+              "prod_id": 11,
+              "quantity": 1
+            }
+          ]
+        },
+        "disconnected": {
+          "status": 204,
+          "message": "Please Connect The User",
+          "calls": 0,
+          "productIds": [],
+          "syncs": 0,
+          "clears": 0,
+          "syncedItems": []
+        },
+        "missing": {
+          "status": 204,
+          "message": "Please Enter Correct Order Id",
+          "calls": 0,
+          "productIds": [],
+          "syncs": 0,
+          "clears": 0,
+          "syncedItems": []
+        },
+        "partial-none": {
+          "status": 200,
+          "message": "Cart partially synced - please review the cart",
+          "calls": 2,
+          "productIds": [10, 11],
+          "syncs": 1,
+          "clears": 1,
+          "syncedItems": [
+            {
+              "prod_id": 10,
+              "quantity": 1
+            }
+          ]
+        },
+        "thrown-error": {
+          "status": 200,
+          "message": "Cart Synced",
+          "calls": 2,
+          "productIds": [10, 11],
+          "syncs": 1,
+          "clears": 1,
+          "syncedItems": [
+            {
+              "prod_id": 10,
+              "quantity": 1
+            }
+          ]
+        },
+        "duplicate-sku": {
+          "status": 200,
+          "message": "Cart Synced",
+          "calls": 2,
+          "productIds": [10, 10],
+          "syncs": 1,
+          "clears": 1,
+          "syncedItems": [
+            {
+              "prod_id": 10,
+              "quantity": 1
+            },
+            {
+              "prod_id": 10,
+              "quantity": 1
+            },
+            {
+              "prod_id": 10,
+              "quantity": 1
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

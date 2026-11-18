@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/invoice-documents/sdd-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:58Z",
+  "test": "tests/invoice-documents/express-source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/invoice-documents/sdd-oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "sourceHandlerSha256": "35e57d1ed6d97b780f1eab2af16ea27f2e99e929e2f7595e1b5d2a2223d5660f",
+        "orderId": "12345",
+        "isSddShipment": "0",
+        "legacyCredentialInQuery": true,
+        "rewriteCredentialTransport": "private-header-only",
+        "template": "order/invoice.html",
+        "isStore": false,
+        "requests": 1
+      }
+    }
+  ]
+}

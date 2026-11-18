@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/operational-reports/privacy-oracle.py",
+  "runtime": "CPython 3.10.22 (tools/inventory-workbooks/.venv: openpyxl 3.1.2, et-xmlfile 1.1.0)",
+  "capturedAt": "2026-11-18T19:06:08Z",
+  "test": "tests/operational-reports/privacy.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "1fcf2980658797143120c21809cdf50bfb178c52cfcb994a86d7a5fc616bb0ea",
+      "args": ["-B", "tools/operational-reports/privacy-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "name": "***",
+          "email": "f******@e******.test",
+          "phone": "********7890"
+        },
+        {
+          "name": "***",
+          "email": "a@b.test",
+          "phone": "****"
+        },
+        {
+          "name": "F*****e",
+          "email": "****",
+          "phone": "******७८९०"
+        },
+        {
+          "name": "😀**😀",
+          "email": "****",
+          "phone": "**⁰⁴⁵⁶"
+        },
+        {
+          "name": "***",
+          "email": "****",
+          "phone": "****"
+        },
+        {
+          "name": "***",
+          "email": "x@z.test",
+          "phone": "****"
+        },
+        {
+          "name": "F*Z",
+          "email": "x*@z*.test",
+          "phone": "****"
+        },
+        {
+          "name": "F**Z",
+          "email": "x**@z**.test",
+          "phone": "****"
+        },
+        {
+          "name": "F***Z",
+          "email": "x***@z***.test",
+          "phone": "****"
+        },
+        {
+          "name": "F****Z",
+          "email": "x****@z****.test",
+          "phone": "1111"
+        },
+        {
+          "name": "F*****Z",
+          "email": "x*****@z*****.test",
+          "phone": "*1111"
+        },
+        {
+          "name": "F******Z",
+          "email": "x******@z******.test",
+          "phone": "**1111"
+        },
+        {
+          "name": "F*******Z",
+          "email": "x*******@z*******.test",
+          "phone": "***1111"
+        },
+        {
+          "name": "F********Z",
+          "email": "x********@z********.test",
+          "phone": "****1111"
+        },
+        {
+          "name": "F*********Z",
+          "email": "x*********@z*********.test",
+          "phone": "*****1111"
+        },
+        {
+          "name": "F**********Z",
+          "email": "x**********@z**********.test",
+          "phone": "******1111"
+        },
+        {
+          "name": "F***********Z",
+          "email": "x***********@z***********.test",
+          "phone": "*******1111"
+        },
+        {
+          "name": "F************Z",
+          "email": "x************@z************.test",
+          "phone": "********1111"
+        },
+        {
+          "name": "F*************Z",
+          "email": "x*************@z*************.test",
+          "phone": "*********1111"
+        },
+        {
+          "name": "F**************Z",
+          "email": "x**************@z**************.test",
+          "phone": "**********1111"
+        },
+        {
+          "name": "F***************Z",
+          "email": "x***************@z***************.test",
+          "phone": "***********1111"
+        },
+        {
+          "name": "F****************Z",
+          "email": "x****************@z****************.test",
+          "phone": "************1111"
+        },
+        {
+          "name": "F*****************Z",
+          "email": "x*****************@z*****************.test",
+          "phone": "*************1111"
+        },
+        {
+          "name": "F******************Z",
+          "email": "x******************@z******************.test",
+          "phone": "**************1111"
+        },
+        {
+          "name": "F*******************Z",
+          "email": "x*******************@z*******************.test",
+          "phone": "***************1111"
+        }
+      ]
+    }
+  ]
+}

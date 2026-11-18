@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/parity/check_business_metrics_reachability.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:33Z",
+  "test": "tests/business-metrics-reachability.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/parity/check_business_metrics_reachability.py"],
+      "status": 0,
+      "output": {
+        "activeTemplateReferences": 0,
+        "activeViewDefinitions": 0,
+        "applicationImported": false,
+        "externalRequests": 0,
+        "registeredRoutes": 0,
+        "sidebarLink": "inside-django-comment",
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "templatesRetained": {
+          "report/templates/bd_report/daily_report_matric_report_datatable.html": "078abfea76f93aef10bb2d3a0dbd4dff66eeed53e41e8ab2ffe7f9399eb2b806",
+          "report/templates/bd_report/daily_report_matric_upload.html": "d3561050e5bc4cf546034d8a6e116188bb85646d7d34bd3bf8c8ff1beb22b6e9"
+        }
+      }
+    }
+  ]
+}

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { goldenSpawnResult } from '../golden/load.js';
 import mysql from 'mysql2/promise';
 import { getTableConfig } from 'drizzle-orm/mysql-core';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -144,24 +144,21 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
     });
     await fixture.insert('zones', { id: 1, name: 'Fixture zone' });
     await fixture.insert('countries', { id: 1, name: 'Fixture country' });
-    await db()
-      .get('writer')
-      .insert(shippingAddresses)
-      .values({
-        id: 10,
-        firstName: 'Fixture',
-        lastName: 'Recipient',
-        flat: '3B',
-        address1: 'Fixture road',
-        address2: 'Level 2',
-        address3: 'Landmark',
-        address4: 'Area',
-        city: 'Fixture city',
-        postcode: '000001',
-        phone: '0000000000',
-        zoneId: 1,
-        countryId: 1,
-      });
+    await db().get('writer').insert(shippingAddresses).values({
+      id: 10,
+      firstName: 'Fixture',
+      lastName: 'Recipient',
+      flat: '3B',
+      address1: 'Fixture road',
+      address2: 'Level 2',
+      address3: 'Landmark',
+      address4: 'Area',
+      city: 'Fixture city',
+      postcode: '000001',
+      phone: '0000000000',
+      zoneId: 1,
+      countryId: 1,
+    });
     for (const [id, qty, awb] of [
       [501, 2, ''],
       [502, 3, 'AWB123456789012IN'],
@@ -263,11 +260,11 @@ describe.skipIf(!integration)('shipping labels on verified isolated MySQL', () =
     await capture();
     await sqlDb().query('UPDATE express_line_item SET has_product_id=502 WHERE id=1');
     await capture();
-    const oracle = spawnSync('python3', ['tools/fulfillment/shipping-label-context-oracle.py'], {
-      input: JSON.stringify(vectors.map((vector) => vector.source)),
-      encoding: 'utf8',
-      timeout: 10_000,
-    });
+    const oracle = goldenSpawnResult(
+      'fulfillment',
+      'shipping-label-mysql-integration',
+      JSON.stringify(vectors.map((vector) => vector.source)),
+    );
     expect(oracle.status, oracle.stderr).toBe(0);
     const contexts = z
       .array(

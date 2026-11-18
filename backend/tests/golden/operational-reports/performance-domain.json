@@ -1,0 +1,1111 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/operational-reports/performance-oracle.py",
+  "runtime": "CPython 3.10.22 (tools/inventory-workbooks/.venv: openpyxl 3.1.2, et-xmlfile 1.1.0)",
+  "capturedAt": "2026-11-18T19:06:08Z",
+  "test": "tests/operational-reports/performance-domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "6ade593d93ad93e3a315ddcf384e98bc3a4f120db265d9d80e0ed490dc7a0c87",
+      "args": ["-B", "tools/operational-reports/performance-oracle.py"],
+      "status": 0,
+      "output": [
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "00M 1S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 1S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 3,
+            "time_taken": "00M 3S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 2,
+            "time_taken": "00M 8S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 4,
+            "time_taken": "00M 16S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "-1D 23H 59M 59S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 2,
+            "time_taken": "-1D 23H 59M 60S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 1,
+            "time_taken": "00M 60S",
+            "score": 100
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 1,
+            "time_taken": "01M 0S",
+            "score": 30
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [
+          {
+            "id": "1",
+            "cashier_name": "Fixture 1",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          },
+          {
+            "id": "2",
+            "cashier_name": "Fixture 2",
+            "product_sold": 0,
+            "time_taken": "00M 0S",
+            "score": 100
+          }
+        ],
+        [],
+        [
+          {
+            "id": "0",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 0",
+            "total_sales": 0,
+            "rating": 0
+          },
+          {
+            "id": "1",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 1",
+            "total_sales": 0,
+            "rating": 0
+          }
+        ],
+        [
+          {
+            "id": "0",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 0",
+            "total_sales": 1,
+            "rating": 3.3
+          },
+          {
+            "id": "1",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 1",
+            "total_sales": 2,
+            "rating": 6.7
+          },
+          {
+            "id": "2",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 2",
+            "total_sales": 3,
+            "rating": 10.0
+          }
+        ],
+        [
+          {
+            "id": "0",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 0",
+            "total_sales": 2.675,
+            "rating": 5.0
+          },
+          {
+            "id": "1",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 1",
+            "total_sales": 5.35,
+            "rating": 10.0
+          }
+        ],
+        [
+          {
+            "id": "0",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 0",
+            "total_sales": 1.005,
+            "rating": 1.0
+          },
+          {
+            "id": "1",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 1",
+            "total_sales": 10,
+            "rating": 10.0
+          }
+        ],
+        [
+          {
+            "id": "0",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 0",
+            "total_sales": -1,
+            "rating": 10.0
+          },
+          {
+            "id": "1",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 1",
+            "total_sales": -3,
+            "rating": 30.0
+          }
+        ],
+        [
+          {
+            "id": "0",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 0",
+            "total_sales": 0,
+            "rating": 0
+          },
+          {
+            "id": "1",
+            "store_name": "Fixture",
+            "salesperson_name": "Person 1",
+            "total_sales": -5,
+            "rating": 0
+          }
+        ]
+      ]
+    }
+  ]
+}

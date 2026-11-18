@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { Temporal } from '@js-temporal/polyfill';
 import {
@@ -26,13 +25,11 @@ import {
   nextTerminalName,
   isTerminalNameTaken,
 } from '../../src/modules/administration/terminals.js';
+import { goldenStdout } from '../golden/load.js';
 
 const oracle = (operation: string, cases: unknown[]): unknown =>
   JSON.parse(
-    execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-      input: JSON.stringify({ operation, cases }),
-      encoding: 'utf8',
-    }),
+    goldenStdout('administration', 'policies', JSON.stringify({ operation, cases })),
   ) as unknown;
 describe('administration semantic parity', () => {
   it('matches source EDC naming including archived ordinals, whitespace and large numbers', () => {

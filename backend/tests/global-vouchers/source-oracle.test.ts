@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
 
 const resultSchema = z.object({
   parentCommit: z.string(),
@@ -31,9 +31,7 @@ const resultSchema = z.object({
 });
 describe('literal historical conversion source', () => {
   it('pins the removed route and proves ordinary/card consumption, duplicate credits and ledger rounding', () => {
-    const raw = execFileSync('python3', ['tools/global-vouchers/source-oracle.py'], {
-      encoding: 'utf8',
-    });
+    const raw = goldenStdout('global-vouchers', 'source-oracle');
     const result = resultSchema.parse(JSON.parse(raw) as unknown);
     expect(result.parentCommit).toBe('02bfa5902f06faa5e648c4d5ad64c2e72646853e');
     expect(result.currentRoutePresent).toBe(false);

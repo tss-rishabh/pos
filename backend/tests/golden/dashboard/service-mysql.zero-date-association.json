@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/dashboard/source-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pymysql==1.1.1",
+  "capturedAt": "2026-11-18T19:13:52Z",
+  "test": "tests/dashboard/service.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "7ec060bdd753a0fd618134124352d27671887a5f2091158b7c17dfa41188f649",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.1",
+        "python",
+        "tools/dashboard/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "sourceHash": "431c56565123c1db019c84b1cb9d987ebc7e055aa4fa6d0fb6bc87d757a7ab2b",
+        "decoratorHash": "dfe149174d73ff71ca7fb2854841566d1afdfd213e779f1adf89f68631e773af",
+        "permissions": {
+          "1": "allowed",
+          "2": "blocked:shortcut_dashboard"
+        },
+        "cases": [
+          {
+            "django_admin_id": "900001",
+            "store_count": "3",
+            "user_count": "3",
+            "store_product_count": "0",
+            "order_count": "1",
+            "graph_data": {
+              "months": [
+                "Jan",
+                "Feb",
+                "Mar",
+                "Apr",
+                "May",
+                "Jun",
+                "Jul",
+                "Aug",
+                "Sep",
+                "Oct",
+                "Nov",
+                "Dec"
+              ],
+              "dataset_list": [
+                {
+                  "name": "Store 1",
+                  "data": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]
+                },
+                {
+                  "name": "Store 9007199254740993",
+                  "data": ["0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0", "0"]
+                }
+              ]
+            }
+          }
+        ],
+        "queries": [
+          "SELECT COUNT(*) AS `__count` FROM `stores` WHERE `stores`.`is_active` = %s",
+          "SELECT COUNT(*) AS `__count` FROM `pos_user` WHERE `pos_user`.`is_active` = %s",
+          "SELECT COUNT(*) FROM (SELECT DISTINCT `product_store`.`product_id` AS `col1` FROM `product_store` INNER JOIN `products` ON (`product_store`.`product_id` = `products`.`id`) WHERE `products`.`parent_prod_id` = %s) subquery",
+          "SELECT `user_stores`.`store_id` FROM `user_stores` WHERE `user_stores`.`django_user_id` = %s",
+          "SELECT COUNT(*) AS `__count` FROM `order_stores` INNER JOIN `orders` ON (`order_stores`.`order_id` = `orders`.`id`) WHERE (`order_stores`.`store_id` IN (%s, %s, %s) AND NOT (`orders`.`order_status` IN (%s) AND `orders`.`order_status` IS NOT NULL))",
+          "SELECT `stores`.`id`, `stores`.`store_name`, `stores`.`is_active` FROM `stores` WHERE (`stores`.`id` IN (%s, %s, %s) AND `stores`.`is_active` = %s)",
+          "\n            SELECT\n                order_stores.id,\n                COUNT(orders.id) AS orders_count,\n                MONTH(orders.created_at) AS month,\n                YEAR(orders.created_at) AS year\n            FROM\n                `<fixture-schema>`.order_stores\n                    LEFT JOIN\n                orders ON order_stores.order_id = orders.id\n            WHERE\n                store_id = 1\n                    AND YEAR(orders.created_at) >= YEAR(NOW())\n                    AND orders.order_status not in (0)\n            GROUP BY YEAR(orders.created_at) , MONTH(orders.created_at);",
+          "\n            SELECT\n                order_stores.id,\n                COUNT(orders.id) AS orders_count,\n                MONTH(orders.created_at) AS month,\n                YEAR(orders.created_at) AS year\n            FROM\n                `<fixture-schema>`.order_stores\n                    LEFT JOIN\n                orders ON order_stores.order_id = orders.id\n            WHERE\n                store_id = 9007199254740993\n                    AND YEAR(orders.created_at) >= YEAR(NOW())\n                    AND orders.order_status not in (0)\n            GROUP BY YEAR(orders.created_at) , MONTH(orders.created_at);"
+        ],
+        "monthProjections": []
+      }
+    }
+  ]
+}

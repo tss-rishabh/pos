@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:34Z",
+  "test": "tests/administration/settings.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "70b1f5f40572b91b142bf29d737d59e9eaaf1ce0ff7cdb64f7112d2844b9e4b9",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [60, 5400, 260100, 3599940]
+    },
+    {
+      "inputSha256": "72982a000ee5eaaf76c593c6f39b94edbbe09f447344cad3e9faad81e8a73da3",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        "🔺 Buffer time is updated to 01:30 by Fixture Person at 16 Nov 2026 05:30:00",
+        "🔺 MON slot timing of Fixture Store is changed from 09:00 - 22:00 to 10:00 - 23:00 by Fixture Person at 16 Nov 2026 05:30:00",
+        "🔺 All slots of Fixture Store marked as Closed by Fixture Person at 16 Nov 2026 05:30:00",
+        "🔺 MON slot of Fixture Store marked as Open by Fixture Person at 16 Nov 2026 05:30:00",
+        "🔺 Ecom delivery stock threshold of Fixture Store has been changed from 2 to 4 by Fixture Person at 16 Nov 2026 05:30:00",
+        "🔺 Ecom delivery of Fixture Store marked as Open by Fixture Person at 16 Nov 2026 05:30:00"
+      ]
+    }
+  ]
+}

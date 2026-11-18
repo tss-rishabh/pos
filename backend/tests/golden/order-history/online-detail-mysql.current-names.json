@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tests/order-history/online-detail-source.py",
+  "runtime": "tools/order-search/run-oracle.sh",
+  "capturedAt": "2026-11-18T19:13:52Z",
+  "test": "tests/order-history/online-detail.mysql.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "4b1f3bbb49a88bc289f47427376c9fbb96f1c9e66e5050b71f79db57ac64dcc0",
+      "args": ["-B", "tests/order-history/online-detail-source.py"],
+      "status": 0,
+      "output": {
+        "amount": 120.49,
+        "payAmount": 119.49,
+        "customerId": "7",
+        "lines": [
+          {
+            "id": "501",
+            "productId": "101",
+            "parentProductId": "102",
+            "name": "Renamed current product",
+            "quantity": "2",
+            "amount": 59.745,
+            "gst": 5.0,
+            "status": "PLACED",
+            "platform": {
+              "id": "1",
+              "name": "Standard"
+            }
+          }
+        ],
+        "wallet": {
+          "money": "0.49",
+          "points": "25.49"
+        },
+        "timeline": [
+          {
+            "comment": "Order Placed on store using payment method : Cash",
+            "createdAt": "2026-11-19 10:00:00",
+            "payments": {
+              "tss money used": 1.0,
+              "tss points used": 0.01,
+              "voucher amt used": null,
+              "coupon amt used": 0.0,
+              "POC PAY AMT": 119.49
+            }
+          },
+          {
+            "comment": "Synthetic payment recorded",
+            "createdAt": "2026-11-19 11:00:00",
+            "payments": {
+              "Cash": 119.49,
+              "tss money": 1.0
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

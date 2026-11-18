@@ -1,7 +1,7 @@
-import { execFileSync } from 'node:child_process';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
 import {
   historyInput,
   readAdministrationHistoryOptions,
@@ -121,18 +121,7 @@ function oracle(cases: unknown[]) {
     .object({ djangoVersion: z.literal('4.2.5'), cases: z.array(z.unknown()) })
     .parse(
       JSON.parse(
-        execFileSync(
-          'uv',
-          [
-            'run',
-            '--no-project',
-            '--with',
-            'django==4.2.5',
-            'python',
-            'tools/administration-history/source-oracle.py',
-          ],
-          { encoding: 'utf8', timeout: 30000, input: JSON.stringify({ cases }) },
-        ),
+        goldenStdout('administration-history', 'domain', JSON.stringify({ cases })),
       ) as unknown,
     ).cases;
 }

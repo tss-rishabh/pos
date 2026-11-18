@@ -1,8 +1,8 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { pendingCancellationOptions } from '../../src/modules/checkout/cancellations/options.js';
 import { planCancellationBenefitCandidate } from '../../src/modules/checkout/cancellations/benefit-candidate.js';
+import { goldenStdout } from '../golden/load.js';
 describe('source cancellation differential and approved original-expiry policy', () => {
   it('differentially executes original Money/Points helpers and preserves coherent values while exposing source anomalies', () => {
     const result = z
@@ -46,13 +46,7 @@ describe('source cancellation differential and approved original-expiry policy',
           }),
         ),
       })
-      .parse(
-        JSON.parse(
-          execFileSync('python3', ['tools/checkout/cancellation_wallet_oracle.py'], {
-            encoding: 'utf8',
-          }),
-        ) as unknown,
-      );
+      .parse(JSON.parse(goldenStdout('checkout', 'cancellation-benefit-candidate')) as unknown);
     expect(result.cases).toHaveLength(12);
     const money = result.cases.find((row) => row.kind === 'money' && row.name === 'one-earning')!;
     expect(money.original.user).toEqual({ tss_money: 105, tss_points: 200, cashback: 105 });

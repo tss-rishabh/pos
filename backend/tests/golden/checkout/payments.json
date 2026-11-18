@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/checkout/payments.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "766f02ad465d1d91ae509f445fa8ad5026676d9bcb6c809b0456fe65199b00e8",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": {
+        "calls": [
+          {
+            "path": "V1/UploadBilledTransaction",
+            "payload": {
+              "TransactionNumber": "FIXTURE8002",
+              "SequenceNumber": 1,
+              "AllowedPaymentMode": 1,
+              "StoreId": "fixture-store",
+              "Amount": 5995,
+              "UserID": 44,
+              "MerchantID": "fixture-merchant",
+              "SecurityToken": "fixture-secret",
+              "ClientID": "fixture-client",
+              "AutoCancelDurationInMinutes": 5
+            }
+          },
+          {
+            "path": "V1/GetCloudBasedTxnStatus",
+            "payload": {
+              "MerchantID": "fixture-merchant",
+              "SecurityToken": "fixture-secret",
+              "ClientID": "fixture-client",
+              "StoreID": "fixture-store",
+              "PlutusTransactionReferenceID": "PLUTUS"
+            }
+          },
+          {
+            "path": "V1/CancelTransaction",
+            "payload": {
+              "MerchantID": "fixture-merchant",
+              "SecurityToken": "fixture-secret",
+              "ClientId": "fixture-client",
+              "StoreId": "fixture-store",
+              "PlutusTransactionReferenceID": "PLUTUS",
+              "Amount": 5995
+            }
+          },
+          {
+            "path": "V1/CancelTransactionForced",
+            "payload": {
+              "MerchantID": "fixture-merchant",
+              "SecurityToken": "fixture-secret",
+              "ClientId": "fixture-client",
+              "StoreId": "fixture-store",
+              "PlutusTransactionReferenceID": "PLUTUS",
+              "Amount": 5995,
+              "TakeToHomeScreen": true
+            }
+          },
+          {
+            "path": "payment/request",
+            "payload": {
+              "head": {
+                "requestTimeStamp": "2026-11-16 12:00:00",
+                "channelId": "fixture-channel",
+                "checksum": "fixture-checksum",
+                "version": "3.1"
+              },
+              "body": {
+                "paytmMid": "fixture-mid",
+                "paytmTid": "fixture-tid",
+                "transactionDateTime": "2026-11-16 12:00:00",
+                "merchantTransactionId": "FIXTURE8002",
+                "transactionAmount": "5995",
+                "merchantExtendedInfo": {
+                  "paymentMode": "CARD"
+                }
+              }
+            }
+          },
+          {
+            "path": "payment/request",
+            "payload": {
+              "head": {
+                "requestTimeStamp": "2026-11-16 12:00:00",
+                "channelId": "fixture-channel",
+                "checksum": "fixture-checksum",
+                "version": "3.1"
+              },
+              "body": {
+                "paytmMid": "fixture-mid",
+                "paytmTid": "fixture-tid",
+                "transactionDateTime": "2026-11-16 12:00:00",
+                "merchantTransactionId": "FIXTURE8002",
+                "transactionAmount": "5995",
+                "merchantExtendedInfo": {
+                  "paymentMode": "QR"
+                }
+              }
+            }
+          }
+        ],
+        "checksums": [
+          "{\"paytmMid\": \"fixture-mid\", \"paytmTid\": \"fixture-tid\", \"transactionDateTime\": \"2026-11-16 12:00:00\", \"merchantTransactionId\": \"FIXTURE8002\", \"transactionAmount\": \"5995\", \"merchantExtendedInfo\": {\"paymentMode\": \"CARD\"}}",
+          "{\"paytmMid\": \"fixture-mid\", \"paytmTid\": \"fixture-tid\", \"transactionDateTime\": \"2026-11-16 12:00:00\", \"merchantTransactionId\": \"FIXTURE8002\", \"transactionAmount\": \"5995\", \"merchantExtendedInfo\": {\"paymentMode\": \"QR\"}}"
+        ]
+      }
+    }
+  ]
+}

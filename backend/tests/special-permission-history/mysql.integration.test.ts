@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import mysql, { type Connection } from 'mysql2/promise';
 import { drizzle } from 'drizzle-orm/mysql2';
 import { Temporal } from '@js-temporal/polyfill';
@@ -25,6 +24,8 @@ import {
   activityProjection,
 } from '../../src/modules/special-permission-history/contracts.js';
 import { specialPermissionActivity as activity } from '../../src/modules/special-permission-history/schema.js';
+import { goldenSpawnResult } from '../golden/load.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 const template = process.env.SPECIAL_PERMISSION_MYSQL_TEST_URL;
 const clock = () => Temporal.Instant.from('2026-11-16T12:00:00Z');
@@ -60,23 +61,12 @@ describe.skipIf(!template)('source SpecialPermission activity against isolated M
   };
   const readerQueries: string[] = [];
   const source = (cases: unknown[]) => {
-    const run = spawnSync(
-      'uv',
-      [
-        'run',
-        '--no-project',
-        '--with',
-        'django==4.2.5',
-        '--with',
-        'pymysql==1.1.1',
-        'python',
-        'tools/special-permission-history/source-oracle.py',
-      ],
-      {
-        input: JSON.stringify({ database: databaseUrl, cases }),
-        encoding: 'utf8',
-        timeout: 30000,
-      },
+    const run = goldenSpawnResult(
+      'special-permission-history',
+      'mysql-integration',
+      JSON.stringify({ database: databaseUrl, cases }),
+      undefined,
+      fixturePlaceholders(databaseUrl),
     );
     const decoded: unknown = JSON.parse(run.stdout);
     if (run.status !== 0) {

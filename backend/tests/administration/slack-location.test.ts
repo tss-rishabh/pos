@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
@@ -7,6 +6,7 @@ import {
 } from '../../src/modules/administration/slack-provider.js';
 import { sourceCityTitle } from '../../src/modules/administration/location-title.js';
 import { postalLookupInput } from '../../src/modules/administration/locations.js';
+import { goldenStdout } from '../golden/load.js';
 
 const config = {
   NODE_ENV: 'test' as const,
@@ -60,9 +60,10 @@ describe('Slack OAuth and source location boundaries', () => {
       )
       .parse(
         JSON.parse(
-          execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-            encoding: 'utf8',
-            input: JSON.stringify({
+          goldenStdout(
+            'administration',
+            'slack-location',
+            JSON.stringify({
               operation: 'slack-authorize',
               cases: [
                 {
@@ -74,7 +75,7 @@ describe('Slack OAuth and source location boundaries', () => {
                 },
               ],
             }),
-          }),
+          ),
         ) as unknown,
       )[0]!;
     expect(new URL(provider.authorize(state)).searchParams).toEqual(
@@ -164,10 +165,11 @@ describe('Slack OAuth and source location boundaries', () => {
       )
       .parse(
         JSON.parse(
-          execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-            encoding: 'utf8',
-            input: JSON.stringify({ operation: 'postal-lookup', cases }),
-          }),
+          goldenStdout(
+            'administration',
+            'slack-location',
+            JSON.stringify({ operation: 'postal-lookup', cases }),
+          ),
         ) as unknown,
       );
     expect(names.map(sourceCityTitle)).toEqual(reference.map((row) => row.response.data.city));

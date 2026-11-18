@@ -1,5 +1,3 @@
-import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import { csvMembershipBigQueryHistory } from '../../src/modules/legacy-order-imports/membership-profile/bigquery.js';
 import {
@@ -11,11 +9,8 @@ import {
   membershipHistoryOptions,
   membershipHistoryScope,
 } from './membership-bigquery-fixtures.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
-const oracle = fileURLToPath(
-  new URL('../../tools/legacy-order-imports/membership-bigquery-oracle.py', import.meta.url),
-);
-const source = fileURLToPath(new URL('../../../../backend-tss-api_v2/', import.meta.url));
 describe('literal pinned AddFreeMembership criteria replay', () => {
   it('matches complete source SELECTs across inversion, DCC,45-day boundaries, unpaid and all-membership orders', async () => {
     const vectors = [
@@ -131,17 +126,16 @@ describe('literal pinned AddFreeMembership criteria replay', () => {
         cartValue: vector.cartValue ?? 1999,
       });
     }
-    const result = spawnSync('python3', [oracle, source], {
-      input: JSON.stringify({
+    const result = goldenSpawnResult(
+      'legacy-order-imports',
+      'membership-bigquery-source',
+      JSON.stringify({
         cases,
         key: membershipHistoryKey,
         memberProductIds: ['10', '12'],
         now: membershipHistoryNow,
       }),
-      encoding: 'utf8',
-      timeout: 10000,
-      maxBuffer: 262144,
-    });
+    );
     expect(
       result.status,
       'Pinned source must run without database/network or code replacement.',

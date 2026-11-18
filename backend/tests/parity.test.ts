@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   mergeDailyRows,
@@ -14,14 +13,10 @@ import {
   validatePayload,
   processPayload,
 } from '../src/modules/upstream.js';
+import { goldenStdout } from './golden/load.js';
 
 function oracle(input: unknown): unknown {
-  return JSON.parse(
-    execFileSync('python3', ['tools/legacy_oracle.py'], {
-      input: JSON.stringify(input),
-      encoding: 'utf8',
-    }),
-  );
+  return JSON.parse(goldenStdout('core', 'parity', JSON.stringify(input)));
 }
 function row(partial: Partial<Rollup> = {}): Rollup {
   return {

@@ -52,7 +52,6 @@ import {
   type InventorySynchronizationContext,
 } from '../../src/modules/administration/inventory.js';
 import { catalogService } from '../../src/modules/catalog.js';
-import { execFileSync } from 'node:child_process';
 import {
   legacyFixtureRecord,
   legacyFixtureTableSql,
@@ -130,6 +129,7 @@ import {
 import { assertModelAdministrationPermission } from '../../src/modules/administration/access-control.js';
 import { imageReservationInput } from '../../src/modules/administration/image-lifecycle/domain.js';
 import { operatorAdminProfileInput } from '../../src/modules/administration/operator-admin-domain.js';
+import { goldenStdout } from '../golden/load.js';
 
 const template = process.env.ADMINISTRATION_MYSQL_TEST_URL;
 describe.skipIf(!template)('administration routes against isolated MySQL', () => {
@@ -556,14 +556,28 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect(first.json()).toMatchObject({ data: [{ id: '1' }], nextCursor: '1' });
     const next = await app.inject('/api/v1/admin/stores?after=1&limit=1');
     expect(next.json()).toMatchObject({ data: [{ id: '4' }], nextCursor: null });
-    expect((await app.inject('/api/v1/admin/stores?search=LOC-2')).json()).toEqual({ data: [], nextCursor: null });
-    expect((await app.inject('/api/v1/admin/stores?search=LOC-3')).json()).toEqual({ data: [], nextCursor: null });
-    expect((await app.inject('/api/v1/admin/stores?active=false')).json()).toMatchObject({ data: [{ id: '5' }], nextCursor: null });
+    expect((await app.inject('/api/v1/admin/stores?search=LOC-2')).json()).toEqual({
+      data: [],
+      nextCursor: null,
+    });
+    expect((await app.inject('/api/v1/admin/stores?search=LOC-3')).json()).toEqual({
+      data: [],
+      nextCursor: null,
+    });
+    expect((await app.inject('/api/v1/admin/stores?active=false')).json()).toMatchObject({
+      data: [{ id: '5' }],
+      nextCursor: null,
+    });
     actor = { ...actor, storeIds: [] };
-    expect((await app.inject('/api/v1/admin/stores?active=all')).json()).toEqual({ data: [], nextCursor: null });
+    expect((await app.inject('/api/v1/admin/stores?active=all')).json()).toEqual({
+      data: [],
+      nextCursor: null,
+    });
     await db.get('writer').update(PosUser).set({ user_type: 1 }).where(eq(PosUser.id, 1n));
     actor = { ...actor, userType: 1 };
-    const internal = (await app.inject('/api/v1/admin/stores?active=all')).json<{ data: { id: string }[] }>();
+    const internal = (await app.inject('/api/v1/admin/stores?active=all')).json<{
+      data: { id: string }[];
+    }>();
     expect(internal.data.map((store) => store.id)).toEqual(['1', '2', '3', '4', '5']);
   });
   it('creates counters serially, counting archived counters as the source does', async () => {
@@ -2203,10 +2217,11 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       ).statusCode,
     ).toBe(200);
     const source = JSON.parse(
-      execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-        input: JSON.stringify({ operation: 'order-buffer', cases: [{ value: duration }] }),
-        encoding: 'utf8',
-      }),
+      goldenStdout(
+        'administration',
+        'mysql-integration',
+        JSON.stringify({ operation: 'order-buffer', cases: [{ value: duration }] }),
+      ),
     ) as number[];
     const [values] = await connection.query<mysql.RowDataPacket[]>(
       'SELECT platform,value FROM tss_settings WHERE id>=100 ORDER BY id',
@@ -2853,13 +2868,14 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     const result = await catalogService(db).products(actor, '1', '', '0', 30, false);
     expect(result.data).toHaveLength(1);
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-        input: JSON.stringify({
+      goldenStdout(
+        'administration',
+        'mysql-integration',
+        JSON.stringify({
           operation: 'catalog',
           cases: [{ product: variant, products: [parent, variant], barcodes, prices }],
         }),
-        encoding: 'utf8',
-      }),
+      ),
     ) as unknown;
     expect(Array.isArray(expected)).toBe(true);
     const reference = expected as {
@@ -4557,13 +4573,14 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       });
     const oracle = (row: unknown) =>
       JSON.parse(
-        execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-          encoding: 'utf8',
-          input: JSON.stringify({
+        goldenStdout(
+          'administration',
+          'mysql-integration',
+          JSON.stringify({
             operation: 'postal-lookup',
             cases: [{ pincode: '400001', row }],
           }),
-        }),
+        ),
       ) as {
         statement: string;
         parameters: string[];

@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
@@ -17,6 +16,7 @@ import {
   type MaintenanceDeliveryContext,
   type MaintenanceTransports,
 } from '../../src/modules/catalog-details/maintenance-transports.js';
+import { goldenStdout } from '../golden/load.js';
 const integration = process.env.MYSQL_INTEGRATION_URL;
 const user: Principal = {
   id: '1',
@@ -256,17 +256,17 @@ describe.skipIf(!integration)('durable catalog maintenance on isolated verified 
       })
       .parse(
         JSON.parse(
-          execFileSync('python3', ['tools/catalog-details/maintenance-oracle.py'], {
-            input: JSON.stringify({
+          goldenStdout(
+            'catalog-details',
+            'maintenance-mysql-integration',
+            JSON.stringify({
               kind: 'product-troubleshoot',
               productId: '11',
               products,
               stock,
               barcodes,
             }),
-            encoding: 'utf8',
-            timeout: 10000,
-          }),
+          ),
         ) as unknown,
       );
     const api = service(),

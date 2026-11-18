@@ -39,6 +39,8 @@ const result = z.object({
     }),
   ),
 });
+/** Result contract shared by the executed oracle and its committed golden capture. */
+export { result as benefitOracleResult };
 /** Controlled source fixture SQL only. Production code never imports this test harness. */
 export function benefitOracle(
   cases: readonly BenefitOracleCase[],

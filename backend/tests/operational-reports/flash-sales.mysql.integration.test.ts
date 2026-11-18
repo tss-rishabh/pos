@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
+import { goldenStdout } from '../golden/load.js';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
@@ -16,6 +16,14 @@ import {
   flashRefundRowSchema,
   prepareFlashSales,
 } from '../../src/modules/operational-reports/flash-sales.js';
+
+/** Replays the pinned CPython 3.10 source oracles captured for this test (tests/golden). */
+function executePosSourceOracle(args: readonly string[], options: { input?: string }): string {
+  return goldenStdout('operational-reports', 'flash-sales-mysql-integration', options.input, [
+    '-B',
+    ...args,
+  ]);
+}
 const connection = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!connection)('flash-sales source SQL on verified-schema local MySQL', () => {
   const schema = `pos_rewrite_flash_sales_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`,

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { describe, expect, it } from 'vitest';
 import { cashPriceSnapshotSchema } from '../../src/modules/checkout/offline-cash/contracts.js';
 import { pinnedSourceEnvironment } from '../../tools/pinned-source-env.js';
+import { goldenStdout } from '../golden/load.js';
 
 const script = fileURLToPath(
   new URL(
@@ -68,7 +69,10 @@ describe('source-executed private offline cash pricing', () => {
     expect(result).toBe('');
   });
   it('returns the exact strict TypeScript grant pricing contract without coercion', () => {
-    const raw: unknown = JSON.parse(sourcePricingFixture('--snapshot'));
+    // Captured `test_source_pricing.py --snapshot` output over backend-tss-api_v2@2960acb.
+    const raw: unknown = JSON.parse(
+      goldenStdout('checkout', 'offline-cash-source-pricing.snapshot'),
+    );
     const result = cashPriceSnapshotSchema.parse(raw);
     expect(result).toEqual(raw);
     expect(result.products[0]?.quantities.map((row) => row.quantity)).toEqual([1, 2, 3, 5, 20]);

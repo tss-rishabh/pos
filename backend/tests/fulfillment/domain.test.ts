@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   actionableLines,
@@ -7,6 +6,7 @@ import {
   type FulfillmentLine,
 } from '../../src/modules/fulfillment/domain.js';
 import { expiryTransitions } from '../../src/modules/fulfillment/maintenance.js';
+import { goldenStdout } from '../golden/load.js';
 
 function line(change: Partial<FulfillmentLine> = {}): FulfillmentLine {
   return {
@@ -50,10 +50,7 @@ describe('express fulfillment source parity and lifecycle safety', () => {
         }),
       ]);
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/fulfillment/oracle.py'], {
-        input: JSON.stringify({ cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout('fulfillment', 'domain.oracle', JSON.stringify({ cases })),
     );
     expect(
       cases.map((lines) => {
@@ -123,10 +120,7 @@ describe('express fulfillment source parity and lifecycle safety', () => {
       );
     }
     const oracle: unknown = JSON.parse(
-      execFileSync('python3', ['tools/fulfillment/maintenance-oracle.py'], {
-        input: JSON.stringify({ cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout('fulfillment', 'domain.maintenance-oracle', JSON.stringify({ cases })),
     );
     expect(
       cases.map((test) =>
