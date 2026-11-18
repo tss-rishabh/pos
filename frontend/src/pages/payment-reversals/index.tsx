@@ -1,17 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { ApiError, captureOperatorScope } from '../../api/client';
-import {
-  clearCorrectionIntent,
-  correctionIntent,
-  createCorrection,
-  persistCorrectionIntent,
-  readCorrection,
-  readCorrectionContext,
-  type CorrectionContext,
-  type CorrectionInput,
-  type CorrectionReceipt,
-} from './client';
+import { useRef, useState } from 'react';
+import { updatePaymentStatus, type CorrectionReceipt, type PaymentStatusInput } from './client';
 
+export type { CorrectionReceipt } from './client';
 interface Props {
   user: { id: string };
   storeId: string;
@@ -21,273 +11,180 @@ interface Props {
   /** Refresh order/payment/invoice detail only. This is never a cart completion. */
   onCorrected?: (receipt: CorrectionReceipt) => Promise<void>;
 }
+/**
+ * Manager form for the legacy manual payment status endpoint (`ajax-payment-status/`,
+ * order/views.py:685-775): mark an order paid at the counter, or revert it to PLACED.
+ */
 export function PaymentReversalPanel(props: Props) {
-  return (
-    <PaymentReversalEntry key={`${props.user.id}:${props.storeId}:${props.orderId}`} {...props} />
-  );
-}
-function PaymentReversalEntry(props: Props) {
-  const [open, setOpen] = useState(() => {
-    if (!props.deferUntilOpened) return true;
-    try {
-      return Boolean(
-        correctionIntent({
-          ownerId: props.user.id,
-          storeId: props.storeId,
-          orderId: props.orderId,
-        }),
-      );
-    } catch {
-      // Unreadable recovery must remain visible to the original operator.
-      return true;
-    }
-  });
-  if (!props.deferUntilOpened) return <ScopedPaymentReversalPanel {...props} />;
+  const [open, setOpen] = useState(!props.deferUntilOpened);
+  if (!props.deferUntilOpened) return <PaymentStatusForm {...props} />;
   return (
     <details open={open} onToggle={(event) => setOpen(event.currentTarget.open)}>
-      <summary>Correct recorded cash payment</summary>
-      {open && <ScopedPaymentReversalPanel {...props} />}
+      <summary>Payment status</summary>
+      {open && <PaymentStatusForm {...props} />}
     </details>
   );
 }
-function ScopedPaymentReversalPanel({ user, storeId, orderId, online, onCorrected }: Props) {
-  const [context, setContext] = useState<CorrectionContext | null>(null),
-    [intent, setIntent] = useState<CorrectionInput | null>(null),
-    [receipt, setReceipt] = useState<CorrectionReceipt | null>(null),
-    [acknowledged, setAcknowledged] = useState(false),
-    [noHandover, setNoHandover] = useState(false),
-    [reason, setReason] = useState<CorrectionInput['reason']>('customer-payment-correction'),
+function PaymentStatusForm({ user, storeId, orderId, online, onCorrected }: Props) {
+  const [payType, setPayType] = useState<0 | 1>(0),
+    [transactionId, setTransactionId] = useState(''),
+    [cash, setCash] = useState('0'),
+    [card, setCard] = useState('0'),
+    [message, setMessage] = useState(''),
+    [confirming, setConfirming] = useState(false),
     [busy, setBusy] = useState(false),
-    [missing, setMissing] = useState(false),
+    [notice, setNotice] = useState(''),
     [problem, setProblem] = useState('');
-  const lock = useRef(false),
-    mounted = useRef(true),
-    callback = useRef(onCorrected);
-  callback.current = onCorrected;
-  const ownerId = user.id;
-  const scope = { ownerId, storeId, orderId };
-  useEffect(() => {
-    mounted.current = true;
-    setContext(null);
-    setReceipt(null);
-    setIntent(null);
-    setAcknowledged(false);
-    setNoHandover(false);
-    setMissing(false);
-    setProblem('');
-    let active = true;
-    const signal = captureOperatorScope(ownerId);
-    async function load() {
-      try {
-        const saved = correctionIntent({ ownerId, storeId, orderId });
-        if (active) setIntent(saved);
-        if (!online) return;
-        if (saved) {
-          try {
-            const value = await readCorrection({ ownerId, storeId, orderId }, saved, signal);
-            if (active && !signal.aborted) {
-              setReceipt(value);
-              clearCorrectionIntent({ ownerId, storeId, orderId });
-            }
-          } catch (error) {
-            if (active && !signal.aborted) {
-              if (
-                error instanceof ApiError &&
-                error.status === 404 &&
-                error.code === 'PAYMENT_REVERSAL_NOT_FOUND'
-              )
-                setMissing(true);
-              else throw error;
-            }
-          }
-        }
-        const value = await readCorrectionContext({ ownerId, storeId, orderId }, signal);
-        if (value.storeId !== storeId || value.orderId !== orderId)
-          throw new Error('The correction context belongs to another order.');
-        if (active && !signal.aborted) setContext(value);
-      } catch (error) {
-        if (active && !signal.aborted)
-          setProblem(
-            error instanceof Error
-              ? error.message
-              : 'The original payment correction is unavailable.',
-          );
-      }
-    }
-    void load();
-    return () => {
-      active = false;
-      mounted.current = false;
-    };
-  }, [ownerId, storeId, orderId, online]);
-  async function act(task: (signal: AbortSignal) => Promise<void>) {
-    if (lock.current || !online) return;
-    const signal = captureOperatorScope(ownerId);
+  const lock = useRef(false);
+  function validate(): string | null {
+    if (!payType) return null;
+    if (!/^\d+(?:\.\d{1,2})?$/.test(cash.trim())) return 'Enter Valid Value in Cash';
+    if (!/^\d+(?:\.\d{1,2})?$/.test(card.trim())) return 'Enter Valid Value in UPI/Card';
+    if (!transactionId.trim()) return 'Provide a valid Transaction ID';
+    if (!message.trim()) return 'Provide a valid Message';
+    return null;
+  }
+  async function submit() {
+    if (lock.current) return;
     lock.current = true;
     setBusy(true);
     setProblem('');
     try {
-      await task(signal);
+      const input: PaymentStatusInput = payType
+        ? {
+            payType: 1,
+            transactionId: transactionId.trim(),
+            paymentStatus: 4,
+            orderStatus: 3,
+            message: message.trim(),
+            offlinePayment: cash.trim(),
+            onlinePayment: card.trim(),
+          }
+        : {
+            payType: 0,
+            paymentStatus: 1,
+            orderStatus: 0,
+            message: '',
+            offlinePayment: '0',
+            onlinePayment: '0',
+          };
+      const receipt = await updatePaymentStatus({ ownerId: user.id, storeId, orderId }, input);
+      setNotice(receipt.message);
+      setConfirming(false);
+      await onCorrected?.(receipt);
     } catch (error) {
-      if (mounted.current && !signal.aborted)
-        setProblem(
-          error instanceof Error
-            ? error.message
-            : 'Check the original correction before continuing.',
-        );
+      setProblem(error instanceof Error ? error.message : 'Failed');
     } finally {
       lock.current = false;
-      if (mounted.current && !signal.aborted) setBusy(false);
-    }
-  }
-  async function adopt(value: CorrectionReceipt, signal: AbortSignal) {
-    if (signal.aborted || !mounted.current) return;
-    setReceipt(value);
-    setMissing(false);
-    clearCorrectionIntent(scope);
-    try {
-      await callback.current?.(value);
-    } catch {
-      if (!signal.aborted && mounted.current)
-        setProblem(
-          'Cash correction is recorded. Refresh the order details; do not return cash again.',
-        );
+      setBusy(false);
     }
   }
   return (
-    <section aria-label="Recorded cash payment correction">
-      <h3>Correct recorded cash payment</h3>
-      <p>
-        The original payment stays in the audit history. Record only cash actually returned at this
-        counter. Stock and benefits remain attached to this order.
-      </p>
-      {!online && <p>Reconnect to review or record a cash correction.</p>}
-      {problem && <p role="alert">{problem}</p>}
-      {receipt ? (
-        <>
-          <p role="status">
-            Cash correction recorded · {receipt.returnedCash} returned · {receipt.id}. No provider
-            refund was performed.
-          </p>
-          <button
-            disabled={busy || !online}
-            onClick={() => void act((signal) => adopt(receipt, signal))}
-          >
-            Refresh corrected order
-          </button>
-        </>
-      ) : intent ? (
-        <>
-          <p role="status">
-            Check the original correction reference before another action: {intent.operationId}. Do
-            not return cash again.
-          </p>
-          <button
-            disabled={busy || !online}
-            onClick={() =>
-              void act(async (signal) => {
-                try {
-                  await adopt(await readCorrection(scope, intent, signal), signal);
-                } catch (error) {
-                  if (
-                    error instanceof ApiError &&
-                    error.status === 404 &&
-                    error.code === 'PAYMENT_REVERSAL_NOT_FOUND'
-                  )
-                    setMissing(true);
-                  throw error;
-                }
-              })
-            }
-          >
-            Check original cash correction
-          </button>
-          {missing && (
-            <button
-              disabled={busy || !online}
-              onClick={() =>
-                void act(async (signal) => {
-                  await adopt(await createCorrection(scope, intent), signal);
-                })
-              }
-            >
-              Register original cash correction again
-            </button>
-          )}
-        </>
-      ) : context?.eligible && context.returnedCash ? (
+    <section aria-label="Payment status">
+      {problem && (
+        <p className="inline-error" role="alert">
+          {problem}
+        </p>
+      )}
+      {notice && <p role="status">{notice}</p>}
+      <label>
+        Action
+        <select
+          value={payType}
+          disabled={busy}
+          onChange={(event) => {
+            setPayType(event.target.value === '1' ? 1 : 0);
+            setConfirming(false);
+          }}
+        >
+          <option value={0}>Revert payment to PLACED</option>
+          <option value={1}>Mark paid at counter</option>
+        </select>
+      </label>
+      {payType ? (
         <>
           <label>
-            Correction reason
-            <select
-              value={reason}
-              disabled={busy || !online}
-              onChange={(event) =>
-                setReason(
-                  event.target.value === 'incorrect-payment-record'
-                    ? 'incorrect-payment-record'
-                    : 'customer-payment-correction',
-                )
-              }
-            >
-              <option value="customer-payment-correction">Customer payment correction</option>
-              <option value="incorrect-payment-record">Incorrect payment record</option>
-            </select>
-          </label>
-          <label>
+            Transaction ID:
             <input
-              type="checkbox"
-              checked={acknowledged}
-              disabled={busy || !online}
-              onChange={(event) => setAcknowledged(event.target.checked)}
+              value={transactionId}
+              maxLength={255}
+              disabled={busy}
+              onChange={(event) => setTransactionId(event.target.value)}
             />
-            I returned exactly {context.returnedCash} in cash at counter {context.counterId}.
           </label>
           <label>
+            Cash:
             <input
-              type="checkbox"
-              checked={noHandover}
-              disabled={busy || !online}
-              onChange={(event) => setNoHandover(event.target.checked)}
+              inputMode="decimal"
+              value={cash}
+              disabled={busy}
+              onChange={(event) => setCash(event.target.value)}
             />
-            Goods have not been handed over and remain at this counter.
           </label>
-          <button
-            disabled={busy || !online || !acknowledged || !noHandover}
-            onClick={() =>
-              void act(async (signal) => {
-                if (!context.snapshotHash || !context.originalPaymentId || !context.returnedCash)
-                  return;
-                const body: CorrectionInput = {
-                  operationId: crypto.randomUUID(),
-                  originalPaymentId: context.originalPaymentId,
-                  counterId: context.counterId,
-                  snapshotHash: context.snapshotHash,
-                  cashReturnReceiptId: crypto.randomUUID(),
-                  returnedCash: context.returnedCash,
-                  confirmCashReturned: true,
-                  confirmNoHandover: true,
-                  reason,
-                };
-                persistCorrectionIntent(scope, body);
-                if (signal.aborted) return;
-                setIntent(body);
-                setMissing(false);
-                await adopt(await createCorrection(scope, body), signal);
-              })
-            }
-          >
-            Record returned cash and reopen payment
-          </button>
+          <label>
+            Card/UPI:
+            <input
+              inputMode="decimal"
+              value={card}
+              disabled={busy}
+              onChange={(event) => setCard(event.target.value)}
+            />
+          </label>
+          <label>
+            Message:
+            <textarea
+              rows={3}
+              maxLength={255}
+              placeholder="Enter Message"
+              value={message}
+              disabled={busy}
+              onChange={(event) => setMessage(event.target.value)}
+            />
+          </label>
         </>
       ) : (
-        online && (
-          <p>
-            {context?.blocker
-              ? `This payment requires reconciliation (${context.blocker}).`
-              : 'Loading original payment evidence…'}
-          </p>
-        )
+        <p>
+          <b>Do you want to revert the payment ? </b>
+          <br />
+          Click proceed or cancel.
+        </p>
+      )}
+      {confirming ? (
+        <div role="alertdialog" aria-label="Confirmation !">
+          <p>Are you sure ?</p>
+          <button
+            type="button"
+            className="button primary"
+            disabled={busy || !online}
+            onClick={() => void submit()}
+          >
+            {busy ? 'Saving…' : 'Yes, sure!'}
+          </button>
+          <button
+            type="button"
+            className="button secondary"
+            disabled={busy}
+            onClick={() => setConfirming(false)}
+          >
+            cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="button secondary"
+          disabled={busy || !online}
+          onClick={() => {
+            const failure = validate();
+            if (failure) setProblem(failure);
+            else {
+              setProblem('');
+              setConfirming(true);
+            }
+          }}
+        >
+          {payType ? 'Submit' : 'Proceed'}
+        </button>
       )}
     </section>
   );

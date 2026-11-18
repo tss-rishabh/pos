@@ -59,6 +59,8 @@ export interface PaymentRepositoryOptions {
 }
 
 const decimalOf = (value: string | number) => new Decimal(String(value));
+/** A stored double as an exact two-decimal amount string. */
+const money = (value: string | number) => amount(minorUnits(decimalOf(value).toFixed(2)));
 /** Exact legacy amount check `amount + cash != pay_amount` (order/views.py:3043-3046). */
 export function validatePaymentSplit(input: PaymentInput, payable: string | number) {
   const online = minorUnits(input.onlineAmount),
@@ -153,6 +155,7 @@ export function paymentRepository(
         cash: OrderStore.offline_payment,
         online: OrderStore.online_payment,
         other: OrderStore.online_other_payment,
+        settledTransactionId: OrderStore.transaction_id,
       })
       .from(OrderStore)
       .innerJoin(Order, eq(Order.id, OrderStore.order))
@@ -554,16 +557,25 @@ export function paymentRepository(
           orderId,
           storeId,
           counterId: String(record.counter),
-          payable: amount(minorUnits(decimalOf(record.payable).toFixed(2))),
+          payable: money(record.payable),
           paid: isPaid(record),
+          settlement: isPaid(record)
+            ? {
+                transactionId: record.settledTransactionId,
+                cashAmount: money(record.cash),
+                onlineAmount: amount(
+                  minorUnits(money(record.online)) + minorUnits(money(record.other)),
+                ),
+              }
+            : null,
           transactionId: await nextTransactionId(tx, orderId, record.reference ?? ''),
           activeTransaction: uploaded
             ? {
                 provider: uploaded.provider,
                 transactionId: uploaded.transactionId,
                 reference: uploaded.provider === 'pine' ? uploaded.plutusId : null,
-                onlineAmount: amount(minorUnits(decimalOf(uploaded.amount).toFixed(2))),
-                cashAmount: amount(minorUnits(decimalOf(uploaded.cashAmount).toFixed(2))),
+                onlineAmount: money(uploaded.amount),
+                cashAmount: money(uploaded.cashAmount),
               }
             : null,
           canRecordPayment: !blocker && !isPaid(record) && !uploaded,
@@ -643,7 +655,7 @@ export function paymentRepository(
           };
         });
         return {
-          payable: amount(minorUnits(decimalOf(record.payable).toFixed(2))),
+          payable: money(record.payable),
           counterId: String(record.counter),
           options,
         };
