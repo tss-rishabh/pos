@@ -1,5 +1,39 @@
 # POS rewrite checkpoint
 
+## Current state — 18 November 2026, preparation for r8
+
+All currently identified implementation gaps are closed. Latest production
+change `4a410b9` normalizes nullable legacy store display labels without changing
+native inventory data. Feedback now has 15 passing source/browser/native/full
+App cases, including the actual nullable-store bootstrap regression (`c7b769f`).
+Country/postal lookup has four freshly executed native/source/API/UI workflows
+against that production graph (`77a3879`). Standalone authenticated shortcut
+access and operator-scoped preferences are integrated (`a1d54c8`, `4decfd5`).
+These scoped results do not certify the complete source inventory or production.
+
+The verifier now includes these three joined workflows when both --mysql and
+--browser are requested, and four additional strict fixture compiler checks.
+The shortcut native check receives only the guarded local fixture endpoint.
+Lookup/feedback provision and clean their own pinned disposable MySQL fixtures.
+Their runs leave committed evidence unchanged. Verifier strict compilation and
+focused lint pass. Original shared dependencies/Python environments are unchanged.
+
+Next is a fixed-snapshot, prerequisite-complete full r8 in the dedicated sibling
+worktree, with its own mitigated dependencies and both pinned Python oracles.
+No full r8 has started at this checkpoint. The last complete attempt remains
+failed r7: 133 passed, three failed, one unexecuted. Focused follow-ups passed;
+they do not replace a clean full run. The release gate remains failing. All
+three prior route certificates remain pending after shared-shell changes;
+refresh/admit exact workflows from actual executions, never by rewriting hashes.
+
+Live provider/SSO/warehouse/inventory acceptance, full source parity,
+representative performance/security review, signed desktop/physical printing,
+background workers and deployment/rollback acceptance remain incomplete.
+Latest recorded both-platform success is the older `9b7827e` snapshot; newer
+production changes require current CI. Do not claim production readiness.
+
+## Historical checkpoint entries (superseded where noted above)
+
 The shortcut-access code gap is closed by `a1d54c8`/`4decfd5` (worker
 `12a9bf7`/`2c15317`): authenticated standalone reference and all-role navigation
 precede operational store-loading/selection guards, including optional trailing

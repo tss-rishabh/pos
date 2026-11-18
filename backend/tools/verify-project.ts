@@ -118,6 +118,7 @@ if (flags.has('--mysql')) {
     WHOLE_ORDER_STATUS_MYSQL_TEST_URL: 'pos_rewrite_whole_status_test',
     GIFT_CARD_BATCH_MYSQL_TEST_URL: 'pos_rewrite_gift_card_batches_test',
     ADMINISTRATION_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_administration_history_test',
+    SHORTCUT_REFERENCE_MYSQL_TEST_URL: 'pos_rewrite_shortcut_reference_test',
   })) {
     url.pathname = '/' + schema;
     childEnvironment[name] = url.href;
@@ -1229,6 +1230,25 @@ const checks: Check[] = [
     ],
   },
 ];
+for (const [id, directory, config] of [
+  ['lookup-workflow-backend-typecheck', 'backend', 'tools/lookup-workflow/backend.tsconfig.json'],
+  ['lookup-workflow-browser-typecheck', 'frontend', 'tests/lookup-workflow/tsconfig.json'],
+  [
+    'feedback-native-workflow-typecheck',
+    'backend',
+    'tools/product-feedback/native-workflow.tsconfig.json',
+  ],
+  [
+    'shortcut-joined-workflow-typecheck',
+    'frontend',
+    'tools/cashier-shortcuts/tsconfig.joined.json',
+  ],
+] as const)
+  checks.push({
+    id,
+    directory,
+    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', config],
+  });
 if (flags.has('--mysql')) {
   checks.push(
     {
@@ -1284,6 +1304,31 @@ if (flags.has('--mysql')) {
   );
 }
 if (flags.has('--browser')) {
+  if (flags.has('--mysql')) {
+    const source = resolve(workspace, '../backend-pos-web');
+    checks.push(
+      {
+        id: 'lookup-native-source-api-browser-workflow',
+        directory: 'backend',
+        command: 'sh',
+        args: ['tools/lookup-workflow/run.sh'],
+        environment: { LOOKUP_WORKFLOW_SOURCE_ROOT: source },
+      },
+      {
+        id: 'feedback-native-source-api-browser-workflow',
+        directory: 'backend',
+        command: 'sh',
+        args: ['tools/product-feedback/run-native-workflow.sh'],
+        environment: { PRODUCT_FEEDBACK_SOURCE_ROOT: source },
+      },
+      {
+        id: 'shortcut-native-source-api-browser-workflow',
+        directory: 'backend',
+        command: 'sh',
+        args: ['tools/cashier-shortcuts/run-joined.sh', source, '--native-reference'],
+      },
+    );
+  }
   checks.push({
     id: 'daily-reports-browser-tests',
     directory: 'frontend',
