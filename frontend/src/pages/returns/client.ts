@@ -199,3 +199,80 @@ export const salespeopleSchema = z.object({
   nextCursor: id.nullable(),
 });
 export type Salesperson = z.infer<typeof salespeopleSchema>['data'][number];
+
+export const returnWindowSchema = z
+  .object({
+    orderId: id,
+    lineId: id,
+    productId: id,
+    date: z.iso.date().nullable(),
+    active: z.boolean(),
+    revision: z.string().regex(/^[a-f0-9]{64}$/),
+    today: z.iso.date(),
+    windowClosed: z.boolean(),
+  })
+  .strict();
+export type ReturnWindow = z.infer<typeof returnWindowSchema>;
+export interface ReturnWindowScope {
+  storeId: string;
+  orderId: string;
+  lineId: string;
+  productId: string;
+  counterId: string;
+  verificationId: string;
+  operatorId: string;
+}
+function returnWindowPath(scope: ReturnWindowScope) {
+  return `${returnBase(scope.storeId)}/orders/${encodeURIComponent(scope.orderId)}/line-items/${encodeURIComponent(scope.lineId)}/return-window`;
+}
+export async function readReturnWindow(scope: ReturnWindowScope) {
+  const query = new URLSearchParams({
+    counterId: scope.counterId,
+    verificationId: scope.verificationId,
+    productId: scope.productId,
+  });
+  return boundReturnWindow(
+    scope,
+    await request(
+      `${returnWindowPath(scope)}?${query}`,
+      { operatorId: scope.operatorId },
+      returnWindowSchema,
+    ),
+  );
+}
+export async function setReturnWindow(
+  scope: ReturnWindowScope,
+  date: string,
+  expectedRevision: string,
+) {
+  return boundReturnWindow(
+    scope,
+    await request(
+      returnWindowPath(scope),
+      {
+        method: 'PUT',
+        operatorId: scope.operatorId,
+        body: JSON.stringify({
+          counterId: scope.counterId,
+          verificationId: scope.verificationId,
+          productId: scope.productId,
+          date,
+          expectedRevision,
+        }),
+      },
+      returnWindowSchema,
+    ),
+  );
+}
+
+function boundReturnWindow(scope: ReturnWindowScope, value: ReturnWindow): ReturnWindow {
+  if (
+    value.orderId !== scope.orderId ||
+    value.lineId !== scope.lineId ||
+    value.productId !== scope.productId
+  )
+    throw new Error(
+      'The recorded return date did not match the selected item. Read it again before continuing.',
+    );
+  return value;
+}

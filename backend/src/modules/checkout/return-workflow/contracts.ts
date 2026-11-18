@@ -134,3 +134,30 @@ export function publicReturn(value: ReturnOperation) {
     updatedAt: value.updatedAt,
   };
 }
+
+const returnWindowIdentifier = identifier.refine(
+  (value) => BigInt(value) <= 9_223_372_036_854_775_807n,
+  'Identifier exceeds the native return-extension storage range.',
+);
+export const returnWindowScopeSchema = z
+  .object({
+    counterId: returnWindowIdentifier,
+    verificationId: z.uuid(),
+    productId: returnWindowIdentifier,
+  })
+  .strict();
+export const returnWindowPathSchema = z
+  .object({
+    storeId: returnWindowIdentifier,
+    orderId: returnWindowIdentifier,
+    lineId: returnWindowIdentifier,
+  })
+  .strict();
+export const returnWindowInputSchema = returnWindowScopeSchema
+  .extend({
+    date: z.iso.date(),
+    expectedRevision: z.string().regex(/^[a-f0-9]{64}$/),
+  })
+  .strict();
+export type ReturnWindowScope = z.infer<typeof returnWindowScopeSchema>;
+export type ReturnWindowInput = z.infer<typeof returnWindowInputSchema>;

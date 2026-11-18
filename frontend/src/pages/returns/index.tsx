@@ -36,6 +36,7 @@ import {
 } from './client';
 import './style.css';
 import { SalespersonSelect } from './SalespersonSelect';
+import { ReturnWindowExtension } from './ReturnWindowExtension';
 
 const reasonList = z.object({ data: z.array(z.object({ id: z.string(), reason: z.string() })) });
 const subReasonList = z.object({
@@ -561,6 +562,23 @@ export function ReturnsPage({
               <h3>
                 {mode === 'exchange' ? 'Exchange' : 'Return'} {line.name || `line ${line.id}`}
               </h3>
+              {[1, 2, 3].includes(user.role) && recovery?.verificationId && (
+                <ReturnWindowExtension
+                  key={`${user.id}:${user.role}:${user.userType}:${storeId}:${counterId}:${recovery.verificationId}:${line.id}`}
+                  scope={{
+                    operatorId: user.id,
+                    storeId,
+                    counterId,
+                    orderId: recovery.orderId,
+                    lineId: line.id,
+                    productId: line.productId,
+                    verificationId: recovery.verificationId,
+                  }}
+                  online={online}
+                  busy={busy}
+                  run={act}
+                />
+              )}
               {mode === 'exchange' && (
                 <>
                   <fieldset className="replacement-sizes">

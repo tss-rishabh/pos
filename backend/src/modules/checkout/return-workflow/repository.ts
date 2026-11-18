@@ -23,6 +23,7 @@ import {
   ExtendApplicabilityForReturnExchange,
   HasOptions,
   HasProduct,
+  MUser,
   HoldStockStore,
   Order,
   OrderAddon,
@@ -40,6 +41,7 @@ import {
   StoreSalesPerson,
   SalesPerson,
 } from '../../../db/legacy-schema.js';
+import { assertCurrentOperatorRole } from '../../administration/authorization.js';
 import { requireRole, requireStore, type Principal } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
 import { checkInService, type AdministrationTransaction } from '../../administration/checkins.js';
@@ -59,6 +61,7 @@ import {
   type ReturnInput,
   type ReturnOperation,
   type InboundReturn,
+  type ReturnWindowScope,
 } from './contracts.js';
 import { returnOperations, returnOutbox, returnVerifications } from './schema.js';
 import { exchangeOrderLog } from './exchange-ledger.js';
@@ -145,6 +148,65 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     if (!store || !order || !line)
       throw new AppError(404, 'RETURN_LINE_NOT_FOUND', 'Return line was not found.');
     return { store, order, line };
+  }
+  async function verifiedCustomer(
+    tx: AdministrationTransaction,
+    user: Principal,
+    storeId: string,
+    orderId: string,
+    counterId: string,
+    verificationId: string,
+    customerId: string,
+  ) {
+    const [session] = await tx
+      .select({ state: returnVerifications.state })
+      .from(returnVerifications)
+      .where(eq(returnVerifications.id, verificationId))
+      .limit(1)
+      .for('update');
+    const proof = session ? returnVerificationSchema.parse(session.state) : null;
+    if (
+      !proof ||
+      proof.operatorId !== user.id ||
+      proof.storeId !== storeId ||
+      proof.orderId !== orderId ||
+      proof.customerId !== customerId ||
+      proof.counterId !== counterId ||
+      !proof.verifiedUntil ||
+      proof.verifiedUntil <= Date.now()
+    )
+      throw new AppError(
+        403,
+        'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
+        'Verify the order customer in this store before accepting a return.',
+      );
+    if (!sameCustomerContact(proof.contact, await readCustomerContactBinding(tx, proof.customerId)))
+      throw new AppError(
+        403,
+        'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
+        'Customer contact changed. Verify the order customer again before accepting a return.',
+      );
+    if (options.customerOtp || proof.requestOperationId) {
+      if (
+        !options.customerOtp?.assertVerified ||
+        !proof.requestOperationId ||
+        !proof.otpChallengeId ||
+        !proof.contact
+      )
+        throw new AppError(
+          503,
+          'CUSTOMER_OTP_UNAVAILABLE',
+          'The purpose-bound customer proof must be verified before accepting a return.',
+        );
+      await options.customerOtp.assertVerified(
+        tx,
+        user,
+        returnCustomerOtpScope(proof),
+        proof.otpChallengeId,
+        proof.contact,
+        proof.verifiedUntil,
+      );
+    }
   }
   async function owned(
     tx: AdministrationTransaction,
@@ -554,6 +616,81 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     return Boolean(link && ledger);
   }
   return {
+    async extensionScope(
+      tx: AdministrationTransaction,
+      user: Principal,
+      storeId: string,
+      orderId: string,
+      lineId: string,
+      input: ReturnWindowScope,
+    ) {
+      requireRole(user, [1, 2, 3]);
+      await assertCurrentOperatorRole(tx, user.id, [1, 2, 3]);
+      const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
+      if (
+        String(scope.line.product) !== input.productId ||
+        scope.line.status !== 'DELIVERED' ||
+        scope.line.return_status !== 0
+      )
+        throw new AppError(
+          409,
+          'RETURN_EXTENSION_LINE_INELIGIBLE',
+          'Select an unreturned delivered line belonging to this order.',
+        );
+      await verifiedCustomer(
+        tx,
+        user,
+        storeId,
+        orderId,
+        input.counterId,
+        input.verificationId,
+        String(scope.order.customerId),
+      );
+      const active = await tx
+        .select({ id: returnOperations.id })
+        .from(returnOperations)
+        .where(and(eq(returnOperations.lineId, lineId), ne(returnOperations.phase, 'rejected')))
+        .limit(1)
+        .for('update');
+      if (active.length)
+        throw new AppError(
+          409,
+          'RETURN_ALREADY_ACTIVE',
+          'An earlier return or exchange for this line needs review.',
+        );
+      const actors = await tx
+        .select({ id: MUser.id })
+        .from(MUser)
+        .where(eq(MUser.pos_admin_id, BigInt(user.id)))
+        .limit(2)
+        .for('share');
+      if (actors.length !== 1 || !actors[0] || actors[0].id <= 0n)
+        throw new AppError(
+          409,
+          'RETURN_EXTENSION_ACTOR_UNAVAILABLE',
+          'The native manager audit identity needs review.',
+        );
+      if (options.returnPeriodDays === undefined)
+        throw new AppError(503, 'RETURN_POLICY_UNAVAILABLE', 'Return policy is not configured.');
+      const [delivery] = await tx
+        .select({ date: Comments.created_at })
+        .from(Comments)
+        .where(and(eq(Comments.order_id, BigInt(orderId)), eq(Comments.status_id, 3n)))
+        .orderBy(desc(Comments.created_at))
+        .limit(1)
+        .for('share');
+      if (!delivery)
+        throw new AppError(
+          409,
+          'RETURN_DELIVERY_UNCONFIRMED',
+          'No delivered record exists for this order.',
+        );
+      return {
+        nativeActorId: actors[0].id,
+        deliveredAt: delivery.date,
+        periodDays: options.returnPeriodDays,
+      };
+    },
     async begin(
       user: Principal,
       storeId: string,
@@ -616,60 +753,15 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             'RETURN_ALREADY_ACTIVE',
             'An earlier return for this line needs review.',
           );
-        const [session] = await tx
-          .select({ state: returnVerifications.state })
-          .from(returnVerifications)
-          .where(eq(returnVerifications.id, input.verificationId))
-          .limit(1)
-          .for('update');
-        const proof = session ? returnVerificationSchema.parse(session.state) : null;
-        if (
-          !proof ||
-          proof.operatorId !== user.id ||
-          proof.storeId !== storeId ||
-          proof.orderId !== orderId ||
-          proof.customerId !== String(scope.order.customerId) ||
-          proof.counterId !== input.counterId ||
-          !proof.verifiedUntil ||
-          proof.verifiedUntil <= Date.now()
-        )
-          throw new AppError(
-            403,
-            'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
-            'Verify the order customer in this store before accepting a return.',
-          );
-        if (
-          !sameCustomerContact(
-            proof.contact,
-            await readCustomerContactBinding(tx, proof.customerId),
-          )
-        )
-          throw new AppError(
-            403,
-            'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
-            'Customer contact changed. Verify the order customer again before accepting a return.',
-          );
-        if (options.customerOtp || proof.requestOperationId) {
-          if (
-            !options.customerOtp?.assertVerified ||
-            !proof.requestOperationId ||
-            !proof.otpChallengeId ||
-            !proof.contact
-          )
-            throw new AppError(
-              503,
-              'CUSTOMER_OTP_UNAVAILABLE',
-              'The purpose-bound customer proof must be verified before accepting a return.',
-            );
-          await options.customerOtp.assertVerified(
-            tx,
-            user,
-            returnCustomerOtpScope(proof),
-            proof.otpChallengeId,
-            proof.contact,
-            proof.verifiedUntil,
-          );
-        }
+        await verifiedCustomer(
+          tx,
+          user,
+          storeId,
+          orderId,
+          input.counterId,
+          input.verificationId,
+          String(scope.order.customerId),
+        );
         const [delivery] = await tx
             .select({ date: Comments.created_at })
             .from(Comments)

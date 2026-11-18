@@ -12,6 +12,12 @@ import { returnRepository, type ReturnRepositoryOptions } from './repository.js'
 import { returnService } from './service.js';
 import { returnVerificationService } from './verification.js';
 import { exchangeService } from './exchanges.js';
+import { returnWindowExtensions } from './extensions.js';
+import {
+  returnWindowScopeSchema,
+  returnWindowInputSchema,
+  returnWindowPathSchema,
+} from './contracts.js';
 import type { orderFinalizer } from '../finalizer.js';
 export interface ReturnRegistrationOptions extends Omit<
   ReturnRepositoryOptions,
@@ -68,6 +74,48 @@ export function registerReturns(
     exchangeTrace = (action: string) => ({
       config: { trace: { module: 'checkout', resource: 'exchange-operation', action } },
     });
+  const extensions = returnWindowExtensions(db, config, {
+    repository,
+    hashSecret: options.signing.hs256 || options.signing.hs512 || '',
+  });
+  app.get(
+    '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window',
+    {
+      config: {
+        trace: { module: 'checkout', resource: 'return-window-extension', action: 'read' },
+      },
+    },
+    async (request, reply) => {
+      reply.header('Cache-Control', 'no-store');
+      const p = returnWindowPathSchema.parse(request.params);
+      return extensions.read(
+        authenticated(request),
+        p.storeId,
+        p.orderId,
+        p.lineId,
+        returnWindowScopeSchema.parse(request.query),
+      );
+    },
+  );
+  app.put(
+    '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window',
+    {
+      config: {
+        trace: { module: 'checkout', resource: 'return-window-extension', action: 'update' },
+      },
+    },
+    async (request, reply) => {
+      reply.header('Cache-Control', 'no-store');
+      const p = returnWindowPathSchema.parse(request.params);
+      return extensions.set(
+        authenticated(request),
+        p.storeId,
+        p.orderId,
+        p.lineId,
+        returnWindowInputSchema.parse(request.body),
+      );
+    },
+  );
   app.post(
     '/api/v1/stores/:storeId/orders/:orderId/return-verifications',
     {
