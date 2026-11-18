@@ -5,9 +5,15 @@ import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { productFeedbackScope } from './contracts.js';
 import { productFeedbackService } from './service.js';
+import type { OrderRedis } from '../fulfillment/order-redis.js';
 
-export function registerProductFeedback(app: FastifyInstance, config: Config, db: Databases) {
-  const service = productFeedbackService(config, db);
+export function registerProductFeedback(
+  app: FastifyInstance,
+  config: Config,
+  db: Databases,
+  redis: OrderRedis,
+) {
+  const service = productFeedbackService(config, db, redis);
   const path =
     '/api/v1/stores/:storeId/checkout-sessions/:checkoutId/customers/:customerId/orders/:orderId/product-feedback';
   app.get(

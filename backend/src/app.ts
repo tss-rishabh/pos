@@ -386,7 +386,7 @@ export async function buildApp(
   await registerWholeOrderStatus(app, config, db, wholeOrderOptions);
   registerCustomerWorkspace(app, config, db);
   registerCustomerHistory(app, config, db);
-  registerProductFeedback(app, config, db);
+  registerProductFeedback(app, config, db, orderRedis);
   registerCheckoutPerformance(app, config, db);
   registerInvoiceDocuments(app, config, db);
   registerCustomerContacts(app, config, db);

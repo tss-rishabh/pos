@@ -7,7 +7,6 @@ import { generatedId } from '../../db/generated-id.js';
 import { HasProduct, Order, Product } from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
-import { currentRequestTrace } from '../../observability/context.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import type { CheckoutState } from '../checkout/contracts.js';
 import { operationHash } from '../checkout/crypto.js';
@@ -27,7 +26,31 @@ import {
   type FeedbackSubmission,
   type ProductFeedbackScope,
 } from './contracts.js';
-import { feedbackReceipts, productRatings } from './schema.js';
+import { productRatings } from './schema.js';
+import type { OrderRedis } from '../fulfillment/order-redis.js';
+
+/**
+ * Lost-response replay receipt (table-disposition.md product-feedback: the rewrite-only
+ * `pos_rewrite_product_feedback_receipts` table moves to Redis). Legacy has no dedupe.
+ * `pos:product_feedback:{operationId}` → JSON {operatorId, storeId, counterId, checkoutId,
+ * customerId, orderId, productId, requestHash, checkoutVersion, receipt}, SET NX EX 86400.
+ */
+export const feedbackReceiptKey = (operationId: string) => `pos:product_feedback:${operationId}`;
+const FEEDBACK_RECEIPT_TTL_SECONDS = 86400;
+const storedReceipt = z
+  .object({
+    operatorId: z.string(),
+    storeId: z.string(),
+    counterId: z.string(),
+    checkoutId: z.string(),
+    customerId: z.string(),
+    orderId: z.string(),
+    productId: z.string(),
+    requestHash: z.string(),
+    checkoutVersion: z.number().int(),
+    receipt: z.unknown(),
+  })
+  .strict();
 
 const missing = () =>
   new AppError(
@@ -38,9 +61,28 @@ const missing = () =>
 export function productFeedbackService(
   config: Config,
   db: Databases,
+  redis: OrderRedis,
   clock: () => number = Date.now,
 ) {
   const withCheckout = customerCheckoutScope(config, db);
+  async function savedReceipt(operationId: string) {
+    const raw = await redis.get(feedbackReceiptKey(operationId));
+    if (raw === null) return null;
+    let value: unknown;
+    try {
+      value = JSON.parse(raw);
+    } catch {
+      value = null;
+    }
+    const parsed = storedReceipt.safeParse(value);
+    if (!parsed.success)
+      throw new AppError(
+        503,
+        'PRODUCT_FEEDBACK_RECEIPT_INVALID',
+        'The saved product feedback requires review.',
+      );
+    return parsed.data;
+  }
   async function currentOrder(
     tx: AdministrationTransaction,
     state: CheckoutState & { customerId: string },
@@ -100,12 +142,7 @@ export function productFeedbackService(
       'update',
       async (tx, state) => {
         const order = await currentOrder(tx, state, scope, 'update');
-        const [saved] = await tx
-          .select()
-          .from(feedbackReceipts)
-          .where(eq(feedbackReceipts.id, operationId))
-          .limit(1)
-          .for('update');
+        const saved = await savedReceipt(operationId);
         const requestHash = input
           ? operationHash(
               'product-feedback',
@@ -234,24 +271,41 @@ export function productFeedbackService(
           ratingIds,
           appliedAt: now.toISOString(),
         });
-        await tx.insert(feedbackReceipts).values({
-          id: operationId,
-          operatorId: user.id,
-          storeId: scope.storeId,
-          counterId: state.counterId,
-          checkoutId: state.id,
-          customerId: state.customerId,
-          orderId: scope.orderId,
-          productId: input.productId,
-          requestHash: requestHash!,
-          checkoutVersion: state.version,
+        return {
           receipt,
-          requestId: currentRequestTrace()?.requestId ?? null,
-          createdAt: now,
-        });
-        return receipt;
+          record: {
+            operatorId: user.id,
+            storeId: scope.storeId,
+            counterId: state.counterId,
+            checkoutId: state.id,
+            customerId: state.customerId,
+            orderId: scope.orderId,
+            productId: input.productId,
+            requestHash: requestHash!,
+            checkoutVersion: state.version,
+            receipt,
+          },
+        };
       },
     );
+  }
+  /** Runs the MySQL write, then records the replay receipt after commit. */
+  async function commandWithReceipt(
+    user: Principal,
+    scope: ProductFeedbackScope,
+    operationId: string,
+    input?: FeedbackSubmission,
+  ) {
+    const result = await command(user, scope, operationId, input);
+    if (!('record' in result)) return result;
+    // A lost receipt only degrades replay: the same submission then sees the saved rows (409).
+    await redis
+      .set(feedbackReceiptKey(operationId), JSON.stringify(result.record), {
+        NX: true,
+        EX: FEEDBACK_RECEIPT_TTL_SECONDS,
+      })
+      .catch(() => false);
+    return result.receipt;
   }
   return {
     async read(user: Principal, rawScope: ProductFeedbackScope, rawPage: unknown) {
@@ -340,10 +394,10 @@ export function productFeedbackService(
     },
     submit(user: Principal, scope: ProductFeedbackScope, body: unknown) {
       const input = feedbackSubmission.parse(body);
-      return command(user, scope, input.operationId, input);
+      return commandWithReceipt(user, scope, input.operationId, input);
     },
     receipt(user: Principal, scope: ProductFeedbackScope, operationId: string) {
-      return command(user, scope, operationId);
+      return commandWithReceipt(user, scope, operationId);
     },
   };
 }
