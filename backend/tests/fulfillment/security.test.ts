@@ -1,3 +1,4 @@
+import type { Duplex } from 'node:stream';
 import Fastify from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
@@ -35,10 +36,14 @@ async function setup(subscription?: {
   ready: Promise<void>;
   started: () => void;
   completed: () => void;
+  invalidUpgrade?: boolean;
 }) {
   let databaseCalls = 0,
     stillValid = true;
   let checkedInStore: string | null = '1';
+  let subscriptions = 0,
+    unsubscriptions = 0;
+  let upgradeTransport: Duplex | undefined;
   let receive: Parameters<NotificationBus['subscribe']>[3] | undefined;
   const db: Databases = {
     get: () => {
@@ -50,23 +55,34 @@ async function setup(subscription?: {
   const bus: NotificationBus = {
     publish: async () => {},
     subscribe: async (_store, _user, _id, listener) => {
-      subscription?.started();
-      if (subscription) {
-        await subscription.ready;
-        subscription.completed();
-      }
+      subscriptions++;
       receive = listener;
+      subscription?.started();
+      try {
+        if (subscription) {
+          await subscription.ready;
+          subscription.completed();
+        }
+      } catch (error) {
+        receive = undefined;
+        throw error;
+      }
       return async () => {
+        unsubscriptions++;
         receive = undefined;
       };
     },
     close: async () => {},
   };
   app = Fastify({ logger: false });
+  app.server.prependListener('upgrade', (_request, transport) => {
+    upgradeTransport = transport;
+  });
   app.decorateRequest('principal', null);
   app.decorateRequest('sessionExpiresAt', null);
   app.decorateRequest('authSessionValid', null);
   app.addHook('preHandler', async (request) => {
+    if (subscription?.invalidUpgrade) request.headers['sec-websocket-version'] = '12';
     if (request.headers.cookie === 'fixture-session') {
       request.principal = user;
       request.sessionExpiresAt = Date.now() + 60000;
@@ -87,6 +103,10 @@ async function setup(subscription?: {
   return {
     app,
     calls: () => databaseCalls,
+    subscriptions: () => ({ opened: subscriptions, closed: unsubscriptions }),
+    abortUpgrade: () => {
+      upgradeTransport?.destroy();
+    },
     revoke: () => {
       stillValid = false;
     },
@@ -148,6 +168,167 @@ describe('fulfillment security boundaries', () => {
       socket.close();
     }
   });
+  it('does not acquire a notification subscription for an ordinary HTTP request', async () => {
+    const fixture = await setup();
+    const response = await fixture.app.inject({
+      url: '/api/v1/stores/1/notifications/stream',
+      headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
+    });
+    expect(response.statusCode).toBe(404);
+    expect(fixture.subscriptions()).toEqual({ opened: 0, closed: 0 });
+  });
+  it('rejects a failed broker subscription before upgrading', async () => {
+    let rejectBroker: (error: Error) => void = () => {},
+      markStarted: () => void = () => {};
+    const ready = new Promise<void>((_resolve, reject) => {
+      rejectBroker = reject;
+    });
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const fixture = await setup({ ready, started: markStarted, completed: () => {} });
+    const connecting = fixture.app.injectWS('/api/v1/stores/1/notifications/stream', {
+      headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
+    });
+    const rejected = expect(connecting).rejects.toThrow('503');
+    await started;
+    rejectBroker(new Error('Synthetic broker failure'));
+    await rejected;
+    expect(fixture.subscriptions()).toEqual({ opened: 1, closed: 0 });
+  });
+  it('rechecks session and store authority after broker readiness and releases the subscription once', async () => {
+    for (const reason of ['session', 'assignment'] as const) {
+      let release: () => void = () => {},
+        markStarted: () => void = () => {};
+      const ready = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const started = new Promise<void>((resolve) => {
+        markStarted = resolve;
+      });
+      const fixture = await setup({ ready, started: markStarted, completed: () => {} });
+      const connecting = fixture.app.injectWS('/api/v1/stores/1/notifications/stream', {
+        headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
+      });
+      const rejected = expect(connecting).rejects.toThrow(reason === 'session' ? '401' : '403');
+      await started;
+      if (reason === 'session') fixture.revoke();
+      else fixture.removeAssignment();
+      release();
+      await rejected;
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(fixture.subscriptions()).toEqual({ opened: 1, closed: 1 });
+      await fixture.app.close();
+    }
+  });
+  it('releases a late subscription once when the underlying upgrade transport disconnects', async () => {
+    let release: () => void = () => {},
+      markStarted: () => void = () => {};
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const fixture = await setup({ ready, started: markStarted, completed: () => {} });
+    let opened = false;
+    void fixture.app
+      .injectWS('/api/v1/stores/1/notifications/stream', {
+        headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
+      })
+      .then(
+        (socket) => {
+          opened = true;
+          socket.close();
+        },
+        () => {},
+      );
+    await started;
+    fixture.abortUpgrade();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    release();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(opened).toBe(false);
+    expect(fixture.subscriptions()).toEqual({ opened: 1, closed: 1 });
+  });
+  it('releases a prepared subscription once if the actual protocol upgrade is rejected', async () => {
+    const fixture = await setup({
+      ready: Promise.resolve(),
+      started: () => {},
+      completed: () => {},
+      invalidUpgrade: true,
+    });
+    await expect(
+      fixture.app.injectWS('/api/v1/stores/1/notifications/stream', {
+        headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
+      }),
+    ).rejects.toThrow('400');
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(fixture.subscriptions()).toEqual({ opened: 1, closed: 1 });
+  });
+  it('retains an existing notice during upgrade admission and releases once after normal close', async () => {
+    let release: () => void = () => {},
+      markStarted: () => void = () => {},
+      delivered: () => void = () => {};
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const message = new Promise<void>((resolve) => {
+      delivered = resolve;
+    });
+    const fixture = await setup({ ready, started: markStarted, completed: () => {} });
+    const serverClosed = new Promise<void>((resolve) => {
+      fixture.app.websocketServer.once(
+        'connection',
+        (server: { once(event: 'close', listener: () => void): unknown }) => {
+          server.once('close', () => resolve());
+        },
+      );
+    });
+    const connecting = fixture.app.injectWS(
+      '/api/v1/stores/1/notifications/stream',
+      { headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN } },
+      {
+        onInit: (socket) => {
+          socket.once('message', () => delivered());
+        },
+      },
+    );
+    await started;
+    fixture.emit(); // Reuses this security fixture's existing pointer, never a ready frame.
+    release();
+    const socket = await connecting;
+    await message;
+    const closed = new Promise<void>((resolve) => socket.once('close', () => resolve()));
+    socket.close();
+    await closed;
+    await serverClosed;
+    expect(fixture.subscriptions()).toEqual({ opened: 1, closed: 1 });
+  });
+  it('bounds the pre-upgrade notice queue and releases a late subscription once after overflow', async () => {
+    let release: () => void = () => {},
+      markStarted: () => void = () => {};
+    const ready = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const started = new Promise<void>((resolve) => {
+      markStarted = resolve;
+    });
+    const fixture = await setup({ ready, started: markStarted, completed: () => {} });
+    const connecting = fixture.app.injectWS('/api/v1/stores/1/notifications/stream', {
+      headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
+    });
+    const rejected = expect(connecting).rejects.toThrow('503');
+    await started;
+    for (let index = 0; index < 101; index++) fixture.emit();
+    await rejected;
+    release();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(fixture.subscriptions()).toEqual({ opened: 1, closed: 1 });
+  });
   it('rejects missing/invalid webhook credentials before DB work even with a browser cookie', async () => {
     const fixture = await setup();
     for (const headers of [
@@ -207,7 +388,7 @@ describe('fulfillment security boundaries', () => {
       headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
     });
     const first = new Promise<string>((resolve) =>
-      socket.once('message', (value) => resolve(String(value))),
+      socket.once('message', (value: unknown) => resolve(String(value))),
     );
     fixture.emit();
     expect(JSON.parse(await first)).toEqual({
@@ -217,7 +398,9 @@ describe('fulfillment security boundaries', () => {
       isNewOrder: true,
     });
     fixture.revoke();
-    const closed = new Promise<number>((resolve) => socket.once('close', (code) => resolve(code)));
+    const closed = new Promise<number>((resolve) =>
+      socket.once('close', (code: number) => resolve(code)),
+    );
     fixture.emit();
     expect(await closed).toBe(1008);
     expect(fixture.calls()).toBe(0);
@@ -228,7 +411,9 @@ describe('fulfillment security boundaries', () => {
         headers: { cookie: 'fixture-session', origin: config.WEB_ORIGIN },
       });
     fixture.removeAssignment();
-    const closed = new Promise<number>((resolve) => socket.once('close', (code) => resolve(code)));
+    const closed = new Promise<number>((resolve) =>
+      socket.once('close', (code: number) => resolve(code)),
+    );
     fixture.emit();
     expect(await closed).toBe(1008);
     await expect(

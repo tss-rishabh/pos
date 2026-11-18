@@ -1,3 +1,5 @@
+import type { IncomingMessage } from 'node:http';
+import type { Duplex } from 'node:stream';
 import { randomUUID } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
 import websocket from '@fastify/websocket';
@@ -12,6 +14,7 @@ import { AppError } from '../../domain/errors.js';
 import { requireRole, requireStore } from '../../domain/access.js';
 import { expressStatusSchema, fulfillmentTabSchema } from './domain.js';
 import { notificationBus, type NotificationBus } from './notification-bus.js';
+import { notificationStream } from './notification-stream.js';
 import { fulfillmentService, type FulfillmentService } from './service.js';
 import {
   readFulfillmentOptions,
@@ -341,6 +344,19 @@ export async function registerFulfillment(
       return result;
     },
   );
+  // Capture the actual transport before the plugin routes Node's upgrade.
+  // IncomingMessage.socket is not reliable for synthetic/in-flight upgrades.
+  const upgradeTransports = new WeakMap<IncomingMessage, Duplex>();
+  const streams = new WeakMap<FastifyRequest, ReturnType<typeof notificationStream>>();
+  const activeStreams = new Set<ReturnType<typeof notificationStream>>();
+  const captureUpgrade = (request: IncomingMessage, transport: Duplex) => {
+    upgradeTransports.set(request, transport);
+  };
+  app.server.prependListener('upgrade', captureUpgrade);
+  app.addHook('preClose', async () => {
+    app.server.removeListener('upgrade', captureUpgrade);
+    for (const stream of activeStreams) stream.stop();
+  });
   if (!app.hasDecorator('websocketServer'))
     await app.register(websocket, { options: { maxPayload: 2048 } });
   app.get(
@@ -350,6 +366,12 @@ export async function registerFulfillment(
       config: {
         trace: { module: 'notifications', resource: 'notification-stream', action: 'subscribe' },
       },
+      onError: async (request) => {
+        streams.get(request)?.stop();
+      },
+      onResponse: async (request) => {
+        streams.get(request)?.stop();
+      },
       preHandler: async (request) => {
         const user = authenticated(request),
           params = scope.parse(request.params);
@@ -357,71 +379,53 @@ export async function registerFulfillment(
         if (request.headers.origin !== new URL(config.WEB_ORIGIN).origin)
           throw new AppError(403, 'ORIGIN_DENIED', 'Request origin is not allowed.');
         await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
+        // A normal GET is the plugin's 404 path and must never acquire a broker resource.
+        if (!request.ws) return;
+        const transport = upgradeTransports.get(request.raw);
+        if (!transport)
+          throw new AppError(
+            503,
+            'NOTIFICATIONS_UNAVAILABLE',
+            'Live notifications are temporarily unavailable.',
+          );
+        const sessionValid = () =>
+          request.authSessionValid
+            ? request.authSessionValid()
+            : Promise.resolve(
+                Boolean(
+                  request.principal &&
+                  (!request.sessionExpiresAt || request.sessionExpiresAt > Date.now()),
+                ),
+              );
+        const id = randomUUID();
+        const stream = notificationStream({
+          transport,
+          subscribe: (receive) => bus.subscribe(params.storeId, user.id, id, receive),
+          authorize: async () => {
+            if (!(await sessionValid()))
+              throw new AppError(401, 'SESSION_EXPIRED', 'Sign in to receive notifications.');
+            await requireCurrentCheckIn(user.id, params.storeId, 'notifications');
+          },
+          valid: async () =>
+            (await sessionValid()) && (await checkins.checkedInStore(user.id)) === params.storeId,
+          expiresAt: request.sessionExpiresAt || Date.now() + 900000,
+          onClosed: () => {
+            activeStreams.delete(stream);
+            streams.delete(request);
+          },
+        });
+        streams.set(request, stream);
+        activeStreams.add(stream);
+        await stream.prepare();
       },
     },
     (socket, request) => {
-      const user = authenticated(request),
-        params = scope.parse(request.params),
-        id = randomUUID();
-      let unsubscribe: (() => Promise<void>) | undefined,
-        closed = false;
-      const valid = async () => {
-        const sessionValid = request.authSessionValid
-          ? await request.authSessionValid()
-          : Boolean(
-              request.principal &&
-              (!request.sessionExpiresAt || request.sessionExpiresAt > Date.now()),
-            );
-        return sessionValid && (await checkins.checkedInStore(user.id)) === params.storeId;
-      };
-      let queue = Promise.resolve();
-      let pendingMessages = 0;
-      void bus
-        .subscribe(params.storeId, user.id, id, (event) => {
-          if (closed) return;
-          if (pendingMessages >= 100 || socket.bufferedAmount > 65536) {
-            closed = true;
-            socket.close(1013, 'Reconnect to refresh notifications');
-            return;
-          }
-          pendingMessages++;
-          queue = queue
-            .then(async () => {
-              if (closed) return;
-              if (!(await valid())) {
-                socket.close(1008, 'Session expired');
-                return;
-              }
-              if (socket.readyState === socket.OPEN) socket.send(JSON.stringify(event));
-            })
-            .catch(() => socket.close(1013, 'Notifications unavailable'))
-            .finally(() => {
-              pendingMessages--;
-            });
-        })
-        .then((stop) => {
-          if (closed) void stop().catch(() => {});
-          else unsubscribe = stop;
-        })
-        .catch(() => socket.close(1013, 'Notifications unavailable'));
-      const expiry = setTimeout(
-        () => socket.close(1008, 'Session expired'),
-        Math.max(1, (request.sessionExpiresAt || Date.now() + 900000) - Date.now()),
-      );
-      const keepalive = setInterval(() => {
-        void valid()
-          .then((ok) => {
-            if (!ok) socket.close(1008, 'Session expired');
-            else socket.ping();
-          })
-          .catch(() => socket.close(1013, 'Notifications unavailable'));
-      }, 30000);
-      socket.on('close', () => {
-        closed = true;
-        clearTimeout(expiry);
-        clearInterval(keepalive);
-        void unsubscribe?.().catch(() => {});
-      });
+      const stream = streams.get(request);
+      if (!stream) {
+        socket.close(1013, 'Notifications unavailable');
+        return;
+      }
+      stream.attach(socket);
     },
   );
 
