@@ -31,6 +31,7 @@ import { administrationService, type AdministrationOptions } from './service.js'
 import { checkInService } from './checkins.js';
 import { inventoryService } from './inventory.js';
 import { supportService } from './support.js';
+import { registerTerminalDirectory } from './terminal-directory.js';
 import { storeImageService, type StoreImageOptions } from './store-images.js';
 import { registerStoreImages } from './store-image-routes.js';
 import { administrationAccessService } from './access-control.js';
@@ -109,6 +110,7 @@ export function registerAdministration(
     SlackConnectionOptions &
     SettingsOptions = {},
 ) {
+  registerTerminalDirectory(app, db);
   const service = administrationService(config, db, options),
     checkins = checkInService(db, config),
     inventory = inventoryService(config, db, options),

@@ -11,6 +11,7 @@ import { identifier } from '../../domain/validation.js';
 import { retryTransaction } from '../../db/retry.js';
 import { legacyIntegerReference } from './policies.js';
 import type { AdministrationTransaction } from './checkins.js';
+import { assertCurrentStoreAccess } from './authorization.js';
 
 export const terminalProvider = z.enum(['paytm', 'pine-labs']);
 type TerminalProvider = z.infer<typeof terminalProvider>;
@@ -71,7 +72,12 @@ export function terminalService(config: Config, db: Databases) {
     requireRole(user, [1, 2, 3]);
     requireStore(user, storeId);
   }
-  async function lockedStore(transaction: AdministrationTransaction, storeId: string) {
+  async function lockedStore(
+    transaction: AdministrationTransaction,
+    user: Principal,
+    storeId: string,
+  ) {
+    await assertCurrentStoreAccess(transaction, user.id, storeId, [1, 2, 3]);
     const [store] = await transaction
       .select({ id: Store.id, name: Store.store_name })
       .from(Store)
@@ -194,7 +200,7 @@ export function terminalService(config: Config, db: Databases) {
         );
       return retryTransaction(() =>
         db.get('writer').transaction(async (transaction) => {
-          const store = await lockedStore(transaction, storeId);
+          const store = await lockedStore(transaction, user, storeId);
           const name = nextTerminalName(
             (await names(transaction, input.provider, storeId)).map((row) => row.name),
           );
@@ -266,7 +272,7 @@ export function terminalService(config: Config, db: Databases) {
           for (const id of [...new Set([storeId, target])].sort((left, right) =>
             BigInt(left) < BigInt(right) ? -1 : 1,
           )) {
-            const store = await lockedStore(transaction, id);
+            const store = await lockedStore(transaction, user, id);
             if (id === target) destinationName = store.name || target;
           }
           const table = tableFor(input.provider);
@@ -342,7 +348,7 @@ export function terminalService(config: Config, db: Databases) {
     async remove(user: Principal, storeId: string, provider: TerminalProvider, terminalId: string) {
       authorize(user, storeId);
       return db.get('writer').transaction(async (transaction) => {
-        await lockedStore(transaction, storeId);
+        await lockedStore(transaction, user, storeId);
         const table = tableFor(provider);
         const [current] = await transaction
           .select({ id: table.id })

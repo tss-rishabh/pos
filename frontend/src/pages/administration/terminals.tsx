@@ -3,12 +3,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { Empty, ErrorState, Loading } from '../../components/common';
+import { ErrorState, Loading } from '../../components/common';
 import { AdministrationEditor, type AdministrationField } from './editor';
-import { commonStoreSchema, terminalSchema, mutateAdministration } from './api';
+import { commonStoreSchema, mutateAdministration } from './api';
+import { TerminalDirectory, type TerminalDirectoryRow } from './terminal-directory';
 
 type Provider = 'paytm' | 'pine-labs';
-type Target = { provider: Provider; id?: string };
+type Target = { provider: Provider; id?: string; storeId?: string };
 const baseDetail = {
   id: z.string(),
   name: z.string(),
@@ -209,15 +210,8 @@ function TerminalEditor({
 export function TerminalAdministration({ user, storeId }: { user: Principal; storeId: string }) {
   const client = useQueryClient();
   const [editing, setEditing] = useState<Target | null>(null);
-  const [deleting, setDeleting] = useState<z.infer<typeof terminalSchema> | null>(null);
+  const [deleting, setDeleting] = useState<TerminalDirectoryRow | null>(null);
   const [message, setMessage] = useState('');
-  const path = `/api/v1/admin/stores/${storeId}/payment-terminals`;
-  const terminals = useQuery({
-    queryKey: [user.id, 'administration', storeId, 'terminals'],
-    enabled: !!storeId,
-    queryFn: ({ signal }) =>
-      request(path, { operatorId: user.id, signal }, z.object({ data: z.array(terminalSchema) })),
-  });
   const changed = async () => {
     await client.invalidateQueries({ queryKey: [user.id] });
   };
@@ -242,59 +236,18 @@ export function TerminalAdministration({ user, storeId }: { user: Principal; sto
           {message}
         </div>
       )}
-      <section className="surface">
-        {terminals.isPending ? (
-          <Loading />
-        ) : terminals.isError ? (
-          <ErrorState error={terminals.error} />
-        ) : (
-          <div className="table-wrap">
-            <table className="administration-table">
-              <thead>
-                <tr>
-                  <th>Terminal</th>
-                  <th>Provider</th>
-                  <th>Counter</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {terminals.data.data.map((row) => (
-                  <tr key={`${row.provider}:${row.id}`}>
-                    <td>
-                      <strong>{row.name}</strong>
-                      <small>{row.terminalId}</small>
-                    </td>
-                    <td>{providerName(row.provider)}</td>
-                    <td>{row.counterId}</td>
-                    <td>{row.active === 1 ? 'Active' : 'Archived'}</td>
-                    <td>
-                      <div className="administration-table-actions">
-                        <button
-                          className="button secondary"
-                          onClick={() => setEditing({ provider: row.provider, id: row.id })}
-                        >
-                          Edit
-                        </button>
-                        <button className="button secondary" onClick={() => setDeleting(row)}>
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!terminals.data.data.length && <Empty title="No payment terminals configured" />}
-          </div>
-        )}
-      </section>
+      <TerminalDirectory
+        key={user.id + ':' + storeId}
+        user={user}
+        storeId={storeId}
+        onEdit={(row) => setEditing({ provider: row.provider, id: row.id, storeId: row.storeId })}
+        onDelete={setDeleting}
+      />
       {editing && (
         <TerminalEditor
-          key={`${editing.provider}:${editing.id || 'new'}`}
+          key={`${editing.provider}:${editing.storeId || storeId}:${editing.id || 'new'}`}
           user={user}
-          storeId={storeId}
+          storeId={editing.storeId || storeId}
           target={editing}
           onClose={() => setEditing(null)}
           onSaved={async () => {
@@ -313,7 +266,7 @@ export function TerminalAdministration({ user, storeId }: { user: Principal; sto
           onClose={() => setDeleting(null)}
           onSave={async () => {
             await mutateAdministration(
-              `${path}/${deleting.provider}/${deleting.id}`,
+              `/api/v1/admin/stores/${deleting.storeId}/payment-terminals/${deleting.provider}/${deleting.id}`,
               'DELETE',
               undefined,
               user.id,
