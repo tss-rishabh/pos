@@ -16,17 +16,70 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **legacy-order-imports (partial)**: Imported membership/provenance, automatic benefit spending, extra complementary lines, screening-ticket profiles and CSV-tender/source-header rounding differences still require source-supported code profiles; refusal is not full parity. The real adapter, purpose-bound approval API/UI, standalone worker, public handover fences and ordinary mutation guards are integrated with production flags unselected. The executable pinned private source receiver and Go confirmation overlay have bounded native/source evidence; the full runtime/broker and cooperating writers remain unqualified.
+No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.
 
-These are code gaps, distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.
+## Line-bound implementation review
+
+These reviewed code paths explain the formerly partial import family and preserve the explicitly excluded source diagnostics/prototype. Line anchors are regenerated from current implementation or pinned source; test presence does not establish these claims.
+
+### legacy-order-imports
+
+Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (external_acceptance), `core/templates/order_punch/index.html` (external_acceptance), `core/templates/shopify_order_punch/index.html` (external_acceptance), `core/templates/upload_logs/index.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `backend/src/app.ts:361` | Actual application registration invokes the production import factory; the profile is not a standalone unused constructor. |
+| `backend/src/modules/legacy-order-imports/worker-main.ts:72` | Standalone production worker uses that same configured import factory and its selected/blocked profile decisions. |
+| `backend/src/modules/legacy-order-imports/runtime.ts:23` | Actual server and worker registration composes preparation, benefits, approvals, corrections and the selected screening profile. |
+| `backend/src/modules/legacy-order-imports/worker.ts:20` | Bounded production worker replaces the offline/Shopify source task entry points; original operation outcomes remain durable. |
+| `frontend/src/pages/administration/order-imports/index.tsx:45` | Current role-bound offline/Shopify import, saved job/results and recovery UI replaces the three import/log template surfaces. |
+| `backend/src/modules/legacy-order-imports/financial-adapter-profiles.ts:129` | Actual financial dispatch hooks compose selected membership/benefit and screening reservation/receipt/completion gates. |
+| `backend/compatibility/upstream/legacy-order-imports/source_runtime.py:270` | Private source installs the real membership writer and PosOrder staging composition, including Shopify pending semantics. |
+| `backend/compatibility/upstream/legacy-order-imports/membership_profile.py:130` | Pinned membership setters run through the existing stage/provenance producer; free membership additions/replacements require source causality. |
+| `backend/src/modules/legacy-order-imports/membership-profile/adapter.ts:242` | Node authenticates staged/current membership descriptors and freezes completion provenance instead of assuming entitlements. |
+| `backend/compatibility/upstream/legacy-order-imports/legacy_import_membership_reference.go:155` | Actual Go confirmation uses imported membership activation/reference checks before original native mutation. |
+| `backend/src/modules/legacy-order-imports/benefit-profile/composition.ts:93` | Server financial hooks reduce only proved membership/coupon/complementary ownership and retain exact source/native hashes. |
+| `backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_runtime.py:48` | Private source composes literal birthday-coupon and POS complementary selection, native receipts and current control/history validation. |
+| `backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_profile.py:133` | Allows only declared POS selections and causally proved membership additions; unbound wallet/GV/PG values remain deliberately refused. |
+| `backend/compatibility/upstream/legacy-order-imports/coupon_consumption.go:233` | Go confirmation binds actual coupon consumption to the authenticated source benefit descriptor in the native transaction. |
+| `backend/src/modules/legacy-order-imports/screening-runtime.ts:21` | Actual runtime selection requires the reviewed contracts, complete current counter/head configuration and explicit server-owned 0/1 line mode. |
+| `backend/compatibility/upstream/legacy-order-imports/runtime.py:100` | The real private WSGI factory now wraps its actual SourceRuntime, closing the previous uncalled-profile integration gap. |
+| `backend/compatibility/upstream/legacy-order-imports/screening_runtime.py:49` | Source compares its actual line-item setting before installing the real ScreeningSourceRuntime; no silent enabled default. |
+| `backend/compatibility/upstream/legacy-order-imports/screening_profile.py:231` | Only the verified CSV capability/plan hands its exact historical timestamp to the creation writer; public/default callers have no override authority. |
+| `backend/compatibility/upstream/legacy-order-imports/screening_counter.py:220` | Native after-flush provenance restricts the source replay to this attempt’s actual new order/lines; matching customer IDs alone do not authorize historical reads or updates. |
+| `backend/src/modules/screening-origins/native-head-capacity.ts:8` | Shared generated row/UTF-8-byte/metadata budgets keep the actual native writer privilege catalog representable; capacity never authorizes roles, proxies, unsafe grants or head mutation. |
+| `backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go:240` | Actual Go financial transactions freshly authenticate full native writer/head metadata with retained locks, closed participant authority, roles/proxies and exact fixed readonly routines. |
+| `backend/src/modules/legacy-order-imports/correction-repository.ts:57` | Approved manager workflow retains immutable original input/no-effect proof and records the corrected successor under current manager authority. |
+| `backend/compatibility/upstream/legacy-order-imports/correction_profile.py:43` | Private source independently authenticates the retained correction/calculation and definite original no-effect boundary before using corrected tender. |
+| `frontend/src/pages/administration/order-imports/ImportCorrectionPanel.tsx:81` | Actual manager review/attestation/recovery UI is integrated; the alternate dual-value review candidate does not execute financial work. |
+
+### source-diagnostic-task
+
+Mapped surfaces: `stores/tasks.py:11` (missing).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `stores/tasks.py:11` | Diagnostic prints generated values; the actual create_user call is commented. No account-writing replacement is required or selected. |
+
+### business-metrics-upload
+
+Mapped surfaces: `report/templates/bd_report/daily_report_matric_report_datatable.html` (missing), `report/templates/bd_report/daily_report_matric_upload.html` (missing).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `report/views.py:1350` | Upload/render class is commented source text, without an executable view or active route. |
+| `report/datatables/bd_report.py:16` | Preview/datatable class is commented. Both prototype templates stay missing/inactive inventory exclusions, not a new upload product. |
+
+
+Any remaining code gaps are distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.
 
 ## Implementation/acceptance counts
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
 | routes | 68 | 0 | 0 | 187 |
-| jobs | 0 | 2 | 1 | 29 |
-| templates | 32 | 3 | 2 | 69 |
+| jobs | 0 | 0 | 1 | 31 |
+| templates | 32 | 0 | 2 | 72 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
@@ -302,8 +355,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | --- | --- | --- | --- |
 | `core/tasks.py:29` | `parse_csv_product_store` | parent-store-assignment-csv | external_acceptance |
 | `core/tasks.py:40` | `parse_csv_product_stock` | inventory-imports | external_acceptance |
-| `core/tasks.py:51` | `parse_csv_offline_order_punchin` | legacy-order-imports | partial |
-| `core/tasks.py:62` | `parse_csv_shopify_order_punchin` | legacy-order-imports | partial |
+| `core/tasks.py:51` | `parse_csv_offline_order_punchin` | legacy-order-imports | external_acceptance |
+| `core/tasks.py:62` | `parse_csv_shopify_order_punchin` | legacy-order-imports | external_acceptance |
 | `core/tasks.py:71` | `send_sms` | order-messages | external_acceptance |
 | `core/tasks.py:84` | `send_login_otp` | identity | external_acceptance |
 | `core/tasks.py:147` | `accept_order` | local-deliveries | external_acceptance |
@@ -356,7 +409,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/mpos_download/index.html` | `core/templates/mpos_download/index.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/mpos_download/thank_you.html` | `core/templates/mpos_download/thank_you.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/offline_billing/biller.html` | `core/templates/offline_billing/biller.html` | offline-scratch-invoice | external_acceptance |
-| `core/templates/order_punch/index.html` | `core/templates/order_punch/index.html` | legacy-order-imports | partial |
+| `core/templates/order_punch/index.html` | `core/templates/order_punch/index.html` | legacy-order-imports | external_acceptance |
 | `core/templates/products/hold_stock/hold_inventory_logs.html` | `core/templates/products/hold_stock/hold_inventory_logs.html` | inventory-audit | external_acceptance |
 | `core/templates/products/hold_stock/index.html` | `core/templates/products/hold_stock/index.html` | inventory-audit | external_acceptance |
 | `core/templates/products/index.html` | `core/templates/products/index.html` | catalog-read | external_acceptance |
@@ -373,9 +426,9 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/salespersons/edit.html` | `core/templates/salespersons/edit.html` | salespeople | implementation_present |
 | `core/templates/salespersons/index.html` | `core/templates/salespersons/index.html` | salespeople | implementation_present |
 | `core/templates/settings/index.html` | `core/templates/settings/index.html` | support | implementation_present |
-| `core/templates/shopify_order_punch/index.html` | `core/templates/shopify_order_punch/index.html` | legacy-order-imports | partial |
+| `core/templates/shopify_order_punch/index.html` | `core/templates/shopify_order_punch/index.html` | legacy-order-imports | external_acceptance |
 | `core/templates/special_permission/index.html` | `core/templates/special_permission/index.html` | special-permission-history, wallet-adjustments, global-vouchers, global-barcode-assignment | external_acceptance |
-| `core/templates/upload_logs/index.html` | `core/templates/upload_logs/index.html` | inventory-imports, legacy-order-imports, parent-store-assignment-csv | partial |
+| `core/templates/upload_logs/index.html` | `core/templates/upload_logs/index.html` | inventory-imports, legacy-order-imports, parent-store-assignment-csv | external_acceptance |
 | `core/templates/user_to_app/index.html` | `core/templates/user_to_app/index.html` | customer-application-handoff | external_acceptance |
 | `dashboard/templates/dashboard/dashboard.html` | `dashboard/templates/dashboard/dashboard.html` | dashboard-summary | external_acceptance |
 | `dashboard/templates/dashboard/main_dashboard.html` | `dashboard/templates/dashboard/main_dashboard.html` | shared-shell, motivational-quotes | implementation_present |

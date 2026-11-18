@@ -62,10 +62,28 @@ def references(paths, base='backend'):
                         child.is_file()
                         and not child.is_symlink()
                         and not any(part in IGNORED_INPUT_DIRECTORIES for part in child.relative_to(WORKSPACE).parts)
-                        and child.suffix in ['.ts','.tsx','.sql','.py','.json','.html','.md','.css']
+                        and child.suffix in ['.ts','.tsx','.sql','.py','.go','.mjs','.sh','.json','.html','.md','.css']
                     ):
                         input_hashes[str(child.relative_to(WORKSPACE))] = sha(child.read_bytes())
     return output
+
+
+def review_reference(path, anchor, scope, *, source=False):
+    """Bind a reviewed implementation assertion to a current unique code line.
+
+    This locates evidence; it never infers implementation from file/test presence.
+    Source exclusions use immutable pinned bytes rather than executable imports.
+    """
+    if source:
+        text = pinned(path)
+    else:
+        references([path])
+        text = (WORKSPACE / path).read_text()
+    lines = [index for index, line in enumerate(text.splitlines(), 1) if anchor in line]
+    if len(lines) != 1:
+        raise ValueError(f'Implementation review anchor changed: {path}: {anchor}')
+    return {'path': path, 'line': lines[0], 'anchor': anchor.strip(), 'scope': scope,
+            **({'source_commit': PIN, 'sha256': sha(text.encode())} if source else {})}
 
 
 def family(key, backend=(), frontend=(), tests=(), docs=(), *, state='implementation_present',
@@ -364,11 +382,41 @@ def define_families():
     family('inventory-workbooks', ['src/modules/inventory-workbooks'], ['src/pages/operational-reports/exports.tsx'], ['tests/inventory-workbooks', 'frontend/tests/inventory-workbooks'],
            ['parity/inventory-workbooks.md'], scope='Literal nine-column per-selected-store workbook pipeline, bounded DATA snapshot, streaming private spool and queued lifecycle; debug task is inlined pass-through.',
            external=['Accept actual reader lag/ambiguity reconciliation and private report storage; no live upload or production timing proof is implied.'])
-    family('legacy-order-imports', ['src/modules/legacy-order-imports', 'src/modules/checkout/payments/repository.ts', 'src/modules/checkout/finalizer.ts', 'src/modules/checkout/cancellations/repository.ts', 'src/modules/checkout/return-workflow'], ['src/pages/administration/order-imports'],
-           ['tests/legacy-order-imports', 'tests/legacy-import-financial', 'tests/legacy-import-tender', 'tests/import-order-holds', 'frontend/tests/order-imports'], ['parity/legacy-order-imports.md', 'parity/legacy-import-financial.md', 'parity/import-order-hold-guards.md', 'parity/csv-tender-decision.md'], state='partial',
-           scope='Source parsers/planners, encrypted immutable staging, native store/counter authority, authenticated job API, private actor-bound recovery UI, bounded worker loop and qualified >24h BigQuery history are integrated. Before STARTING a native approval preflight can retain unsent rows without burning the nonce; unknown outcomes remain GET-only and frontend retries require exact original input/UUID. Access-blocked partial jobs have explicit original-nonce resume that preserves completed rows.',
-           gaps=['Imported membership/provenance, automatic benefit spending, extra complementary lines, screening-ticket profiles and CSV-tender/source-header rounding differences still require source-supported code profiles; refusal is not full parity. The real adapter, purpose-bound approval API/UI, standalone worker, public handover fences and ordinary mutation guards are integrated with production flags unselected. The executable pinned private source receiver and Go confirmation overlay have bounded native/source evidence; the full runtime/broker and cooperating writers remain unqualified.'],
-           external=['Accept closed-period/custom-date privilege, original source financial/Kinesis cooperation and historical publication.'])
+    family('legacy-order-imports', ['src/modules/legacy-order-imports', 'compatibility/upstream/legacy-order-imports', 'src/modules/checkout/payments/repository.ts', 'src/modules/checkout/finalizer.ts', 'src/modules/checkout/cancellations/repository.ts', 'src/modules/checkout/return-workflow'], ['src/pages/administration/order-imports'],
+           ['tests/legacy-order-imports', 'tests/legacy-import-financial', 'tests/legacy-import-tender', 'tests/legacy-import-screening', 'tests/legacy-import-preparation', 'tests/import-order-holds', 'compatibility/upstream/legacy-order-imports/test_screening_runtime.py', 'frontend/tests/order-imports'], ['parity/legacy-order-imports.md', 'parity/legacy-import-financial.md', 'parity/import-order-hold-guards.md', 'parity/csv-tender-decision.md', 'parity/csv-screening-runtime.md'],
+           scope='Source parsers/planners, encrypted immutable staging, current store/counter authority, job API, actor-bound recovery UI, bounded worker and qualified historical readers are integrated. Server-installed membership/provenance, automatic birthday-coupon and declared POS complementary profiles compose with actual private source creation and Go confirmation. The production Node factory now installs the screening reservation/counter lifecycle and the private WSGI factory installs its existing source wrapper, with explicit trusted line-mode agreement. The approved manager pause-and-correct workflow retains the original no-effect boundary and binds a corrected successor tender to the source calculation. Unknown outcomes remain GET-only; approval/preparation/resume never replace completed rows or original uncertain nonces.',
+           external=['Accept closed-period/custom-date privilege, original source financial/Kinesis cooperation and historical publication.',
+                     'Qualify actual private source settings/runtime/broker, approved schema and both fixed readonly metadata functions, distinct locked owners, current counter baseline, all cooperating writers and complete membership/coupon history publications before selecting the default-disabled profiles. Component implementation is not deployed acceptance.'],
+           notes=['Earlier blanket CODE-gap wording for imported membership, birthday coupons/POS complementary allocations, screening and approved tender correction was stale; the line-bound implementation review below records the actual composition paths.',
+                  'Arbitrary wallet/GV/PG spending and unrelated extra rows are not admitted: the CSV declares SKU/quantity/price, the private cart starts empty, and selected profiles prove their own additions. Refusing unbound prior cart metadata is retained; this does not claim general wallet/GV import-spending support.',
+                  'The alternate dual-value tender helper remains financiallyExecutable:false review code. The selected executable policy is manager pause/correction with a definite original no-effect boundary and equality to the qualified source payable; no variance payment/refund is invented.',
+                  'The two original task callers and three import/log templates remain individually inventoried as latent/shared source surfaces. Their current React/worker mappings do not certify original DOM transitions or a full source workflow.'])
+    families['legacy-order-imports']['implementation_review'] = [
+        review_reference('backend/src/app.ts', 'configuredLegacyOrderImports(config, db, {', 'Actual application registration invokes the production import factory; the profile is not a standalone unused constructor.'),
+        review_reference('backend/src/modules/legacy-order-imports/worker-main.ts', 'const registration = configuredLegacyOrderImports(config, db, {', 'Standalone production worker uses that same configured import factory and its selected/blocked profile decisions.'),
+        review_reference('backend/src/modules/legacy-order-imports/runtime.ts', 'export function configuredLegacyOrderImports(', 'Actual server and worker registration composes preparation, benefits, approvals, corrections and the selected screening profile.'),
+        review_reference('backend/src/modules/legacy-order-imports/worker.ts', 'export function legacyOrderImportWorker(', 'Bounded production worker replaces the offline/Shopify source task entry points; original operation outcomes remain durable.'),
+        review_reference('frontend/src/pages/administration/order-imports/index.tsx', 'export default function OrderImportsPage(', 'Current role-bound offline/Shopify import, saved job/results and recovery UI replaces the three import/log template surfaces.'),
+        review_reference('backend/src/modules/legacy-order-imports/financial-adapter-profiles.ts', 'export function financialAdapterProfiles(', 'Actual financial dispatch hooks compose selected membership/benefit and screening reservation/receipt/completion gates.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/source_runtime.py', 'self.membership=MembershipProfile(source_root,self.settings) if membership_selected() else None', 'Private source installs the real membership writer and PosOrder staging composition, including Shopify pending semantics.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/membership_profile.py', 'def membership_order_tree(root):', 'Pinned membership setters run through the existing stage/provenance producer; free membership additions/replacements require source causality.'),
+        review_reference('backend/src/modules/legacy-order-imports/membership-profile/adapter.ts', 'async completionSnapshot(tx, context, order)', 'Node authenticates staged/current membership descriptors and freezes completion provenance instead of assuming entitlements.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/legacy_import_membership_reference.go', 'func lockLegacyImportMembershipActivation(', 'Actual Go confirmation uses imported membership activation/reference checks before original native mutation.'),
+        review_reference('backend/src/modules/legacy-order-imports/benefit-profile/composition.ts', 'export function csvFinancialBenefitProfile(', 'Server financial hooks reduce only proved membership/coupon/complementary ownership and retain exact source/native hashes.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_runtime.py', 'class SourceBenefits:', 'Private source composes literal birthday-coupon and POS complementary selection, native receipts and current control/history validation.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_profile.py', 'def admit_benefit_cart(', 'Allows only declared POS selections and causally proved membership additions; unbound wallet/GV/PG values remain deliberately refused.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/coupon_consumption.go', 'func lockLegacyImportCoupon(', 'Go confirmation binds actual coupon consumption to the authenticated source benefit descriptor in the native transaction.'),
+        review_reference('backend/src/modules/legacy-order-imports/screening-runtime.ts', 'export function configuredCsvImportScreening(', 'Actual runtime selection requires the reviewed contracts, complete current counter/head configuration and explicit server-owned 0/1 line mode.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/runtime.py', 'pipeline=install_screening(', 'The real private WSGI factory now wraps its actual SourceRuntime, closing the previous uncalled-profile integration gap.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/screening_runtime.py', 'def install(source,selection,auth_key,proof_key,clock):', 'Source compares its actual line-item setting before installing the real ScreeningSourceRuntime; no silent enabled default.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/screening_profile.py', "expected_created_at=plan['createdAt']", 'Only the verified CSV capability/plan hands its exact historical timestamp to the creation writer; public/default callers have no override authority.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/screening_counter.py', 'def new_order(self,order):', 'Native after-flush provenance restricts the source replay to this attempt’s actual new order/lines; matching customer IDs alone do not authorize historical reads or updates.'),
+        review_reference('backend/src/modules/screening-origins/native-head-capacity.ts', 'export function nativeHeadCallerGrants(', 'Shared generated row/UTF-8-byte/metadata budgets keep the actual native writer privilege catalog representable; capacity never authorizes roles, proxies, unsafe grants or head mutation.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go', 'func (a *headAudit) validate(', 'Actual Go financial transactions freshly authenticate full native writer/head metadata with retained locks, closed participant authority, roles/proxies and exact fixed readonly routines.'),
+        review_reference('backend/src/modules/legacy-order-imports/correction-repository.ts', 'export function legacyOrderImportCorrections(', 'Approved manager workflow retains immutable original input/no-effect proof and records the corrected successor under current manager authority.'),
+        review_reference('backend/compatibility/upstream/legacy-order-imports/correction_profile.py', 'def _validate(session,state,capability,plan,auth_key,proof_key,contract):', 'Private source independently authenticates the retained correction/calculation and definite original no-effect boundary before using corrected tender.'),
+        review_reference('frontend/src/pages/administration/order-imports/ImportCorrectionPanel.tsx', 'export default function ImportCorrectionPanel(', 'Actual manager review/attestation/recovery UI is integrated; the alternate dual-value review candidate does not execute financial work.'),
+    ]
     family('parent-store-assignment-csv', ['src/modules/administration/parent-store-imports','src/modules/administration/import-profile.ts','src/modules/administration/imports.ts','src/modules/administration/worker.ts'],
            ['src/pages/administration/parent-store-imports.tsx','src/pages/administration/imports.tsx'], ['tests/administration/parent-store-imports','tools/administration/parent-store-imports/source-oracle.py','frontend/tests/administration/parent-store-imports'], ['parity/parent-store-imports.md'],
            scope='Active three-column SkuId/StoreId/IsActive parent/store upload and retained task: source global-live family selection, audited row-atomic zero/reset/delete/recreate, strict duplicate-pair correction, durable profiled queue/control/GET recovery and source parent-ID synchronization through existing worker; six-column stock defaults are preserved.',
@@ -383,6 +431,13 @@ def define_families():
            state='missing', required=False,
            scope='Inactive source prototype: both view classes, routes and template render calls are commented; the only sidebar link is inside a Django comment block. Both prototype templates remain individually inventoried with their hashes.',
            notes=['Pinned syntax/reachability audit proves no executable source upload or preview route. This is not a replacement UI or template certification. Preserve the explicit inactive-source disposition; current DSR auxiliary inputs have a separate implemented reader contract.'])
+    families['source-diagnostic-task']['implementation_review'] = [
+        review_reference('stores/tasks.py', 'def create_random_user_accounts_new(', 'Diagnostic prints generated values; the actual create_user call is commented. No account-writing replacement is required or selected.', source=True),
+    ]
+    families['business-metrics-upload']['implementation_review'] = [
+        review_reference('report/views.py', '# class DailyRetailMetricsReport(', 'Upload/render class is commented source text, without an executable view or active route.', source=True),
+        review_reference('report/datatables/bd_report.py', '# class AjaxDailyRetailMetricsReport(', 'Preview/datatable class is commented. Both prototype templates stay missing/inactive inventory exclusions, not a new upload product.', source=True),
+    ]
     family('inherited-model-add-forms', ['src/modules/administration/model-accounts','src/modules/administration/policies.ts'],
            ['src/pages/administration/model-accounts'], ['tests/administration/model-accounts','tools/administration/model-accounts/source-oracle.py','frontend/tests/administration/model-accounts'],
            ['parity/administration-model-accounts.md'],
@@ -559,6 +614,12 @@ def build():
         row['lifecycle_clarification'] = 'User clarified Store/PosUser use reversible archive/deleted flags, not physical deletion. IDs/history/offline collected cash recognition must survive; generic hard delete is not a required active business flow.'
         row['compatibility_limits'] = ['Inherited username/password-only add is implemented separately with actual form defaults/blank-email uniqueness evidence. Actual Store.save always overwrites submitted url_key with the generated URL. Source nullable Store/physical NOT NULL conflicts remain diagnosed failures, and operational grants/actor lineage/full workflows are not certified.']
         output['administration'].append(row)
+    for key, item in families.items():
+        if 'implementation_review' in item:
+            item['reviewed_source_surfaces'] = [
+                {'kind': kind, 'id': row['source']['id'], 'disposition': row['status']}
+                for kind, rows in output.items() for row in rows if key in row['families']
+            ]
     actual = {key: len(value) for key, value in output.items()}
     if actual != EXPECTED: raise ValueError(f'Coverage mismatch: {actual} != {EXPECTED}')
     for key, rows in output.items():
@@ -572,7 +633,7 @@ def build():
         if sha((WORKSPACE/path).read_bytes()) != digest: raise ValueError(f'Input changed during coverage pass: {path}')
     gaps = [{'family': key, 'state': value['implementation_status'], 'tasks': value['remaining_code']} for key,value in families.items() if value['remaining_code'] and value['code_task_required']]
     summary = {'surfaces': actual, 'total': sum(actual.values()), 'by_status': dict(Counter(row['status'] for rows in output.values() for row in rows)), 'by_kind': {key: dict(Counter(row['status'] for row in rows)) for key,rows in output.items()}, 'families':len(families), 'code_task_groups':len(gaps), 'workflow_certifications_added':0, 'unmapped':0}
-    return {'schema_version':1, 'source_commit':PIN, 'meaning':'Implementation map only. Existing release-coverage statuses remain unchanged. Test file presence/component checks never imply source workflow or production certification.', 'status_definitions':{'implementation_present':'Mapped behavior is implemented at component/code level; no full source workflow certification.', 'partial':'An identified source behavior or binding is incomplete; see family remaining_code.', 'missing':'No matching implementation of this behavior was established; adjacent features do not substitute.', 'external_acceptance':'Implementation is present but a named real provider/data/publication/shared-writer acceptance remains.'}, 'summary':summary, 'input_sha256':dict(sorted(input_hashes.items())), 'families':list(families.values()), 'remaining_code_tasks':gaps, **output}
+    return {'schema_version':1, 'source_commit':PIN, 'meaning':'Implementation map only. Existing release-coverage statuses remain unchanged. Test file presence/component checks never imply source workflow or production certification. Known defects and inactive policy candidates retain their separate decision records, including the pending wallet calendar-date decision; zero feature gap groups does not activate those candidates or pass their gates.', 'status_definitions':{'implementation_present':'Mapped behavior is implemented at component/code level; no full source workflow certification.', 'partial':'An identified source behavior or binding is incomplete; see family remaining_code.', 'missing':'No matching implementation of this behavior was established; adjacent features do not substitute.', 'external_acceptance':'Implementation is present but a named real provider/data/publication/shared-writer acceptance remains.'}, 'summary':summary, 'input_sha256':dict(sorted(input_hashes.items())), 'families':list(families.values()), 'remaining_code_tasks':gaps, **output}
 
 
 def markdown(result):
@@ -580,9 +641,19 @@ def markdown(result):
     lines = ['# Exact source-surface implementation map', '', f"Baseline `{PIN}`. **{counts['total']} surfaces mapped; zero unmapped; zero release certifications added.**", '', 'This is the implementation inventory requested for the full rewrite, not a replacement for `release-coverage.json`. Existing component/source/native/browser tests remain bounded evidence. No original-template or complete production workflow is certified by this file.', '', '| Source kind | Count |', '| --- | ---: |']
     lines += [f'| {key} | {value} |' for key,value in counts['surfaces'].items()]
     lines += ['', 'The 263 route declarations contain eight include mounts; all 255 leaves remain individually mapped, including aliases/duplicates and the framework-admin mount. Order routes retain both `/api/v1/orders/` and `/orders/` mount paths. All 32 named tasks and all 106 templates remain visible, including latent/commented callers and diagnostics.', '', '## Concrete remaining code, by feature group', '']
+    if not result['remaining_code_tasks']:
+        lines.append('No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.')
     for gap in result['remaining_code_tasks']:
         lines.append(f"- **{gap['family']} ({gap['state']})**: " + ' '.join(gap['tasks']))
-    lines += ['', 'These are code gaps, distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.', '', '## Implementation/acceptance counts', '', '| Kind | Present | Partial | Missing | External acceptance |', '| --- | ---: | ---: | ---: | ---: |']
+    lines += ['', '## Line-bound implementation review', '', 'These reviewed code paths explain the formerly partial import family and preserve the explicitly excluded source diagnostics/prototype. Line anchors are regenerated from current implementation or pinned source; test presence does not establish these claims.', '']
+    for item in result['families']:
+        if not item.get('implementation_review'):
+            continue
+        lines += [f"### {item['id']}", '', 'Mapped surfaces: ' + ', '.join('`' + row['id'] + '` (' + row['disposition'] + ')' for row in item['reviewed_source_surfaces']) + '.', '', '| Code/source reference | Reviewed scope |', '| --- | --- |']
+        for ref in item['implementation_review']:
+            lines.append(f"| `{ref['path']}:{ref['line']}` | {ref['scope']} |")
+        lines.append('')
+    lines += ['', 'Any remaining code gaps are distinct from configured provider acceptance. Parent/store archive/reactivation retains stable financial identities per the user clarification; generic physical Store/PosUser deletion is not a missing active feature. `create_random_user_accounts_new` only prints generated credentials with its actual account insert commented out: its missing replacement is a diagnostic-only inventory item, not a newly required credential-logging or mass-account product feature.', '', '## Implementation/acceptance counts', '', '| Kind | Present | Partial | Missing | External acceptance |', '| --- | ---: | ---: | ---: | ---: |']
     for kind, values in counts['by_kind'].items(): lines.append('| ' + kind + ' | ' + ' | '.join(str(values.get(state,0)) for state in ['implementation_present','partial','missing','external_acceptance']) + ' |')
     lines += ['', '“External acceptance” means code exists and the named real dependency remains unaccepted. It does not turn a missing callback/financial adapter into a deployed feature. Warehouse absence, source collation/generation proofs, shared writer patches, physical printers, real OAuth/SMS/mail and SDD/legal rendering are carried at their specific family boundaries in the JSON; they are not hundreds of invented code tasks.', '', '## Source-to-replacement ledger', '', 'Each row below links to family IDs in `source-surface-map.json`; those families list current backend/frontend modules, test files/directories, source evidence and exact code/external gaps. Original IDs and unverified status are retained unchanged. A mapped template means the corresponding React feature is accounted for, not that every original DOM transition has been certified.', '']
     for kind in EXPECTED:
