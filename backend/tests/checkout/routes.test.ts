@@ -71,8 +71,7 @@ describe('validated checkout HTTP boundaries', () => {
       routes.every((route) => route.module === 'checkout' && route.authentication === 'session'),
     ).toBe(true);
     expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(91);
-    const returnWindow =
-      '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window';
+    const returnWindow = '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window';
     expect(routes.filter((route) => route.resource === 'return-window-extension')).toEqual([
       {
         module: 'checkout',
@@ -97,13 +96,13 @@ describe('validated checkout HTTP boundaries', () => {
     expect(routes.filter((route) => route.resource === 'order-copy-cancellation')).toHaveLength(2);
     expect(
       routes.filter((route) =>
-        ['legacy-payment-recovery', 'order-payment-context', 'pending-order-cancellation'].includes(
+        ['order-payment-status', 'order-payment-context', 'pending-order-cancellation'].includes(
           route.resource,
         ),
       ),
     ).toHaveLength(5);
   });
-  it('rejects unbound cancellation/legacy recovery bodies and anonymous actors before any writer use', async () => {
+  it('rejects unbound cancellation/payment-status bodies and anonymous actors before any writer use', async () => {
     const root = '/api/v1/stores/1/orders/9007199254740993';
     for (const [path, payload] of [
       ['/cancellations', { operationId: crypto.randomUUID(), snapshotHash: 'invalid' }],
@@ -111,29 +110,15 @@ describe('validated checkout HTTP boundaries', () => {
         '/cancellations',
         { operationId: crypto.randomUUID(), snapshotHash: 'a'.repeat(64), paymentStatus: 4 },
       ],
-      [
-        '/legacy-payment-recoveries',
-        { operationId: crypto.randomUUID(), provider: 'paytm', legacyId: '1e3' },
-      ],
-      [
-        '/legacy-payment-recoveries',
-        {
-          operationId: crypto.randomUUID(),
-          provider: 'pine',
-          legacyId: '1',
-          merchantKey: 'forbidden',
-        },
-      ],
+      ['/payment-status', { payType: 2 }],
+      ['/payment-status', { payType: 1, offlinePayment: '100', p_status: 4 }],
     ] as const)
       expect((await app.inject({ method: 'POST', url: root + path, payload })).statusCode).toBe(
         400,
       );
     for (const [path, payload] of [
       ['/cancellations', { operationId: crypto.randomUUID(), snapshotHash: 'a'.repeat(64) }],
-      [
-        '/legacy-payment-recoveries',
-        { operationId: crypto.randomUUID(), provider: 'pine', legacyId: '1' },
-      ],
+      ['/payment-status', { payType: 0 }],
     ] as const)
       expect(
         (

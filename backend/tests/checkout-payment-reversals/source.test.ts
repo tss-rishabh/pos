@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import {
-  paymentReversalInputSchema,
-  paymentReversalOptions,
-} from '../../src/modules/checkout/payment-reversals/contracts.js';
+import { paymentStatusInputSchema } from '../../src/modules/checkout/payments/contracts.js';
 import { goldenStdout } from '../golden/load.js';
 const resultSchema = z.object({
   sourceRevision: z.string(),
@@ -19,7 +16,7 @@ const resultSchema = z.object({
     }),
   ),
 });
-describe('literal payment-status source characterization and strict correction boundary', () => {
+describe('literal payment-status source characterization', () => {
   it('executes five original source cases, proving flag parity and the unsafe deletion/unconfirmed-provider differences', () => {
     const oracle = resultSchema.parse(
       JSON.parse(
@@ -79,33 +76,32 @@ describe('literal payment-status source characterization and strict correction b
     expect(unsafe?.lines[0]?.status).toBe('PLACED');
     expect(online?.response.status).toBe('success');
   });
-  it('never accepts original arbitrary status/provider flags or an unacknowledged cash return', () => {
-    const input = {
-      operationId: crypto.randomUUID(),
-      originalPaymentId: crypto.randomUUID(),
-      counterId: '3',
-      snapshotHash: 'a'.repeat(64),
-      cashReturnReceiptId: crypto.randomUUID(),
-      returnedCash: '100.00',
-      confirmCashReturned: true,
-      confirmNoHandover: true,
-      reason: 'customer-payment-correction',
-    };
-    expect(paymentReversalInputSchema.safeParse(input).success).toBe(true);
-    for (const extra of [
-      { p_status: 4 },
-      { pay_type: 0 },
-      { confirmCashReturned: false },
-      { confirmNoHandover: false },
-      { providerRefunded: true },
-      { returnedCash: '1.234' },
-    ])
-      expect(paymentReversalInputSchema.safeParse({ ...input, ...extra }).success).toBe(false);
+  it('validates the restored payment-status form strictly', () => {
+    expect(paymentStatusInputSchema.parse({ payType: 0 })).toEqual({
+      payType: 0,
+      paymentStatus: 1,
+      orderStatus: 0,
+      message: '',
+      offlinePayment: '0',
+      onlinePayment: '0',
+    });
     expect(
-      paymentReversalOptions({
-        POS_PAYMENT_REVERSAL_CONTRACT: '',
-        POS_PAYMENT_CORRECTION_FINANCE_CONTRACT: '',
-      }),
-    ).toEqual({ contract: undefined, financeContract: undefined });
+      paymentStatusInputSchema.safeParse({
+        payType: 1,
+        paymentStatus: 4,
+        orderStatus: 3,
+        offlinePayment: '100',
+        onlinePayment: '0',
+        transactionId: 'T1',
+      }).success,
+    ).toBe(true);
+    for (const value of [
+      { payType: 2 },
+      { payType: 1, p_status: 4 },
+      { payType: 1, offlinePayment: '1.234' },
+      { payType: 1, offlinePayment: '-1' },
+      { payType: 0, message: 'x'.repeat(256) },
+    ])
+      expect(paymentStatusInputSchema.safeParse(value).success).toBe(false);
   });
 });
