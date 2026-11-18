@@ -226,6 +226,8 @@ class Frame:
             active_cart=ActiveCartFactory.instantiate(None,self.user,self.req.context)
             active_cart.persist_handler=self.capture_active_cart
             self.req.context['active_cart']=active_cart
+        if self.owner.membership is not None:
+            self.owner.membership.validate_final(self)
         if self.owner.assets is not None:
             # Capture original native member state and physical collection locks
             # under the already-owned customer, before any original Order row.

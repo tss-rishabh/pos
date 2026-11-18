@@ -72,6 +72,42 @@ class OriginMembership:
         value=value.replace(microsecond=0)
         if not 0<=self.clock()-int(value.replace(tzinfo=ZoneInfo(self.zone)).timestamp()*1000)<1000:unsafe('SCREENING_ORIGIN_MEMBERSHIP_CLOCK')
         return value
+    def validate_final(self,frame):
+        """Rehearse literal eligibility before the first Order/admission write.
+
+        Source Order/PosOrder hydrate the saved cart but never call the cart
+        controller's AddFreeMembership step. A stale or crafted free row must
+        therefore be requalified here. The real source Cart is cloned in
+        memory; native SQL is SELECT-only and its source commits only flush.
+        Changed products/prices/quantities require another reviewed cart,
+        rather than silently editing the authenticated original command.
+        """
+        if ACTIVE.get() is not getattr(frame,'member_history',None):unsafe('SCREENING_ORIGIN_MEMBERSHIP_REQUIRED')
+        from controllers.cart.Cart import Cart,AddFreeMembership
+        from origin_effects import ACTIVE as EFFECTS
+        from origin_preview import read_only
+        from origin_contracts import fail
+        original=frame.cart
+        cart=Cart(types=original.types,wrappers=original.wrappers,
+            is_hyperlocal=original.is_hyperlocal,is_split_order=original.is_split_order,
+            is_pos=original.is_pos,is_express=original.is_express)
+        cart.context=dict(original.context)
+        cart.context['data']=copy.deepcopy(frame.req.context['data'])
+        cart.context['user']=copy.deepcopy(frame.user)
+        cart.context['cart']=cart
+        cart.restore(original.get_snapshot())
+        # A source wrapper may record a task while calculating the in-memory
+        # rehearsal. It is neither an Order effect nor a cart mutation receipt.
+        effects=EFFECTS.set([])
+        try:
+            with read_only(frame.session):
+                before=cart.simple_obj()
+                reviewed=_review(before)
+                AddFreeMembership(frame.source,cart,before,cart.context['data'],cart.context['user']).process()
+                prepared=_review(cart.simple_obj())
+                frame.member_history.assert_current()
+                if prepared!=reviewed:fail('SCREENING_ORIGIN_QUOTE_CHANGED')
+        finally:EFFECTS.reset(effects)
     @contextmanager
     def before(self,session,value,document=None,*,preview=False):
         if ACTIVE.get() is not None:unsafe('SCREENING_ORIGIN_MEMBERSHIP_NESTED')
@@ -80,6 +116,24 @@ class OriginMembership:
             yield state
             state.assert_current()
         finally:ACTIVE.reset(token)
+
+
+def _review(value):
+    """Compare source-owned financial inputs without rebuilding any price."""
+    fields=('prod_id','quantity','price','spl_price','exclusive_price','mrp',
+        'gv_id','amount','initial_amount','option_id','combo_parent_id',
+        'combo_price_fraction','prod_type','select')
+    from origin_contracts import canonical
+    stores={}
+    for name,store in value.items():
+        if name=='meta':continue
+        stores[name]=sorted(({key:copy.deepcopy(item[key]) for key in fields if key in item}
+            for item in (store.get('items') or [])),key=canonical)
+    # IndexedItemStore stamps each recalculation with the source wall clock;
+    # those bookkeeping timestamps are not a changed financial input.
+    calculations=[{key:copy.deepcopy(entry) for key,entry in item.items() if key not in ('updated_at','added_at')}
+        for item in (value.get('meta',{}).get('items') or []) if item.get('name')=='calculations']
+    return {'stores':stores,'calculations':calculations}
 
 
 def install(root):

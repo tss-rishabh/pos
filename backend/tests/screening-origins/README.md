@@ -1,0 +1,47 @@
+# Genuine source previews and final membership qualification
+
+`source.test.ts` runs the closed current-coupon WSGI/disabled worker checks. With
+`ORIGIN_PREVIEW_MYSQL_TEST_URL` selected it also runs `test_preview.py`. The URL
+must name `pos_rewrite_origin_preview_test` on localhost; each case creates and
+drops a separate random schema. It cannot target an application database.
+
+Set `POS_LEGACY_IMPORT_SOURCE_ROOT` to the immutable API commit
+`2960acbea10c4eaf16b6d99e15ff6e03ef7724c5`. The fixture checks original source
+hashes before compiling Cart, middleware, cart persistence/serializer, JWT
+verification, original CartController, Order/PosOrder and CSK prefix code. The
+existing source Python environment needs SQLAlchemy/PyMySQL/cryptography plus
+the original requests/PyJWT dependencies; no fixture installs packages.
+
+The native cases prove cart hydration waits for genuine current authority,
+history providers execute after every SQL connection is released, current
+authority/cart/head changes prevent stale replay, and rollback rehearsals
+cannot write native state. The final Order/PosOrder guard executes the pinned
+`AddFreeMembership.process` on a source Cart clone using the true command's
+history document before reservation/admission. Changed products, quantities,
+prices or calculated values produce the existing `QUOTE_CHANGED` no-order
+closure and preserve the original cart. Source bookkeeping timestamps are
+excluded from that comparison. Unchanged eligible carts reach each original
+responder's real checkout-validation call.
+
+The CSK test executes the original strict-prepaid/cart prefix and the native
+same-command recovery journal, then intentionally stops before the original
+Order constructor. It does not prove a paid order, provider charge or Go
+confirmation. The deferred-effect test executes the real native invocation
+fence and original task body through a fixture broker acknowledgement; it does
+not claim acceptance by a deployed broker.
+
+Current catalog/calculation initialization and qualified projection/head ports
+are synthetic, explicitly injected fixtures. Signed historical selections are
+generated inputs, not live BigQuery reads. These checks establish source
+control flow and native ownership/rollback behavior; they do not certify tax
+formulas, publication completeness, all-writer deployment, provider/printer
+acceptance, or an entire source surface.
+
+Example from `backend/`:
+
+```sh
+POS_LEGACY_IMPORT_SOURCE_ROOT=/immutable/api-2960 \
+ORIGIN_PREVIEW_MYSQL_TEST_URL=mysql+pymysql://root@127.0.0.1:54566/pos_rewrite_origin_preview_test \
+TZ=Asia/Kolkata \
+compatibility/upstream/offline-cash-pricing/.venv/bin/python -B tests/screening-origins/test_preview.py -v
+```
