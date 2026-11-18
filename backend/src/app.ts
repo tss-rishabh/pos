@@ -218,6 +218,7 @@ export async function buildApp(
         '/api/v1/stores/:storeId/orders/searches',
         '/api/v1/stores/:storeId/order-search-options',
         '/api/v1/reports/daily-store-sales',
+        '/api/v1/reports/store-cash-balances/stores',
         '/api/v1/stores/:storeId/cart-drafts',
         '/api/v1/stores/:storeId/cart-drafts/:draftId',
         '/api/v1/motivational-quotes/random',
@@ -408,7 +409,10 @@ export async function buildApp(
   registerCheckoutPerformance(app, config, db);
   registerInvoiceDocuments(app, config, db);
   registerCustomerContacts(app, config, db, readCustomerContactOptions());
-  await registerFinance(app, config, db, { paymentCorrections });
+  await registerFinance(app, config, db, {
+    paymentCorrections,
+    ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
+  });
   await registerOperationalReports(app, config, db);
   await registerCatalogDetails(app, config, db);
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());

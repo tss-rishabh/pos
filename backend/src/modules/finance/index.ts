@@ -4,6 +4,7 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
+import type { Principal } from '../../domain/access.js';
 import { identifier } from '../../domain/validation.js';
 import { AppError } from '../../domain/errors.js';
 import { closeEntriesSchema } from './domain.js';
@@ -33,6 +34,7 @@ const trace = (resource: string, action: string) => ({
   trace: { module: 'finance', resource, action },
 });
 interface RegistrationOptions {
+  demoStores?: (user: Principal) => Promise<{ id: string; name: string }[]>;
   paymentCorrections?: PaymentCorrectionFinanceOptions;
   service?: FinanceService;
   feed?: ReturnType<typeof financeFeedService>;
@@ -143,7 +145,15 @@ export async function registerFinance(
   app.get(
     '/api/v1/reports/store-cash-balances/stores',
     { config: trace('cash-ledger-store', 'list') },
-    async (request) => ledger.stores(authenticated(request)),
+    async (request) => {
+      const user = authenticated(request);
+      if (config.DEMO_MODE) {
+        if (!options.demoStores)
+          throw new AppError(503, 'DEMO_STORES_UNAVAILABLE', 'Demo store options are unavailable.');
+        return { data: (await options.demoStores(user)).map(({ id, name }) => ({ id, name })) };
+      }
+      return ledger.stores(user);
+    },
   );
   app.get(
     '/api/v1/reports/store-cash-balances',
