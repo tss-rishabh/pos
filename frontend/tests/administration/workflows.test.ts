@@ -85,7 +85,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         keywords: 'fixture',
         sortOrder: 0,
         active: 1,
-        version: 1,
+        version: '2026-11-16 00:00:00',
         assets: [],
         mediaState: 'available',
         updatedAt: '2026-11-16T00:00:00Z',

@@ -196,7 +196,7 @@ export function DocumentationEditor({
               method: guide ? 'PUT' : 'POST',
               body: JSON.stringify({
                 operationId: operationId.current,
-                expectedVersion: guide?.version || 0,
+                expectedVersion: guide?.version ?? '',
                 title,
                 summary,
                 description,

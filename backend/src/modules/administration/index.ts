@@ -179,7 +179,17 @@ export function registerAdministration(
 
   registerAdministrationStoreDetails(app, db);
   const terminals = terminalService(config, db);
-  const documentation = documentationService(config, db, options);
+  const documentation = documentationService(
+    config,
+    db,
+    {
+      ...options,
+      documentationLog:
+        options.documentationLog ??
+        ((event) => app.log.warn(event, 'Guide attachment deletion failed')),
+    },
+    ephemeral,
+  );
   app.post(
     '/api/v1/documentation/search',
     trace('documentation', 'search'),
