@@ -64,7 +64,7 @@ def browser_fragments():
     properties = template.index('    function addBirthdayEditClickEvent(){')
     properties_end = template.index('    var barcode', properties)
     type_start = template.index('$(function () {\n    const customerType')
-    type_end = template.index('\n    })', type_start) + len('\n    })')
+    type_end = template.index('\n    // Get the input element', type_start)
     business = template.index('$(document).ready(function () {\n    // GSTIN input enhancement')
     business_end = template.index('\n});', business) + len('\n});')
     fetched = template.index("            $('#phone').prop('disabled', false);")

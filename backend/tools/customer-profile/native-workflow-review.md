@@ -1,8 +1,10 @@
-# Profile edits: joined workflow harness awaiting execution
+# Profile edits: scoped joined workflow evidence
 
-Status: AUTHORING ONLY. No test, build, dependency install or Docker execution
-has occurred for this harness. The frozen r8 run must finish before execution.
-There is no pass receipt and no route/template admission claim.
+Status: The canonical seven-case target passed in 28.11 seconds after the
+frozen r8 run became terminal. Scoped backend/frontend strict checks, new-file
+lint, Python AST parsing and shell syntax checks passed. The unexecuted authoring
+candidate remains commit `8383911`; this receipt records later actual execution.
+No route/template admission is automatic.
 
 The intended source scope is exactly `users/urls.py:23` (`update-user`,
 `AjaxUserUpdateView`) and `users/urls.py:28` (`ajax-update-user-data/`,
@@ -23,10 +25,10 @@ operator cookie is the source identity seam; source provider/ASGI/global CSRF
 acceptance is separate. Original payload/SQL prints are discarded, never logged.
 
 The property class declares `(View, LoginRequiredMixin)` whereas the business
-class declares `(LoginRequiredMixin, View)`. The new test must observe actual
-anonymous dispatch and MRO rather than inferring protection from the presence of
-a mixin name. The planned assertions expect the first class's View.dispatch to
-bypass the later mixin; this is NOT an executed result yet. Candidate session,
+class declares `(LoginRequiredMixin, View)`. The test executes actual
+anonymous dispatch and MRO rather than inferring protection from a mixin name.
+Native dispatch observed the property class accepting an anonymous write, while
+the business class redirects an anonymous request without writing. Candidate session,
 store, check-in, attached customer, revision and version checks remain required.
 
 Exact active snippets of `create_order.html` run over the actual source business
@@ -42,8 +44,10 @@ local carrier; candidate responses are never substituted. Business payloads are
 compared only in memory, CSRF values discarded from captured fields.
 
 Known source behavior is kept visible: the property helper returns before AJAX
-completion, so its synchronous display update does not run. Normal B2C change
-already clears the real GSTIN input in the original change handler; the unused
+completion, but its undeclared `status` writes browser `window.status`. Native
+Chromium observed DOMString coercion of null into the truthy string `"null"`,
+so the original display updates optimistically before confirmation. Normal B2C
+change already clears the real GSTIN input in the original change handler; the unused
 local variable in the update click handler alone is not evidence of an active
 B2C bug. The rewrite refreshes its actual customer projection after confirmation.
 Stronger validation, bound authority, parameterized SQL, safe errors, atomic
@@ -58,24 +62,33 @@ session, API response, checkout component or editor callback. A fresh browser
 with the fixture's real session cookie loads the actual App, selects its native
 store/counter, clicks Review sale, restores the genuine bound checkout and opens
 Customer details. It edits the real CustomerProfileCard inside CheckoutReview.
-All HTTP traverses buildApp and native ORM transactions.
+All candidate checkout/profile HTTP traverses buildApp and native ORM transactions.
 
 The synthetic customer-context contract/key enables the existing profile guard
-locally. No upstream cache/provider deployment is certified or contacted. Native
+locally. No upstream cache/provider deployment is certified or contacted. Because
+CheckoutReview restores through the real checkout read endpoint, its required
+shared cart read uses an explicitly bounded localhost provider contract seam.
+That seam accepts only the real read-cart payload, verifies the actual signed
+customer token and context headers, checks the active native customer/current
+checkout version/store, and returns that exact native cart. Only sanitized method/
+endpoint read counts are retained. It has no profile, checkout-service, mutation
+or financial implementation. Upstream cart/provider parity is explicitly
+excluded; this is not complete checkout or whole-App acceptance. Native
 catalog rows and the reader's required index support the CounterPage entry.
 Independent App notification/quote feeds are outside profile certification.
 
-Planned cases join all five editable native fields and unchanged contact/wallet
+Executed cases join all five editable native fields and unchanged contact/wallet
 fields with the four original AJAX bodies; source MRO/invalid/not-found paths;
 source control cancellation/GSTIN sanitization and B2C/B2B behavior; committed
 response truncation with actual receipt GET and one POST; stale customer/version
 and archived/wrong-store authority; native source date/SQL errors; late native
 rollback and exact retry. Source-generated timestamps are not equalized across
-independent writes; their update-versus-no-update behavior and environment must
-be recorded when results are collected. No statement here asserts these cases
-have passed.
+independent writes. The fixture uses source USE_TZ=False and Asia/Kolkata;
+absolute deployment clock/time-zone equivalence is not certified. Native business
+values and business-only timestamp preservation are verified. The immutable
+execution receipt lists the cases that passed.
 
-## Execution after the frozen run is terminal
+## Reproduce the executed scoped target
 
 From repository root:
 
@@ -90,7 +103,19 @@ may be supplied as `CUSTOMER_PROFILE_SOURCE_PYTHON`; requirements are pinned in
 the adjacent file. The runner owns its uniquely named Docker container, random
 loopback port and disposable schema; no Root fixture or live database is used.
 
-After final edits, execute scoped strict checks and changed-file lint, then the
-canonical target. Do not edit the frozen full verifier or release ledger. Only
-actual terminal output can supply result counts, log hashes and immutable input
-bindings in a later evidence receipt.
+Actual proof and immutable source/rewrite/tooling input bindings are in
+`native-workflow-evidence.json`. The successful run used a private copy of the
+previously mitigated dependency installs and source Python environment; Root
+node_modules, frozen validation, source environments and the release ledger were
+not modified. The runner removed its own disposable Docker container.
+
+Final source/native observations include anonymous property mutation caused by
+the original reversed mixin order; business mutation redirecting an anonymous
+request; optimistic property display through window.status coercion; native
+calendar validation failure and caught source SQL error; business-only timestamp
+preservation; all five chosen field mappings and normal B2C GSTIN clearing. The
+candidate confirms before refresh, preserves contact/wallet fields, invalidates
+its quote/version atomically, recovers one committed command without another POST
+and rolls back its profile/receipt/version after a controlled late DB fault.
+These observations do not assert identical transport/status or malformed/racing
+request behavior. No production defect or production edit was required.

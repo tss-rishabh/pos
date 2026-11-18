@@ -6,5 +6,9 @@ export const profileBase = `/api/v1/stores/1/checkout-sessions/${profileCheckout
 export const profileApi = profileBase + '/customer-profile';
 export const profileAdjustmentApi = profileBase + '/customer-profile-adjustments';
 export const profileInitial = {
-  birthdate: '2000-02-29', anniversary: '2020-01-01', gender: 'F', customer_type: 'B2C', gstin: '',
+  birthdate: '2000-02-29',
+  anniversary: '2020-01-01',
+  gender: 'F',
+  customer_type: 'B2C',
+  gstin: '',
 };

@@ -41,4 +41,4 @@ done
 profile_port=$(docker port "$profile_container" 3306/tcp | cut -d: -f2)
 export CUSTOMER_PROFILE_WORKFLOW_MYSQL_URL="mysql://root@127.0.0.1:$profile_port/pos_rewrite_profile_workflow"
 cd "$profile_backend"
-node ../frontend/node_modules/vitest/vitest.mjs run --config ../frontend/tests/customer-profile/native-workflow.config.ts
+node ../frontend/node_modules/vitest/vitest.mjs run --config ../frontend/tests/customer-profile/native-workflow.config.ts "$@"
