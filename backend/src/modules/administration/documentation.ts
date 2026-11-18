@@ -295,6 +295,7 @@ export function documentationService(
             {
               title: collectionField(PosTutorial.title, 'title'),
               summary: collectionField(PosTutorial.short_discription, 'short_discription'),
+              uploader: collectionField(PosTutorial.created_by, 'created_by'),
               sortOrder: collectionField(PosTutorial.sort_value, 'sort_value', 'integer'),
               updatedAt: collectionField(PosTutorial.updated_at, 'updated_at'),
               active: collectionField(PosTutorial.is_active, 'is_active', 'integer'),

@@ -2,6 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { PosUser, UserStore } from '../../db/legacy-schema.js';
+import { roles } from '../../domain/access.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import type { ExportArtifact, ExportBuildContext } from '../operational-reports/export-artifact.js';
@@ -13,6 +14,7 @@ import {
 } from './collection-export-contracts.js';
 import { administrationService } from './service.js';
 import { documentationService } from './documentation.js';
+import { documentationPageQuery } from './media-domain.js';
 
 export function collectionExportScope(user: Principal, input: AdministrationCollectionExportInput) {
   return {
@@ -21,7 +23,7 @@ export function collectionExportScope(user: Principal, input: AdministrationColl
       : input.resource === 'stores' && !(user.role === 1 && user.userType === 1)
         ? user.storeIds
         : [],
-    requiresGlobal: false,
+    requiresGlobal: input.resource === 'stores' && user.role === 1 && user.userType === 1,
   };
 }
 /** Called by the shared queue at admission, build and download, under native locks. */
@@ -97,7 +99,7 @@ const labels: Readonly<Record<string, string>> = {
   contactEmail: 'OTP email',
   otpMethod: 'OTP method',
   mfa: 'MFA',
-  stores: 'Store IDs',
+  stores: 'Stores',
   employeeId: 'Employee ID',
   activeStore: 'Active store ID',
   storeId: 'Store ID',
@@ -131,22 +133,27 @@ function exportRow(
       state: row.state_name,
       alternateAddress: row.alt_address,
       shortName: row.short_name,
-      active: row.is_active,
+      active: row.is_active ? 'Active' : 'Archived',
     };
   if (resource === 'operators')
     return {
       ...row,
       name: [row.firstName, row.lastName].filter(Boolean).join(' '),
-      stores: row.storeIds,
+      stores: row.storeNames ?? row.storeIds,
+      role: roles[row.role as keyof typeof roles] ?? String(row.role),
+      userType: row.userType === 2 ? 'Franchise' : 'In house',
+      otpMethod: row.otpMethod === 1 ? 'SMS' : 'Email',
+      mfa: row.mfa ? 'Enabled' : 'Disabled',
+      active: row.active ? 'Active' : 'Archived',
     };
   if (resource === 'salespeople')
     return {
       ...row,
       name: [row.first_name, row.last_name].filter(Boolean).join(' '),
       employeeId: row.employee_id,
-      userType: row.user_type,
-      active: row.is_active,
-      stores: row.storeIds,
+      userType: row.user_type === 2 ? 'Franchise' : 'In house',
+      active: row.is_active ? 'Active' : 'Archived',
+      stores: row.storeNames ?? row.storeIds,
       activeStore: row.activeStoreId,
     };
   if (resource === 'counters' || resource === 'storage')
@@ -156,9 +163,9 @@ function exportRow(
       name: row[resource === 'counters' ? 'counter_name' : 'storage_name'],
       type: row[resource === 'counters' ? 'counter_type' : 'storage_type'],
       description: row[resource === 'counters' ? 'counter_desc' : 'storage_desc'],
-      active: row.is_active,
+      active: row.is_active ? 'Active' : 'Archived',
     };
-  return { ...row, uploader: row.uploaderName };
+  return { ...row, uploader: row.uploaderName, active: row.active === 1 ? 'Active' : 'Archived' };
 }
 export function administrationCollectionExport(config: Config, db: Databases) {
   const service = administrationService(config, db),
@@ -205,11 +212,7 @@ export function administrationCollectionExport(config: Config, db: Databases) {
                 ? await service.counters(user, input.storeIds[0]!, page)
                 : input.resource === 'storage'
                   ? await service.storages(user, input.storeIds[0]!, page)
-                  : await guides.list(user, {
-                      ...page,
-                      sort: input.sort as
-                        'id' | 'title' | 'summary' | 'updatedAt' | 'sortOrder' | 'active',
-                    });
+                  : await guides.list(user, documentationPageQuery.parse(page));
       for (const raw of result.data) {
         if (++rowCount > 70000)
           throw new AppError(422, 'EXPORT_TOO_LARGE', 'Choose fewer matching rows.');

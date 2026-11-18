@@ -8,7 +8,7 @@ import { pageQuery } from './contracts.js';
 export const administrationCollectionPageQuery = pageQuery.extend({
   after: z
     .string()
-    .regex(/^(?:0|[1-9]\d{0,19}|c1\.[A-Za-z0-9_-]{1,2048})$/)
+    .regex(/^(?:0|[1-9]\d{0,19}|c1\.[A-Za-z0-9_-]{1,4096})$/)
     .default('0'),
   limit: z.coerce.number().int().min(1).max(500).default(30),
   sort: z

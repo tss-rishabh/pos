@@ -47,11 +47,34 @@ export const administrationCollectionColumns = {
   documentation: ['id', 'title', 'summary', 'uploader', 'updatedAt', 'sortOrder', 'active'],
 } as const;
 export const administrationCollectionSorts = {
-  stores: ['id', 'name', 'locationCode', 'type', 'category', 'phone', 'email', 'city', 'active'],
-  operators: ['id', 'firstName', 'lastName', 'email', 'phone', 'role', 'userType', 'active'],
+  stores: [
+    'id',
+    'name',
+    'locationCode',
+    'type',
+    'category',
+    'phone',
+    'email',
+    'city',
+    'address',
+    'pincode',
+    'active',
+  ],
+  operators: [
+    'id',
+    'name',
+    'firstName',
+    'lastName',
+    'email',
+    'phone',
+    'role',
+    'userType',
+    'active',
+  ],
   salespeople: [
     'id',
     'employeeId',
+    'name',
     'firstName',
     'lastName',
     'email',
@@ -61,7 +84,7 @@ export const administrationCollectionSorts = {
   ],
   counters: ['id', 'name', 'type', 'description', 'active'],
   storage: ['id', 'name', 'type', 'description', 'active'],
-  documentation: ['id', 'title', 'summary', 'updatedAt', 'sortOrder', 'active'],
+  documentation: ['id', 'title', 'summary', 'uploader', 'updatedAt', 'sortOrder', 'active'],
 } as const;
 export const administrationCollectionExportInputSchema = z
   .object({

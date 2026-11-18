@@ -470,6 +470,8 @@ export function administrationService(
           city: collectionField(Store.city_name, 'city_name', 'text'),
           type: collectionField(Store.type, 'type', 'text'),
           phone: collectionField(Store.phone, 'phone', 'text'),
+          address: collectionField(Store.address, 'address'),
+          pincode: collectionField(Store.pincode, 'pincode'),
           email: collectionField(Store.email, 'email', 'text'),
           active: collectionField(Store.is_active, 'is_active', 'boolean'),
         },
@@ -1026,6 +1028,11 @@ export function administrationService(
         ]),
         collectionField(SalesPerson.id, 'id', 'integer'),
         {
+          name: {
+            column: sql`trim(concat(coalesce(${SalesPerson.first_name},''),' ',coalesce(${SalesPerson.last_name},'')))`,
+            type: 'text',
+            value: (row) => [row.first_name, row.last_name].filter(Boolean).join(' '),
+          },
           firstName: collectionField(SalesPerson.first_name, 'first_name', 'text'),
           lastName: collectionField(SalesPerson.last_name, 'last_name', 'text'),
           employeeId: collectionField(SalesPerson.employee_id, 'employee_id', 'text'),
@@ -1086,8 +1093,10 @@ export function administrationService(
               salespersonId: StoreSalesPerson.salesperson,
               storeId: StoreSalesPerson.store,
               active: StoreSalesPerson.is_active,
+              storeName: Store.store_name,
             })
             .from(StoreSalesPerson)
+            .leftJoin(Store, eq(Store.id, StoreSalesPerson.store))
             .where(inArray(StoreSalesPerson.salesperson, ids))
         : [];
       return {
@@ -1096,6 +1105,9 @@ export function administrationService(
           storeIds: assignments
             .filter((a) => a.salespersonId === row.id)
             .map((a) => String(a.storeId)),
+          storeNames: assignments
+            .filter((a) => a.salespersonId === row.id)
+            .map((a) => a.storeName ?? String(a.storeId)),
           activeStoreId:
             assignments
               .find((a) => a.salespersonId === row.id && a.active === 1)
@@ -1331,6 +1343,11 @@ export function administrationService(
         JSON.stringify(['operators', user.id, user.role, user.userType, user.storeIds]),
         collectionField(PosUser.id, 'id', 'integer'),
         {
+          name: {
+            column: sql`trim(concat(coalesce(${PosUser.first_name},''),' ',coalesce(${PosUser.last_name},'')))`,
+            type: 'text',
+            value: (row) => [row.firstName, row.lastName].filter(Boolean).join(' '),
+          },
           firstName: collectionField(PosUser.first_name, 'firstName', 'text'),
           lastName: collectionField(PosUser.last_name, 'lastName', 'text'),
           email: collectionField(PosUser.email, 'email', 'text'),
@@ -1368,13 +1385,21 @@ export function administrationService(
       const assignments = ids.length
         ? await db
             .get('primary')
-            .select({ operatorId: UserStore.django_user_id, storeId: UserStore.store_id })
+            .select({
+              operatorId: UserStore.django_user_id,
+              storeId: UserStore.store_id,
+              storeName: Store.store_name,
+            })
             .from(UserStore)
+            .leftJoin(Store, eq(Store.id, sql`${UserStore.store_id}`))
             .where(inArray(UserStore.django_user_id, ids))
         : [];
       return {
         data: rows.slice(0, page.limit).map((row) => ({
           ...row,
+          storeNames: assignments
+            .filter((a) => a.operatorId === row.id && a.storeId !== null)
+            .map((a) => a.storeName ?? String(a.storeId)),
           storeIds: assignments
             .filter((a) => a.operatorId === row.id && a.storeId !== null)
             .map((a) => String(a.storeId)),

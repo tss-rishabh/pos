@@ -114,9 +114,76 @@ export function registerAdministration(
     inventory = inventoryService(config, db, options),
     support = supportService(config, db);
   const createOperator = operatorCreator(config, db);
+  // Sorted cursors can contain contact/text values; the application keeps them in private POST bodies.
+  const emptyQuery = z.object({}).strict();
+  app.post('/api/v1/admin/stores/search', trace('store', 'search'), async (request, reply) => {
+    emptyQuery.parse(request.query);
+    return reply
+      .header('Cache-Control', 'private, no-store')
+      .send(
+        wire(
+          await service.stores(
+            authenticated(request),
+            administrationCollectionPageQuery.parse(request.body),
+          ),
+        ),
+      );
+  });
+  app.post(
+    '/api/v1/admin/stores/:storeId/counters/search',
+    trace('counter', 'search'),
+    async (request, reply) => {
+      emptyQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          wire(
+            await service.counters(
+              authenticated(request),
+              scope.parse(request.params).storeId,
+              administrationCollectionPageQuery.parse(request.body),
+            ),
+          ),
+        );
+    },
+  );
+  app.post(
+    '/api/v1/admin/stores/:storeId/storages/search',
+    trace('storage', 'search'),
+    async (request, reply) => {
+      emptyQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          wire(
+            await service.storages(
+              authenticated(request),
+              scope.parse(request.params).storeId,
+              administrationCollectionPageQuery.parse(request.body),
+            ),
+          ),
+        );
+    },
+  );
+
   registerAdministrationStoreDetails(app, db);
   const terminals = terminalService(config, db);
   const documentation = documentationService(config, db, options);
+  app.post(
+    '/api/v1/documentation/search',
+    trace('documentation', 'search'),
+    async (request, reply) => {
+      emptyQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          await documentation.list(
+            authenticated(request),
+            documentationPageQuery.parse(request.body),
+          ),
+        );
+    },
+  );
   const settings = settingsService(config, db, options);
   const mfa = operatorMfaService(config, db);
   const storeImages = storeImageService(config, db, options.storeImageStore);
