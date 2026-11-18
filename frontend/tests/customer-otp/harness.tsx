@@ -1,5 +1,5 @@
 import { createRoot } from 'react-dom/client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { setRequestOperator } from '../../src/api/client';
 import { db, type LocalDraft } from '../../src/offline/database';
@@ -9,6 +9,7 @@ import { CheckoutReview } from '../../src/pages/checkout/CheckoutReview';
 import { ReturnsPage } from '../../src/pages/returns';
 import '../../src/styles.css';
 
+performance.mark('customer-otp-fixture-bootstrap-start');
 const ids = {
   '1': {
     draft: '11111111-1111-4111-8111-111111111111',
@@ -59,14 +60,19 @@ for (const owner of ['1', '2'] as const) {
       draftVersion: draft.updatedAt,
     });
 }
+performance.mark('customer-otp-fixture-drafts-ready');
 setRequestOperator('1');
 await db.sessions.put({ id: 'current', user: user('1'), expiresAt: Date.now() + 3600000 });
+performance.mark('customer-otp-fixture-session-ready');
 const queries = new QueryClient({
   defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
 });
 function Harness() {
   const [owner, setOwner] = useState<Owner>('1'),
     [online, setOnline] = useState(true);
+  useEffect(() => {
+    performance.mark('customer-otp-fixture-mounted');
+  }, []);
   return (
     <>
       <aside style={{ position: 'fixed', top: 0, right: 0, zIndex: 2000, background: 'white' }}>

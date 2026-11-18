@@ -730,10 +730,62 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           page.getByText('The last action was confirmed.', { exact: true }),
         ).toBeVisible();
         expect(state.verifiedUntil).toBe(state.proofUntil);
-        await page.reload();
-        await browserExpect(
-          page.getByText('Customer and verification', { exact: true }),
-        ).toBeVisible();
+        const checkoutReadsBeforeReload = state.urls.filter((url) =>
+          url.pathname.endsWith('/checkout-sessions/' + checkoutIds['1']),
+        ).length;
+        const reloadStartedAt = Date.now();
+        try {
+          await page.reload();
+          await browserExpect(
+            page.getByText('Customer and verification', { exact: true }),
+          ).toBeVisible();
+        } catch (error: unknown) {
+          // Fixed-name phase timings and booleans only: never serialize the DOM,
+          // browser storage, requests, errors, customer data or verification codes.
+          const phase = await page
+            .evaluate(() => {
+              const summary = Array.from(document.querySelectorAll('summary')).find(
+                (element) => element.textContent?.trim() === 'Customer and verification',
+              );
+              return {
+                documentReadyState: document.readyState,
+                headingMounted: Array.from(document.querySelectorAll('h1,h2,h3')).some(
+                  (element) => element.textContent?.trim() === 'Confirm the sale',
+                ),
+                summaryMounted: Boolean(summary),
+                summaryVisible: Boolean(
+                  summary &&
+                    summary.getClientRects().length &&
+                    getComputedStyle(summary).visibility === 'visible',
+                ),
+                bootstrapMarks: performance
+                  .getEntriesByType('mark')
+                  .filter((entry) =>
+                    [
+                      'customer-otp-fixture-bootstrap-start',
+                      'customer-otp-fixture-drafts-ready',
+                      'customer-otp-fixture-session-ready',
+                      'customer-otp-fixture-mounted',
+                    ].includes(entry.name),
+                  )
+                  .map((entry) => ({ phase: entry.name, elapsedMs: Math.round(entry.startTime) })),
+              };
+            })
+            .catch(() => ({ diagnosticsUnavailable: true }));
+          console.error(
+            JSON.stringify({
+              eventId: 'customer_otp.browser.reload_recovery_failure',
+              module: 'customer-otp-browser-fixture',
+              elapsedMs: Date.now() - reloadStartedAt,
+              checkoutReadsSinceReload:
+                state.urls.filter((url) =>
+                  url.pathname.endsWith('/checkout-sessions/' + checkoutIds['1']),
+                ).length - checkoutReadsBeforeReload,
+              ...phase,
+            }),
+          );
+          throw error;
+        }
         await browserExpect(
           page.getByRole('button', { name: 'Check action status', exact: true }),
         ).toHaveCount(0);
