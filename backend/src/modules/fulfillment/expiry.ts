@@ -35,16 +35,51 @@ export interface ExpiryDependencies {
   log?: FulfillmentLogger;
   clock?: () => Temporal.Instant;
 }
-/** Groups line items by order in first-seen order, like `defaultdict(list)` over the queryset. */
-function byOrder(lines: ExpiringLine[]) {
-  const groups = new Map<string, string[]>();
-  for (const line of lines) {
-    const group = groups.get(line.orderId) ?? [];
-    group.push(line.hasProductId);
-    groups.set(line.orderId, group);
-  }
-  return groups;
+export type ExpiryPhase = 'pending-expiry' | 'accepted-expiry' | 'allocation-retry';
+export interface ExpiryTransition<T extends ExpiringLine> {
+  orderId: string;
+  from: 'PENDING' | 'ACCEPTED' | 'TIMED_OUT';
+  to: 'REJECTED' | 'TIMED_OUT' | 'PACKED';
+  lines: T[];
 }
+/**
+ * Pure transition plan of `order/tasks.py`: lines grouped by order in first-seen order
+ * (`defaultdict(list)`); allocation is the set of allocated HP ids across the whole phase.
+ * Pending: fully allocated orders are REJECTED, the rest TIMED_OUT (`_split_and_process`);
+ * accepted: every order is PACKED (`_auto_pack_accepted`); allocation retry: only fully
+ * allocated TIMED_OUT orders are REJECTED.
+ */
+export function expiryTransitions<T extends ExpiringLine>(
+  phase: ExpiryPhase,
+  lines: T[],
+  allocatedStatuses: readonly string[],
+): ExpiryTransition<T>[] {
+  const statuses = new Set(allocatedStatuses),
+    allocated = new Set(
+      lines.filter((line) => statuses.has(line.vincStatus)).map((line) => line.hasProductId),
+    ),
+    groups = new Map<string, T[]>();
+  for (const line of lines) groups.set(line.orderId, [...(groups.get(line.orderId) ?? []), line]);
+  return [...groups.entries()].flatMap(([orderId, items]) => {
+    const ready = items.every((item) => allocated.has(item.hasProductId));
+    if (phase === 'allocation-retry' && !ready) return [];
+    return [
+      {
+        orderId,
+        from:
+          phase === 'accepted-expiry'
+            ? 'ACCEPTED'
+            : phase === 'pending-expiry'
+              ? 'PENDING'
+              : 'TIMED_OUT',
+        to: phase === 'accepted-expiry' ? 'PACKED' : ready ? 'REJECTED' : 'TIMED_OUT',
+        lines: items,
+      },
+    ];
+  });
+}
+const hpIds = (transition: ExpiryTransition<ExpiringLine>) =>
+  transition.lines.map((line) => line.hasProductId);
 
 /**
  * Job O1 `order.tasks.auto_reject_timed_out_for_store` (`order/tasks.py:149-221`), enqueued by
@@ -77,7 +112,6 @@ async function processStore(deps: ExpiryDependencies, storeId: string) {
     now = stamp(),
     storeNumber = sourceIntId(storeId),
     db = deps.db.get('writer'),
-    allocated = new Set(deps.options.VINC_ALLOCATED_STATUSES),
     reasonId = deps.options.HL_TIMED_OUT_REASON_ID;
   const storeRow = await deps.effects.store(storeId);
   const storeName = slackText(storeRow ? (storeRow.name ?? 'None') : `Store ${storeId}`);
@@ -165,65 +199,72 @@ async function processStore(deps: ExpiryDependencies, storeId: string) {
   const skuText = async (ids: string[]) => pythonIdList(await deps.effects.skuIds(ids));
 
   // 1. Newly expired PENDING items (`_split_and_process`, `order/tasks.py:89-146`).
-  const pending = await select('PENDING');
-  if (pending.length) {
-    const groups = byOrder(pending),
-      allocatedIds = new Set(
-        pending.filter((line) => allocated.has(line.vincStatus)).map((line) => line.hasProductId),
-      ),
-      toReject: string[] = [],
-      toTimeout: string[] = [];
-    for (const [orderId, ids] of groups)
-      (ids.every((id) => allocatedIds.has(id)) ? toReject : toTimeout).push(orderId);
-    if (toReject.length) {
-      for (const orderId of toReject)
-        await deps.effects.rejectionApi(orderId, groups.get(orderId)!, {
-          kind: 'timed-out',
-          storeId,
-        });
-      await transition('PENDING', 'REJECTED', toReject);
-      for (const orderId of toReject)
-        await deps.effects.slack(
-          `❌ Order wait time exceeded for ID: ${orderId} | Store: ${storeName} | SKUs: ${await skuText(groups.get(orderId)!)}`,
-          { storeId },
-        );
-    }
-    if (toTimeout.length) {
-      await transition('PENDING', 'TIMED_OUT', toTimeout);
-      for (const orderId of toTimeout)
-        await deps.effects.slack(
-          `⏱️ Order wait time exceeded for ID: ${orderId} | Store: ${storeName} | SKUs: ${await skuText(groups.get(orderId)!)}`,
-          { storeId },
-        );
-    }
+  const pending = expiryTransitions(
+      'pending-expiry',
+      await select('PENDING'),
+      deps.options.VINC_ALLOCATED_STATUSES,
+    ),
+    toReject = pending.filter((item) => item.to === 'REJECTED'),
+    toTimeout = pending.filter((item) => item.to === 'TIMED_OUT');
+  if (toReject.length) {
+    for (const item of toReject)
+      await deps.effects.rejectionApi(item.orderId, hpIds(item), {
+        kind: 'timed-out',
+        storeId,
+      });
+    await transition(
+      'PENDING',
+      'REJECTED',
+      toReject.map((item) => item.orderId),
+    );
+    for (const item of toReject)
+      await deps.effects.slack(
+        `❌ Order wait time exceeded for ID: ${item.orderId} | Store: ${storeName} | SKUs: ${await skuText(hpIds(item))}`,
+        { storeId },
+      );
+  }
+  if (toTimeout.length) {
+    await transition(
+      'PENDING',
+      'TIMED_OUT',
+      toTimeout.map((item) => item.orderId),
+    );
+    for (const item of toTimeout)
+      await deps.effects.slack(
+        `⏱️ Order wait time exceeded for ID: ${item.orderId} | Store: ${storeName} | SKUs: ${await skuText(hpIds(item))}`,
+        { storeId },
+      );
   }
 
   // 2. Newly expired ACCEPTED items are auto-packed (`_auto_pack_accepted`, `:57-86`).
-  const accepted = await select('ACCEPTED');
+  const acceptedLines = await select('ACCEPTED');
+  const accepted = expiryTransitions(
+    'accepted-expiry',
+    acceptedLines,
+    deps.options.VINC_ALLOCATED_STATUSES,
+  );
   if (accepted.length) {
-    const groups = byOrder(accepted),
-      orderIds = [...groups.keys()];
-    for (const [orderId, ids] of groups)
-      await deps.effects.callStatusApi(orderId, ids, 'PACK', true);
-    await transition('ACCEPTED', 'PACKED', orderIds);
-    deps.effects.concurrencySync(storeId, { accepted: -accepted.length });
-    for (const [orderId, ids] of groups)
+    for (const item of accepted)
+      await deps.effects.callStatusApi(item.orderId, hpIds(item), 'PACK', true);
+    await transition(
+      'ACCEPTED',
+      'PACKED',
+      accepted.map((item) => item.orderId),
+    );
+    deps.effects.concurrencySync(storeId, { accepted: -acceptedLines.length });
+    for (const item of accepted)
       await deps.effects.slack(
-        `📦 Hyperlocal Order ID: ${orderId} auto-packed at ${storeName} — acceptance window expired | SKUs: ${await skuText(ids)}`,
+        `📦 Hyperlocal Order ID: ${item.orderId} auto-packed at ${storeName} — acceptance window expired | SKUs: ${await skuText(hpIds(item))}`,
         { storeId },
       );
   }
 
   // 3. TIMED_OUT orders whose items Vinculum has since allocated are rejected (`:177-218`).
-  const timedOut = await select('TIMED_OUT');
-  if (!timedOut.length) return;
-  const groups = byOrder(timedOut),
-    allocatedIds = new Set(
-      timedOut.filter((line) => allocated.has(line.vincStatus)).map((line) => line.hasProductId),
-    ),
-    ready = [...groups.entries()]
-      .filter(([, ids]) => ids.every((id) => allocatedIds.has(id)))
-      .map(([orderId]) => orderId);
+  const ready = expiryTransitions(
+    'allocation-retry',
+    await select('TIMED_OUT'),
+    deps.options.VINC_ALLOCATED_STATUSES,
+  );
   deps.log?.('info', {
     eventId: 'fulfillment.auto-reject.allocation-check',
     resource: 'express-expiry',
@@ -232,13 +273,17 @@ async function processStore(deps: ExpiryDependencies, storeId: string) {
     count: ready.length,
   });
   if (!ready.length) return;
-  await transition('TIMED_OUT', 'REJECTED', ready);
-  for (const orderId of ready)
+  await transition(
+    'TIMED_OUT',
+    'REJECTED',
+    ready.map((item) => item.orderId),
+  );
+  for (const item of ready)
     await deps.effects.slack(
-      `🔺 Order ID: ${orderId} | Store: ${storeName} | Order was Timed Out earlier — Vinculum has now allocated the items, proceeding with conversion to online order | SKUs: ${await skuText(groups.get(orderId)!)}`,
+      `🔺 Order ID: ${item.orderId} | Store: ${storeName} | Order was Timed Out earlier — Vinculum has now allocated the items, proceeding with conversion to online order | SKUs: ${await skuText(hpIds(item))}`,
       { storeId },
     );
   // Legacy defers these calls with `transaction.on_commit` (`:217`).
-  for (const orderId of ready)
-    await deps.effects.rejectionApi(orderId, groups.get(orderId)!, { kind: 'timed-out', storeId });
+  for (const item of ready)
+    await deps.effects.rejectionApi(item.orderId, hpIds(item), { kind: 'timed-out', storeId });
 }

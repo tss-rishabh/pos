@@ -853,6 +853,8 @@ export function fulfillmentService(
     },
     async markNotificationRead(user: Principal, storeId: string, notificationId: string) {
       requireStore(user, storeId);
+      if ((await checkins.checkedInStore(user.id)) !== storeId)
+        throw new AppError(403, 'CHECK_IN_REQUIRED', 'Check into this store to receive notifications.');
       const db = databases.get('writer');
       const [notice] = await db
         .select({ id: Notification.id })
