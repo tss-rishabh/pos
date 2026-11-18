@@ -14,7 +14,8 @@ const detailQuery = z
     to: z.iso.date().optional(),
     intent: z.enum(['interactive', 'report']).optional(),
   })
-  .strict();
+  .strict()
+  .refine((value) => Boolean(value.from) === Boolean(value.to), 'Supply both date boundaries.');
 
 async function assertSessionCurrent(request: FastifyRequest) {
   if (!request.authSessionValid || !(await request.authSessionValid())) {
