@@ -1,0 +1,52 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T15:19:06.676517+00:00",
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "rewriteBaseCommit": "9e6726c1101f54db415af13ab1a382df1eaafb4b",
+  "scope": "Rendered React editor and actual client requests against isolated intercepted API fixtures; not joined native/Django form certification",
+  "sourceHashes": {
+    "stores/templates/stores/_form.html": "f292aeaec1a1b4ebbf726f6802d9a187ab2bb1496bc3158f594598bd0589f7a9",
+    "stores/templates/stores/create.html": "98b20945ec8a5b81c7d90d5f5cddeec347cef0b19db73902f4953120d9f76f80",
+    "stores/templates/stores/edit.html": "d3a9f3be165eaf2b7b51ac01e56fd79c9890f21d3a1de90d744f4a448054fa58",
+    "stores/forms.py": "43351f7e4c942de59e4cd455bd3d1a264f935f46ca37e2dee0012573675ccb49",
+    "stores/views.py": "e25bc56d92cc925a9d59cfeb902a1cfe3731ce589428ff7e9279f607e292a1ae"
+  },
+  "inputs": {
+    "frontend/src/pages/administration/stores.tsx": "77d51308f27329dc9ee7444374d728a0578cd2082f7d95c04fef65a29b9931f8",
+    "frontend/tests/administration/workflows.test.ts": "fedce0aa8f09142877bdc4cea64e1dd58c1ed20c1eb2636bef84f949a1683b9c",
+    "frontend/tests/lookup-workflow/workflow.test.ts": "d23a731f4c2a74835150d068d3d18e41ad5594cde59b1d516e34adcdf608a6bf"
+  },
+  "browser": {
+    "rawPath": "/tmp/pos-city-default-evidence-20261118/browser-final.json",
+    "rawSha256": "365f55d9f278419ca164714f14d831c64a0c6029a970e2bc425f21461f0d654b",
+    "passed": 4,
+    "failed": 0,
+    "filteredOut": 23,
+    "cases": [
+      {
+        "name": "associates an existing franchise without submitting hidden detail fields",
+        "status": "passed"
+      },
+      {
+        "name": "preserves the source new-store city default and unsaved fields across postal lookup",
+        "status": "passed"
+      },
+      {
+        "name": "preserves stored city reference 0 while editing without exposing it",
+        "status": "passed"
+      },
+      {
+        "name": "preserves stored city reference 7 while editing without exposing it",
+        "status": "passed"
+      }
+    ]
+  },
+  "checks": {
+    "frontendStrict": "passed",
+    "focusedTestsStrict": "passed",
+    "changedFileLint": "passed"
+  },
+  "nativeLookupRerun": false,
+  "historicalReceiptsModified": false,
+  "releaseLedgerPromoted": false
+}

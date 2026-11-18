@@ -146,6 +146,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         storeImageRevision: 'b'.repeat(64),
         storeHasImage: false,
         storeSlackConfigured: true,
+        storeCityId: 0,
         slackAttemptId: '',
         slackState: 'PENDING' as 'PENDING' | 'EXCHANGING' | 'COMPLETED' | 'CANCELLED',
         postalLookups: [] as string[],
@@ -1359,7 +1360,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             email: 'fixture@example.test',
             address: 'Fixture address',
             alt_address: '',
-            city_id: 0,
+            city_id: state.storeCityId,
             country_id: 99,
             phone: '9876543210',
             pincode: '123456',
@@ -2016,7 +2017,11 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
         await browserExpect(dialog).toHaveCount(0);
         const mutation = state.mutations.find((entry) => entry.path === '/api/v1/admin/stores');
-        expect(mutation?.body).toMatchObject({ category: 'FRANCHISE', franchiseId: '20' });
+        expect(mutation?.body).toMatchObject({
+          category: 'FRANCHISE',
+          franchiseId: '20',
+          cityId: 1111,
+        });
         expect(mutation?.body).not.toHaveProperty('franchise');
       } finally {
         await page.close();
@@ -2230,7 +2235,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.close();
       }
     }, 20000);
-    it('fills store location fields from a body-only postal lookup without overwriting an existing city reference or address', async () => {
+    it('preserves the source new-store city default and unsaved fields across postal lookup', async () => {
       const page = await browser.newPage(),
         urls: string[] = [];
       page.on('request', (request) => urls.push(request.url()));
@@ -2239,7 +2244,11 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.getByRole('button', { name: 'Create store', exact: true }).click();
         const dialog = page.getByRole('dialog');
         await dialog.getByLabel('Address', { exact: true }).fill('Preserved fixture address');
-        await dialog.getByLabel('City reference', { exact: true }).fill('7');
+        await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveCount(0);
+        await dialog.getByLabel('Store name', { exact: true }).fill('Postal fixture store');
+        await dialog.getByLabel('Short name', { exact: true }).fill('Postal');
+        await dialog.getByLabel('Location code', { exact: true }).selectOption('TWO');
+        await dialog.getByLabel('Store phone', { exact: true }).fill('9876543298');
         await dialog.getByLabel('PIN code', { exact: true }).fill('999999');
         await dialog.getByRole('button', { name: 'Look up PIN code', exact: true }).click();
         await browserExpect(dialog.getByRole('alert')).toContainText('No location was found');
@@ -2253,10 +2262,42 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await browserExpect(dialog.getByLabel('Latitude', { exact: true })).toHaveValue(
           '19.0000000000000001',
         );
-        await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveValue('7');
+        await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveCount(0);
         await browserExpect(dialog.getByLabel('Address', { exact: true })).toHaveValue(
           'Preserved fixture address',
         );
+        await browserExpect(dialog.getByLabel('Store name', { exact: true })).toHaveValue(
+          'Postal fixture store',
+        );
+        await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
+        await browserExpect(dialog).toHaveCount(0);
+        const created = state.mutations.find(
+          (entry) => entry.path === '/api/v1/admin/stores' && entry.method === 'POST',
+        );
+        expect(created?.body).toEqual({
+          locationCode: 'TWO',
+          type: 'STORE',
+          category: 'IN_HOUSE',
+          phone: '9876543298',
+          email: '',
+          alternateAddress: '',
+          state: 'Fixture state',
+          longitude: '72.0000000000000001',
+          gstin: '',
+          dailyThreshold: 0,
+          hourlyThreshold: 0,
+          slackUrl: '',
+          removeSlack: false,
+          cityId: 1111,
+          name: 'Postal fixture store',
+          shortName: 'Postal',
+          address: 'Preserved fixture address',
+          pincode: '400001',
+          city: 'Mumbai',
+          countryId: 99,
+          stateId: 42,
+          latitude: '19.0000000000000001',
+        });
         expect(state.postalLookups).toEqual(['999999', '400001']);
         expect(urls.join('\n')).not.toMatch(/400001|999999|Preserved fixture/);
         expect(state.console.join('\n')).not.toMatch(/400001|999999|Preserved fixture/);
@@ -2264,6 +2305,50 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         await page.close();
       }
     }, 20000);
+    for (const cityId of [0, 7]) {
+      it(`preserves stored city reference ${cityId} while editing without exposing it`, async () => {
+        const page = await browser.newPage();
+        try {
+          const state = await fixture(page);
+          state.storeCityId = cityId;
+          await page
+            .getByRole('row')
+            .filter({ hasText: 'Fixture Store One' })
+            .getByRole('button', { name: 'Edit', exact: true })
+            .click();
+          const dialog = page.getByRole('dialog');
+          await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveCount(0);
+          await dialog.getByLabel('Address', { exact: true }).fill('Preserved edited address');
+          await dialog.getByLabel('Short name', { exact: true }).fill('Edited name');
+          await dialog.getByLabel('PIN code', { exact: true }).fill('400001');
+          await dialog.getByRole('button', { name: 'Look up PIN code', exact: true }).click();
+          await browserExpect(dialog.getByLabel('City', { exact: true })).toHaveValue('Mumbai');
+          await browserExpect(dialog.getByLabel('Short name', { exact: true })).toHaveValue(
+            'Edited name',
+          );
+          await dialog.getByRole('button', { name: 'Save changes', exact: true }).click();
+          await browserExpect(dialog).toHaveCount(0);
+          const updated = state.mutations.find(
+            (entry) => entry.path === '/api/v1/admin/stores/1' && entry.method === 'PUT',
+          );
+          expect(updated?.body).toMatchObject({
+            cityId,
+            address: 'Preserved edited address',
+            shortName: 'Edited name',
+            city: 'Mumbai',
+            countryId: 99,
+            stateId: 42,
+          });
+          expect(
+            state.mutations.some(
+              (entry) => entry.method === 'POST' && entry.path === '/api/v1/admin/stores',
+            ),
+          ).toBe(false);
+        } finally {
+          await page.close();
+        }
+      }, 20000);
+    }
     it('connects Slack in the same window and returns only a safe receipt/channel without exposing the webhook', async () => {
       const page = await browser.newPage(),
         popups: Page[] = [];

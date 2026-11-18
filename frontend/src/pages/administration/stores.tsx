@@ -45,7 +45,6 @@ const baseFields: AdministrationField[] = [
   { name: 'alternateAddress', label: 'Alternate address', kind: 'textarea', maxLength: 500 },
   { name: 'city', label: 'City', maxLength: 255 },
   { name: 'state', label: 'State', maxLength: 255 },
-  { name: 'cityId', label: 'City reference', kind: 'number', required: true },
   { name: 'stateId', label: 'State reference', kind: 'number' },
   { name: 'pincode', label: 'PIN code', maxLength: 10 },
   { name: 'gstin', label: 'GSTIN', maxLength: 15 },
@@ -119,7 +118,7 @@ function formValues(store?: AdministrationStore): Record<string, string> {
     alternateAddress: store?.alternateAddress || '',
     city: store?.city || '',
     state: store?.state || '',
-    cityId: String(store?.cityId || 0),
+    cityId: String(store?.cityId ?? 1111),
     stateId: String(store?.stateId || 0),
     countryId: String(store?.countryId || 0),
     pincode: store?.pincode || '',
@@ -295,7 +294,7 @@ export function StoreAdministration({ user }: { user: Principal }) {
         ...(locations.data?.data || []).map((value) => ({ value, label: value })),
       ],
     },
-    ...baseFields.slice(0, 14),
+    ...baseFields.slice(0, 13),
     {
       name: 'countryId',
       label: 'Country',
@@ -309,7 +308,7 @@ export function StoreAdministration({ user }: { user: Principal }) {
         })),
       ],
     },
-    ...baseFields.slice(14),
+    ...baseFields.slice(13),
   ];
   return (
     <>

@@ -425,7 +425,7 @@ describe.skipIf(!enabled)(
         await anonymous.close();
       }
     }, 30000);
-    it('autofills the actual store editor from the first native source postal row while preserving existing references', async () => {
+    it('autofills the actual store editor from the first native source postal row while hiding city identifiers and preserving the address', async () => {
       const current = await context(),
         page = await current.newPage();
       const urls: string[] = [],
@@ -439,7 +439,7 @@ describe.skipIf(!enabled)(
         await page.getByRole('button', { name: 'Create store', exact: true }).click();
         const dialog = page.getByRole('dialog');
         await dialog.getByLabel('Address', { exact: true }).fill('Preserved synthetic address');
-        await dialog.getByLabel('City reference', { exact: true }).fill('7');
+        await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveCount(0);
         for (const postal of ['999999', '400001']) {
           const response = page.waitForResponse((value) =>
             value.url().endsWith('/api/v1/locations/postal-code-lookups'),
@@ -466,9 +466,7 @@ describe.skipIf(!enabled)(
             ] as const)
               await browserExpect(dialog.getByLabel(label, { exact: true })).toHaveValue(value);
           }
-          await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveValue(
-            '7',
-          );
+          await browserExpect(dialog.getByLabel('City reference', { exact: true })).toHaveCount(0);
           await browserExpect(dialog.getByLabel('Address', { exact: true })).toHaveValue(
             'Preserved synthetic address',
           );
