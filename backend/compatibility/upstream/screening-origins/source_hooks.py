@@ -30,7 +30,7 @@ def api_changes(changes):
     # The existing Falcon app remains the fallback and original source server.
     main+='\nimport sys as _origin_event_stream\napp = _screening_origins.coupon_control_application(app, _origin_event_stream.stdout)\n'
     changes['main.py']=(original,main)
-    entry='''"""Purpose-specific original customer/staff/system writer installation."""\nimport os\nimport sys\nfrom pathlib import Path\n_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()\nfor name in ('legacy-order-imports','offline-cash-pricing','public-screening-writer','screening-origins'):sys.path.insert(0,str(_root/name))\ndef prepare(main_file):\n    if not os.environ.get('POS_SCREENING_ORIGIN_CONTRACT'):return\n    from origin_delivery import prepare as early\n    early(main_file)\ndef install():\n    from origin_bootstrap import OriginBootstrap\n    return OriginBootstrap()\n'''
+    entry='''"""Purpose-specific original customer/staff/system writer installation."""\nimport os\nimport sys\nfrom pathlib import Path\n_root=Path(os.environ['POS_NODE_SCREENING_MODULE_ROOT']).resolve()\nfor name in ('legacy-order-imports','offline-cash-pricing','public-screening-writer','screening-origins'):sys.path.insert(0,str(_root/name))\ndef prepare(main_file):\n    if not os.environ.get('POS_SCREENING_ORIGIN_CONTRACT'):return\n    from origin_delivery import prepare as early\n    early(main_file)\ndef install():\n    from origin_bootstrap import OriginBootstrap\n    return OriginBootstrap()\ndef qualified_head_metadata(session):\n    from origin_history_privileges import qualified_head_metadata as read\n    return read(session)\n'''
     changes['pos_screening_origins.py']=('',entry)
     return changes
 

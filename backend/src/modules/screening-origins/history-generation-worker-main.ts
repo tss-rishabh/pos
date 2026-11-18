@@ -79,6 +79,7 @@ function settings(env: NodeJS.ProcessEnv) {
       definer: z.string().max(320).optional(),
       auditDefiner: z.string().max(320).optional(),
       membershipDefiner: z.string().max(320).optional(),
+      membershipRevisionDefiner: z.string().max(320).optional(),
       couponDefiner: z.string().max(320).optional(),
       counterDefiner: z.string().max(320).optional(),
       counterPublisher: z.string().max(320).optional(),
@@ -102,6 +103,7 @@ function settings(env: NodeJS.ProcessEnv) {
       definer: env.POS_SCREENING_ORIGIN_HISTORY_DEFINER || undefined,
       auditDefiner: env.POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER || undefined,
       membershipDefiner: env.POS_MEMBERSHIP_HISTORY_TRIGGER_DEFINER || undefined,
+      membershipRevisionDefiner: env.POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER || undefined,
       couponDefiner: env.POS_COUPON_HISTORY_DEFINER || undefined,
       counterDefiner: env.POS_SCREENING_COUNTER_TRIGGER_DEFINER || undefined,
       counterPublisher: env.POS_SCREENING_COUNTER_PUBLISHER_GRANTEE || undefined,
@@ -257,8 +259,13 @@ export async function runOriginHistoryPublisher(
           captureKey: config.captureKey!,
           triggerDefiner: config.definer!,
           auditDefiner: config.auditDefiner!,
-          headDefiners: { membership: config.membershipDefiner, coupon: config.couponDefiner,
-            counter: config.counterDefiner, counterPublisher: config.counterPublisher },
+          headDefiners: {
+            membership: config.membershipDefiner,
+            membershipRevision: config.membershipRevisionDefiner,
+            coupon: config.couponDefiner,
+            counter: config.counterDefiner,
+            counterPublisher: config.counterPublisher,
+          },
           administrators: z
             .array(z.string().max(320))
             .max(32)

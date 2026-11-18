@@ -9,10 +9,10 @@ export const nativeHeadDescriptor = {
     "sectionRows": 1000,
     "metadataBytes": 2097152
   },
-  "metadataHash": "9475adbed2df8c8e40f71b660b778bca30de985171d844614c9ab292c21e8bdc",
+  "metadataHash": "fb5de8586910b6f479ba057a537a527de397bc5bec046f744274f39b890cf3ff",
   "transactionMetadataHash": "a6d819e936ff66c6f2e5392c70f70e48dd2b25bdde591524255c2d6eed95a06f",
-  "qualifierHash": "570105ea8029a3bfb58242e33e20796e22a1c9ed64015c505f52e2be26721d6b",
-  "participantQualifierHash": "786c4285b5693a540785229a1fcd8ba0eea2b0594d73d8645b9a7e29b3d41d58",
+  "qualifierHash": "534eac2edfdc7d3f0a6f8ed8f7d95b8c17980f09f11dfcd9548ba4c881882212",
+  "participantQualifierHash": "3debd87ba25188870f133eeadea4e5f14a8862038287d307f8d5e344616eb0a7",
   "originTriggers": [
     {
       "name": "pos_rewrite_origin_history_user_i",
@@ -242,6 +242,39 @@ export const nativeHeadDescriptor = {
         "security": "DEFINER",
         "hash": "3d8d42854a1eec0859c3ea0287b244b1fb9d98b8fab8a4221d48df68e6bc87d7"
       }
+    },
+    "membershipRevision": {
+      "definitions": [
+        {
+          "name": "pos_rewrite_mem_eav_insert",
+          "tableName": "user_eav",
+          "event": "INSERT",
+          "timing": "AFTER",
+          "hash": "2ba0cc60f6be2f5480c448323f0ac1e6568151eac515e1e62f5b80981e3feb3c"
+        },
+        {
+          "name": "pos_rewrite_mem_eav_update",
+          "tableName": "user_eav",
+          "event": "UPDATE",
+          "timing": "AFTER",
+          "hash": "209ed853276522a409499abe5cd7537623f897e1e322aa9bdd493e09b4083acd"
+        },
+        {
+          "name": "pos_rewrite_mem_eav_delete",
+          "tableName": "user_eav",
+          "event": "DELETE",
+          "timing": "AFTER",
+          "hash": "25474e93dc027cffe18287cb0ae6ef3db78d330b87096910975d95006450f674"
+        },
+        {
+          "name": "pos_rewrite_mem_user_email",
+          "tableName": "users",
+          "event": "UPDATE",
+          "timing": "AFTER",
+          "hash": "66898f50c83623858e2df9319793ae052ee78cce49b4f5ae546fa9f0829d8085"
+        }
+      ],
+      "manifestHash": "9f705dda23588056212e9ccb3e6c62294262ea977e13bd2e097a095915aae88c"
     }
   },
   "platformTriggers": [

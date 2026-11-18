@@ -142,7 +142,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     declared=HEADS|WATCHED
     for family,spec in FAMILIES.items():
         if os.environ.get(spec['environment']):
-            declared|=set(spec['heads'])
+            declared|=set(spec['heads'])|set(spec.get('tables',()))
     from sqlalchemy import text
     for table in sorted(declared):
         session.execute(text('SELECT 1 FROM `'+table+'` WHERE FALSE')).close()
@@ -167,12 +167,15 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
         if (transaction_routine['owner']!=audit or transaction_routine['security']!='DEFINER' or transaction_routine['accessMode']!='READS SQL DATA'
                 or normal(transaction_routine['body'])!=normal(transaction_body)):refused()
     check_metadata_routines()
-    one(session,'SELECT pos_rewrite_origin_transaction_metadata() AS document')
+    transaction=metadata_document(one(session,'SELECT pos_rewrite_origin_transaction_metadata() AS document')['document'])
+    if (not isinstance(transaction,list) or len(transaction)!=1
+            or fields(transaction[0],{'state','isolation'})['state']!='ACTIVE'
+            or transaction[0]['isolation'] not in ('READ COMMITTED','REPEATABLE READ')):refused()
     result=one(session,'SELECT /*+ MAX_EXECUTION_TIME(3000) */ pos_rewrite_origin_history_metadata() AS document')
     check_metadata_routines()
     data=metadata_document(result['document'])
     sections={'triggers','accounts','roles','proxies','privileges','routineGrants','objects','aliases','tables','foreignKeys','replicationChannels',
-              'membershipTriggers','couponTriggers','counterTriggers','counterProcedures','platformTriggers'}
+              'membershipTriggers','membershipRevisionTriggers','couponTriggers','counterTriggers','counterProcedures','platformTriggers'}
     if (not isinstance(data,dict) or set(data)!=sections
             or any(not isinstance(data[name],list) or len(data[name])>LIMITS['privilegeRows' if name=='privileges' else 'sectionRows'] for name in sections)):refused()
     additional,families=participants(data,trigger_owner)
@@ -183,6 +186,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             'pos_rewrite_screening_origin_history_heads':{'SELECT','INSERT','UPDATE'},
             'pos_rewrite_screening_origin_history_changes':{'INSERT'}},'procedures':{}},**additional}
     heads=HEADS|set().union(*(set(spec['heads']) for spec in additional.values()))
+    native_tables=set().union(*(set(FAMILIES[family].get('tables',())) for family in families if family in FAMILIES))
     if set(additional).intersection(administrators|{audit}|(set() if counter_publication else {current})):refused()
     accounts={}
     for raw in data['accounts']:
@@ -230,21 +234,28 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
                 or not isinstance(item['sqlMode'],str) or not {'STRICT_TRANS_TABLES','STRICT_ALL_TABLES'}.intersection(item['sqlMode'].split(','))):refused()
     if {item['name'] for item in data['triggers']}!=names:refused()
 
-    audit_global=set()
+    audit_global=set();revision_privileges=set()
     for raw in data['privileges']:
-        item=fields(raw,{'grantee','scope','schema','table','privilege','grantable','target'});owner=grantee(item['grantee'])
+        item=fields(raw,{'grantee','scope','schema','table','column','privilege','grantable','target'});owner=grantee(item['grantee'])
         scope=item['scope'];privilege=item['privilege'];target_schema=item['schema'];table=item['table']
         if (owner not in accounts or scope not in ('global','schema','table','column') or not isinstance(privilege,str)
                 or not isinstance(target_schema,str) or not isinstance(table,str) or item['grantable'] not in ('YES','NO')
                 or item['target'] not in ('global','protected-schema','grants','control','watched','other')):refused()
+        column=item['column']
+        if not isinstance(column,str) or len(column)>64 or (not column if scope=='column' else column!=''):refused()
         if owner in owner_specs:
             spec=owner_specs[owner]
             allowed=({'USAGE','SHOW_ROUTINE','SHOW ROUTINE'} if spec.get('publisher') else {'USAGE'}) if scope=='global' else (
+                {'UPDATE'} if spec['family']=='membershipRevision' and scope=='column' and target_schema==schema and table=='users' and column=='id' else
                 SOURCE_READ if spec.get('publisher') and scope=='schema' and target_schema==schema else
                 {'SELECT'} if spec.get('publisher') and scope=='table' and ((target_schema==schema and table in WATCHED) or (target_schema=='sys' and table=='sys_config')) else
                 {'SELECT','TRIGGER'} if scope=='table' and target_schema==schema and table in spec['watched'] else
-                spec['heads'].get(table,set()) if scope=='table' and target_schema==schema else set())
+                spec['heads'].get(table,spec.get('native',{}).get(table,set())) if scope=='table' and target_schema==schema else set())
             if item['grantable']!='NO' or privilege not in allowed:refused()
+            if spec['family']=='membershipRevision' and scope=='table' and target_schema==schema:
+                revision_privileges.add((table,privilege))
+            if spec['family']=='membershipRevision' and scope=='column' and target_schema==schema:
+                revision_privileges.add((table+'.'+column,privilege))
             continue
         if owner==audit:
             if scope!='global' or item['grantable']!='NO' or privilege not in AUDIT_RIGHTS|{'USAGE'}:refused()
@@ -268,6 +279,10 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     # caller assertion that hidden routines/views/events/trigger owners do not
     # exist. The locked audit account's only executable object is fixed below.
     if not AUDIT_RIGHTS.issubset(audit_global):refused()
+    if 'membershipRevision' in families:
+        required={('users','SELECT'),('users','TRIGGER'),('user_eav','SELECT'),('user_eav','TRIGGER'),
+                  ('pos_rewrite_membership_versions','SELECT'),('pos_rewrite_membership_versions','INSERT'),('pos_rewrite_membership_versions','UPDATE'),('users.id','UPDATE')}
+        if revision_privileges!=required:refused()
     for raw in data['routineGrants']:
         item=fields(raw,{'name','schema','routine','kind','privileges'});owner=account(item['name'])
         if (owner not in accounts or item['kind'] not in ('FUNCTION','PROCEDURE')
@@ -318,10 +333,10 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     tables={}
     for raw in data['tables']:
         item=fields(raw,{'name','kind','engine'})
-        if item['name'] in tables or item['name'] not in heads|WATCHED or item['kind']!='BASE TABLE' or item['engine']!='InnoDB':refused()
+        if item['name'] in tables or item['name'] not in heads|WATCHED|native_tables or item['kind']!='BASE TABLE' or item['engine']!='InnoDB':refused()
         tables[item['name']]=item
-    if set(tables)!=heads|WATCHED:refused()
-    for table in sorted(heads|WATCHED):
+    if set(tables)!=heads|WATCHED|native_tables:refused()
+    for table in sorted(heads|WATCHED|native_tables):
         # Information_schema omits session temporary tables. SHOW CREATE names
         # the object this connection would really access, so an old temporary
         # shadow cannot reuse the physical base table's metadata as its proof.
@@ -331,7 +346,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
                 or not re.match(r'^CREATE TABLE\s+`'+re.escape(table)+r'`\s*\(',ddl)):refused()
     for raw in data['foreignKeys']:
         item=fields(raw,{'table','column','update','delete'})
-        if item['table'] not in heads|WATCHED or item['update'] not in FK_RULES or item['delete'] not in FK_RULES:refused()
+        if item['table'] not in heads|WATCHED|native_tables or item['update'] not in FK_RULES or item['delete'] not in FK_RULES:refused()
         if item['table'] in heads:refused()
         # Cascaded changes do not invoke MySQL triggers. A delete cascade
         # removes a whole Order, and SET NULL/CASCADE on any watched column can
@@ -343,7 +358,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             'participantsHash':policy_hash(families),
             'participantQualifierHash':hashlib.sha256(Path(__file__).with_name('head_participants.py').read_bytes()).hexdigest()}
     return {'policy':policy,**{name:data[name] for name in
-        ('membershipTriggers','couponTriggers','counterTriggers','counterProcedures')}}
+        ('membershipTriggers','membershipRevisionTriggers','couponTriggers','counterTriggers','counterProcedures')}}
 
 
 def qualify(session,expected,trigger_owner):

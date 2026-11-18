@@ -20,6 +20,14 @@ FAMILIES = {
         'manifest': '../public-screening-writer/membership-history-writers.review.json',
         'heads': {'pos_rewrite_membership_history_heads': {'SELECT', 'INSERT', 'UPDATE'}},
     },
+    'membershipRevision': {
+        'section': 'membershipRevisionTriggers', 'count': 4,
+        'environment': 'POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER',
+        'manifest': '../pending-cancellation/membership-fence.sql',
+        'heads': {},
+        'native': {'pos_rewrite_membership_versions': {'SELECT', 'INSERT', 'UPDATE'}},
+        'tables': {'user_eav', 'pos_rewrite_membership_versions'},
+    },
     'coupon': {
         'section': 'couponTriggers', 'count': 10,
         'environment': 'POS_COUPON_HISTORY_DEFINER',
@@ -52,6 +60,21 @@ def definitions(family):
     path = HERE / spec['manifest']
     if not path.is_file() or path.stat().st_size > 1000000:
         refused()
+    if family == 'membershipRevision':
+        # ACTION_STATEMENT bytes are the original raw BEGIN...END body. Do not
+        # normalize whitespace or silently accept a regenerated different fence.
+        source = path.read_text()
+        result = [{'name': name, 'tableName': table, 'event': action, 'timing': 'AFTER',
+                   'hash': hashlib.sha256(body.encode()).hexdigest()}
+                  for name,action,table,body in re.findall(
+                      r'CREATE TRIGGER (\w+) AFTER (INSERT|UPDATE|DELETE) ON (\w+) FOR EACH ROW\n(BEGIN.*?END)\$\$', source, re.S)]
+        if [(row['name'],row['event'],row['tableName']) for row in result] != [
+            ('pos_rewrite_mem_eav_insert','INSERT','user_eav'),
+            ('pos_rewrite_mem_eav_update','UPDATE','user_eav'),
+            ('pos_rewrite_mem_eav_delete','DELETE','user_eav'),
+            ('pos_rewrite_mem_user_email','UPDATE','users')]:refused()
+        return result, {'contract': 'pos-membership-native-revision-v1', 'definitions': result,
+                        'sourceHash': hashlib.sha256(source.encode()).hexdigest()}
     manifest = json.loads(path.read_text())
     raw = manifest['triggers'] if family == 'counter' else manifest['definitions']
     if not isinstance(raw, list) or len(raw) != spec['count']:
@@ -119,7 +142,7 @@ def participants(metadata, origin_owner):
                 refused()
             procedures[row['name']] = 'PROCEDURE'
         owners[owner] = {'family': family, 'names': seen, 'watched': {row['tableName'] for row in expected},
-                         'heads': spec['heads'], 'procedures': procedures}
+                         'heads': spec['heads'], 'native': spec.get('native',{}), 'procedures': procedures}
         families[family] = {'owner': owner, 'definitions': expected,
                             'manifestHash': hashlib.sha256(canonical(manifest).encode()).hexdigest()}
     return owners, families

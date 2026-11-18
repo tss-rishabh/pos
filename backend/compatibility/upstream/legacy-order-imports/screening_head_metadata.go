@@ -5,7 +5,9 @@ package poscheckout
 // substitutes for checking the current server's writer authority.
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"regexp"
@@ -88,6 +90,7 @@ func headCallerGrants(ctx context.Context, tx *sql.Tx) ([]string, error) {
 type headOwner struct {
 	names, watched map[string]bool
 	heads          map[string][]string
+	nativeRights   map[string][]string
 	procedures     map[string]string
 	publisher      bool
 }
@@ -107,10 +110,22 @@ const headTransactionInfo = "pos_rewrite_origin_transaction_metadata"
 var headWatched = []string{"orders", "users", "has_products", "order_coupon_log", "coupons", "spiderman_screening_orders"}
 var headBase = []string{"pos_rewrite_screening_origin_history_heads", "pos_rewrite_screening_origin_history_changes"}
 var headFamilyRights = map[string]map[string][]string{
-	"membership": {"pos_rewrite_membership_history_heads": {"SELECT", "INSERT", "UPDATE"}},
-	"coupon":     {"pos_rewrite_coupon_history_heads": {"SELECT", "INSERT", "UPDATE"}},
-	"counter":    {"pos_rewrite_screening_counter_heads": {"SELECT", "INSERT", "UPDATE"}, "pos_rewrite_screening_counters": {"SELECT", "UPDATE"}, "pos_rewrite_screening_contributions": {"SELECT", "INSERT", "UPDATE", "DELETE"}},
+	"membership":         {"pos_rewrite_membership_history_heads": {"SELECT", "INSERT", "UPDATE"}},
+	"membershipRevision": {},
+	"coupon":             {"pos_rewrite_coupon_history_heads": {"SELECT", "INSERT", "UPDATE"}},
+	"counter":            {"pos_rewrite_screening_counter_heads": {"SELECT", "INSERT", "UPDATE"}, "pos_rewrite_screening_counters": {"SELECT", "UPDATE"}, "pos_rewrite_screening_contributions": {"SELECT", "INSERT", "UPDATE", "DELETE"}},
 }
+var headRevisionRights = map[string][]string{"pos_rewrite_membership_versions": {"SELECT", "INSERT", "UPDATE"}}
+var headRevisionTables = []string{"user_eav", "pos_rewrite_membership_versions"}
+var headHashPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
+var headOwnerPattern = regexp.MustCompile(`^[A-Za-z0-9_.$-]{1,64}@[A-Za-z0-9_.:%-]{1,255}$`)
+
+func headNormalize(value string) string { return strings.Join(strings.Fields(value), " ") }
+func headStatementHash(value string) string {
+	digest := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(digest[:])
+}
+
 var headPublisherRights = map[string][]string{"pos_rewrite_screening_counter_heads": {"SELECT", "INSERT", "UPDATE"}, "pos_rewrite_screening_counters": {"SELECT", "INSERT", "UPDATE"}, "pos_rewrite_screening_contributions": {"SELECT", "INSERT", "DELETE"}}
 
 func headSet(values ...string) map[string]bool {
@@ -161,9 +176,78 @@ func headEmpty(ctx context.Context, tx *sql.Tx, q string) error {
 	}
 	return nil
 }
+
+// Every ordinary caller grant is inspected to EOF. These are application
+// rights, not the locked trigger owners' separate minimal rights below.
+func (a *headAudit) callerPrivileges(ctx context.Context, tx *sql.Tx) error {
+	grants, err := headCallerGrants(ctx, tx)
+	if err != nil {
+		return ErrReview
+	}
+	pattern := regexp.MustCompile(`^GRANT (.+) ON (.+) TO .+$`)
+	protected := headSet(headBase...)
+	for _, rights := range headFamilyRights {
+		for table := range rights {
+			protected[table] = true
+		}
+	}
+	allowed := headSet("USAGE", "SELECT", "SHOW VIEW", "SHOW_ROUTINE", "SHOW ROUTINE", "PROCESS", "EXECUTE", "INSERT", "UPDATE", "DELETE", "REFERENCES", "INDEX")
+	for _, grant := range grants {
+		match := pattern.FindStringSubmatch(grant)
+		if match == nil || strings.Contains(strings.ToUpper(grant), "WITH GRANT OPTION") {
+			return ErrReview
+		}
+		target := strings.ReplaceAll(match[2], "`", "")
+		for _, value := range strings.Split(match[1], ",") {
+			right := strings.ToUpper(strings.TrimSpace(value))
+			if !allowed[right] {
+				return ErrReview
+			}
+			if right == "EXECUTE" && target != "FUNCTION "+a.schema+"."+headInfo && target != "FUNCTION "+a.schema+"."+headTransactionInfo {
+				return ErrReview
+			}
+			if headHas([]string{"INSERT", "UPDATE", "DELETE", "INDEX"}, right) {
+				parts := strings.Split(target, ".")
+				if target == "*.*" || strings.HasSuffix(target, ".*") || protected[parts[len(parts)-1]] {
+					return ErrReview
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// Shared ordinary and screening callers use the same two fixed readonly
+// metadata functions. false preserves the caller's original real RR or RC
+// transaction; it never accepts a session isolation variable as a TX witness.
+func readNativeHeadMetadata(ctx context.Context, tx *sql.Tx, requireRC bool) (map[string]json.RawMessage, error) {
+	a, err := headPreludeMode(ctx, tx, requireRC)
+	if err != nil {
+		return nil, ErrReview
+	}
+	if a.checkRoutine(ctx, tx, headInfo, a.descriptor.MetadataHash) != nil {
+		return nil, ErrReview
+	}
+	var raw []byte
+	if tx.QueryRowContext(ctx, `SELECT /*+ MAX_EXECUTION_TIME(3000) */ CASE WHEN OCTET_LENGTH(pos_rewrite_origin_history_metadata())<=? THEN pos_rewrite_origin_history_metadata() ELSE NULL END`, a.descriptor.Limits.MetadataBytes).Scan(&raw) != nil || len(raw) == 0 || len(raw) > a.descriptor.Limits.MetadataBytes || !utf8.Valid(raw) {
+		return nil, ErrReview
+	}
+	if a.checkRoutine(ctx, tx, headInfo, a.descriptor.MetadataHash) != nil {
+		return nil, ErrReview
+	}
+	var sections map[string]json.RawMessage
+	if json.Unmarshal(raw, &sections) != nil || a.validate(ctx, tx, sections) != nil {
+		return nil, ErrReview
+	}
+	return sections, nil
+}
+
 func headPrelude(ctx context.Context, tx *sql.Tx) (*headAudit, error) {
+	return headPreludeMode(ctx, tx, true)
+}
+func headPreludeMode(ctx context.Context, tx *sql.Tx, requireRC bool) (*headAudit, error) {
 	a := &headAudit{admins: map[string]bool{}, owners: map[string]*headOwner{}, declared: headSet(append(headBase, headWatched...)...), familyOwners: map[string]string{}}
-	if json.Unmarshal([]byte(screeningHeadMetadataDefinitionJSON), &a.descriptor) != nil || !a.descriptor.Limits.valid() || !screeningCounterHash.MatchString(a.descriptor.MetadataHash) {
+	if json.Unmarshal([]byte(screeningHeadMetadataDefinitionJSON), &a.descriptor) != nil || !a.descriptor.Limits.valid() || !headHashPattern.MatchString(a.descriptor.MetadataHash) {
 		return nil, ErrReview
 	}
 	a.audit = os.Getenv("POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER")
@@ -177,24 +261,24 @@ func headPrelude(ctx context.Context, tx *sql.Tx) (*headAudit, error) {
 		return nil, ErrReview
 	}
 	for _, v := range admins {
-		if !counterOwnerPattern.MatchString(v) || a.admins[v] {
+		if !headOwnerPattern.MatchString(v) || a.admins[v] {
 			return nil, ErrReview
 		}
 		a.admins[v] = true
 	}
 	participants := headSet()
 	for _, v := range []string{a.audit, a.origin} {
-		if !counterOwnerPattern.MatchString(v) || participants[v] || a.admins[v] {
+		if !headOwnerPattern.MatchString(v) || participants[v] || a.admins[v] {
 			return nil, ErrReview
 		}
 		participants[v] = true
 	}
-	for family, env := range map[string]string{"membership": "POS_MEMBERSHIP_HISTORY_TRIGGER_DEFINER", "coupon": "POS_COUPON_HISTORY_DEFINER", "counter": "POS_SCREENING_COUNTER_TRIGGER_DEFINER", "publisher": "POS_SCREENING_COUNTER_PUBLISHER_GRANTEE"} {
+	for family, env := range map[string]string{"membership": "POS_MEMBERSHIP_HISTORY_TRIGGER_DEFINER", "membershipRevision": "POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER", "coupon": "POS_COUPON_HISTORY_DEFINER", "counter": "POS_SCREENING_COUNTER_TRIGGER_DEFINER", "publisher": "POS_SCREENING_COUNTER_PUBLISHER_GRANTEE"} {
 		v := os.Getenv(env)
 		if v == "" {
 			continue
 		}
-		if !counterOwnerPattern.MatchString(v) || participants[v] || a.admins[v] {
+		if !headOwnerPattern.MatchString(v) || participants[v] || a.admins[v] {
 			return nil, ErrReview
 		}
 		participants[v] = true
@@ -204,14 +288,18 @@ func headPrelude(ctx context.Context, tx *sql.Tx) (*headAudit, error) {
 				a.declared[t] = true
 			}
 		}
+		if family == "membershipRevision" {
+			for _, table := range headRevisionTables {
+				a.declared[table] = true
+			}
+		}
 	}
 	var roles, mandatory, performance string
 	var proxy sql.NullString
-	if tx.QueryRowContext(ctx, `SELECT DATABASE(),CURRENT_USER(),CURRENT_ROLE(),@@SESSION.proxy_user,@@GLOBAL.mandatory_roles,CAST(@@GLOBAL.performance_schema AS CHAR)`).Scan(&a.schema, &a.current, &roles, &proxy, &mandatory, &performance) != nil || !regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`).MatchString(a.schema) || !counterOwnerPattern.MatchString(a.current) || roles != "NONE" || proxy.Valid || (mandatory != "" && mandatory != "NONE") || performance != "1" || participants[a.current] || a.admins[a.current] {
+	if tx.QueryRowContext(ctx, `SELECT DATABASE(),CURRENT_USER(),CURRENT_ROLE(),@@SESSION.proxy_user,@@GLOBAL.mandatory_roles,CAST(@@GLOBAL.performance_schema AS CHAR)`).Scan(&a.schema, &a.current, &roles, &proxy, &mandatory, &performance) != nil || !regexp.MustCompile(`^[A-Za-z0-9_]{1,64}$`).MatchString(a.schema) || !headOwnerPattern.MatchString(a.current) || roles != "NONE" || proxy.Valid || (mandatory != "" && mandatory != "NONE") || performance != "1" || participants[a.current] || a.admins[a.current] {
 		return nil, ErrReview
 	}
-	d, err := counterDefinition()
-	if err != nil || counterRuntimePrivileges(ctx, tx, d, a.familyOwners["counter"]) != nil {
+	if a.callerPrivileges(ctx, tx) != nil {
 		return nil, ErrReview
 	}
 	names := []string{}
@@ -232,13 +320,13 @@ func headPrelude(ctx context.Context, tx *sql.Tx) (*headAudit, error) {
 	if a.platform && headEmpty(ctx, tx, "SELECT 1 FROM `sys`.`sys_config` WHERE FALSE") != nil {
 		return nil, ErrReview
 	}
-	if a.transactionReader(ctx, tx) != nil {
+	if a.transactionReader(ctx, tx, requireRC) != nil {
 		return nil, ErrReview
 	}
 	return a, nil
 }
 func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[string]json.RawMessage) error {
-	names := []string{"triggers", "accounts", "roles", "proxies", "privileges", "routineGrants", "objects", "aliases", "tables", "foreignKeys", "replicationChannels", "membershipTriggers", "couponTriggers", "counterTriggers", "counterProcedures", "platformTriggers"}
+	names := []string{"triggers", "accounts", "roles", "proxies", "privileges", "routineGrants", "objects", "aliases", "tables", "foreignKeys", "replicationChannels", "membershipTriggers", "membershipRevisionTriggers", "couponTriggers", "counterTriggers", "counterProcedures", "platformTriggers"}
 	if len(sections) != len(names) {
 		return ErrReview
 	}
@@ -261,7 +349,7 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 	if len(data["aliases"]) != 0 || len(data["replicationChannels"]) != 0 {
 		return ErrReview
 	}
-	for _, family := range []string{"membership", "coupon", "counter"} {
+	for _, family := range []string{"membership", "membershipRevision", "coupon", "counter"} {
 		actual := data[family+"Triggers"]
 		owner := a.familyOwners[family]
 		expected, ok := a.descriptor.Families[family]
@@ -278,6 +366,9 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 			return ErrReview
 		}
 		spec := &headOwner{names: map[string]bool{}, watched: map[string]bool{}, heads: headFamilyRights[family], procedures: map[string]string{}}
+		if family == "membershipRevision" {
+			spec.nativeRights = headRevisionRights
+		}
 		for _, r := range actual {
 			if !headFields(r, "name tableName event timing hash definer sqlMode") || headText(r, "definer") != owner || !headMode(headText(r, "sqlMode")) || spec.names[headText(r, "name")] {
 				return ErrReview
@@ -331,7 +422,7 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 		}
 		matched := false
 		for _, w := range a.descriptor.OriginTriggers {
-			if headText(w, "name") == headText(r, "name") && headText(w, "action") == headText(r, "action") && headText(w, "table") == headText(r, "sourceTable") && headText(w, "hash") == counterStatementHash(strings.TrimRight(counterNormalize(headText(r, "body")), ";")) {
+			if headText(w, "name") == headText(r, "name") && headText(w, "action") == headText(r, "action") && headText(w, "table") == headText(r, "sourceTable") && headText(w, "hash") == headStatementHash(strings.TrimRight(headNormalize(headText(r, "body")), ";")) {
 				matched = true
 			}
 		}
@@ -344,7 +435,7 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 	for _, r := range data["accounts"] {
 		name := headText(r, "name")
 		locked := headText(r, "locked")
-		if !headFields(r, "name locked") || !counterOwnerPattern.MatchString(name) || accounts[name] != "" || (locked != "Y" && locked != "N") {
+		if !headFields(r, "name locked") || !headOwnerPattern.MatchString(name) || accounts[name] != "" || (locked != "Y" && locked != "N") {
 			return ErrReview
 		}
 		accounts[name] = locked
@@ -379,7 +470,7 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 	for _, r := range data["proxies"] {
 		n, target := headText(r, "name"), headText(r, "target")
 		g, ok := r["grantable"].(float64)
-		if !headFields(r, "name target grantable") || !ok || (g != 0 && g != 1) || accounts[n] == "" || (target != "@" && !counterOwnerPattern.MatchString(target)) || isolated[n] || isolated[target] || (!a.admins[n] && (a.admins[target] || target == "@" || g == 1)) {
+		if !headFields(r, "name target grantable") || !ok || (g != 0 && g != 1) || accounts[n] == "" || (target != "@" && !headOwnerPattern.MatchString(target)) || isolated[n] || isolated[target] || (!a.admins[n] && (a.admins[target] || target == "@" || g == 1)) {
 			return ErrReview
 		}
 	}
@@ -411,9 +502,10 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 		platformIDs[id] = true
 	}
 	auditGlobal := map[string]bool{}
+	revisionPrivileges := map[string]bool{}
 	grantee := regexp.MustCompile(`^'([A-Za-z0-9_.$-]{1,64})'@'([A-Za-z0-9_.:%-]{1,255})'$`)
 	for _, r := range data["privileges"] {
-		if !headFields(r, "grantee scope schema table privilege grantable target") {
+		if !headFields(r, "grantee scope schema table column privilege grantable target") {
 			return ErrReview
 		}
 		m := grantee.FindStringSubmatch(headText(r, "grantee"))
@@ -423,6 +515,10 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 		owner := m[1] + "@" + m[2]
 		scope, schema, table, right, target := headText(r, "scope"), headText(r, "schema"), headText(r, "table"), headText(r, "privilege"), headText(r, "target")
 		grant := headText(r, "grantable")
+		column := headText(r, "column")
+		if len([]rune(column)) > 64 || scope == "column" && column == "" || scope != "column" && column != "" {
+			return ErrReview
+		}
 		if accounts[owner] == "" || !headHas([]string{"global", "schema", "table", "column"}, scope) || !headHas([]string{"global", "protected-schema", "grants", "control", "watched", "other"}, target) || !headHas([]string{"YES", "NO"}, grant) {
 			return ErrReview
 		}
@@ -433,6 +529,8 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 				if spec.publisher {
 					allowed = append(allowed, "SHOW_ROUTINE", "SHOW ROUTINE")
 				}
+			} else if owner == a.familyOwners["membershipRevision"] && scope == "column" && schema == a.schema && table == "users" && column == "id" {
+				allowed = []string{"UPDATE"}
 			} else if spec.publisher && scope == "schema" && schema == a.schema {
 				allowed = []string{"SELECT", "SHOW VIEW", "REFERENCES"}
 			} else if spec.publisher && a.platform && scope == "table" && schema == "sys" && table == "sys_config" {
@@ -444,10 +542,19 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 					allowed = []string{"SELECT"}
 				} else {
 					allowed = spec.heads[table]
+					if allowed == nil {
+						allowed = spec.nativeRights[table]
+					}
 				}
 			}
 			if grant != "NO" || !headHas(allowed, right) {
 				return ErrReview
+			}
+			if owner == a.familyOwners["membershipRevision"] && scope == "table" && schema == a.schema {
+				revisionPrivileges[table+":"+right] = true
+			}
+			if owner == a.familyOwners["membershipRevision"] && scope == "column" && schema == a.schema {
+				revisionPrivileges[table+"."+column+":"+right] = true
 			}
 		} else if owner == a.audit {
 			if scope != "global" || grant != "NO" || !headHas([]string{"SELECT", "SHOW VIEW", "SHOW_ROUTINE", "TRIGGER", "EVENT", "USAGE"}, right) {
@@ -471,6 +578,18 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 	for _, right := range []string{"SELECT", "SHOW VIEW", "SHOW_ROUTINE", "TRIGGER", "EVENT"} {
 		if !auditGlobal[right] {
 			return ErrReview
+		}
+	}
+	if a.familyOwners["membershipRevision"] != "" {
+		if !revisionPrivileges["users.id:UPDATE"] {
+			return ErrReview
+		}
+		for table, rights := range map[string][]string{"users": {"SELECT", "TRIGGER"}, "user_eav": {"SELECT", "TRIGGER"}, "pos_rewrite_membership_versions": {"SELECT", "INSERT", "UPDATE"}} {
+			for _, right := range rights {
+				if !revisionPrivileges[table+":"+right] {
+					return ErrReview
+				}
+			}
 		}
 	}
 	for _, r := range data["routineGrants"] {
@@ -556,7 +675,7 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 	}
 	for _, r := range data["foreignKeys"] {
 		table := headText(r, "table")
-		if !headFields(r, "table column update delete") || !a.declared[table] || !headHas(headWatched, table) || !headHas([]string{"RESTRICT", "NO ACTION"}, headText(r, "update")) || !headHas([]string{"RESTRICT", "NO ACTION"}, headText(r, "delete")) {
+		if !headFields(r, "table column update delete") || !a.declared[table] || !(headHas(headWatched, table) || a.familyOwners["membershipRevision"] != "" && headHas(headRevisionTables, table)) || !headHas([]string{"RESTRICT", "NO ACTION"}, headText(r, "update")) || !headHas([]string{"RESTRICT", "NO ACTION"}, headText(r, "delete")) {
 			return ErrReview
 		}
 	}
@@ -576,8 +695,8 @@ func headPhysical(ctx context.Context, tx *sql.Tx, schema, table string) error {
 
 // Both readers are closed, hash-pinned functions owned by the same locked audit
 // principal. Checking routine metadata also holds its native metadata lock.
-func (a *headAudit) transactionReader(ctx context.Context, tx *sql.Tx) error {
-	if !screeningCounterHash.MatchString(a.descriptor.TransactionMetadataHash) {
+func (a *headAudit) transactionReader(ctx context.Context, tx *sql.Tx, requireRC bool) error {
+	if !headHashPattern.MatchString(a.descriptor.TransactionMetadataHash) {
 		return ErrReview
 	}
 	if a.checkRoutine(ctx, tx, headTransactionInfo, a.descriptor.TransactionMetadataHash) != nil {
@@ -591,18 +710,22 @@ func (a *headAudit) transactionReader(ctx context.Context, tx *sql.Tx) error {
 		return ErrReview
 	}
 	var rows []headRow
-	if json.Unmarshal(raw, &rows) != nil || len(rows) != 1 || !headFields(rows[0], "state isolation") || headText(rows[0], "state") != "ACTIVE" || headText(rows[0], "isolation") != "READ COMMITTED" {
+	if json.Unmarshal(raw, &rows) != nil || len(rows) != 1 || !headFields(rows[0], "state isolation") || headText(rows[0], "state") != "ACTIVE" {
+		return ErrReview
+	}
+	isolation := headText(rows[0], "isolation")
+	if isolation != "READ COMMITTED" && (requireRC || isolation != "REPEATABLE READ") {
 		return ErrReview
 	}
 	return nil
 }
 
 func (a *headAudit) checkRoutine(ctx context.Context, tx *sql.Tx, name, hash string) error {
-	if !screeningCounterHash.MatchString(hash) {
+	if !headHashPattern.MatchString(hash) {
 		return ErrReview
 	}
 	var owner, security, access, body string
-	if tx.QueryRowContext(ctx, `SELECT DEFINER,SECURITY_TYPE,SQL_DATA_ACCESS,CASE WHEN OCTET_LENGTH(ROUTINE_DEFINITION)<=60000 THEN ROUTINE_DEFINITION ELSE NULL END FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME=? AND ROUTINE_TYPE='FUNCTION'`, name).Scan(&owner, &security, &access, &body) != nil || owner != a.audit || security != "DEFINER" || access != "READS SQL DATA" || counterStatementHash(strings.TrimRight(counterNormalize(body), ";")) != hash {
+	if tx.QueryRowContext(ctx, `SELECT DEFINER,SECURITY_TYPE,SQL_DATA_ACCESS,CASE WHEN OCTET_LENGTH(ROUTINE_DEFINITION)<=60000 THEN ROUTINE_DEFINITION ELSE NULL END FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME=? AND ROUTINE_TYPE='FUNCTION'`, name).Scan(&owner, &security, &access, &body) != nil || owner != a.audit || security != "DEFINER" || access != "READS SQL DATA" || headStatementHash(strings.TrimRight(headNormalize(body), ";")) != hash {
 		return ErrReview
 	}
 	return nil

@@ -43,7 +43,7 @@ export function nativeHeadReviewStatements(input: string) {
 export async function installNativeHeadFixture(
   admin: mysql.Connection,
   template: string,
-  options: { families: readonly ('counter' | 'membership' | 'coupon')[] },
+  options: { families: readonly ('counter' | 'membership' | 'membershipRevision' | 'coupon')[] },
 ) {
   const url = new URL(template);
   if (
@@ -83,6 +83,7 @@ export async function installNativeHeadFixture(
     audit: 'nh_audit_' + suffix,
     origin: 'nh_origin_' + suffix,
     membership: 'nh_member_' + suffix,
+    membershipRevision: 'nh_revision_' + suffix,
     coupon: 'nh_coupon_' + suffix,
     counter: 'nh_counter_' + suffix,
     source: 'nh_source_' + suffix,
@@ -98,6 +99,7 @@ export async function installNativeHeadFixture(
     names.app,
     ...(families.has('counter') ? [names.counter, names.publisher] : []),
     ...(families.has('membership') ? [names.membership] : []),
+    ...(families.has('membershipRevision') ? [names.membershipRevision] : []),
     ...(families.has('coupon') ? [names.coupon] : []),
   ];
   const ownedTriggers: string[] = [],
@@ -110,6 +112,9 @@ export async function installNativeHeadFixture(
     originDefiner: names.origin + '@%',
     administrators: DBA,
     ...(families.has('membership') ? { membershipDefiner: names.membership + '@%' } : {}),
+    ...(families.has('membershipRevision')
+      ? { membershipRevisionDefiner: names.membershipRevision + '@%' }
+      : {}),
     ...(families.has('coupon') ? { couponDefiner: names.coupon + '@%' } : {}),
     ...(families.has('counter')
       ? { counterDefiner: names.counter + '@%', publisherGrantee: names.publisher + '@%' }
@@ -162,6 +167,7 @@ export async function installNativeHeadFixture(
       'order_coupon_log',
       'coupons',
       'spiderman_screening_orders',
+      ...(families.has('membershipRevision') ? ['user_eav'] : []),
     ].filter((name) => !existing.has(name));
     if (missing.length) await fixture.create(missing);
     await admin.query("SET SESSION sql_mode='STRICT_TRANS_TABLES'");
@@ -208,6 +214,16 @@ export async function installNativeHeadFixture(
       await admin.query(
         'CREATE TABLE IF NOT EXISTS pos_rewrite_membership_history_heads(customer_id BIGINT NOT NULL PRIMARY KEY,revision BIGINT UNSIGNED NOT NULL) ENGINE=InnoDB',
       );
+    if (families.has('membershipRevision')) {
+      const version = nativeHeadReviewStatements(
+        readFileSync('src/modules/checkout/cancellations/benefit-migration.sql', 'utf8'),
+      ).find((statement) => /^CREATE TABLE pos_rewrite_membership_versions\s*\(/.test(statement));
+      if (!version) throw new Error('Canonical membership versions schema required');
+      if (!existing.has('pos_rewrite_membership_versions')) {
+        await admin.query(version);
+        existing.add('pos_rewrite_membership_versions');
+      }
+    }
     if (families.has('coupon'))
       await admin.query(
         'CREATE TABLE IF NOT EXISTS pos_rewrite_coupon_history_heads(kind VARCHAR(16) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,scope_id VARCHAR(20) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,revision BIGINT UNSIGNED NOT NULL,last_owner_nonce VARCHAR(36) CHARACTER SET ascii COLLATE ascii_bin NULL,owner_start_revision BIGINT UNSIGNED NULL,PRIMARY KEY(kind,scope_id)) ENGINE=InnoDB',
@@ -237,6 +253,22 @@ export async function installNativeHeadFixture(
         'SELECT, INSERT, UPDATE',
         scope + '.pos_rewrite_membership_history_heads',
         names.membership,
+      );
+    }
+    if (families.has('membershipRevision')) {
+      for (const table of ['users', 'user_eav'])
+        await grant(
+          'SELECT, TRIGGER',
+          scope + '.' + mysql.escapeId(table),
+          names.membershipRevision,
+        );
+      // Pinned MySQL8.0.39 requires an UPDATE privilege for this exact
+      // definer SELECT...FOR UPDATE. Only id is granted, never table UPDATE.
+      await grant('UPDATE(id)', scope + '.users', names.membershipRevision);
+      await grant(
+        'SELECT, INSERT, UPDATE',
+        scope + '.pos_rewrite_membership_versions',
+        names.membershipRevision,
       );
     }
     if (families.has('coupon')) {
@@ -273,6 +305,13 @@ export async function installNativeHeadFixture(
           ),
         ),
         names.membership,
+      );
+    if (families.has('membershipRevision'))
+      await install(
+        nativeHeadReviewStatements(
+          readFileSync('compatibility/upstream/pending-cancellation/membership-fence.sql', 'utf8'),
+        ),
+        names.membershipRevision,
       );
     if (families.has('coupon'))
       await install(nativeHeadReviewStatements(couponHistoryWritersReviewSql()), names.coupon);
@@ -364,6 +403,10 @@ export async function installNativeHeadFixture(
       'spiderman_screening_orders',
     ])
       await grant('INSERT, UPDATE, DELETE', scope + '.' + mysql.escapeId(table), names.app);
+    if (families.has('membershipRevision')) {
+      await grant('INSERT, UPDATE, DELETE', scope + '.user_eav', names.app);
+      await grant('INSERT, UPDATE', scope + '.pos_rewrite_membership_versions', names.app);
+    }
     if (families.has('counter')) {
       for (const table of ['pos_rewrite_screening_counter_heads', 'pos_rewrite_screening_counters'])
         await grant('INSERT, UPDATE', scope + '.' + table, names.publisher);
@@ -403,6 +446,7 @@ export async function installNativeHeadFixture(
       POS_SCREENING_ORIGIN_HISTORY_DEFINER: headMetadata.originDefiner,
       POS_SCREENING_ORIGIN_HISTORY_ADMIN_GRANTEES: JSON.stringify(DBA),
       POS_MEMBERSHIP_HISTORY_TRIGGER_DEFINER: headMetadata.membershipDefiner ?? '',
+      POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER: headMetadata.membershipRevisionDefiner ?? '',
       POS_COUPON_HISTORY_DEFINER: headMetadata.couponDefiner ?? '',
       POS_SCREENING_COUNTER_TRIGGER_DEFINER: headMetadata.counterDefiner ?? '',
       POS_SCREENING_COUNTER_PUBLISHER_GRANTEE: headMetadata.publisherGrantee ?? '',

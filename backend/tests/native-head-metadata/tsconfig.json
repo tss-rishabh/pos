@@ -1,0 +1,10 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "rootDir": "../..", "noEmit": true },
+  "include": [
+    "revision.mysql.test.ts",
+    "../../src/modules/screening-origins/native-head-metadata.ts",
+    "../../src/modules/screening-origins/history-generation-source.ts",
+    "../../src/modules/screening-origins/history-generation-worker-main.ts"
+  ]
+}

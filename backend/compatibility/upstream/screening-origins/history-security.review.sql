@@ -24,6 +24,12 @@ RETURN /* native-head-capacity:a32ccc71a7b9a3893331c03342e090f1830ea830cbcf32919
   FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME LIKE 'pos_rewrite_member_history_%'
   ORDER BY TRIGGER_NAME LIMIT 1001
  ) membership_trigger_rows),JSON_ARRAY()),
+ 'membershipRevisionTriggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',name,'tableName',tableName,'event',eventName,'timing',timing,'hash',bodyHash,'definer',owner,'sqlMode',sqlMode)) FROM (
+  SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,EVENT_MANIPULATION AS eventName,ACTION_TIMING AS timing,
+   LOWER(SHA2(ACTION_STATEMENT,256)) AS bodyHash,DEFINER AS owner,SQL_MODE AS sqlMode
+  FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_mem_eav_insert','pos_rewrite_mem_eav_update','pos_rewrite_mem_eav_delete','pos_rewrite_mem_user_email')
+  ORDER BY TRIGGER_NAME LIMIT 1001
+ ) membership_revision_trigger_rows),JSON_ARRAY()),
  'couponTriggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',name,'tableName',tableName,'event',eventName,'timing',timing,'hash',bodyHash,'definer',owner,'sqlMode',sqlMode)) FROM (
   SELECT TRIGGER_NAME AS name,EVENT_OBJECT_TABLE AS tableName,EVENT_MANIPULATION AS eventName,ACTION_TIMING AS timing,
    LOWER(SHA2(TRIM(REGEXP_REPLACE(ACTION_STATEMENT,'[[:space:]]+',' ')),256)) AS bodyHash,DEFINER AS owner,SQL_MODE AS sqlMode
@@ -58,17 +64,17 @@ RETURN /* native-head-capacity:a32ccc71a7b9a3893331c03342e090f1830ea830cbcf32919
  'proxies',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'target',CONCAT(Proxied_user,'@',Proxied_host),'grantable',With_grant)) FROM (
   SELECT User,Host,Proxied_user,Proxied_host,With_grant FROM mysql.proxies_priv ORDER BY User,Host,Proxied_user,Proxied_host LIMIT 1001
  ) proxy_rows),JSON_ARRAY()),
- 'privileges',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('grantee',grantee,'scope',scope,'schema',schemaName,'table',tableName,'privilege',privilegeName,'grantable',grantable,
+ 'privileges',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('grantee',grantee,'scope',scope,'schema',schemaName,'table',tableName,'column',columnName,'privilege',privilegeName,'grantable',grantable,
  'target',CASE WHEN scope='global' THEN 'global'
   WHEN scope='schema' AND (schemaName=DATABASE() OR schemaName='mysql' OR DATABASE() LIKE schemaName ESCAPE X'5C' OR 'mysql' LIKE schemaName ESCAPE X'5C') THEN 'protected-schema'
   WHEN scope IN ('table','column') AND schemaName='mysql' THEN 'grants'
   WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions') THEN 'control'
-  WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders') THEN 'watched'
+  WHEN scope IN ('table','column') AND schemaName=DATABASE() AND tableName IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders','user_eav','pos_rewrite_membership_versions') THEN 'watched'
   ELSE 'other' END)) FROM (
-  SELECT GRANTEE AS grantee,'global' AS scope,'' AS schemaName,'' AS tableName,PRIVILEGE_TYPE AS privilegeName,IS_GRANTABLE AS grantable FROM INFORMATION_SCHEMA.USER_PRIVILEGES
-  UNION ALL SELECT GRANTEE,'schema',TABLE_SCHEMA,'',PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.SCHEMA_PRIVILEGES
-  UNION ALL SELECT GRANTEE,'table',TABLE_SCHEMA,TABLE_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.TABLE_PRIVILEGES
-  UNION ALL SELECT GRANTEE,'column',TABLE_SCHEMA,TABLE_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.COLUMN_PRIVILEGES
+  SELECT GRANTEE AS grantee,'global' AS scope,'' AS schemaName,'' AS tableName,'' AS columnName,PRIVILEGE_TYPE AS privilegeName,IS_GRANTABLE AS grantable FROM INFORMATION_SCHEMA.USER_PRIVILEGES
+  UNION ALL SELECT GRANTEE,'schema',TABLE_SCHEMA,'','',PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.SCHEMA_PRIVILEGES
+  UNION ALL SELECT GRANTEE,'table',TABLE_SCHEMA,TABLE_NAME,'',PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.TABLE_PRIVILEGES
+  UNION ALL SELECT GRANTEE,'column',TABLE_SCHEMA,TABLE_NAME,COLUMN_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.COLUMN_PRIVILEGES
   LIMIT 4097
  ) privilege_rows),JSON_ARRAY()),
  'routineGrants',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'schema',Db,'routine',Routine_name,'kind',Routine_type,'privileges',CAST(Proc_priv AS CHAR))) FROM (
@@ -88,13 +94,13 @@ RETURN /* native-head-capacity:a32ccc71a7b9a3893331c03342e090f1830ea830cbcf32919
   ORDER BY VIEW_SCHEMA,VIEW_NAME,TABLE_SCHEMA,TABLE_NAME LIMIT 1001
  ) alias_rows),JSON_ARRAY()),
  'tables',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',TABLE_NAME,'kind',TABLE_TYPE,'engine',ENGINE)) FROM (
-  SELECT TABLE_NAME,TABLE_TYPE,ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions')
+  SELECT TABLE_NAME,TABLE_TYPE,ENGINE FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=DATABASE() AND (TABLE_NAME IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions') OR (TABLE_NAME IN ('user_eav','pos_rewrite_membership_versions') AND EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_mem_eav_insert','pos_rewrite_mem_eav_update','pos_rewrite_mem_eav_delete','pos_rewrite_mem_user_email'))))
   ORDER BY TABLE_NAME LIMIT 1001
  ) table_rows),JSON_ARRAY()),
  'foreignKeys',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('table',TABLE_NAME,'column',COLUMN_NAME,'update',UPDATE_RULE,'delete',DELETE_RULE)) FROM (
   SELECT k.TABLE_NAME,k.COLUMN_NAME,r.UPDATE_RULE,r.DELETE_RULE FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE k
   JOIN INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS r ON r.CONSTRAINT_SCHEMA=k.CONSTRAINT_SCHEMA AND r.CONSTRAINT_NAME=k.CONSTRAINT_NAME AND r.TABLE_NAME=k.TABLE_NAME
-  WHERE k.TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IS NOT NULL AND k.TABLE_NAME IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions')
+  WHERE k.TABLE_SCHEMA=DATABASE() AND k.REFERENCED_TABLE_NAME IS NOT NULL AND (k.TABLE_NAME IN ('orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders','pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes','pos_rewrite_membership_history_heads','pos_rewrite_coupon_history_heads','pos_rewrite_screening_counter_heads','pos_rewrite_screening_counters','pos_rewrite_screening_contributions') OR (k.TABLE_NAME IN ('user_eav','pos_rewrite_membership_versions') AND EXISTS(SELECT 1 FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_mem_eav_insert','pos_rewrite_mem_eav_update','pos_rewrite_mem_eav_delete','pos_rewrite_mem_user_email'))))
   ORDER BY k.TABLE_NAME,k.CONSTRAINT_NAME,k.ORDINAL_POSITION LIMIT 1001
  ) foreign_key_rows),JSON_ARRAY()),
  'replicationChannels',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CHANNEL_NAME,'state',SERVICE_STATE)) FROM (

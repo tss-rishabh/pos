@@ -15,6 +15,7 @@ export interface NativeHeadMetadataOptions {
   originDefiner: string;
   administrators: readonly string[];
   membershipDefiner?: string;
+  membershipRevisionDefiner?: string;
   couponDefiner?: string;
   counterDefiner?: string;
   publisherGrantee?: string;
@@ -41,6 +42,7 @@ export const nativeHeadMetadataOptionsSchema = z
     originDefiner: account,
     administrators: z.array(account).max(32),
     membershipDefiner: account.optional(),
+    membershipRevisionDefiner: account.optional(),
     couponDefiner: account.optional(),
     counterDefiner: account.optional(),
     publisherGrantee: account.optional(),
@@ -52,6 +54,7 @@ export const nativeHeadMetadataOptionsSchema = z
       options.auditDefiner,
       options.originDefiner,
       options.membershipDefiner,
+      options.membershipRevisionDefiner,
       options.couponDefiner,
       options.counterDefiner,
       options.publisherGrantee,
@@ -100,6 +103,9 @@ export function readNativeHeadMetadataOptions(
     administrators: administrators as string[],
     ...(env.POS_MEMBERSHIP_HISTORY_TRIGGER_DEFINER
       ? { membershipDefiner: env.POS_MEMBERSHIP_HISTORY_TRIGGER_DEFINER }
+      : {}),
+    ...(env.POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER
+      ? { membershipRevisionDefiner: env.POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER }
       : {}),
     ...(env.POS_COUPON_HISTORY_DEFINER ? { couponDefiner: env.POS_COUPON_HISTORY_DEFINER } : {}),
     ...(env.POS_SCREENING_COUNTER_TRIGGER_DEFINER
@@ -167,6 +173,7 @@ const documentSchema = z
       )
       .max(nativeHeadLimits.sectionRows),
     membershipTriggers: z.array(trigger).max(nativeHeadLimits.sectionRows),
+    membershipRevisionTriggers: z.array(trigger).max(nativeHeadLimits.sectionRows),
     couponTriggers: z.array(trigger).max(nativeHeadLimits.sectionRows),
     counterTriggers: z.array(trigger).max(nativeHeadLimits.sectionRows),
     counterProcedures: z.array(procedure).max(nativeHeadLimits.sectionRows),
@@ -195,6 +202,7 @@ const documentSchema = z
             scope: z.enum(['global', 'schema', 'table', 'column']),
             schema: z.string(),
             table: z.string(),
+            column: z.string().max(64),
             privilege: z.string(),
             grantable: z.enum(['YES', 'NO']),
             target: z.enum(['global', 'protected-schema', 'grants', 'control', 'watched', 'other']),
@@ -252,6 +260,7 @@ export type NativeHeadTrigger = z.infer<typeof trigger>;
 export type NativeHeadProcedure = z.infer<typeof procedure>;
 export interface NativeHeadMetadata {
   membershipTriggers: NativeHeadTrigger[];
+  membershipRevisionTriggers: NativeHeadTrigger[];
   couponTriggers: NativeHeadTrigger[];
   counterTriggers: NativeHeadTrigger[];
   counterProcedures: NativeHeadProcedure[];
@@ -273,6 +282,7 @@ const WATCHED = [
 ];
 const familyHeads = {
   membership: { pos_rewrite_membership_history_heads: ['SELECT', 'INSERT', 'UPDATE'] },
+  membershipRevision: {},
   coupon: { pos_rewrite_coupon_history_heads: ['SELECT', 'INSERT', 'UPDATE'] },
   counter: {
     pos_rewrite_screening_counter_heads: ['SELECT', 'INSERT', 'UPDATE'],
@@ -280,6 +290,12 @@ const familyHeads = {
     pos_rewrite_screening_contributions: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'],
   },
 };
+// This is native optimistic concurrency state, not a protected history head.
+// Original activation/restoration writers deliberately retain version S/I/U.
+const revisionNativeRights: Record<string, string[]> = {
+  pos_rewrite_membership_versions: ['SELECT', 'INSERT', 'UPDATE'],
+};
+const revisionNativeTables = ['user_eav', ...Object.keys(revisionNativeRights)];
 const publisherRights: Record<string, string[]> = {
   pos_rewrite_screening_counter_heads: ['SELECT', 'INSERT', 'UPDATE'],
   pos_rewrite_screening_counters: ['SELECT', 'INSERT', 'UPDATE'],
@@ -308,6 +324,7 @@ interface OwnerSpec {
   names: Set<string>;
   watched: Set<string>;
   heads: Record<string, string[]>;
+  nativeRights?: Record<string, string[]>;
   procedures: Record<string, string>;
   publisher?: boolean;
 }
@@ -429,10 +446,12 @@ export async function readNativeHeadMetadata(
       return refuse();
   }
   const declared = new Set([...HEADS, ...WATCHED]);
-  for (const family of ['membership', 'coupon', 'counter'] as const) {
+  for (const family of ['membership', 'membershipRevision', 'coupon', 'counter'] as const) {
     if (options[`${family}Definer`])
       for (const name of Object.keys(familyHeads[family])) declared.add(name);
   }
+  if (options.membershipRevisionDefiner)
+    for (const name of revisionNativeTables) declared.add(name);
   for (const table of [...declared].sort())
     await tx.execute(sql.raw('SELECT 1 FROM `' + table + '` WHERE FALSE'));
   const platformRows = await query(
@@ -474,7 +493,21 @@ export async function readNativeHeadMetadata(
   }
   await checkMetadataRoutines();
   // Execute the fixed function to retain its native routine MDL for this transaction.
-  await one(tx, 'SELECT pos_rewrite_origin_transaction_metadata() AS document');
+  const transaction = await one(tx, 'SELECT pos_rewrite_origin_transaction_metadata() AS document');
+  if (
+    !z
+      .array(
+        z
+          .object({
+            state: z.literal('ACTIVE'),
+            isolation: z.enum(['READ COMMITTED', 'REPEATABLE READ']),
+          })
+          .strict(),
+      )
+      .length(1)
+      .safeParse(nativeHeadMetadataDocument(transaction.document)).success
+  )
+    return refuse();
   const result = await one(
     tx,
     'SELECT /*+ MAX_EXECUTION_TIME(3000) */ pos_rewrite_origin_history_metadata() AS document',
@@ -487,7 +520,7 @@ export async function readNativeHeadMetadata(
   const data = parsed.data;
   const owners = new Map<string, OwnerSpec>();
   const families: Record<string, unknown> = {};
-  for (const family of ['membership', 'coupon', 'counter'] as const) {
+  for (const family of ['membership', 'membershipRevision', 'coupon', 'counter'] as const) {
     const actual = data[`${family}Triggers`];
     const owner = options[`${family}Definer`];
     if (!actual.length) {
@@ -537,6 +570,7 @@ export async function readNativeHeadMetadata(
       names: seen,
       watched: new Set(expected.definitions.map((item) => item.tableName)),
       heads: familyHeads[family],
+      ...(family === 'membershipRevision' ? { nativeRights: revisionNativeRights } : {}),
       procedures,
     });
     families[family] = {
@@ -659,12 +693,14 @@ export async function readNativeHeadMetadata(
     originNames.add(item.name);
   }
   const auditGlobal = new Set<string>();
+  const revisionPrivileges = new Set<string>();
   for (const item of data.privileges) {
     const match = /^'([A-Za-z0-9_.$-]{1,64})'@'([A-Za-z0-9_.:%-]{1,255})'(?![\s\S])/.exec(
       item.grantee,
     );
     if (!match) return refuse();
     const owner = match[1] + '@' + match[2];
+    if (item.scope === 'column' ? item.column.length === 0 : item.column !== '') return refuse();
     if (!accounts.has(owner)) return refuse();
     const spec = owners.get(owner);
     if (spec) {
@@ -673,24 +709,42 @@ export async function readNativeHeadMetadata(
           ? spec.publisher
             ? ['USAGE', 'SHOW_ROUTINE', 'SHOW ROUTINE']
             : ['USAGE']
-          : spec.publisher && item.scope === 'schema' && item.schema === schema
-            ? sourceRead
-            : spec.publisher &&
-                item.scope === 'table' &&
-                item.schema === 'sys' &&
-                item.table === 'sys_config'
-              ? ['SELECT']
+          : owner === options.membershipRevisionDefiner &&
+              item.scope === 'column' &&
+              item.schema === schema &&
+              item.table === 'users' &&
+              item.column === 'id'
+            ? ['UPDATE']
+            : spec.publisher && item.scope === 'schema' && item.schema === schema
+              ? sourceRead
               : spec.publisher &&
                   item.scope === 'table' &&
-                  item.schema === schema &&
-                  WATCHED.includes(item.table)
+                  item.schema === 'sys' &&
+                  item.table === 'sys_config'
                 ? ['SELECT']
-                : item.scope === 'table' && item.schema === schema && spec.watched.has(item.table)
-                  ? ['SELECT', 'TRIGGER']
-                  : item.scope === 'table' && item.schema === schema
-                    ? (spec.heads[item.table] ?? [])
-                    : [];
+                : spec.publisher &&
+                    item.scope === 'table' &&
+                    item.schema === schema &&
+                    WATCHED.includes(item.table)
+                  ? ['SELECT']
+                  : item.scope === 'table' && item.schema === schema && spec.watched.has(item.table)
+                    ? ['SELECT', 'TRIGGER']
+                    : item.scope === 'table' && item.schema === schema
+                      ? (spec.heads[item.table] ?? spec.nativeRights?.[item.table] ?? [])
+                      : [];
       if (item.grantable !== 'NO' || !allowed.includes(item.privilege)) return refuse();
+      if (
+        owner === options.membershipRevisionDefiner &&
+        item.scope === 'table' &&
+        item.schema === schema
+      )
+        revisionPrivileges.add(item.table + ':' + item.privilege);
+      if (
+        owner === options.membershipRevisionDefiner &&
+        item.scope === 'column' &&
+        item.schema === schema
+      )
+        revisionPrivileges.add(item.table + '.' + item.column + ':' + item.privilege);
     } else if (owner === audit) {
       if (
         item.scope !== 'global' ||
@@ -714,6 +768,14 @@ export async function readNativeHeadMetadata(
     }
   }
   if (auditRights.some((right) => !auditGlobal.has(right))) return refuse();
+  if (families.membershipRevision)
+    for (const [table, rights] of Object.entries({
+      users: ['SELECT', 'TRIGGER'],
+      user_eav: ['SELECT', 'TRIGGER'],
+      ...revisionNativeRights,
+    }))
+      if (rights.some((right) => !revisionPrivileges.has(table + ':' + right))) return refuse();
+  if (families.membershipRevision && !revisionPrivileges.has('users.id:UPDATE')) return refuse();
   for (const item of data.routineGrants) {
     if (!accounts.has(item.name)) return refuse();
     const rights = new Set(item.privileges.split(',').map((value) => value.trim().toUpperCase()));
@@ -792,6 +854,8 @@ export async function readNativeHeadMetadata(
   if (data.aliases.length || data.replicationChannels.length) return refuse();
   const tables = new Set<string>();
   const requiredTables = new Set([...heads, ...WATCHED]);
+  if (families.membershipRevision)
+    for (const name of revisionNativeTables) requiredTables.add(name);
   for (const item of data.tables) {
     if (
       tables.has(item.name) ||
@@ -833,6 +897,7 @@ export async function readNativeHeadMetadata(
   };
   return {
     membershipTriggers: data.membershipTriggers,
+    membershipRevisionTriggers: data.membershipRevisionTriggers,
     couponTriggers: data.couponTriggers,
     counterTriggers: data.counterTriggers,
     counterProcedures: data.counterProcedures,
