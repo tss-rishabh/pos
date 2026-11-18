@@ -208,7 +208,7 @@
     {
       "kind": "websocket",
       "id": "notification/routing.py:6",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/modules/fulfillment/index.ts",
         "backend/src/modules/fulfillment/service.ts",
@@ -233,12 +233,12 @@
       "evidence": [
         "backend/evidence/notification-workflow-reviewed-2db8152.json"
       ],
-      "notes": "Fresh exact-declaration proof on2db8152: seven pinned-source/realRedis/Channels/nativeMySQL/session/App groups plus twelve controlled lifecycle cases. Source broker-readiness-before-accept ordering restored with fresh authority, bounded buffering and cleanup. Original red and all earlier receipts remain immutable. Explicit safety/precision/transport corrections documented; whole-template, provider, finance, physical audio, generic deployment and release acceptance excluded."
+      "notes": "Fresh exact-declaration proof on2db8152: seven pinned-source/realRedis/Channels/nativeMySQL/session/App groups plus twelve controlled lifecycle cases. Source broker-readiness-before-accept ordering restored with fresh authority, bounded buffering and cleanup. Original red and all earlier receipts remain immutable. Explicit safety/precision/transport corrections documented; whole-template, provider, finance, physical audio, generic deployment and release acceptance excluded. The order-default implementation changes the shared production graph after this execution. Preserve this exact notification receipt and refresh the registered native workflow in the frozen full run; do not rebind its hashes."
     },
     {
       "kind": "route",
       "id": "notification/urls.py:7",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/modules/fulfillment/index.ts",
         "backend/src/modules/fulfillment/service.ts",
@@ -263,7 +263,7 @@
       "evidence": [
         "backend/evidence/notification-workflow-reviewed-2db8152.json"
       ],
-      "notes": "Fresh exact-declaration proof on2db8152: seven pinned-source/realRedis/Channels/nativeMySQL/session/App groups plus twelve controlled lifecycle cases. Source broker-readiness-before-accept ordering restored with fresh authority, bounded buffering and cleanup. Original red and all earlier receipts remain immutable. Explicit safety/precision/transport corrections documented; whole-template, provider, finance, physical audio, generic deployment and release acceptance excluded."
+      "notes": "Fresh exact-declaration proof on2db8152: seven pinned-source/realRedis/Channels/nativeMySQL/session/App groups plus twelve controlled lifecycle cases. Source broker-readiness-before-accept ordering restored with fresh authority, bounded buffering and cleanup. Original red and all earlier receipts remain immutable. Explicit safety/precision/transport corrections documented; whole-template, provider, finance, physical audio, generic deployment and release acceptance excluded. The order-default implementation changes the shared production graph after this execution. Preserve this exact notification receipt and refresh the registered native workflow in the frozen full run; do not rebind its hashes."
     }
   ],
   "requirements": [
