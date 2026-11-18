@@ -208,7 +208,7 @@ export function registerAdministration(
     options,
   );
   registerOperatorAdministration(app, operatorAdministration);
-  const slack = slackConnectionService(config, db, options);
+  const slack = slackConnectionService(config, db, options, ephemeral);
   registerSlackConnections(app, config, slack);
   const locations = locationLookupService(db);
   registerLocationLookups(app, locations);
