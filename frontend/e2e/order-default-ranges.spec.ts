@@ -117,6 +117,29 @@ test('actual routed App retains explicit calendar filters instead of injecting r
   expect(initial.body).not.toHaveProperty('placedTo');
   await expect(page.getByLabel('Orders from', { exact: true })).toHaveValue('2026-11-01');
   await expect(page.getByLabel('Placed from', { exact: true })).toHaveValue('');
+  // Use the real server window so synthetic demo rows are present; no response stubs.
+  const from = initial.defaults.store.placedFrom.slice(0, 10),
+    to = initial.defaults.online.placedTo.slice(0, 10);
+  const searched = searchResponse(page);
+  await page.goto(`/orders?from=${from}&to=${to}`);
+  await searched;
+  const opened = page.waitForResponse(
+    (response) =>
+      response.request().method() === 'GET' &&
+      /\/api\/v1\/stores\/[^/]+\/orders\/[1-9]\d*$/.test(new URL(response.url()).pathname) &&
+      response.status() === 200,
+  );
+  await page
+    .getByRole('button', { name: /^View order / })
+    .first()
+    .click();
+  const detail = await opened;
+  expect(new URL(detail.url()).searchParams.get('from')).toBe(from);
+  expect(new URL(detail.url()).searchParams.get('to')).toBe(to);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Close order', exact: true }).click();
+  await expect(page.getByLabel('Orders from', { exact: true })).toHaveValue(from);
+  await expect(page.getByLabel('Orders to', { exact: true })).toHaveValue(to);
   await page.goto('/orders?from=invalid');
   await expect(page.getByText('Use valid start and end dates.', { exact: true })).toBeVisible();
 });

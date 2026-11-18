@@ -338,7 +338,7 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           onOpen={(row) => {
             const day = row.created_at.slice(0, 10);
             setRowDetail(
-              day < (defaults?.online.placedTo.slice(0, 10) ?? dates.to)
+              !dates.explicit && day < (defaults?.online.placedTo.slice(0, 10) ?? dates.to)
                 ? { scope: authorityScope, orderId: row.id, from: day, to: day }
                 : null,
             );
