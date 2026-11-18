@@ -18,14 +18,16 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 292,
+      "external_acceptance": 283,
       "implementation_present": 100,
+      "partial": 9,
       "missing": 4
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 187,
-        "implementation_present": 68
+        "external_acceptance": 182,
+        "implementation_present": 68,
+        "partial": 5
       },
       "jobs": {
         "external_acceptance": 31,
@@ -33,8 +35,9 @@
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 71,
-        "missing": 3
+        "external_acceptance": 67,
+        "missing": 3,
+        "partial": 4
       },
       "websockets": {
         "external_acceptance": 1
@@ -44,7 +47,7 @@
       }
     },
     "families": 76,
-    "code_task_groups": 0,
+    "code_task_groups": 1,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -4993,7 +4996,7 @@
     },
     {
       "id": "orders-read",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/orders.ts",
         "backend/src/modules/order-history",
@@ -5017,7 +5020,9 @@
         "backend/parity/checkout.md"
       ],
       "implemented_scope": "Full ST/HL/HE/N/queue/explicit-ID order list, contact/payment/status filters, source search/sort/page and formatter/actions are integrated with 43 pinned-Django vectors and 12 browser workflows. Existing detail/paid/invoice/cancellation guards remain. PRIMARY interactive/DATA today/BigQuery old or mixed facts, live-only queue discovery, private HMAC comparisons and post-read session revocation are enforced. Demo uses an explicit synthetic adapter without a database port.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Preserve the active store-screen placement window when switching ST/HL/HE/N. The source keeps its existing ending minute; the separate OnlineOrdersView computed prefix is unused by its guarded rendered body. Correct the candidate type-switch reset and keep the bounded midnight search guard consistent."
+      ],
       "external_acceptance": [
         "Accept both complete common-checkpoint historical order/search publications, private contact-key generation/collation identity, real queue/current-source lifecycle and representative workload performance. Native source vectors and local browser checks are not complete production workflow certification."
       ],
@@ -5031,7 +5036,7 @@
           "path": "backend/src/modules/order-history/search/default-ranges.ts",
           "line": 8,
           "anchor": "export function sourceOrderDefaults(",
-          "scope": "Server-authoritative rolling five-day minute bounds preserve the source store/local/express extra ending minute and online ending minute, including a bounded midnight fraction without a future warehouse publication."
+          "scope": "Server-authoritative rolling five-day store-page bounds include its extra ending minute and bounded midnight fraction without a future warehouse publication. Active type switching must retain this same window; separate online-prefix arithmetic does not establish rendered online-entry behavior."
         },
         {
           "path": "frontend/src/pages/operations.tsx",
@@ -5062,47 +5067,47 @@
         {
           "kind": "routes",
           "id": "order/urls.py:8",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:9",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:10",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:11",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:12",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/index.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/online/_return_exchange_cells.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/online/show.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/show.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         }
       ],
       "test_files": [
@@ -5736,12 +5741,12 @@
         {
           "kind": "templates",
           "id": "order/templates/order/index.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/show.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         }
       ],
       "test_files": [
@@ -5911,22 +5916,22 @@
         {
           "kind": "templates",
           "id": "order/templates/order/index.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/online/_return_exchange_cells.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/online/show.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/show.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         }
       ],
       "test_files": [
@@ -8120,7 +8125,15 @@
       ]
     }
   ],
-  "remaining_code_tasks": [],
+  "remaining_code_tasks": [
+    {
+      "family": "orders-read",
+      "state": "partial",
+      "tasks": [
+        "Preserve the active store-screen placement window when switching ST/HL/HE/N. The source keeps its existing ending minute; the separate OnlineOrdersView computed prefix is unused by its guarded rendered body. Correct the candidate type-switch reset and keep the bounded midnight search guard consistent."
+      ]
+    }
+  ],
   "routes": [
     {
       "source": {
@@ -10878,7 +10891,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -10911,7 +10924,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -10944,7 +10957,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -10975,7 +10988,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11008,7 +11021,7 @@
       "families": [
         "orders-read"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -17797,7 +17810,7 @@
         "pending-order-cancellation",
         "local-deliveries"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17835,7 +17848,7 @@
         "returns-exchanges",
         "invoice-documents"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -17855,7 +17868,7 @@
         "returns-exchanges",
         "invoice-documents"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17914,7 +17927,7 @@
         "local-deliveries",
         "legacy-vinculum-status"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

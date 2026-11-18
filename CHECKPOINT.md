@@ -10,6 +10,11 @@ publication rules. Row detail state preserves the list window and explicit
 multi-day selections. Ten source, three frontend helper, two native and two
 actual routed-App checks pass, along with strict/lint/build. Independent review
 closed clock-rollover and detail-state regressions before the full-run freeze.
+Subsequent full-template tracing found a distinct type-switch follow-up: the
+active store screen retains the same range for ST/HL/HE/N. The separate online
+view's computed prefix is unused by its guarded body; it must not drive a reset.
+The source map records this follow-up as partial while the owner corrects it.
+Frozen r9 remains caba871 and must not be relabeled as testing that follow-up.
 Previously identified application gaps are integrated. Newly discovered runtime
 and verification-wrapper faults are fixed before broader execution. This is not
 complete parity or production readiness. No live service writes, charges,
