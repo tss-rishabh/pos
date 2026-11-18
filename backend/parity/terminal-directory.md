@@ -34,9 +34,8 @@ Terminal mutations now also recheck current role/store authority under native
 locks before changing terminal configuration, including destination stores.
 
 This is implementation evidence, not parity certification. The integrated
-backend and frontend strict programs compile. Native MySQL union/collation,
-pagination and revocation scenarios, actual browser CSV/control workflows,
-performance and the consolidated project gate remain for the validation phase.
+backend and frontend strict programs compile. Focused native and browser checks below establish their stated fixture behavior;
+performance and the consolidated project gate remain separate.
 No live database, terminal, payment provider or production deployment was used.
 
 Validation found and fixed a native union defect: provider text columns using
@@ -53,4 +52,18 @@ and provider paging, escaped search/strict inputs, current role/type/assignment
 revocation, mixed collations/Unicode, and native terminal mutation refusal with
 retained credentials. They use source-verified physical table types in a new
 disposable local schema. No payment provider is called. Focused strict typing
-and lint pass; actual UI CSV checks and consolidated verification remain separate.
+and lint pass.
+
+Two focused Chromium checks also pass against the actual React page with isolated
+API fixtures: existing edit/delete preserves exact bigint serials and blank
+credential inputs; visible-row/full-result CSV follows hidden columns, escapes
+formula cells, exports all 503 rows through two bounded requests, and refuses a
+changed result count without downloading a partial artifact. These browser
+fixtures prove UI behavior, not deployed SQL connectivity or stable snapshots
+when source rows change without changing counts.
+
+Ten administration native cases cover sorted cursor binding, archived/Unicode
+rows, current scoped authority, selected-store detail/PNG, bounded safe CSV, and
+registered export admission through the real builder with unknown-ACK recovery
+and revoked download denial. Four further browser checks cover collection
+controls, selected-store QR, operator assignment and guide read/download.
