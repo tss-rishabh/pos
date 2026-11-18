@@ -3,6 +3,7 @@ import { Decimal } from 'decimal.js';
 import type { Principal } from '../../domain/access.js';
 import { requireRole, requireStore } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
+import { checkoutQuoteDisplay } from '../../domain/checkout-quote-display.js';
 import {
   addCartPayload,
   deleteCartPayload,
@@ -79,6 +80,7 @@ import { requiresPublicScreening, publicScreeningOrderPayload } from './screenin
 import type { PublicScreeningCoordinator } from './screening-writer/coordinator.js';
 
 export interface CheckoutServiceOptions {
+  cashbackCreditMessage?: string;
   screening?: PublicScreeningCoordinator['service'];
   verifyCopyCancellationClear?: (state: CheckoutState) => Promise<void>;
   orderCopyHashSecret?: string;
@@ -694,7 +696,7 @@ export function checkoutService(
         createdAt: timestamp,
         updatedAt: timestamp,
       };
-      return publicState(await repository.create(state));
+      return publicState(await repository.create(state), options.cashbackCreditMessage);
     },
     async read(user: Principal, storeId: string, id: string) {
       const state = await get(user, storeId, id);
@@ -711,7 +713,7 @@ export function checkoutService(
       );
       if (state.phase === 'submitted')
         return {
-          ...publicState(state),
+          ...publicState(state, options.cashbackCreditMessage),
           registration,
           registrationRequestRecovery,
           settlement: options.prepaidSettlement ? await options.prepaidSettlement(state) : null,
@@ -724,13 +726,13 @@ export function checkoutService(
         state.draftImport?.status === 'pending'
       )
         return {
-          ...publicState(state),
+          ...publicState(state, options.cashbackCreditMessage),
           registration,
           registrationRequestRecovery,
           settlement: null,
         };
       return {
-        ...publicState(state),
+        ...publicState(state, options.cashbackCreditMessage),
         registration,
         registrationRequestRecovery,
         settlement: null,
@@ -2133,18 +2135,24 @@ export function checkoutService(
           settlement = options.prepaidSettlement ? await options.prepaidSettlement(state) : null;
         return {
           status: receipt.status,
-          ...publicMutation({
-            ...receipt.result,
-            result: {
-              ...receipt.result.result,
-              settlement,
-              paymentStatus: settlement ? 'paid' : 'pending',
+          ...publicMutation(
+            {
+              ...receipt.result,
+              result: {
+                ...receipt.result.result,
+                settlement,
+                paymentStatus: settlement ? 'paid' : 'pending',
+              },
             },
-          }),
+            options.cashbackCreditMessage,
+          ),
         };
       }
       return receipt.result
-        ? { status: receipt.status, ...publicMutation(receipt.result) }
+        ? {
+            status: receipt.status,
+            ...publicMutation(receipt.result, options.cashbackCreditMessage),
+          }
         : { status: receipt.status, operationId: receipt.id, errorCode: receipt.errorCode };
     },
   };
@@ -2195,7 +2203,7 @@ export function publicCart<T>(value: T): T {
         : node;
   return sanitize(value) as T;
 }
-export function publicState(state: CheckoutState) {
+export function publicState(state: CheckoutState, cashbackCreditMessage?: string) {
   const {
     operatorCustomerId: _operatorCustomerId,
     paymentConfirmation: _paymentConfirmation,
@@ -2224,8 +2232,14 @@ export function publicState(state: CheckoutState) {
       : null,
     cart: state.cart ? publicCart(state.cart) : null,
     quote: state.quote ? publicCart(state.quote) : null,
+    ...(state.quote
+      ? { quoteDisplay: checkoutQuoteDisplay(state.quote, cashbackCreditMessage) }
+      : {}),
   };
 }
-export function publicMutation(value: MutationResult) {
-  return { state: publicState(value.state), result: publicCart(value.result) };
+export function publicMutation(value: MutationResult, cashbackCreditMessage?: string) {
+  return {
+    state: publicState(value.state, cashbackCreditMessage),
+    result: publicCart(value.result),
+  };
 }

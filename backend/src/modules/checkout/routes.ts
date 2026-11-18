@@ -121,6 +121,7 @@ export function registerCheckout(
   );
   registerPublicScreening(app, screening);
   const service = checkoutService(repository, gateway, environment, {
+    cashbackCreditMessage: config.CASHBACK_CREDIT_MESSAGE,
     screening: screening.service,
     verifyCopyCancellationClear: copyCancellationClearVerifier(config, db),
     orderCopyHashSecret: config.SESSION_SECRET,
@@ -174,7 +175,7 @@ export function registerCheckout(
   });
   const returns = returnReadService(db, gateway, assertCheckIn);
   function response(result: MutationReply) {
-    return { ...result, state: publicState(result.state) };
+    return { ...result, state: publicState(result.state, config.CASHBACK_CREDIT_MESSAGE) };
   }
   app.post(base, trace('checkout-session', 'create'), async (request, reply) => {
     const user = authenticated(request),

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { isIP } from 'node:net';
+import { sourceCashbackCreditMessage } from './domain/checkout-quote-display.js';
 
 const optionalUrl = z.preprocess((v) => (v === '' ? undefined : v), z.url().optional());
 const optionalText = <T extends z.ZodType>(schema: T) =>
@@ -44,6 +45,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
           'Configure explicit proxy IPs or CIDR ranges.',
         ),
       DEMO_MODE: flag(false),
+      CASHBACK_CREDIT_MESSAGE: z.string().max(2000).default(sourceCashbackCreditMessage),
       SESSION_SECRET: z.string().min(32),
       LOGIN_MFA_PENDING_TTL: z.coerce.number().int().min(60).max(900).default(300),
       LOGIN_OTP_EXPIRY: z.coerce.number().int().min(30).max(600).default(180),
