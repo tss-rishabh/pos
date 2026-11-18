@@ -5,9 +5,28 @@ Reviewed 18 November 2026: original POS commit
 The106-template inventory and active route declarations were used as the
 starting set; a mapped React component was not counted as proof of its source
 controls. This review changes neither the inventory nor release statuses.
-No tests, provider calls, database queries or production changes were made.
+No tests, provider calls, database queries or production changes were made during
+the initial read-only review. Authorized implementation follow-ups are noted below.
 Report performance/acceptance exports and column visibility remain Hyper's
 scope; returns, payments and financial import workflows remain Payment's scope.
+
+Implementation follow-up: the two gaps below describe the frozen review, not
+the final candidate. `dedd21e` and `59dfcb1` add finite native sort/keyset readers,
+private POST search, bounded background CSV rendering and selected-store detail
+and PNG QR routes. `a2a3045` connects all six React collections to shared
+page-size/sort/column/CSV controls and adds the read-only selected-store dialog.
+Hyper's shared queue/client hooks use the existing durable export job path.
+Visible-page CSV preserves the original server-side DataTables scope; the
+separately labelled all-matching CSV queue is the additionally authorized wider
+export action, with a70000-row/byte bound and current authority rechecks.
+Presentation preferences retain only column/sort/page-size identifiers locally;
+contact/text search and sort cursors stay in private POST bodies.
+
+Focused frontend strict typing/lint passed and the initial nine native cases
+passed. The later actual-queue/unknown-ACK proof and broader browser proof were
+paused when Root returned to implementation-first work; their complete result
+remains deferred. No release coverage or original-template certification is
+promoted by these implementation commits.
 
 ## Confirmed missing active user actions
 
@@ -106,10 +125,28 @@ is not introduced in place of source archive/reactivation.
 
 ## Required next work and limits
 
-Implement the selected-store read-only/static QR workflow and the missing
-administration list actions before certifying those source screens. Add focused
-workflow evidence for each actual action/role/active-and-archived variant, rather
-than promoting a template because its CRUD leaf is mapped. For the remaining
+The frozen review identified the selected-store read-only/static QR workflow and
+administration list actions as implementation gaps; the commits noted above
+address them. After global implementation closure, complete focused workflow
+evidence for each actual action/role/active-and-archived variant, rather than
+promoting a template because its CRUD leaf is mapped. For the remaining
 connected flows, retain current failed-closed provider/publication/media gates
 and obtain the corresponding full deployed acceptance evidence. This review
 does not claim that the remaining original source scope is gap-free.
+
+## Additional candidate-control review
+
+The source control candidates in Root's
+`legacy-template-controls.review.json` were compared to actual runtime code for
+these three remaining owned templates. Candidate syntax alone did not establish
+a working user feature.
+
+| Source template/control                                                                                                                                 | Runtime comparison                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Finding                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `catalogue/index.html:102,104,111,117`: page length, Data CSV, Data Excel, visible columns                                                              | Source fetches the complete seven-column snapshot, uses client search/paging and explicitly disables sorting. `frontend/src/pages/catalog/snapshot.tsx` filters the complete snapshot, renders the selected page, and passes the actual visible-column set to both full-filtered CSV and `catalogWorkbook` XLSX. Its separate visible-page CSV is labelled accordingly. `table.tsx` supplies column controls/paging, and `workbook.ts` emits safe inline-string cells. Snapshot refresh remains every10minutes, with owner/store-bound offline copy and revocation clearing. | All four candidate actions have connected implementations; no missing Excel variant was established. Offline stock remains informational outside the separate authorized offline cash flow. |
+| `gift_card/index.html:110,112,117`: page length, visible-column CSV, columns; plus size/message generation, Reload, print marker and block/unblock      | `administration/gift-card-batches/history.tsx` has all five page sizes, source sort fields/directions, body search, reload, visibility preferences and current-page visible CSV. `index.tsx` mounts generation, current-job recovery, explicit print/block/unblock controls and private archive/password operations. Source Print only calls its printed-status marker; it does not print cards itself. Both native and immutable-history reader paths are separate from the UI controls.                                                                                    | No additional missing table/action variant was established. Email acceptance is distinguished from inbox delivery; actual private archive/provider acceptance is still an external gate.    |
+| `special_permission/index.html:437,439,444`: page length, visible-column CSV, columns; plus Money/Points/barcode/GV forms and platform/date log filters | `administration/permission-history.tsx` and `permission-history-api.ts` implement the five page sizes, visible columns and formula-protected loaded-page CSV, search/platform/date/all-history filters. Source `special_permition_datatable.py` reads order inputs but never applies them; no working alternate sort behavior is inferred from the header affordance. Barcode Enter and original-operation recovery, wallet add/subtract with all source fields, and voucher issuance/check/conversion are separately connected to their real modules.                       | No additional missing required action was established. The existing wallet calendar-date decision and provider/history publication gates stay pending.                                      |
+
+EDC directory/table controls and upload-log variants were explicitly transferred
+to Root and Payment respectively during this follow-up; this document does not
+certify or duplicate their repairs.
