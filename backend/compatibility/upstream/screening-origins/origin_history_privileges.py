@@ -12,6 +12,7 @@ from pathlib import Path
 from native import one, rows, json_value
 from origin_contracts import fail
 from head_participants import FAMILIES, participants, publication_owner, policy_hash
+from native_head_limits import LIMITS
 
 INFO='pos_rewrite_origin_history_metadata'
 TRANSACTION_INFO='pos_rewrite_origin_transaction_metadata'
@@ -36,6 +37,43 @@ PLATFORM_TRIGGERS=[
 
 
 def refused():fail('SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
+
+
+def caller_grant_values(values):
+    """Complete result only; never validate a sliced SHOW GRANTS prefix."""
+    if not isinstance(values,list) or not values or len(values)>LIMITS['callerGrantRows']:return None
+    output=[];total=0
+    for row in values:
+        if not isinstance(row,dict) or len(row)!=1:return None
+        value=next(iter(row.values()))
+        if not isinstance(value,str) or not value:return None
+        try:size=len(value.encode('utf8'))
+        except UnicodeError:return None
+        total+=size
+        if size>LIMITS['callerGrantRowBytes'] or total>LIMITS['callerGrantTotalBytes']:return None
+        output.append(value)
+    return output
+
+
+def caller_grants(session):
+    # native.rows reads the 513th sentinel and rejects it. <=512 is EOF, not
+    # an apparently complete prefix of a larger privilege result.
+    value=caller_grant_values(rows(session,'SHOW GRANTS FOR CURRENT_USER()',limit=LIMITS['callerGrantRows']+1))
+    if value is None:refused()
+    return value
+
+
+def metadata_document(raw):
+    try:
+        size=(len(raw) if isinstance(raw,bytes) else len(raw.encode('utf8')) if isinstance(raw,str)
+              else len(json.dumps(raw,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode('utf8')))
+        if size>LIMITS['metadataBytes']:refused()
+        data=json_value(raw)
+        # Match the native JSON wire: NaN/Infinity and invalid UTF-8 never form
+        # a valid metadata snapshot even if a permissive fixture decoder does.
+        json.dumps(data,separators=(',',':'),ensure_ascii=False,allow_nan=False).encode('utf8')
+        return data
+    except (UnicodeError,TypeError,ValueError):refused()
 
 
 def normal(value):return ' '.join(str(value).split()).strip().rstrip(';')
@@ -77,12 +115,11 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     if not isinstance(schema,str) or not re.fullmatch(r'[A-Za-z0-9_]{1,64}',schema):refused()
     # SHOW GRANTS also denies a previously activated/implicit role and requires
     # the source application's own explicit, table-scoped writer privileges.
-    grants=rows(session,'SHOW GRANTS FOR CURRENT_USER()',limit=65)
+    grants=caller_grants(session)
     # skip-grant-tables is not a MySQL8 system variable. Only a genuine
     # account with successful, nonempty native grant resolution qualifies.
     if not grants:refused()
-    for row in grants:
-        value=str(next(iter(row.values())))
+    for value in grants:
         match=re.fullmatch(r'GRANT (.+) ON (.+) TO .+',value)
         if not match:refused()
         privileges={part.strip().upper() for part in match.group(1).split(',')}
@@ -133,12 +170,11 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     one(session,'SELECT pos_rewrite_origin_transaction_metadata() AS document')
     result=one(session,'SELECT /*+ MAX_EXECUTION_TIME(3000) */ pos_rewrite_origin_history_metadata() AS document')
     check_metadata_routines()
-    if len(str(result['document']).encode())>500000:refused()
-    data=json_value(result['document'])
+    data=metadata_document(result['document'])
     sections={'triggers','accounts','roles','proxies','privileges','routineGrants','objects','aliases','tables','foreignKeys','replicationChannels',
               'membershipTriggers','couponTriggers','counterTriggers','counterProcedures','platformTriggers'}
     if (not isinstance(data,dict) or set(data)!=sections
-            or any(not isinstance(data[name],list) or len(data[name])>1000 for name in sections)):refused()
+            or any(not isinstance(data[name],list) or len(data[name])>LIMITS['privilegeRows' if name=='privileges' else 'sectionRows'] for name in sections)):refused()
     additional,families=participants(data,trigger_owner)
     publication_owner(additional,families,trigger_owner)
     if counter_publication and (publisher not in additional or not additional[publisher].get('publisher')):refused()

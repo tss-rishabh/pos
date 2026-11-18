@@ -12,7 +12,7 @@ CREATE DEFINER='pos_origin_history_audit'@'%' FUNCTION pos_rewrite_origin_histor
 RETURNS JSON
 READS SQL DATA
 SQL SECURITY DEFINER
-RETURN JSON_OBJECT(
+RETURN /* native-head-capacity:a32ccc71a7b9a3893331c03342e090f1830ea830cbcf32919ec449f35f86b3ad */ JSON_OBJECT(
  'triggers',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',name,'action',action,'sourceTable',sourceTable,'body',body,'owner',owner,'sqlMode',sqlMode)) FROM (
   SELECT TRIGGER_NAME AS name,EVENT_MANIPULATION AS action,EVENT_OBJECT_TABLE AS sourceTable,ACTION_STATEMENT AS body,DEFINER AS owner,SQL_MODE AS sqlMode
   FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_origin_history_user_i','pos_rewrite_origin_history_order_i','pos_rewrite_origin_history_order_d','pos_rewrite_origin_history_order_u')
@@ -69,7 +69,7 @@ RETURN JSON_OBJECT(
   UNION ALL SELECT GRANTEE,'schema',TABLE_SCHEMA,'',PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.SCHEMA_PRIVILEGES
   UNION ALL SELECT GRANTEE,'table',TABLE_SCHEMA,TABLE_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.TABLE_PRIVILEGES
   UNION ALL SELECT GRANTEE,'column',TABLE_SCHEMA,TABLE_NAME,PRIVILEGE_TYPE,IS_GRANTABLE FROM INFORMATION_SCHEMA.COLUMN_PRIVILEGES
-  LIMIT 1001
+  LIMIT 4097
  ) privilege_rows),JSON_ARRAY()),
  'routineGrants',COALESCE((SELECT JSON_ARRAYAGG(JSON_OBJECT('name',CONCAT(User,'@',Host),'schema',Db,'routine',Routine_name,'kind',Routine_type,'privileges',CAST(Proc_priv AS CHAR))) FROM (
   SELECT User,Host,Db,Routine_name,Routine_type,Proc_priv FROM mysql.procs_priv ORDER BY User,Host,Db,Routine_name,Routine_type LIMIT 1001

@@ -18,6 +18,7 @@ sys.path.insert(0,str(HERE.parent/'public-screening-writer'))
 from origin_contracts import canonical,digest,identifier,fail
 from origin_history import head
 from native import one,rows
+from origin_history_privileges import caller_grants
 
 PROJECTION={
  'source':'2960acbea10c4eaf16b6d99e15ff6e03ef7724c5',
@@ -35,8 +36,7 @@ def capture(session,customer_id,key,clock=lambda:int(time.time()*1000),expected=
     witness=head(session,customer)
     # Snapshot READ ONLY is a second guard, not a substitute for separately
     # qualified readonly credentials. Never borrow an application's writer.
-    for row in rows(session,'SHOW GRANTS FOR CURRENT_USER()',limit=65):
-        grant=str(next(iter(row.values())))
+    for grant in caller_grants(session):
         match=re.fullmatch(r'GRANT (.+) ON (.+) TO .+',grant)
         if not match or set(part.strip().upper() for part in match.group(1).split(','))-{'USAGE','SELECT','SHOW VIEW','SHOW_ROUTINE','SHOW ROUTINE','PROCESS','EXECUTE'}:
             fail('SCREENING_ORIGIN_HISTORY_SOURCE_NOT_READONLY')

@@ -16,6 +16,7 @@ from sqlalchemy import event,text,inspect
 from protocol import ImportReview,canonical
 from screening_transaction import _session
 from transaction import VIOLATION
+from native_head_limits import LIMITS
 
 CONTRACT='pos-screening-current-counter-v1'
 PUBLICATION='pos-screening-counter-publication-v1'
@@ -154,13 +155,13 @@ def _runtime_privileges(session,definition,owner):
     if session.info.get('screening_counter_privileges')==(transaction,owner):return
     actor=one(session,'SELECT CURRENT_USER() AS actor,CURRENT_ROLE() AS roles')
     if not _owner(actor['actor']) or actor['actor']==owner or actor['roles']!='NONE':fail('APPLICATION_GRANTS')
-    grants=rows(session,definition['privilegeSql'],maximum=1000)
+    grants=rows(session,definition['privilegeSql'],maximum=LIMITS['sectionRows'])
     if any(row.get('privilegeName') not in ('SELECT','USAGE','SHOW_ROUTINE') or row.get('grantable')!='NO' for row in grants):fail('APPLICATION_GRANTS')
-    direct=rows(session,'SHOW GRANTS FOR CURRENT_USER',maximum=1000)
+    from origin_history_privileges import caller_grant_values
+    direct=caller_grant_values(rows(session,'SHOW GRANTS FOR CURRENT_USER',maximum=LIMITS['callerGrantRows']))
+    if direct is None:fail('APPLICATION_GRANTS')
     schema=one(session,'SELECT DATABASE() AS name')['name']
-    for row in direct:
-        if len(row)!=1:fail('APPLICATION_GRANTS')
-        value=next(iter(row.values()))
+    for value in direct:
         if not isinstance(value,str) or re.search(r'\bPROXY\b|\bWITH GRANT OPTION\b',value,re.I):fail('APPLICATION_GRANTS')
         if re.search(r'\bEXECUTE\b',value,re.I) and not re.fullmatch(
             r'GRANT EXECUTE ON FUNCTION `?'+re.escape(schema)+r'`?\.`?pos_rewrite_origin_(?:history|transaction)_metadata`? TO .+',value,re.I):fail('APPLICATION_GRANTS')

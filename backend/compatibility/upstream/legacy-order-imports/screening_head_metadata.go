@@ -11,10 +11,12 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 type headRow map[string]interface{}
 type headDescriptor struct {
+	Limits                  headCapacity
 	MetadataHash            string
 	TransactionMetadataHash string
 	OriginTriggers          []headRow
@@ -24,6 +26,65 @@ type headDescriptor struct {
 	}
 	PlatformTriggers []headRow
 }
+type headCapacity struct {
+	Contract              string
+	CallerGrantRows       int
+	CallerGrantRowBytes   int
+	CallerGrantTotalBytes int
+	PrivilegeRows         int
+	SectionRows           int
+	MetadataBytes         int
+}
+
+func (c headCapacity) valid() bool {
+	return c.Contract == "pos-native-head-capacity-v1" && c.CallerGrantRows > 0 && c.CallerGrantRowBytes > 0 &&
+		c.CallerGrantRowBytes <= c.CallerGrantTotalBytes && c.CallerGrantTotalBytes < c.MetadataBytes &&
+		c.CallerGrantRows < c.PrivilegeRows && c.SectionRows > 0
+}
+
+func configuredHeadCapacity() (headCapacity, error) {
+	var value struct{ Limits headCapacity }
+	if json.Unmarshal([]byte(screeningHeadMetadataDefinitionJSON), &value) != nil || !value.Limits.valid() {
+		return headCapacity{}, ErrReview
+	}
+	return value.Limits, nil
+}
+
+// Read to EOF at the permitted boundary; a 513th row is a refusal, never a
+// truncated apparently complete result. Every statement contributes UTF-8 bytes.
+func headCallerGrants(ctx context.Context, tx *sql.Tx) ([]string, error) {
+	limits, err := configuredHeadCapacity()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := tx.QueryContext(ctx, `SHOW GRANTS FOR CURRENT_USER`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	columns, err := rows.Columns()
+	if err != nil || len(columns) != 1 {
+		return nil, ErrReview
+	}
+	values := []string{}
+	total := 0
+	for rows.Next() {
+		var value string
+		if len(values) >= limits.CallerGrantRows || rows.Scan(&value) != nil || len(value) == 0 || !utf8.ValidString(value) || len(value) > limits.CallerGrantRowBytes {
+			return nil, ErrReview
+		}
+		total += len(value)
+		if total > limits.CallerGrantTotalBytes {
+			return nil, ErrReview
+		}
+		values = append(values, value)
+	}
+	if rows.Err() != nil || rows.Close() != nil || len(values) == 0 {
+		return nil, ErrReview
+	}
+	return values, nil
+}
+
 type headOwner struct {
 	names, watched map[string]bool
 	heads          map[string][]string
@@ -102,7 +163,7 @@ func headEmpty(ctx context.Context, tx *sql.Tx, q string) error {
 }
 func headPrelude(ctx context.Context, tx *sql.Tx) (*headAudit, error) {
 	a := &headAudit{admins: map[string]bool{}, owners: map[string]*headOwner{}, declared: headSet(append(headBase, headWatched...)...), familyOwners: map[string]string{}}
-	if json.Unmarshal([]byte(screeningHeadMetadataDefinitionJSON), &a.descriptor) != nil || !screeningCounterHash.MatchString(a.descriptor.MetadataHash) {
+	if json.Unmarshal([]byte(screeningHeadMetadataDefinitionJSON), &a.descriptor) != nil || !a.descriptor.Limits.valid() || !screeningCounterHash.MatchString(a.descriptor.MetadataHash) {
 		return nil, ErrReview
 	}
 	a.audit = os.Getenv("POS_SCREENING_ORIGIN_HISTORY_AUDIT_DEFINER")
@@ -188,7 +249,11 @@ func (a *headAudit) validate(ctx context.Context, tx *sql.Tx, sections map[strin
 			return ErrReview
 		}
 		var rows []headRow
-		if json.Unmarshal(raw, &rows) != nil || rows == nil || len(rows) > 1000 {
+		limit := a.descriptor.Limits.SectionRows
+		if name == "privileges" {
+			limit = a.descriptor.Limits.PrivilegeRows
+		}
+		if json.Unmarshal(raw, &rows) != nil || rows == nil || len(rows) > limit {
 			return ErrReview
 		}
 		data[name] = rows

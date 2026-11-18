@@ -2,6 +2,10 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
 import { counterError, counterOwner } from './contracts.js';
+import {
+  nativeHeadCallerGrants,
+  nativeHeadLimits,
+} from '../../screening-origins/native-head-capacity.js';
 /** Independent publisher/trigger definer has separate credentials. Ordinary
  * application connections may SELECT the projection and read fixed audit metadata,
  * but cannot forge totals, execute maintenance, change a definer or grant it. */
@@ -20,7 +24,7 @@ export function validCounterPrivileges(rows: unknown) {
         grantable: z.enum(['YES', 'NO']),
       }),
     )
-    .max(1000)
+    .max(nativeHeadLimits.sectionRows)
     .safeParse(rows);
   return (
     values.success &&
@@ -55,17 +59,13 @@ export async function assertCounterRuntimePrivileges(tx: AdministrationTransacti
     'i',
   );
   const [rawGrants] = await tx.execute(sql.raw('SHOW GRANTS FOR CURRENT_USER'));
-  const grants = z.array(z.record(z.string(), z.string())).max(1000).safeParse(rawGrants);
+  const grants = nativeHeadCallerGrants(rawGrants);
   if (
-    !grants.success ||
-    grants.data.some(
-      (row) =>
-        Object.keys(row).length !== 1 ||
-        Object.values(row).some(
-          (value) =>
-            /\b(?:TRIGGER|PROXY)\b|\bWITH GRANT OPTION\b/i.test(value) ||
-            (/\bEXECUTE\b/i.test(value) && !metadataGrant.test(value)),
-        ),
+    !grants ||
+    grants.some(
+      (value) =>
+        /\b(?:TRIGGER|PROXY)\b|\bWITH GRANT OPTION\b/i.test(value) ||
+        (/\bEXECUTE\b/i.test(value) && !metadataGrant.test(value)),
     )
   )
     throw counterError('APPLICATION_GRANTS');

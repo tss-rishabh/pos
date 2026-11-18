@@ -3,6 +3,11 @@ import { sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import { nativeHeadDescriptor as descriptor } from './native-head-metadata.generated.js';
+import {
+  nativeHeadCallerGrants,
+  nativeHeadLimits,
+  nativeHeadMetadataDocument,
+} from './native-head-capacity.js';
 
 export type NativeHeadTransaction = Pick<AdministrationTransaction, 'execute'>;
 export interface NativeHeadMetadataOptions {
@@ -142,7 +147,7 @@ const documentSchema = z
           })
           .strict(),
       )
-      .max(1000),
+      .max(nativeHeadLimits.sectionRows),
     platformTriggers: z
       .array(
         z
@@ -160,13 +165,17 @@ const documentSchema = z
           })
           .strict(),
       )
-      .max(1000),
-    membershipTriggers: z.array(trigger).max(1000),
-    couponTriggers: z.array(trigger).max(1000),
-    counterTriggers: z.array(trigger).max(1000),
-    counterProcedures: z.array(procedure).max(1000),
-    accounts: z.array(z.object({ name: account, locked: z.enum(['Y', 'N']) }).strict()).max(1000),
-    roles: z.array(z.object({ name: account, role: account }).strict()).max(1000),
+      .max(nativeHeadLimits.sectionRows),
+    membershipTriggers: z.array(trigger).max(nativeHeadLimits.sectionRows),
+    couponTriggers: z.array(trigger).max(nativeHeadLimits.sectionRows),
+    counterTriggers: z.array(trigger).max(nativeHeadLimits.sectionRows),
+    counterProcedures: z.array(procedure).max(nativeHeadLimits.sectionRows),
+    accounts: z
+      .array(z.object({ name: account, locked: z.enum(['Y', 'N']) }).strict())
+      .max(nativeHeadLimits.sectionRows),
+    roles: z
+      .array(z.object({ name: account, role: account }).strict())
+      .max(nativeHeadLimits.sectionRows),
     proxies: z
       .array(
         z
@@ -177,7 +186,7 @@ const documentSchema = z
           })
           .strict(),
       )
-      .max(1000),
+      .max(nativeHeadLimits.sectionRows),
     privileges: z
       .array(
         z
@@ -192,7 +201,7 @@ const documentSchema = z
           })
           .strict(),
       )
-      .max(1000),
+      .max(nativeHeadLimits.privilegeRows),
     routineGrants: z
       .array(
         z
@@ -205,7 +214,7 @@ const documentSchema = z
           })
           .strict(),
       )
-      .max(1000),
+      .max(nativeHeadLimits.sectionRows),
     objects: z
       .array(
         z
@@ -219,12 +228,12 @@ const documentSchema = z
           })
           .strict(),
       )
-      .max(1000),
-    aliases: z.array(z.unknown()).max(1000),
-    replicationChannels: z.array(z.unknown()).max(1000),
+      .max(nativeHeadLimits.sectionRows),
+    aliases: z.array(z.unknown()).max(nativeHeadLimits.sectionRows),
+    replicationChannels: z.array(z.unknown()).max(nativeHeadLimits.sectionRows),
     tables: z
       .array(z.object({ name: z.string(), kind: z.string(), engine: z.string() }).strict())
-      .max(1000),
+      .max(nativeHeadLimits.sectionRows),
     foreignKeys: z
       .array(
         z
@@ -236,7 +245,7 @@ const documentSchema = z
           })
           .strict(),
       )
-      .max(1000),
+      .max(nativeHeadLimits.sectionRows),
   })
   .strict();
 export type NativeHeadTrigger = z.infer<typeof trigger>;
@@ -371,16 +380,12 @@ export async function readNativeHeadMetadata(
   if (typeof schemaValue.db !== 'string' || !/^[A-Za-z0-9_]{1,64}(?![\s\S])/.test(schemaValue.db))
     return refuse();
   const schema = schemaValue.db;
-  const grants = await query(tx, 'SHOW GRANTS FOR CURRENT_USER()');
+  const grants = nativeHeadCallerGrants(await query(tx, 'SHOW GRANTS FOR CURRENT_USER()'));
   // skip-grant-tables is a startup option, not a queryable MySQL8 system
   // variable. Require a real authenticated account and successful nonempty
   // server grant resolution; an unavailable grant table never qualifies.
-  if (!grants.length || grants.length >= 65) return refuse();
-  for (const row of grants) {
-    if (!row || typeof row !== 'object' || Array.isArray(row) || Object.keys(row).length !== 1)
-      return refuse();
-    const value = Object.values(row)[0];
-    if (typeof value !== 'string') return refuse();
+  if (!grants) return refuse();
+  for (const value of grants) {
     const match = /^GRANT (.+) ON (.+) TO .+$/.exec(value);
     if (!match || /WITH GRANT OPTION/i.test(value)) return refuse();
     const rights = match[1]!.split(',').map((item) => item.trim().toUpperCase());
@@ -476,16 +481,7 @@ export async function readNativeHeadMetadata(
   );
   // Both invoked routine identities are now held by native routine MDL.
   await checkMetadataRoutines();
-  let raw: unknown = result.document;
-  if (Buffer.isBuffer(raw)) raw = raw.toString('utf8');
-  if (typeof raw === 'string') {
-    if (Buffer.byteLength(raw) > 500000) return refuse();
-    try {
-      raw = JSON.parse(raw) as unknown;
-    } catch {
-      return refuse();
-    }
-  } else if (Buffer.byteLength(JSON.stringify(raw) ?? '') > 500000) return refuse();
+  const raw = nativeHeadMetadataDocument(result.document);
   const parsed = documentSchema.safeParse(raw);
   if (!parsed.success) return refuse();
   const data = parsed.data;

@@ -149,7 +149,7 @@ func counterMetadata(ctx context.Context, tx *sql.Tx) (counterMetadataDocument, 
 		return result, ErrReview
 	}
 	var raw []byte
-	if tx.QueryRowContext(ctx, `SELECT /*+ MAX_EXECUTION_TIME(3000) */ CASE WHEN OCTET_LENGTH(pos_rewrite_origin_history_metadata())<=500000 THEN pos_rewrite_origin_history_metadata() ELSE NULL END`).Scan(&raw) != nil || len(raw) == 0 || len(raw) > 500000 {
+	if tx.QueryRowContext(ctx, `SELECT /*+ MAX_EXECUTION_TIME(3000) */ CASE WHEN OCTET_LENGTH(pos_rewrite_origin_history_metadata())<=? THEN pos_rewrite_origin_history_metadata() ELSE NULL END`, qualification.descriptor.Limits.MetadataBytes).Scan(&raw) != nil || len(raw) == 0 || len(raw) > qualification.descriptor.Limits.MetadataBytes {
 		return result, ErrReview
 	}
 	if qualification.checkRoutine(ctx, tx, headInfo, qualification.descriptor.MetadataHash) != nil {
@@ -321,6 +321,10 @@ func readCurrentScreeningCount(ctx context.Context, tx *sql.Tx, customer int64) 
 	return bought, nil
 }
 func counterRuntimePrivileges(ctx context.Context, tx *sql.Tx, d screeningCounterDefinition, owner string) error {
+	limits, err := configuredHeadCapacity()
+	if err != nil {
+		return err
+	}
 	var actor, roles string
 	if tx.QueryRowContext(ctx, `SELECT CURRENT_USER(),CURRENT_ROLE()`).Scan(&actor, &roles) != nil || actor == owner || roles != "NONE" {
 		return ErrReview
@@ -340,7 +344,7 @@ func counterRuntimePrivileges(ctx context.Context, tx *sql.Tx, d screeningCounte
 	}
 	err = rows.Err()
 	rows.Close()
-	if err != nil || count > 1000 {
+	if err != nil || count > limits.SectionRows {
 		return ErrReview
 	}
 	var schema string
@@ -348,23 +352,14 @@ func counterRuntimePrivileges(ctx context.Context, tx *sql.Tx, d screeningCounte
 		return ErrReview
 	}
 	metadataGrant := regexp.MustCompile("(?i)^GRANT EXECUTE ON FUNCTION `?" + regexp.QuoteMeta(schema) + "`?\\.`?pos_rewrite_origin_(?:history|transaction)_metadata`? TO .+$")
-	rows, err = tx.QueryContext(ctx, `SHOW GRANTS FOR CURRENT_USER`)
+	grants, err := headCallerGrants(ctx, tx)
 	if err != nil {
 		return err
 	}
-	count = 0
-	for rows.Next() {
-		var grant string
-		if rows.Scan(&grant) != nil || regexp.MustCompile(`(?i)\b(PROXY|TRIGGER)\b|\bWITH GRANT OPTION\b`).MatchString(grant) || regexp.MustCompile(`(?i)\bEXECUTE\b`).MatchString(grant) && !metadataGrant.MatchString(grant) {
-			rows.Close()
+	for _, grant := range grants {
+		if regexp.MustCompile(`(?i)\b(PROXY|TRIGGER)\b|\bWITH GRANT OPTION\b`).MatchString(grant) || regexp.MustCompile(`(?i)\bEXECUTE\b`).MatchString(grant) && !metadataGrant.MatchString(grant) {
 			return ErrReview
 		}
-		count++
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil || count > 1000 {
-		return ErrReview
 	}
 	return nil
 }
