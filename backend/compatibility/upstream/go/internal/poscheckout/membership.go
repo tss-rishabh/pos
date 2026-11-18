@@ -168,34 +168,40 @@ func nativeMembershipFence(ctx context.Context, tx *sql.Tx, entity string) error
 	if !userIndex || !eavIndex {
 		return ErrReview
 	}
-	rows, err = tx.QueryContext(ctx, `SELECT TRIGGER_NAME,EVENT_MANIPULATION,EVENT_OBJECT_TABLE,ACTION_TIMING,LOWER(SHA2(ACTION_STATEMENT,256)),SQL_MODE FROM INFORMATION_SCHEMA.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND TRIGGER_NAME IN ('pos_rewrite_mem_eav_insert','pos_rewrite_mem_eav_update','pos_rewrite_mem_eav_delete','pos_rewrite_mem_user_email')`)
+	metadata, err := readNativeHeadMetadata(ctx, tx, false)
 	if err != nil {
 		return err
 	}
+	var definitions []struct {
+		Name    string `json:"name"`
+		Event   string `json:"event"`
+		Table   string `json:"tableName"`
+		Timing  string `json:"timing"`
+		Hash    string `json:"hash"`
+		Definer string `json:"definer"`
+		SQLMode string `json:"sqlMode"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(metadata["membershipRevisionTriggers"]))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&definitions) != nil || len(definitions) != len(membershipFenceDefinitions) {
+		return ErrReview
+	}
+	var trailing interface{}
+	if decoder.Decode(&trailing) != io.EOF {
+		return ErrReview
+	}
 	actual := map[string]membershipFenceDefinition{}
-	for rows.Next() {
-		var item membershipFenceDefinition
-		var mode string
-		if err = rows.Scan(&item.Name, &item.Event, &item.Table, &item.Timing, &item.Hash, &mode); err != nil {
-			rows.Close()
-			return err
-		}
+	for _, row := range definitions {
 		strict := false
-		for _, part := range strings.Split(mode, ",") {
-			if part == "STRICT_TRANS_TABLES" || part == "STRICT_ALL_TABLES" {
+		for _, mode := range strings.Split(row.SQLMode, ",") {
+			if mode == "STRICT_TRANS_TABLES" || mode == "STRICT_ALL_TABLES" {
 				strict = true
 			}
 		}
-		if !strict {
-			rows.Close()
+		if !strict || row.Definer != os.Getenv("POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER") || actual[row.Name].Name != "" {
 			return ErrReview
 		}
-		actual[item.Name] = item
-	}
-	err = rows.Err()
-	rows.Close()
-	if err != nil {
-		return err
+		actual[row.Name] = membershipFenceDefinition{row.Name, row.Event, row.Table, row.Timing, row.Hash}
 	}
 	if len(actual) != len(membershipFenceDefinitions) {
 		return ErrReview
