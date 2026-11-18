@@ -5,7 +5,7 @@
     {
       "kind": "route",
       "id": "core/urls.py:66",
-      "status": "pending",
+      "status": "verified",
       "implementation": [
         "backend/src/modules/motivational-quotes/index.ts",
         "backend/src/modules/motivational-quotes/pool.ts",
@@ -21,9 +21,9 @@
         "frontend/e2e/motivational-quotes.spec.ts"
       ],
       "evidence": [
-        "backend/evidence/quotes-route-reviewed-d717c89.json"
+        "backend/evidence/quotes-route-reviewed-r8-ci851f620.json"
       ],
-      "notes": "Standalone authenticated quote retrieval: all 83 frozen source values, exact source handler/URL/auth binding, candidate HTTP guards and actual production-built counter\u2192backend refresh. Transport naming/envelope and strict validation follow the requested redesign/hardening. This does not certify whole counter/dashboard templates or other workflows. Current certificate is re-executed and re-bound; historical receipt remains unchanged. Standalone help/shared-shell implementation changed after this execution; affected workflows must be re-executed before current admission. Historical evidence is retained."
+      "notes": "Fresh scoped proof from actual r8 quote source/API tests and current both-platform unfiltered browser execution. All83 values preserved; one real-backend UI case plus one controlled escaping/offline case. Parent backend/full run remains failed; no counter-template, financial or release certification."
     },
     {
       "kind": "route",
@@ -152,6 +152,58 @@
         "backend/evidence/product-feedback-reviewed-6cbae5f.json"
       ],
       "notes": "Exact feedback resource/form scope only: original Django/native/browser behavior and actual production App entry; retains explicit validation, exact-ID, selected-line, atomicity and idempotency corrections. History discovery/navigation, shared identity providers/global ASGI, financial checkout, notifications and release acceptance are excluded."
+    },
+    {
+      "kind": "route",
+      "id": "order/urls.py:57",
+      "status": "verified",
+      "implementation": [
+        "frontend/src/app.tsx",
+        "frontend/src/pages/cashier-shortcuts/help.tsx",
+        "frontend/src/pages/cashier-shortcuts/reference.tsx",
+        "frontend/src/pages/cashier-shortcuts/preference.ts",
+        "backend/src/app.ts",
+        "backend/src/auth/routes.ts",
+        "backend/src/auth/identity.ts",
+        "backend/src/auth/sessions.ts"
+      ],
+      "tests": [
+        "backend/tools/cashier-shortcuts/source-help.py",
+        "backend/tools/cashier-shortcuts/run-joined.sh",
+        "backend/tools/cashier-shortcuts/native-reference-fixture.ts",
+        "frontend/tools/cashier-shortcuts/joined-help.ts",
+        "frontend/tools/cashier-shortcuts/native-reference.ts"
+      ],
+      "evidence": [
+        "backend/evidence/shortcut-help-reviewed-r8.json"
+      ],
+      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance."
+    },
+    {
+      "kind": "template",
+      "id": "order/templates/order/shortcuts.html",
+      "status": "verified",
+      "implementation": [
+        "frontend/src/app.tsx",
+        "frontend/src/pages/cashier-shortcuts/help.tsx",
+        "frontend/src/pages/cashier-shortcuts/reference.tsx",
+        "frontend/src/pages/cashier-shortcuts/preference.ts",
+        "backend/src/app.ts",
+        "backend/src/auth/routes.ts",
+        "backend/src/auth/identity.ts",
+        "backend/src/auth/sessions.ts"
+      ],
+      "tests": [
+        "backend/tools/cashier-shortcuts/source-help.py",
+        "backend/tools/cashier-shortcuts/run-joined.sh",
+        "backend/tools/cashier-shortcuts/native-reference-fixture.ts",
+        "frontend/tools/cashier-shortcuts/joined-help.ts",
+        "frontend/tools/cashier-shortcuts/native-reference.ts"
+      ],
+      "evidence": [
+        "backend/evidence/shortcut-help-reviewed-r8.json"
+      ],
+      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance."
     }
   ],
   "requirements": [
@@ -257,8 +309,10 @@
         "frontend/e2e/electron.spec.ts",
         "frontend/e2e/retail.spec.ts"
       ],
-      "evidence": [],
-      "notes": "Complete unsigned Windows and macOS CI jobs pass on 115207b (run 44124619312), including native restart/offline, browser workflows, packaged integrity and sandbox checks. Mac arm64/x64 and Windows x64 packaging targets are configured. Signing, installer distribution, physical printers/devices and production deployment acceptance remain required; this requirement is not promoted by CI alone."
+      "evidence": [
+        "backend/evidence/desktop-ci-851f620.json"
+      ],
+      "notes": "Complete unsigned Windows/macOS native jobs pass on851f620 (run44268539314), including native restart/offline, browser recovery, packaging, integrity and sandbox. Earlier6c Windows OTP failure remains archived with its cause unresolved; unchanged assertions pass on851. Signing, installation/upgrade distribution, physical printers/devices and production acceptance remain required; this requirement is not promoted by CI alone."
     }
   ]
 }

@@ -1,62 +1,62 @@
 # POS rewrite checkpoint
 
-## Current state — 18 November 2026, r8 in progress
+## Current state — 18 November 2026, terminal r8 and scoped follow-ups
 
-All currently identified implementation gaps are closed. Latest production
-change `4a410b9` normalizes nullable legacy store display labels without changing
-native inventory data. Feedback now has 15 passing source/browser/native/full
-App cases, including the actual nullable-store bootstrap regression (`c7b769f`).
-Country/postal lookup has four freshly executed native/source/API/UI workflows
-against that production graph (`77a3879`). Standalone authenticated shortcut
-access and operator-scoped preferences are integrated (`a1d54c8`, `4decfd5`).
-These scoped results do not certify the complete source inventory or production.
+Production graph remains the nullable-store DTO fix `4a410b9` plus standalone
+help/access fixes. Latest pushed code `851f620` changes only QA discovery,
+expectation and failure diagnostics. No known implementation gap is established;
+complete source behavior and release acceptance remain unproven.
 
-The verifier now includes these three joined workflows when both --mysql and
---browser are requested, and four additional strict fixture compiler checks.
-The shortcut native check receives only the guarded local fixture endpoint.
-Lookup/feedback provision and clean their own pinned disposable MySQL fixtures.
-Their runs leave committed evidence unchanged. Verifier strict compilation and
-focused lint pass. Original shared dependencies/Python environments are unchanged.
+Full r8 on frozen `6cbae5f` is TERMINAL failed, session94149 closed exit1:
+146 expected,145 executed,144 passed, one failed (`backend-tests`), generic
+`browser-tests` unexecuted by the existing failure guard. Source/rewrite and
+all hashed inputs stayed unchanged, interrupted false. Canonical report and
+`backend/evidence/verification-6cbae5f-r8.json` retain the exact failed result.
+Backend phase finished naturally in975529ms:2701 tests passed,90 skipped, one
+outdated NULL display-label assertion failed; two node:test tool files were
+also wrongly collected as empty Vitest suites. No timeouts/output limits.
 
-A fixed-snapshot, prerequisite-complete full r8 is running on `6cbae5f` in
-`pos-rewrite-validation-20261118-r8`, exec session94149, private log
-`/tmp/pos-rewrite-validation-20261118/full-verification-r8.log`. Both pinned
-Python oracles and mitigated installs were checked; owned localhost MySQL was
-recreated fresh while retaining its previous volume. Backend tests finished naturally (975529ms):2701 passed,90 skipped, one
-failed assertion plus two failed-suite discoveries. The two tool files use
-node:test and already pass as explicit prerequisites; default Vitest wrongly
-collected them. Catalog store-picker assertion still expected NULL after the
-approved empty-string display DTO fix. Root prepares exact Node-runner exclusions
-(without excluding other tools), updates that expectation, and registers config
-strict/lint. These corrections are not yet executed. Full r8 continues unchanged;
-frontend tests/build and initial native Go checks pass. It cannot be described
-as a successful full run even if its remaining phases pass. Poll the same live handle
-and keep heavy local tests/builds/measurements idle. The last complete attempt remains
-failed r7: 133 passed, three failed, one unexecuted. Focused follow-ups passed;
-they do not replace a clean full run. The release gate remains failing. Current read-only admission review accepts four routes and one feedback
-template: fresh country/postal proof plus15-case source/native/full-App feedback.
-All retained input hashes/source blobs match; three omitted helper hashes were
-compared with the exact executed baseline and bound in a separate review. Old
-receipts are unchanged. The quote certificate remains pending re-execution.
-Root gate:391 surfaces pending, all12 requirements pending, no malformed/stale
-admission failures, productionReady false. This new review does not change the
-frozen r8 inputs or turn that in-progress run into a current-Root verification.
+Corrections on851f620 are verified in an independent own-install checkout:
+new Vitest config removes exactly those two Node-runner files (344→342 files,
+no other removals/additions); the two explicit Node prerequisites already pass
+with unchanged bytes in r8. All15 native barcode/catalog tests pass, including
+the full franchise/global store-picker assertion now expecting the actual
+empty-string DTO. Backend config and OTP fixture strict checks plus changed
+backend lint pass. Receipt `backend/evidence/verification-r8-corrections.json`
+is bounded evidence, not a replacement complete run. Original shared installs
+and Python environments remain untouched.
 
-Live provider/SSO/warehouse/inventory acceptance, full source parity,
-representative performance/security review, signed desktop/physical printing,
-background workers and deployment/rollback acceptance remain incomplete.
-Both platforms also pass the shortcut-access snapshot `4de9f3c` in run
-44261638997. CI44264574673 on exact r8 snapshot `6cbae5f` is terminal failed:
-macOS success, Windows OTP browser recovery failure at
-`tests/customer-otp/otp.browser.test.ts:736` after lost-success reload. Other105
-cases in that step passed. Cause not established. The retained snapshot contains a mounted checkout and
-customer summary group, so bootstrap-only failure is not proven. Diagnostic-only
-worker256729e is integrated as51d4ef1; existing assertions/deadlines/counts remain.
-Failure-only output is allowlisted timings/booleans/read counts with trace fields;
-no raw DOM, errors, storage or payloads. Remote diagnostic CI is next; local
-heavy execution remains held while r8 runs. Retained receipt:
-`backend/evidence/desktop-ci-6cbae5f.json`. Local r8 is still live, unchanged;
-do not substitute platform failure for its result or restart it. Do not claim production readiness.
+Desktop CI44268539314 on851f620 SUCCESS on Windows and macOS, including native,
+offline, browser recovery and unsigned packaging; receipt
+`backend/evidence/desktop-ci-851f620.json`. Earlier6c Windows OTP reload failure
+is retained separately. Assertions/deadlines/counts are unchanged; failure-only
+diagnostics contain allowlisted booleans/timings/read counts and trace fields.
+The passing rerun does not establish the cause of the older failure. Signing,
+physical printing/device and release acceptance remain unproven.
+
+Fresh r8 joined lookup4, feedback15 and shortcut source/API/native/UI checks
+pass. Scoped quote source/API tests also pass in the failed backend aggregate;
+both quote browser cases pass within the current unfiltered53-case CI suite.
+New review certificates preserve parent failures and old receipts. Gate now
+accepts six routes and two templates (8/396),388 surfaces and all12 release
+requirements pending, no malformed/stale certificate failures. This is exact
+resource/template scope; no full counter, positive financial shortcut, history
+navigation, provider or release certification.
+
+Next parity work is isolated: profile edits candidate8383911 is executing;
+first3 native/source cases pass,4 UI cases exposed a fixture cart-read dependency
+and source snippet extraction error. Worker preserves real restore guards and
+is qualifying a localhost upstream read boundary, explicitly excluding provider
+parity. Catalogue/matrix benchmark54e9ce4+53cf24e passes static checks but native
+validation/measurement waits for an actually idle host. Archival workflow
+d02a5cf covers four exact source declarations as an unexecuted authoring
+candidate. No candidate receives admission from test/file counts. Finish these
+focused proofs and any actual implementation fixes before another complete run.
+
+Live SSO/warehouse/provider/inventory/background-worker acceptance, complete
+source parity, representative performance/security review, signed desktop and
+physical offline printing, and deployment/rollback acceptance remain required.
+Do not claim production readiness.
 
 ## Historical checkpoint entries (superseded where noted above)
 

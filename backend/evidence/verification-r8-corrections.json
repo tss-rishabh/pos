@@ -1,0 +1,74 @@
+{
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "recordedAt": "2026-11-18T08:54:34.380398Z",
+  "rewriteCommit": "851f620acf255acb3d29e9149519abf487748569",
+  "scope": "Bounded correction verification; does not replace failed full r8.",
+  "fullProjectVerification": false,
+  "productionReady": false,
+  "checks": {
+    "backendConfigStrict": true,
+    "customerOtpFixtureStrict": true,
+    "changedBackendLint": true,
+    "nativeBarcodeCatalogFile": {
+      "exitCode": 0,
+      "summary": [
+        "Test Files  1 passed (1)",
+        "Tests  15 passed (15)"
+      ]
+    },
+    "discovery": {
+      "originalFiles": 344,
+      "currentFiles": 342,
+      "onlyRemoved": [
+        "tools/dependency-security/verify.test.mjs",
+        "tools/verification/check.test.ts"
+      ],
+      "added": []
+    }
+  },
+  "nodeTestPrerequisites": "Both excluded files passed in the original r8 under explicit Node test runners; their bytes and runner helpers are unchanged.",
+  "checksums": {
+    "backend/vitest.config.ts": "bbcab956d36f35290f3dd37e5b67f412ed032a6b1e889a35b7304791a17987a7",
+    "backend/tsconfig.vitest.json": "20a841aabdf1452321a363449b4e1c8d1cd9680e28f6353ecb0178b7672ccbad",
+    "backend/tools/verify-project.ts": "7c51d06375d957afba3ef8f0e0bee94abde2402e2fb3f954756d7e29bf055b0a",
+    "backend/tests/administration/barcodes/mysql.test.ts": "e7dd3d032587e4179530a937391d10f69cf3e7123660f3ab8a56710dea0220ff",
+    "frontend/tests/customer-otp/otp.browser.test.ts": "3e0a7d914dd6edca13ea113daf4aaf9268ac93052ef84a7bec7fc24152500063",
+    "frontend/tests/customer-otp/harness.tsx": "244bf081fe21800af8896b98f27f8e55b4ae0c21dc0f343fe30e0799544629e2",
+    "backend/tools/verification/check.ts": "2beb6229811cab1dd3364f3b5a5f421b9f4cd9f318ca9968f6f4f049c2c85814",
+    "backend/tools/verification/check.test.ts": "a913fdebe1ef2e0821fd018c810c866ae86f217844ffe73204f885917054dc2c",
+    "backend/tools/dependency-security/verify.test.mjs": "5b045c07f875080a9bd623552d9f9cfc6489293680c707a1e2270133e65660b8"
+  },
+  "privateArtifactsSha256": {
+    "backend-r8-discovery.json": "b7789f7b99a32a82de912a3f35aa1b57b9233dba54a9287643827f99abcc976f",
+    "backend-corrected-discovery.json": "1942c935c79260ca58767f95e4b25573eb1eaf876762fb5652b1cacbda1c5169",
+    "barcode-corrected-native.log": "02835879077bf180343bf6c62095532e8f885ea19c8f68e8d928e1680aebd67a"
+  },
+  "commands": [
+    {
+      "directory": "backend",
+      "command": "node node_modules/typescript/bin/tsc --noEmit -p tsconfig.vitest.json",
+      "exitCode": 0
+    },
+    {
+      "directory": "frontend",
+      "command": "node node_modules/typescript/bin/tsc --noEmit -p tests/customer-otp/tsconfig.json",
+      "exitCode": 0
+    },
+    {
+      "directory": "backend",
+      "command": "node node_modules/eslint/bin/eslint.js vitest.config.ts tools/verify-project.ts tests/administration/barcodes/mysql.test.ts",
+      "exitCode": 0
+    },
+    {
+      "directory": "backend (both frozen and corrected checkouts)",
+      "command": "node node_modules/vitest/vitest.mjs list --filesOnly --json <private-output>",
+      "exitCode": 0
+    },
+    {
+      "directory": "backend",
+      "command": "node node_modules/vitest/vitest.mjs run tests/administration/barcodes/mysql.test.ts --maxWorkers=1 --no-file-parallelism",
+      "environment": "Guarded owned localhost MySQL fixture only; no live service environment forwarded.",
+      "exitCode": 0
+    }
+  ]
+}
