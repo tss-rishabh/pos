@@ -29,7 +29,7 @@ The plugin implements 19 resource routes. This is implementation coverage, not c
 - Isolated local MySQL exercises concurrent idempotent actions, store scoping, status logs, line/bulk packing, HP/order shipping, received-RTO guards, timeout/allocation retry, auto-pack, courier idempotency, notification deduplication, uncertain effects, per-store counter order across workers, and sanitized request/user trace propagation.
 - A dedicated ephemeral local Redis process verifies recipient/store isolation and omission of recipient lists from client events.
 - Fastify tests verify missing/invalid service credentials cause 401 before DB work even when a browser cookie is present, browser operator/store boundaries, exact WebSocket Origin, and revoked-session closure.
-- Monitoring tests verify data-reader selection, pair pagination, per-status distinct counts, split pairs, packed timers, and zero MySQL report reads for historical warehouse queries.
+- Monitoring tests verify warehouse routing for expiry-selected cohorts, pair pagination, per-status distinct counts, split pairs, packed timers, and zero MySQL report reads for historical warehouse queries.
 
 No live DB writes, real Slack messages, fulfillment actions, or customer notifications were used to produce this evidence. External delivery success and live warehouse equivalence still require configured test adapters and acceptance evidence.
 
@@ -59,7 +59,7 @@ Worker events contain static module/resource/event IDs, fresh event-instance IDs
 
 ## Warehouse contract
 
-Historical or mixed-date monitoring uses `warehouseService.queryReport` with resource `fulfillment-monitoring`, named bound parameters and the shared cost/time/row guards. Current business-day monitoring uses the data reader. Interactive per-store detail/actions remain on the primary/writer regardless of order age.
+All date-selected monitoring, including today, uses `warehouseService.queryReport` with resource `fulfillment-monitoring`, named bound parameters and the shared cost/time/row guards. Expiry-date selection does not bound original Order/HP fact age, so there is no DATA report fallback. Interactive per-store detail/actions remain on the primary/writer regardless of order age.
 
 Configure fully qualified `project.dataset.table` identifiers for these raw tables or compatible views. No project/dataset/table is guessed:
 

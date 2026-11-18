@@ -84,26 +84,31 @@ export function financeFeedService(
           );
       }
       let sales: FeedLine[], returns: FeedLine[];
-      if (reader === 'bigquery') {
-        const params = {
-            start: input.from,
-            end,
-            ...(input.storeCode ? { storeCode: input.storeCode } : {}),
-          },
-          types = {
-            start: 'DATE',
-            end: 'DATE',
-            ...(input.storeCode ? { storeCode: 'STRING' } : {}),
-          };
-        const read = async (tableName: string | undefined) => {
-          if (!tableName) return unavailable('BigQuery finance reconciliation table');
-          return warehouse.queryReport(
-            `SELECT * FROM \`${tableName}\` WHERE transaction_date>=DATETIME(@start) AND transaction_date<DATETIME(@end)${input.storeCode ? ' AND LocationCode=@storeCode' : ''} ORDER BY line_item_id LIMIT 70001`,
-            params,
-            types,
-            'finance-reconciliation',
-          );
+      const params = {
+          start: input.from,
+          end,
+          ...(input.storeCode ? { storeCode: input.storeCode } : {}),
+        },
+        types = {
+          start: 'DATE',
+          end: 'DATE',
+          ...(input.storeCode ? { storeCode: 'STRING' } : {}),
         };
+      const read = async (tableName: string | undefined) => {
+        if (!tableName) return unavailable('BigQuery finance reconciliation table');
+        return warehouse.queryReport(
+          `SELECT * FROM \`${tableName}\` WHERE transaction_date>=DATETIME(@start) AND transaction_date<DATETIME(@end)${input.storeCode ? ' AND LocationCode=@storeCode' : ''} ORDER BY line_item_id LIMIT 70001`,
+          params,
+          types,
+          'finance-reconciliation',
+        );
+      };
+      // Today's returns still use the original sale's tax/cost/header facts.
+      // Require that complete historical part before starting a bounded DATA
+      // sales read; a missing/failed warehouse never becomes a native fallback.
+      if (!options.BQ_FINANCE_RECONCILIATION_RETURNS)
+        return unavailable('BigQuery finance reconciliation returns table');
+      if (reader === 'bigquery') {
         const [saleRows, returnRows] = await Promise.all([
           read(options.BQ_FINANCE_RECONCILIATION_SALES),
           read(options.BQ_FINANCE_RECONCILIATION_RETURNS),
@@ -115,10 +120,10 @@ export function financeFeedService(
           database = db.get('data'),
           [saleRows, returnRows] = await Promise.all([
             database.execute(queries.sales),
-            database.execute(queries.returns),
+            read(options.BQ_FINANCE_RECONCILIATION_RETURNS),
           ]);
         sales = z.array(feedSaleLineSchema).parse(saleRows[0]);
-        returns = z.array(feedLineSchema).parse(returnRows[0]);
+        returns = z.array(feedLineSchema).parse(returnRows);
       }
       if (sales.length > 70000 || returns.length > 70000 || sales.length + returns.length > 70000)
         throw new AppError(

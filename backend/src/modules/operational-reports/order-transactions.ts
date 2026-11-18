@@ -12,6 +12,7 @@ import {
   orderReportScope,
   timestampReportBounds,
   warehouseView,
+  warehouseReportCount,
 } from './report-inputs.js';
 import {
   orderReportLineSchema,
@@ -73,6 +74,8 @@ export function orderTransactionsReportService(
       const input = orderTransactionsInputSchema.parse(value),
         stores = orderReportScope(user, input.storeIds),
         bounds = timestampReportBounds(config, input.from, input.to, clock());
+      // Return-date selection does not bound the original sale facts' age.
+      if (input.dateType === 'return_date') bounds.reader = 'bigquery';
       if (!stores.length)
         return {
           reader: bounds.reader,
@@ -107,7 +110,7 @@ export function orderTransactionsReportService(
             types,
             'order-transactions',
           );
-          total = countRows.parse(counts)[0]?.count || 0;
+          total = warehouseReportCount(counts);
           totalPages = Math.ceil(total / input.pageSize);
           page = all || input.page > totalPages ? 1 : input.page;
           if (all && total > 70000)

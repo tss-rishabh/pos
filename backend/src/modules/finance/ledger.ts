@@ -5,7 +5,6 @@ import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import {
-  AmountToBeRefundedLog,
   Order,
   OrderStore,
   ReturnOrder,
@@ -283,7 +282,8 @@ export function cashLedgerRows(
   }
   return result;
 }
-async function currentCash(
+/** Called only after proving no current return rows in this same RR snapshot. */
+async function currentCashWithoutReturns(
   db: Pick<ReturnType<Databases['get']>, 'select' | 'selectDistinct'>,
   storeIds: string[],
   date: string,
@@ -310,43 +310,8 @@ async function currentCash(
       ),
     )
     .groupBy(OrderStore.store);
-  const returned = db
-    .selectDistinct({
-      storeId: ReturnOrder.store_id,
-      orderId: ReturnOrder.order_id,
-      hasProductId: ReturnOrder.has_product_id,
-    })
-    .from(ReturnOrder)
-    .where(
-      and(
-        inArray(ReturnOrder.store_id, storeIds.map(Number)),
-        gte(ReturnOrder.created_at, start),
-        lt(ReturnOrder.created_at, end),
-      ),
-    )
-    .as('ledger_returned_lines');
-  const refunds = await db
-    .select({
-      storeId: returned.storeId,
-      cashRefund: sql<string>`coalesce(sum(${AmountToBeRefundedLog.refunded_amt}),0)`,
-    })
-    .from(AmountToBeRefundedLog)
-    .innerJoin(
-      returned,
-      and(
-        eq(returned.orderId, AmountToBeRefundedLog.order_id),
-        eq(returned.hasProductId, AmountToBeRefundedLog.has_product_id),
-      ),
-    )
-    .where(
-      and(
-        eq(AmountToBeRefundedLog.refund_mode, 'cash'),
-        eq(AmountToBeRefundedLog.is_refunded, true),
-      ),
-    )
-    .groupBy(returned.storeId);
   const cash = new Map(collections.map((row) => [String(row.storeId), money(row.cash)])),
-    cashRefund = new Map(refunds.map((row) => [String(row.storeId), money(row.cashRefund)]));
+    cashRefund = new Map<string, string>();
   for (const row of offline)
     cash.set(row.storeId, money(new Decimal(cash.get(row.storeId) || '0').plus(row.cash)));
   for (const row of correction) {
@@ -366,6 +331,27 @@ async function currentCash(
     cashRefund: cashRefund.get(storeId) || '0.00',
     lateOfflineCash: lateOffline.find((row) => row.storeId === storeId)?.cash || '0.00',
   }));
+}
+async function hasCurrentReturns(
+  db: Pick<ReturnType<Databases['get']>, 'select'>,
+  storeIds: string[],
+  date: string,
+) {
+  const rows = await db
+    .select({ id: ReturnOrder.id })
+    .from(ReturnOrder)
+    .where(
+      and(
+        inArray(ReturnOrder.store_id, storeIds.map(Number)),
+        gte(ReturnOrder.created_at, date + ' 00:00:00'),
+        lt(
+          ReturnOrder.created_at,
+          Temporal.PlainDate.from(date).add({ days: 1 }).toString() + ' 00:00:00',
+        ),
+      ),
+    )
+    .limit(1);
+  return rows.length !== 0;
 }
 export function cashLedgerService(
   config: Config,
@@ -464,7 +450,13 @@ export function cashLedgerService(
         );
         // Any missing anchor requires the historical chain. Never reconstruct it
         // by reading older MySQL rows behind a nominally current-day report.
-        if (storeIds.every((storeId) => anchors.some((anchor) => anchor.storeId === storeId)))
+        if (
+          storeIds.every((storeId) => anchors.some((anchor) => anchor.storeId === storeId)) &&
+          // A current return can refer to an older undated refund-log fact.
+          // Discover only today's cohort; its amounts require the qualified
+          // warehouse generation, never an old native refund-log read.
+          !(await hasCurrentReturns(db.get('data'), storeIds, bounds.today))
+        )
           reader = 'data';
       }
       if (reader === 'bigquery') {
@@ -651,6 +643,12 @@ export function cashLedgerService(
                 'LEDGER_SNAPSHOT_MISSING',
                 'The current cash anchor changed. Refresh the ledger.',
               );
+            if (await hasCurrentReturns(transaction, storeIds, bounds.today))
+              throw new AppError(
+                503,
+                'LEDGER_HISTORY_REQUIRED',
+                'A return was added to this day. Refresh the qualified cash ledger publication.',
+              );
             const condition = and(
               inArray(StoreDayClose.store_id, storeIds.map(Number)),
               gte(StoreDayClose.close_date, bounds.from),
@@ -690,7 +688,12 @@ export function cashLedgerService(
                   ),
                 ),
             );
-            const sales = await currentCash(transaction, storeIds, bounds.today, corrections);
+            const sales = await currentCashWithoutReturns(
+              transaction,
+              storeIds,
+              bounds.today,
+              corrections,
+            );
             return { anchors, closes, banking, sales };
           },
           { isolationLevel: 'repeatable read', accessMode: 'read only' },

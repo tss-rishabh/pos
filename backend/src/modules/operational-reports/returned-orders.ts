@@ -23,6 +23,7 @@ import {
   scalarId,
   timestampReportBounds,
   warehouseView,
+  warehouseReportCount,
 } from './report-inputs.js';
 import { reportCsvCell } from './export-domain.js';
 export const returnedOrdersInputSchema = z
@@ -130,6 +131,9 @@ export function returnedOrdersReportService(
       const input = returnedOrdersInputSchema.parse(value),
         ids = orderReportScope(user, input.storeIds),
         bounds = timestampReportBounds(config, input.from, input.to, clock());
+      // A return dated today can expose the original, older sale/HP facts.
+      // Keep the source return-date predicate; never fetch that history on DATA.
+      bounds.reader = 'bigquery';
       if (!ids.length)
         return {
           reader: bounds.reader,
@@ -159,12 +163,7 @@ export function returnedOrdersReportService(
           types,
           'returned-orders',
         );
-        total = z.coerce
-          .number()
-          .int()
-          .nonnegative()
-          .max(Number.MAX_SAFE_INTEGER)
-          .parse(counted[0]?.count ?? 0);
+        total = warehouseReportCount(counted);
         totalPages = Math.ceil(total / input.pageSize);
         page = all || input.page > totalPages ? 1 : input.page;
         const sortAlias = {

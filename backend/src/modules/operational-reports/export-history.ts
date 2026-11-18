@@ -5,7 +5,7 @@ import type { Principal } from '../../domain/access.js';
 import { AppError, unavailable } from '../../domain/errors.js';
 import { warehouseService } from '../warehouse.js';
 import { exportMessage, exportStatus, type ExportStatus } from './export-domain.js';
-import { scalarId, warehouseView } from './report-inputs.js';
+import { scalarId, warehouseView, warehouseReportCount } from './report-inputs.js';
 const day = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -161,12 +161,7 @@ export function exportHistoryReader(
           types,
           'report-export-history',
         ),
-        total = z.coerce
-          .number()
-          .int()
-          .nonnegative()
-          .max(Number.MAX_SAFE_INTEGER)
-          .parse(counted[0]?.count ?? 0),
+        total = warehouseReportCount(counted),
         page = input.page <= Math.ceil(total / input.pageSize) ? input.page : 1;
       if (!total) return { data: [], total, page, pageSize: input.pageSize };
       const sort = {

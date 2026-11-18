@@ -204,14 +204,7 @@ describe.skipIf(!connection)('flash-sales source SQL on verified-schema local My
   });
   it('preserves original screen/export multiplicity, order-wide cash and source refund attribution', async () => {
     if (!databases) throw new Error('Fixture unavailable.');
-    const service = flashSalesReportService(
-        config,
-        databases,
-        flashSalesOptions({}),
-        undefined,
-        clock,
-      ),
-      input = flashSalesInputSchema.parse({
+    const input = flashSalesInputSchema.parse({
         from: '2026-11-16',
         to: '2026-11-16',
         storeIds: ['1'],
@@ -245,6 +238,40 @@ describe.skipIf(!connection)('flash-sales source SQL on verified-schema local My
       }
     };
     const refunds = z.array(flashRefundRowSchema).parse(await source('refunds'));
+    const service = flashSalesReportService(
+      config,
+      databases,
+      flashSalesOptions(
+        Object.fromEntries(
+          [
+            'ORDERS',
+            'ORDER_STORES',
+            'LINES',
+            'STORES',
+            'PAYTM_TRANSACTIONS',
+            'RETURN_ORDERS',
+            'REFUND_LOGS',
+            'AUTOMATED_REFUNDS',
+          ].map((key) => [
+            'BQ_FLASH_SALES_' + key + '_VIEW',
+            'fixture-project.reports.' + key.toLowerCase(),
+          ]),
+        ),
+      ),
+      {
+        async queryReport(statement, params) {
+          // Independent literal source SQL above supplies the fixture projection.
+          expect(statement).toContain('refunded_at');
+          expect(params).toEqual({
+            start: '2026-11-16 00:00:00',
+            end: '2026-11-16 23:59:59',
+            stores: ['1'],
+          });
+          return refunds;
+        },
+      },
+      clock,
+    );
     for (const kind of ['interactive', 'export'] as const) {
       const expected = prepareFlashSales(
           z.array(flashSalesSourceRowSchema).parse(await source(kind)),

@@ -338,19 +338,11 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
       });
       await admin!.query('UPDATE tss_money_history SET has_product_id=602 WHERE id=?', [id]);
     }
-    const service = returnedOrdersReportService(
-        config,
-        db(),
-        returnedOrdersOptions({}),
-        undefined,
-        clock,
-      ),
-      input = returnedOrdersInputSchema.parse({
+    const input = returnedOrdersInputSchema.parse({
         from: '2026-11-16T00:00:00',
         to: '2026-11-16T23:59:59',
         storeIds: ['1'],
       }),
-      result = await service.read(user, input),
       query = execFileSync(
         'python3',
         [
@@ -375,6 +367,59 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
     } finally {
       await admin!.query('SET SESSION sql_mode=?', [original]);
     }
+    const service = returnedOrdersReportService(
+      config,
+      db(),
+      returnedOrdersOptions({
+        BQ_RETURNED_ORDERS_VIEW: 'fixture-project.reports.returns',
+      }),
+      {
+        async queryReport(statement, params) {
+          // Execute the literal pinned source on this disposable fixture as the
+          // compatible-view oracle. The application never receives a MySQL port
+          // for old facts; this does not certify a live warehouse publication.
+          const projectedQuery = query.replace('hp.id,', 'hp.id,ANY_VALUE(ro.id) AS return_id,');
+          const search = String(params.search);
+          const cells = [
+            'store_name',
+            'order_id',
+            'prod_id',
+            'qty',
+            'reason',
+            'sub_reason',
+            'comment',
+            'created_at',
+          ];
+          let projected: mysql.RowDataPacket[];
+          try {
+            await admin!.query('SET SESSION sql_mode=?', [
+              original
+                .split(',')
+                .filter((part) => part !== 'ONLY_FULL_GROUP_BY')
+                .join(','),
+            ]);
+            [projected] = await admin!.query<mysql.RowDataPacket[]>(
+              `SELECT * FROM (${projectedQuery}) source_rows WHERE (?='' OR ${cells.map((cell) => `CAST(${cell} AS CHAR) LIKE ?`).join(' OR ')})`,
+              [
+                search,
+                ...cells.map(() => '%' + search.replace(/[\\%_]/g, (part) => '\\' + part) + '%'),
+              ],
+            );
+          } finally {
+            await admin!.query('SET SESSION sql_mode=?', [original]);
+          }
+          if (statement.startsWith('SELECT COUNT(')) return [{ count: projected.length }];
+          return projected
+            .slice(Number(params.offset), Number(params.offset) + Number(params.limit))
+            .map((row) => ({
+              ...row,
+              original_order_id: row.OriginalOrderId,
+            }));
+        },
+      },
+      clock,
+    );
+    const result = await service.read(user, input);
     const artifact = await reportExportBuilder(config, db(), { returnedOrders: service })(user, {
       kind: 'returned-orders',
       from: input.from,
@@ -383,11 +428,12 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
       search: '',
     });
     expect(artifact.rowCount).toBe(2);
+    if (artifact.format !== 'CSV') throw new Error('Return export must be CSV.');
     expect(artifact.bytes.toString('utf8')).toBe(
       returnedOrdersCsv((await service.read(user, input, true)).data),
     );
     expect(result.total).toBe(2);
-    expect(result.reader).toBe('data');
+    expect(result.reader).toBe('bigquery');
     expect(
       result.data.map((row) => ({
         id: row.id,

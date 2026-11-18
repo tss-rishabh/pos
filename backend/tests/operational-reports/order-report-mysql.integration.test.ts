@@ -264,11 +264,23 @@ describe.skipIf(!connection)(
       await admin?.end();
     });
     it('preserves source store/online branches and order-vs-return date semantics with strict grouping', async () => {
+      let projected: z.infer<typeof orderReportLineSchema>[] = [];
       const service = orderTransactionsReportService(
           config,
           db(),
-          orderTransactionsOptions({}),
-          undefined,
+          orderTransactionsOptions({
+            BQ_STORE_ORDER_SALES_VIEW: 'fixture-project.reports.store_sales',
+            BQ_STORE_ORDER_RETURNS_VIEW: 'fixture-project.reports.store_returns',
+            BQ_ONLINE_ORDER_SALES_VIEW: 'fixture-project.reports.online_sales',
+            BQ_ONLINE_ORDER_RETURNS_VIEW: 'fixture-project.reports.online_returns',
+          }),
+          {
+            async queryReport(statement) {
+              // Explicit native source-projection fixture for the warehouse port.
+              // The literal original SQL is independently compared below.
+              return statement.endsWith(' AS count') ? [{ count: projected.length }] : projected;
+            },
+          },
           clock,
         ),
         [mode] = await admin!.query<mysql.RowDataPacket[]>('SELECT @@SESSION.sql_mode AS value'),
@@ -300,6 +312,7 @@ describe.skipIf(!connection)(
               'Fixture projection fields: ' +
                 checked.error.issues.map((issue) => issue.path.join('.')).join(','),
             );
+          projected = checked.data;
           const result = await service.read(user, input),
             query = execFileSync(
               'python3',
@@ -328,7 +341,7 @@ describe.skipIf(!connection)(
             await admin!.query('SET SESSION sql_mode=?', [original]);
           }
           const normalized = z.array(orderReportLineSchema).parse(expected);
-          expect(result.reader).toBe('data');
+          expect(result.reader).toBe(dateType === 'return_date' ? 'bigquery' : 'data');
           expect(result.total).toBe(expected.length);
           expect(result.data).toEqual(preparedOrderRecords(normalized));
           expect(result.data.every((row) => row.product_category === 'Preferred fixture')).toBe(

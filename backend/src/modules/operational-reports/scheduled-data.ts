@@ -104,7 +104,12 @@ const mysqlQueries: Record<ReadKind, string> = {
   cancellations: `SELECT s.store_name AS storeName,CAST(hlol.order_id AS CHAR) AS orderId,hlol.reason AS reason,hlol.remark AS comment,hlol.created_at AS convertedAt FROM hyperlocal_to_online_order_logs hlol LEFT JOIN stores s ON s.id=hlol.location_id WHERE hlol.created_at>={{from}} AND hlol.created_at<{{end}} AND hlol.platform='CONVERT_ONLINE' ORDER BY hlol.id`,
   tickets: `SELECT CAST(order_id AS CHAR) AS orderId,fd_ticket_id AS ticketId,created_at AS createdAt FROM hyperlocal_fd_logs WHERE created_at>={{from}} AND created_at<{{end}} AND ({{includeCompleted}} OR fd_ticket_status NOT IN ('CLOSED')) ORDER BY id`,
 };
-function boundMysql(kind: ReadKind, period: Period, includeCompleted: boolean): SQL {
+/** Static source-compatible SQL for DATA and isolated source-projection oracles. */
+export function scheduledSourceQuery(
+  kind: ReadKind,
+  period: Period,
+  includeCompleted: boolean,
+): SQL {
   const params = { ...period, includeCompleted };
   return sql.join(
     mysqlQueries[kind]
@@ -236,7 +241,8 @@ export function scheduledReportBuilder(
   }
   const metadata = metadataReader || loadMetadata;
   return async (input: ScheduleInput & { date: string }): Promise<ScheduledArtifact> => {
-    const day = Temporal.PlainDate.from(input.date),
+    const now = clock(),
+      day = Temporal.PlainDate.from(input.date),
       from = input.kind === 'crm-tickets' ? day.subtract({ days: input.previousDays - 1 }) : day,
       period = {
         from: from.toString() + ' 00:00:00',
@@ -247,10 +253,23 @@ export function scheduledReportBuilder(
         config,
         from.toString() + 'T00:00:00',
         day.toString() + 'T23:59:59',
-        clock(),
+        now,
       );
     const read = async (kind: ReadKind) => {
-      if (bounds.reader === 'bigquery')
+      // Timing includes an unbounded original Order.created_at. Summary reads
+      // orders from the preceding day as well as today's requested log window.
+      const reader =
+        kind === 'timing'
+          ? 'bigquery'
+          : kind === 'summary'
+            ? timestampReportBounds(
+                config,
+                period.windowStart.replace(' ', 'T'),
+                day.toString() + 'T23:59:59',
+                now,
+              ).reader
+            : bounds.reader;
+      if (reader === 'bigquery')
         return warehouse.queryReport(
           warehouseQuery(kind, options) + ' LIMIT 70001',
           { ...period, includeCompleted: input.includeCompleted },
@@ -259,7 +278,7 @@ export function scheduledReportBuilder(
         );
       const rows = await db
         .get('data')
-        .execute(sql`${boundMysql(kind, period, input.includeCompleted)} LIMIT 70001`);
+        .execute(sql`${scheduledSourceQuery(kind, period, input.includeCompleted)} LIMIT 70001`);
       return z.array(z.record(z.string(), z.unknown())).parse(rows[0]);
     };
     const parsed = async <T>(kind: ReadKind, schema: z.ZodType<T>) => {

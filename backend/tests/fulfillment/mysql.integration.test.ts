@@ -302,7 +302,61 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
     });
   });
   it('preserves all-store distinct-status counts, split pairs, scope and packed-log timers', async () => {
-    const monitor = fulfillmentMonitoring(config, db(), monitoringOptions({}), undefined, clock),
+    const tables: Record<string, string> = {
+      EXPRESS_LINES: 'express_line_item',
+      ORDERS: 'orders',
+      HAS_PRODUCTS: 'has_products',
+      PRODUCTS: 'products',
+      STORES: 'stores',
+      ORDER_STATUSES: 'order_status',
+      PAYMENT_STATUSES: 'payment_status',
+      STATUS_LOGS: 'express_order_status_log',
+    };
+    const options = monitoringOptions(
+      Object.fromEntries(
+        Object.entries(tables).map(([key, table]) => [
+          'BQ_FULFILLMENT_' + key,
+          'fixture-project.fulfillment.' + table,
+        ]),
+      ),
+    );
+    const monitor = fulfillmentMonitoring(
+        config,
+        db(),
+        options,
+        {
+          async queryReport(statement, params) {
+            // Execute the report's bound join projection against the disposable
+            // original tables. Only dialect syntax changes; no fact/column/date
+            // predicates are removed and this is never a runtime fallback.
+            const values: unknown[] = [];
+            let query = statement
+              .replace(/`fixture-project\.fulfillment\.([a-z_]+)`/g, (_whole, table: string) =>
+                mysql.escapeId(table),
+              )
+              .replace(/\bAS STRING\b/g, 'AS CHAR')
+              .replace(/DATETIME\(@(start|end)\)/g, 'CAST(@$1 AS DATETIME)')
+              .replace(
+                /IN UNNEST\(@(\w+)\)|@(\w+)/g,
+                (_whole, arrayName: string | undefined, name: string | undefined) => {
+                  if (arrayName) {
+                    const items = params[arrayName];
+                    if (!Array.isArray(items) || !items.length)
+                      throw new Error('Fixture requires nonempty bound IDs.');
+                    values.push(...items);
+                    return 'IN (' + items.map(() => '?').join(',') + ')';
+                  }
+                  values.push(params[name!]);
+                  return '?';
+                },
+              );
+            if (statement.startsWith('SELECT COUNT(*)')) query += ' AS fixture_count';
+            const [rows] = await admin!.query<mysql.RowDataPacket[]>(query, values);
+            return rows;
+          },
+        },
+        clock,
+      ),
       input = {
         from: '2026-11-16',
         to: '2026-11-16',
@@ -311,7 +365,7 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
         pageSize: 10 as const,
       };
     const scoped = await monitor.read(user, input);
-    expect(scoped.reader).toBe('data');
+    expect(scoped.reader).toBe('bigquery');
     expect(scoped.tabCounts.in_queue).toBe(1);
     expect(scoped.total).toBe(1);
     expect(scoped.page).toBe(1);

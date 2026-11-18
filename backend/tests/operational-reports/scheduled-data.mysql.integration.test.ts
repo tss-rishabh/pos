@@ -3,11 +3,13 @@ import { execFileSync } from 'node:child_process';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 import {
   scheduledReportBuilder,
+  scheduledSourceQuery,
   type FreshdeskReader,
 } from '../../src/modules/operational-reports/scheduled-data.js';
 import { scheduledReportOptions } from '../../src/modules/operational-reports/scheduled-options.js';
@@ -29,7 +31,10 @@ describe.skipIf(!connection)('scheduled report queries on verified-schema local 
       SESSION_SECRET: 'scheduled-query-mysql-'.repeat(3),
     }),
     clock = () => Temporal.Instant.from('2026-11-16T08:00:00Z'),
-    options = scheduledReportOptions({}),
+    options = scheduledReportOptions({
+      BQ_HYPERLOCAL_ORDER_LOGS_VIEW: 'fixture-project.reports.logs',
+      BQ_HYPERLOCAL_ORDER_FACTS_VIEW: 'fixture-project.reports.orders',
+    }),
     slots: SlotFact[] = [
       {
         id: '1',
@@ -52,7 +57,35 @@ describe.skipIf(!connection)('scheduled report queries on verified-schema local 
     if (!databases) throw new Error('Fixture unavailable.');
     return databases;
   }
-  const build = () => scheduledReportBuilder(config, db(), options, undefined, crm, clock);
+  const build = () =>
+    scheduledReportBuilder(
+      config,
+      db(),
+      options,
+      {
+        async queryReport(_statement, params, _types, resource) {
+          // Isolated source SQL provides the compatible-view oracle. Production
+          // selects only the warehouse port for these unbounded fact cohorts.
+          const period = {
+            from: String(params.from),
+            end: String(params.end),
+            windowStart: String(params.windowStart),
+          };
+          const [rows] = await db()
+            .get('data')
+            .execute(
+              scheduledSourceQuery(
+                resource === 'hyperlocal-performance' ? 'timing' : 'summary',
+                period,
+                params.includeCompleted === true,
+              ),
+            );
+          return z.array(z.record(z.string(), z.unknown())).parse(rows);
+        },
+      },
+      crm,
+      clock,
+    );
   beforeAll(async () => {
     const url = new URL(connection!);
     if (!['127.0.0.1', 'localhost'].includes(url.hostname))

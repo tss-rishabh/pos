@@ -8,7 +8,7 @@ The query compiler binds store and date values, validates parsed aliases and sup
 
 The formatter reproduces Python float rounding, whole-number ties-to-even and string formatting. It preserves the source's unusual negative individual-points branch when store PG discount is nonzero: `total_sale` may remain an unsigned, unrounded number for a return. This behavior is documented rather than silently changed. Source non-grouped labels are ambiguous when joined rows disagree; explicit ANY_VALUE preserves that ambiguity. Fixture parity does not certify those labels across arbitrary production query plans. Lossless IDs use strings, dates are normalized, and CSV formula escaping/BOM are deliberate security/encoding differences from raw legacy bytes.
 
-Current-business-day data is queried from the data reader. Historical or mixed-day ranges require both matching views from this validated configuration:
+Current-business-day order-date cohorts use the data reader. Return-date cohorts always use BigQuery because the joined original sale can be older; historical/mixed order-date cohorts also use BigQuery. Both matching views are required from this validated configuration:
 
 | Source | Sales view | Return view |
 |---|---|---|

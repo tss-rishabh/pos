@@ -8,7 +8,7 @@ Earliest ACCEPTED, PACKED, OUT_FOR_DELIVERY and DELIVERED times are calculated a
 
 All source roles may access the report. Non-superadmins default to their assigned stores and cannot select other stores. Restricted user type 2 retains that boundary even with role 1 and receives server-masked customer names. Internal superadmin may request all stores. The source's configurable unscoped bypass and unmasked restricted-user names are deliberately tightened for security. Export jobs freeze current scope/user type and repeat writer authorization before building and file access; old artifacts never authorize operations.
 
-Current-business-day reports use the data reader. Historical/mixed ranges require `BQ_HYPERLOCAL_DAILY_VIEW`, a validated fully qualified compatible view containing one row per source ELI/order/line/store join, with:
+All nonempty expiry-selected reports require BigQuery, including today, because original order/HP values and earliest lifecycle timestamps can predate the selected expiry day. Configure `BQ_HYPERLOCAL_DAILY_VIEW`, a validated fully qualified compatible view containing one row per source ELI/order/line/store join, with:
 
 `order_id,user_id,line_item_id,sku_id,customer_name,quantity,pre_gst_amount,gst_rate,order_status,line_item_status,express_line_item_status,order_date,store_id,location_code,store_name,pending_expires_at,allocation_date,pack_date,pickup_date,delivery_date`
 

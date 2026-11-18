@@ -1,9 +1,10 @@
 import mysql from 'mysql2/promise';
 import { getTableConfig } from 'drizzle-orm/mysql-core';
 import type { MySqlTable } from 'drizzle-orm/mysql-core';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { z } from 'zod';
 import { readFileSync } from 'node:fs';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
@@ -13,7 +14,7 @@ import {
   StoreCashOpeningBalance,
 } from '../../src/db/legacy-schema.js';
 import { collectionSnapshot, financeService } from '../../src/modules/finance/service.js';
-import { closeEntriesSchema } from '../../src/modules/finance/domain.js';
+import { closeEntriesSchema, money } from '../../src/modules/finance/domain.js';
 import type { Principal } from '../../src/domain/access.js';
 import {
   cashLedgerService,
@@ -216,20 +217,120 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     ).rejects.toMatchObject({ code: 'DAY_CLOSE_VERSION_CONFLICT' });
     expect(await resources().get('writer').select().from(StoreDayClose)).toHaveLength(1);
   });
-  it('uses the data reader for a fully current-day ledger anchor and preserves banking totals', async () => {
-    const service = cashLedgerService(
-      readConfig({
-        NODE_ENV: 'test',
-        DEMO_MODE: 'true',
-        SESSION_SECRET: 'cash-ledger-fixture-'.repeat(3),
-      }),
-      resources(),
-      ledgerOptions({}),
-      undefined,
-      clock,
+  it('requires a complete warehouse ledger for current returns and preserves original banking/refund totals', async () => {
+    const cfg = readConfig({
+      NODE_ENV: 'test',
+      DEMO_MODE: 'true',
+      SESSION_SECRET: 'cash-ledger-fixture-'.repeat(3),
+    });
+    await expect(
+      cashLedgerService(cfg, resources(), ledgerOptions({}), undefined, clock).read(
+        user,
+        ['1'],
+        '2026-11-16',
+        '2026-11-16',
+      ),
+    ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
+    // Independently capture the original native facts in this disposable fixture.
+    // No report-service helper computes the warehouse payload or its amounts.
+    const [nativeClose] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT * FROM store_day_close WHERE store_id=1 AND close_date=?',
+      ['2026-11-16'],
     );
+    const [nativeCash] = await admin!.query<mysql.RowDataPacket[]>(
+      "SELECT SUM(os.offline_payment) AS cash FROM order_stores os JOIN orders o ON o.id=os.order_id WHERE os.store_id=1 AND o.created_at>='2026-11-16 00:00:00' AND o.created_at<'2026-11-17 00:00:00' AND (os.offline_payment+os.online_payment+os.online_other_payment)>0",
+    );
+    const [nativeRefund] = await admin!.query<mysql.RowDataPacket[]>(
+      "SELECT SUM(a.refunded_amt) AS cashRefund FROM amount_to_be_refunded_log a WHERE a.refund_mode='cash' AND a.is_refunded=1 AND EXISTS(SELECT 1 FROM return_orders r WHERE r.store_id=1 AND r.order_id=a.order_id AND r.has_product_id=a.has_product_id AND r.created_at>='2026-11-16 00:00:00' AND r.created_at<'2026-11-17 00:00:00')",
+    );
+    const anchors = [{ storeId: '1', date: '2026-11-16', amount: '50.00' }],
+      closes = nativeClose.map((row) => ({
+        storeId: '1',
+        date: '2026-11-16',
+        version: Number(row.version),
+        status: String(row.status),
+        cashSystem: money(String(row.cash_system)),
+        cashRefund: money(String(row.cash_refund_system)),
+        cashPunched: money(String(row.cash_manual_punched)),
+        cashCreated: money(String(row.cash_manual_created)),
+        cashActual: money(String(row.cash_actual)),
+        cashDifference: money(String(row.cash_difference)),
+        banking: money(String(row.banking_amount)),
+      })),
+      banks = [{ storeId: '1', date: '2026-11-16', amount: '40.00' }],
+      sales = [
+        {
+          storeId: '1',
+          date: '2026-11-16',
+          cash: money(String(nativeCash[0]!.cash)),
+          cashRefund: money(String(nativeRefund[0]!.cashRefund)),
+          lateOfflineCash: '0.00',
+        },
+      ],
+      proofKey = 'fixture-current-ledger-publication-'.repeat(2),
+      partition = sealPaymentCorrectionPartition(
+        {
+          contract: paymentCorrectionPublicationContract,
+          kind: 'cash-ledger',
+          cashReturnControl: emptyControl('1'),
+          generationId: 'current_ledger_fixture',
+          sourcePosition: 'mysql-bin.fixture:42',
+          cdcWatermark: '2026-11-16T17:29:30Z',
+          publishedAt: '2026-11-16T17:29:50Z',
+          businessTimezone: 'Asia/Kolkata',
+          storeId: '1',
+          businessDate: '2026-11-16',
+          dataReference: {
+            generationId: 'current_ledger_fixture',
+            sourcePosition: 'mysql-bin.fixture:42',
+            cdcWatermark: '2026-11-16T17:29:30Z',
+            publishedAt: '2026-11-16T17:29:50Z',
+          },
+          payload: {
+            baselineHash: cashLedgerCorrectionBaselineHash(
+              '1',
+              '2026-11-16',
+              anchors,
+              closes,
+              banks,
+              sales,
+            ),
+            cashAdjustment: '0.00',
+            cashOut: '0.00',
+          },
+        },
+        proofKey,
+      ),
+      service = cashLedgerService(
+        cfg,
+        resources(),
+        ledgerOptions({
+          BQ_FINANCE_OPENING_BALANCES: 'fixture-project.finance.anchors',
+          BQ_FINANCE_DAY_CLOSES: 'fixture-project.finance.closes',
+          BQ_FINANCE_DAY_BANKING: 'fixture-project.finance.banking',
+          BQ_FINANCE_CASH_COLLECTIONS: 'fixture-project.finance.collections',
+          BQ_FINANCE_CASH_COLLECTIONS_OFFLINE_CONTRACT: 'pos-offline-cash-ledger-v1',
+        }),
+        {
+          async queryReport(statement) {
+            if (statement.includes('finance.payment_publications'))
+              return statement.includes('GROUP BY generation_id')
+                ? [{ generationId: 'current_ledger_fixture' }]
+                : [partition];
+            if (statement.includes('finance.anchors')) return anchors;
+            if (statement.includes('finance.closes')) return closes;
+            if (statement.includes('finance.banking')) return banks;
+            return sales.map((row) => ({
+              ...row,
+              cashProjectionContract: 'pos-offline-cash-ledger-v1',
+            }));
+          },
+        },
+        clock,
+        { proofKey, publicationTable: 'fixture-project.finance.payment_publications' },
+      );
     const result = await service.read(user, ['1'], '2026-11-16', '2026-11-16');
-    expect(result.reader).toBe('data');
+    expect(result.reader).toBe('bigquery');
     expect(result.data).toEqual([
       {
         store_id: '1',
@@ -246,6 +347,71 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         note: '',
       },
     ]);
+  });
+  it('refuses a return arriving after DATA routing before any historical refund fact is read', async () => {
+    const [originalReturns] = await admin!.query<mysql.RowDataPacket[]>(
+      'SELECT * FROM return_orders',
+    );
+    await admin!.query('DELETE FROM return_orders');
+    let entered = false;
+    const data = resources().get('data'),
+      routed: Databases = {
+        get(role) {
+          if (role !== 'data') return resources().get(role);
+          return new Proxy(data, {
+            get(target, property, receiver) {
+              if (property === 'transaction')
+                return async (
+                  work: Parameters<typeof data.transaction>[0],
+                  options: Parameters<typeof data.transaction>[1],
+                ) => {
+                  entered = true;
+                  await admin!.query(
+                    "INSERT INTO return_orders VALUES(9900,1,501,1,'2026-11-16 14:00:00')",
+                  );
+                  return target.transaction(async (tx) => {
+                    const [rows] = await tx.execute(
+                      sql`SELECT @@transaction_isolation AS isolation_level`,
+                    );
+                    expect(
+                      z.array(z.object({ isolation_level: z.string() })).parse(rows)[0]!
+                        .isolation_level,
+                    ).toBe('REPEATABLE-READ');
+                    return work(tx);
+                  }, options);
+                };
+              return Reflect.get(target, property, receiver);
+            },
+          });
+        },
+        close: async () => {},
+      };
+    try {
+      await expect(
+        cashLedgerService(
+          readConfig({
+            NODE_ENV: 'test',
+            DEMO_MODE: 'true',
+            SESSION_SECRET: 'current-return-race-fixture-'.repeat(3),
+          }),
+          routed,
+          ledgerOptions({}),
+          undefined,
+          clock,
+        ).read(user, ['1'], '2026-11-16', '2026-11-16'),
+      ).rejects.toMatchObject({ code: 'LEDGER_HISTORY_REQUIRED' });
+      expect(entered).toBe(true);
+    } finally {
+      await admin!.query('DELETE FROM return_orders');
+      for (const row of originalReturns)
+        await admin!.query('INSERT INTO return_orders VALUES(?,?,?,?,?)', [
+          row.id,
+          row.order_id,
+          row.has_product_id,
+          row.store_id,
+          row.created_at,
+        ]);
+    }
   });
   it('rejects a forged difference and marks a closed snapshot stale after real collection drift', async () => {
     const service = financeService(

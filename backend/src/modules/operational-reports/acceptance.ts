@@ -14,6 +14,7 @@ import {
   timestampReportBounds,
   warehouseView,
   staffReportScope,
+  warehouseReportCount,
 } from './report-inputs.js';
 export const acceptanceInputSchema = z
   .object({
@@ -89,12 +90,7 @@ export function acceptanceReportService(
           types,
           'hyperlocal-acceptance',
         );
-        total = z.coerce
-          .number()
-          .int()
-          .nonnegative()
-          .max(Number.MAX_SAFE_INTEGER)
-          .parse(counted[0]?.count ?? 0);
+        total = warehouseReportCount(counted);
         totalPages = Math.ceil(total / input.pageSize);
         page = input.page <= totalPages ? input.page : 1;
         const sort = {

@@ -258,12 +258,21 @@ export function flashSalesReportService(
               'REPORT_TOO_LARGE',
               'Select a smaller store/date range for export.',
             );
-          const returned = sales.length
-            ? await reader.execute(
-                sql`${flashSalesMysqlQuery('refunds', bounds.from, bounds.to, stores)} LIMIT 70001`,
-              )
-            : null;
-          refunds = returned ? z.array(flashRefundRowSchema).parse(returned[0]) : [];
+          // Refund-date selection includes older original Order/HP/log facts.
+          // Keep today's sales on DATA, retaining the full source refund joins
+          // in BigQuery rather than reading that history from MySQL.
+          refunds = sales.length
+            ? z
+                .array(flashRefundRowSchema)
+                .parse(
+                  await warehouse.queryReport(
+                    flashSalesWarehouseQuery('refunds', warehouseTables(options)) + ' LIMIT 70001',
+                    params,
+                    types,
+                    'flash-sales',
+                  ),
+                )
+            : [];
         }
         if (refunds.length > 70000)
           throw new AppError(

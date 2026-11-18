@@ -42,83 +42,89 @@ describe('all-store monitoring reader safety', () => {
         { status: 'RTO', count: 1 },
       ]).shipped,
     ).toBe(5));
-  it('routes history only to bound warehouse queries and preserves large order identifiers', async () => {
-    let databaseCalls = 0;
-    const queries: { statement: string; params: Record<string, unknown> }[] = [];
-    const db: Databases = {
-      get: () => {
-        databaseCalls++;
-        throw new Error('Unexpected MySQL read');
-      },
-      close: async () => {},
-    };
-    const warehouse = {
-      queryReport: async (statement: string, params: Record<string, unknown>) => {
-        queries.push({ statement, params });
-        if (statement.startsWith('SELECT e.status')) return [{ status: 'PENDING', count: 1 }];
-        if (statement.startsWith('SELECT COUNT(*)')) return [{ count: 1 }];
-        if (statement.startsWith('SELECT CAST(e.order_id'))
-          return [{ orderId: '9007199254740993', storeId: '1', expiresAt: '2026-11-15 14:00:00' }];
-        return [
-          {
-            id: '1',
-            orderId: '9007199254740993',
-            storeId: '1',
-            hasProductId: '500',
-            status: 'PENDING',
-            pendingExpiresAt: '2026-11-15 14:00:00',
-            acceptedExpiresAt: '2026-11-15 16:00:00',
-            productId: '100',
-            productName: 'Fixture tee',
-            productStatus: 'CONFIRMED',
-            quantity: '1',
-            preGstAmount: 100,
-            gst: 5,
-            awb: null,
-            shipmentId: null,
-            vincStatus: '',
-            updatedAt: '2026-11-15 12:00:00',
-            price: '105',
-            images: '{}',
-            parentImages: null,
-            parentProductId: '0',
-            orderExists: '9007199254740993',
-            reference: 'FIXTURE',
-            userId: '10',
-            firstName: 'Fixture',
-            lastName: '',
-            createdAt: '2026-11-15 12:00:00',
-            paymentStatus: 'Paid',
-            orderStatus: 'Confirmed',
-            storeName: 'Fixture store',
-          },
-        ];
-      },
-    };
-    const service = fulfillmentMonitoring(config, db, options, warehouse, clock),
-      result = await service.read(user, {
-        from: '2026-11-15',
-        to: '2026-11-15',
-        tab: 'in_queue',
-        page: 1,
-        pageSize: 25,
-        orderIds: ['9007199254740993'],
-      });
-    expect(result.reader).toBe('bigquery');
-    expect(result.data[0]?.orderId).toBe('9007199254740993');
-    expect(databaseCalls).toBe(0);
-    expect(queries).toHaveLength(4);
-    expect(queries.every((query) => !query.statement.includes('9007199254740993'))).toBe(true);
-    expect(queries[0]?.params.stores).toEqual(['1']);
-    await expect(
-      fulfillmentMonitoring(config, db, monitoringOptions({}), warehouse, clock).read(user, {
-        from: '2026-11-15',
-        to: '2026-11-15',
-        tab: 'in_queue',
-        page: 1,
-        pageSize: 25,
-      }),
-    ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
-    expect(databaseCalls).toBe(0);
-  });
+  it.each(['2026-11-15', '2026-11-16'])(
+    'routes expiry cohort %s only to bound warehouse queries and preserves older order facts',
+    async (date) => {
+      let databaseCalls = 0;
+      const queries: { statement: string; params: Record<string, unknown> }[] = [];
+      const db: Databases = {
+        get: () => {
+          databaseCalls++;
+          throw new Error('Unexpected MySQL read');
+        },
+        close: async () => {},
+      };
+      const warehouse = {
+        queryReport: async (statement: string, params: Record<string, unknown>) => {
+          queries.push({ statement, params });
+          if (statement.startsWith('SELECT e.status')) return [{ status: 'PENDING', count: 1 }];
+          if (statement.startsWith('SELECT COUNT(*)')) return [{ count: 1 }];
+          if (statement.startsWith('SELECT CAST(e.order_id'))
+            return [
+              { orderId: '9007199254740993', storeId: '1', expiresAt: '2026-11-15 14:00:00' },
+            ];
+          return [
+            {
+              id: '1',
+              orderId: '9007199254740993',
+              storeId: '1',
+              hasProductId: '500',
+              status: 'PENDING',
+              pendingExpiresAt: '2026-11-15 14:00:00',
+              acceptedExpiresAt: '2026-11-15 16:00:00',
+              productId: '100',
+              productName: 'Fixture tee',
+              productStatus: 'CONFIRMED',
+              quantity: '1',
+              preGstAmount: 100,
+              gst: 5,
+              awb: null,
+              shipmentId: null,
+              vincStatus: '',
+              updatedAt: '2026-11-15 12:00:00',
+              price: '105',
+              images: '{}',
+              parentImages: null,
+              parentProductId: '0',
+              orderExists: '9007199254740993',
+              reference: 'FIXTURE',
+              userId: '10',
+              firstName: 'Fixture',
+              lastName: '',
+              createdAt: '2026-11-15 12:00:00',
+              paymentStatus: 'Paid',
+              orderStatus: 'Confirmed',
+              storeName: 'Fixture store',
+            },
+          ];
+        },
+      };
+      const service = fulfillmentMonitoring(config, db, options, warehouse, clock),
+        result = await service.read(user, {
+          from: date,
+          to: date,
+          tab: 'in_queue',
+          page: 1,
+          pageSize: 25,
+          orderIds: ['9007199254740993'],
+        });
+      expect(result.reader).toBe('bigquery');
+      expect(result.data[0]?.orderId).toBe('9007199254740993');
+      expect(result.data[0]?.createdAt).toBe('2026-11-15 12:00:00');
+      expect(databaseCalls).toBe(0);
+      expect(queries).toHaveLength(4);
+      expect(queries.every((query) => !query.statement.includes('9007199254740993'))).toBe(true);
+      expect(queries[0]?.params.stores).toEqual(['1']);
+      await expect(
+        fulfillmentMonitoring(config, db, monitoringOptions({}), warehouse, clock).read(user, {
+          from: date,
+          to: date,
+          tab: 'in_queue',
+          page: 1,
+          pageSize: 25,
+        }),
+      ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
+      expect(databaseCalls).toBe(0);
+    },
+  );
 });

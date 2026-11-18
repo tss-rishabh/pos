@@ -15,7 +15,7 @@ Material source quirks are intentionally preserved and regression tested:
 
 The bound Drizzle implementation replaces per-order cash/payment scalar queries with eligible-order CTE aggregates and a batched store join. It preserves joins that affect source multiplicity. Explicit ANY_VALUE permits strict MySQL grouping while retaining source ambiguous store labels/IDs. Refund reduction uses one indexed pass rather than repeated full-list scans. Rows are bounded at 70,000 before formatting; query errors are static and do not expose SQL or values. No production latency claim is made from synthetic fixtures. StoreName is source non-grouped data: production rows with several selected order_store owners need reconciliation because the original label itself depends on query plan.
 
-Current-day reads use the data reader. Historical/mixed ranges use these eight explicit compatible relations, mapped to the corresponding verified source tables and column types:
+Current-day sale cohorts use the data reader; their refund component uses BigQuery because return/refund dates do not bound original Order/HP/refund-log facts. Historical/mixed sale cohorts also use BigQuery. These eight explicit compatible relations are required, mapped to the corresponding verified source tables and column types:
 
 | Option | Source relation |
 |---|---|

@@ -142,14 +142,7 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
   });
   it('preserves actual source grouping, expiry inclusivity and all-history earliest lifecycle timestamps', async () => {
     if (!databases) throw new Error('Fixture unavailable.');
-    const service = hyperlocalDailyReportService(
-        config,
-        databases,
-        hyperlocalDailyOptions({}),
-        undefined,
-        clock,
-      ),
-      input = hyperlocalDailyInputSchema.parse({
+    const input = hyperlocalDailyInputSchema.parse({
         from: '2026-11-16T00:00:00',
         to: '2026-11-16T23:59:59',
       }),
@@ -163,8 +156,36 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
         ],
         { encoding: 'utf8' },
       ),
-      [rows] = await admin!.query<mysql.RowDataPacket[]>(query),
-      result = await service.read(user, input);
+      [rows] = await admin!.query<mysql.RowDataPacket[]>(query);
+    const service = hyperlocalDailyReportService(
+      config,
+      databases,
+      hyperlocalDailyOptions({
+        BQ_HYPERLOCAL_DAILY_VIEW: 'fixture-project.reports.hyperlocal',
+      }),
+      {
+        async queryReport(statement, params) {
+          // Native original SELECT is the isolated compatible-view oracle,
+          // including duplicate ELI multiplicity and all-history lifecycle MINs.
+          const sourceQuery = execFileSync(
+            'python3',
+            [
+              'tools/operational-reports/hyperlocal-daily-oracle.py',
+              String(params.start),
+              String(params.end),
+              params.allStores === true ? '1,2' : (params.stores as string[]).join(','),
+            ],
+            { encoding: 'utf8' },
+          );
+          const [projected] = await admin!.query<mysql.RowDataPacket[]>(sourceQuery);
+          return statement.startsWith('SELECT COUNT(')
+            ? [{ count: projected.length }]
+            : projected.slice(Number(params.offset), Number(params.offset) + Number(params.limit));
+        },
+      },
+      clock,
+    );
+    const result = await service.read(user, input);
     const normalized = rows.map((row) => ({
         ...row,
         order_id: String(row.order_id),
@@ -179,7 +200,7 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
       key = (value: { line_item_id: string; express_line_item_status: string | null }) =>
         `${value.line_item_id}:${value.express_line_item_status}`;
     expect(result.total).toBe(3);
-    expect(result.reader).toBe('data');
+    expect(result.reader).toBe('bigquery');
     expect([...result.data].sort((a, b) => key(a).localeCompare(key(b)))).toEqual(
       normalized.sort((a, b) => key(a).localeCompare(key(b))),
     );

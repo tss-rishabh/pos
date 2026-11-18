@@ -22,6 +22,7 @@ import { productImage } from '../catalog.js';
 import { warehouseService } from '../warehouse.js';
 import { fulfillmentOrderFacts, type ExpressStatus } from './domain.js';
 import { lineSelection, linesToDto } from './service.js';
+import { warehouseReportCount } from '../operational-reports/report-inputs.js';
 import {
   monitoringOptions,
   monitoringTable,
@@ -230,12 +231,11 @@ export function fulfillmentMonitoring(
           throw new AppError(422, 'REPORT_TOO_LARGE', 'Select a store group.');
         storeIds = stores.map((store) => String(store.id));
       }
-      const reportRange = range(input, config.BUSINESS_TIMEZONE),
-        reader = routeRead(
-          { kind: 'report', range: reportRange },
-          clock(),
-          config.BUSINESS_TIMEZONE,
-        ),
+      const reportRange = range(input, config.BUSINESS_TIMEZONE);
+      // Validate the selected range, including the shared maximum span. Pending
+      // expiry does not bound the age of the joined original Order/HP facts.
+      routeRead({ kind: 'report', range: reportRange }, clock(), config.BUSINESS_TIMEZONE);
+      const reader = 'bigquery' as const,
         tabStatuses = monitorTabs[input.tab] as readonly ExpressStatus[],
         selected = tabStatuses.filter(
           (status) => !input.subStatuses?.length || input.subStatuses.includes(status),
@@ -290,7 +290,7 @@ export function fulfillmentMonitoring(
           statusParams,
           statusTypes,
         );
-        total = z.coerce.number().int().nonnegative().parse(totals[0]?.count);
+        total = warehouseReportCount(totals);
         totalPages = Math.ceil(total / input.pageSize);
         page = Math.max(1, Math.min(input.page, totalPages || 1));
         pairs = z
@@ -305,14 +305,14 @@ export function fulfillmentMonitoring(
         if (!pairs.length) return { ...empty, tabCounts: monitorCounts(counts) };
         const pageOrders = [...new Set(pairs.map((pair) => pair.orderId))];
         const rows = await queryReport(
-          `SELECT CAST(e.id AS STRING) AS id,CAST(e.order_id AS STRING) AS orderId,CAST(e.store_id AS STRING) AS storeId,CAST(e.has_product_id AS STRING) AS hasProductId,e.status,CAST(e.pending_expires_at AS STRING) AS pendingExpiresAt,CAST(e.accepted_expires_at AS STRING) AS acceptedExpiresAt,CAST(h.prod_id AS STRING) AS productId,p.product AS productName,h.status AS productStatus,CAST(h.qty AS STRING) AS quantity,h.pre_gst_amt AS preGstAmount,h.gst,h.awb,CAST(h.shipment_id AS STRING) AS shipmentId,e.vinc_status AS vincStatus,CAST(e.updated_at AS STRING) AS updatedAt,CAST(h.price AS STRING) AS price,p.images_new AS images,pp.images_new AS parentImages,CAST(p.parent_prod_id AS STRING) AS parentProductId,CAST(o.id AS STRING) AS orderExists,o.order_ref_no AS reference,CAST(o.user_id AS STRING) AS userId,o.first_name AS firstName,o.last_name AS lastName,CAST(o.created_at AS STRING) AS createdAt,ps.payment_status AS paymentStatus,os.order_status AS orderStatus,s.store_name AS storeName FROM ${eli} e LEFT JOIN ${table('BQ_FULFILLMENT_HAS_PRODUCTS')} h ON h.id=e.has_product_id LEFT JOIN ${table('BQ_FULFILLMENT_PRODUCTS')} p ON p.id=h.prod_id LEFT JOIN ${table('BQ_FULFILLMENT_PRODUCTS')} pp ON pp.id=p.parent_prod_id LEFT JOIN ${table('BQ_FULFILLMENT_ORDERS')} o ON o.id=e.order_id LEFT JOIN ${table('BQ_FULFILLMENT_STORES')} s ON s.id=e.store_id LEFT JOIN ${table('BQ_FULFILLMENT_PAYMENT_STATUSES')} ps ON ps.id=o.payment_status LEFT JOIN ${table('BQ_FULFILLMENT_ORDER_STATUSES')} os ON os.id=o.order_status WHERE ${base} AND e.status IN UNNEST(@statuses) AND CAST(e.order_id AS STRING) IN UNNEST(@pageOrders) ORDER BY e.id`,
+          `SELECT CAST(e.id AS STRING) AS id,CAST(e.order_id AS STRING) AS orderId,CAST(e.store_id AS STRING) AS storeId,CAST(e.has_product_id AS STRING) AS hasProductId,e.status,CAST(e.pending_expires_at AS STRING) AS pendingExpiresAt,CAST(e.accepted_expires_at AS STRING) AS acceptedExpiresAt,CAST(h.prod_id AS STRING) AS productId,p.product AS productName,h.status AS productStatus,CAST(h.qty AS STRING) AS quantity,h.pre_gst_amt AS preGstAmount,h.gst,h.awb,CAST(h.shipment_id AS STRING) AS shipmentId,e.vinc_status AS vincStatus,CAST(e.updated_at AS STRING) AS updatedAt,CAST(h.price AS STRING) AS price,p.images_new AS images,pp.images_new AS parentImages,CAST(p.parent_prod_id AS STRING) AS parentProductId,CAST(o.id AS STRING) AS orderExists,o.order_ref_no AS reference,CAST(o.user_id AS STRING) AS userId,o.first_name AS firstName,o.last_name AS lastName,CAST(o.created_at AS STRING) AS createdAt,ps.payment_status AS paymentStatus,os.order_status AS orderStatus,s.store_name AS storeName FROM ${eli} e LEFT JOIN ${table('BQ_FULFILLMENT_HAS_PRODUCTS')} h ON h.id=e.has_product_id LEFT JOIN ${table('BQ_FULFILLMENT_PRODUCTS')} p ON p.id=h.prod_id LEFT JOIN ${table('BQ_FULFILLMENT_PRODUCTS')} pp ON pp.id=p.parent_prod_id LEFT JOIN ${table('BQ_FULFILLMENT_ORDERS')} o ON o.id=e.order_id LEFT JOIN ${table('BQ_FULFILLMENT_STORES')} s ON s.id=e.store_id LEFT JOIN ${table('BQ_FULFILLMENT_PAYMENT_STATUSES')} ps ON ps.id=o.payment_status LEFT JOIN ${table('BQ_FULFILLMENT_ORDER_STATUSES')} os ON os.id=o.order_status WHERE ${base} AND e.status IN UNNEST(@statuses) AND CAST(e.order_id AS STRING) IN UNNEST(@pageOrders) ORDER BY e.id LIMIT 70001`,
           { ...statusParams, pageOrders },
           { ...statusTypes, pageOrders: ['STRING'] },
         );
         lines = z.array(rowSchema).parse(rows);
         if (input.tab === 'packed') {
           const logs = await queryReport(
-            `SELECT CAST(order_id AS STRING) AS orderId,CAST(store_id AS STRING) AS storeId,CAST(MAX(changed_at) AS STRING) AS packedAt FROM ${table('BQ_FULFILLMENT_STATUS_LOGS')} WHERE CAST(order_id AS STRING) IN UNNEST(@orders) AND new_status='PACKED' GROUP BY order_id,store_id`,
+            `SELECT CAST(order_id AS STRING) AS orderId,CAST(store_id AS STRING) AS storeId,CAST(MAX(changed_at) AS STRING) AS packedAt FROM ${table('BQ_FULFILLMENT_STATUS_LOGS')} WHERE CAST(order_id AS STRING) IN UNNEST(@orders) AND new_status='PACKED' GROUP BY order_id,store_id LIMIT 70001`,
             { orders: pageOrders },
             { orders: ['STRING'] },
           );

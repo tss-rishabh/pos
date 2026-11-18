@@ -243,8 +243,15 @@ describe.skipIf(!connection)('finance reconciliation on isolated local MySQL', (
         SESSION_SECRET: 'finance-feed-service-fixture-'.repeat(3),
       }),
       db(),
-      financeFeedOptions({}),
-      undefined,
+      financeFeedOptions({ BQ_FINANCE_RECONCILIATION_RETURNS: 'fixture-project.finance.returns' }),
+      {
+        // Native pinned-source rows are the independent compatible-view oracle,
+        // not a production fallback or a claim of BigQuery publication acceptance.
+        async queryReport(statement) {
+          expect(statement).toContain('`fixture-project.finance.returns`');
+          return z.array(feedLineSchema).parse(returnRows);
+        },
+      },
       () => Temporal.Instant.from('2026-11-16T08:00:00Z'),
     );
     const actual = await service.orders({

@@ -22,6 +22,7 @@ import { PosUser, Store, StoreDayClose } from '../../db/legacy-schema.js';
 import { requireStore, type Principal } from '../../domain/access.js';
 import { AppError, unavailable } from '../../domain/errors.js';
 import { warehouseService } from '../warehouse.js';
+import { warehouseReportCount } from '../operational-reports/report-inputs.js';
 import { closeWindow, money } from './domain.js';
 import { ledgerOptions } from './ledger.js';
 
@@ -160,7 +161,7 @@ export function closeHistoryService(
           types,
           'day-close-history',
         );
-        total = z.coerce.number().int().nonnegative().parse(count[0]?.count);
+        total = warehouseReportCount(count);
         totalPages = Math.ceil(total / input.pageSize);
         page = input.page > totalPages ? 1 : input.page;
         const data = await warehouse.queryReport(

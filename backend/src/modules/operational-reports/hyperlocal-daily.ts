@@ -20,6 +20,7 @@ import {
   scalarId,
   timestampReportBounds,
   warehouseView,
+  warehouseReportCount,
 } from './report-inputs.js';
 import { maskCustomerName } from './privacy.js';
 import { reportCsvCell } from './export-domain.js';
@@ -146,6 +147,8 @@ export function hyperlocalDailyReportService(
       const input = hyperlocalDailyInputSchema.parse(value),
         scope = hyperlocalDailyScope(user, input.storeIds),
         bounds = timestampReportBounds(config, input.from, input.to, clock());
+      // Pending expiry is not the creation date of the joined Order/HP facts.
+      bounds.reader = 'bigquery';
       if (!scope.global && !scope.ids.length)
         return {
           reader: bounds.reader,
@@ -172,15 +175,14 @@ export function hyperlocalDailyReportService(
               'pending_expires_at>=@start AND pending_expires_at<=@end AND (@allStores OR CAST(store_id AS STRING) IN UNNEST(@stores))',
             groups =
               'order_id,user_id,line_item_id,sku_id,customer_name,order_status,line_item_status,express_line_item_status,order_date,store_id,location_code,store_name';
-          total =
-            counts.parse(
-              await warehouse.queryReport(
-                `SELECT COUNT(*) AS count FROM (SELECT line_item_id FROM ${table} WHERE ${where} GROUP BY ${groups})`,
-                params,
-                types,
-                'hyperlocal-daily',
-              ),
-            )[0]?.count || 0;
+          total = warehouseReportCount(
+            await warehouse.queryReport(
+              `SELECT COUNT(*) AS count FROM (SELECT line_item_id FROM ${table} WHERE ${where} GROUP BY ${groups})`,
+              params,
+              types,
+              'hyperlocal-daily',
+            ),
+          );
           totalPages = Math.ceil(total / input.pageSize);
           page = all || input.page > totalPages ? 1 : input.page;
           if (all && total > 70000)

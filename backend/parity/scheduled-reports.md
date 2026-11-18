@@ -30,7 +30,7 @@ CRM selects source candidates, verifies ticket/order registration on the writer 
 
 ## Readers and compatible views
 
-Queued history uses BigQuery without a MySQL history fallback. Native current-day queries remain executable for source-query fixtures and current-day aggregates. Current store/slot configuration uses primary metadata. CRM's live record checks and updates always use the writer. The query window and all parameters are bound; each warehouse request is labeled with its static report-kind resource.
+Queued history uses BigQuery without a MySQL history fallback. Timing always uses BigQuery because the original order creation timestamp is undated; summary routing uses its actual previous-day-to-end order window, so today's summary also uses BigQuery. Other current-day bounded fact cohorts use DATA. Native static SQL remains available for isolated source-projection fixtures. Current store/slot configuration uses primary metadata. CRM's live record checks and updates always use the writer. The query window and all parameters are bound; each warehouse request is labeled with its static report-kind resource.
 
 | Required option | Compatible view projection / grain |
 |---|---|

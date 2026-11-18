@@ -24,6 +24,21 @@ export const warehouseView = z
 export const scalarId = z
   .union([z.string().regex(/^\d+$/), z.number().int().refine(Number.isSafeInteger), z.bigint()])
   .transform(String);
+/** A SQL COUNT without GROUP BY always has exactly one non-null result row. */
+export function warehouseReportCount(value: unknown): number {
+  const count = z.union([
+    z.number().int().safe().nonnegative(),
+    z.string().regex(/^\d+$/).transform(Number).refine(Number.isSafeInteger),
+  ]);
+  const result = z.array(z.object({ count })).length(1).safeParse(value);
+  if (!result.success)
+    throw new AppError(
+      503,
+      'REPORT_VIEW_INVALID',
+      'The report count does not match the required data contract.',
+    );
+  return result.data[0]!.count;
+}
 /** Restricted operator type retains its assigned-store boundary even with role 1. */
 export function staffReportScope(user: Principal, requested: readonly string[]) {
   const ids = [...new Set(requested)];
