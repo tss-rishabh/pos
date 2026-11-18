@@ -27,6 +27,41 @@ any required feature or integration code remains incomplete.
 - Apply this order to every parallel agent and future continuation unless the
   user changes it.
 
+## Single-stack and schema-freeze decisions — user, 18–19 November 2026
+
+These supersede earlier WIP patterns. Every agent must follow them.
+
+- **Production schema freeze.** Add no tables, columns, indexes or triggers.
+  Delete every `pos_rewrite_*` table, registered migration and `*.review.sql`.
+  Durable data goes only into existing production tables, written
+  synchronously as legacy Django does. Ephemeral state goes in Redis, as legacy
+  does: sessions, OTP, idempotency, locks, recovery claims, job queues. If a
+  legacy behavior cannot fit existing tables or Redis, stop and ask the user.
+- **Node/TS/React/Electron only.** No `.py`, `.go` or `.php` in the repository.
+  Legacy oracles are replaced by committed golden JSON fixtures captured from
+  the pinned legacy source outside this repo, plus read-only live MySQL parity
+  tests. Live MySQL credentials come only from the environment
+  (`POS_PROD_RO_MYSQL_URL`). Never write them to disk, logs or evidence.
+- **Removed features.** Delete the screening subsystem, everything under
+  `backend/compatibility/**` (upstream patches and the customer-contacts
+  service), the cash-return intent protocol, demo mode and CSV import authority
+  succession. Order submission calls API-v2 `pos/order` exactly as legacy does.
+  Keep "pause inconsistent CSV tenders for manager correction".
+- **Approved addition: desktop offline billing.**
+  - Encrypted SQLite in the Electron main process, with the key wrapped by
+    `safeStorage`.
+  - Payments: cash plus a manually entered card/UPI reference.
+  - The receipt shows a provisional reference stored in `orders.order_ref_no`;
+    the real invoice number is assigned at sync.
+  - No benefits, either offline or at sync.
+  - Syncs automatically on reconnect; conflicts stay on the device for a
+    manager to resolve.
+  - Limited to 2 hours or 10 orders, whichever comes first, configurable through
+    `tss_settings` rows `POS_OFFLINE_BILLING_MAX_MINUTES` and
+    `POS_OFFLINE_BILLING_MAX_ORDERS`.
+  - Web clients need internet to bill.
+- The full plan is in `docs/plans/single-stack-schema-freeze.md`.
+
 - Frontend and backend remain separate folders. Desktop + web only.
 - Strict TypeScript, no `any`, runtime input validation, exact money/ID handling.
 - Use ORM queries for MySQL; bind values in warehouse/report SQL.
