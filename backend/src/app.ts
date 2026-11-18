@@ -384,7 +384,7 @@ export async function buildApp(
   });
   await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
   registerCustomerWebsiteHandoff(app, config, db);
-  await registerFulfillment(app, config, db);
+  await registerFulfillment(app, config, db, { redis: orderRedis, jobs: options.jobs });
   registerShippingLabels(app, db);
   registerLegacyFulfillment(app, config, db);
   await registerWholeOrderStatus(app, config, db, wholeOrderOptions);

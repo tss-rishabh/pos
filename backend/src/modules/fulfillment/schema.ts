@@ -7,29 +7,15 @@ import {
   primaryKey,
   varchar,
 } from 'drizzle-orm/mysql-core';
-import type { FulfillmentEffect } from './domain.js';
 import type { NoticeEvent } from './notification-bus.js';
 
-export interface ActionReceipt {
-  commandId: string;
-  action: string;
-  storeId: string;
-  orderId: string;
-  updatedCount: number;
-  integrationState: 'not-required' | 'pending';
-  effectIds: string[];
-}
-export const fulfillmentCommands = mysqlTable(
-  'pos_rewrite_fulfillment_commands',
-  {
-    operatorId: varchar('operator_id', { length: 32 }).notNull(),
-    commandId: varchar('command_id', { length: 36 }).notNull(),
-    requestHash: varchar('request_hash', { length: 64 }).notNull(),
-    result: json('result').$type<ActionReceipt>(),
-    createdAt: datetime('created_at', { mode: 'string' }).notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.operatorId, table.commandId] })],
-);
+/**
+ * COMPATIBILITY ONLY. The fulfillment module no longer reads or writes these rewrite tables
+ * (schema freeze). The definitions stay exported solely because modules outside W5's
+ * fulfillment ownership still import them: `finance/alerts.ts` (`fulfillmentEffects`, owner W8)
+ * and `legacy-fulfillment/lifecycle/notice.ts` (`notificationEvents`). Delete this file once
+ * those callers move to `fulfillmentEffects().slack` / `createOrderNotification`.
+ */
 export const fulfillmentEffects = mysqlTable('pos_rewrite_fulfillment_effects', {
   id: varchar('id', { length: 36 }).primaryKey(),
   dispatchOrder: bigint('dispatch_order', { mode: 'bigint', unsigned: true })
@@ -42,7 +28,7 @@ export const fulfillmentEffects = mysqlTable('pos_rewrite_fulfillment_effects', 
   storeId: varchar('store_id', { length: 32 }).notNull(),
   orderId: varchar('order_id', { length: 32 }).notNull(),
   kind: varchar('kind', { length: 40 }).notNull(),
-  payload: json('payload').$type<FulfillmentEffect['payload']>().notNull(),
+  payload: json('payload').$type<Record<string, string | number | boolean | string[]>>().notNull(),
   status: varchar('status', { length: 16 }).notNull(),
   attempts: int('attempts').notNull(),
   sequence: int('sequence').notNull(),
