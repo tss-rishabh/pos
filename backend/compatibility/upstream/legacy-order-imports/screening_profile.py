@@ -228,7 +228,7 @@ class ScreeningSourceRuntime:
         value = admission(session, cap, plan, self.proof_key, bool(self.source.settings.IS_LINE_ITEM_ENABLED),snapshot)
         token = CURRENT_PROFILE.set(self.base)
         try:
-            with writer_entry(session,snapshot.customer):
+            with writer_entry(session,snapshot.customer,expected_created_at=plan['createdAt']):
                 supplied=ReplaySession(session,snapshot)
                 order_id, cart = self.source.order_pipeline(supplied, user, plan, cap)
                 projection, counted = native_projection(session, value, order_id)

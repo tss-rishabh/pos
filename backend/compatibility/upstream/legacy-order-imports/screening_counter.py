@@ -247,6 +247,15 @@ class ReplaySession:
         address=re.fullmatch(r"UPDATE orders SET has_address_id = '([1-9][0-9]{0,18})' WHERE id = ([1-9][0-9]{0,18})",str(statement))
         if address:return self.address_update(statement,parameters,kwargs,address)
         compact=' '.join(str(statement).split()).strip()
+        created=re.fullmatch(r"UPDATE (orders|has_products) SET created_at = '([1-9][0-9]{3}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2})' WHERE (id|order_id) = ([1-9][0-9]{0,18})",str(statement))
+        if created:
+            table,date,column,order=created.groups()
+            if parameters not in (None,{}) or kwargs or (table,column) not in (('orders','id'),('has_products','order_id')):refuse()
+            native,context=self.new_order(order)
+            if context['expected_created_at'] is None or date!=context['expected_created_at']:refuse()
+            if table=='has_products':self.new_lines(order)
+            return self.session.execute(statement,parameters,**kwargs)
+
         if compact in ('SELECT * FROM orders WHERE id=:id',_CURRENT_ORDER_SELECT):
             params=parameters if parameters is not None else kwargs.get('params',kwargs.get('parameters'))
             key='id' if compact=='SELECT * FROM orders WHERE id=:id' else 'order_id'
@@ -290,11 +299,18 @@ def _named(session,kind,identity):
 
 
 @contextmanager
-def writer_entry(session,customer):
+def writer_entry(session,customer,*,expected_created_at=None):
     session=_session(session);connection=session.connection();owned_names=[]
+    if expected_created_at is not None:
+        from datetime import datetime
+        if not isinstance(expected_created_at,str) or not re.fullmatch(r'[1-9][0-9]{3}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}',expected_created_at):fail('WRITER_SCOPE_CHANGED')
+        try:parsed_created_at=datetime.strptime(expected_created_at,'%Y-%m-%d %H:%M:%S')
+        except ValueError:fail('WRITER_SCOPE_CHANGED')
+        if parsed_created_at.strftime('%Y-%m-%d %H:%M:%S')!=expected_created_at:fail('WRITER_SCOPE_CHANGED')
+
     if session.info.get('screening_counter_creation_context') is not None or connection.get_execution_options().get('schema_translate_map'):fail('WRITER_SCOPE_CHANGED')
     context={'active':True,'transaction':session.get_transaction(),'savepoint':session.get_nested_transaction(),
-             'connection':connection,'schema':one(session,'SELECT DATABASE() AS name')['name'],'customer':str(customer),'orders':{},'addresses':set(),'lines':{}}
+             'connection':connection,'schema':one(session,'SELECT DATABASE() AS name')['name'],'customer':str(customer),'orders':{},'addresses':set(),'lines':{},'expected_created_at':expected_created_at}
     if context['transaction'] is None:fail('TRANSACTION_REQUIRED')
     session.info['screening_counter_creation_context']=context
     def record_creation(current_session,*_args):

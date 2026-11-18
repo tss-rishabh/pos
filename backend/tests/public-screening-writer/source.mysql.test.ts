@@ -67,6 +67,8 @@ describe.skipIf(!template)('public Node POS source frame on disposable MySQL', (
     'old-order',
     'other-customer-order',
     'changed-header',
+    'created-order-without-authority',
+    'created-lines-without-authority',
     'other-attempt',
     'translated-bind',
     'other-transaction',

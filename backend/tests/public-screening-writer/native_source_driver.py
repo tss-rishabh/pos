@@ -134,6 +134,10 @@ def run(value):
                     counter_one(native,'SELECT GET_LOCK(:name,0) AS acquired',{'name':name})
                     native.connection().info.setdefault('screening_counter_owned_names',set()).add(name)
                     return original_execute(replay,statement,{**parameters,'order_id':987},**kwargs)
+                if mode in ('created-order-without-authority','created-lines-without-authority'):
+                    target='orders' if mode=='created-order-without-authority' else 'has_products'
+                    column='id' if target=='orders' else 'order_id'
+                    return original_execute(replay,text("UPDATE "+target+" SET created_at = '2026-06-15 12:00:00' WHERE "+column+" = "+order),{})
                 if mode=='changed-header':
                     native.execute(text('UPDATE orders SET user_id=88 WHERE id=:id'),{'id':order})
                 elif mode=='translated-bind':native.connection().execution_options(schema_translate_map={None:'unqualified_fixture_namespace'})
