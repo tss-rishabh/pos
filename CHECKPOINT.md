@@ -1,5 +1,25 @@
 # POS rewrite checkpoint
 
+Integrated implementation review closed again at `fdbc650`: the authenticated
+CSV date admission is on `e29b602` (45 native profile cases passed), full writer
+capacity on `68d4924`/`efc4bb5` with native Node/Python/Go boundaries, and flat
+runtime packaging/manifests on `ab712eb`. Source-map reconciliation on `fdbc650`
+keeps all 396 IDs: 100 implementation-present, 293 external-acceptance, zero
+partial and three explicitly nonrequired inactive/diagnostic missing surfaces.
+It adds no certifications and preserves every external release gate.
+
+No additional required code gap is currently established by the implementation
+owners. Resume the user's next phase: consolidated source/native/browser,
+security/performance and desktop validation; fix any real gap it exposes.
+Run Node 24.22.3 and serialize native MySQL files. The prior failed report is
+retained, not relabeled. The source payment assembly is 114 files/19 review SQL
+inputs; no source service, provider, live DDL or deployment was executed.
+Privacy canaries passed 4 focused tests with no reachable leak found in the
+inspected logging paths. Windows approval navigation/probe synchronization is
+fixed on `ab1aad3` (13 browser tests passed), pending a fresh platform run.
+The original Go wallet calendar decision still awaits the user; its candidate
+is inactive and default full upstream vet cannot be claimed green.
+
 Further integrated repairs (supersedes the gap descriptions below): CSV profile
 runtime selection is on `b4fc7bc`, current-attempt source order/HP/address
 provenance on `4555e70`/`590641c`, and actual report-fact age routing on
