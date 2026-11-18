@@ -62,6 +62,8 @@ import {
   readSlackOAuthOptions,
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
+import { configuredStateStore } from './modules/checkout/state-store.js';
+import { checkoutSessionStore } from './modules/checkout/session-store.js';
 import { registerOfflineSync } from './modules/offline-sync/index.js';
 import {
   readWholeOrderStatusOptions,
@@ -342,6 +344,15 @@ export async function buildApp(
     ecommerceCooldownSeconds: settingsOptions?.ECOM_DELIVERY_CHANGES_TIME,
   });
   registerEcommerceInventorySynchronization(app, ecommerceSync);
+  // W4: one Redis-backed store for checkout, returns and payments state. The job producer is
+  // wired by W8 (jobs workstream); until then producers receive `undefined`.
+  const posState = config.DEMO_MODE ? undefined : configuredStateStore(config),
+    checkoutShared = posState
+      ? { stateStore: posState, sessions: checkoutSessionStore(posState), jobs: undefined }
+      : {};
+  app.addHook('onClose', async () => {
+    await posState?.close();
+  });
   const customerOtpOptions = readCustomerOtpOptions(),
     customerOtp = customerOtpService(
       config,
@@ -360,6 +371,7 @@ export async function buildApp(
   });
   const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
   const checkout = await registerCheckout(app, config, db, {
+    ...checkoutShared,
     environment: checkoutRuntime,
     paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
     customerOtp,
@@ -372,11 +384,15 @@ export async function buildApp(
   });
   registerOfflineSync(app, config, db, { checkout, identity, environment: checkoutRuntime });
   registerPaymentReversals(app, config, db, {
+    ...checkoutShared,
     ...paymentReversalOptions(),
     hashSecret: paymentCorrections.proofKey ?? '',
     projection: checkoutRuntime,
   });
-  await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
+  await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), {
+    ...checkoutShared,
+    customerOtp,
+  });
   registerCustomerWebsiteHandoff(app, config, db, customerOtp);
   await registerFulfillment(app, config, db);
   registerShippingLabels(app, db);

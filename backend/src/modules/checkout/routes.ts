@@ -57,6 +57,9 @@ import type { PendingCancellationOptions } from './cancellations/options.js';
 import { registerOrderCopy, type OrderCopyOptions } from './order-copy/routes.js';
 import type { PaymentCorrectionPort } from './payment-reversals/evidence.js';
 import { copyCancellationClearVerifier } from './order-copy/cancellation-evidence.js';
+import { configuredStateStore, type PosStateStore } from './state-store.js';
+import { checkoutSessionStore, type CheckoutSessionStore } from './session-store.js';
+import type { JobProducer } from '../../jobs/contract.js';
 
 const storeScope = z.object({ storeId: identifier });
 const sessionScope = storeScope.extend({ checkoutId: z.uuid() });
@@ -86,6 +89,9 @@ export interface CheckoutRegistrationOptions {
   registrations?: CustomerRegistrations;
   customerOtp?: CustomerVerificationClient;
   pendingCancellations?: PendingCancellationOptions;
+  stateStore?: PosStateStore;
+  sessions?: CheckoutSessionStore;
+  jobs?: JobProducer;
 }
 export function registerCheckout(
   app: FastifyInstance,
@@ -94,6 +100,9 @@ export function registerCheckout(
   overrides: CheckoutRegistrationOptions = {},
 ) {
   const environment = overrides.environment || checkoutEnvironment();
+  const stateStore = overrides.stateStore || configuredStateStore(config),
+    sessions = overrides.sessions || checkoutSessionStore(stateStore),
+    shared = { stateStore, sessions, jobs: overrides.jobs };
   const repository = overrides.repository || checkoutRepository(db),
     gateway = overrides.gateway || checkoutGateway(config, environment);
   const checkIns = checkInService(db, config);
@@ -151,6 +160,7 @@ export function registerCheckout(
     discounts:
       overrides.discounts ||
       discountApprovals(db, config, {
+        ...shared,
         signingSecret: environment.hs256 || environment.hs512 || '',
         approvalSecret: discountDeliveryEnvironment().approvalSecret,
         policy: discountPolicy(),
@@ -699,6 +709,7 @@ export function registerCheckout(
     },
   );
   registerPayments(app, config, db, {
+    ...shared,
     corrections: overrides.paymentCorrections,
     hashSecret: environment.hs256 || environment.hs512 || '',
     projection: environment,
@@ -708,12 +719,14 @@ export function registerCheckout(
       : undefined,
   });
   registerPendingOrderCancellations(app, config, db, {
+    ...shared,
     ...(overrides.pendingCancellations || pendingCancellationOptions()),
     hashSecret: environment.hs256 || environment.hs512 || '',
     projection: environment,
     stockProcedure: overrides.stockProcedure,
   });
   registerReturns(app, config, db, {
+    ...shared,
     rejectedInboundRepairDispatcherEnabled: overrides.rejectedInboundRepairDispatcherEnabled,
     customerOtp,
     customers: repository,
@@ -729,6 +742,7 @@ export function registerCheckout(
   });
   registerInvoices(app, config, db);
   registerOrderCopy(app, config, db, service.orderCopyCart, {
+    ...shared,
     ...overrides.orderCopy,
     customerOtp,
   });
