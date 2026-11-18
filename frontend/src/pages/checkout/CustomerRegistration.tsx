@@ -26,7 +26,7 @@ export function CustomerRegistration({
     [telephone, setTelephone] = useState(''),
     [email, setEmail] = useState(''),
     [birthdate, setBirthdate] = useState(''),
-    [customerType, setCustomerType] = useState<'B2B' | 'B2C'>('B2C'),
+    [customerType, setCustomerType] = useState<'' | 'B2B' | 'B2C'>(''),
     [gstin, setGstin] = useState(''),
     [code, setCode] = useState(''),
     [clock, setClock] = useState(Date.now());
@@ -43,6 +43,22 @@ export function CustomerRegistration({
     setRegistration(value);
     setCode('');
     return value;
+  };
+  /**
+   * Legacy "Verify with OTP" (`create_order.html:4954-5024`): one action verifies the code,
+   * registers through API-v2 `store-register`, then syncs the walk-in cart to the new customer
+   * (`ajax-sync-cart`). Each later step can be retried from its own button if one fails.
+   */
+  const connect = async (value: Registration) => {
+    if (value.status === 'registered' && value.customerId)
+      await mutate('customer', 'PUT', { customerId: value.customerId });
+  };
+  const verifyAndRegister = async () => {
+    const verified = await apply('customer-registration-challenges/verifications', { code });
+    if (verified.status !== 'verified' && verified.status !== 'registered') return;
+    const registered =
+      verified.status === 'registered' ? verified : await apply('customer-registrations');
+    await connect(registered);
   };
   if (checkout.customerId) return null;
   return (
@@ -67,6 +83,7 @@ export function CustomerRegistration({
               setTelephone('');
               setEmail('');
               setBirthdate('');
+              setCustomerType('');
               setGstin('');
             });
           }}
@@ -118,13 +135,16 @@ export function CustomerRegistration({
             <select
               aria-label="Customer type"
               value={customerType}
+              required
               onChange={(event) => {
-                setCustomerType(event.target.value === 'B2B' ? 'B2B' : 'B2C');
+                const value = event.target.value;
+                setCustomerType(value === 'B2B' || value === 'B2C' ? value : '');
                 setGstin('');
               }}
             >
-              <option value="B2C">B2C</option>
+              <option value="">Select Customer Type</option>
               <option value="B2B">B2B</option>
+              <option value="B2C">B2C</option>
             </select>
           </label>
           {customerType === 'B2B' && (
@@ -147,8 +167,8 @@ export function CustomerRegistration({
               />
             </label>
           )}
-          <button className="button secondary" disabled={disabled}>
-            Request registration code
+          <button className="button secondary" disabled={disabled || !customerType}>
+            Get OTP
           </button>
           <p className="caption">
             The customer must verify their mobile before an account is created. An omitted email
@@ -184,13 +204,11 @@ export function CustomerRegistration({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                void act(async () => {
-                  await apply('customer-registration-challenges/verifications', { code });
-                });
+                void act(verifyAndRegister);
               }}
             >
               <label>
-                Registration code
+                One Time Password (OTP)
                 <input
                   value={code}
                   onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
@@ -214,7 +232,7 @@ export function CustomerRegistration({
                   registration.attemptsRemaining === 0
                 }
               >
-                Verify registration code
+                Verify with OTP
               </button>
             </form>
           ) : null}
@@ -225,7 +243,7 @@ export function CustomerRegistration({
               disabled={disabled}
               onClick={() =>
                 void act(async () => {
-                  await apply('customer-registrations');
+                  await connect(await apply('customer-registrations'));
                 })
               }
             >
@@ -244,7 +262,7 @@ export function CustomerRegistration({
                 disabled={disabled || !registration.verifiedAt}
                 onClick={() =>
                   void act(async () => {
-                    await apply('customer-registration-reconciliations');
+                    await connect(await apply('customer-registration-reconciliations'));
                   })
                 }
               >
