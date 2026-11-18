@@ -15,6 +15,7 @@ import {
   websiteHandoffAuthority,
   changed,
   expired,
+  type WebsiteSessionProbe,
   type WebsiteVerification,
 } from './authority.js';
 import {
@@ -41,8 +42,9 @@ export function customerWebsiteHandoffService(
   options: CustomerWebsiteHandoffOptions,
   verification: WebsiteVerification | undefined,
   clock: () => number = Date.now,
+  sessionAlive?: WebsiteSessionProbe,
 ) {
-  const authority = websiteHandoffAuthority(config, db, verification, clock),
+  const authority = websiteHandoffAuthority(config, db, verification, clock, sessionAlive),
     digest = (purpose: string, value: string) =>
       applicationDigest(config.SESSION_SECRET, purpose, value);
   function ready() {

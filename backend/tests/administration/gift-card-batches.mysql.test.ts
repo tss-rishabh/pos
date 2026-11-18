@@ -118,7 +118,6 @@ describe.skipIf(!template)('gift card batches against isolated physical MySQL fi
       'pos_special_permission_activity_log',
     ]);
     for (const path of [
-      'migrations/0006_operator_auth_epochs.sql',
       'src/modules/administration/migration.sql',
       'src/modules/gift-card-batches/migration.sql',
     ])

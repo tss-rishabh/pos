@@ -239,11 +239,6 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
     });
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schemaName)}`);
     await connection.changeUser({ database: schemaName });
-    for (const statement of readFileSync('migrations/0006_operator_auth_epochs.sql', 'utf8')
-      .replace(/^--.*$/gm, '')
-      .split(';')
-      .filter((value) => value.trim()))
-      await connection.query(statement);
     for (const table of tables) {
       const config = getTableConfig(table),
         definitions = config.columns.map(

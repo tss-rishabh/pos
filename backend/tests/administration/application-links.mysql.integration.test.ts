@@ -11,7 +11,6 @@ import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import { PosUser, Store, StoreCounter, UserStore } from '../../src/db/legacy-schema.js';
 import { invalidateOperatorAuthentication } from '../../src/auth/revocation.js';
-import { registerOperatorBinding } from '../../src/auth/operator-binding.js';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
@@ -77,7 +76,10 @@ describe.skipIf(!template)('application links against isolated writer MySQL', ()
     },
     async open() {
       artifactOpens++;
-      return { metadata: { bytes: bytes.length, checksum, filename: 'mpos.apk' }, stream: Readable.from([bytes]) };
+      return {
+        metadata: { bytes: bytes.length, checksum, filename: 'mpos.apk' },
+        stream: Readable.from([bytes]),
+      };
     },
     async close() {},
   };
@@ -165,9 +167,6 @@ describe.skipIf(!template)('application links against isolated writer MySQL', ()
       'CREATE TABLE pos_to_app_logs(id INT NOT NULL AUTO_INCREMENT PRIMARY KEY,store_id INT NOT NULL DEFAULT 0,scanned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP) ENGINE=InnoDB',
     );
     await script('../../src/modules/administration/migration.sql');
-    await script('../../migrations/0002_auth_sessions.sql');
-    await script('../../migrations/0003_login_challenges.sql');
-    await script('../../migrations/0006_operator_auth_epochs.sql');
     await script('../../src/modules/administration/mfa-migration.sql');
     await script('../../src/modules/application-links/migration.sql');
     url.pathname = '/' + schemaName;
@@ -199,7 +198,6 @@ describe.skipIf(!template)('application links against isolated writer MySQL', ()
               ? staff
               : actor;
     });
-    registerOperatorBinding(app);
     app.setErrorHandler((error, _request, reply) => {
       if (error instanceof AppError)
         return reply
@@ -220,7 +218,6 @@ describe.skipIf(!template)('application links against isolated writer MySQL', ()
       'pos_rewrite_application_scan_receipts',
       'pos_to_app_logs',
       'pos_rewrite_operator_checkins',
-      'pos_rewrite_operator_auth_epochs',
     ]) {
       await connection.query('DELETE FROM ' + mysql.escapeId(table));
     }

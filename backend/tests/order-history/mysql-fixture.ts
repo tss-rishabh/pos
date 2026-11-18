@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { readConfig } from '../../src/config.js';
 import { createDatabases } from '../../src/db/pools.js';
@@ -40,11 +39,6 @@ export async function orderHistoryFixture(template: string) {
       'has_products',
       'products',
     ]);
-    for (const statement of readFileSync('migrations/0006_operator_auth_epochs.sql', 'utf8')
-      .replace(/^--.*$/gm, '')
-      .split(';')
-      .filter((s) => s.trim()))
-      await connection.query(statement);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',

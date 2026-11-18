@@ -104,7 +104,6 @@ describe.skipIf(!template)(
         'src/modules/checkout/migrations/0002_checkout.sql',
         'src/modules/checkout/migrations/0008_checkout_draft_binding.sql',
         'src/modules/checkout/migrations/0010_customer_registration.sql',
-        'migrations/0006_operator_auth_epochs.sql',
       ])
         await migration(path);
       // The verified live indexes are nonunique. Recreate their indexed lock shape.

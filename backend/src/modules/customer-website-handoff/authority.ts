@@ -1,9 +1,8 @@
-import { and, eq, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { MUser, PosUser } from '../../db/legacy-schema.js';
-import { operatorSessions } from '../../auth/session-schema.js';
 import { currentAuthenticationVersion } from '../../auth/revocation.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
@@ -23,6 +22,12 @@ import { checkoutCustomerOtpScope } from '../checkout/customer-verification.js';
 import type { CheckoutState } from '../checkout/contracts.js';
 import type { WebsiteHandoffScope, WebsiteHandoffSession } from './contracts.js';
 
+/** Redis POS session liveness (auth sessions.alive); replaces the pos_rewrite_sessions read. */
+export type WebsiteSessionProbe = (
+  sessionId: string,
+  userId: string,
+  transaction: AdministrationTransaction,
+) => Promise<boolean>;
 export type WebsiteVerification = Pick<ReturnType<typeof customerOtpService>, 'assertVerified'>;
 export const changed = () =>
   new AppError(
@@ -41,6 +46,7 @@ export function websiteHandoffAuthority(
   db: Databases,
   verification: WebsiteVerification | undefined,
   clock: () => number,
+  sessionAlive?: WebsiteSessionProbe,
 ) {
   const withCheckout = customerCheckoutScope(config, db);
   async function principal(
@@ -98,25 +104,10 @@ export function websiteHandoffAuthority(
       .limit(1)
       .for('share');
     if (!account?.is_active) throw expired();
-    const version = await currentAuthenticationVersion(tx, account),
-      [nativeSession] = await tx
-        .select({
-          id: operatorSessions.id,
-          userId: operatorSessions.userId,
-          authVersion: operatorSessions.authVersion,
-          expiresAt: operatorSessions.expiresAt,
-          revokedAt: operatorSessions.revokedAt,
-        })
-        .from(operatorSessions)
-        .where(and(eq(operatorSessions.id, session.id), eq(operatorSessions.userId, user.id)))
-        .limit(1)
-        .for('share');
+    const version = await currentAuthenticationVersion(tx, account);
     if (
-      !nativeSession ||
-      nativeSession.revokedAt ||
-      nativeSession.expiresAt.getTime() <= clock() ||
       session.expiresAt <= clock() ||
-      nativeSession.authVersion !== version
+      (sessionAlive && !(await sessionAlive(session.id, user.id, tx)))
     )
       throw expired();
     await verification.assertVerified(
@@ -172,7 +163,7 @@ export function websiteHandoffAuthority(
         ]),
       ),
       verifiedUntil: state.verifiedCustomerUntil,
-      sessionExpiresAt: Math.min(session.expiresAt, nativeSession.expiresAt.getTime()),
+      sessionExpiresAt: session.expiresAt,
     };
   }
   return {

@@ -47,10 +47,7 @@ export async function orderSearchFixture(template: string) {
       'pos_terminal_transactions',
       'pos_paytm_transactions',
     ]);
-    for (const path of [
-      'migrations/0006_operator_auth_epochs.sql',
-      'src/modules/administration/migration.sql',
-    ])
+    for (const path of ['src/modules/administration/migration.sql'])
       for (const statement of readFileSync(path, 'utf8')
         .replace(/^--.*$/gm, '')
         .split(';')

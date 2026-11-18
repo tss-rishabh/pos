@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import type { RowDataPacket } from 'mysql2/promise';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { buildApp } from '../../src/app.js';
-import { mysqlSessions } from '../../src/auth/sessions.js';
+import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';
 import { seal } from '../../src/auth/crypto.js';
 import { migrationPaths, splitMigration } from '../../src/db/migrations.js';
 import { readConfig } from '../../src/config.js';
@@ -56,7 +56,7 @@ describe.skipIf(!template)('actual App native-cookie store default identities', 
   let cookie: string;
   let archivedCookie: string;
   let config: ReturnType<typeof readConfig>;
-  const sessions = () => mysqlSessions(native.db);
+  const sessions = () => testSessions(config, native.db);
   beforeAll(async () => {
     const url = new URL(template!);
     if (
@@ -95,7 +95,6 @@ describe.skipIf(!template)('actual App native-cookie store default identities', 
       'stores',
       'pos_franchise',
       'tss_settings',
-      'pos_rewrite_sessions',
       'pos_user',
     ])
       await native.admin.query('DELETE FROM `' + table + '`');
@@ -131,7 +130,7 @@ describe.skipIf(!template)('actual App native-cookie store default identities', 
   });
   async function application(raw: string | undefined) {
     vi.stubEnv('STOREDEFAULTUSER', raw);
-    app = await buildApp(config, { logger: false });
+    app = await buildApp(config, { logger: false, authRedis: testAuthRedis });
     await app.ready();
     return app;
   }

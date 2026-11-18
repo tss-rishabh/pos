@@ -10,7 +10,7 @@ import { onlineOrderDetail } from '../../src/modules/order-history/online-detail
 import { checkInService } from '../../src/modules/administration/checkins.js';
 import type { Principal } from '../../src/domain/access.js';
 import { splitMigration } from '../../src/db/migrations.js';
-import { mysqlSessions } from '../../src/auth/sessions.js';
+import { testAuthRedis, testSessions } from '../helpers/auth-sessions.js';
 import { seal } from '../../src/auth/crypto.js';
 import { buildApp } from '../../src/app.js';
 import { readNativeOnlineDetail } from '../../src/modules/order-history/online-detail/native.js';
@@ -46,11 +46,7 @@ describe.skipIf(!connection)('native source-family order details', () => {
       'hyperlocal_fd_logs',
       'user_eav',
     ]);
-    for (const path of [
-      'migrations/0002_auth_sessions.sql',
-      'migrations/0003_login_challenges.sql',
-      'src/modules/administration/mfa-migration.sql',
-    ])
+    for (const path of ['src/modules/administration/mfa-migration.sql'])
       for (const statement of splitMigration(readFileSync(path, 'utf8')))
         await native.connection.query(statement);
     for (const id of [1, 2]) {
@@ -218,7 +214,10 @@ describe.skipIf(!connection)('native source-family order details', () => {
       await new Promise<void>((done, reject) =>
         reservation.close((error) => (error ? reject(error) : done())),
       );
-      app = await buildApp({ ...native.config, WEB_ORIGIN: browserOrigin }, { logger: false });
+      app = await buildApp(
+        { ...native.config, WEB_ORIGIN: browserOrigin },
+        { logger: false, authRedis: testAuthRedis },
+      );
       const apiOrigin = await app.listen({ host: '127.0.0.1', port: 0 });
       const vite = await import('../../../frontend/node_modules/vite/dist/node/index.js');
       preview = await vite.preview({
@@ -234,7 +233,7 @@ describe.skipIf(!connection)('native source-family order details', () => {
           },
         },
       });
-    } else app = await buildApp(native.config, { logger: false });
+    } else app = await buildApp(native.config, { logger: false, authRedis: testAuthRedis });
   });
   afterAll(async () => {
     await preview?.close();
@@ -242,7 +241,7 @@ describe.skipIf(!connection)('native source-family order details', () => {
     await native?.close();
   });
   async function cookie() {
-    const sessions = mysqlSessions(native.db);
+    const sessions = testSessions(native.config, native.db);
     const value = await sessions.create(user.id, Date.now() + 600000);
     return 'pos_session=' + seal({ id: user.id, ...value }, native.config.SESSION_SECRET);
   }

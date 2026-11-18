@@ -8,14 +8,14 @@ import { retryTransaction } from '../../db/retry.js';
 import { credentialVersion, djangoPasswordHash } from '../../auth/crypto.js';
 import { assertPasswordPolicy } from '../../auth/password-policy.js';
 import { profileImageReferences } from '../../auth/profile-media.js';
-import { profileMediaJobs, profileUploads } from '../../auth/profile-media-schema.js';
+import { redisImageService } from '../../auth/image-reservations.js';
+import type { RedisPort } from '../../redis/port.js';
 import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import { assertModelAdministrationPermission } from './access-control.js';
 import { administrationAccessReceipts } from './access-receipts.js';
 import type { AdministrationTransaction } from './checkins.js';
 import { lockAdministrationRegistry } from './locks.js';
-import { ownedImageService } from './image-lifecycle/service.js';
 import type { ImageOwnerAdapter } from './image-lifecycle/domain.js';
 import type { DocumentationMediaStore } from './media-storage.js';
 import {
@@ -27,6 +27,8 @@ import {
 type Account = typeof PosUser.$inferSelect;
 export interface OperatorAdminOptions {
   operatorImageStore?: DocumentationMediaStore;
+  /** Upload reservations in Redis (pos:profile_upload:*), replacing pos_rewrite_profile_uploads. */
+  operatorImageReservations?: RedisPort;
 }
 export type AuthenticationInvalidator = (
   tx: AdministrationTransaction,
@@ -120,9 +122,9 @@ export function operatorAdministrationService(
   options: OperatorAdminOptions = {},
 ) {
   const receipts = administrationAccessReceipts(config);
-  const images = ownedImageService(
+  const images = redisImageService(
     db,
-    { uploads: profileUploads, jobs: profileMediaJobs },
+    options.operatorImageReservations,
     managedImages(config),
     options.operatorImageStore,
   );
