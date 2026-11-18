@@ -10,7 +10,17 @@ const flag = z.preprocess(
 export function customerBenefitOptions(env: NodeJS.ProcessEnv = process.env) {
   return z
     .object({
-      TEN_PER_SWITCH: flag,
+      // Legacy `TEN_PER_SWITCH = True if int(ENV.get("TEN_PER_SWITCH", 1)) else False`
+      // (POSAdmin/settings.py:542): default on, legacy integers accepted (W4 fix).
+      TEN_PER_SWITCH: z.preprocess(
+        (value) =>
+          value === undefined
+            ? true
+            : typeof value === 'string' && /^\s*[+-]?\d+(?:_\d+)*\s*$/.test(value)
+              ? Number(value.trim().replaceAll('_', '')) !== 0
+              : value,
+        flag,
+      ),
       STAGING_CMS_ENDPOINT: z.preprocess(
         (value) => (value === '' ? undefined : value),
         z.url().optional(),
