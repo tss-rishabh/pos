@@ -119,7 +119,11 @@ try {
     await value.addCookies([fixture.accounts[0]!.cookie]);
     return value;
   }
-  async function open(value: BrowserContext, forceVisible = false): Promise<Page> {
+  async function open(
+    value: BrowserContext,
+    forceVisible = false,
+    checkinHistory = false,
+  ): Promise<Page> {
     const page = await value.newPage();
     await page.clock.install({ time: fixtureNow });
     if (forceVisible)
@@ -129,6 +133,12 @@ try {
           value: 'visible',
         });
         Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+      });
+    if (checkinHistory)
+      await page.addInitScript(() => {
+        if (location.pathname !== '/shortcut-reference') return;
+        history.replaceState({ idx: 0 }, '', '/check-in');
+        history.pushState({ idx: 1 }, '', '/shortcut-reference');
       });
     await page.goto(origin + '/shortcut-reference');
     await expect(
@@ -149,7 +159,7 @@ try {
         new URL(reply.url()).pathname === '/api/v1/operators/me/check-in' && reply.status() === 200,
     );
     await page.clock.setSystemTime(currentTime + 11000);
-    await visibility(page, true);
+    await page.goBack();
     await read;
     // A real subsequent expiry cycle lets the successful authority read publish.
     await expiryReply(page);
@@ -187,7 +197,7 @@ try {
   assert.deepEqual(native.bannerCounts, source.body.banner_counts);
   assert.equal(native.pollIntervalMs, 5000);
   assert.equal(native.businessTimeZone, 'Asia/Kolkata');
-  const page = await open(first);
+  const page = await open(first, false, true);
   await expect(expiryDialog(page)).toBeVisible();
   await expect(expiryDialog(page).getByRole('listitem')).toHaveCount(2);
   await expect(expiryDialog(page)).toContainText('Accept 1 order(s)');
@@ -197,6 +207,14 @@ try {
   await benignReadWhileOpen(page, 'expiry');
   checks.push('benign-native-authority-read-retains-open-expiry-dialog');
   await expiryDialog(page).getByRole('button', { name: 'Dismiss', exact: true }).click();
+  await expect(
+    page.getByRole('link', {
+      name: 'Server check-in: Checked in at Reminder store 1',
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(page.getByLabel('Account type', { exact: true })).toHaveText('In-House');
+  checks.push('global-native-checked-in-store-context-and-in-house-account-label');
   await page.reload();
   await expect(
     page.getByRole('complementary', { name: 'Fulfillment status', exact: true }),
@@ -258,7 +276,7 @@ try {
   await fixture.expiry(null);
   await fixture.dayClose('STALE');
   const financial = await context();
-  const financialPage = await open(financial);
+  const financialPage = await open(financial, false, true);
   await expect(nagDialog(financialPage)).toBeVisible();
   await expect(nagDialog(financialPage)).toContainText(fixtureDay);
   await benignReadWhileOpen(financialPage, 'day-close');
@@ -437,6 +455,12 @@ try {
   });
   assert.equal(forbidden.status(), 403);
   await authorityPage.reload();
+  await expect(
+    authorityPage.getByRole('link', {
+      name: 'Server check-in: Checked in at Reminder store 2',
+      exact: true,
+    }),
+  ).toBeVisible();
   await expect(expiryDialog(authorityPage)).toHaveCount(0);
   await expect(
     authorityPage.getByRole('complementary', { name: 'Fulfillment status', exact: true }),
