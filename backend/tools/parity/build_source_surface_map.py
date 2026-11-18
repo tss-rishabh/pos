@@ -333,7 +333,8 @@ def define_families():
     bind('fast-cash', ['AjaxFastCheckoutView'])
     family('cashier-shortcuts', frontend=['src/pages/cashier-shortcuts', 'src/pages/counter.tsx', 'src/pages/checkout/CheckoutReview.tsx'],
            tests=['frontend/tests/cashier-shortcuts/shortcuts.test.ts', 'frontend/e2e/checkout/cashier-shortcuts.spec.ts'], docs=['parity/cashier-shortcuts.md'],
-           scope='Source R/P/PP/F/N/E/B/S/T keyboard actions and help/off preference through current eligible controls, with typing/modifier/IME/modal/actor/financial fences; no shortcut charges or completes cash.')
+           scope='Source R/P/PP/F/N/E/B/S/T keyboard actions and help/off preference through current eligible controls, with typing/modifier/IME/modal/actor/financial fences; no shortcut charges or completes cash.',
+           state='partial', gaps=['Restore authenticated shortcut-reference access without a selected store/counter or store assignments. Source keyShortcutsView is login-only; the current help renders only inside the selection-gated counter. Preserve counter action fences while making the reference independently accessible.'])
     bind('cashier-shortcuts', ['keyShortcutsView', 'CreateOrderView'])
     family('order-to-cart-copy', ['src/modules/checkout/order-copy', 'src/modules/order-history/copy-adapter.ts'], ['src/pages/order-copy', 'src/pages/checkout/CheckoutReview.tsx', 'src/pages/counter.tsx', 'src/offline/review-snapshot.ts'],
            ['tests/checkout-order-copy', 'frontend/tests/order-copy', 'frontend/tests/offline-cash.test.ts'], ['parity/order-copy.md'],

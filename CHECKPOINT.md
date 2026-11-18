@@ -1,5 +1,42 @@
 # POS rewrite checkpoint
 
+Current code gap: shortcut reference is inaccessible without a selected
+store/counter or store assignment, unlike source login-only help. The map now
+records one partial family (four affected surfaces); a worker owns global
+authenticated access plus operator-scoped preference reuse in the frontend.
+Finish this implementation before another complete validation/certification pass.
+The no-review R branch is a catalogue refresh; reviewed-sale R already reads,
+adopts and persists guarded checkout state. Do not label the latter absent.
+
+Full r7 on frozen `2848c69` is TERMINAL failed, not interrupted: 136/137 project
+checks executed, 133 passed, three failed; generic browser-tests was not run.
+The release gate also fails, unchangedInputs is empty and productionReady false.
+Original report: `backend/evidence/verification-2848c69-r7.json`.
+Backend suite was killed at its deadline and includes missing-workbook-env
+failures; frontend had unbounded fork/IndexedDB timeouts; confirmation native
+timed out before native-case output. Focused unmodified follow-ups now pass:
+23 workbooks after private oracle copy, 246 frontend with maxWorkers2 (four
+extra lookup skips), 24 Go cases with race/count1 and a populated owned compiler
+cache, 25 source-benefit cases and 22 import-hold cases. Exact resource-pressure
+cause is not proven. `backend/evidence/verification-r7-followup.json` preserves
+these bounds; none relabels the failed full run or replaces fresh verification.
+Verifier now preflights pinned oracle environments, caps frontend at2, accepts
+only a private owned optional compiler cache, and lets cleanup traps run before
+forced killing. Four actual executor lifecycle/output-limit tests pass, with
+strict/lint. Old timeout-owned MySQL/network `pos-import-contract-18611` was
+removed only after tracing its exact local bridge/account/worktree ownership.
+
+Platform CI `44246708150` is SUCCESS on both Windows and macOS at `9b7827e`,
+including selected matcher mitigation, native/offline and unsigned packaging.
+Receipt: `backend/evidence/desktop-ci-9b7827e.json`; no signing/printer/release
+certification. New lookup/shortcut/feedback proof commits are integrated;
+all captured input hashes matched at review. Only three route certificates are
+currently valid (quote re-execution plus country/postal native/API/UI). Help
+remains unadmitted pending its access fix; feedback's original DOM/script gaps
+have a 13-case source-browser extension awaiting integration and admission.
+Future production-shell/shared-source edits invalidate broad receipts; rerun
+their affected workflows instead of merely refreshing hashes.
+
 Current platform follow-up: `44244240172` passed macOS fully on `2848c69`.
 Windows passed mitigation integrity/regression, compilation and frontend unit
 checks, then failed before UI cases: Playwright's webServer did not start in

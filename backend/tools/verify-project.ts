@@ -1,9 +1,18 @@
-import { execFileSync, spawn } from 'node:child_process';
+import { execFileSync, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
+import { runCheck, stopProcess, type Check, type CheckResult } from './verification/check.js';
 
 // Run with Node 24 and tsx. Never load .env or pass live service credentials to checks.
 const backend = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -35,6 +44,27 @@ for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT', 'SCREENING_SOURCE_ROOT']) {
       throw new Error('Pinned source root is unavailable.');
     childEnvironment[name] = path;
   }
+}
+// Reuse only an existing, caller-owned disposable runner cache. Go still runs
+// every test with -count=1; this retains compilation, never successful results.
+if (flags.has('--mysql') && process.env.POS_IMPORT_GO_BUILD_CACHE) {
+  const cache = resolve(process.env.POS_IMPORT_GO_BUILD_CACHE);
+  if (!/^\/tmp\/pos-import-go\.[A-Za-z0-9]{6,12}\/build-cache$/.test(cache))
+    throw new Error('Native Go verification requires an owned disposable build cache.');
+  const parent = lstatSync(dirname(cache)),
+    directory = lstatSync(cache);
+  if (
+    !parent.isDirectory() ||
+    parent.isSymbolicLink() ||
+    !directory.isDirectory() ||
+    directory.isSymbolicLink() ||
+    typeof process.getuid !== 'function' ||
+    parent.uid !== process.getuid() ||
+    directory.uid !== process.getuid() ||
+    (parent.mode & 0o077) !== 0
+  )
+    throw new Error('Native Go verification requires a private caller-owned build cache.');
+  childEnvironment.POS_IMPORT_GO_BUILD_CACHE = cache;
 }
 if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE)
   childEnvironment.PLAYWRIGHT_CHROMIUM_EXECUTABLE = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
@@ -219,22 +249,6 @@ function generatedEvidenceChecksums() {
   return Object.fromEntries(Object.entries(result).sort(([a], [b]) => a.localeCompare(b)));
 }
 
-type Check = {
-  id: string;
-  directory: 'backend' | 'frontend';
-  command?: 'sh' | 'python3';
-  args: string[];
-  environment?: NodeJS.ProcessEnv;
-  timeoutMs?: number;
-  prerequisite?: boolean;
-};
-type CheckResult = {
-  id: string;
-  exitCode: number;
-  durationMs: number;
-  log: string;
-  terminationSignal: NodeJS.Signals | null;
-};
 const checks: Check[] = [
   {
     id: 'backend-dependency-security-integrity',
@@ -265,6 +279,18 @@ const checks: Check[] = [
     directory: 'backend',
     args: ['tools/dependency-security/review.mjs', '..'],
     timeoutMs: 3 * 60 * 1000,
+    prerequisite: true,
+  },
+  {
+    id: 'verification-process-cleanup-tests',
+    directory: 'backend',
+    args: ['--import', 'tsx', '--test', 'tools/verification/check.test.ts'],
+    prerequisite: true,
+  },
+  {
+    id: 'source-oracle-environments',
+    directory: 'backend',
+    args: ['tools/verify-fixture-environments.mjs'],
     prerequisite: true,
   },
   {
@@ -875,7 +901,12 @@ const checks: Check[] = [
       'tests/administration/tsconfig.gift-card-batches.json',
     ],
   },
-  { id: 'frontend-tests', directory: 'frontend', args: ['node_modules/vitest/vitest.mjs', 'run'] },
+  {
+    id: 'frontend-tests',
+    directory: 'frontend',
+    // Match the native CI bound; unbounded forks can starve IndexedDB cleanup.
+    args: ['node_modules/vitest/vitest.mjs', 'run', '--maxWorkers=2'],
+  },
   {
     id: 'fast-cash-browser-fixture-typecheck',
     directory: 'frontend',
@@ -1474,17 +1505,8 @@ function rewriteCommit() {
     );
 }
 const rewriteBefore = rewriteCommit();
-const activeProcesses = new Set<ReturnType<typeof spawn>>();
+const activeProcesses = new Set<ChildProcess>();
 let stopped = false;
-function stopProcess(child: ReturnType<typeof spawn>, signal: NodeJS.Signals) {
-  if (!child.pid) return;
-  try {
-    if (process.platform === 'win32') child.kill(signal);
-    else process.kill(-child.pid, signal);
-  } catch {
-    /* The child can finish between checking its PID and signalling it. */
-  }
-}
 function stopActive(signal: NodeJS.Signals) {
   for (const child of activeProcesses) stopProcess(child, signal);
 }
@@ -1493,53 +1515,8 @@ for (const signal of ['SIGTERM', 'SIGINT'] as const)
     stopped = true;
     stopActive(signal);
   });
-async function run(check: Check): Promise<CheckResult> {
-  const started = performance.now(),
-    output: Buffer[] = [];
-  let bytes = 0,
-    exceeded = false;
-  const child = spawn(check.command ?? process.execPath, check.args, {
-    cwd: resolve(workspace, check.directory),
-    env: { ...childEnvironment, ...check.environment },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: process.platform !== 'win32',
-  });
-  activeProcesses.add(child);
-  const collect = (value: Buffer) => {
-    bytes += value.length;
-    if (bytes <= 4 * 1024 * 1024) output.push(value);
-    else if (!exceeded) {
-      exceeded = true;
-      stopProcess(child, 'SIGTERM');
-    }
-  };
-  child.stdout!.on('data', collect);
-  child.stderr!.on('data', collect);
-  const timeout = setTimeout(
-    () => stopProcess(child, 'SIGKILL'),
-    check.timeoutMs ?? 10 * 60 * 1000,
-  );
-  let terminationSignal: NodeJS.Signals | null = null;
-  const code = await new Promise<number>((done) => {
-    child.once('error', () => done(1));
-    child.once('close', (exitCode, signal) => {
-      terminationSignal = signal;
-      done(exitCode ?? 1);
-    });
-  });
-  clearTimeout(timeout);
-  activeProcesses.delete(child);
-  const log = `backend/evidence/private/verification-${check.id}.log`;
-  writeFileSync(resolve(workspace, log), Buffer.concat(output));
-  const result = {
-    id: check.id,
-    exitCode: exceeded ? 1 : code,
-    durationMs: Math.round(performance.now() - started),
-    log,
-    terminationSignal,
-  };
-  process.stdout.write(JSON.stringify(result) + '\n');
-  return result;
+function run(check: Check): Promise<CheckResult> {
+  return runCheck(check, { workspace, environment: childEnvironment, activeProcesses });
 }
 const results: CheckResult[] = [];
 const isReadOnlyTypecheck = (check: Check) =>
@@ -1623,7 +1600,11 @@ const report = {
   command: `node --import tsx tools/verify-project.ts${[...flags].map((flag) => ' ' + flag).join('')}`,
   exitCode,
   nodeVersion: process.versions.node,
-  scope: { localMySql: flags.has('--mysql'), browser: flags.has('--browser') },
+  scope: {
+    localMySql: flags.has('--mysql'),
+    browser: flags.has('--browser'),
+    taskGoBuildCache: Boolean(childEnvironment.POS_IMPORT_GO_BUILD_CACHE),
+  },
   productionReady: gate.exitCode === 0 && exitCode === 0,
   interrupted: stopped,
   expectedChecks: checks.length,

@@ -1,0 +1,74 @@
+{
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "recordedAt": "2026-11-18T07:05:11.901799Z",
+  "scope": "focused-diagnostics-after-terminal-failed-r7",
+  "baseline": "2848c695810cc532a77873f87892ca26e86976b8",
+  "originalReport": "backend/evidence/verification-2848c69-r7.json",
+  "originalReportSha256": "fbafd532cb10dabb96622fed932e82c37262ebc248e41179386d05d5abbdd812",
+  "original": {
+    "projectPassed": 133,
+    "projectFailed": 3,
+    "projectUnexecuted": [
+      "browser-tests"
+    ],
+    "interrupted": false,
+    "changedInputs": []
+  },
+  "focused": {
+    "workbooks": {
+      "passed": 23,
+      "causeEstablished": "Missing untracked Python3.10.22/openpyxl3.1.2/et-xmlfile1.1.0 oracle environment; private copy resolves scoped tests"
+    },
+    "frontend": {
+      "passed": 246,
+      "failed": 0,
+      "skipped": 232,
+      "newLookupFixtureSkips": 4,
+      "workers": 2,
+      "assertionsAndDeadlinesUnchanged": true,
+      "workerErrors": 0
+    },
+    "nativeConfirmation": {
+      "codecCasesPassed": 2,
+      "nativeCasesPassed": 22,
+      "race": true,
+      "testCount": 1,
+      "sourceFixtureSeconds": 76.889,
+      "reusedTaskOwnedCompilerCache": true,
+      "interpretation": "Earlier attempt timed out before native case output; no deterministic behavior defect reproduced. Compiler-cache/resource influence is not a full cold-build timing proof."
+    },
+    "sourceBenefits": {
+      "passed": 25,
+      "seconds": 2.48
+    },
+    "importHolds": {
+      "passed": 22,
+      "suspectedCaseMilliseconds": 557,
+      "utcTargetMilliseconds": 617,
+      "assertionsAndDeadlinesUnchanged": true,
+      "cause": "Resource pressure or accumulated fixture state remains plausible; exact cause not proven."
+    },
+    "executorSafety": {
+      "passed": 4,
+      "covers": [
+        "successful output",
+        "deadline cleanup with zero child exit still fails",
+        "ignored TERM escalates to KILL",
+        "output cap failure distinguished from timeout"
+      ]
+    }
+  },
+  "privateLogSha256": {
+    "nativeConfirmation": "2481c4dc876e0787af53f63ad94e2512fc30e5a27442d032aadac9d72ba3e5e1",
+    "sourceBenefits": "4e8a4df711b5452d6ff19b29e1a5075c701c2b07b05aaf665be0866c164cbe3a",
+    "workbooks": "86010ab5e28400ac377cc7e296ed661a51ae922acbc931903d28872ef88d1176",
+    "importHolds": "c8d42da125f3036681e8d89fe151226a2790b8e919429d448c27264f45d66b17",
+    "importHoldsUtc": "9ab7073c4e7495a544b406859a7b0c182d725ee4c57262b5042b962c2ea4f8f6",
+    "frontend": "008aaeb8d3a2c8a1353f8f9cea18847fad700ff27afb8cb501c5f99343946bdc"
+  },
+  "frontendJsonSha256": "7f08789071950e70503875e3e80490573d4b71e264fcc60370ad4500739e6ebc",
+  "productionCodeChangedForTheseFailures": false,
+  "fullR7Relabeled": false,
+  "freshFullVerificationRequired": true,
+  "productionReady": false
+}

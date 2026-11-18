@@ -111,7 +111,24 @@ The inventory workbook source oracle additionally needs its isolated Python
 environment. Install `backend/tools/inventory-workbooks/requirements-oracle.txt`
 into `backend/tools/inventory-workbooks/.venv` with Python 3.10 before running
 the source comparisons. This is a verification dependency, not a production
-runtime dependency. The workbook writer uses the existing durable report queue
+runtime dependency. Source-oracle preflight now checks the pinned local Python
+versions and packages before the full verifier starts compilation: pricing
+requires Python 3.12.15, SQLAlchemy 2.1.8 and PyMySQL 1.2.4; workbooks require
+Python 3.10.22, openpyxl 3.1.2 and et-xmlfile 1.1.0. Run
+`node tools/verify-fixture-environments.mjs` from `backend/`. Fresh worktrees
+need their own oracle environments; the original untracked environments are
+not part of a Git checkout. Provision private copies or use the documented
+locked environment setup, preserving any shared environment.
+
+Frontend verification uses two Vitest workers, matching desktop CI, without
+changing test deadlines. A caller may reuse an existing private native-runner
+compilation cache with `POS_IMPORT_GO_BUILD_CACHE`; the full verifier accepts
+only caller-owned, nonsymlink `/tmp/pos-import-go.<id>/build-cache` directories
+under a private runner directory. The native command retains `-race -count=1`.
+This avoids repeating a cold compiler build; it does not reuse test results or
+convert an earlier timeout into a passing run.
+
+The workbook writer uses the existing durable report queue
 and private bounded spool; review `backend/parity/inventory-workbooks.md`.
 
 Build the backend, then inspect its deterministic plan:

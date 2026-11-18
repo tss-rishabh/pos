@@ -13,11 +13,11 @@
     "changed": false
   },
   "rewriteBaseline": {
-    "before": "5f9c75733b0824cff75865d09b61003a6bf54b02",
-    "after": "5f9c75733b0824cff75865d09b61003a6bf54b02",
+    "before": "2848c695810cc532a77873f87892ca26e86976b8",
+    "after": "2848c695810cc532a77873f87892ca26e86976b8",
     "changed": false
   },
-  "recordedAt": "2026-11-18T05:11:55.558Z",
+  "recordedAt": "2026-11-18T06:26:38.819Z",
   "command": "node --import tsx tools/verify-project.ts --mysql --browser",
   "exitCode": 1,
   "nodeVersion": "24.22.3",
@@ -26,177 +26,984 @@
     "browser": true
   },
   "productionReady": false,
-  "interrupted": true,
-  "expectedChecks": 132,
-  "completedChecks": 3,
+  "interrupted": false,
+  "expectedChecks": 137,
+  "completedChecks": 136,
   "unexecutedChecks": [
-    "source-pricing-fixture-typecheck",
-    "shipping-fixture-typecheck",
-    "customer-profile-fixture-typecheck",
-    "global-benefits-fixture-typecheck",
-    "customer-context-fixture-typecheck",
-    "google-sso-fixture-typecheck",
-    "gift-issuance-fixture-typecheck",
-    "global-vouchers-fixture-typecheck",
-    "pending-cancellations-fixture-typecheck",
-    "dashboard-fixture-typecheck",
-    "customer-website-handoff-fixture-typecheck",
-    "fast-cash-fixture-typecheck",
-    "customer-contacts-fixture-typecheck",
-    "customer-otp-fixture-typecheck",
-    "customer-history-fixture-typecheck",
-    "warehouse-parameters-fixture-typecheck",
-    "product-feedback-fixture-typecheck",
-    "customer-consent-proof-fixture-typecheck",
-    "customer-verification-fixture-typecheck",
-    "order-messages-fixture-typecheck",
-    "checkout-performance-fixture-typecheck",
-    "invoice-security-fixture-typecheck",
-    "invoice-documents-fixture-typecheck",
-    "legacy-delivery-fixture-typecheck",
-    "legacy-order-imports-fixture-typecheck",
-    "whole-order-status-fixture-typecheck",
-    "legacy-import-financial-fixture-typecheck",
-    "legacy-import-source-boundary-tests",
-    "legacy-import-preparation-core-fixture-typecheck",
-    "legacy-import-preparation-source-fixture-typecheck",
-    "public-screening-writer-fixture-typecheck",
-    "source-runtime-acceptance-fixture-typecheck",
-    "coupon-history-publication-fixture-typecheck",
-    "legacy-import-native-esm-typecheck",
-    "coupon-history-bigquery-fixture-typecheck",
-    "legacy-import-native-esm-startup",
-    "screening-recovery-browser-fixture-typecheck",
-    "legacy-import-coupon-go-fixture-typecheck",
-    "legacy-import-tender-fixture-typecheck",
-    "legacy-import-membership-fixture-typecheck",
-    "checkin-lock-order-fixture-typecheck",
-    "legacy-import-benefits-fixture-typecheck",
-    "legacy-import-membership-publication-fixture-typecheck",
-    "import-correction-browser-fixture-typecheck",
-    "whole-order-status-browser-fixture-typecheck",
-    "import-order-holds-fixture-typecheck",
-    "inventory-workbooks-fixture-typecheck",
-    "legacy-order-import-history-fixture-typecheck",
-    "bigquery-tools-typecheck",
-    "gift-card-batches-fixture-typecheck",
-    "backend-tests",
-    "frontend-typecheck",
-    "frontend-lint",
-    "cash-manager-fixture-typecheck",
-    "shipping-browser-fixture-typecheck",
-    "owner-cash-import-fixture-typecheck",
-    "customer-profile-browser-fixture-typecheck",
-    "product-feedback-browser-fixture-typecheck",
-    "wallet-adjustments-browser-fixture-typecheck",
-    "gift-card-batches-browser-fixture-typecheck",
-    "frontend-tests",
-    "fast-cash-browser-fixture-typecheck",
-    "order-payments-browser-fixture-typecheck",
-    "global-vouchers-browser-fixture-typecheck",
-    "invoice-documents-browser-fixture-typecheck",
-    "inventory-workbooks-browser-fixture-typecheck",
-    "cashier-shortcuts-fixture-typecheck",
-    "desktop-sso-browser-fixture-typecheck",
-    "legacy-delivery-browser-fixture-typecheck",
-    "customer-contacts-browser-fixture-typecheck",
-    "customer-otp-browser-fixture-typecheck",
-    "performance-browser-fixture-typecheck",
-    "performance-review-fixture-typecheck",
-    "performance-runner-fixture-typecheck",
-    "performance-production-fixture-typecheck",
-    "frontend-build",
-    "dashboard-browser-fixture-typecheck",
-    "customer-website-handoff-browser-fixture-typecheck",
-    "offline-worksheet-fixture-typecheck",
-    "barcode-assignments-fixture-typecheck",
-    "barcode-assignments-browser-fixture-typecheck",
-    "order-copy-fixture-typecheck",
-    "order-search-fixture-typecheck",
-    "order-search-browser-fixture-typecheck",
-    "payment-reversals-fixture-typecheck",
-    "payment-reversals-browser-fixture-typecheck",
-    "payment-correction-finance-fixture-typecheck",
-    "ecommerce-sync-fixture-typecheck",
-    "ecommerce-sync-browser-fixture-typecheck",
-    "legacy-order-import-browser-fixture-typecheck",
-    "model-accounts-fixture-typecheck",
-    "model-accounts-browser-fixture-typecheck",
-    "parent-store-import-fixture-typecheck",
-    "parent-store-import-browser-fixture-typecheck",
-    "order-history-fixture-typecheck",
-    "order-copy-browser-fixture-typecheck",
-    "order-history-browser-fixture-typecheck",
-    "legacy-import-confirmation-native-tests",
-    "legacy-import-corrected-source-go-tests",
-    "legacy-import-benefits-native-tests",
-    "legacy-import-benefits-composed-source-native-tests",
-    "legacy-import-coupon-consumption-native-tests",
-    "public-screening-writer-native-tests",
-    "membership-native-producer-tests",
-    "customer-website-receiver-tests",
-    "daily-reports-browser-tests",
-    "report-columns-browser-tests",
-    "order-search-browser-tests",
-    "payment-reversals-browser-tests",
-    "whole-order-status-browser-tests",
-    "rejected-return-repair-browser-tests",
-    "legacy-order-import-browser-tests",
-    "import-correction-browser-tests",
-    "order-copy-browser-tests",
-    "order-history-browser-tests",
-    "offline-worksheet-browser-tests",
-    "global-vouchers-browser-tests",
-    "order-payments-browser-tests",
-    "screening-recovery-browser-tests",
-    "product-feedback-browser-tests",
-    "desktop-sso-browser-tests",
-    "customer-profile-browser-tests",
-    "cash-manager-browser-tests",
-    "shipping-label-browser-tests",
-    "invoice-documents-browser-tests",
-    "administration-browser-tests",
-    "legacy-delivery-browser-tests",
-    "legacy-delivery-lifecycle-browser-tests",
     "browser-tests"
   ],
   "checks": [
     {
+      "id": "backend-dependency-security-integrity",
+      "exitCode": 0,
+      "durationMs": 58,
+      "log": "backend/evidence/private/verification-backend-dependency-security-integrity.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "frontend-dependency-security-integrity",
+      "exitCode": 0,
+      "durationMs": 56,
+      "log": "backend/evidence/private/verification-frontend-dependency-security-integrity.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "dependency-security-mirrors",
+      "exitCode": 0,
+      "durationMs": 38,
+      "log": "backend/evidence/private/verification-dependency-security-mirrors.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "dependency-security-integrity-tests",
+      "exitCode": 0,
+      "durationMs": 706,
+      "log": "backend/evidence/private/verification-dependency-security-integrity-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "dependency-security-pattern-regression",
+      "exitCode": 0,
+      "durationMs": 13571,
+      "log": "backend/evidence/private/verification-dependency-security-pattern-regression.log",
+      "terminationSignal": null
+    },
+    {
       "id": "payments-base-metadata-packaging-tests",
       "exitCode": 0,
-      "durationMs": 85,
-      "log": "backend/evidence/private/verification-payments-base-metadata-packaging-tests.log"
+      "durationMs": 114,
+      "log": "backend/evidence/private/verification-payments-base-metadata-packaging-tests.log",
+      "terminationSignal": null
     },
     {
       "id": "backend-build",
       "exitCode": 0,
-      "durationMs": 17843,
-      "log": "backend/evidence/private/verification-backend-build.log"
+      "durationMs": 17577,
+      "log": "backend/evidence/private/verification-backend-build.log",
+      "terminationSignal": null
     },
     {
       "id": "backend-lint",
       "exitCode": 0,
-      "durationMs": 7094,
-      "log": "backend/evidence/private/verification-backend-lint.log"
+      "durationMs": 7074,
+      "log": "backend/evidence/private/verification-backend-lint.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "source-pricing-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 3086,
+      "log": "backend/evidence/private/verification-source-pricing-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "shipping-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 16677,
+      "log": "backend/evidence/private/verification-shipping-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-profile-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2969,
+      "log": "backend/evidence/private/verification-customer-profile-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "global-benefits-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2163,
+      "log": "backend/evidence/private/verification-global-benefits-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-context-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 5325,
+      "log": "backend/evidence/private/verification-customer-context-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "google-sso-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 4729,
+      "log": "backend/evidence/private/verification-google-sso-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "gift-issuance-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 6888,
+      "log": "backend/evidence/private/verification-gift-issuance-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "global-vouchers-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 16365,
+      "log": "backend/evidence/private/verification-global-vouchers-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "pending-cancellations-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 7419,
+      "log": "backend/evidence/private/verification-pending-cancellations-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "dashboard-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 18624,
+      "log": "backend/evidence/private/verification-dashboard-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-website-handoff-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 17925,
+      "log": "backend/evidence/private/verification-customer-website-handoff-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "fast-cash-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 511,
+      "log": "backend/evidence/private/verification-fast-cash-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-contacts-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 17689,
+      "log": "backend/evidence/private/verification-customer-contacts-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-otp-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 17996,
+      "log": "backend/evidence/private/verification-customer-otp-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-history-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 19198,
+      "log": "backend/evidence/private/verification-customer-history-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "warehouse-parameters-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1059,
+      "log": "backend/evidence/private/verification-warehouse-parameters-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "product-feedback-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 3472,
+      "log": "backend/evidence/private/verification-product-feedback-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-consent-proof-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1014,
+      "log": "backend/evidence/private/verification-customer-consent-proof-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-verification-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 7743,
+      "log": "backend/evidence/private/verification-customer-verification-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-messages-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 7598,
+      "log": "backend/evidence/private/verification-order-messages-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "checkout-performance-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 18310,
+      "log": "backend/evidence/private/verification-checkout-performance-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "invoice-security-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 811,
+      "log": "backend/evidence/private/verification-invoice-security-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "invoice-documents-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 18101,
+      "log": "backend/evidence/private/verification-invoice-documents-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-delivery-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 17985,
+      "log": "backend/evidence/private/verification-legacy-delivery-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-order-imports-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 7496,
+      "log": "backend/evidence/private/verification-legacy-order-imports-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "whole-order-status-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 18896,
+      "log": "backend/evidence/private/verification-whole-order-status-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-financial-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 6585,
+      "log": "backend/evidence/private/verification-legacy-import-financial-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-source-boundary-tests",
+      "exitCode": 0,
+      "durationMs": 2342,
+      "log": "backend/evidence/private/verification-legacy-import-source-boundary-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-preparation-core-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 17949,
+      "log": "backend/evidence/private/verification-legacy-import-preparation-core-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-preparation-source-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 6907,
+      "log": "backend/evidence/private/verification-legacy-import-preparation-source-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "public-screening-writer-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 18708,
+      "log": "backend/evidence/private/verification-public-screening-writer-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "source-runtime-acceptance-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 6052,
+      "log": "backend/evidence/private/verification-source-runtime-acceptance-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "coupon-history-publication-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 21581,
+      "log": "backend/evidence/private/verification-coupon-history-publication-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-native-esm-typecheck",
+      "exitCode": 0,
+      "durationMs": 3741,
+      "log": "backend/evidence/private/verification-legacy-import-native-esm-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "coupon-history-bigquery-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 22748,
+      "log": "backend/evidence/private/verification-coupon-history-bigquery-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-native-esm-startup",
+      "exitCode": 0,
+      "durationMs": 22600,
+      "log": "backend/evidence/private/verification-legacy-import-native-esm-startup.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "screening-recovery-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 4451,
+      "log": "backend/evidence/private/verification-screening-recovery-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-coupon-go-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 22003,
+      "log": "backend/evidence/private/verification-legacy-import-coupon-go-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-tender-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 5016,
+      "log": "backend/evidence/private/verification-legacy-import-tender-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-membership-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 8525,
+      "log": "backend/evidence/private/verification-legacy-import-membership-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "checkin-lock-order-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2364,
+      "log": "backend/evidence/private/verification-checkin-lock-order-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-benefits-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 8034,
+      "log": "backend/evidence/private/verification-legacy-import-benefits-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-membership-publication-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 5462,
+      "log": "backend/evidence/private/verification-legacy-import-membership-publication-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "import-correction-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2148,
+      "log": "backend/evidence/private/verification-import-correction-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "whole-order-status-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1144,
+      "log": "backend/evidence/private/verification-whole-order-status-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "import-order-holds-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 56700,
+      "log": "backend/evidence/private/verification-import-order-holds-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "inventory-workbooks-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 55301,
+      "log": "backend/evidence/private/verification-inventory-workbooks-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-order-import-history-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 25456,
+      "log": "backend/evidence/private/verification-legacy-order-import-history-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "bigquery-tools-typecheck",
+      "exitCode": 0,
+      "durationMs": 24331,
+      "log": "backend/evidence/private/verification-bigquery-tools-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "gift-card-batches-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 23601,
+      "log": "backend/evidence/private/verification-gift-card-batches-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "backend-tests",
+      "exitCode": 1,
+      "durationMs": 1455256,
+      "log": "backend/evidence/private/verification-backend-tests.log",
+      "terminationSignal": "SIGKILL"
+    },
+    {
+      "id": "frontend-typecheck",
+      "exitCode": 0,
+      "durationMs": 12258,
+      "log": "backend/evidence/private/verification-frontend-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "frontend-lint",
+      "exitCode": 0,
+      "durationMs": 6242,
+      "log": "backend/evidence/private/verification-frontend-lint.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "cash-manager-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 5120,
+      "log": "backend/evidence/private/verification-cash-manager-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "shipping-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1300,
+      "log": "backend/evidence/private/verification-shipping-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "owner-cash-import-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 4221,
+      "log": "backend/evidence/private/verification-owner-cash-import-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-profile-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2918,
+      "log": "backend/evidence/private/verification-customer-profile-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "product-feedback-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2521,
+      "log": "backend/evidence/private/verification-product-feedback-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "wallet-adjustments-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1774,
+      "log": "backend/evidence/private/verification-wallet-adjustments-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "gift-card-batches-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 6516,
+      "log": "backend/evidence/private/verification-gift-card-batches-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "frontend-tests",
+      "exitCode": 1,
+      "durationMs": 248148,
+      "log": "backend/evidence/private/verification-frontend-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "fast-cash-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 4301,
+      "log": "backend/evidence/private/verification-fast-cash-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-payments-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 7835,
+      "log": "backend/evidence/private/verification-order-payments-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "global-vouchers-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2883,
+      "log": "backend/evidence/private/verification-global-vouchers-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "invoice-documents-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1779,
+      "log": "backend/evidence/private/verification-invoice-documents-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "inventory-workbooks-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 16636,
+      "log": "backend/evidence/private/verification-inventory-workbooks-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "cashier-shortcuts-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 6031,
+      "log": "backend/evidence/private/verification-cashier-shortcuts-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "desktop-sso-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2427,
+      "log": "backend/evidence/private/verification-desktop-sso-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-delivery-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 3215,
+      "log": "backend/evidence/private/verification-legacy-delivery-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-contacts-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2679,
+      "log": "backend/evidence/private/verification-customer-contacts-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-otp-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 4315,
+      "log": "backend/evidence/private/verification-customer-otp-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "performance-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1601,
+      "log": "backend/evidence/private/verification-performance-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "performance-review-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1279,
+      "log": "backend/evidence/private/verification-performance-review-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "performance-runner-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1193,
+      "log": "backend/evidence/private/verification-performance-runner-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "performance-production-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 993,
+      "log": "backend/evidence/private/verification-performance-production-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "frontend-build",
+      "exitCode": 0,
+      "durationMs": 637,
+      "log": "backend/evidence/private/verification-frontend-build.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "dashboard-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 15215,
+      "log": "backend/evidence/private/verification-dashboard-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-website-handoff-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2074,
+      "log": "backend/evidence/private/verification-customer-website-handoff-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "offline-worksheet-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 13599,
+      "log": "backend/evidence/private/verification-offline-worksheet-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "barcode-assignments-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 21517,
+      "log": "backend/evidence/private/verification-barcode-assignments-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "barcode-assignments-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 12178,
+      "log": "backend/evidence/private/verification-barcode-assignments-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-copy-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 9654,
+      "log": "backend/evidence/private/verification-order-copy-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-search-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 22091,
+      "log": "backend/evidence/private/verification-order-search-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-search-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2033,
+      "log": "backend/evidence/private/verification-order-search-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "payment-reversals-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 7268,
+      "log": "backend/evidence/private/verification-payment-reversals-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "payment-reversals-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 1659,
+      "log": "backend/evidence/private/verification-payment-reversals-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "payment-correction-finance-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 10968,
+      "log": "backend/evidence/private/verification-payment-correction-finance-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "ecommerce-sync-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 22709,
+      "log": "backend/evidence/private/verification-ecommerce-sync-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "ecommerce-sync-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 12868,
+      "log": "backend/evidence/private/verification-ecommerce-sync-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-order-import-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 2172,
+      "log": "backend/evidence/private/verification-legacy-order-import-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "model-accounts-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 22427,
+      "log": "backend/evidence/private/verification-model-accounts-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "model-accounts-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 12477,
+      "log": "backend/evidence/private/verification-model-accounts-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "parent-store-import-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 19473,
+      "log": "backend/evidence/private/verification-parent-store-import-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "parent-store-import-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 10658,
+      "log": "backend/evidence/private/verification-parent-store-import-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-history-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 18500,
+      "log": "backend/evidence/private/verification-order-history-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-copy-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 3928,
+      "log": "backend/evidence/private/verification-order-copy-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-history-browser-fixture-typecheck",
+      "exitCode": 0,
+      "durationMs": 3515,
+      "log": "backend/evidence/private/verification-order-history-browser-fixture-typecheck.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-confirmation-native-tests",
+      "exitCode": 1,
+      "durationMs": 600026,
+      "log": "backend/evidence/private/verification-legacy-import-confirmation-native-tests.log",
+      "terminationSignal": "SIGKILL"
+    },
+    {
+      "id": "legacy-import-corrected-source-go-tests",
+      "exitCode": 0,
+      "durationMs": 10648,
+      "log": "backend/evidence/private/verification-legacy-import-corrected-source-go-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-benefits-native-tests",
+      "exitCode": 0,
+      "durationMs": 75126,
+      "log": "backend/evidence/private/verification-legacy-import-benefits-native-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-benefits-composed-source-native-tests",
+      "exitCode": 0,
+      "durationMs": 47766,
+      "log": "backend/evidence/private/verification-legacy-import-benefits-composed-source-native-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-import-coupon-consumption-native-tests",
+      "exitCode": 0,
+      "durationMs": 91236,
+      "log": "backend/evidence/private/verification-legacy-import-coupon-consumption-native-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "public-screening-writer-native-tests",
+      "exitCode": 0,
+      "durationMs": 178861,
+      "log": "backend/evidence/private/verification-public-screening-writer-native-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "membership-native-producer-tests",
+      "exitCode": 0,
+      "durationMs": 37865,
+      "log": "backend/evidence/private/verification-membership-native-producer-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-website-receiver-tests",
+      "exitCode": 0,
+      "durationMs": 1370,
+      "log": "backend/evidence/private/verification-customer-website-receiver-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "daily-reports-browser-tests",
+      "exitCode": 0,
+      "durationMs": 4082,
+      "log": "backend/evidence/private/verification-daily-reports-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "report-columns-browser-tests",
+      "exitCode": 0,
+      "durationMs": 7754,
+      "log": "backend/evidence/private/verification-report-columns-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-search-browser-tests",
+      "exitCode": 0,
+      "durationMs": 2883,
+      "log": "backend/evidence/private/verification-order-search-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "payment-reversals-browser-tests",
+      "exitCode": 0,
+      "durationMs": 10119,
+      "log": "backend/evidence/private/verification-payment-reversals-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "whole-order-status-browser-tests",
+      "exitCode": 0,
+      "durationMs": 2590,
+      "log": "backend/evidence/private/verification-whole-order-status-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "rejected-return-repair-browser-tests",
+      "exitCode": 0,
+      "durationMs": 2506,
+      "log": "backend/evidence/private/verification-rejected-return-repair-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-order-import-browser-tests",
+      "exitCode": 0,
+      "durationMs": 28000,
+      "log": "backend/evidence/private/verification-legacy-order-import-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "import-correction-browser-tests",
+      "exitCode": 0,
+      "durationMs": 12998,
+      "log": "backend/evidence/private/verification-import-correction-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-copy-browser-tests",
+      "exitCode": 0,
+      "durationMs": 11602,
+      "log": "backend/evidence/private/verification-order-copy-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-history-browser-tests",
+      "exitCode": 0,
+      "durationMs": 2705,
+      "log": "backend/evidence/private/verification-order-history-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "offline-worksheet-browser-tests",
+      "exitCode": 0,
+      "durationMs": 1966,
+      "log": "backend/evidence/private/verification-offline-worksheet-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "global-vouchers-browser-tests",
+      "exitCode": 0,
+      "durationMs": 3893,
+      "log": "backend/evidence/private/verification-global-vouchers-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "order-payments-browser-tests",
+      "exitCode": 0,
+      "durationMs": 15392,
+      "log": "backend/evidence/private/verification-order-payments-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "screening-recovery-browser-tests",
+      "exitCode": 0,
+      "durationMs": 3049,
+      "log": "backend/evidence/private/verification-screening-recovery-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "product-feedback-browser-tests",
+      "exitCode": 0,
+      "durationMs": 5195,
+      "log": "backend/evidence/private/verification-product-feedback-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "desktop-sso-browser-tests",
+      "exitCode": 0,
+      "durationMs": 8144,
+      "log": "backend/evidence/private/verification-desktop-sso-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "customer-profile-browser-tests",
+      "exitCode": 0,
+      "durationMs": 15383,
+      "log": "backend/evidence/private/verification-customer-profile-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "cash-manager-browser-tests",
+      "exitCode": 0,
+      "durationMs": 4797,
+      "log": "backend/evidence/private/verification-cash-manager-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "shipping-label-browser-tests",
+      "exitCode": 0,
+      "durationMs": 3593,
+      "log": "backend/evidence/private/verification-shipping-label-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "invoice-documents-browser-tests",
+      "exitCode": 0,
+      "durationMs": 2929,
+      "log": "backend/evidence/private/verification-invoice-documents-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "administration-browser-tests",
+      "exitCode": 0,
+      "durationMs": 54326,
+      "log": "backend/evidence/private/verification-administration-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-delivery-browser-tests",
+      "exitCode": 0,
+      "durationMs": 6055,
+      "log": "backend/evidence/private/verification-legacy-delivery-browser-tests.log",
+      "terminationSignal": null
+    },
+    {
+      "id": "legacy-delivery-lifecycle-browser-tests",
+      "exitCode": 0,
+      "durationMs": 5904,
+      "log": "backend/evidence/private/verification-legacy-delivery-lifecycle-browser-tests.log",
+      "terminationSignal": null
     }
   ],
   "releaseGate": {
     "id": "release-gate",
     "exitCode": 1,
-    "durationMs": 195,
-    "log": "backend/evidence/private/verification-release-gate.log"
+    "durationMs": 299,
+    "log": "backend/evidence/private/verification-release-gate.log",
+    "terminationSignal": null
   },
   "changedInputs": [],
   "checksums": {
-    ".github/workflows/desktop-platforms.yml": "f346444b4d7cc7399c4068dbb53b543f87af6123fc4062034a65998e8d566321",
+    ".github/workflows/desktop-platforms.yml": "29240f6ea73ba378c680409f042b5ea85cd5e194a205f6a4008f9312a5275b66",
     ".nvmrc": "584f19ccde29925286e32f566a2aa06c89efb4e2eb2bb2fc9ea5d56e2d190ac4",
     ".prettierrc.json": "eb62569ed54f3159a91e5d00a79cc03814f0f7032bc9c16282d3c4fafd441fe5",
     "AGENTS.md": "ca109a25c38cd4ef3c7f8e3146cdc58b2020291f2119ac3dc220f9ab7b6883d3",
-    "CHECKPOINT.md": "ff8dd75310c3f07ad0d51c745fdd0e7e03515f28288a38a685907115e0fa130d",
+    "CHECKPOINT.md": "1c4651e529bc0d169e83b744224c62424239c179eadb2b548277b124b02b52d0",
     "README.md": "dd79e74048ba798fbeda0430f0f44f94912f455e43a07284186752bf114d471c",
     "backend/.dockerignore": "ab7993d4349242576397c360ed0a427542c78f84fa35b123a82e435ef9831e46",
     "backend/.env.example": "1be6183969814485d60bc3e8e1408650c468162161410816aaa51d09e1dd8e5d",
-    "backend/Dockerfile": "ac413155aac39c379fd8302bf0f199c669f0162f9055b3b1fd78e783193880fd",
+    "backend/Dockerfile": "6e947589d992e4c9ee601a98998e07d70f6201a6d28bc124b0e273786da14ae2",
     "backend/compatibility/customer-contacts/.dockerignore": "e5a7a8d82406bdc2b9706465bc22f31e89752b31788464a37121c14eb28a33ea",
     "backend/compatibility/customer-contacts/.env.example": "1d622379f6fb57c3481ecb0ce421aa7cdd6be60c2dd0842e160e960eeebca3e2",
     "backend/compatibility/customer-contacts/Dockerfile": "9f87926792b11eac165164429ea26f1c988ea24bedd67ba3563d24e7f45f9c62",
@@ -732,8 +1539,8 @@
     "backend/migrations/0006_operator_auth_epochs.sql": "e951f06e1e8068275b8a2414f1295beb616087c947c36d2e43199872edc536d1",
     "backend/migrations/0007_google_identities.sql": "cb60a0a9c68e54c38514630b2fa9dabeba4f4c2ef77dc7e5290fa52b7cd2c83e",
     "backend/migrations/0008_desktop_sso.sql": "073c0ffbb549294507a6068bc09405330eaa6254a1698a1403f2668237469a25",
-    "backend/package-lock.json": "f9720784789d7ca8b2780a671fe592776303701569f8d9f0f0e270e94a5a9e69",
-    "backend/package.json": "36b395b0d58de981aed45d12f88ede83fe22cc156698d794198e3e039c70c744",
+    "backend/package-lock.json": "02b3e906ece30377231ea67891ef8b125708c188db343979588826c76db3c1d6",
+    "backend/package.json": "a88c400c64cd2be8726258449cda4419ac3d38fc24ecf27e98bc6a3ca78d3b13",
     "backend/parity/administration-access-oracle.json": "aa808fd05c08c03b7875825d064784f294122622e277af88a26e1d4eb19823d7",
     "backend/parity/administration-access.md": "fc3b4c23cf5b0d78ace62de6217a6f490b2acb3cdcec53fefb8214d973200cda",
     "backend/parity/administration-application-links-contract.json": "813f1dd27860f1bea63f9bdef402ba67e6610262197cfecab3d71b9a1229c903",
@@ -898,7 +1705,7 @@
     "backend/parity/review-auth-offline.md": "154caa2e99514f4c8c9f41b8028548445a3f7c7706a32964638d92e94e368f83",
     "backend/parity/review-checkout-financial.md": "943e6757365468d20f630a0374214412e2de402d094ad41caf8cfcdf0da094b0",
     "backend/parity/review-report-finance.md": "928dd0be7ba7fb970f114d5b6761e698b0216791c5b25ee01b0c871700aa3bfc",
-    "backend/parity/rewrite-status.md": "3f9dbd339c13344fef985ab0393c0fc019e539e440381f83990e3f2b0e4ef648",
+    "backend/parity/rewrite-status.md": "426ff0bbf0d9d5971297230eeb886f6aa38294ac63eca9e2e47e28b4e561fd33",
     "backend/parity/scheduled-reports.md": "83594610d2451dd56c1b0a4324af29182f1a865ff389db5a84d4d449dd7e25c2",
     "backend/parity/screening-cancellation.md": "c0873d75d55438ff6621497fd38168ed4bf6a1f45cf1415feedd7f905b58c2e5",
     "backend/parity/screening-count-locks.md": "79f409215d7d542dc2c4e691eadeb2c5385d4cb15d4d25bbd858901e5ea855a6",
@@ -2347,20 +3154,24 @@
     "backend/tools/dashboard/source-oracle.py": "e7a56fb6a0952ebd7e4de6f364216fa49f858023bb21488d62852bfb198707dc",
     "backend/tools/dashboard/tsconfig.tests.json": "4a1c4443bff4a98a41a8b3d39f620c32d785107119985f3e8872f81471b07df7",
     "backend/tools/dependency-security/LICENSE.picomatch": "d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9",
-    "backend/tools/dependency-security/README.md": "9c96546a06bef2c44b41df4bb3969430d66f8228a236a4a908fcf34f148037e1",
+    "backend/tools/dependency-security/README.md": "277eb89f7b8e38a8271d92197942b81e4b79aac6b17dddc7257a308b65ab2896",
     "backend/tools/dependency-security/candidate.patch": "7d93137063c8ca90bcffbe9977e176e2df488176c43f8cc07c4e1b8b53a12245",
     "backend/tools/dependency-security/child.cjs": "8fcc47cce5b1e8a56d84d92cb9014b192aaaff86f113e20e6ffdcc6a22fdea15",
     "backend/tools/dependency-security/exposure.json": "614e58fc08dededcfe6da2a2392300f0e5e7b8f71e8b73892e4bfddd9d9bb2b1",
+    "backend/tools/dependency-security/integration-evidence.json": "c127927f4b4c82684a68c747c98b3d81737aff56a5413b915a3aba681e7bfba4",
     "backend/tools/dependency-security/integration-smoke.mjs": "9a5d29d355316bde9e80e815859cad39529a5455284659ba5f1b62385b13f2cd",
     "backend/tools/dependency-security/inventory.mjs": "8cfe3158a623f3bbe5a457213e8b437c63e77bb3a2178dd5c97c400f952e9f03",
-    "backend/tools/dependency-security/manifest.json": "04cb69a6024a708df52cc432a715e723639cec15261f274aaeba6012f162b6e3",
+    "backend/tools/dependency-security/manifest.json": "6a039df34e01e8552f1e65f6568aa75d76e59eddcf6c1b25acd91352e16ef981",
     "backend/tools/dependency-security/picomatch-4.0.7-pos-review.tgz": "33cac3937347df24b2c9e03fc163fe62357829b4a5ca1675807c0d7af499184f",
-    "backend/tools/dependency-security/prepare.mjs": "ec11e11b08abd15bf54c0f2eafecca9592a78949618420339b2bc0f115b7b3d1",
+    "backend/tools/dependency-security/prepare.mjs": "18d2f73e1728ecd606fc64b72728b24e1398778bda5efa647cf83da53bd67da8",
     "backend/tools/dependency-security/repeated-extglob-guard.inc": "2dd18a9caed1e50cea92640eb142e6253e9d325193bd4e1449941936760fb392",
     "backend/tools/dependency-security/results.json": "2c4c00588a2a5a3130461d24c7ebd602375fd789a060eee24221aa47d9fc6d49",
     "backend/tools/dependency-security/review-upstream254.mjs": "eab310b66082a0b96f4799d00ba10fe764f2230f11d0527f9adc418d221681e7",
-    "backend/tools/dependency-security/review.mjs": "e7f1f8b54d56579528cb00a29c61eb3ca5ba4519410a1c47813ead1c900eec66",
+    "backend/tools/dependency-security/review.mjs": "73981532b5f94c298bb582f4b2f38171bebff28b042254fdd240e1187708735f",
+    "backend/tools/dependency-security/sync-mirrors.mjs": "576f79b926109d23a48d40254f33be83228ab62c50e7a83b1f1a5e768ccb5039",
     "backend/tools/dependency-security/upstream-files.json": "251882dec25a8783dfbbd21524019706d846d78b82d5e594d1a563612413f479",
+    "backend/tools/dependency-security/verify.mjs": "0dfae654cf9ad0574691900778166ba6657155fbe26b89f0129f8cd111f9d7a8",
+    "backend/tools/dependency-security/verify.test.mjs": "5b045c07f875080a9bd623552d9f9cfc6489293680c707a1e2270133e65660b8",
     "backend/tools/finance/feed-oracle.py": "4a3ca84bdf004351f520055200a605f88b30c9e37b82c5b221910f6b89aa6b38",
     "backend/tools/finance/generate-feed-sql.py": "98021382a532d2c90cf41ddcae847d53e62b33bb1e0e6bfce3881f23b871bfc6",
     "backend/tools/finance/ledger-oracle.py": "acc14db24fb84cdfd44f1f35ae69cf92de2c0d210ea0e403a4aff50bfe5d5a09",
@@ -2540,15 +3351,15 @@
     "backend/tools/special-permission-history/source-oracle.py": "2f6343a33492ea3acbecd533f92c632013d64be5c65f351bbb3daf7064dd7567",
     "backend/tools/stock-projection/source-oracle.ts": "8f8c95b2fa3e2f5c8e476c5fe65898a8b40f271ed5a1a378a0fdbe1aebb323f1",
     "backend/tools/verify-mysql.cjs": "b4444d77fc17be5b2ddfdddc24d8cb3e6b22911b15caf00a66f1b65848a45fcb",
-    "backend/tools/verify-project.ts": "300b6bf1616c4409c5a365b44704667f8f303bf5d62652478b9163e9cf87882c",
+    "backend/tools/verify-project.ts": "0b341cc28af2edad3785fac53ec167ec2514aa9a134c860575a348b7ce3b1f97",
     "backend/tools/verify-schema.cjs": "4a551c476d98f80d7fb7db2d0f22f011ca01bc00f1ddc11f04d7355217938cb0",
     "backend/tools/warehouse/tsconfig.tests.json": "51b7bc522bbcfb67b7ba0a63088f0f0224e1fe4cb4086fadd6042783bf702d0a",
     "backend/tools/warehouse/verify-parameters.ts": "232d8cad65d7302c88035616eefcf2c68513e486d81b81e0b18854bb1eabfd3f",
     "backend/tsconfig.json": "74657d92747b7de5175128ebeb1f9b44c88ce109d634c0871c8a15508bc6364b",
-    "deployment.md": "9487a2236687f7bb2c1e6bf949cd6bf5314e2b5571ce4dc75f781c2961cae5c8",
+    "deployment.md": "998fda6c6cba23da0c0d8e5d85355e94b0a28582c30e910154b6d6df7acac371",
     "desktop-platforms.md": "8c95f043e2d965de2390e103ecf011f5cc8b19f86964441def3a69955f0a7ce7",
     "frontend/.dockerignore": "4a4be5765d6b745ecbeac50c7993841f84e07c6653942093bd5ffc61e1acc141",
-    "frontend/Dockerfile": "480995390321eb6a358c2e3ad406450f84f0424a60d8a31f4ea16f898a300b80",
+    "frontend/Dockerfile": "b248f67ae85414060854775af15c7936d35852451ad6d2fefa204c8327a3d0ed",
     "frontend/desktop-deployment.md": "e48a72bd90b1acbb6279823b9e5b76345838a87895b6e0b5ecf2ad7f115d1a30",
     "frontend/e2e/application-links.spec.ts": "78690ce921d685c14fdafff1216daf65258af1288a149a569812e95779c2789d",
     "frontend/e2e/checkout-recovery.spec.ts": "2bfd348e2411ba2004cf7a677e8255bc0fb027c07dee3c4ef9414476e2af04be",
@@ -2584,8 +3395,8 @@
     "frontend/nginx/default.conf.template": "cb6fbc735a5b2a15791c27ece494946e7b061d08fa5d2faf88eecce570b5c52e",
     "frontend/nginx/entrypoint.sh": "8a8419b7818d5774088ca0a9128452262060d350addcb41b584bea1cd566a13e",
     "frontend/nginx/nginx.conf": "a04cbfeb2913140cc51259d579e4136ff664ab7e00158e59d26602fca54461b4",
-    "frontend/package-lock.json": "58672f2fc8fb9740e70b8cc935ffd42efd2ebcc866da42f0d43fec6f96b44ef9",
-    "frontend/package.json": "c35cfc823c2dee5f3a0a78b6acd1fb99a8104844cb94fba7fb291d79a2319093",
+    "frontend/package-lock.json": "2a25d21fe5fdfde27792a1a38b3956c8820239c53ff83405c1c660b99c4a2713",
+    "frontend/package.json": "9886a9c7721777a6ae85bf9680bf5732903df1c42442038f643f4b1391ec1f5f",
     "frontend/playwright.config.ts": "9b3141bdc58ce88c5f41f3976c6edfd2ec82d6c19c928af6b291cbbdc0c81596",
     "frontend/public/icon.svg": "549b90f73f6f59999c11001da4c2991b6dad9ac976c2b054c592a287cff347dc",
     "frontend/public/manifest.webmanifest": "553506d83f08fb50911aca2028e6f2bb890307537f3573d69dd3b16ca1f543dd",
@@ -3053,6 +3864,11 @@
     "frontend/tests/source-oracles/datatables-smart-search.ts": "3ff5c5cb9fec3f656e9003b7a4efc3755b53002bb324565479f0121fa1074f23",
     "frontend/tests/wallet-adjustments/tsconfig.json": "b1cefe16a1ac1d17da31cc6c7ec884405316374a94633ccb1c022d4f07f4150f",
     "frontend/tests/wallet-commands.test.ts": "5b296a0ac2fec9dca87c807a30cd13628208dc7d48232b63d1e364d288bd1443",
+    "frontend/tools/dependency-security/LICENSE.picomatch": "d0cd141b0c322fded5dfad1d4645bb2fedfc05b7321fe1009469638190d59ef9",
+    "frontend/tools/dependency-security/README.md": "527a64d638ad11d0a8fd31a2a9e96be999a60ad1997e2bd394b6d6d291f2538e",
+    "frontend/tools/dependency-security/manifest.json": "6a039df34e01e8552f1e65f6568aa75d76e59eddcf6c1b25acd91352e16ef981",
+    "frontend/tools/dependency-security/picomatch-4.0.7-pos-review.tgz": "33cac3937347df24b2c9e03fc163fe62357829b4a5ca1675807c0d7af499184f",
+    "frontend/tools/dependency-security/verify.mjs": "0dfae654cf9ad0574691900778166ba6657155fbe26b89f0129f8cd111f9d7a8",
     "frontend/tools/local-reader-preview.mjs": "f6e47e6e58912b5b0737be17ce6e7296592125eebea7f8deaee968a703832724",
     "frontend/tools/run-browser-fixture.mjs": "7ddefd5525c1d48137bd460dd98932b659d5fbdc90bd5c88481073febbd23bd8",
     "frontend/tools/smoke-desktop-package.mjs": "946f8a838af938cf4b0011f72ad0d62a676a4ed25239d859d5d1f82b50f6eb32",
@@ -3085,9 +3901,9 @@
     "backend/parity/evidence/invoice-documents/express-source.json": "429b7342f504fdb1f6fc828430d0a9eca7108b7466cfeca9f354d1a44a9ea4a2",
     "backend/parity/evidence/invoice-documents/source-oracle.json": "d9d84cb9b4b6cc1a7c1d05771fc88c0aa71ff9dfa5fedbef97fa8a46e17cf530",
     "backend/parity/evidence/legacy-fulfillment/browser.json": "9d19a960a1c188b38def02dc93cabb53a0ca46a26da96b57a766c9d443f27446",
-    "backend/parity/evidence/legacy-fulfillment/lifecycle-browser.json": "7378df0c82d8b7f445c63ae946db1039ee186b3b357a2b3360c53bc7b2f16f47",
-    "backend/parity/evidence/legacy-fulfillment/lifecycle.png": "f8eb45ef37ff575b9231478d7485154ec83941c13d79250986511e49e35a85fe",
-    "backend/parity/evidence/legacy-fulfillment/rto-receipt.png": "e8579cb8aced040dd0debaf2e8d158704f56f15c47ccadcfbbfc96d337b48411",
+    "backend/parity/evidence/legacy-fulfillment/lifecycle-browser.json": "091f878794f90467665da44d852b87714e9188cd6dee16e3bb9586cdc201b952",
+    "backend/parity/evidence/legacy-fulfillment/lifecycle.png": "96a77a50dc51eae91e7719ea2bde01e93734649e5b79f3bd578329238c1f434d",
+    "backend/parity/evidence/legacy-fulfillment/rto-receipt.png": "5e20c34dcbc84d5d2a57575bd1a308a09923c515aa46a3011a37ab24c520332d",
     "backend/parity/evidence/legacy-order-imports/history-bigquery.json": "f36351f0056aa15bd2c46767b1ef7a32d85cd1c6897f911f04c86699d4c33923",
     "backend/parity/evidence/membership-revision/assembly-contract.json": "b993915120ba48156b715ce6df36982b71f68df7ce5017c7b9e48af151346dfc",
     "backend/parity/evidence/operational-reports/cash-ledger-controls.png": "e0bb6c84807947bffed912ccf491b691f8769fc529e7c858a9c9f505fbd145b9",

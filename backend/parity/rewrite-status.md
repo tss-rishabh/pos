@@ -4,7 +4,7 @@ Source baseline: `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. Reviewed implementa
 
 ## Implementation
 
-The [source map](source-surface-map.md) retains all **396 surfaces**: 255 leaf routes, 32 jobs, 106 templates, one WebSocket and two administration registrations. Its current classification is 100 implementation-present, 292 external-acceptance and four explicit inactive/diagnostic dispositions. No additional active source-feature code gap is identified by that map. These are implementation classifications, not certified workflows or a completion percentage.
+The [source map](source-surface-map.md) retains all **396 surfaces**: 255 leaf routes, 32 jobs, 106 templates, one WebSocket and two administration registrations. Its current classification is 98 implementation-present, 290 external-acceptance, four partial and four explicit inactive/diagnostic dispositions. The active code gap is login-only shortcut-reference access without a selected store/counter or assignments; the existing inline help is selection-gated. That fix is in progress before the next complete validation pass. These are implementation classifications, not certified workflows or a completion percentage.
 
 The four dispositions retain the diagnostic account task, the inactive upload-log template and two inactive business-metrics templates. Their original IDs remain visible; the rewrite does not invent credential logging, account creation or upload functionality from commented source behavior.
 
@@ -14,6 +14,10 @@ The development-toolchain picomatch mitigation is now integrated into both locks
 
 ## Executed validation
 
+Full r7 on `2848c69` is terminal failed: 133 project checks passed, three failed, and generic browser-tests was unexecuted (136/137 complete). Inputs stayed unchanged; productionReady remains false. [The original report](../evidence/verification-2848c69-r7.json) is preserved. [Focused follow-ups](../evidence/verification-r7-followup.json) establish the missing workbook environment and passing bounded frontend/native/source checks, without relabeling the full run. The verifier now checks oracle prerequisites before compilation, bounds frontend workers and permits cleanup before forced termination.
+
+Both Windows/macOS jobs in run `44246708150` passed at `9b7827e`, including mitigation, installed-runtime startup, native/offline and unsigned packaging. [Current bounded platform evidence](../evidence/desktop-ci-9b7827e.json) preserves the exact head and artifact digests. Signing, hardware and full source parity remain separate.
+
 The frozen `b201724` r5 run executed 130 project checks: 123 passed and seven failed. Backend results were 2,688 passed, one stale route-count assertion failed and 90 skipped. Generic app browser checks were not executed after earlier failures. All seven failures have integrated fixes with targeted evidence in [CHECKPOINT.md](../../CHECKPOINT.md); the original complete run remains failed.
 
 The `5f9c757` r6 run was deliberately interrupted when the unintegrated security mitigation was confirmed. [Its original report](../evidence/verification-5f9c757-r6-interrupted.json) remains failed, interrupted and productionReady false, with unchanged inputs. A reporting defect omitted prepared parallel compiler results from that partial JSON; the private stdout records 48 successful project checks and two signal-stopped compiler checks. The verifier has been corrected to retain those results and record termination signals. No backend/native/browser completion is claimed for r6.
@@ -22,7 +26,7 @@ Desktop CI run `44235902175` passed Windows and macOS on `cd179c5`, including un
 
 ## Current parity and release evidence
 
-The [release ledger](release-coverage.json) contains one historical verified quote-route entry. Its [receipt](../evidence/quotes-route-01da4ea.json) is now stale because the referenced authentication module changed. There are **zero currently valid source-surface certificates**; the old 1/396 statement did not account for that checksum failure. Preserve the old receipt. Re-execute its pinned handler/API/browser scope and issue a fresh bounded receipt before restoring a current certification.
+The [release ledger](release-coverage.json) contains one historical verified quote-route entry. Its [receipt](../evidence/quotes-route-01da4ea.json) is now stale because the referenced authentication module changed. The old receipt remains preserved. Its source/API checks have now been re-executed and its two actual built-App browser cases passed; the [fresh quote receipt](../evidence/quotes-route-reviewed-d717c89.json) binds the complete current production source graph. The [reviewed country/postal receipt](../evidence/lookup-routes-reviewed-d717c89.json) additionally admits exactly two lookup routes after actual original Django/native queries, authenticated candidate API and direct React consumers. There are **three currently valid route certificates and 393 pending surfaces**. No surrounding administration/counter template, help variant or complete feedback workflow is promoted from partial proof.
 
 The [gate](../tools/parity-gate.ts) requires current source identity, exact inventory coverage, implementation/test paths and successful checksum-bound evidence. Those mechanical checks do not establish workflow scope themselves: a broad green test run cannot justify bulk promotion of unrelated source surfaces. Every workflow still needs actual source-equivalent response/error, scope, money, ordering and side-effect evidence as required by [spec.md](../../spec.md).
 
