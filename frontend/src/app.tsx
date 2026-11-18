@@ -169,7 +169,7 @@ const CashierPerformancePage = lazy(() =>
     default: m.CashierPerformancePage,
   })),
 );
-const ReturnsPage = lazy(() => import('./pages/returns').then((m) => ({ default: m.ReturnsPage })));
+const ReturnsPage = lazy(() => import('./pages/returns/entry-page'));
 const ProfilePage = lazy(() => import('./pages/profile').then((m) => ({ default: m.ProfilePage })));
 const WalletAdjustmentsPage = lazy(() =>
   import('./pages/checkout/benefit-adjustments').then((m) => ({

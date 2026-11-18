@@ -37,6 +37,7 @@ import {
 import './style.css';
 import { SalespersonSelect } from './SalespersonSelect';
 import { ReturnWindowExtension } from './ReturnWindowExtension';
+import type { ReturnOrderEntry } from './order-entry';
 
 const reasonList = z.object({ data: z.array(z.object({ id: z.string(), reason: z.string() })) });
 const subReasonList = z.object({
@@ -51,10 +52,12 @@ export function ReturnsPage({
   user,
   storeId,
   counterId,
+  entry,
 }: {
   user: Principal;
   storeId: string;
   counterId: string;
+  entry?: ReturnOrderEntry;
 }) {
   const client = useQueryClient(),
     online = useOnline(),
@@ -62,8 +65,8 @@ export function ReturnsPage({
   const [recovery, setRecovery] = useState<ReturnRecovery | null>(() =>
     loadRecovery(user.id, storeId, counterId),
   );
-  const [orderId, setOrder] = useState(recovery?.orderId || ''),
-    [mode, setMode] = useState<ReverseKind>(recovery?.kind || 'return'),
+  const [orderId, setOrder] = useState(recovery?.orderId || entry?.orderId || ''),
+    [mode, setMode] = useState<ReverseKind>(recovery?.kind || entry?.kind || 'return'),
     [otp, setOtp] = useState(''),
     [line, setLine] = useState<ReturnLine | null>(null),
     [reasonId, setReason] = useState(''),
@@ -329,6 +332,14 @@ export function ReturnsPage({
   return (
     <>
       <PageTitle eyebrow="CUSTOMER CARE" title="Returns" />
+      {entry &&
+        recovery &&
+        (entry.orderId !== recovery.orderId || entry.kind !== recovery.kind) && (
+          <p role="status">
+            An existing return or exchange is being recovered. Complete or clear it before starting
+            the linked order.
+          </p>
+        )}
       <p className="caption">
         Check into the selected store and counter before processing a return or exchange. Online and
         other-store purchases use the original customer’s verification code.
