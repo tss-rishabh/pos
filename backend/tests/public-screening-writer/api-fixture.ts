@@ -1,3 +1,4 @@
+import { screeningCounterMutation } from '../../src/modules/legacy-order-imports/screening-counter/entry.js';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -54,7 +55,7 @@ const paymentTables = [
   PosTerminalPaymentModes,
 ].map(getTableName);
 export async function publicApiFixture(template: string) {
-  const f = await publicScreeningFixture(template);
+  const f = await publicScreeningFixture(template, { additionalApplicationTables: paymentTables });
   // Verified physical table names are read from the generated metadata; no
   // source schema or production database is changed by this disposable fixture.
   await f.fixture.create(paymentTables);
@@ -161,7 +162,7 @@ export async function publicApiFixture(template: string) {
     const p = await prepare(options, unitPrice),
       result = run(p.value);
     if (!result || typeof result !== 'object' || !('result' in result))
-      throw new Error('Actual source creation failed');
+      throw new Error('Actual source creation failed: ' + JSON.stringify(result));
     const creation = await f.db
       .get('writer')
       .transaction((tx) => readPublicScreeningCreation(tx, p.scope.operationId, sourceKey));
@@ -204,66 +205,74 @@ export async function publicApiFixture(template: string) {
     }
     // Explicit native-projection fixture for normal Node tests. The full source
     // runner supplies the actual Go binary above for the same API scenarios.
-    await f.db.get('writer').transaction(async (tx) => {
-      await tx
-        .update(Order)
-        .set({
-          payment_statuses: prepaid ? 4n : 1n,
-          order_statuses: prepaid ? 3n : 1n,
-          is_stock_reduced: 1,
-        })
-        .where(eq(Order.id, BigInt(creation.orderId)));
-      await tx
-        .update(HasProduct)
-        .set({ status: prepaid ? 'DELIVERED' : 'PLACED' })
-        .where(eq(HasProduct.order, BigInt(creation.orderId)));
-      const [header] = await tx
-        .select({ hash: sql<string>`${sql.raw(checkoutHeaderHashSql)}` })
-        .from(Order)
-        .where(eq(Order.id, BigInt(creation.orderId)));
-      const lines = await tx
-        .select({
-          id: HasProduct.id,
-          productId: HasProduct.product,
-          quantity: HasProduct.qty,
-          hash: sql<string>`${sql.raw(checkoutLineHashSql)}`,
-        })
-        .from(HasProduct)
-        .where(eq(HasProduct.order, BigInt(creation.orderId)));
-      await tx.insert(checkoutProjections).values({
-        orderId: BigInt(creation.orderId),
-        storeId: 1n,
-        counterId: 2n,
-        userId: 77n,
-        inputHash: header!.hash,
-        lineCount: lines.length,
-        contractVersion: 'pos-checkout-projection-v1',
-        confirmedAt: '2026-06-15 06:30:00',
-      });
-      await tx.insert(checkoutProjectionLines).values(
-        lines.map((line) => ({
+    await screeningCounterMutation(
+      f.db,
+      {
+        customerIds: [creation.customerId],
+        orderIds: [creation.orderId],
+        lineIds: creation.lines.map((line) => line.id),
+      },
+      async (tx) => {
+        await tx
+          .update(Order)
+          .set({
+            payment_statuses: prepaid ? 4n : 1n,
+            order_statuses: prepaid ? 3n : 1n,
+            is_stock_reduced: 1,
+          })
+          .where(eq(Order.id, BigInt(creation.orderId)));
+        await tx
+          .update(HasProduct)
+          .set({ status: prepaid ? 'DELIVERED' : 'PLACED' })
+          .where(eq(HasProduct.order, BigInt(creation.orderId)));
+        const [header] = await tx
+          .select({ hash: sql<string>`${sql.raw(checkoutHeaderHashSql)}` })
+          .from(Order)
+          .where(eq(Order.id, BigInt(creation.orderId)));
+        const lines = await tx
+          .select({
+            id: HasProduct.id,
+            productId: HasProduct.product,
+            quantity: HasProduct.qty,
+            hash: sql<string>`${sql.raw(checkoutLineHashSql)}`,
+          })
+          .from(HasProduct)
+          .where(eq(HasProduct.order, BigInt(creation.orderId)));
+        await tx.insert(checkoutProjections).values({
           orderId: BigInt(creation.orderId),
-          lineId: line.id,
-          productId: line.productId,
-          quantity: line.quantity,
-          inputHash: line.hash,
-        })),
-      );
-      await tx.insert(checkoutCustomerConsents).values({
-        orderId: BigInt(creation.orderId),
-        customerId: 77n,
-        operatorId: 1n,
-        storeId: 1n,
-        counterId: 2n,
-        inputHash: header!.hash,
-        required: 0,
-        contactRevision: null,
-        contactDigest: null,
-        verifiedUntilMs: null,
-        acceptedAtMs: BigInt(financialClock),
-        contractVersion: customerConsentContract,
-      });
-    });
+          storeId: 1n,
+          counterId: 2n,
+          userId: 77n,
+          inputHash: header!.hash,
+          lineCount: lines.length,
+          contractVersion: 'pos-checkout-projection-v1',
+          confirmedAt: '2026-06-15 06:30:00',
+        });
+        await tx.insert(checkoutProjectionLines).values(
+          lines.map((line) => ({
+            orderId: BigInt(creation.orderId),
+            lineId: line.id,
+            productId: line.productId,
+            quantity: line.quantity,
+            inputHash: line.hash,
+          })),
+        );
+        await tx.insert(checkoutCustomerConsents).values({
+          orderId: BigInt(creation.orderId),
+          customerId: 77n,
+          operatorId: 1n,
+          storeId: 1n,
+          counterId: 2n,
+          inputHash: header!.hash,
+          required: 0,
+          contactRevision: null,
+          contactDigest: null,
+          verifiedUntilMs: null,
+          acceptedAtMs: BigInt(financialClock),
+          contractVersion: customerConsentContract,
+        });
+      },
+    );
   }
   async function app(c: ReturnType<typeof coordinator>, gateway: PaymentGateway) {
     const app = Fastify();

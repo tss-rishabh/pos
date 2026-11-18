@@ -213,7 +213,7 @@ describe.skipIf(!template)('private post-completion publication resource/native 
   it('mutable paid/header flags cannot publish an uncompleted source creation', async () => {
     const p = await f.prepare();
     expect(createSource(p.value)).toHaveProperty('result');
-    await f.connection.query('UPDATE orders SET payment_status=4,order_status=3');
+    await f.mutateWatched('UPDATE orders SET payment_status=4,order_status=3');
     const result = run(p.state.busyOperationId!, ['GET', 'POST']);
     expect(result.responses.every((row) => row.status === '409 Conflict')).toBe(true);
     expect(result.queueCalls).toBe(0);

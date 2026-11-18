@@ -89,7 +89,7 @@ describe.skipIf(!template)('unselected postcommit source effect protocol', () =>
   it('cannot publish pending creation from a mutable paid flag or missing final seal', async () => {
     const p = await f.prepare();
     expect(run(p.value)).toHaveProperty('result');
-    await f.connection.query('UPDATE orders SET payment_status=4,order_status=3');
+    await f.mutateWatched('UPDATE orders SET payment_status=4,order_status=3');
     expect(
       run({ ...p.value, action: 'effects', operationId: p.state.busyOperationId }),
     ).toMatchObject({ code: 'SCREENING_WRITER_SCOPE_CHANGED' });

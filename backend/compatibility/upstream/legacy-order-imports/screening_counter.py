@@ -221,11 +221,12 @@ class ReplaySession:
         if (not _identifier(order) or context is None or native.info.get('screening_counter_creation_context') is not context
                 or not context['active'] or context['transaction'] is not native.get_transaction()
                 or context['savepoint'] is not native.get_nested_transaction()
-                or context['connection'] is not native.connection() or context['customer']!=self.snapshot.customer
+                or context['connection'] is not native.connection() or native.connection().get_execution_options().get('schema_translate_map')
+                or context['customer']!=self.snapshot.customer
                 or context['orders'].get(order)!=self.snapshot.customer):refuse()
-        owner=one(native,'SELECT user_id FROM orders WHERE id=:id FOR UPDATE',{'id':order})
+        owner=one(native,'SELECT user_id,DATABASE() AS source_schema FROM orders WHERE id=:id FOR UPDATE',{'id':order})
         lock=one(native,'SELECT IS_USED_LOCK(:name)=CONNECTION_ID() AS held',{'name':_named(native,'o',order)})
-        if str(owner['user_id'])!=self.snapshot.customer or lock['held']!=1:refuse()
+        if str(owner['user_id'])!=self.snapshot.customer or owner['source_schema']!=context['schema'] or lock['held']!=1:refuse()
         return native,context
     def address_update(self,statement,parameters,kwargs,match):
         address,order=match.groups();native,context=self.new_order(order)
@@ -291,14 +292,15 @@ def _named(session,kind,identity):
 @contextmanager
 def writer_entry(session,customer):
     session=_session(session);connection=session.connection();owned_names=[]
-    if session.info.get('screening_counter_creation_context') is not None:fail('WRITER_SCOPE_CHANGED')
+    if session.info.get('screening_counter_creation_context') is not None or connection.get_execution_options().get('schema_translate_map'):fail('WRITER_SCOPE_CHANGED')
     context={'active':True,'transaction':session.get_transaction(),'savepoint':session.get_nested_transaction(),
-             'connection':connection,'customer':str(customer),'orders':{},'addresses':set(),'lines':{}}
+             'connection':connection,'schema':one(session,'SELECT DATABASE() AS name')['name'],'customer':str(customer),'orders':{},'addresses':set(),'lines':{}}
     if context['transaction'] is None:fail('TRANSACTION_REQUIRED')
     session.info['screening_counter_creation_context']=context
     def record_creation(current_session,*_args):
         if (current_session is not session or not context['active'] or current_session.get_transaction() is not context['transaction']
-                or current_session.get_nested_transaction() is not context['savepoint'] or current_session.connection() is not connection):refuse()
+                or current_session.get_nested_transaction() is not context['savepoint'] or current_session.connection() is not connection
+                or connection.get_execution_options().get('schema_translate_map')):refuse()
         for model in sorted(current_session.new,key=lambda value: 0 if inspect(value).mapper.local_table.name=='orders' else 1):
             state=inspect(model);table=state.mapper.local_table
             # Inspect the actual SQLAlchemy physical mapped table and exact

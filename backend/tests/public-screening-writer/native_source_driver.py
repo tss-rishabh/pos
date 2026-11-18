@@ -136,6 +136,7 @@ def run(value):
                     return original_execute(replay,statement,{**parameters,'order_id':987},**kwargs)
                 if mode=='changed-header':
                     native.execute(text('UPDATE orders SET user_id=88 WHERE id=:id'),{'id':order})
+                elif mode=='translated-bind':native.connection().execution_options(schema_translate_map={None:'unqualified_fixture_namespace'})
                 elif mode=='other-attempt':
                     frame.counter_context.__exit__(None,None,None)
                     with writer_entry(native,replay.snapshot.customer):

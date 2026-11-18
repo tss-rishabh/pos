@@ -41,7 +41,11 @@ export const python = resolve('compatibility/upstream/offline-cash-pricing/.venv
   };
 export async function publicScreeningFixture(
   template: string,
-  options: { nativeHeads?: boolean } = {},
+  options: {
+    nativeHeads?: boolean;
+    additionalApplicationTables?: readonly string[];
+    privateImport?: boolean;
+  } = {},
 ) {
   const f = await importFinancialFixture(template),
     extra = [
@@ -107,6 +111,10 @@ export async function publicScreeningFixture(
     ['order_stores', 'order', 'order_id'],
   ] as const)
     await f.connection.query('CREATE INDEX `' + index + '` ON `' + table + '`(`' + column + '`)');
+  if (
+    options.additionalApplicationTables?.some((name) => !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(name))
+  )
+    throw new Error('Explicit fixture table identifiers required');
   const heads =
     options.nativeHeads === false
       ? null
@@ -145,8 +153,9 @@ export async function publicScreeningFixture(
         'order_status',
         'order_address_mapping',
         'order_payment_transactions',
+        'gift_vouchers',
         'comments',
-        'pos_transaction_log',
+        'pos_transaction_logs',
         'product_store',
         'product_inventory_logs',
         'pos_inventory_sync_log',
@@ -160,16 +169,23 @@ export async function publicScreeningFixture(
         'pos_rewrite_import_screening_reservations',
         'pos_rewrite_customer_cart_leases',
         'pos_rewrite_customer_consents',
+        'pos_rewrite_gift_card_issuances',
         'pos_rewrite_customer_consent_events',
         'pos_rewrite_membership_versions',
         'pos_rewrite_cancellation_membership_provenance',
         'pos_rewrite_sessions',
+        'pos_rewrite_legacy_order_import_rows',
+        'pos_rewrite_import_authority_heads',
+        'pos_rewrite_import_authority_grants',
+        'store_day_close',
         'pos_rewrite_operator_checkins',
       ]);
       if (
         !sourceWrites.has(name) &&
+        !options.additionalApplicationTables?.includes(name) &&
         !controls.has(name) &&
-        !/^pos_rewrite_(?:public_screening_|checkout_|payment_|import_financial_)/.test(name)
+        !/^pos_rewrite_(?:public_screening_|checkout_|payment_)/.test(name) &&
+        !(options.privateImport && /^pos_rewrite_import_financial_/.test(name))
       )
         continue;
 
@@ -195,6 +211,24 @@ export async function publicScreeningFixture(
           "@'%'",
       );
     }
+  }
+  async function mutateWatched(statement: string) {
+    if (!heads) throw new Error('Real native head fixture required');
+    const [orders] = await f.connection.query<mysql.RowDataPacket[]>(
+      'SELECT CAST(id AS CHAR) id,CAST(user_id AS CHAR) customerId FROM orders',
+    );
+    const [lines] = await f.connection.query<mysql.RowDataPacket[]>(
+      'SELECT CAST(id AS CHAR) id FROM has_products',
+    );
+    return screeningCounterMutation(
+      heads.appDb,
+      {
+        customerIds: [...new Set(orders.map((row) => String(row.customerId)))],
+        orderIds: orders.map((row) => String(row.id)),
+        lineIds: lines.map((row) => String(row.id)),
+      },
+      (tx) => tx.execute(sql.raw(statement)),
+    );
   }
   async function seedCounter(customerId: string) {
     if (!heads) return;
@@ -463,6 +497,7 @@ export async function publicScreeningFixture(
     reset,
     prepare,
     seedCounter,
+    mutateWatched,
     async close() {
       try {
         await heads?.close();

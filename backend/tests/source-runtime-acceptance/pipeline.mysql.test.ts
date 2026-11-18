@@ -21,7 +21,7 @@ describe.skipIf(!template)(
   () => {
     let f: Awaited<ReturnType<typeof publicScreeningFixture>>;
     beforeAll(async () => {
-      f = await publicScreeningFixture(template!);
+      f = await publicScreeningFixture(template!, { privateImport: true });
       for (const sql of splitMigration(
         readFileSync('src/modules/legacy-order-imports/preparation-migration.sql', 'utf8'),
       ))
