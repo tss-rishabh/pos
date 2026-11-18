@@ -323,7 +323,7 @@ func TestOriginNativePrepareFullHeadSourceTables(t *testing.T) {
 	originExec(t, db, `CREATE TABLE users(id BIGINT PRIMARY KEY,status INT,is_block INT,is_disabled INT,is_two_fa INT,email VARCHAR(96),telephone VARCHAR(32)) ENGINE=InnoDB`)
 	originExec(t, db, `INSERT INTO users VALUES(77,1,0,0,0,'fixture@example.test','9000000000')`)
 	// Real source physical SQL leaves and all nine maintained quota triggers.
-	originExec(t, db, `DROP TABLE orders`)
+	originExec(t, db, `DROP TABLE IF EXISTS orders`)
 	fields := map[string]bool{}
 	for _, pair := range regexp.MustCompile(`orders\.([a-z_][a-z_0-9]*)`).FindAllStringSubmatch(OriginHeaderSQL+OriginAllocationSQL, -1) {
 		fields[pair[1]] = true

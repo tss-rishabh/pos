@@ -22,7 +22,7 @@ process.chdir(backend);
 const work=mkdtempSync(resolve(tmpdir(),'pos-origin-fullhead-'));
 const here=fileURLToPath(new URL('.',import.meta.url));
 cpSync(assembly,work,{recursive:true});
-for(const name of ['origin_native_test.go','origin_head_metadata_native_test.go'])copyFileSync(resolve(here,name),resolve(work,'internal/poscheckout',name));
+for(const name of ['origin_native_test.go','origin_head_metadata_native_test.go','origin_head_capacity_native_test.go'])copyFileSync(resolve(here,name),resolve(work,'internal/poscheckout',name));
 const base=['run','--rm','--network',network,'-e','GOMODCACHE=/module-cache','-e','GOCACHE=/build-cache','-e','GOPROXY=off','-v',modules+':/module-cache','-v',build+':/build-cache','-v',work+':/source:ro','-w','/source'];
 const image='golang:1.25.4@sha256:698183780de28062f4ef46f82a79ec0ae69d2d22f7b160cf69f71ea8d98bf25d';
 function go(args,env={}){const flags=Object.entries(env).flatMap(([k,v])=>['-e',k+'='+v]);const result=spawnSync('docker',[...base,...flags,image,'go',...args],{stdio:'inherit'});if(result.status!==0)throw new Error('Native Go fixture command failed');}
