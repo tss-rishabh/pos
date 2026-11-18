@@ -55,10 +55,3 @@ export const performanceReceipt = z
   })
   .strict();
 export type PerformanceReceipt = z.infer<typeof performanceReceipt>;
-export const performanceSnapshot = z
-  .object({
-    checkoutId: z.uuid(),
-    orderId: performanceIdentifier,
-    receipt: performanceReceipt.nullable(),
-  })
-  .strict();
