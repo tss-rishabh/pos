@@ -45,17 +45,23 @@ export function DayClosePage({ user, storeId }: { user: Principal; storeId: stri
   const state = useQuery({
     queryKey: [user.id, 'finance-day-close', storeId, date],
     enabled: !!storeId && !invalidDate,
-    queryFn: ({ signal }) =>
-      request(
+    queryFn: ({ signal }) => {
+      if (invalidDate) throw new Error('Choose a valid business date.');
+      return request(
         `/api/v1/stores/${storeId}/day-closes?${params({ date: date || undefined })}`,
         { operatorId: user.id, signal },
         stateSchema,
-      ),
+      );
+    },
   });
   return (
     <>
       <PageTitle eyebrow="COUNTED, CHECKED, ACCOUNTED FOR" title="Day close">
-        <button className="button secondary" onClick={() => void state.refetch()}>
+        <button
+          className="button secondary"
+          disabled={invalidDate || !storeId}
+          onClick={() => void state.refetch()}
+        >
           <RefreshCw size={16} />
           Refresh figures
         </button>
