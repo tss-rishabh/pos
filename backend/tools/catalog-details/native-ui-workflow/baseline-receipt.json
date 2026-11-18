@@ -1,0 +1,79 @@
+{
+  "cleanup": {
+    "anonymousVolumes": 0,
+    "exactContainerIndependentlyAbsent": true,
+    "privateEvidence": "/tmp/pos-catalog-native-ui.HmEgw7/cleanup.json"
+  },
+  "debugDoesNotCertify": true,
+  "declarations": ["core/urls.py:19", "core/urls.py:34", "core/urls.py:35", "core/urls.py:43"],
+  "exclusions": [
+    "Whole template stock/visibility/hold/bulk-upload mutation acceptance",
+    "Destination detail/audit source-family parity",
+    "Original middleware/deployed source HTTP transport",
+    "Third-party source DataTables/plugin runtime",
+    "Production warehouse/stock-writer/provider activation",
+    "Latency/performance claims"
+  ],
+  "executedApplicationBase": "e58b207",
+  "executedHarnessCommit": "f3476b3",
+  "harnessHashes": {
+    "backend/tools/catalog-details/native-ui-workflow/README.md": "92f3d8651d83acb9c81b8ca5cab1e31fe496c42a4e8db6f5394fd332eae92a03",
+    "backend/tools/catalog-details/native-ui-workflow/run.mjs": "255a3fdb83bd3be7f5148dacfbbd870279788ae3f5bf45a8fdeccb53d585b2c4",
+    "backend/tools/catalog-details/native-ui-workflow/run.sh": "803755842fcaeb6d1cb5d2c20a9c50ff546c479f461779554f1642e322978254",
+    "backend/tools/catalog-details/native-ui-workflow/source-ui.mjs": "32d717d854cb0cc20b051d8d84ac52e9c584e766a6f3b86fbcfc800cda8aca39",
+    "backend/tools/catalog-details/native-ui-workflow/source.py": "488316f69372004a092e3449e07c5cc940d1aaf652c005ef64c13478a6aa05fb",
+    "frontend/tests/catalog-details/native-ui-workflow/browser.mjs": "15332833691ee0dd52436c60fac3c0bfa4a1a7e590e24927d166c7f2f879a058"
+  },
+  "joinedResponseComparisons": 19,
+  "laterChangesRequireFreshCanonical": true,
+  "nativeApiAuthorityCases": 10,
+  "preservedFailures": {
+    "nativeOrBrowser": [
+      "/tmp/pos-catalog-native-ui-third-20261118.json",
+      "/tmp/pos-catalog-native-ui-fourth-20261118.json",
+      "/tmp/pos-catalog-native-ui-fifth-20261118.json",
+      "/tmp/pos-catalog-native-ui-sixth-20261118.json",
+      "/tmp/pos-catalog-native-ui-seventh-20261118.json",
+      "/tmp/pos-catalog-native-ui-eighth-20261118.json"
+    ],
+    "setup": [
+      "/tmp/pos-catalog-native-ui-first-20261118-setup.json",
+      "/tmp/pos-catalog-native-ui-second-20261118-setup.json"
+    ]
+  },
+  "privateReceipt": "/tmp/pos-catalog-native-ui-canonical-20261118.json",
+  "privateReceiptSha256": "3cbf1f5fe6412a89385a1abc21f2f1d1fdbc25010c08eb0ffccd3a4c63469e14",
+  "productionGraphHashAlgorithm": "SHA256 of canonical sorted compact JSON path->SHA256 map; prefixes backend/src/,frontend/src/,backend/migrations/,frontend/public/ plus seven package/lock/tsconfig/vite metadata files",
+  "productionGraphSha256": "0f360a22766440129f3c0c4ad2992f2740e998aaaf5f0162ec210bceec64cb64",
+  "schema": "pos-catalog-native-ui-review-v1",
+  "sourceBaselinePageContracts": 2,
+  "sourceHashes": {
+    "core/datatables/products_datatable.py": "f745fe06fea1e6b18077fb5e8b8dd000144e0277ad6b14836f79588e415272c5",
+    "core/datatables/store_products_datatable.py": "145fb2ebe11bbf5e859a0fff1c7906052b0e1847e2031bf9f01954c162829284",
+    "core/models.py": "427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512",
+    "core/templates/products/index.html": "6fd2805f9e8957f32e8749bd55e076c990436d3820c861ad4eb32a88723d353a",
+    "core/templates/products/stock/index.html": "195567e815e781cb344e8e77328636b3654d8db7547a8950620684f575537ffd",
+    "core/urls.py": "d39946333ef88c2f9210844172d6191f2cf9c4adff4cb7c83be9d920d586a124",
+    "core/views.py": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+    "helpers/decorators.py": "dfe149174d73ff71ca7fb2854841566d1afdfd213e779f1adf89f68631e773af",
+    "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+    "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+    "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357"
+  },
+  "sourcePageAuthorityCases": 23,
+  "sourcePin": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "status": "passed-bounded-historical-before-final-order-default-fix",
+  "templates": ["core/templates/products/index.html", "core/templates/products/stock/index.html"],
+  "trackedBeforeAfterInputs": 3124,
+  "uiGroups": [
+    "anonymous-routed-App-denied",
+    "catalog-native-rows-counts-store-submit-pagination",
+    "catalog-all-nine-sort-bindings-exact-high-id",
+    "catalog-visible-page-CSV-column-selection-reload",
+    "catalog-real-detail-navigation-high-id-audit-link",
+    "matrix-native-dictionaries-literal-wildcards-pagination-colvis-no-CSV",
+    "matrix-current-native-assignment-scope",
+    "franchise-native-catalog-scope-and-matrix-denial"
+  ],
+  "unchangedInputs": true
+}
