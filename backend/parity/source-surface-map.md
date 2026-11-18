@@ -17,7 +17,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 ## Concrete remaining code, by feature group
 
 - **orders-read (partial)**: Finish original online-detail per-line return/exchange eligibility, manager extension/override and failed-exchange discovery/retry entry. Authorized N/HL/HE read details and order/mode-bound receiving-store links are integrated; generic links do not establish the original per-line action behavior.
-- **invoice-documents (partial)**: Implement explicit global-online access for genuine paid N full/SDD invoices without a fake OrderStore or context-store issuer. Preserve source legal templates, exact SDD split/platform conditions and purpose-bound current-actor/provider proofs.
+- **checkout-cart (partial)**: Bind barcode Enter to the actual submitted scan and authoritative matching result. Current CounterPage can add a previous deferred/cached single-product query result while a new barcode is still loading. Review reachable source product detail/troubleshoot bindings after fixing the wrong-SKU race.
 
 ## Line-bound implementation review
 
@@ -120,7 +120,7 @@ Mapped surfaces: `order/urls.py:8` (partial), `order/urls.py:9` (partial), `orde
 
 ### checkout-cart
 
-Mapped surfaces: `order/urls.py:22` (external_acceptance), `order/urls.py:23` (external_acceptance), `order/urls.py:24` (external_acceptance), `order/urls.py:25` (external_acceptance), `order/urls.py:26` (external_acceptance), `order/urls.py:27` (external_acceptance), `order/urls.py:28` (external_acceptance), `order/urls.py:29` (external_acceptance), `order/urls.py:30` (external_acceptance), `order/urls.py:31` (external_acceptance), `order/urls.py:32` (external_acceptance), `order/urls.py:35` (external_acceptance), `order/urls.py:36` (external_acceptance), `order/urls.py:38` (external_acceptance), `order/urls.py:39` (external_acceptance), `order/templates/order/create_order.html` (external_acceptance), `order/templates/order/tab.html` (external_acceptance).
+Mapped surfaces: `order/urls.py:22` (partial), `order/urls.py:23` (partial), `order/urls.py:24` (partial), `order/urls.py:25` (partial), `order/urls.py:26` (partial), `order/urls.py:27` (partial), `order/urls.py:28` (partial), `order/urls.py:29` (partial), `order/urls.py:30` (partial), `order/urls.py:31` (partial), `order/urls.py:32` (partial), `order/urls.py:35` (partial), `order/urls.py:36` (partial), `order/urls.py:38` (partial), `order/urls.py:39` (partial), `order/templates/order/create_order.html` (partial), `order/templates/order/tab.html` (partial).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -145,9 +145,18 @@ Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (e
 | `backend/src/modules/checkout/return-workflow/extensions.ts:19` | Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts. |
 | `backend/src/modules/checkout/return-workflow/repository.ts:619` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
 | `backend/src/modules/checkout/return-workflow/routes.ts:77` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
-| `frontend/src/pages/returns/index.tsx:577` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
+| `frontend/src/pages/returns/index.tsx:597` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
 | `frontend/src/pages/returns/client.ts:243` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
 | `frontend/src/pages/returns/ReturnWindowExtension.tsx:48` | Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only. |
+
+### invoice-documents
+
+Mapped surfaces: `order/urls.py:13` (external_acceptance), `order/urls.py:14` (external_acceptance), `order/urls.py:15` (external_acceptance), `order/templates/order/invoice.html` (external_acceptance), `order/templates/order/online/_return_exchange_cells.html` (partial), `order/templates/order/online/show.html` (partial).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `backend/src/modules/invoice-documents/global-proof.ts:32` | Explicit genuine paid N access binds authorized context separately from ownerStoreId:null and source issuer policy, current actor/native financial snapshot and complete history proof. Scoped source/native/UI checks do not establish a deployed SDD renderer or legal approval. |
+| `frontend/src/pages/order-history/OnlineOrderDetail.tsx:197` | Paid N detail selects the explicit global access mode; HL/HE retain existing owned-store invoice authority. Absent private consumer/history configuration refuses the document. |
 
 ### express-fulfillment
 
@@ -282,9 +291,9 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 8 | 0 | 179 |
+| routes | 68 | 20 | 0 | 167 |
 | jobs | 0 | 0 | 1 | 31 |
-| templates | 32 | 5 | 3 | 66 |
+| templates | 32 | 6 | 3 | 65 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
@@ -392,33 +401,33 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:10` | `ajax-order-list/` | orders-read | partial |
 | `order/urls.py:11` | `store/<int:order_id>/show/` | orders-read | partial |
 | `order/urls.py:12` | `online/<int:order_id>/show/` | orders-read | partial |
-| `order/urls.py:13` | `store/<int:order_id>/invoice/` | invoice-documents | partial |
-| `order/urls.py:14` | `online/<int:order_id>/invoice/` | invoice-documents | partial |
-| `order/urls.py:15` | `online_sdd/<int:order_id>/invoice/` | invoice-documents | partial |
+| `order/urls.py:13` | `store/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
+| `order/urls.py:14` | `online/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
+| `order/urls.py:15` | `online_sdd/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:16` | `ajax-get-sub-reasons/` | returns-exchanges | external_acceptance |
 | `order/urls.py:17` | `ajax-get-pay-amt/` | returns-exchanges | external_acceptance |
 | `order/urls.py:18` | `ajax-product-return/` | returns-exchanges | external_acceptance |
 | `order/urls.py:19` | `ajax-product-exchange/` | returns-exchanges | external_acceptance |
 | `order/urls.py:20` | `ajax-get-exchange-sizes/` | returns-exchanges | external_acceptance |
 | `order/urls.py:21` | `ajax-get-exchange-reasons/` | returns-exchanges | external_acceptance |
-| `order/urls.py:22` | `tab/` | motivational-quotes, checkout-cart | external_acceptance |
-| `order/urls.py:23` | `create-order/<int:store_id>/<int:counter_id>/<int:tab_id>/` | motivational-quotes, checkout-cart, cashier-shortcuts, order-to-cart-copy, customer-website-handoff | external_acceptance |
-| `order/urls.py:24` | `ajax-cart/` | checkout-cart | external_acceptance |
-| `order/urls.py:25` | `ajax-sync-cart/` | checkout-cart | external_acceptance |
-| `order/urls.py:26` | `ajax-wallet/` | checkout-cart | external_acceptance |
-| `order/urls.py:27` | `ajax-pg-discount/` | checkout-cart | external_acceptance |
-| `order/urls.py:28` | `ajax-store-discount-pg/` | checkout-cart | external_acceptance |
-| `order/urls.py:29` | `ajax-exclusive-benefits/` | checkout-cart | external_acceptance |
-| `order/urls.py:30` | `ajax-gift-voucher/` | checkout-cart | external_acceptance |
-| `order/urls.py:31` | `ajax-coupon/` | checkout-cart | external_acceptance |
-| `order/urls.py:32` | `ajax-user-register/` | checkout-cart | external_acceptance |
+| `order/urls.py:22` | `tab/` | motivational-quotes, checkout-cart | partial |
+| `order/urls.py:23` | `create-order/<int:store_id>/<int:counter_id>/<int:tab_id>/` | motivational-quotes, checkout-cart, cashier-shortcuts, order-to-cart-copy, customer-website-handoff | partial |
+| `order/urls.py:24` | `ajax-cart/` | checkout-cart | partial |
+| `order/urls.py:25` | `ajax-sync-cart/` | checkout-cart | partial |
+| `order/urls.py:26` | `ajax-wallet/` | checkout-cart | partial |
+| `order/urls.py:27` | `ajax-pg-discount/` | checkout-cart | partial |
+| `order/urls.py:28` | `ajax-store-discount-pg/` | checkout-cart | partial |
+| `order/urls.py:29` | `ajax-exclusive-benefits/` | checkout-cart | partial |
+| `order/urls.py:30` | `ajax-gift-voucher/` | checkout-cart | partial |
+| `order/urls.py:31` | `ajax-coupon/` | checkout-cart | partial |
+| `order/urls.py:32` | `ajax-user-register/` | checkout-cart | partial |
 | `order/urls.py:33` | `ajax-send-otp/` | customer-verification | external_acceptance |
 | `order/urls.py:34` | `ajax-verify-otp/` | customer-verification | external_acceptance |
-| `order/urls.py:35` | `ajax-validate-process-order/` | checkout-cart | external_acceptance |
-| `order/urls.py:36` | `ajax-order/` | checkout-cart, order-messages | external_acceptance |
+| `order/urls.py:35` | `ajax-validate-process-order/` | checkout-cart | partial |
+| `order/urls.py:36` | `ajax-order/` | checkout-cart, order-messages | partial |
 | `order/urls.py:37` | `ajax-order-cancel/` | pending-order-cancellation | external_acceptance |
-| `order/urls.py:38` | `ajax-add-salesperson/` | checkout-cart | external_acceptance |
-| `order/urls.py:39` | `ajax-add-salesperson-per-product/` | checkout-cart | external_acceptance |
+| `order/urls.py:38` | `ajax-add-salesperson/` | checkout-cart | partial |
+| `order/urls.py:39` | `ajax-add-salesperson-per-product/` | checkout-cart | partial |
 | `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | external_acceptance |
 | `order/urls.py:41` | `ajax-check-save-gc/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:42` | `ajax-save-gc-date/` | purchased-gift-cards | external_acceptance |
@@ -641,7 +650,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/_hl_banner.html` | `order/templates/order/_hl_banner.html` | express-fulfillment, notifications | external_acceptance |
 | `order/templates/order/add_order_feedback.html` | `order/templates/order/add_order_feedback.html` | product-feedback | implementation_present |
 | `order/templates/order/basic_error.html` | `order/templates/order/basic_error.html` | system-health | implementation_present |
-| `order/templates/order/create_order.html` | `order/templates/order/create_order.html` | checkout-cart, customer-workspace, customer-contacts, customer-verification, payments, fast-cash, cashier-shortcuts, order-to-cart-copy, customer-website-handoff, motivational-quotes | external_acceptance |
+| `order/templates/order/create_order.html` | `order/templates/order/create_order.html` | checkout-cart, customer-workspace, customer-contacts, customer-verification, payments, fast-cash, cashier-shortcuts, order-to-cart-copy, customer-website-handoff, motivational-quotes | partial |
 | `order/templates/order/hyperlocal/_all_stores_order_cards.html` | `order/templates/order/hyperlocal/_all_stores_order_cards.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/_hl_image_preview.html` | `order/templates/order/hyperlocal/_hl_image_preview.html` | express-fulfillment | external_acceptance |
@@ -651,13 +660,13 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/hyperlocal/all_stores_dashboard.html` | `order/templates/order/hyperlocal/all_stores_dashboard.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/progress.html` | `order/templates/order/hyperlocal/progress.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | partial |
-| `order/templates/order/invoice.html` | `order/templates/order/invoice.html` | invoice-documents | partial |
+| `order/templates/order/invoice.html` | `order/templates/order/invoice.html` | invoice-documents | external_acceptance |
 | `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | partial |
 | `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | partial |
 | `order/templates/order/shipping.html` | `order/templates/order/shipping.html` | shipping-labels | external_acceptance |
 | `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
 | `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | partial |
-| `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | external_acceptance |
+| `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | partial |
 | `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |
 | `report/templates/bd_report/daily_report_matric_upload.html` | `report/templates/bd_report/daily_report_matric_upload.html` | business-metrics-upload | missing |
 | `report/templates/daily_store_report/index.html` | `report/templates/daily_store_report/index.html` | daily-store-report | external_acceptance |

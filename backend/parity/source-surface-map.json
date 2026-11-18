@@ -18,16 +18,16 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 279,
+      "external_acceptance": 266,
       "implementation_present": 100,
-      "partial": 13,
+      "partial": 26,
       "missing": 4
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 179,
+        "external_acceptance": 167,
         "implementation_present": 68,
-        "partial": 8
+        "partial": 20
       },
       "jobs": {
         "external_acceptance": 31,
@@ -35,9 +35,9 @@
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 66,
+        "external_acceptance": 65,
         "missing": 3,
-        "partial": 5
+        "partial": 6
       },
       "websockets": {
         "external_acceptance": 1
@@ -740,18 +740,19 @@
     "backend/src/modules/inventory-workbooks/xlsx.ts": "a7d00acf4d2bfa49bb037ed46936e03b9123bd92fc1fb4af372f37f0f775f003",
     "backend/src/modules/inventory-workbooks/xml-validation.ts": "803e934316467f652f3fd79869c140e9d8912f422ea2996cf95103ec9481bec3",
     "backend/src/modules/inventory-workbooks/zip-validation.ts": "b3a68a11126a063a50192518df04c1297fb3e72b079b32a62a69cc769747ec39",
-    "backend/src/modules/invoice-documents/authority.ts": "64381f0db2ea56194363839caa050bc82b2b22d3ccbe114f3f6b1a65cc221c27",
-    "backend/src/modules/invoice-documents/capabilities.ts": "06cba509f8cd1ddf8aebaaa3cf0db73875866b1e4f14e42c68873f45a0b999fb",
-    "backend/src/modules/invoice-documents/contracts.ts": "f781f0333a20f1baa0b9072c931d8408cb1c840867fa6243e72eea25c38aae97",
+    "backend/src/modules/invoice-documents/authority.ts": "eb8cb0debf034bc175b855c18cf819ec8bb7aade377c2b2720fe579504460537",
+    "backend/src/modules/invoice-documents/capabilities.ts": "5e2cb1044d59bf47c429dbbe7455fa2636132653f2c92fd8dfe79189fc05497e",
+    "backend/src/modules/invoice-documents/contracts.ts": "00796f910dd9cffb13fab5194a081346b0e3626b734f84fda138212d47dd1605",
+    "backend/src/modules/invoice-documents/global-proof.ts": "85df66116c333f208e630740fb1538d64d52bbf4e0e9f5baf8a4802099a039e7",
     "backend/src/modules/invoice-documents/history-proof.ts": "d0886ca4ba781b37e70fc00d523aa93476a9ccdc64c43d6b160f0cb23ef6e431",
     "backend/src/modules/invoice-documents/history.ts": "3614db8c0dea86c0730bcb5577f07ececf1e9c300e13592b14defc9256512a73",
-    "backend/src/modules/invoice-documents/index.ts": "05e480bd227b4548281bde7e4da86fa64e3c125ecf47bee72d4ae005ec80483a",
-    "backend/src/modules/invoice-documents/native.ts": "b9065d6d168d445773c096785418361e80223838b6f7ca02b5c0ba318cceb743",
-    "backend/src/modules/invoice-documents/options.ts": "973b73cf4740abb35b2b825c593ce7c4ea1ce57f96389513ae99338af0993f2d",
-    "backend/src/modules/invoice-documents/presentation.ts": "d7d82ec5679e1702cfbf4718a8a941e96a70af249dc7b92b355d526ed3b1563c",
+    "backend/src/modules/invoice-documents/index.ts": "33ef83f2220c6b0ea782616353149e80eb4a3b549a5712968d5181336412e1a3",
+    "backend/src/modules/invoice-documents/native.ts": "2e20853326acb9abe1771dc482b33da5a73edac1da49bbb3740f53835f6b5cd8",
+    "backend/src/modules/invoice-documents/options.ts": "553bfdf79c92bff5158693aba109b709317c44827dc05513d71018506ecb176b",
+    "backend/src/modules/invoice-documents/presentation.ts": "9642ac354ebcb7dc8ae3486bbf8ef42141483de0af64588275a1022eb79e23e7",
     "backend/src/modules/invoice-documents/scope-proof.ts": "a0e235ca026bfd7bff35d3b1f1044b0aeb08a17f8e6ab52cfd096cfe047ac834",
-    "backend/src/modules/invoice-documents/scoped-service.ts": "f319f831ee50a9cc69b44c51499543e1038cc3b756972e5abceeb0cc75bacef4",
-    "backend/src/modules/invoice-documents/service.ts": "99b0a8e62945cadfd86eb137f345e5975e1ca49188866ee271e91933b1fd22ce",
+    "backend/src/modules/invoice-documents/scoped-service.ts": "e5ddeed79865b03b9127598a30056b686eff905cbc6c230a788cb5ff49f2ec35",
+    "backend/src/modules/invoice-documents/service.ts": "2b829ee8bc18716adcd0fe07d49289d986c827b5001fbd2865fc9f485554ecfd",
     "backend/src/modules/legacy-fulfillment/domain.ts": "7f5a0b92d02fc18c57d42891032e3c5d3f1404a5b3cc7c3e2fae95fd77f05e07",
     "backend/src/modules/legacy-fulfillment/index.ts": "92951c774adc17953cbef012778f9952994075f381955bd16da77a16fded5405",
     "backend/src/modules/legacy-fulfillment/lifecycle/audit.ts": "d8a6787a0c117211a7311740951cde8be94e45f2ebe2c2193b4c9413a2835bae",
@@ -1019,7 +1020,7 @@
     "backend/src/modules/order-history/cursor.ts": "c4b5bac604c930f97bc1a2285eb688e4280bb3f39afdd588f12cced9db92bb59",
     "backend/src/modules/order-history/hashes.ts": "80c38449e2a3d5155ddb3c0e091f444802f506973bebd089750bb3a451c6b688",
     "backend/src/modules/order-history/index.ts": "206931781c5fb1eedba3dc1b844558ac207cf288131e1ec8efba450da9e7a845",
-    "backend/src/modules/order-history/online-detail/SOURCE.md": "5b35b39533d1da35de7e1111b0ef802b23af24ea8647aa32100d1b343244c7b7",
+    "backend/src/modules/order-history/online-detail/SOURCE.md": "55397fc6c84ce203723f27fcd45564582f6f913190792d00fe6832c4e8f4125e",
     "backend/src/modules/order-history/online-detail/authority.ts": "92015baa8e0adc17c6e351b51b4be473c3b75e2faad3472d74bbe8c78a7f0a4d",
     "backend/src/modules/order-history/online-detail/contracts.ts": "d2c3987f757c0c68b5b89a253951b6ee9246e4354763ea23e36b40936709cda9",
     "backend/src/modules/order-history/online-detail/errors.ts": "20fcf704cf9c327f86b7875bc12a0a859f938dea780e83a29212258626a416aa",
@@ -1206,12 +1207,13 @@
     "backend/tests/inventory-workbooks/storage.test.ts": "25aec51dcf80bc7af1a52440a9885f66d6944f9cae45bf4b16fc96b555dc844e",
     "backend/tests/inventory-workbooks/xlsx.test.ts": "6acfeb6faf4e3ea01e2527035027e170d3b9fa677a1f987d35fef90678009b5a",
     "backend/tests/invoice-documents/express-source.test.ts": "bba09ff2c57ec8974f472c38cf7935f407a281a1478baad7d6206f5a93d3f228",
+    "backend/tests/invoice-documents/global-proof.test.ts": "920822ac0320cfe823a61d6509690d5de280da95b83bf80ade61b0deb1752d7d",
     "backend/tests/invoice-documents/history.test.ts": "779586b4b4765b8fb14f0b34fccd6659778fbf786771921b00d337b93c9fe6c7",
     "backend/tests/invoice-documents/http.test.ts": "926aa5feea21b6ff966f52259432f8f9270eb174ae20abeceaef4c6e715dc57c",
-    "backend/tests/invoice-documents/mysql.integration.test.ts": "e13cae51973a9cc239a29cd45675959d8114d40a900b02a441150082b7a2a3d8",
+    "backend/tests/invoice-documents/mysql.integration.test.ts": "ee78ad8016c971ceba7e3634be6f65d45f026d43aaa6c54128da4a388abf72f9",
     "backend/tests/invoice-documents/ownership.test.ts": "8d1a362b1013082d951df71010e20efb4e922e312833d973b40cdd6318b5304f",
     "backend/tests/invoice-documents/presentation.test.ts": "319284800f7f81b15d8b79b5f61aef2f3a610e58423d2a887f1a2713abf67b6b",
-    "backend/tests/invoice-documents/source.test.ts": "2ce72944b048ccb2651c45126f606149402fa3d98a8a711598bf6d7a7bf828c6",
+    "backend/tests/invoice-documents/source.test.ts": "0c5fe04952bdd389fffc03c7e3852a22b8535e06e3139f988f3450178553ea77",
     "backend/tests/legacy-fulfillment/domain.test.ts": "d2e5987888a6f85e8a7260b00602c4777017c35262a593f1922b934b5b3cd727",
     "backend/tests/legacy-fulfillment/http.test.ts": "9bfaefe9cbdf0ee57a93726c94f0c5ac7bb1b0eb717e128e8d88d9c279b8eaa0",
     "backend/tests/legacy-fulfillment/lifecycle-domain.test.ts": "f491881fe594460e9afc7af798cd646826ad703b75a9bb00e1c09c0597f7ac93",
@@ -1576,10 +1578,10 @@
     "frontend/src/pages/global-vouchers/receipt.tsx": "95f6f8f7911a40827b333880175cb33fd7b0344d602c68300b5a7cb23eba9643",
     "frontend/src/pages/global-vouchers/style.css": "13bda54a6d1223449ff3ef79055a3f5fd85cc09d4b97a22053e5e898c121e670",
     "frontend/src/pages/invoice-documents/automatic.ts": "fe9f87b366bdffd77e1db7b07b5a8b36552d9646bc0008dee784114fd4ad9a53",
-    "frontend/src/pages/invoice-documents/client.ts": "d9103e35db276bc60c42b4c1ffa2bc3234845a1167ab9b7ffac1d4cd1a5db93c",
-    "frontend/src/pages/invoice-documents/document.tsx": "9436a7bddf4a2524d84c78d36bcab16657f981f7be04c2d16aa7f037044889d9",
+    "frontend/src/pages/invoice-documents/client.ts": "f903c3ad2baa5c8a473ee8ccd2c0a26ba143770b308a745edf6aa3eefc07a4b7",
+    "frontend/src/pages/invoice-documents/document.tsx": "deea14a5ea241168ecc0e76616e1c07af0d316d7d3fe164131d4be308dc89ed1",
     "frontend/src/pages/invoice-documents/index.tsx": "495f4c521d6774b0be21ba2f9a4c1da83acae5b3fce3a233d26735869f037c0e",
-    "frontend/src/pages/invoice-documents/order-actions.tsx": "d39c141007881d53a8fcf2c1619c9584a9d90921b817b555d3dc100df2fb7170",
+    "frontend/src/pages/invoice-documents/order-actions.tsx": "fb0cac5e49da1184b53e2e5dadaed75ce734c20b883c506a1b0398e65b7203dd",
     "frontend/src/pages/invoice-documents/session.ts": "cf95c20a93f9e16c5d78f49a2ebd51127ac76d19f2a53e215f25c9bacabb583b",
     "frontend/src/pages/legacy-fulfillment/commands.ts": "58309945b9896b507d9e65d97e864bdb01e233bfbda41b6d8bc40d73103c05b5",
     "frontend/src/pages/legacy-fulfillment/contracts.ts": "ff4815611c8980b59c0fa9de81db241d02a2b0856f44218c9d2698279ebf8688",
@@ -1611,7 +1613,7 @@
     "frontend/src/pages/order-copy/client.ts": "0a979a8870cf6d7748c44a3ae21d08a0a8136de5eaf5de10035d701cdf74fe5f",
     "frontend/src/pages/order-copy/index.tsx": "bc0ebf6be1f3e9b3b62d09dd949f6c017357264a744dfd06f8662ac2bb1ebdff",
     "frontend/src/pages/order-copy/marker.ts": "3ae37435c7da14a69bcbce1ec158e14ca168b6733b5c22527d2835c81bcbc2d9",
-    "frontend/src/pages/order-history/OnlineOrderDetail.tsx": "fcf25c4c84a3d6309d4544c767681fac07d3420b6279708f99d7fe193c91c095",
+    "frontend/src/pages/order-history/OnlineOrderDetail.tsx": "428edff37144d8849695d2fb32346fc1e10d688498e88f519621a0289f9346ae",
     "frontend/src/pages/order-history/SourceOrderList.tsx": "162738dc75b6d2b295afd68a6569918b2a0214db0b0205b20013110dec78ac5e",
     "frontend/src/pages/order-history/client.ts": "7ef8170b3bd31a960ab4dd4c5b4fdde26f3ce171f5297e38d2c930fb7f518297",
     "frontend/src/pages/order-history/online-detail-client.ts": "64f8eea9a6c424a7db5e4fd10aed88fbe650c384bcf63fbe17fab679fc2ce78b",
@@ -1642,8 +1644,8 @@
     "frontend/src/pages/returns/SalespersonSelect.tsx": "41e64ea8ef25219eb9967299af3fb67f427e3317483559149a68c08183542924",
     "frontend/src/pages/returns/client.ts": "345045dbbb7948a086a0a5dee52580bd5ad27c2df7e9ddf85f460b165f486c33",
     "frontend/src/pages/returns/entry-page.tsx": "6501c01ae781de93b7c5567f0ee48f0f9f969f25f8c0708d66933b0b5809c3ba",
-    "frontend/src/pages/returns/index.tsx": "0e8f3fd3423773f23c2c3052e833f60b365e0611996befdee186b4b7401c2cfa",
-    "frontend/src/pages/returns/order-entry.ts": "e74690dae1b25262c4202b908f6be625a5ea6b11d892b144b2328c13f270fe82",
+    "frontend/src/pages/returns/index.tsx": "e4fc1e290714acb9426d76530aaf64ebc4a6ff23e01efa7606f6e2cc738717b5",
+    "frontend/src/pages/returns/order-entry.ts": "74c27d340801ca16e80542118a50d3316344bb1f2fe939b2ddd16fe4dcf3723c",
     "frontend/src/pages/returns/style.css": "450e48e772a3ba5c1f08dc30c446b4ac7120492e7f54a9efe95bffe3eefd5e79",
     "frontend/tests/administration/archival-workflow-tsconfig.json": "882f8cccaf84ae864d78d2f2f21d3f6fecaa80b8495c5720a63f23fde4406210",
     "frontend/tests/administration/archival-workflow.ts": "1c238ba1b06a4beddde9eaaf0548fc45f982341011302b217167976dfdcce5d4",
@@ -1744,9 +1746,10 @@
     "frontend/tests/inventory-workbooks/harness.tsx": "d4b859e15db9f049c98565e5e0020757e86075bed60972254c6295770f7f6dbc",
     "frontend/tests/inventory-workbooks/tsconfig.tests.json": "2dc5d418083aa1c58a54c954973f833044285fc0cc913fb9a4db2312ff07ead0",
     "frontend/tests/invoice-documents/automatic.test.ts": "aa1b13b1214d7e69be2c60530fec50a5fd604c4d47348c0c93ac29464c193e38",
-    "frontend/tests/invoice-documents/browser-check.mjs": "e61566923a01e135729ffa233a827486a319f805301cb7662d0ed519ec6f44e1",
+    "frontend/tests/invoice-documents/browser-check.mjs": "fc7b2d3558cbbdca970c20c2ebecf35b8090ca91e2b5f0e373179fd789c9a0e0",
+    "frontend/tests/invoice-documents/global-access.test.ts": "85a1a912aa9ed3c8eda416a2cbe93645a65df2bbd67eb57f4349e8163b16901b",
     "frontend/tests/invoice-documents/harness.html": "76d183b4361498656b15239b1af0789971d9a442e35c76edacdb9c3a19dbca85",
-    "frontend/tests/invoice-documents/harness.tsx": "620a1e9435ebc00d69779e1517a27a13e9cc931b19d5a512c4422b2439a4e2e7",
+    "frontend/tests/invoice-documents/harness.tsx": "58b73351d7da904cbd897f8295bc92d51509a30055bc298f8804c30af4b6c6ee",
     "frontend/tests/invoice-documents/tsconfig.json": "bf1b897f46e5750ce94e0486fc44c85e2e1b30396aea13c62fa0860fa079396d",
     "frontend/tests/legacy-fulfillment/browser-check.mjs": "972ba11a23311cc870a28bc22b08c1b77c7534e6e1b488b47ab6002f81975117",
     "frontend/tests/legacy-fulfillment/browser-entry.tsx": "a15e800f6521d02b93aab8fdcf1d886cdf2dc97c86bff5b1d043a7e240662c02",
@@ -1847,7 +1850,7 @@
     "frontend/tests/return-window/harness.tsx": "2d58f4d0b626cbe294024fc2e6614ddbc5836c0c37d20371412bf93190fb522f",
     "frontend/tests/return-window/tsconfig.json": "32df523d74b127ee8fc0dac5c7b9d88fd6bbe66bb0a0fd2330a471ebbbecbcb0",
     "frontend/tests/return-window/window.browser.test.ts": "e8e9792e40e4e01e39a41c050753f69859c3b753db22638e6cab95bcbedb22fb",
-    "frontend/tests/returns/order-entry.test.ts": "7ea7f255116c82044143a63a8dbabc053ae527bb6cd12a1150f4e22efd402b3f",
+    "frontend/tests/returns/order-entry.test.ts": "aadf5a881e7fbf3151a0abe85f92f0cbf3a9042cae79df658e1aa54781236a1f",
     "frontend/tests/review-snapshot.test.ts": "7f5bb0fd0588abb1fdde23d1815800cbcf3ea576c931652d5dd952d4913fcb72",
     "frontend/tests/screening-writer/harness.tsx": "d8520b44fd699e5d23901e97cc0c5f7d4dfc26ac0106bb551ec521b742a8cd4f",
     "frontend/tests/screening-writer/recovery.browser.test.ts": "b3a5a087eb0c056bf5fd0e7c9ad9801c750a2cf8b83f6f729009e3a683e7de65",
@@ -4596,6 +4599,7 @@
         "frontend/tests/inventory-workbooks/browser.test.ts",
         "frontend/tests/inventory-workbooks/commands.test.ts",
         "frontend/tests/invoice-documents/automatic.test.ts",
+        "frontend/tests/invoice-documents/global-access.test.ts",
         "frontend/tests/legacy-fulfillment/commands.test.ts",
         "frontend/tests/legacy-fulfillment/lifecycle.test.ts",
         "frontend/tests/lookup-workflow/workflow.test.ts",
@@ -4932,6 +4936,7 @@
         "frontend/tests/inventory-workbooks/browser.test.ts",
         "frontend/tests/inventory-workbooks/commands.test.ts",
         "frontend/tests/invoice-documents/automatic.test.ts",
+        "frontend/tests/invoice-documents/global-access.test.ts",
         "frontend/tests/legacy-fulfillment/commands.test.ts",
         "frontend/tests/legacy-fulfillment/lifecycle.test.ts",
         "frontend/tests/lookup-workflow/workflow.test.ts",
@@ -5274,7 +5279,7 @@
     },
     {
       "id": "checkout-cart",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/checkout/routes.ts",
         "backend/src/modules/checkout/service.ts",
@@ -5295,7 +5300,9 @@
         "backend/parity/membership-revision-head-metadata.md"
       ],
       "implemented_scope": "Draft tabs/sessions, connected/walk-in customers, durable cart sync/clear, quote, register, discounts, wallet/coupons/vouchers, salesperson and ordinary submission.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Bind barcode Enter to the actual submitted scan and authoritative matching result. Current CounterPage can add a previous deferred/cached single-product query result while a new barcode is still loading. Review reachable source product detail/troubleshoot bindings after fixing the wrong-SKU race."
+      ],
       "external_acceptance": [
         "Accept actual source pricing/private projection, shared wallet/stock writers and provider contracts; local receipts do not establish deployed parity."
       ],
@@ -5316,87 +5323,87 @@
         {
           "kind": "routes",
           "id": "order/urls.py:22",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:23",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:24",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:25",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:26",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:27",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:28",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:29",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:30",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:31",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:32",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:35",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:36",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:38",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "routes",
           "id": "order/urls.py:39",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/create_order.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "order/templates/order/tab.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         }
       ],
       "test_files": [
@@ -5490,6 +5497,7 @@
         "frontend/tests/inventory-workbooks/browser.test.ts",
         "frontend/tests/inventory-workbooks/commands.test.ts",
         "frontend/tests/invoice-documents/automatic.test.ts",
+        "frontend/tests/invoice-documents/global-access.test.ts",
         "frontend/tests/legacy-fulfillment/commands.test.ts",
         "frontend/tests/legacy-fulfillment/lifecycle.test.ts",
         "frontend/tests/lookup-workflow/workflow.test.ts",
@@ -5966,7 +5974,7 @@
         },
         {
           "path": "frontend/src/pages/returns/index.tsx",
-          "line": 577,
+          "line": 597,
           "anchor": "<ReturnWindowExtension",
           "scope": "Actual return and exchange page mounts the bound source-role manager control for the selected verified line."
         },
@@ -6452,7 +6460,7 @@
     },
     {
       "id": "invoice-documents",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/invoice-documents",
         "backend/src/modules/checkout/invoices.ts"
@@ -6469,9 +6477,7 @@
         "backend/parity/invoice-documents.md"
       ],
       "implemented_scope": "Protected offline/online/SDD documents, typed purpose transports, original order authorization, automatic paid/exchange preview and safe printing.",
-      "remaining_code": [
-        "Implement explicit global-online access for genuine paid N full/SDD invoices without a fake OrderStore or context-store issuer. Preserve source legal templates, exact SDD split/platform conditions and purpose-bound current-actor/provider proofs."
-      ],
+      "remaining_code": [],
       "external_acceptance": [
         "Accept actual SDD/external legal renderer, private consumer corrections and native printer/platform output."
       ],
@@ -6480,15 +6486,63 @@
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "path": "backend/src/modules/invoice-documents/global-proof.ts",
+          "line": 32,
+          "anchor": "export function issueGlobalOnlineInvoiceProof(",
+          "scope": "Explicit genuine paid N access binds authorized context separately from ownerStoreId:null and source issuer policy, current actor/native financial snapshot and complete history proof. Scoped source/native/UI checks do not establish a deployed SDD renderer or legal approval."
+        },
+        {
+          "path": "frontend/src/pages/order-history/OnlineOrderDetail.tsx",
+          "line": 197,
+          "anchor": "access={value.type === 'N' ? 'global-online' : undefined}",
+          "scope": "Paid N detail selects the explicit global access mode; HL/HE retain existing owned-store invoice authority. Absent private consumer/history configuration refuses the document."
+        }
+      ],
+      "reviewed_source_surfaces": [
+        {
+          "kind": "routes",
+          "id": "order/urls.py:13",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:14",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "routes",
+          "id": "order/urls.py:15",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "templates",
+          "id": "order/templates/order/invoice.html",
+          "disposition": "external_acceptance"
+        },
+        {
+          "kind": "templates",
+          "id": "order/templates/order/online/_return_exchange_cells.html",
+          "disposition": "partial"
+        },
+        {
+          "kind": "templates",
+          "id": "order/templates/order/online/show.html",
+          "disposition": "partial"
+        }
+      ],
       "test_files": [
         "backend/tests/invoice-documents/express-source.test.ts",
+        "backend/tests/invoice-documents/global-proof.test.ts",
         "backend/tests/invoice-documents/history.test.ts",
         "backend/tests/invoice-documents/http.test.ts",
         "backend/tests/invoice-documents/mysql.integration.test.ts",
         "backend/tests/invoice-documents/ownership.test.ts",
         "backend/tests/invoice-documents/presentation.test.ts",
         "backend/tests/invoice-documents/source.test.ts",
-        "frontend/tests/invoice-documents/automatic.test.ts"
+        "frontend/tests/invoice-documents/automatic.test.ts",
+        "frontend/tests/invoice-documents/global-access.test.ts"
       ]
     },
     {
@@ -8260,10 +8314,10 @@
       ]
     },
     {
-      "family": "invoice-documents",
+      "family": "checkout-cart",
       "state": "partial",
       "tasks": [
-        "Implement explicit global-online access for genuine paid N full/SDD invoices without a fake OrderStore or context-store issuer. Preserve source legal templates, exact SDD split/platform conditions and purpose-bound current-actor/provider proofs."
+        "Bind barcode Enter to the actual submitted scan and authoritative matching result. Current CounterPage can add a previous deferred/cached single-product query result while a new barcode is still loading. Review reachable source product detail/troubleshoot bindings after fixing the wrong-SKU race."
       ]
     }
   ],
@@ -11187,7 +11241,7 @@
       "families": [
         "invoice-documents"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11220,7 +11274,7 @@
       "families": [
         "invoice-documents"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11253,7 +11307,7 @@
       "families": [
         "invoice-documents"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11473,7 +11527,7 @@
         "motivational-quotes",
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11510,7 +11564,7 @@
         "order-to-cart-copy",
         "customer-website-handoff"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11544,7 +11598,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11575,7 +11629,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11606,7 +11660,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11637,7 +11691,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11668,7 +11722,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11699,7 +11753,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11730,7 +11784,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11761,7 +11815,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11792,7 +11846,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11885,7 +11939,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11917,7 +11971,7 @@
         "checkout-cart",
         "order-messages"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11979,7 +12033,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12010,7 +12064,7 @@
       "families": [
         "checkout-cart"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -17777,7 +17831,7 @@
         "customer-website-handoff",
         "motivational-quotes"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17961,7 +18015,7 @@
       "families": [
         "invoice-documents"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -18079,7 +18133,7 @@
         "checkout-cart",
         "motivational-quotes"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

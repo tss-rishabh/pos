@@ -4,8 +4,11 @@
 
 Implementation remains the first priority. Full source-to-UI tracing found gaps
 that the earlier component map did not establish. Current known code work is
-genuine N full/SDD invoice access and per-line online return/exchange/manager
-extension/override/failed-exchange retry bindings. Both have assigned owners;
+failed-exchange discovery/claim/retry and barcode Enter query binding. Both have
+assigned owners. Per-line links and the existing guarded role1 override are now
+integrated (4a83b66), with19 focused entry/selection cases. Source checkout
+review found a concrete race where a newly entered barcode can use a previous
+deferred single-product result; that must be corrected before final testing.
 historical data must use complete qualified publications, never invented store
 ownership or historical MySQL fallback. Reachability review found the online
 customer icon has no active edit handler and its money icon opens HL acceptance;
@@ -26,6 +29,16 @@ original receipt tested trimming, final separate7-case receipt verifies no
 per-token trimming with unchanged input hashes.15 creator regressions remain
 historical and are not relabeled. Native full-verifier mapping includes this
 fixture in a103679. Source map presence is not parity admission.
+
+Global paid N full/SDD invoice authority is integrated in57225d9, with explicit
+detail callsite7ec52eb. Source issuer, selected/fallback platform fees, bought
+voucher join multiplicity and order reference/parent inputs are purpose-bound.
+Native39 distinct cases passed across retained scoped runs; source/private
+worker/controlled-browser evidence keeps its original boundaries. Missing
+private global/history/SDD contracts refuses rendering. On the merged graph,
+backend/frontend strict and31 frontend/11 backend focused cases pass. Source
+oracle launcher4906933 now pins cached offline CPython3.10; dependency preflight
+passed. No current full-regression or production-provider acceptance is claimed.
 
 Integrated since caba871: active order-type date retention; writer-current
 operator/store creator guards (15 native passes,7 unsafe baseline failures);

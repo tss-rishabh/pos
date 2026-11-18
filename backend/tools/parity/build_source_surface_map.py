@@ -292,7 +292,9 @@ def define_families():
     bind('orders-read', ['OrdersView', 'OnlineOrdersView', 'AjaxOrderListView', 'ShowOrderDetailsView', 'ShowOnlineOrderDetailsView'])
     family('checkout-cart', ['src/modules/checkout/routes.ts', 'src/modules/checkout/service.ts', 'src/modules/checkout/customers'],
            ['src/pages/counter.tsx', 'src/pages/checkout/CheckoutReview.tsx', 'src/offline'], ['tests/checkout', 'frontend/tests', 'frontend/e2e/checkout'],
-           ['parity/checkout.md'], scope='Draft tabs/sessions, connected/walk-in customers, durable cart sync/clear, quote, register, discounts, wallet/coupons/vouchers, salesperson and ordinary submission.',
+           ['parity/checkout.md'], state='partial',
+           gaps=['Bind barcode Enter to the actual submitted scan and authoritative matching result. Current CounterPage can add a previous deferred/cached single-product query result while a new barcode is still loading. Review reachable source product detail/troubleshoot bindings after fixing the wrong-SKU race.'],
+           scope='Draft tabs/sessions, connected/walk-in customers, durable cart sync/clear, quote, register, discounts, wallet/coupons/vouchers, salesperson and ordinary submission.',
            external=['Accept actual source pricing/private projection, shared wallet/stock writers and provider contracts; local receipts do not establish deployed parity.'])
     bind('checkout-cart', ['CreateTabView', 'CreateOrderView', 'AjaxCartView', 'AjaxSyncCartView', 'AjaxWalletView', 'AjaxPgDiscountView', 'AjaxStoreDiscountPGView', 'AjaxaExclusiveBenefitsView', 'AjaxGiftVoucherView', 'AjaxCouponView', 'AjaxUserRegisterView', 'AjaxValidateProcessOrderView', 'AjaxOrderView', 'AjaxAddSalesPersonView', 'AjaxAddSalesPersonPerProductView'])
     family('customer-verification', ['src/modules/customer-otp', 'src/modules/checkout/customer-verification.ts'],
@@ -371,10 +373,12 @@ def define_families():
     bind('product-feedback', ['AjaxAddFeedback', 'GetOrderFeedbackFormView'])
     family('invoice-documents', ['src/modules/invoice-documents', 'src/modules/checkout/invoices.ts'], ['src/pages/invoice-documents', 'src/pages/checkout/InvoiceActions.tsx'],
            ['tests/invoice-documents', 'frontend/tests/invoice-documents'], ['parity/invoice-documents.md'],
-           state='partial',
-           gaps=['Implement explicit global-online access for genuine paid N full/SDD invoices without a fake OrderStore or context-store issuer. Preserve source legal templates, exact SDD split/platform conditions and purpose-bound current-actor/provider proofs.'],
            scope='Protected offline/online/SDD documents, typed purpose transports, original order authorization, automatic paid/exchange preview and safe printing.',
            external=['Accept actual SDD/external legal renderer, private consumer corrections and native printer/platform output.'])
+    families['invoice-documents']['implementation_review'] = [
+        review_reference('backend/src/modules/invoice-documents/global-proof.ts', 'export function issueGlobalOnlineInvoiceProof(', 'Explicit genuine paid N access binds authorized context separately from ownerStoreId:null and source issuer policy, current actor/native financial snapshot and complete history proof. Scoped source/native/UI checks do not establish a deployed SDD renderer or legal approval.'),
+        review_reference('frontend/src/pages/order-history/OnlineOrderDetail.tsx', "access={value.type === 'N' ? 'global-online' : undefined}", 'Paid N detail selects the explicit global access mode; HL/HE retain existing owned-store invoice authority. Absent private consumer/history configuration refuses the document.'),
+    ]
     bind('invoice-documents', ['ShowOrderInvoiceView', 'ShowOnlineOrderInvoiceView', 'ShowOnlineSDDOrderInvoiceView'])
     family('local-deliveries', ['src/modules/legacy-fulfillment'], ['src/pages/legacy-fulfillment'], ['tests/legacy-fulfillment', 'frontend/tests/legacy-fulfillment'],
            ['parity/legacy-fulfillment.md', 'parity/local-delivery-lifecycle.md'],
