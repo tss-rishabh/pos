@@ -58,7 +58,11 @@ export interface CheckoutSessionStore {
   /** Unscoped read. Callers must check operator/store themselves. */
   read(checkoutId: string): Promise<CheckoutState | null>;
   /** Read bound to the operator and store that own the sale. */
-  readScoped(operatorId: string, storeId: string, checkoutId: string): Promise<CheckoutState | null>;
+  readScoped(
+    operatorId: string,
+    storeId: string,
+    checkoutId: string,
+  ): Promise<CheckoutState | null>;
   /** Unconditional write of the current state (call inside `exclusive`). */
   write(state: CheckoutState): Promise<void>;
   /**

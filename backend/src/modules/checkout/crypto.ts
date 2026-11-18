@@ -24,7 +24,9 @@ export function issueCustomerToken(
       sub: customer.id,
       iat: Math.floor(now / 1000),
       exp: Math.floor(now / 1000) + expirySeconds,
-      ...(customer.exclusive ? { iev: true } : {}),
+      // Legacy checkout tokens never carry `iev`: every checkout caller of
+      // Helpers.create_token passes only user_id (helpers/helpers.py:535-564,
+      // order/views.py:1522, 1534, 2010, 2060).
     }),
   ).toString('base64url');
   const message = `${header}.${payload}`,

@@ -1,4 +1,8 @@
+import { eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
+import { Store } from '../../db/legacy-schema.js';
+import type { Databases } from '../../db/pools.js';
+import type { Principal } from '../../domain/access.js';
 
 /**
  * Legacy settings flags resolved per request (backend/parity/legacy-flags.md).
@@ -66,4 +70,17 @@ export function exchangeFeatureEnabled(
   const normalized = String(BigInt(checkinStoreId));
   // Legacy `checkin_store_id and ...`: a falsy (0) check-in store never enables exchanges.
   return normalized !== '0' && setting.storeIds.includes(normalized);
+}
+
+/** Resolves the flags for one checkout request from the checkout store and the operator. */
+export function checkoutFlagsReader(db: Databases, config: LegacyFlagConfig) {
+  return async (user: Pick<Principal, 'userType'>, storeId: string): Promise<CheckoutFlags> => {
+    const [store] = await db
+      .get('primary')
+      .select({ category: Store.category })
+      .from(Store)
+      .where(eq(Store.id, BigInt(storeId)))
+      .limit(1);
+    return checkoutFlags(config, store?.category ?? null, user.userType);
+  };
 }

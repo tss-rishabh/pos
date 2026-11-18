@@ -42,7 +42,10 @@ export const exchangeStoreIds = z
     for (const part of value.split(',')) {
       if (!part.trim()) continue;
       if (!/^\s*[+-]?\d+(?:_\d+)*\s*$/.test(part)) {
-        context.addIssue({ code: 'custom', message: 'EXCHANGE_ENABLED_STORE_IDS must be "all" or comma-separated integers.' });
+        context.addIssue({
+          code: 'custom',
+          message: 'EXCHANGE_ENABLED_STORE_IDS must be "all" or comma-separated integers.',
+        });
         return z.NEVER;
       }
       storeIds.push(String(BigInt(part.trim().replaceAll('_', ''))));

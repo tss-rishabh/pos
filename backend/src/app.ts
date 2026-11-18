@@ -90,11 +90,7 @@ import {
 import { registerCustomerContacts } from './modules/customer-contacts/index.js';
 import { registerCustomerWebsiteHandoff } from './modules/customer-website-handoff/index.js';
 import { readCustomerContactOptions } from './modules/customer-contacts/options.js';
-import {
-  customerOtpService,
-  readCustomerOtpOptions,
-  createCustomerOtpDelivery,
-} from './modules/customer-otp/index.js';
+import { customerOtpService, readCustomerOtpOptions } from './modules/customer-otp/index.js';
 import { registerFinance } from './modules/finance/index.js';
 import { paymentCorrectionFinanceOptions } from './modules/finance/payment-corrections.js';
 import { registerOperationalReports } from './modules/operational-reports/index.js';
@@ -354,12 +350,7 @@ export async function buildApp(
     await posState?.close();
   });
   const customerOtpOptions = readCustomerOtpOptions(),
-    customerOtp = customerOtpService(
-      config,
-      db,
-      customerOtpOptions,
-      createCustomerOtpDelivery(config, customerOtpOptions),
-    );
+    customerOtp = customerOtpService(config, db, customerOtpOptions, checkoutShared);
   registerBarcodeAssignments(app, config, db);
   registerOperatorModelAccounts(app, config, db);
   registerSecondaryCountrySearch(app, db);

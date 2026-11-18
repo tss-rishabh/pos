@@ -4,44 +4,13 @@ import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
 import type { Payload } from './payloads.js';
 import { stringifyNumericJson } from '../upstream.js';
-import { currentRequestTrace } from '../../observability/context.js';
-import {
-  assertCustomerContextReady,
-  checkoutTokenSubject,
-  customerContextContract,
-  usesCustomerContext,
-  type CustomerContextConfiguration,
-} from './customer-context.js';
-import {
-  membershipContextContract,
-  verifiedMembershipContext,
-} from './cancellations/membership-context.js';
-import { giftCardContract } from './gift-card-issuance.js';
-import {
-  customerConsentContract,
-  assertCustomerConsentReady,
-  signCustomerConsent,
-  type CustomerConsent,
-  type CustomerConsentConfiguration,
-} from './customer-consent.js';
-import {
-  assertCheckoutProjectionReady,
-  type CheckoutProjectionConfiguration,
-} from './projection.js';
-import {
-  assertRefundAllocationReady,
-  refundAllocationContract,
-  refundSourcePatchHash,
-  type RefundAllocationConfiguration,
-} from './refund-allocation.js';
 
-export interface CheckoutEnvironment
-  extends
-    CheckoutProjectionConfiguration,
-    RefundAllocationConfiguration,
-    CustomerContextConfiguration {
-  membershipContextContract?: typeof membershipContextContract;
-  customerConsentContract?: CustomerConsentConfiguration['customerConsentContract'];
+/**
+ * Checkout integration settings. Legacy calls unpatched API-v2, so no upstream contract
+ * (projection, refund allocation, consent, customer/membership context, gift-card or exchange
+ * stock proof) is read or required any more.
+ */
+export interface CheckoutEnvironment {
   hs256?: string;
   hs512?: string;
   paymentOrderUrl?: string;
@@ -50,9 +19,27 @@ export interface CheckoutEnvironment
   returnRefundUrl?: string;
   returnSecret?: string;
   giftCardSalt?: string;
-  exchangeStockContract?: string;
-  giftCardContract?: string;
   giftCardExpiryDays?: number;
+  /** @deprecated Patched-upstream contracts were removed; always undefined. Kept for compile compatibility. */
+  checkoutProjectionContract?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  checkoutProjectionKey?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  refundAllocationContract?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  refundSourcePatchHash?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  customerContextContract?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  customerContextKey?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  membershipContextContract?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  customerConsentContract?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  exchangeStockContract?: string;
+  /** @deprecated See checkoutProjectionContract. */
+  giftCardContract?: string;
 }
 export function checkoutEnvironment(env: NodeJS.ProcessEnv = process.env): CheckoutEnvironment {
   const value = z
@@ -65,23 +52,7 @@ export function checkoutEnvironment(env: NodeJS.ProcessEnv = process.env): Check
       TSS_RETURN_REFUND_URL: z.url().optional(),
       TSS_RETURN_SECRET: z.string().min(16).optional(),
       TSS_GIFT_CARD_SALT: z.string().min(16).optional(),
-      UPSTREAM_POS_MEMBERSHIP_CONTEXT_CONTRACT: z.literal(membershipContextContract).optional(),
-      UPSTREAM_POS_CUSTOMER_CONTEXT_CONTRACT: z.literal(customerContextContract).optional(),
-      TSS_POS_CUSTOMER_CONTEXT_KEY: z
-        .string()
-        .regex(/^[\x21-\x7e]{32,4096}$/)
-        .optional(),
-      UPSTREAM_POS_EXCHANGE_STOCK_CONTRACT: z.literal('pos-exchange-stock-v1').optional(),
-      UPSTREAM_POS_GIFT_CARD_CONTRACT: z.literal(giftCardContract).optional(),
-      UPSTREAM_POS_CHECKOUT_PROJECTION_CONTRACT: z.literal('pos-checkout-projection-v1').optional(),
-      TSS_POS_CHECKOUT_PROJECTION_KEY: z
-        .string()
-        .regex(/^[\x21-\x7e]{32,4096}$/)
-        .optional(),
-      UPSTREAM_POS_REFUND_ALLOCATION_CONTRACT: z.literal(refundAllocationContract).optional(),
-      UPSTREAM_POS_REFUND_ALLOCATION_PATCH_HASH: z.literal(refundSourcePatchHash).optional(),
       DEFAULT_GC_EX_DAYS: z.coerce.number().int().min(1).max(36500).default(90),
-      UPSTREAM_POS_CUSTOMER_CONSENT_CONTRACT: z.literal(customerConsentContract).optional(),
     })
     .parse(Object.fromEntries(Object.entries(env).filter(([, v]) => v !== '')));
   return {
@@ -93,17 +64,7 @@ export function checkoutEnvironment(env: NodeJS.ProcessEnv = process.env): Check
     returnRefundUrl: value.TSS_RETURN_REFUND_URL,
     returnSecret: value.TSS_RETURN_SECRET,
     giftCardSalt: value.TSS_GIFT_CARD_SALT,
-    customerContextContract: value.UPSTREAM_POS_CUSTOMER_CONTEXT_CONTRACT,
-    membershipContextContract: value.UPSTREAM_POS_MEMBERSHIP_CONTEXT_CONTRACT,
-    customerContextKey: value.TSS_POS_CUSTOMER_CONTEXT_KEY,
-    exchangeStockContract: value.UPSTREAM_POS_EXCHANGE_STOCK_CONTRACT,
-    giftCardContract: value.UPSTREAM_POS_GIFT_CARD_CONTRACT,
-    checkoutProjectionContract: value.UPSTREAM_POS_CHECKOUT_PROJECTION_CONTRACT,
-    checkoutProjectionKey: value.TSS_POS_CHECKOUT_PROJECTION_KEY,
-    refundAllocationContract: value.UPSTREAM_POS_REFUND_ALLOCATION_CONTRACT,
-    refundSourcePatchHash: value.UPSTREAM_POS_REFUND_ALLOCATION_PATCH_HASH,
     giftCardExpiryDays: value.DEFAULT_GC_EX_DAYS,
-    customerConsentContract: value.UPSTREAM_POS_CUSTOMER_CONSENT_CONTRACT,
   };
 }
 export class CheckoutGatewayError extends AppError {
@@ -119,23 +80,22 @@ export class CheckoutGatewayError extends AppError {
 export interface CheckoutGateway {
   assertApiReady?(): void;
   api(path: string, payload: Payload, token?: string): Promise<unknown>;
-  confirm(payload: Payload, token: string, consent?: CustomerConsent | null): Promise<unknown>;
+  /** Payment-microservice confirmation (`AjaxOrderView.orders`, order/views.py:2881-2897). */
+  confirm(payload: Payload, token: string): Promise<unknown>;
   exchangeReasons(categoryId: string): Promise<unknown>;
 }
+/**
+ * API-v2 transport. Legacy sends only `Content-Type: application/json` and the raw JWT in
+ * `Authorization` (no `Bearer`), with `requests.post(url, json=payload, headers=headers)`
+ * (order/views.py:2850-2879). `pos/order` and the payment confirmation have no client timeout
+ * in legacy; other calls keep an 8 s bound so a stuck read does not hold a cashier request.
+ */
 export function checkoutGateway(
   config: Config,
   environment: CheckoutEnvironment,
   fetcher: typeof fetch = fetch,
 ): CheckoutGateway {
-  async function send(
-    url: string | undefined,
-    payload: Payload,
-    token?: string,
-    method: 'POST' | 'GET' = 'POST',
-    projection = false,
-    customerId?: string,
-    consent?: CustomerConsent | null,
-  ): Promise<unknown> {
+  function target(url: string | undefined) {
     if (!url)
       throw new AppError(
         503,
@@ -154,46 +114,27 @@ export function checkoutGateway(
         'INVALID_CHECKOUT_CONFIGURATION',
         'Checkout integrations require HTTPS.',
       );
-    let response: Response;
-    const signedConsent = consent
-      ? signCustomerConsent(consent, environment.checkoutProjectionKey ?? '')
-      : null;
-    const caller = currentRequestTrace();
-    if (consent && caller?.userId && caller.userId !== consent.operatorId)
-      throw new AppError(
-        409,
-        'CHECKOUT_OPERATOR_CHANGED',
-        'This order belongs to a different operator.',
-      );
+    return parsed;
+  }
+  async function request(
+    url: string | undefined,
+    payload: Payload,
+    token: string | undefined,
+    method: 'POST' | 'GET',
+    timeoutMs: number | null,
+  ): Promise<Response> {
+    const parsed = target(url);
     try {
-      const trace = currentRequestTrace();
-      response = await fetcher(parsed, {
+      return await fetcher(parsed, {
         method,
         headers: {
           'Content-Type': 'application/json',
           ...(token ? { Authorization: token } : {}),
-          ...(trace ? { 'X-Request-ID': trace.requestId } : {}),
-          ...(customerId
-            ? {
-                'X-POS-Customer-Context-Key': environment.customerContextKey!,
-                'X-POS-Customer-Context': customerContextContract,
-                'X-POS-Customer-ID': customerId,
-              }
-            : {}),
-          ...(projection ? { 'X-POS-Projection-Key': environment.checkoutProjectionKey! } : {}),
-          ...(signedConsent && consent
-            ? {
-                'X-POS-Customer-Consent': signedConsent,
-                'X-POS-Operator-ID': consent.operatorId,
-              }
-            : {}),
-          ...(projection && trace?.userId && /^[1-9]\d{0,18}$/.test(trace.userId)
-            ? { 'X-POS-Operator-ID': trace.userId }
-            : {}),
         },
         body: method === 'POST' ? stringifyNumericJson(payload) : undefined,
+        // Security decision: never forward the Authorization JWT across a redirect.
         redirect: 'error',
-        signal: AbortSignal.timeout(8000),
+        ...(timeoutMs === null ? {} : { signal: AbortSignal.timeout(timeoutMs) }),
       });
     } catch {
       throw new CheckoutGatewayError(
@@ -202,43 +143,31 @@ export function checkoutGateway(
         true,
       );
     }
-    if (
-      response.ok &&
-      customerId &&
-      (response.headers.get('X-POS-Customer-Context') !== customerContextContract ||
-        response.headers.get('X-POS-Customer-ID') !== customerId)
-    )
-      throw new CheckoutGatewayError(
-        'CUSTOMER_CONTEXT_PROOF_MISSING',
-        'The checkout service did not confirm fresh customer context. Review the sale before retrying.',
-        true,
-      );
-    if (
-      response.ok &&
-      customerId &&
-      environment.membershipContextContract &&
-      !verifiedMembershipContext(response.headers)
-    )
-      throw new CheckoutGatewayError(
-        'MEMBERSHIP_CONTEXT_PROOF_MISSING',
-        'The checkout service did not confirm fresh membership context. Review the sale before retrying.',
-        true,
-      );
-    let body: unknown;
+  }
+  async function body(response: Response, uncertainOnFailure: boolean) {
     try {
-      body = await boundedJson(response);
+      return await boundedJson(response);
     } catch {
       throw new CheckoutGatewayError(
         'CHECKOUT_OUTCOME_UNCERTAIN',
         'The checkout service returned an unreadable response. Review its status before retrying.',
-        response.ok || response.status >= 500,
+        uncertainOnFailure,
       );
     }
+  }
+  async function send(
+    url: string | undefined,
+    payload: Payload,
+    token?: string,
+    method: 'POST' | 'GET' = 'POST',
+  ): Promise<unknown> {
+    const response = await request(url, payload, token, method, 8000);
+    const value = await body(response, response.ok || response.status >= 500);
     if (!response.ok) {
       const error = z
         .object({ title: z.string().max(500).optional(), message: z.string().max(500).optional() })
         .passthrough()
-        .safeParse(body);
+        .safeParse(value);
       throw new CheckoutGatewayError(
         'CHECKOUT_REJECTED',
         error.success
@@ -248,7 +177,7 @@ export function checkoutGateway(
         response.status >= 500 ? 502 : 422,
       );
     }
-    return body;
+    return value;
   }
   function path(base: string | undefined, segment: string) {
     if (!base) return undefined;
@@ -256,65 +185,45 @@ export function checkoutGateway(
   }
   return {
     assertApiReady: () => {
-      const raw = config.TSS_API_BASE_URL;
-      if (!raw)
-        throw new AppError(
-          503,
-          'CHECKOUT_DEPENDENCY_UNAVAILABLE',
-          'Checkout integration is not configured.',
-        );
-      const parsed = new URL(raw);
-      if (
-        parsed.username ||
-        parsed.password ||
-        (parsed.protocol !== 'https:' &&
-          !(
-            config.NODE_ENV !== 'production' && ['localhost', '127.0.0.1'].includes(parsed.hostname)
-          ))
-      )
-        throw new AppError(
-          503,
-          'INVALID_CHECKOUT_CONFIGURATION',
-          'Checkout integrations require HTTPS.',
-        );
+      target(config.TSS_API_BASE_URL);
     },
-    api: (segment, payload, token) => {
-      if (segment === 'omnichannel-sendotp' || segment === 'omnichannel-verifyotp')
-        throw new AppError(
-          503,
-          'CUSTOMER_VERIFICATION_SERVICE_UNAVAILABLE',
-          'Customer verification requires the local purpose-bound delivery service.',
-        );
-      if (segment === 'pos/order') {
-        assertCheckoutProjectionReady(environment);
-        assertRefundAllocationReady(environment);
-        assertCustomerConsentReady(environment);
-      }
-      let customerId: string | undefined;
-      if (usesCustomerContext(segment)) {
-        assertCustomerContextReady(environment);
-        customerId = checkoutTokenSubject(token, environment);
-        if (payload.is_pos !== true)
-          throw new AppError(
-            503,
-            'CUSTOMER_CONTEXT_SCOPE_INVALID',
-            'A scoped POS request is required for fresh customer context.',
-          );
-      }
-      return send(
+    async api(segment, payload, token) {
+      if (segment !== 'pos/order')
+        return send(path(config.TSS_API_BASE_URL, segment), payload, token, 'POST');
+      // AjaxOrderView.order (order/views.py:2843-2879) and its caller (2751-2756): only HTTP 200
+      // is success; any other status is "Something Went Wrong" and the cashier may retry.
+      const response = await request(
         path(config.TSS_API_BASE_URL, segment),
         payload,
         token,
         'POST',
-        false,
-        customerId,
+        null,
       );
+      if (response.status !== 200) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new CheckoutGatewayError(
+          'ORDER_CREATE_FAILED',
+          'Something Went Wrong. The order was not created; try again.',
+          false,
+          502,
+        );
+      }
+      return body(response, true);
     },
-    confirm: (payload, token, consent) => {
-      assertCheckoutProjectionReady(environment);
-      assertRefundAllocationReady(environment);
-      assertCustomerConsentReady(environment);
-      return send(environment.paymentOrderUrl, payload, token, 'POST', true, undefined, consent);
+    async confirm(payload, token) {
+      // AjaxOrderView.orders (order/views.py:2881-2897); success is 200 or 201 (2810).
+      const response = await request(environment.paymentOrderUrl, payload, token, 'POST', null);
+      if (response.status !== 200 && response.status !== 201) {
+        await response.body?.cancel().catch(() => undefined);
+        throw new CheckoutGatewayError(
+          'ORDER_CONFIRMATION_FAILED',
+          'Something went wrong. The order was created but the payment service did not accept it.',
+          false,
+          502,
+        );
+      }
+      await response.body?.cancel().catch(() => undefined);
+      return {};
     },
     exchangeReasons: (categoryId) => {
       const url = path(environment.postOrderBaseUrl, 'list_of_reason/');
