@@ -1,3 +1,4 @@
+import { readStoreDefaultOperatorOptions } from './store-default-operators.js';
 import { administrationCollectionPageQuery } from './collection-page.js';
 import type { FastifyInstance } from 'fastify';
 import { registerAdministrationStoreDetails } from './store-detail-routes.js';
@@ -111,7 +112,12 @@ export function registerAdministration(
     SettingsOptions = {},
 ) {
   registerTerminalDirectory(app, db);
-  const service = administrationService(config, db, options),
+  const storeDefaults =
+    options.defaultStoreOperatorIds !== undefined ||
+    options.defaultStoreOperatorContactEmails !== undefined
+      ? {}
+      : readStoreDefaultOperatorOptions();
+  const service = administrationService(config, db, { ...storeDefaults, ...options }),
     checkins = checkInService(db, config),
     inventory = inventoryService(config, db, options),
     support = supportService(config, db);

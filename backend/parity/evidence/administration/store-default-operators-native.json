@@ -1,0 +1,86 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T16:13:28.552733+00:00",
+  "baseCommit": "a456b7a845474e73a261371db09afb84cf57fa27",
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "sourceSemantics": {
+    "configuration": "STOREDEFAULTUSER comma-separated tokens",
+    "identityColumn": "pos_user.contact_email",
+    "missingRecipient": "skip",
+    "archivedRecipient": "retain assignment; no authentication"
+  },
+  "inputsAtCompletion": {
+    "backend/src/modules/administration/store-default-operators.ts": "e57801870203ae9b7b4113fb05ad932eec8871cbc90d25e3df2b5fd2185cc93b",
+    "backend/src/modules/administration/service.ts": "b666f09b5033fcb9b4693b2811501ba0cd07c9633e2c5686c2b7bebdc0e798c8",
+    "backend/src/modules/administration/index.ts": "7d3c00103732cae1cec50d1cba3a7ac29ed1c8c34101dc99051a7968b46d5b22",
+    "backend/tests/administration/store-default-operators.mysql.test.ts": "669c67dfc90a19ebe115675819a8df3ccd0d4d9a5b30dd60c73cbd71c5ac58e4"
+  },
+  "runs": {
+    "native-final": {
+      "passed": 7,
+      "failed": 0,
+      "skipped": 0,
+      "rawPath": "/tmp/pos-store-default-operators-evidence-20261118/native-final-vitest.json",
+      "rawSha256": "c0fee29c1dce773c2ef23dac4cb563e46f659c2bc31a654b486983da29ca6ba7",
+      "caseNames": [
+        "distinguishes missing, explicitly empty and invalid source contact configuration",
+        "resolves configured contact_email recipients through real registration, retaining archived assignments without granting archived access",
+        "honors explicit empty configuration through actual App creation",
+        "keeps missing configuration unavailable without preventing startup or creating partial rows",
+        "resolves current identities at the write, skipping source-missing/deleted recipients rather than caching startup IDs",
+        "retains current actor archive denial before all creation side effects",
+        "atomically refuses ambiguous legacy identities under their native collation"
+      ],
+      "cleanup": {
+        "containerId": "0d78a9d676089ff8f0947b2d9fc26b8a3dbd87e8faad89ee525dcabf167172af",
+        "containerAbsent": true,
+        "anonymousVolumes": 0,
+        "removedWithVolumes": true
+      }
+    },
+    "creator-regression": {
+      "passed": 15,
+      "failed": 0,
+      "skipped": 0,
+      "rawPath": "/tmp/pos-store-default-operators-evidence-20261118/creator-regression-vitest.json",
+      "rawSha256": "8dd7d8323a5bbe6ffa9f82ed21a6719b0d6c5d53f81e08ced19eb8702c7fc1a5",
+      "caseNames": [
+        "rejects operator creation after demotion at real hash/transaction admission without identity or mirror writes",
+        "rejects operator creation after OPM tier change at real hash/transaction admission without identity or mirror writes",
+        "rejects operator creation after archive at real hash/transaction admission without identity or mirror writes",
+        "rejects operator creation after organization change at real hash/transaction admission without identity or mirror writes",
+        "rejects store creation after a current organization change without store, franchise, counter or assignment writes",
+        "rejects current franchise role 1 creating an in-house store before all side effects",
+        "rejects current franchise role 3 creating an in-house store before all side effects",
+        "preserves current operator create capability for role 1, organization 1",
+        "preserves current operator create capability for role 2, organization 1",
+        "preserves current operator create capability for role 3, organization 1",
+        "preserves current operator create capability for role 3, organization 2",
+        "preserves legitimate store create capability for role 1, organization 1",
+        "preserves legitimate store create capability for role 3, organization 1",
+        "preserves legitimate store create capability for role 1, organization 2",
+        "preserves legitimate store create capability for role 3, organization 2"
+      ],
+      "cleanup": {
+        "containerId": "0d0ce22441685653e2ee4d2ffc82654ca77c98a384a0bd4e05d21901bd409443",
+        "containerAbsent": true,
+        "anonymousVolumes": 0,
+        "removedWithVolumes": true
+      }
+    }
+  },
+  "nativeCaseCount": 6,
+  "configurationCaseCount": 1,
+  "creatorRegressionBinding": "Existing15 behavior checks preceded a parser-only no-trimming refinement; final7-check actual App/config target executed final parser bytes. No same-byte all22 claim.",
+  "checks": {
+    "backendStrict": "passed",
+    "focusedTestStrict": "passed with existing paytmchecksum declaration included",
+    "changedEslint": "passed"
+  },
+  "faultInjection": "One disposable native case drops/restores the captured contact_email unique index to prove collation-ambiguous legacy data is refused before store/counter/assignment writes. Other cases retain captured schema/indexes.",
+  "nativeBoundary": "Actual production buildApp route registration, signed native MySQL session cookies, ORM and owned physical fixture. No injected candidate principal or fulfilled candidate response.",
+  "providers": "No configured OTP/provider transport is required or called by these creation/session routes.",
+  "appTsChanged": false,
+  "frozenR9Changed": false,
+  "releaseLedgerPromoted": false
+}

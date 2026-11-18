@@ -50,6 +50,10 @@ import { defaultStoreImage } from './contracts.js';
 import type { AdministrationTransaction } from './checkins.js';
 import { lockAdministrationRegistry } from './locks.js';
 import {
+  resolveDefaultStoreOperatorIds,
+  type StoreDefaultOperatorOptions,
+} from './store-default-operators.js';
+import {
   assertCurrentOperatorIdentity,
   assertCurrentOperatorRole,
   assertCurrentStoreAccess,
@@ -64,10 +68,7 @@ const storeReadFields = {
     ),
 };
 
-export interface AdministrationOptions {
-  /** Explicitly configured legacy STOREDEFAULTUSER identities; [] means intentionally none. */
-  defaultStoreOperatorIds?: string[];
-}
+export type AdministrationOptions = StoreDefaultOperatorOptions;
 export interface AdminPage {
   after: string;
   limit: number;
@@ -602,8 +603,6 @@ export function administrationService(
           'STORE_IMAGE_UPLOAD_REQUIRED',
           'Create the store, then upload its image.',
         );
-      if (options.defaultStoreOperatorIds === undefined)
-        return unavailable('Default store operator assignments');
       return retryTransaction(() =>
         db.get('writer').transaction(async (transaction) => {
           await lockAdministrationRegistry(transaction, 'stores');
@@ -614,6 +613,7 @@ export function administrationService(
               'STORE_ACCESS_DENIED',
               'This store is outside your organization.',
             );
+          const defaultOperators = await resolveDefaultStoreOperatorIds(transaction, options);
           await storeUniqueness(transaction, value);
           const franchiseId = await franchise(transaction, value, user);
           const inserted = await transaction.insert(Store).values({
@@ -638,18 +638,11 @@ export function administrationService(
             created_at: now(),
             updated_at: now(),
           });
-          for (const operatorId of new Set(options.defaultStoreOperatorIds)) {
-            const [exists] = await transaction
-              .select({ id: PosUser.id })
-              .from(PosUser)
-              .where(eq(PosUser.id, BigInt(operatorId)))
-              .limit(1);
-            if (exists)
-              await transaction.insert(UserStore).values({
-                django_user_id: BigInt(operatorId),
-                store_id: BigInt(storeId),
-              });
-          }
+          for (const operatorId of defaultOperators)
+            await transaction.insert(UserStore).values({
+              django_user_id: operatorId,
+              store_id: BigInt(storeId),
+            });
           return { id: storeId, message: 'Store has been created!' };
         }),
       );
