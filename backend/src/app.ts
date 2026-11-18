@@ -399,7 +399,7 @@ export async function buildApp(
   await registerOperationalReports(app, config, db);
   await registerCatalogDetails(app, config, db);
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
-  registerApplicationLinks(app, config, db);
+  registerApplicationLinks(app, config, db, moduleRuntime);
   registerMotivationalQuotes(app);
   registerDashboard(app, config, db);
   registerGiftCardBatches(app, config, db, readGiftCardBatchOptions(), moduleRuntime);

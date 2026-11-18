@@ -4,34 +4,42 @@ import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
+import type { EphemeralStore } from '../../jobs/ephemeral.js';
 import {
   operation,
   staffActivation,
   staffContent,
   customerScan,
+  legacyCustomerScan,
   readApplicationLinkOptions,
   type ApplicationLinkOptions,
 } from './contracts.js';
-import { createApplicationPackage } from './artifact.js';
-import { createCustomerApplicationProvider } from './provider.js';
-import { applicationLinkService, type ApplicationLinkDependencies } from './service.js';
+import {
+  createCustomerApplicationProvider,
+  createStaffApplicationPackage,
+  type CustomerApplicationProvider,
+  type StaffApplicationPackage,
+} from './provider.js';
+import { applicationLinkService } from './service.js';
 
 export { readApplicationLinkOptions } from './contracts.js';
-export { createApplicationPackage } from './artifact.js';
-export { createCustomerApplicationProvider } from './provider.js';
+export { createCustomerApplicationProvider, createStaffApplicationPackage } from './provider.js';
 export { applicationLinkService, pruneApplicationLinks } from './service.js';
 export function registerApplicationLinks(
   app: FastifyInstance,
   config: Config,
   db: Databases,
+  runtime: { ephemeral: EphemeralStore },
   options: ApplicationLinkOptions = readApplicationLinkOptions(),
-  dependencies: ApplicationLinkDependencies = {},
+  dependencies: {
+    staffPackage?: StaffApplicationPackage;
+    customerLink?: CustomerApplicationProvider;
+  } = {},
 ) {
-  const artifact = dependencies.artifact ?? createApplicationPackage(config, options),
-    customerLink = dependencies.customerLink ?? createCustomerApplicationProvider(config, options),
-    service = applicationLinkService(config, db, options, { artifact, customerLink });
-  app.addHook('onClose', async () => {
-    await artifact?.close();
+  const service = applicationLinkService(config, db, options, {
+    ephemeral: runtime.ephemeral,
+    staffPackage: dependencies.staffPackage ?? createStaffApplicationPackage(config, options),
+    customerLink: dependencies.customerLink ?? createCustomerApplicationProvider(config, options),
   });
   const trace = (resource: string, action: string, max = 30, publicProof = false) => ({
       config: {
@@ -66,16 +74,6 @@ export function registerApplicationLinks(
       return service.issueStaff(authenticated(request), operation.parse(request.body));
     },
   );
-  app.delete(
-    '/api/v1/operators/current/application-links/staff-qr/:grantId',
-    trace('staff-download', 'revoke'),
-    async (request) => {
-      empty(request.query);
-      empty(request.body);
-      const params = z.object({ grantId: z.uuid() }).strict().parse(request.params);
-      return service.revokeStaff(authenticated(request), params.grantId);
-    },
-  );
   app.post(
     '/api/v1/operators/current/application-links/customer-qr',
     trace('customer-application-link', 'create'),
@@ -88,12 +86,9 @@ export function registerApplicationLinks(
   app.post(
     '/api/v1/auth/application-links/staff-download-activations',
     trace('staff-download-activation', 'create', 12, true),
-    async (request, reply) => {
+    async (request) => {
       empty(request.query);
-      return reply
-        .header('Cache-Control', 'private, no-store')
-        .header('Referrer-Policy', 'no-referrer')
-        .send(await service.activateStaff(staffActivation.parse(request.body)));
+      return service.activateStaff(staffActivation.parse(request.body));
     },
   );
   app.post(
@@ -109,11 +104,10 @@ export function registerApplicationLinks(
         staffContent.parse(request.body),
         controller.signal,
       );
+      if (opened.contentLength && /^\d+$/.test(opened.contentLength))
+        reply.header('Content-Length', opened.contentLength);
       return reply
-        .header('Cache-Control', 'private, no-store')
-        .header('Referrer-Policy', 'no-referrer')
-        .header('Content-Type', 'application/vnd.android.package-archive')
-        .header('Content-Length', opened.metadata.bytes)
+        .header('Content-Type', opened.contentType)
         .header('Content-Disposition', 'attachment; filename="mpos.apk"')
         .header('X-Content-Type-Options', 'nosniff')
         .header('Content-Security-Policy', "default-src 'none'; sandbox")
@@ -123,12 +117,35 @@ export function registerApplicationLinks(
   app.post(
     '/api/v1/auth/application-links/customer-scans',
     trace('customer-application-scan', 'create', 30, true),
-    async (request, reply) => {
+    async (request) => {
       empty(request.query);
+      return service.scanCustomer(customerScan.parse(request.body));
+    },
+  );
+  /**
+   * Legacy public path for QR codes printed by the legacy app (core/urls.py:164). The reverse
+   * proxy must route `/user_to_app` to this backend on the legacy POS host.
+   */
+  app.get(
+    '/user_to_app',
+    {
+      config: {
+        authentication: 'service' as const,
+        trace: {
+          module: 'application-links',
+          resource: 'legacy-customer-scan',
+          action: 'redirect',
+        },
+        rateLimit: { max: 30, timeWindow: '1 minute' },
+      },
+    },
+    async (request, reply) => {
+      const input = legacyCustomerScan.parse(request.query);
+      const target = await service.scanLegacy(input.store_id);
       return reply
-        .header('Cache-Control', 'private, no-store')
+        .header('Cache-Control', 'no-store')
         .header('Referrer-Policy', 'no-referrer')
-        .send(await service.scanCustomer(customerScan.parse(request.body)));
+        .redirect(target, 302);
     },
   );
   return service;
