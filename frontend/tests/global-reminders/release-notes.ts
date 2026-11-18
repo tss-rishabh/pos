@@ -1,4 +1,7 @@
-/** Targeted informational UI proof on real native sessions and the actual built App. */
+/** Targeted informational UI proof on real native sessions and the actual built App.
+ * Fixed Date preserves the fixture epoch across navigation despite Node Date mocking.
+ * Real timers, native authentication and the original assertion limits remain intact.
+ */
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
@@ -66,7 +69,7 @@ try {
     const context = await browser.newContext({ serviceWorkers: 'block', timezoneId: 'UTC' });
     await context.addCookies([account.cookie]);
     const page = await context.newPage();
-    await page.clock.install({ time: fixtureNow });
+    await page.clock.setFixedTime(fixtureNow);
     await page.goto(web.origin + '/shortcut-reference');
     await expect(
       page.getByRole('heading', { name: 'Shortcut reference.', exact: true }),
@@ -118,7 +121,7 @@ try {
   const priority = await browser.newContext({ serviceWorkers: 'block', timezoneId: 'UTC' });
   await priority.addCookies([fixture.accounts[0]!.cookie]);
   const page = await priority.newPage();
-  await page.clock.install({ time: fixtureNow });
+  await page.clock.setFixedTime(fixtureNow);
   await page.goto(web.origin + '/shortcut-reference');
   await trigger(page).click();
   await expect(notes(page)).toBeVisible();

@@ -1,4 +1,8 @@
-/** Native services/HTTP and the built App. Clock/visibility are explicit browser seams. */
+/** Native services/HTTP and the built App. Clock/visibility are explicit browser seams.
+ * Fixed Date survives navigation when the native fixture freezes Node Date too:
+ * Playwright replay timestamps otherwise add the real browser/Node clock offset.
+ * Timers keep running; explicit fixed-Date advances below remain controllable.
+ */
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
 import { createServer, request as proxyRequest } from 'node:http';
@@ -125,7 +129,7 @@ try {
     checkinHistory = false,
   ): Promise<Page> {
     const page = await value.newPage();
-    await page.clock.install({ time: fixtureNow });
+    await page.clock.setFixedTime(fixtureNow);
     if (forceVisible)
       await page.addInitScript(() => {
         Object.defineProperty(document, 'visibilityState', {
@@ -158,7 +162,7 @@ try {
       (reply) =>
         new URL(reply.url()).pathname === '/api/v1/operators/me/check-in' && reply.status() === 200,
     );
-    await page.clock.setSystemTime(currentTime + 11000);
+    await page.clock.setFixedTime(currentTime + 11000);
     await page.goBack();
     await read;
     // A real subsequent expiry cycle lets the successful authority read publish.
@@ -298,7 +302,7 @@ try {
   await fixture.dayClose('STALE');
   const snooze = await context();
   const snoozePage = await snooze.newPage();
-  await snoozePage.clock.install({ time: fixtureNow });
+  await snoozePage.clock.setFixedTime(fixtureNow);
   await snoozePage.addInitScript(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' });
     Object.defineProperty(document, 'hidden', { configurable: true, value: true });
@@ -336,17 +340,17 @@ try {
   );
   await visibility(snoozePage, true);
   await expect(nagDialog(snoozePage)).toBeVisible();
-  await snoozePage.clock.setSystemTime(fixtureNow + 30000);
+  await snoozePage.clock.setFixedTime(fixtureNow + 30000);
   await nagDialog(snoozePage).getByRole('button', { name: 'Not now', exact: true }).click();
   const dismissedAt = await snoozePage.evaluate(() =>
     Number(localStorage.getItem('pos-day-close-reminder:["1","1"]')),
   );
   const beforeSnoozed = ownNagReads;
-  await snoozePage.clock.setSystemTime(dismissedAt + 30000);
+  await snoozePage.clock.setFixedTime(dismissedAt + 30000);
   await visibility(snoozePage, true);
   await expect(nagDialog(snoozePage)).toHaveCount(0);
   assert.equal(ownNagReads, beforeSnoozed);
-  await snoozePage.clock.setSystemTime(dismissedAt + 60001);
+  await snoozePage.clock.setFixedTime(dismissedAt + 60001);
   await visibility(snoozePage, true);
   await expect(nagDialog(snoozePage)).toBeVisible();
   await nagDialog(snoozePage).getByRole('link', { name: 'Close the day now', exact: true }).click();
@@ -415,7 +419,7 @@ try {
   const expiryReadsBeforeRecovery = successfulExpiryReads;
   const nagReadsBeforeRecovery = ownRestoredNagReads;
   const now = await restoredPage.evaluate(() => Date.now());
-  await restoredPage.clock.setSystemTime(now + 11000);
+  await restoredPage.clock.setFixedTime(now + 11000);
   const freshAuthority = restoredPage.waitForResponse(
     (reply) => new URL(reply.url()).pathname === checkinPath && reply.status() === 200,
   );
