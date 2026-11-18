@@ -105,7 +105,7 @@ expiry_assert_exited_successfully() {
 expiry_compile() {
   expiry_compile_count=$((expiry_compile_count+1))
   expiry_compile_cidfile="$expiry_work/compile-$expiry_compile_count.cid"
-  docker create --pull=never --network none --read-only --tmpfs /tmp:rw,size=512m \
+  docker create --pull=never --network none --read-only --tmpfs /tmp:rw,exec,nosuid,nodev,size=512m \
     --label "pos-rewrite.expiry-nonce=$expiry_nonce" --cidfile "$expiry_compile_cidfile" \
     -v "$expiry_work:/work:ro" -v "$expiry_modules:/module-cache:ro" -v "$expiry_build:/build-cache" \
     -w /work -e GOMODCACHE=/module-cache -e GOCACHE=/build-cache -e GOTOOLCHAIN=local \
@@ -159,7 +159,7 @@ expiry_attempt=0
 until docker exec "$expiry_mysql_id" mysql --protocol=TCP -h127.0.0.1 -uroot -Dpos_origin_contract_test -e 'SELECT 1' >/dev/null 2>&1; do
   expiry_attempt=$((expiry_attempt+1)); test "$expiry_attempt" -lt 60 || exit 1; sleep 1
 done
-docker create --pull=never --network "$expiry_network_id" --read-only --tmpfs /tmp:rw,size=512m \
+docker create --pull=never --network "$expiry_network_id" --read-only --tmpfs /tmp:rw,exec,nosuid,nodev,size=512m \
   --label "pos-rewrite.expiry-nonce=$expiry_nonce" --cidfile "$expiry_work/native-go.cid" \
   -v "$expiry_work:/work:ro" -v "$expiry_modules:/module-cache:ro" -v "$expiry_build:/build-cache" \
   -w /work -e GOMODCACHE=/module-cache -e GOCACHE=/build-cache -e GOTOOLCHAIN=local \
