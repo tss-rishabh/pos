@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { chromium, expect as browserExpect, type Browser, type Page } from '@playwright/test';
 import { createServer, type ViteDevServer } from 'vite';
@@ -755,8 +756,8 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
                 summaryMounted: Boolean(summary),
                 summaryVisible: Boolean(
                   summary &&
-                    summary.getClientRects().length &&
-                    getComputedStyle(summary).visibility === 'visible',
+                  summary.getClientRects().length &&
+                  getComputedStyle(summary).visibility === 'visible',
                 ),
                 bootstrapMarks: performance
                   .getEntriesByType('mark')
@@ -776,6 +777,10 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             JSON.stringify({
               eventId: 'customer_otp.browser.reload_recovery_failure',
               module: 'customer-otp-browser-fixture',
+              resource: 'customer-otp-reload',
+              eventInstanceId: randomUUID(),
+              requestId: null,
+              userId: null,
               elapsedMs: Date.now() - reloadStartedAt,
               checkoutReadsSinceReload:
                 state.urls.filter((url) =>

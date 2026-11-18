@@ -22,8 +22,15 @@ A fixed-snapshot, prerequisite-complete full r8 is running on `6cbae5f` in
 `pos-rewrite-validation-20261118-r8`, exec session94149, private log
 `/tmp/pos-rewrite-validation-20261118/full-verification-r8.log`. Both pinned
 Python oracles and mitigated installs were checked; owned localhost MySQL was
-recreated fresh while retaining its previous volume. First53 checks passed;
-this is progress only, not a terminal full-run result. Poll the same live handle
+recreated fresh while retaining its previous volume. Backend tests finished naturally (975529ms):2701 passed,90 skipped, one
+failed assertion plus two failed-suite discoveries. The two tool files use
+node:test and already pass as explicit prerequisites; default Vitest wrongly
+collected them. Catalog store-picker assertion still expected NULL after the
+approved empty-string display DTO fix. Root prepares exact Node-runner exclusions
+(without excluding other tools), updates that expectation, and registers config
+strict/lint. These corrections are not yet executed. Full r8 continues unchanged;
+frontend tests/build and initial native Go checks pass. It cannot be described
+as a successful full run even if its remaining phases pass. Poll the same live handle
 and keep heavy local tests/builds/measurements idle. The last complete attempt remains
 failed r7: 133 passed, three failed, one unexecuted. Focused follow-ups passed;
 they do not replace a clean full run. The release gate remains failing. Current read-only admission review accepts four routes and one feedback
@@ -42,8 +49,12 @@ Both platforms also pass the shortcut-access snapshot `4de9f3c` in run
 44261638997. CI44264574673 on exact r8 snapshot `6cbae5f` is terminal failed:
 macOS success, Windows OTP browser recovery failure at
 `tests/customer-otp/otp.browser.test.ts:736` after lost-success reload. Other105
-cases in that step passed. Cause not yet established; isolated worker owns
-diagnosis, without increased deadlines or weakened assertions. Retained receipt:
+cases in that step passed. Cause not established. The retained snapshot contains a mounted checkout and
+customer summary group, so bootstrap-only failure is not proven. Diagnostic-only
+worker256729e is integrated as51d4ef1; existing assertions/deadlines/counts remain.
+Failure-only output is allowlisted timings/booleans/read counts with trace fields;
+no raw DOM, errors, storage or payloads. Remote diagnostic CI is next; local
+heavy execution remains held while r8 runs. Retained receipt:
 `backend/evidence/desktop-ci-6cbae5f.json`. Local r8 is still live, unchanged;
 do not substitute platform failure for its result or restart it. Do not claim production readiness.
 

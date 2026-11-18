@@ -308,7 +308,7 @@ const checks: Check[] = [
   {
     id: 'backend-lint',
     directory: 'backend',
-    args: ['node_modules/eslint/bin/eslint.js', 'src', 'tests', 'tools'],
+    args: ['node_modules/eslint/bin/eslint.js', 'src', 'tests', 'tools', 'vitest.config.ts'],
   },
   {
     id: 'source-pricing-fixture-typecheck',
@@ -1231,6 +1231,7 @@ const checks: Check[] = [
   },
 ];
 for (const [id, directory, config] of [
+  ['backend-vitest-config-typecheck', 'backend', 'tsconfig.vitest.json'],
   ['lookup-workflow-backend-typecheck', 'backend', 'tools/lookup-workflow/backend.tsconfig.json'],
   ['lookup-workflow-browser-typecheck', 'frontend', 'tests/lookup-workflow/tsconfig.json'],
   [

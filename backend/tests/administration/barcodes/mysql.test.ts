@@ -426,7 +426,7 @@ describe.skipIf(!connection)(
       expect((await catalog.stores(user))[0]).toEqual({
         id: '1',
         name: 'Store 1',
-        locationCode: null,
+        locationCode: '',
         city: '',
         active: true,
       });
