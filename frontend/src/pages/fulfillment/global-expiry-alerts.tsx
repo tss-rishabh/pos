@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import { checkInSchema } from '../administration/api';
+import { useCheckInAuthorityGeneration } from '../../hooks/use-check-in-authority';
 import {
   fulfillmentBannerCountsSchema,
   fulfillmentExpiryAuthorityDenied,
@@ -60,6 +61,7 @@ export function GlobalFulfillmentExpiryAlerts({
   enabled: boolean;
 }) {
   const [now, setNow] = useState(Date.now);
+  const authorityGeneration = useCheckInAuthorityGeneration(operatorId);
   const checkedIn = useQuery({
     queryKey: [operatorId, 'administration', 'my-check-in'],
     enabled,
@@ -96,6 +98,7 @@ export function GlobalFulfillmentExpiryAlerts({
       operatorId={operatorId}
       storeId={storeId}
       authorityKey={authorityKey}
+      authorityGeneration={authorityGeneration}
     />
   );
 }
@@ -104,12 +107,18 @@ function ScopedExpiryAlerts({
   operatorId,
   storeId,
   authorityKey,
+  authorityGeneration,
 }: {
   operatorId: string;
   storeId: string;
   authorityKey: string;
+  authorityGeneration: number;
 }) {
-  const query = useFulfillmentExpiryAlerts(operatorId, storeId, true, { poll: true, authorityKey });
+  const query = useFulfillmentExpiryAlerts(operatorId, storeId, true, {
+    poll: true,
+    authorityKey,
+    authorityGeneration,
+  });
   const scope = JSON.stringify([operatorId, storeId]);
   const seenKey = `pos-fulfillment-expiry-seen:${scope}`;
   const countsKey = `pos-fulfillment-expiry-counts:${scope}`;

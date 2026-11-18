@@ -32,17 +32,20 @@ export function useFulfillmentExpiryAlerts(
   operatorId: string,
   storeId: string,
   enabled = true,
-  options: { poll?: boolean; authorityKey?: string } = {},
+  options: { poll?: boolean; authorityKey?: string; authorityGeneration?: number } = {},
 ) {
   const client = useQueryClient();
   const identity = JSON.stringify([operatorId, storeId]);
   const [blocked, setBlocked] = useState<{
     identity: string;
     authorityKey?: string;
-    dataAt: number;
+    authorityGeneration: number;
+    dataUpdateCount: number;
   } | null>(null);
   const blockedHere =
-    blocked?.identity === identity && blocked.authorityKey === options.authorityKey;
+    blocked?.identity === identity &&
+    blocked.authorityKey === options.authorityKey &&
+    blocked.authorityGeneration === (options.authorityGeneration ?? 0);
   const allowed = enabled && Boolean(operatorId && storeId) && !blockedHere;
   const query = useQuery({
     queryKey: [operatorId, 'fulfillment-expiry-alerts', storeId],
@@ -62,20 +65,35 @@ export function useFulfillmentExpiryAlerts(
     refetchIntervalInBackground: Boolean(options.poll),
     staleTime: 10000,
   });
+  const dataUpdateCount =
+    client.getQueryState<FulfillmentExpiryAlerts>([
+      operatorId,
+      'fulfillment-expiry-alerts',
+      storeId,
+    ])?.dataUpdateCount ?? 0;
   const denied = fulfillmentExpiryAuthorityDenied(query.error);
   useEffect(() => {
     if (
       !enabled ||
-      (query.isSuccess && blocked?.identity === identity && query.dataUpdatedAt > blocked.dataAt)
+      (query.isSuccess &&
+        blocked?.identity === identity &&
+        dataUpdateCount > blocked.dataUpdateCount)
     ) {
       setBlocked(null);
       return;
     }
     if (!denied || query.fetchStatus === 'fetching') return;
     setBlocked((previous) =>
-      previous?.identity === identity && previous.authorityKey === options.authorityKey
+      previous?.identity === identity &&
+      previous.authorityKey === options.authorityKey &&
+      previous.authorityGeneration === (options.authorityGeneration ?? 0)
         ? previous
-        : { identity, authorityKey: options.authorityKey, dataAt: query.dataUpdatedAt },
+        : {
+            identity,
+            authorityKey: options.authorityKey,
+            authorityGeneration: options.authorityGeneration ?? 0,
+            dataUpdateCount,
+          },
     );
     // Keep all observers attached while removing the stale private payload.
     client
@@ -90,9 +108,10 @@ export function useFulfillmentExpiryAlerts(
     storeId,
     enabled,
     options.authorityKey,
+    options.authorityGeneration,
     query.fetchStatus,
     query.isSuccess,
-    query.dataUpdatedAt,
+    dataUpdateCount,
     blocked,
   ]);
   return {

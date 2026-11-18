@@ -6,6 +6,7 @@ import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { ApiError, request } from '../../api/client';
 import { checkInSchema } from '../administration/api';
+import { useCheckInAuthorityGeneration } from '../../hooks/use-check-in-authority';
 import './day-close-reminder.css';
 
 const intervalSchema = z.number().int().min(60000).max(86400000).optional();
@@ -50,6 +51,7 @@ export function DayCloseReminder({
   enabled: boolean;
 }) {
   const [now, setNow] = useState(Date.now);
+  const authorityGeneration = useCheckInAuthorityGeneration(user.id);
   const current = useQuery({
     queryKey: [user.id, 'administration', 'my-check-in'],
     enabled,
@@ -89,13 +91,31 @@ export function DayCloseReminder({
     checkIn.counterId,
     checkIn.expiresAt,
   ]);
-  return <ScopedReminder key={authorityKey} operatorId={user.id} storeId={storeId} />;
+  return (
+    <ScopedReminder
+      key={authorityKey}
+      operatorId={user.id}
+      storeId={storeId}
+      authorityGeneration={authorityGeneration}
+    />
+  );
 }
 
-function ScopedReminder({ operatorId, storeId }: { operatorId: string; storeId: string }) {
+function ScopedReminder({
+  operatorId,
+  storeId,
+  authorityGeneration,
+}: {
+  operatorId: string;
+  storeId: string;
+  authorityGeneration: number;
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const dismissCurrent = useRef<() => void>(() => undefined);
+  const latestAuthority = useRef(authorityGeneration);
+  latestAuthority.current = authorityGeneration;
+  const recoverAuthority = useRef<(generation: number) => void>(() => undefined);
   const snoozeKey = `pos-day-close-reminder:${JSON.stringify([operatorId, storeId])}`;
   useEffect(() => {
     let disposed = false,
@@ -105,6 +125,7 @@ function ScopedReminder({ operatorId, storeId }: { operatorId: string; storeId: 
     let intervalMs = 600000;
     let configured = false;
     let displayed = false;
+    let deniedGeneration = latestAuthority.current;
     let memoryLastShown = 0;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const controller = new AbortController();
@@ -215,6 +236,7 @@ function ScopedReminder({ operatorId, storeId }: { operatorId: string; storeId: 
         else display(result);
       } catch (error: unknown) {
         if (accessDenied(error)) {
+          deniedGeneration = latestAuthority.current;
           blocked = true;
           dismiss();
         }
@@ -225,6 +247,12 @@ function ScopedReminder({ operatorId, storeId }: { operatorId: string; storeId: 
     };
     const visibility = () => {
       if (document.visibilityState === 'visible') void check();
+    };
+    recoverAuthority.current = (generation) => {
+      if (disposed || !blocked || generation <= deniedGeneration) return;
+      blocked = false;
+      // Revalidate with the server; never republish the previously cleared prompt.
+      void check();
     };
     const storage = (event: StorageEvent) => {
       if (event.key === snoozeKey || event.key === null) schedule();
@@ -263,8 +291,12 @@ function ScopedReminder({ operatorId, storeId }: { operatorId: string; storeId: 
         displayed = false;
       }
       dismissCurrent.current = () => undefined;
+      recoverAuthority.current = () => undefined;
     };
   }, [operatorId, storeId, snoozeKey]);
+  useEffect(() => {
+    recoverAuthority.current(authorityGeneration);
+  }, [authorityGeneration]);
   const dismiss = () => dismissCurrent.current();
   const stale = prompt?.status === 'STALE';
   return (
