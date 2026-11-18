@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readNativeMembershipAccount } from './native-membership-account.js';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -37,13 +38,15 @@ const connection = await mysql.createConnection({
   supportBigNumbers: true,
   bigNumberStrings: true,
 });
+const account = readNativeMembershipAccount(raw);
+Object.assign(process.env, account.environment);
 const db = createDatabases(
   readConfig({
     NODE_ENV: 'test',
     SESSION_SECRET: 'isolated-membership-native-bridge-session-secret',
     MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
-    MYSQL_WRITER_URL: raw,
-    MYSQL_PRIMARY_READER_URL: raw,
+    MYSQL_WRITER_URL: account.applicationUrl,
+    MYSQL_PRIMARY_READER_URL: account.applicationUrl,
   }),
 );
 const profile = {

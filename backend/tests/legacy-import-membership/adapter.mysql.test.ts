@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs';
+import mysql from 'mysql2/promise';
+import { installNativeHeadFixture } from '../native-head-metadata/fixture.js';
 import { execFileSync, spawn } from 'node:child_process';
 import Fastify from 'fastify';
 import { and, eq, sql } from 'drizzle-orm';
@@ -60,6 +62,9 @@ import {
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 describe.skipIf(!template)('server-installed membership adapter on isolated native writer', () => {
   let f: Awaited<ReturnType<typeof importFinancialFixture>>;
+  let heads: Awaited<ReturnType<typeof installNativeHeadFixture>>;
+  let previousEnvironment: Record<string, string | undefined> = {};
+  let baseFixture: Awaited<ReturnType<typeof importFinancialFixture>>;
   beforeAll(async () => {
     f = await importFinancialFixture(template!);
     for (const path of [
@@ -69,18 +74,75 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       for (const statement of splitMigration(readFileSync(path, 'utf8')))
         await f.connection.query(statement);
     await f.connection.query('CREATE INDEX fixture_users_email ON users(email)');
-    for (const statement of readFileSync(
-      'compatibility/upstream/pending-cancellation/membership-fence.sql',
-      'utf8',
-    )
-      .replace(/^DELIMITER.*$/gm, '')
-      .split('$$')
-      .map((value) => value.trim())
-      .filter(Boolean))
-      await f.connection.query(statement);
+    heads = await installNativeHeadFixture(f.connection, template!, {
+      families: ['membershipRevision'],
+    });
+    previousEnvironment = Object.fromEntries(
+      Object.keys(heads.environment).map((key) => [key, process.env[key]]),
+    );
+    Object.assign(process.env, heads.environment);
+    const operational = [
+      'pos_rewrite_cancellation_membership_provenance',
+      'pos_rewrite_legacy_order_imports',
+      'pos_rewrite_legacy_order_import_rows',
+      'pos_rewrite_import_authority_heads',
+      'pos_rewrite_import_authority_grants',
+      'pos_rewrite_import_financial_operations',
+      'pos_rewrite_import_financial_stages',
+      'pos_rewrite_import_financial_approvals',
+      'pos_rewrite_import_financial_references',
+      'pos_rewrite_import_financial_source_receipts',
+      'pos_rewrite_import_financial_order_bindings',
+      'pos_rewrite_import_financial_source_effects',
+      'pos_rewrite_import_financial_proofs',
+      'pos_rewrite_import_financial_close_impacts',
+      'pos_rewrite_customer_contact_revisions',
+      'pos_rewrite_operator_auth_epochs',
+      'pos_rewrite_checkout_customer_consents',
+      'pos_rewrite_checkout_projection_lines',
+      'pos_rewrite_checkout_projections',
+      'pos_rewrite_payment_attempts',
+      'pos_rewrite_payment_outbox',
+      'pos_rewrite_administration_outbox',
+      'pos_rewrite_gift_card_issuances',
+      'product_store',
+      'product_stocks',
+      'stock_log',
+      'product_inventory_logs',
+      'pos_inventory_sync_log',
+      'products_inventory_logs',
+      'order_stores',
+      'gift_vouchers',
+      'store_day_close',
+    ];
+    for (const table of operational)
+      await f.connection.query(
+        'GRANT INSERT, UPDATE, DELETE ON ' +
+          mysql.escapeId(heads.schema) +
+          '.' +
+          mysql.escapeId(table) +
+          ' TO ' +
+          mysql.escape(heads.names.app) +
+          "@'%'",
+      );
+    baseFixture = f;
+    f = {
+      ...baseFixture,
+      db: heads.appDb,
+      config: {
+        ...baseFixture.config,
+        MYSQL_WRITER_URL: heads.appUrl,
+        MYSQL_PRIMARY_READER_URL: heads.appUrl,
+      },
+    };
   }, 30000);
   afterAll(async () => {
-    await f?.close();
+    await heads?.close();
+    await baseFixture?.close();
+    for (const [key, value] of Object.entries(previousEnvironment)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
   });
   beforeEach(async () => {
     vi.restoreAllMocks();

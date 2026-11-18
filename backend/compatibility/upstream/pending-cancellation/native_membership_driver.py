@@ -18,8 +18,9 @@ from types import SimpleNamespace
 from urllib.parse import urlparse
 
 import sqlalchemy
-from sqlalchemy import Column, Integer, String, Enum, text
+from sqlalchemy import Column, Integer, String, Enum, text, event
 from sqlalchemy.orm import declarative_base, sessionmaker
+from native_membership_account import read_membership_account
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent
@@ -47,8 +48,11 @@ if (
     or url.password
 ):
     raise RuntimeError("Disposable native bridge required")
+application, metadata_environment = read_membership_account(raw)
+os.environ.update(metadata_environment)
 engine = sqlalchemy.create_engine(raw, pool_size=24, max_overflow=0, echo=False)
-Session = sessionmaker(bind=engine)
+application_engine = sqlalchemy.create_engine(application, pool_size=24, max_overflow=0, echo=False, hide_parameters=True)
+Session = sessionmaker(bind=application_engine)
 Base = declarative_base()
 namespace = {
     "Base": Base,
@@ -184,17 +188,26 @@ def snapshot():
 
 
 def execute(query, parameters=None):
-    with engine.begin() as connection:
+    with application_engine.begin() as connection:
         connection.execute(text(query), parameters or {})
+
+
+def execute_admin(query):
+    with engine.begin() as connection:
+        connection.execute(text(query))
 
 
 def staged():
     # The late proof failure occurs after literal source setters called commit;
     # the compatibility facade suppresses those nested commits.
     before = snapshot()
-    execute(
-        "CREATE TRIGGER fixture_stage_failure BEFORE INSERT ON pos_rewrite_cancellation_membership_provenance FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture private traceback canary'"
-    )
+    execute_admin('ALTER TABLE pos_rewrite_cancellation_membership_provenance ADD CONSTRAINT fixture_stage_failure CHECK(order_id<0)')
+    failures = []
+    def native_failure(context):
+        original = getattr(context.original_exception, 'args', ())
+        if context.statement and context.statement.lstrip().upper().startswith('INSERT INTO POS_REWRITE_CANCELLATION_MEMBERSHIP_PROVENANCE'):
+            failures.append(original[0] if original else None)
+    event.listen(application_engine, 'handle_error', native_failure)
     try:
         try:
             stage()
@@ -202,11 +215,15 @@ def staged():
         except MembershipReview as error:
             import traceback
 
-            assert "fixture private traceback canary" not in "".join(
-                traceback.format_exception(error)
-            )
+            formatted = ''.join(traceback.format_exception(error))
+            assert all(value not in formatted for value in (
+                'fixture_stage_failure', 'CHECK(order_id<0)',
+                'INSERT INTO pos_rewrite_cancellation_membership_provenance',
+            ))
     finally:
-        execute("DROP TRIGGER fixture_stage_failure")
+        event.remove(application_engine, 'handle_error', native_failure)
+        execute_admin('ALTER TABLE pos_rewrite_cancellation_membership_provenance DROP CHECK fixture_stage_failure')
+    assert failures == [3819], 'The actual late native provenance insert was not reached'
     assert before == snapshot(), "Nested original commits escaped stage rollback"
     with ThreadPoolExecutor(max_workers=20) as pool:
         list(pool.map(lambda _: stage(), range(20)))
@@ -228,7 +245,7 @@ def staged():
 
 def fence():
     original = snapshot()
-    with engine.begin() as connection:
+    with application_engine.begin() as connection:
         connection.execute(
             text(
                 "INSERT INTO user_eav(entity,attribute,value,is_active,created_at,updated_at) VALUES('fixture@example.test','EXCLUSIVE_NOTIFY','1',1,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)"
@@ -240,7 +257,7 @@ def fence():
     )
     execute("DELETE FROM user_eav WHERE attribute='EXCLUSIVE_NOTIFY'")
     revision = scalar("SELECT revision FROM pos_rewrite_membership_versions WHERE customer_id=77")
-    with engine.connect() as connection:
+    with application_engine.connect() as connection:
         transaction = connection.begin()
         connection.execute(text("UPDATE user_eav SET value='2' WHERE attribute='EXCLUSIVE_MEMBER'"))
         transaction.rollback()
@@ -257,7 +274,7 @@ def fence():
         scalar("SELECT revision FROM pos_rewrite_membership_versions WHERE customer_id=77")
         == revision + 4
     )
-    with engine.begin() as connection:
+    with application_engine.begin() as connection:
         row = (
             connection.execute(text("SELECT * FROM user_eav WHERE attribute='EXCLUSIVE_EXPIRY'"))
             .mappings()
@@ -276,7 +293,7 @@ def fence():
     )
     # An unrelated source writer cannot commit while the financial writer owns
     # the customer fence. Release permits the original DB-only change once.
-    with engine.connect() as connection, ThreadPoolExecutor(max_workers=1) as pool:
+    with application_engine.connect() as connection, ThreadPoolExecutor(max_workers=1) as pool:
         transaction = connection.begin()
         connection.execute(text("SELECT id FROM users WHERE id=77 FOR UPDATE")).one()
         entered = threading.Event()
@@ -340,7 +357,7 @@ def fence():
     execute("DELETE FROM user_eav WHERE entity='orphan@example.test'")
     assert scalar("SELECT COUNT(*) FROM pos_rewrite_membership_versions") == versions
     # Metadata checks refuse removed trigger bodies and unbounded lookup plans.
-    execute("DROP TRIGGER pos_rewrite_mem_eav_insert")
+    execute_admin("DROP TRIGGER pos_rewrite_mem_eav_insert")
     try:
         with Session() as session:
             try:
@@ -349,14 +366,12 @@ def fence():
             except MembershipReview:
                 pass
     finally:
-        execute(
-            next(
-                value
-                for value in statements()
-                if "CREATE TRIGGER pos_rewrite_mem_eav_insert " in value
-            )
-        )
-    execute("DROP INDEX fixture_user_email ON users")
+        owner = os.environ['POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER']
+        import re
+        if not re.fullmatch(r'nh_[A-Za-z0-9_]+@%', owner): raise RuntimeError('Locked fixture owner required')
+        definition = next(value for value in statements() if 'CREATE TRIGGER pos_rewrite_mem_eav_insert ' in value)
+        execute_admin(definition.replace('CREATE TRIGGER', "CREATE DEFINER='" + owner[:-2] + "'@'%' TRIGGER", 1))
+    execute_admin("DROP INDEX fixture_user_email ON users")
     try:
         with Session() as session:
             try:
@@ -365,7 +380,7 @@ def fence():
             except MembershipReview:
                 pass
     finally:
-        execute("CREATE INDEX fixture_user_email ON users(email)")
+        execute_admin("CREATE INDEX fixture_user_email ON users(email)")
     print(
         "native fence: insert/update/delete/email, external-writer serialization, notify exclusion, rollback, collation duplicates and metadata refusal passed"
     )
@@ -485,4 +500,5 @@ def writers():
 try:
     {"stage": staged, "fence": fence, "writers": writers}[sys.argv[1]]()
 finally:
+    application_engine.dispose()
     engine.dispose()
