@@ -19,11 +19,18 @@ LABEL = 'pos-rewrite.other-origin-verification'
 COMMAND = r'''printf '%s\n' "$$" >&2
 exec 3<>/dev/tcp/127.0.0.1/3306 || exit 1
 origin_relay_reader=
-trap 'test -z "$origin_relay_reader" || kill "$origin_relay_reader" 2>/dev/null; exit 0' TERM HUP INT
+origin_relay_writer=
+trap 'test -z "$origin_relay_reader" || kill "$origin_relay_reader" 2>/dev/null; test -z "$origin_relay_writer" || kill "$origin_relay_writer" 2>/dev/null; exit 0' TERM HUP INT
+# Explicit stdin redirection prevents bash from attaching /dev/null to this
+# asynchronous writer. The shell waits for the server reader, so server EOF
+# closes stdout even when the client waits for EOF before closing its input.
+cat <&0 >&3 &
+origin_relay_writer=$!
 cat <&3 &
 origin_relay_reader=$!
-cat >&3
 wait "$origin_relay_reader"
+kill "$origin_relay_writer" 2>/dev/null || true
+wait "$origin_relay_writer" 2>/dev/null || true
 '''
 
 
