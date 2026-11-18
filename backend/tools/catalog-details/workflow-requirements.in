@@ -1,0 +1,7 @@
+# Isolated native source oracle only; no production Python dependency changes.
+asgiref==3.13.0
+Django==4.2.5
+PyMySQL[rsa]==1.1.1
+sqlparse==0.6.1
+# https://pypi.org/project/cryptography/50.0.2/
+cryptography==50.0.2

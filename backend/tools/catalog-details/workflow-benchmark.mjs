@@ -232,6 +232,11 @@ function verifyContainer(config) {
   )
     throw new Error('OWN_DISPOSABLE_WORKFLOW_CONTAINER_REQUIRED');
   return {
+    id: container.Id,
+    ownedNonce: config.nonce,
+    anonymousVolumeNames: (container.Mounts ?? [])
+      .filter((mount) => mount.Type === 'volume')
+      .map((mount) => mount.Name),
     image: mysqlImage,
     cpuNanoLimit: container.HostConfig.NanoCpus,
     memoryLimit: container.HostConfig.Memory,
@@ -266,13 +271,29 @@ function sourceProcess(python) {
     clearTimeout(current.timer);
     try {
       const value = JSON.parse(line);
-      if (value.kind === 'error')
-        current.reject(
-          new Error(
-            'SOURCE_WORKFLOW_FAILED_' + String(value.driverNumber ?? value.errorKind ?? 'UNKNOWN'),
-          ),
+      if (value.kind === 'error') {
+        const failure = new Error(
+          'SOURCE_WORKFLOW_FAILED_' +
+            String(value.driverNumber ?? value.errorKind ?? 'UNKNOWN').toUpperCase(),
         );
-      else current.resolve(value);
+        failure.sourceDiagnostic = z
+          .object({
+            errorKind: z.string().regex(/^[A-Za-z]+$/),
+            driverNumber: z.number().int().nullable(),
+            locations: z.array(
+              z.object({
+                file: z.enum(['native-workflow-oracle.py', '<pinned-native-catalog-workflow>']),
+                line: z.number().int().positive(),
+              }),
+            ),
+            missingSymbol: z
+              .string()
+              .regex(/^[A-Za-z_]\w{0,63}$/)
+              .optional(),
+          })
+          .parse(value);
+        current.reject(failure);
+      } else current.resolve(value);
     } catch {
       current.reject(new Error('INVALID_SOURCE_PROTOCOL_RESPONSE'));
     }
@@ -417,6 +438,7 @@ function reportProgress(profile, workload, sample) {
 }
 
 async function runProfile(config, profile, report, budget) {
+  report.stage = profile + '.fixture';
   const fixture = await createWorkflowFixture(
     config.database,
     profile,
@@ -424,6 +446,7 @@ async function runProfile(config, profile, report, budget) {
   );
   let source, api, serviceDatabases, administratorDatabases;
   try {
+    report.stage = profile + '.identity';
     const secret = randomBytes(40).toString('base64url');
     const serviceConfig = databaseConfig(
       fixture.accounts.service.url,
@@ -439,9 +462,11 @@ async function runProfile(config, profile, report, budget) {
     const cookie = seal({ id: actorId, ...credential }, secret);
     const catalog = catalogDetailsService(serviceConfig, serviceDatabases),
       matrix = inventoryMatrixService(serviceDatabases);
+    report.stage = profile + '.counter-calibration';
     const counters = workflowCounters(fixture.admin),
       calibration = await counters.calibrate(fixture.accounts.calibration);
     source = sourceProcess(config.python);
+    report.stage = profile + '.native-source-initialization';
     const sourceReady = await source.call(
       {
         command: 'initialize',
@@ -452,6 +477,7 @@ async function runProfile(config, profile, report, budget) {
     );
     if (sourceReady.sourcePin !== sourcePin || sourceReady.kind !== 'ready')
       throw new Error('SOURCE_READY_CONTRACT_MISMATCH');
+    report.stage = profile + '.authenticated-api-initialization';
     api = await apiProcess({
       primary: fixture.accounts.api_primary.url,
       writer: fixture.accounts.api_auth.url,
@@ -475,6 +501,7 @@ async function runProfile(config, profile, report, budget) {
     };
     report.profiles.push(entry);
     for (const workload of workloads(profile)) {
+      report.stage = profile + '.' + workload.name;
       budget();
       const input =
         workload.kind === 'catalog'
@@ -723,6 +750,17 @@ async function main() {
       error instanceof Error && /^[A-Z_0-9]+$/.test(error.message)
         ? error.message
         : 'CATALOG_WORKFLOW_BENCHMARK_FAILED';
+    report.errorKind = error instanceof Error ? error.name : 'UnknownError';
+    if (error instanceof Error && error.sourceDiagnostic)
+      report.sourceDiagnostic = error.sourceDiagnostic;
+    if (error instanceof z.ZodError)
+      report.validationIssues = error.issues.map(({ path, code }) => ({ path, code }));
+    if (error instanceof Error)
+      report.failureLocations = (error.stack ?? '')
+        .split('\n')
+        .slice(1)
+        .map((line) => line.match(/(workflow-[a-z-]+\.mjs):(\d+):(\d+)/)?.slice(1))
+        .filter(Boolean);
     const code =
       error !== null &&
       typeof error === 'object' &&

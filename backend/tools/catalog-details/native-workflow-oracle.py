@@ -13,6 +13,7 @@ from pathlib import Path
 import platform
 import re
 import sys
+import traceback
 from time import perf_counter_ns
 from types import SimpleNamespace
 from urllib.parse import unquote, urlencode, urlparse
@@ -200,8 +201,14 @@ def main():
                 send(call(state, payload))
     except Exception as error:
         number = error.args[0] if error.args and type(error.args[0]) is int else None
-        send({"kind": "error", "code": "NATIVE_SOURCE_WORKFLOW_FAILED", "errorKind": type(error).__name__,
-              "driverNumber": number})
+        diagnostic = {"kind": "error", "code": "NATIVE_SOURCE_WORKFLOW_FAILED", "errorKind": type(error).__name__,
+                      "driverNumber": number,
+                      "locations": [{"file": Path(frame.filename).name, "line": frame.lineno}
+                                    for frame in traceback.extract_tb(error.__traceback__)
+                                    if Path(frame.filename).name in ("native-workflow-oracle.py", "<pinned-native-catalog-workflow>")]}
+        if isinstance(error, NameError) and re.fullmatch(r"[A-Za-z_]\w{0,63}", error.name or ""):
+            diagnostic["missingSymbol"] = error.name
+        send(diagnostic)
         sys.exit(1)
     finally:
         if state:

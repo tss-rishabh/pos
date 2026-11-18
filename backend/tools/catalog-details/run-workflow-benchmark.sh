@@ -39,7 +39,7 @@ trap 'exit 143' HUP TERM
 export UV_CACHE_DIR="$catalog_work/uv-cache"
 export UV_PYTHON_INSTALL_DIR="$catalog_work/python-toolchain"
 uv venv --python 3.12.15 "$catalog_work/python"
-uv pip install --python "$catalog_work/python/bin/python" --requirement "$catalog_backend/tools/lookup-workflow/requirements.txt"
+uv pip install --python "$catalog_work/python/bin/python" --require-hashes --requirement "$catalog_backend/tools/catalog-details/workflow-requirements.txt"
 catalog_nonce=$(node --input-type=module -e 'import {randomBytes} from "node:crypto"; process.stdout.write(randomBytes(6).toString("hex"))')
 catalog_container=$(docker run -d --pull=never --cpus=2 --memory=2g \
   --cidfile "$catalog_work/container.cid" \
