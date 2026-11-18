@@ -67,6 +67,7 @@ export function FlashSalesPage({ user, storeId }: { user: Principal; storeId: st
       dateOnly
       requiresSelectedStores
       exportKind="flash-sales"
+      fullExport
     />
   );
 }

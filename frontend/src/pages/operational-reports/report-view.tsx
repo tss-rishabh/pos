@@ -62,6 +62,7 @@ export function ReportView<T extends Record<string, unknown>>({
   dateOnly = false,
   defaultDirection = 'desc',
   columnControls = true,
+  fullExport = false,
 }: {
   user: Principal;
   storeId: string;
@@ -79,6 +80,7 @@ export function ReportView<T extends Record<string, unknown>>({
   dateOnly?: boolean;
   defaultDirection?: 'asc' | 'desc';
   columnControls?: boolean;
+  fullExport?: boolean;
 }) {
   const online = useOnline(),
     queryClient = useQueryClient(),
@@ -135,7 +137,7 @@ export function ReportView<T extends Record<string, unknown>>({
       retry: false,
     });
   const createExport = useMutation({
-    mutationFn: () => {
+    mutationFn: (variant: 'visible' | 'full') => {
       if (!exportKind) throw new Error('This report does not support queued exports.');
       return queueReportExport(user.id, {
         kind: exportKind,
@@ -144,7 +146,7 @@ export function ReportView<T extends Record<string, unknown>>({
         storeIds: submitted.storeIds,
         attempts: 'all',
         search: submitted.search,
-        ...(columnControls
+        ...(columnControls && variant === 'visible'
           ? {
               sort: submitted.sort,
               direction: submitted.direction,
@@ -162,11 +164,21 @@ export function ReportView<T extends Record<string, unknown>>({
   return (
     <>
       <PageTitle eyebrow="OPERATIONS IN FOCUS" title={title}>
+        {exportKind && fullExport && (
+          <button
+            className="button secondary"
+            disabled={!online || !report.data?.total || createExport.isPending}
+            onClick={() => createExport.mutate('full')}
+          >
+            <ArrowDownToLine size={16} />
+            Export complete CSV
+          </button>
+        )}
         {exportKind && (
           <button
             className="button secondary"
             disabled={!online || !report.data?.total || createExport.isPending || !visible.length}
-            onClick={() => createExport.mutate()}
+            onClick={() => createExport.mutate('visible')}
           >
             <ArrowDownToLine size={16} />
             {createExport.isPending
