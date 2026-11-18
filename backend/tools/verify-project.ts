@@ -45,6 +45,17 @@ for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT', 'SCREENING_SOURCE_ROOT']) {
     childEnvironment[name] = path;
   }
 }
+if (flags.has('--mysql'))
+  for (const name of ['POS_ORIGIN_PAYMENTS_SOURCE_ROOT', 'POS_ORIGIN_GO_MODULE_CACHE_SOURCE']) {
+    const value = process.env[name];
+    if (!value) continue;
+    const path = resolve(value);
+    if (!existsSync(path) || !statSync(path).isDirectory())
+      throw new Error(
+        'Other-origin verification requires an available local source/cache directory.',
+      );
+    childEnvironment[name] = path;
+  }
 // Reuse only an existing, caller-owned disposable runner cache. Go still runs
 // every test with -count=1; this retains compilation, never successful results.
 if (flags.has('--mysql') && process.env.POS_IMPORT_GO_BUILD_CACHE) {
@@ -294,6 +305,17 @@ const checks: Check[] = [
     args: ['tools/verify-fixture-environments.mjs'],
     prerequisite: true,
   },
+  ...(flags.has('--mysql')
+    ? [
+        {
+          id: 'other-origin-go-prerequisites',
+          directory: 'backend' as const,
+          command: 'sh',
+          args: ['tools/other-origin-verification/run.sh', 'preflight'],
+          prerequisite: true,
+        },
+      ]
+    : []),
   {
     id: 'payments-base-metadata-packaging-tests',
     directory: 'backend',
@@ -1286,6 +1308,13 @@ for (const [id, directory, config] of [
     args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', config],
   });
 if (flags.has('--mysql')) {
+  for (const phase of ['general', 'head', 'calendar'] as const)
+    checks.push({
+      id: `other-origin-go-${phase}-native-tests`,
+      directory: 'backend',
+      command: 'sh',
+      args: ['tools/other-origin-verification/run.sh', phase],
+    });
   checks.push(
     {
       id: 'legacy-import-confirmation-native-tests',

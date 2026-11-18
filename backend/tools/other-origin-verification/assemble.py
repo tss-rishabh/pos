@@ -251,7 +251,9 @@ def run_phase(phase, source, modules_source, docker, before_source, before_produ
         if active is not None:
             try:
                 os.killpg(active.pid, signal.SIGTERM)
-                active.wait(timeout=15)
+                # Leave time for nonce-owned Docker cleanup within the parent
+                # verifier's five-second termination grace.
+                active.wait(timeout=2)
             except (ProcessLookupError, subprocess.TimeoutExpired):
                 if active.poll() is None:
                     os.killpg(active.pid, signal.SIGKILL)
