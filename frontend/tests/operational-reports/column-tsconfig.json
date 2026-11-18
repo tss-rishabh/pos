@@ -1,4 +1,9 @@
 {
   "extends": "../../tsconfig.json",
-  "include": ["column-entry.tsx", "column-vite.config.ts", "export-commands.test.ts"]
+  "include": [
+    "column-entry.tsx",
+    "column-vite.config.ts",
+    "export-commands.test.ts",
+    "export-metadata.test.ts"
+  ]
 }

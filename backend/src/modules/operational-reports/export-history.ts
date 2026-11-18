@@ -221,7 +221,7 @@ export function exportHistoryReader(
         if (
           (!(user.role === 1 && user.userType === 1) && row.requestedBy !== user.id) ||
           (input.origin === 'current' && !z.uuid().safeParse(row.id).success) ||
-          (input.origin === 'legacy' && !/^\d+$/.test(row.id))
+          (input.origin === 'legacy' && (!/^\d+$/.test(row.id) || row.period === undefined))
         )
           throw new AppError(
             503,

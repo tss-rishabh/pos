@@ -4,6 +4,7 @@
   "include": [
     "column-exports.test.ts",
     "export-mysql.integration.test.ts",
-    "administration-queue.test.ts"
+    "administration-queue.test.ts",
+    "export-history.test.ts"
   ]
 }

@@ -44,11 +44,73 @@ function row(id: string = randomUUID()) {
     format: 'CSV',
     byteCount: 120,
     rowCount: 2,
+    period: null,
     storage_key: 'secret object location',
     error_message: 'secret raw query details',
   };
 }
 describe('archived export metadata contract', () => {
+  it('retains exact legacy period values and500-row named bindings without exposing raw errors', async () => {
+    for (const period of [null, '', '11/01/2026 - 11/02/2026']) {
+      const calls: { statement: string; params: Record<string, unknown> }[] = [],
+        reader = exportHistoryReader(
+          config,
+          exportHistoryOptions({
+            BQ_LEGACY_REPORT_EXPORTS_VIEW: 'fixture-project.reports.legacy_exports',
+          }),
+          {
+            async queryReport(statement, params) {
+              calls.push({ statement, params });
+              return statement.includes('COUNT(*)')
+                ? [{ count: 1200 }]
+                : [{ ...row('9007199254740993'), period, note: 'secret original source error' }];
+            },
+          },
+          clock,
+        ),
+        result = await reader.list(user, {
+          ...input,
+          origin: 'legacy',
+          page: 3,
+          pageSize: 500,
+          sort: 'period',
+          direction: 'asc',
+        });
+      expect(result.data[0]).toMatchObject({ id: '9007199254740993', period, note: null });
+      expect(calls[1]?.statement).toContain('time_period AS period');
+      expect(calls[1]?.statement).toContain('ORDER BY time_period asc');
+      expect(calls[1]?.params).toMatchObject({
+        limit: 500,
+        offset: 1000,
+        owner: user.id,
+        allOwners: false,
+      });
+      expect(JSON.stringify(result)).not.toContain('secret');
+    }
+    expect(() => exportHistoryInputSchema.parse({ ...input, pageSize: 501 })).toThrow();
+  });
+  it('refuses an omitted or malformed legacy period rather than fabricate a source value', async () => {
+    for (const candidate of [
+      { ...row('42'), period: undefined },
+      { ...row('42'), period: 42 },
+    ]) {
+      const reader = exportHistoryReader(
+        config,
+        exportHistoryOptions({
+          BQ_LEGACY_REPORT_EXPORTS_VIEW: 'fixture-project.reports.legacy_exports',
+        }),
+        {
+          async queryReport(statement) {
+            return statement.includes('COUNT(*)') ? [{ count: 1 }] : [candidate];
+          },
+        },
+        clock,
+      );
+      await expect(reader.list(user, { ...input, origin: 'legacy' })).rejects.toMatchObject({
+        code: 'EXPORT_HISTORY_VIEW_INVALID',
+      });
+    }
+  });
   it('keeps franchise superadmins scoped to their own exports and rejects a mismatched warehouse owner', async () => {
     const franchise = { ...user, role: 1 as const, userType: 2 as const },
       calls: Record<string, unknown>[] = [];

@@ -22,17 +22,16 @@ export function exportMetadataValue(
   row: ExportMetadata,
   field: ExportMetadataColumn,
 ): string | number | null {
-  if (field === 'period')
-    return (
-      row.period ||
-      (row.from && row.to
-        ? `${row.from} – ${row.to}`
-        : row.kind === 'current-inventory-workbook'
-          ? 'Current snapshot'
-          : row.kind === 'administration-list'
-            ? 'Current collection'
-            : 'Legacy report')
-    );
+  if (field === 'period') {
+    if (row.period !== undefined) return row.period;
+    return row.from && row.to
+      ? `${row.from} – ${row.to}`
+      : row.kind === 'current-inventory-workbook'
+        ? 'Current snapshot'
+        : row.kind === 'administration-list'
+          ? 'Current collection'
+          : 'Legacy report';
+  }
   if (field === 'requestedBy') return row.requestedByName || row.requestedBy;
   if (field === 'byteCount')
     return row.byteCount === null ? null : `${(row.byteCount / 1024).toFixed(1)} KB`;

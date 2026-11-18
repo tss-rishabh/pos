@@ -157,7 +157,7 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
     await admin!.query('DELETE FROM pos_rewrite_report_exports');
     await resetAccess();
     await admin!.query(
-      "UPDATE report_exports SET export_requested_at='2026-11-16 12:00:00',updated_at='2026-11-16 12:00:00',export_completed_at=CASE WHEN is_completed=1 THEN '2026-11-16 12:01:00' ELSE NULL END",
+      "UPDATE report_exports SET time_period=NULL,export_requested_at='2026-11-16 12:00:00',updated_at='2026-11-16 12:00:00',export_completed_at=CASE WHEN is_completed=1 THEN '2026-11-16 12:01:00' ELSE NULL END",
     );
   });
   afterAll(async () => {
@@ -199,6 +199,25 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
     expect(Buffer.concat(chunks).toString()).toContain('"-5.00"');
     expect(JSON.stringify(receipt)).not.toContain('uploads/');
     expect((await exports.list(user, 'legacy')).total).toBe(1);
+  });
+  it('preserves original legacy time_period NULL, empty and literal values in recent metadata', async () => {
+    const exports = service();
+    for (const period of [null, '', '11/01/2026 - 11/02/2026']) {
+      await admin!.query('UPDATE report_exports SET time_period=? WHERE id=1', [period]);
+      const result = await exports.list(
+        user,
+        exportHistoryInputSchema.parse({
+          origin: 'legacy',
+          period: 'recent',
+          pageSize: 500,
+          sort: 'period',
+        }),
+      );
+      expect(result.data).toHaveLength(1);
+      expect(result.data[0]?.period).toBe(period);
+      expect(result.pageSize).toBe(500);
+      expect(result.data[0]?.message).not.toContain('private raw error');
+    }
   });
   it('freezes assigned stores for restricted superadmin daily and flash exports without global scope', async () => {
     await admin!.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=900001');
