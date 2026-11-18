@@ -109,3 +109,24 @@
   background: var(--surface, #fff);
   color: inherit;
 }
+/* Legacy return/exchange cell texts (exchange-cell.ts styles). */
+.return-cell p {
+  margin: 4px 0;
+}
+.return-cell-danger,
+.return-cell-strong-danger {
+  color: #af5b41;
+}
+.return-cell-strong-danger {
+  font-weight: 700;
+}
+.return-cell-badge {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--warning-soft, #fff4d6);
+  font-size: 0.85em;
+}
+.return-cell-warning::before {
+  content: '⚠ ';
+}
