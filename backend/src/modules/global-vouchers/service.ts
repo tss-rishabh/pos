@@ -1,14 +1,10 @@
-import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { asc, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { generatedId } from '../../db/generated-id.js';
-import {
-  GiftCardCollection,
-  MUser,
-  PosSpecialPermissionActivityLog,
-} from '../../db/legacy-schema.js';
+import { MUser, PosSpecialPermissionActivityLog } from '../../db/legacy-schema.js';
 import { legacyZeroDateTime, storedEnumValue } from '../../db/legacy-columns.js';
 import { voucherHistoryPlatforms } from '../../db/legacy-enums.js';
 import type { Databases } from '../../db/pools.js';
@@ -16,116 +12,174 @@ import { retryTransaction } from '../../db/retry.js';
 import { requireStore, type Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
-import { currentRequestTrace } from '../../observability/context.js';
+import type { JobProducer } from '../../jobs/contract.js';
 import {
   assertCurrentOperatorRole,
   assertCurrentStoreAccess,
 } from '../administration/authorization.js';
 import { checkInService, type AdministrationTransaction } from '../administration/checkins.js';
 import { activeCheckoutCustomer } from '../checkout/customer-access.js';
-import { checkoutStateSchema } from '../checkout/contracts.js';
+import type { CheckoutState } from '../checkout/contracts.js';
+import { issueCustomerToken } from '../checkout/crypto.js';
+import { checkoutEnvironment } from '../checkout/gateway.js';
+import { checkoutSessionStore, type CheckoutSessionStore } from '../checkout/session-store.js';
+import { configuredStateStore, readJson, type PosStateStore } from '../checkout/state-store.js';
+import { assertConversionCart, authorizeVoucherIssuer } from './authorization.js';
 import {
-  readCustomerContactBinding,
-  sameCustomerContact,
-} from '../checkout/customer-contact-authority.js';
-import {
-  giftCardIssuanceContract,
-  giftCardIssuances,
-  giftCardIssuanceHashSql,
-} from '../checkout/gift-card-issuance.js';
-import { walletMoneyHistory } from '../checkout/benefit-adjustments/schema.js';
-import { checkoutSessions } from '../checkout/schema.js';
-import { contactActorVersion } from '../customer-contacts/authority.js';
-import type { customerOtpService } from '../customer-otp/service.js';
-import { sourceGiftCardPin } from '../gift-card-batches/generation.js';
-import {
-  assertConversionCart,
-  assertVoucherLegacyCompatibility,
-  authorizeVoucherIssuer,
-} from './authorization.js';
-import {
-  exactVoucherValueContract,
-  globalVoucherContract,
-  nonExpiringVoucherContract,
   voucherCancellationSchema,
+  voucherCheckResultSchema,
+  voucherCheckSchema,
+  voucherConversionResultSchema,
   voucherConversionSchema,
   voucherIssuanceSchema,
   voucherLookupSchema,
   voucherReceiptSchema,
   voucherSelectionSchema,
   type VoucherCancellation,
+  type VoucherCheck,
   type VoucherConversion,
+  type VoucherConversionResult,
   type VoucherIssuance,
+  type VoucherReceipt,
 } from './contracts.js';
 import {
-  pinErrorCodes,
   voucherChanged,
   voucherConflict,
   voucherMissing,
-  voucherPinError,
-  voucherUnavailable,
-  type VoucherPinError,
+  voucherToMoneyDisabled,
+  voucherUnconfirmed,
 } from './errors.js';
 import { globalCoupons, globalVoucherHistory, globalVouchers } from './legacy-schema.js';
 import type { GlobalVoucherOptions } from './options.js';
+import { voucherAmountString, voucherMinorUnits } from './policy.js';
 import {
-  giftCardDatesValid,
-  planVoucherConversion,
-  storedVoucherMinorUnits,
-  voucherAmountString,
-  voucherIntegrity,
-  voucherMinorUnits,
-} from './policy.js';
-import {
-  verifiedVoucherReceipt,
-  voucherEvidenceUnavailable,
-  type VoucherOperation,
-} from './receipts.js';
-import { voucherOperations, voucherPinBudgets, voucherSelections } from './schema.js';
+  apiV2VoucherUpstream,
+  voucherServiceUncertain,
+  type VoucherUpstream,
+  type VoucherUpstreamPayload,
+  type VoucherUpstreamReply,
+} from './upstream.js';
 
 export interface GlobalVoucherDependencies {
-  customerOtp?: Pick<ReturnType<typeof customerOtpService>, 'assertVerified'>;
+  stateStore?: PosStateStore;
+  sessions?: CheckoutSessionStore;
+  jobs?: JobProducer;
+  upstream?: VoucherUpstream;
+  /** Kept for the registration call; conversion no longer runs a native OTP-bound ledger. */
+  customerOtp?: unknown;
+  /** Checkout JWT keys for the customer Authorization header (defaults to checkoutEnvironment()). */
+  tokenKeys?: { hs256?: string; hs512?: string };
 }
+/**
+ * Redis (table-disposition.md "global-vouchers"):
+ * - `pos:voucher_selection:{selectionId}`: {operatorId, customerId, email, name, expiresAt,
+ *   consumedBy}, EX 300 s (replaces pos_rewrite_voucher_selections).
+ * - `pos:voucher_op:{operationId}`: {operatorId, customerId, kind, requestHash, storeId,
+ *   checkoutId, status, result}, SET NX EX 86400 (replaces pos_rewrite_voucher_operations).
+ * Gift-card PIN attempts are counted by API-v2 under its `GC_PIN_LIMIT_{voucher_code}` key
+ * (replaces pos_rewrite_voucher_pin_budgets): the POS forwards the PIN and never checks it.
+ */
+export const voucherKeys = {
+  selection: (id: string) => `pos:voucher_selection:${id}`,
+  operation: (id: string) => `pos:voucher_op:${id}`,
+};
+const SELECTION_TTL_MS = 300_000,
+  OPERATION_TTL_SECONDS = 86400;
+const selectionRecordSchema = z
+  .object({
+    operatorId: identifier,
+    customerId: identifier,
+    email: z.string().max(96),
+    name: z.string().max(130),
+    expiresAt: z.number().int(),
+    consumedBy: z.uuid().nullable(),
+  })
+  .strict();
+const operationRecordSchema = z
+  .object({
+    operatorId: identifier,
+    customerId: identifier,
+    kind: z.enum(['issuance', 'conversion']),
+    requestHash: z.string().regex(/^[a-f0-9]{64}$/),
+    storeId: identifier.nullable(),
+    checkoutId: z.uuid().nullable(),
+    status: z.enum(['inflight', 'succeeded', 'uncertain', 'cancelled']),
+    result: z.union([voucherReceiptSchema, voucherConversionResultSchema]).nullable(),
+  })
+  .strict();
+type OperationRecord = z.infer<typeof operationRecordSchema>;
 const customerProjection = {
   id: MUser.id,
   email: MUser.email,
   firstName: MUser.firstname,
   lastName: MUser.lastname,
+  telephone: MUser.telephone,
+  twoFactor: MUser.is_two_fa,
   active: MUser.status,
   blocked: MUser.is_block,
   disabled: MUser.is_disabled,
-  money: sql<number>`CAST(${MUser.tss_money} AS CHAR)`.mapWith(Number),
-  cashback: sql<number>`CAST(${MUser.cashback} AS CHAR)`.mapWith(Number),
 };
-const viewError = z.enum(pinErrorCodes);
+const upstreamError = z
+  .object({
+    title: z.union([
+      z.string(),
+      z
+        .object({
+          title: z.string().optional(),
+          is_pin_required: z.unknown().optional(),
+          is_pin_valid: z.unknown().optional(),
+        })
+        .passthrough(),
+    ]),
+  })
+  .passthrough();
+/**
+ * Maps the upstream reply the legacy page branches on (create_order.html:3786-4060):
+ * 200 -> success; 400 + `title.is_pin_required` -> PIN dialog / "invalid PIN" (`title.title`);
+ * 401 -> `message`; anything else -> `message.title`.
+ */
+function rejection(reply: VoucherUpstreamReply, pinSupplied: boolean): AppError {
+  const parsed = upstreamError.safeParse(reply.body);
+  if (reply.status === 400 && parsed.success && typeof parsed.data.title === 'object') {
+    const title = parsed.data.title;
+    if (title.is_pin_required && (!pinSupplied || !title.is_pin_valid))
+      return pinSupplied
+        ? new AppError(422, 'GIFT_CARD_PIN_INVALID', title.title || 'Invalid PIN')
+        : new AppError(
+            422,
+            'GIFT_CARD_PIN_REQUIRED',
+            title.title || 'Please Enter the GIFT CARD PIN',
+          );
+    return new AppError(422, 'VOUCHER_REJECTED', title.title || 'This voucher cannot be used.');
+  }
+  if (reply.status >= 500) return voucherServiceUncertain();
+  const message =
+    parsed.success && typeof parsed.data.title === 'string'
+      ? parsed.data.title
+      : z.object({ message: z.string() }).passthrough().safeParse(reply.body).data?.message;
+  return new AppError(
+    reply.status === 401 ? 502 : 422,
+    reply.status === 401 ? 'VOUCHER_SERVICE_UNAUTHORIZED' : 'VOUCHER_REJECTED',
+    (message || 'This voucher cannot be used.').slice(0, 300),
+  );
+}
+const hashOf = (kind: string, value: unknown) =>
+  createHash('sha256')
+    .update(kind + '\0' + JSON.stringify(value))
+    .digest('hex');
+
 export function globalVoucherService(
   config: Config,
   db: Databases,
-  options: GlobalVoucherOptions,
+  _options: GlobalVoucherOptions = {},
   dependencies: GlobalVoucherDependencies = {},
   clock: () => number = Date.now,
   createCode: () => string = () => 'GFV' + randomBytes(11).toString('hex').toUpperCase(),
 ) {
-  const checkIns = checkInService(db, config);
-  function enabled() {
-    return (
-      !config.DEMO_MODE &&
-      options.GLOBAL_VOUCHERS_ENABLED &&
-      options.GLOBAL_VOUCHERS_CONTRACT === globalVoucherContract &&
-      options.GLOBAL_VOUCHER_LEGACY_CONTRACT === nonExpiringVoucherContract &&
-      options.GLOBAL_BENEFIT_WALLET_LOCK_CONTRACT === 'pos-wallet-user-lock-v1' &&
-      Boolean(options.GLOBAL_VOUCHER_SECRET)
-    );
-  }
-  function ready() {
-    if (!enabled()) throw voucherUnavailable();
-    return options.GLOBAL_VOUCHER_SECRET!;
-  }
-  function hash(secret: string, kind: string, value: unknown) {
-    return createHmac('sha256', secret)
-      .update(kind + '\0' + JSON.stringify(value))
-      .digest('hex');
-  }
+  const checkIns = checkInService(db, config),
+    store = dependencies.stateStore || dependencies.sessions?.store || configuredStateStore(config),
+    sessions = dependencies.sessions || checkoutSessionStore(store),
+    upstream = dependencies.upstream || apiV2VoucherUpstream(config);
   function wall() {
     return Temporal.Instant.fromEpochMilliseconds(clock())
       .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
@@ -133,7 +187,9 @@ export function globalVoucherService(
       .toString({ smallestUnit: 'second' })
       .replace('T', ' ');
   }
-  async function customer(tx: AdministrationTransaction, id: string) {
+  /** `ENABLE_VOUCHER_TO_MONEY_CHECK_AND_COVERT` (settings.py:622, int(env, 0)). */
+  const voucherToMoney = () => config.ENABLE_VOUCHER_TO_MONEY_CHECK_AND_COVERT !== 0;
+  async function lockedCustomer(tx: AdministrationTransaction, id: string) {
     const [row] = await tx
       .select(customerProjection)
       .from(MUser)
@@ -148,813 +204,517 @@ export function globalVoucherService(
       );
     return row;
   }
-  async function operation(
-    tx: AdministrationTransaction,
-    fields: {
-      id: string;
-      operatorId: string;
-      customerId: string;
-      kind: 'issuance' | 'conversion';
-      requestHash: string;
-      storeId?: string;
-      checkoutId?: string;
-    },
-  ) {
-    const executionId = randomUUID();
-    await tx
-      .insert(voucherOperations)
-      .values({
-        ...fields,
-        executionId,
-        createdAt: wall(),
-        requestId: currentRequestTrace()?.requestId || null,
-      })
-      .onDuplicateKeyUpdate({ set: { id: sql`${voucherOperations.id}` } });
-    const [row] = await tx
-      .select()
-      .from(voucherOperations)
-      .where(eq(voucherOperations.id, fields.id))
-      .limit(1)
-      .for('update');
+  const readOperation = (id: string) =>
+    readJson(store, voucherKeys.operation(id), operationRecordSchema);
+  async function claim(id: string, record: OperationRecord) {
+    const serialized = JSON.stringify(record);
+    if (await store.set(voucherKeys.operation(id), serialized, OPERATION_TTL_SECONDS, true))
+      return { fresh: true as const, serialized, existing: null };
+    const existing = await readOperation(id);
     if (
-      !row ||
-      row.operatorId !== fields.operatorId ||
-      row.customerId !== fields.customerId ||
-      row.kind !== fields.kind ||
-      row.requestHash !== fields.requestHash ||
-      row.storeId !== (fields.storeId ?? null) ||
-      row.checkoutId !== (fields.checkoutId ?? null)
+      !existing ||
+      existing.operatorId !== record.operatorId ||
+      existing.customerId !== record.customerId ||
+      existing.kind !== record.kind ||
+      existing.requestHash !== record.requestHash ||
+      existing.storeId !== record.storeId ||
+      existing.checkoutId !== record.checkoutId
     )
       throw voucherConflict();
-    return { row, fresh: row.executionId === executionId };
+    return { fresh: false as const, serialized, existing };
   }
-  async function replay(tx: AdministrationTransaction, operation: VoucherOperation) {
-    if (operation.result !== null || operation.errorCode !== null)
-      return verifiedVoucherReceipt(tx, operation);
-    return voucherEvidenceUnavailable();
+  function settled(record: OperationRecord) {
+    if (record.status === 'cancelled') throw voucherMissing();
+    if (record.status !== 'succeeded' || !record.result) throw voucherUnconfirmed();
+    return record.result;
   }
-  async function save(
-    tx: AdministrationTransaction,
-    operation: VoucherOperation,
-    supplied: unknown,
-  ) {
-    const result = voucherReceiptSchema.parse(supplied);
-    await tx
-      .update(voucherOperations)
-      .set({ result })
-      .where(eq(voucherOperations.id, operation.id));
-    return verifiedVoucherReceipt(tx, { ...operation, result });
+  async function finish(id: string, record: OperationRecord) {
+    await store.set(voucherKeys.operation(id), JSON.stringify(record), OPERATION_TTL_SECONDS);
   }
-  async function audit(
-    tx: AdministrationTransaction,
-    user: Principal,
-    customerId: string,
-    kind: string,
-    id: string,
-    now: string,
-  ) {
-    await tx.insert(PosSpecialPermissionActivityLog).values({
-      pos_user_id: BigInt(user.id),
-      platform: kind === 'issuance' ? 'Gift Voucher' : 'Gift Voucher Conversion',
-      recipient: customerId,
-      comment: `Voucher ${kind}; operation ${id}; customer ${customerId}`,
-      created_at: now,
-      updated_at: now,
-    });
+  /** The sale must belong to this operator, be editable and carry a verified customer. */
+  async function conversionContext(user: Principal, storeId: string, checkoutId: string) {
+    identifier.parse(storeId);
+    z.uuid().parse(checkoutId);
+    requireStore(user, storeId);
+    if (!voucherToMoney()) throw voucherToMoneyDisabled();
+    const state = await sessions.readScoped(user.id, storeId, checkoutId);
+    if (!state || !state.customerId) throw voucherChanged();
+    await checkIns.assertCheckIn(user.id, storeId, state.counterId);
+    // create_order.html:293: the input is enabled only for `user_obj and is_verified`.
+    if (!state.verifiedCustomerUntil || state.verifiedCustomerUntil <= clock())
+      throw new AppError(
+        403,
+        'CUSTOMER_VERIFICATION_REQUIRED',
+        'Verify this customer before checking or converting a voucher.',
+      );
+    if (!['open', 'quoted'].includes(state.phase) || state.orderId || state.busyOperationId)
+      throw voucherChanged();
+    const [customer] = await db
+      .get('writer')
+      .select(customerProjection)
+      .from(MUser)
+      .where(eq(MUser.id, BigInt(state.customerId)))
+      .limit(1);
+    if (!customer || !activeCheckoutCustomer(customer))
+      throw new AppError(
+        409,
+        'VOUCHER_CUSTOMER_UNAVAILABLE',
+        'A unique active customer is required.',
+      );
+    const keys = dependencies.tokenKeys || checkoutEnvironment();
+    const authorization = issueCustomerToken(
+      {
+        id: String(customer.id),
+        email: customer.email,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        telephone: customer.telephone,
+        twoFactor: customer.twoFactor === 1,
+        exclusive: false,
+        active: true,
+      },
+      keys,
+      clock(),
+    );
+    return { state, customer, authorization };
   }
-  async function pin(
-    tx: AdministrationTransaction,
-    voucher: typeof globalVouchers.$inferSelect,
-    supplied: string | undefined,
-  ): Promise<VoucherPinError | null> {
-    if (
-      voucher.kind !== 'GIFT_CARD' ||
-      !voucher.requiresPin ||
-      !options.GLOBAL_VOUCHER_GIFT_CARD_PIN_REQUIRED
-    )
-      return null;
-    if (!supplied) return 'GIFT_CARD_PIN_REQUIRED';
-    const now = clock(),
-      window = options.GLOBAL_VOUCHER_GIFT_CARD_PIN_LIMIT_EX * 1000;
-    await tx
-      .insert(voucherPinBudgets)
-      .values({ voucherId: String(voucher.id), failures: 0, windowStartedAt: now })
-      .onDuplicateKeyUpdate({ set: { voucherId: sql`${voucherPinBudgets.voucherId}` } });
-    const [budget] = await tx
-      .select()
-      .from(voucherPinBudgets)
-      .where(eq(voucherPinBudgets.voucherId, String(voucher.id)))
-      .limit(1)
-      .for('update');
-    if (
-      !budget ||
-      !Number.isSafeInteger(budget.windowStartedAt) ||
-      budget.windowStartedAt < 0 ||
-      !Number.isInteger(budget.failures) ||
-      budget.failures < 0 ||
-      budget.failures > 6
-    )
-      return voucherEvidenceUnavailable();
-    const failures = now - budget.windowStartedAt >= window ? 0 : budget.failures;
-    if (failures >= options.GLOBAL_VOUCHER_GIFT_CARD_PIN_LIMIT) return 'GIFT_CARD_PIN_LIMIT';
-    const expected = sourceGiftCardPin(String(voucher.serial));
-    if (
-      expected.length !== supplied.length ||
-      !timingSafeEqual(Buffer.from(expected), Buffer.from(supplied))
-    ) {
-      await tx
-        .update(voucherPinBudgets)
-        // Source Redis SET(..., ex=GC_PIN_LIMIT_EX) refreshes the lifetime for
-        // each new wrong intent. Replays and an already-blocked attempt do not.
-        .set({ failures: failures + 1, windowStartedAt: now })
-        .where(eq(voucherPinBudgets.voucherId, String(voucher.id)));
-      return 'GIFT_CARD_PIN_INVALID';
-    }
-    await tx.delete(voucherPinBudgets).where(eq(voucherPinBudgets.voucherId, String(voucher.id)));
-    return null;
-  }
+  const payload = (
+    customer: { id: bigint; email: string },
+    code: string,
+    pin: string | undefined,
+  ): VoucherUpstreamPayload => ({
+    user_id: String(customer.id),
+    gift_voucher_code: code,
+    gc_pin: pin ?? '0',
+    user_email: customer.email,
+  });
   return {
     async capabilities(user: Principal) {
-      if (!enabled()) {
-        if (user.userType !== 1 || ![1, 2, 3].includes(user.role))
-          throw new AppError(
-            403,
-            'GLOBAL_VOUCHER_ACCESS_DENIED',
-            'Gift voucher issuance requires an internal administrator.',
-          );
-        return {
-          enabled: false,
-          conversionEnabled: false,
-          exactCents: true,
-          nonExpiring: true as const,
-          contract: globalVoucherContract,
-        };
-      }
       return db.get('writer').transaction(async (tx) => {
         await authorizeVoucherIssuer(tx, user);
-        return {
-          enabled: enabled(),
-          conversionEnabled:
-            enabled() &&
-            options.GLOBAL_VOUCHER_CONVERSION_ENABLED &&
-            Boolean(dependencies.customerOtp),
-          exactCents: options.GLOBAL_VOUCHER_VALUE_CONTRACT === exactVoucherValueContract,
-          nonExpiring: true as const,
-          contract: globalVoucherContract,
-        };
+        return { enabled: true as const };
       });
     },
     async conversionCapabilities(user: Principal, storeId: string, checkoutId: string) {
       identifier.parse(storeId);
       z.uuid().parse(checkoutId);
       requireStore(user, storeId);
-      if (!enabled() || !options.GLOBAL_VOUCHER_CONVERSION_ENABLED || !dependencies.customerOtp)
-        return { enabled: false };
-      return db.get('writer').transaction(async (tx) => {
-        await checkIns.assertCheckIn(user.id, storeId, undefined, tx);
-        const [row] = await tx
-          .select({ state: checkoutSessions.state })
-          .from(checkoutSessions)
-          .where(
-            and(
-              eq(checkoutSessions.id, checkoutId),
-              eq(checkoutSessions.storeId, storeId),
-              eq(checkoutSessions.operatorId, user.id),
-            ),
-          )
-          .limit(1)
-          .for('share');
-        if (!row) throw voucherChanged();
-        return {
-          enabled:
-            enabled() &&
-            options.GLOBAL_VOUCHER_CONVERSION_ENABLED &&
-            Boolean(dependencies.customerOtp),
-        };
-      });
+      return { enabled: voucherToMoney() };
     },
+    /** AjaxGiftVoucherModuleView resolves `MUser.objects.filter(email=...)` (core/views.py:1493). */
     async lookup(user: Principal, supplied: { email: string }) {
       const input = voucherLookupSchema.parse(supplied);
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await authorizeVoucherIssuer(tx, user);
-          ready();
-          const candidates = await db
-            .get('primary')
-            .select({ id: MUser.id })
-            .from(MUser)
-            .where(eq(MUser.email, input.email))
-            .orderBy(asc(MUser.id))
-            .limit(2);
-          if (candidates.length !== 1)
-            throw new AppError(
-              409,
-              'CUSTOMER_IDENTITY_UNCONFIRMED',
-              'A unique current customer is required.',
-            );
-          // Lock the primary key once, without first holding email/share locks
-          // that concurrent lookups would both need to upgrade.
-          const id = String(candidates[0]!.id),
-            current = await customer(tx, id);
-          // Authorizer/customer reads above are locking current reads. This first
-          // consistent writer read therefore starts after acquiring that PK lock.
-          const exact = await tx
-            .select({ id: MUser.id })
-            .from(MUser)
-            .where(eq(MUser.email, input.email))
-            .orderBy(asc(MUser.id))
-            .limit(2);
-          if (candidates.length !== 1 || exact.length !== 1 || candidates[0]!.id !== exact[0]!.id)
-            throw new AppError(
-              409,
-              'CUSTOMER_IDENTITY_UNCONFIRMED',
-              'A unique current customer is required.',
-            );
-          const contact = await readCustomerContactBinding(tx, id),
-            actorVersion = await contactActorVersion(tx, user.id),
-            selectionId = randomUUID(),
-            expiresAt = clock() + 300_000;
-          await tx.insert(voucherSelections).values({
-            id: selectionId,
-            customerId: id,
+      const current = await db.get('writer').transaction(async (tx) => {
+        await authorizeVoucherIssuer(tx, user);
+        const candidates = await tx
+          .select({ id: MUser.id })
+          .from(MUser)
+          .where(eq(MUser.email, input.email))
+          .orderBy(asc(MUser.id))
+          .limit(2);
+        if (!candidates.length)
+          throw new AppError(404, 'CUSTOMER_NOT_FOUND', 'User Does not exists');
+        if (candidates.length !== 1)
+          throw new AppError(
+            409,
+            'CUSTOMER_IDENTITY_UNCONFIRMED',
+            'A unique current customer is required.',
+          );
+        return lockedCustomer(tx, String(candidates[0]!.id));
+      });
+      const selectionId = randomUUID(),
+        expiresAt = clock() + SELECTION_TTL_MS,
+        name = `${current.firstName} ${current.lastName}`;
+      await store.set(
+        voucherKeys.selection(selectionId),
+        JSON.stringify(
+          selectionRecordSchema.parse({
             operatorId: user.id,
-            actorVersion,
-            contact,
+            customerId: String(current.id),
+            email: current.email,
+            name: name.slice(0, 130),
             expiresAt,
-          });
-          return voucherSelectionSchema.parse({
-            selectionId,
-            customerId: id,
-            name: `${current.firstName} ${current.lastName}`,
-            expiresAt,
-          });
-        }),
+            consumedBy: null,
+          }),
+        ),
+        SELECTION_TTL_MS / 1000,
       );
+      return voucherSelectionSchema.parse({
+        selectionId,
+        customerId: String(current.id),
+        name: name.slice(0, 130),
+        expiresAt,
+      });
     },
     async get(user: Principal, id: string) {
       z.uuid().parse(id);
-      return db.get('writer').transaction(async (tx) => {
+      const record = await readOperation(id);
+      if (!record || record.operatorId !== user.id) throw voucherMissing();
+      await db.get('writer').transaction(async (tx) => {
         await assertCurrentOperatorRole(tx, user.id, [1, 2, 3, 4, 5]);
-        const [row] = await tx
-          .select()
-          .from(voucherOperations)
-          .where(and(eq(voucherOperations.id, id), eq(voucherOperations.operatorId, user.id)))
-          .limit(1)
-          .for('share');
-        if (!row) throw voucherMissing();
-        if (row.kind === 'issuance') await authorizeVoucherIssuer(tx, user);
+        if (record.kind === 'issuance') await authorizeVoucherIssuer(tx, user);
         else {
-          if (!row.storeId) voucherEvidenceUnavailable();
-          requireStore(user, row.storeId);
-          await assertCurrentStoreAccess(tx, user.id, row.storeId);
+          if (!record.storeId) throw voucherUnconfirmed();
+          requireStore(user, record.storeId);
+          await assertCurrentStoreAccess(tx, user.id, record.storeId);
         }
-        if (row.errorCode === 'VOUCHER_CANCELLED')
-          return { status: 'cancelled' as const, errorCode: null, receipt: null };
-        if (row.errorCode)
-          return {
-            status: 'rejected' as const,
-            errorCode: viewError.parse(row.errorCode),
-            receipt: null,
-          };
-        return {
-          status: 'succeeded' as const,
-          errorCode: null,
-          receipt: await verifiedVoucherReceipt(tx, row),
-        };
       });
+      if (record.status === 'cancelled') return { status: 'cancelled' as const, receipt: null };
+      return { status: 'succeeded' as const, receipt: settled(record) };
     },
+    /** Fences an operation ID the browser abandoned: it can never execute afterwards. */
     async cancel(user: Principal, operationId: string, supplied: VoucherCancellation) {
       z.uuid().parse(operationId);
       const input = voucherCancellationSchema.parse(supplied);
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await assertCurrentOperatorRole(tx, user.id, [1, 2, 3, 4, 5]);
-          let customerId: string;
-          if (input.kind === 'issuance') {
-            await authorizeVoucherIssuer(tx, user);
-            const [selection] = await tx
-              .select({ customerId: voucherSelections.customerId })
-              .from(voucherSelections)
-              .where(
-                and(
-                  eq(voucherSelections.id, input.selectionId),
-                  eq(voucherSelections.operatorId, user.id),
-                ),
-              )
-              .limit(1)
-              .for('update');
-            if (!selection) throw voucherChanged();
-            customerId = selection.customerId;
-          } else {
-            requireStore(user, input.storeId);
-            await assertCurrentStoreAccess(tx, user.id, input.storeId);
-            const [checkout] = await tx
-              .select({ state: checkoutSessions.state })
-              .from(checkoutSessions)
-              .where(
-                and(
-                  eq(checkoutSessions.id, input.checkoutId),
-                  eq(checkoutSessions.operatorId, user.id),
-                  eq(checkoutSessions.storeId, input.storeId),
-                ),
-              )
-              .limit(1)
-              .for('update');
-            const state = checkoutStateSchema.safeParse(checkout?.state);
-            if (!state.success || !state.data.customerId) throw voucherChanged();
-            customerId = state.data.customerId;
-          }
-          // This PK competes with the financial INSERT in the same order. A prior
-          // commit wins and returns its receipt; an absent command is fenced forever.
-          await tx
-            .insert(voucherOperations)
-            .values({
-              id: operationId,
-              operatorId: user.id,
-              customerId,
-              kind: input.kind,
-              requestHash: randomBytes(32).toString('hex'),
-              executionId: randomUUID(),
-              errorCode: 'VOUCHER_CANCELLED',
-              storeId: input.kind === 'conversion' ? input.storeId : null,
-              checkoutId: input.kind === 'conversion' ? input.checkoutId : null,
-              createdAt: wall(),
-              requestId: currentRequestTrace()?.requestId || null,
-            })
-            .onDuplicateKeyUpdate({ set: { id: sql`${voucherOperations.id}` } });
-          const [row] = await tx
-            .select()
-            .from(voucherOperations)
-            .where(eq(voucherOperations.id, operationId))
-            .limit(1)
-            .for('update');
-          if (
-            !row ||
-            row.operatorId !== user.id ||
-            row.kind !== input.kind ||
-            (input.kind === 'conversion' &&
-              (row.storeId !== input.storeId || row.checkoutId !== input.checkoutId))
-          )
-            throw voucherConflict();
-          if (row.errorCode === 'VOUCHER_CANCELLED')
-            return { status: 'cancelled' as const, errorCode: null, receipt: null };
-          if (row.errorCode)
-            return {
-              status: 'rejected' as const,
-              errorCode: viewError.parse(row.errorCode),
-              receipt: null,
-            };
-          return {
-            status: 'succeeded' as const,
-            errorCode: null,
-            receipt: await verifiedVoucherReceipt(tx, row),
-          };
-        }),
-      );
+      let customerId: string;
+      if (input.kind === 'issuance') {
+        await db.get('writer').transaction((tx) => authorizeVoucherIssuer(tx, user));
+        const selection = await readJson(
+          store,
+          voucherKeys.selection(input.selectionId),
+          selectionRecordSchema,
+        );
+        const existing = await readOperation(operationId);
+        if (existing && existing.operatorId === user.id && existing.kind === 'issuance')
+          customerId = existing.customerId;
+        else if (selection && selection.operatorId === user.id) customerId = selection.customerId;
+        else throw voucherChanged();
+      } else {
+        requireStore(user, input.storeId);
+        await db
+          .get('writer')
+          .transaction((tx) => assertCurrentStoreAccess(tx, user.id, input.storeId));
+        const state = await sessions.readScoped(user.id, input.storeId, input.checkoutId);
+        if (!state?.customerId) throw voucherChanged();
+        customerId = state.customerId;
+      }
+      const fence: OperationRecord = {
+        operatorId: user.id,
+        customerId,
+        kind: input.kind,
+        requestHash: hashOf('cancelled', operationId),
+        storeId: input.kind === 'conversion' ? input.storeId : null,
+        checkoutId: input.kind === 'conversion' ? input.checkoutId : null,
+        status: 'cancelled',
+        result: null,
+      };
+      if (
+        await store.set(
+          voucherKeys.operation(operationId),
+          JSON.stringify(fence),
+          OPERATION_TTL_SECONDS,
+          true,
+        )
+      )
+        return { status: 'cancelled' as const, receipt: null };
+      const existing = await readOperation(operationId);
+      if (!existing || existing.operatorId !== user.id || existing.kind !== input.kind)
+        throw voucherConflict();
+      if (existing.status === 'cancelled') return { status: 'cancelled' as const, receipt: null };
+      return { status: 'succeeded' as const, receipt: settled(existing) };
     },
-    async issue(user: Principal, supplied: VoucherIssuance) {
+    /** AjaxGiftVoucherModuleView (core/views.py:1482-1555); W7 production-schema values. */
+    async issue(user: Principal, supplied: VoucherIssuance): Promise<VoucherReceipt> {
       const input = voucherIssuanceSchema.parse(supplied),
-        secret = ready(),
         minor = voucherMinorUnits(input.amount);
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await authorizeVoucherIssuer(tx, user);
-          const [selection] = await tx
-            .select()
-            .from(voucherSelections)
-            .where(
-              and(
-                eq(voucherSelections.id, input.selectionId),
-                eq(voucherSelections.operatorId, user.id),
-              ),
-            )
-            .limit(1)
-            .for('update');
-          if (!selection) throw voucherChanged();
-          const command = await operation(tx, {
-            id: input.operationId,
-            operatorId: user.id,
-            customerId: selection.customerId,
-            kind: 'issuance',
-            requestHash: hash(secret, 'issuance', input),
-          });
-          if (!command.fresh) return replay(tx, command.row);
-          if (
-            selection.expiresAt <= clock() ||
-            selection.consumedBy !== null ||
-            selection.actorVersion !== (await contactActorVersion(tx, user.id))
-          )
-            throw voucherChanged();
-          const current = await customer(tx, selection.customerId),
-            binding = await readCustomerContactBinding(tx, selection.customerId);
-          if (!sameCustomerContact(binding, selection.contact)) throw voucherChanged();
-          await assertVoucherLegacyCompatibility(tx);
-          const now = wall(),
-            code = z
-              .string()
-              .regex(/^GFV[A-Z0-9]{1,22}$/)
-              .parse(createCode()),
-            amount = voucherAmountString(minor),
-            numeric = Number(amount),
-            name = current.firstName + current.lastName;
-          if (name.length > 100 || [...name].some((character) => character.codePointAt(0)! > 255))
-            throw new AppError(
-              409,
-              'VOUCHER_RECIPIENT_UNSUPPORTED',
-              'The recipient name cannot be stored safely in the legacy voucher schema.',
+      await db.get('writer').transaction((tx) => authorizeVoucherIssuer(tx, user));
+      const selectionKey = voucherKeys.selection(input.selectionId),
+        rawSelection = await store.get(selectionKey),
+        selection = await readJson(store, selectionKey, selectionRecordSchema);
+      const existing = await readOperation(input.operationId);
+      if (existing) {
+        if (
+          existing.operatorId !== user.id ||
+          existing.kind !== 'issuance' ||
+          existing.requestHash !== hashOf('issuance', input)
+        )
+          throw voucherConflict();
+        return voucherReceiptSchema.parse(settled(existing));
+      }
+      if (!selection || !rawSelection || selection.operatorId !== user.id) throw voucherChanged();
+      const record: OperationRecord = {
+        operatorId: user.id,
+        customerId: selection.customerId,
+        kind: 'issuance',
+        requestHash: hashOf('issuance', input),
+        storeId: null,
+        checkoutId: null,
+        status: 'inflight',
+        result: null,
+      };
+      const claimed = await claim(input.operationId, record);
+      if (!claimed.fresh) return voucherReceiptSchema.parse(settled(claimed.existing));
+      const consumed = JSON.stringify({ ...selection, consumedBy: input.operationId });
+      if (
+        selection.expiresAt <= clock() ||
+        selection.consumedBy !== null ||
+        !(await store.compareAndSet(selectionKey, rawSelection, consumed, SELECTION_TTL_MS / 1000))
+      ) {
+        await store.deleteIfEquals(voucherKeys.operation(input.operationId), claimed.serialized);
+        throw voucherChanged();
+      }
+      let receipt: VoucherReceipt;
+      try {
+        receipt = await retryTransaction(() =>
+          db.get('writer').transaction(async (tx) => {
+            await authorizeVoucherIssuer(tx, user);
+            const current = await lockedCustomer(tx, selection.customerId);
+            if (current.email !== selection.email) throw voucherChanged();
+            const now = wall(),
+              code = z
+                .string()
+                .regex(/^GFV[A-Z0-9]{1,22}$/)
+                .parse(createCode()),
+              amount = voucherAmountString(minor),
+              numeric = Number(amount),
+              name = current.firstName + current.lastName;
+            if (name.length > 100 || [...name].some((character) => character.codePointAt(0)! > 255))
+              throw new AppError(
+                409,
+                'VOUCHER_RECIPIENT_UNSUPPORTED',
+                'The recipient name cannot be stored safely in the legacy voucher schema.',
+              );
+            const couponId = generatedId(
+              await tx.insert(globalCoupons).values({
+                userId: current.id,
+                fromId: 'connect@thesouledstore.com',
+                fromName: 'The Souled Store',
+                toId: current.email,
+                toName: name,
+                code,
+                name: code,
+                quantity: 0n,
+                type: '3',
+                image: '',
+                offer: 0,
+                validFor: 0,
+                value: Math.round(numeric),
+                initialValue: numeric,
+                specific: 0,
+                category: '3',
+                deleted: 0,
+                internEmail: '',
+                artist: '',
+                remaining: 0,
+                theme: '0',
+                message: '',
+                startsAt: now,
+                // Legacy omits end_date; NOT NULL without default stores the zero date under the
+                // production sql_mode.
+                expiresAt: legacyZeroDateTime,
+                minimum: 0,
+                count: 0,
+                lot: '',
+                paymentMethod: '',
+                transactionId: '',
+                transactionStatus: '',
+                transactionOrderId: 0n,
+                requestedBy: '',
+                newUser: 0,
+                userType: 0,
+                percentageMaximum: '',
+                buyableQuantity: 0n,
+                freeQuantity: 0n,
+                mixedType: '',
+                createdAt: now,
+                updatedAt: now,
+              }),
             );
-          const couponId = generatedId(
-            await tx.insert(globalCoupons).values({
-              userId: current.id,
-              fromId: 'connect@thesouledstore.com',
-              fromName: 'The Souled Store',
-              toId: current.email,
-              toName: name,
-              code,
-              name: code,
-              quantity: 0n,
-              type: '3',
-              image: '',
-              offer: 0,
-              validFor: 0,
-              value: Math.round(numeric),
-              initialValue: numeric,
-              specific: 0,
-              category: '3',
-              deleted: 0,
-              internEmail: '',
-              artist: '',
-              remaining: 0,
-              theme: '0',
-              message: '',
-              startsAt: now,
-              // Legacy core/views.py AjaxGiftVoucherModuleView omits end_date; NOT NULL
-              // without default stores the zero date under the production sql_mode.
-              expiresAt: legacyZeroDateTime,
-              minimum: 0,
-              count: 0,
-              lot: '',
-              paymentMethod: '',
-              transactionId: '',
-              transactionStatus: '',
-              transactionOrderId: 0n,
-              requestedBy: '',
-              newUser: 0,
-              userType: 0,
-              percentageMaximum: '',
-              buyableQuantity: 0n,
-              freeQuantity: 0n,
-              mixedType: '',
-              createdAt: now,
-              updatedAt: now,
-            }),
-          );
-          const voucherId = generatedId(
-            await tx.insert(globalVouchers).values({
-              customerId: current.id,
+            const voucherId = generatedId(
+              await tx.insert(globalVouchers).values({
+                customerId: current.id,
+                recipient: current.email,
+                code,
+                theme: 0,
+                name,
+                phone: 0n,
+                value: numeric,
+                initialValue: numeric,
+                message: '',
+                status: 1,
+                orderId: 0n,
+                couponId,
+                collectionId: 0n,
+                kind: 'GIFT_VOUCHER',
+                serial: 0n,
+                requiresPin: 0,
+                platform: 'both',
+                // Legacy INSERT ... SELECT omits both dates (zero date, see above).
+                startsAt: legacyZeroDateTime,
+                expiresAt: legacyZeroDateTime,
+                createdAt: now,
+                updatedAt: now,
+              }),
+            );
+            const historyId = generatedId(
+              await tx.insert(globalVoucherHistory).values({
+                userId: current.id,
+                orderId: 0n,
+                voucherId,
+                amount: numeric,
+                before: 0,
+                after: numeric,
+                comment: 'GV ADD: Gift Voucher Amount Added',
+                // Legacy writes 'GV_ADD', which is not an ENUM member and is stored as ''.
+                platform: storedEnumValue(voucherHistoryPlatforms, 'GV_ADD'),
+                // Legacy added_user '0' (core/views.py:1544-1545).
+                operatorId: 0n,
+                createdAt: now,
+                updatedAt: now,
+                bulk: 0,
+              }),
+            );
+            const message = `Gift Voucher ${code} Has been created for ${current.email} and amount is ${input.amount}`;
+            // helpers/helpers.py:740-756, platform "Gift Voucher", recipient = email.
+            await tx.insert(PosSpecialPermissionActivityLog).values({
+              pos_user_id: BigInt(user.id),
+              platform: 'Gift Voucher',
               recipient: current.email,
-              code,
-              theme: 0,
-              name,
-              phone: 0n,
-              value: numeric,
-              initialValue: numeric,
-              message: '',
-              status: 1,
-              orderId: 0n,
-              couponId,
-              collectionId: 0n,
-              kind: 'GIFT_VOUCHER',
-              serial: 0n,
-              requiresPin: 0,
-              platform: 'both',
-              // Legacy INSERT ... SELECT omits both dates (zero date, see above).
-              startsAt: legacyZeroDateTime,
-              expiresAt: legacyZeroDateTime,
+              comment: message,
+              created_at: now,
+              updated_at: now,
+            });
+            return voucherReceiptSchema.parse({
+              operationId: input.operationId,
+              kind: 'issuance',
+              operatorId: user.id,
+              customerId: String(current.id),
+              voucherId: String(voucherId),
+              couponId: String(couponId),
+              voucherCode: code,
+              amount,
+              voucherHistoryId: String(historyId),
+              nonExpiring: true,
               createdAt: now,
-              updatedAt: now,
-            }),
-          );
-          const historyId = generatedId(
-            await tx.insert(globalVoucherHistory).values({
-              userId: current.id,
-              orderId: 0n,
-              voucherId,
-              amount: numeric,
-              before: 0,
-              after: numeric,
-              comment: 'GV ADD: Gift Voucher Amount Added',
-              // Legacy writes 'GV_ADD', which is not an ENUM member and is stored as ''.
-              platform: storedEnumValue(voucherHistoryPlatforms, 'GV_ADD'),
-              operatorId: BigInt(user.id),
-              createdAt: now,
-              updatedAt: now,
-              bulk: 0,
-            }),
-          );
-          await audit(tx, user, String(current.id), 'issuance', input.operationId, now);
-          await tx
-            .update(voucherSelections)
-            .set({ consumedBy: input.operationId })
-            .where(eq(voucherSelections.id, input.selectionId));
-          return save(tx, command.row, {
-            operationId: input.operationId,
-            kind: 'issuance',
-            operatorId: user.id,
-            customerId: String(current.id),
-            voucherId: String(voucherId),
-            couponId: String(couponId),
-            voucherCode: code,
-            amount,
-            voucherHistoryId: String(historyId),
-            moneyHistoryId: null,
-            walletBefore: null,
-            walletAfter: null,
-            nonExpiring: true,
-            createdAt: now,
-            contract: globalVoucherContract,
-            valueContract: exactVoucherValueContract,
-            checkoutId: null,
-            checkoutVersion: null,
-            status: 'success',
-            message: `Gift Voucher ${code} Has been created for ${current.email} and amount is ${input.amount}`,
-          });
-        }),
-      );
+              status: 'success',
+              message,
+            });
+          }),
+        );
+      } catch (error) {
+        if (error instanceof AppError && error.status < 500) {
+          await store.deleteIfEquals(voucherKeys.operation(input.operationId), claimed.serialized);
+          await store.compareAndSet(selectionKey, consumed, rawSelection, SELECTION_TTL_MS / 1000);
+        } else await finish(input.operationId, { ...record, status: 'uncertain' });
+        throw error;
+      }
+      await finish(input.operationId, { ...record, status: 'succeeded', result: receipt });
+      return receipt;
     },
+    /** AjaxGiftVoucherCheck (order/views.py:4518-4546) -> API-v2 `gift_voucher_check`. */
+    async check(user: Principal, storeId: string, checkoutId: string, supplied: VoucherCheck) {
+      const input = voucherCheckSchema.parse(supplied),
+        context = await conversionContext(user, storeId, checkoutId);
+      const reply = await upstream.call(
+        'gift_voucher_check',
+        payload(context.customer, input.voucherCode, input.giftCardPin),
+        context.authorization,
+      );
+      if (reply.status !== 200) throw rejection(reply, Boolean(input.giftCardPin));
+      const body = z
+        .object({
+          voucher_value: z.union([z.number(), z.string()]),
+          voucher_validity: z.string().nullable().optional(),
+        })
+        .passthrough()
+        .safeParse(reply.body);
+      if (!body.success) throw voucherServiceUncertain();
+      const validity = body.data.voucher_validity?.split(' ')[0] ?? null;
+      return voucherCheckResultSchema.parse({
+        voucherCode: input.voucherCode,
+        voucherValue: String(body.data.voucher_value),
+        validity,
+        nonExpiring: validity === null || validity === '0000-00-00',
+        pinUsed: Boolean(input.giftCardPin),
+      });
+    },
+    /**
+     * AjaxGiftVoucherConvert (order/views.py:4548-4579) -> API-v2 `gift_voucher_to_tss_money`.
+     * API-v2 is the only writer of the voucher, history and TSS Money rows; the legacy page then
+     * reloads the sale, so the saved quote is invalidated here.
+     */
     async convert(
       user: Principal,
       storeId: string,
       checkoutId: string,
       supplied: VoucherConversion,
-    ) {
-      identifier.parse(storeId);
-      z.uuid().parse(checkoutId);
+    ): Promise<VoucherConversionResult> {
       const input = voucherConversionSchema.parse(supplied),
-        secret = ready();
-      requireStore(user, storeId);
-      if (!options.GLOBAL_VOUCHER_CONVERSION_ENABLED || !dependencies.customerOtp)
-        throw voucherUnavailable();
-      const otp = dependencies.customerOtp;
-      const outcome = await retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          await checkIns.assertCheckIn(user.id, storeId, undefined, tx);
-          const [saved] = await tx
-            .select()
-            .from(checkoutSessions)
-            .where(
-              and(
-                eq(checkoutSessions.id, checkoutId),
-                eq(checkoutSessions.operatorId, user.id),
-                eq(checkoutSessions.storeId, storeId),
-              ),
-            )
-            .limit(1)
-            .for('update');
-          const parsed = checkoutStateSchema.safeParse(saved?.state);
-          if (!parsed.success || !parsed.data.customerId) throw voucherChanged();
-          const state = parsed.data;
-          const command = await operation(tx, {
-            id: input.operationId,
-            kind: 'conversion',
-            operatorId: user.id,
-            customerId: state.customerId!,
-            storeId,
-            checkoutId,
-            requestHash: hash(secret, 'conversion', [storeId, checkoutId, input]),
-          });
-          if (!command.fresh) {
-            if (command.row.errorCode)
-              return { error: viewError.parse(command.row.errorCode), receipt: null };
-            return { error: null, receipt: await replay(tx, command.row) };
-          }
-          if (
-            state.version !== saved?.version ||
-            state.version !== input.expectedVersion ||
-            !['open', 'quoted'].includes(state.phase) ||
-            state.orderId ||
-            state.busyOperationId ||
-            state.draftImport?.status === 'pending'
-          )
-            throw voucherChanged();
-          await checkIns.assertCheckIn(user.id, storeId, state.counterId, tx);
-          assertConversionCart(state);
-          const current = await customer(tx, state.customerId!),
-            binding = await readCustomerContactBinding(tx, state.customerId!);
-          if (
-            !state.verificationChallenge ||
-            !state.verifiedCustomerContact ||
-            !state.verifiedCustomerUntil ||
-            state.verifiedCustomerUntil <= clock() ||
-            !sameCustomerContact(binding, state.verifiedCustomerContact)
-          )
-            throw new AppError(
-              403,
-              'CUSTOMER_VERIFICATION_REQUIRED',
-              'Verify this customer before converting a voucher.',
-            );
-          await otp.assertVerified(
-            tx,
-            user,
-            {
-              operatorId: user.id,
-              storeId,
-              counterId: state.counterId,
-              customerId: state.customerId!,
-              purpose: 'checkout-benefits',
-              subjectId: checkoutId,
-              orderId: null,
-            },
-            state.verificationChallenge.id,
-            binding,
-            state.verifiedCustomerUntil,
-          );
-          const [preview] = await tx
-            .select({ id: globalVouchers.id, collectionId: globalVouchers.collectionId })
-            .from(globalVouchers)
-            .where(eq(globalVouchers.code, input.voucherCode))
-            .limit(1);
-          if (!preview) throw new AppError(404, 'VOUCHER_NOT_FOUND', 'Voucher Does Not Exist');
-          if (preview.collectionId > 0n) {
-            const [collection] = await tx
-              .select({ id: GiftCardCollection.id })
-              .from(GiftCardCollection)
-              .where(eq(GiftCardCollection.id, preview.collectionId))
-              .limit(1)
-              .for('update');
-            if (!collection) throw voucherIntegrity();
-          }
-          const [voucher] = await tx
-            .select({
-              voucher: globalVouchers,
-              fundingHash: sql<string>`${sql.raw(giftCardIssuanceHashSql)}`,
-            })
-            .from(globalVouchers)
-            .where(eq(globalVouchers.id, preview.id))
-            .limit(1)
-            .for('update');
-          if (
-            !voucher ||
-            voucher.voucher.collectionId !== preview.collectionId ||
-            voucher.voucher.code.toLowerCase() !== input.voucherCode.toLowerCase()
-          )
-            throw voucherChanged();
-          const card = voucher.voucher,
-            now = wall();
-          if (
-            !['GIFT_VOUCHER', 'GIFT_CARD'].includes(card.kind) ||
-            !['online', 'both'].includes(card.platform)
-          )
-            throw new AppError(
-              422,
-              'VOUCHER_PLATFORM_UNSUPPORTED',
-              'Voucher Not Valid For Online Use',
-            );
-          if (card.status !== 1)
-            throw new AppError(422, 'VOUCHER_DEACTIVATED', 'This voucher code is deactivated.');
-          if (card.recipient && card.recipient !== current.email)
-            throw new AppError(
-              403,
-              'VOUCHER_RECIPIENT_MISMATCH',
-              'This voucher is not valid for this user',
-            );
-          if (card.kind === 'GIFT_CARD') {
-            if (
-              options.GLOBAL_VOUCHER_GIFT_CARD_DATES_ENABLED &&
-              !giftCardDatesValid(card.startsAt, card.expiresAt, now)
-            )
-              throw new AppError(422, 'GIFT_CARD_EXPIRED', 'Gift card expired.');
-            const [funding] = await tx
-              .select()
-              .from(giftCardIssuances)
-              .where(eq(giftCardIssuances.voucherId, card.id))
-              .limit(1)
-              .for('share');
-            if (
-              !funding ||
-              funding.contract !== giftCardIssuanceContract ||
-              funding.orderId !== card.orderId ||
-              funding.collectionId !== card.collectionId ||
-              funding.serial !== card.serial ||
-              funding.inputHash !== voucher.fundingHash
-            )
-              throw new AppError(
-                409,
-                'GIFT_CARD_FUNDING_UNCONFIRMED',
-                'Gift card funding requires verified issuance evidence.',
-              );
-          }
-          const planned = planVoucherConversion(
-              card.value,
-              card.initialValue,
-              current.money,
-              current.cashback,
-            ),
-            badPin = await pin(tx, card, input.giftCardPin);
-          if (badPin) {
-            await tx
-              .update(voucherOperations)
-              .set({ errorCode: badPin })
-              .where(eq(voucherOperations.id, input.operationId));
-            return { error: badPin, receipt: null };
-          }
-          await tx
-            .update(globalVouchers)
-            .set({ value: 0, status: card.kind === 'GIFT_CARD' ? 0 : card.status, updatedAt: now })
-            .where(eq(globalVouchers.id, card.id));
-          const amount = Number(voucherAmountString(planned.amount));
-          const voucherHistoryId = generatedId(
-            await tx.insert(globalVoucherHistory).values({
-              userId: current.id,
-              orderId: 0n,
-              voucherId: card.id,
-              amount: -amount,
-              before: amount,
-              after: 0,
-              platform: 'MISC_COMPENSATION',
-              comment: 'Voucher Converted To TSS Money',
-              operatorId: BigInt(user.id),
-              createdAt: now,
-              updatedAt: now,
-              bulk: 0,
-            }),
-          );
-          const moneyHistoryId = generatedId(
-            await tx.insert(walletMoneyHistory).values({
-              userId: current.id,
-              orderId: 0n,
-              productId: 0n,
-              addedAmount: amount,
-              usedAmount: 0,
-              balanceBefore: Number(voucherAmountString(planned.before)),
-              balanceAfter: planned.numeric,
-              platform: 'MISC_COMPENSATION',
-              comment: 'Voucher Converted To TSS Money',
-              addedUser: BigInt(user.id),
-              createdAt: now,
-              updatedAt: now,
-              expiry:
-                !options.GLOBAL_VOUCHER_MONEY_EXPIRY_ENABLED ||
-                card.expiresAt === '0000-00-00 00:00:00'
-                  ? null
-                  : card.expiresAt,
-              expired: 0,
-            }),
-          );
-          await tx
-            .update(MUser)
-            .set({ tss_money: planned.numeric, updated_at: now })
-            .where(eq(MUser.id, current.id));
-          const [stored] = await tx
-            .select(customerProjection)
-            .from(MUser)
-            .where(eq(MUser.id, current.id))
-            .limit(1);
-          if (
-            !stored ||
-            stored.cashback !== current.cashback ||
-            storedVoucherMinorUnits(stored.money) !== planned.after
-          )
-            throw voucherIntegrity();
-          const next = {
-            ...state,
-            phase: 'open' as const,
-            quote: null,
-            version: state.version + 1,
-            updatedAt: clock(),
-          };
-          await tx
-            .update(checkoutSessions)
-            .set({ state: next, version: next.version })
-            .where(eq(checkoutSessions.id, checkoutId));
-          await audit(tx, user, String(current.id), 'conversion', input.operationId, now);
-          const receipt = await save(tx, command.row, {
-            operationId: input.operationId,
-            kind: 'conversion',
-            operatorId: user.id,
-            customerId: String(current.id),
-            voucherId: String(card.id),
-            couponId: String(card.couponId),
-            voucherCode: card.code,
-            amount: voucherAmountString(planned.amount),
-            voucherHistoryId: String(voucherHistoryId),
-            moneyHistoryId: String(moneyHistoryId),
-            walletBefore: voucherAmountString(planned.before),
-            walletAfter: voucherAmountString(planned.after),
-            nonExpiring: card.expiresAt === null || card.expiresAt === '0000-00-00 00:00:00',
-            createdAt: now,
-            contract: globalVoucherContract,
-            valueContract: exactVoucherValueContract,
-            checkoutId,
-            checkoutVersion: next.version,
-            status: 'success',
-            message: 'voucher has been converted to tss money',
-          });
-          return { error: null, receipt };
-        }),
-      );
-      if (outcome.error) throw voucherPinError(outcome.error);
-      return outcome.receipt!;
+        context = await conversionContext(user, storeId, checkoutId);
+      assertConversionCart(context.state);
+      const record: OperationRecord = {
+        operatorId: user.id,
+        customerId: context.state.customerId!,
+        kind: 'conversion',
+        requestHash: hashOf('conversion', [storeId, checkoutId, input]),
+        storeId,
+        checkoutId,
+        status: 'inflight',
+        result: null,
+      };
+      const claimed = await claim(input.operationId, record);
+      if (!claimed.fresh) return voucherConversionResultSchema.parse(settled(claimed.existing));
+      let reply: VoucherUpstreamReply;
+      try {
+        reply = await upstream.call(
+          'gift_voucher_to_tss_money',
+          payload(context.customer, input.voucherCode, input.giftCardPin),
+          context.authorization,
+        );
+      } catch (error) {
+        // An unknown outcome is never resent automatically.
+        await finish(input.operationId, { ...record, status: 'uncertain' }).catch(() => undefined);
+        throw error;
+      }
+      if (reply.status !== 200) {
+        const error = rejection(reply, Boolean(input.giftCardPin));
+        if (error.status >= 500)
+          await finish(input.operationId, { ...record, status: 'uncertain' });
+        else
+          await store.deleteIfEquals(voucherKeys.operation(input.operationId), claimed.serialized);
+        throw error;
+      }
+      // Legacy PIN path requires `message.status` (create_order.html:4026); 200 alone otherwise.
+      if (
+        input.giftCardPin &&
+        !z.object({ status: z.unknown() }).passthrough().safeParse(reply.body).data?.status
+      ) {
+        await store.deleteIfEquals(voucherKeys.operation(input.operationId), claimed.serialized);
+        throw rejection({ status: 422, body: reply.body }, true);
+      }
+      const result = voucherConversionResultSchema.parse({
+        operationId: input.operationId,
+        kind: 'conversion',
+        operatorId: user.id,
+        customerId: context.state.customerId!,
+        storeId,
+        checkoutId,
+        voucherCode: input.voucherCode,
+        pinUsed: Boolean(input.giftCardPin),
+        status: 'success',
+        message: input.giftCardPin
+          ? "Gift Card Amount Has Been Transfered To User's TSS Money"
+          : "Gift Voucher Amount Has Been Transfered To User's TSS Money",
+      });
+      await finish(input.operationId, { ...record, status: 'succeeded', result });
+      await invalidateQuote(user, storeId, checkoutId).catch(() => undefined);
+      return result;
     },
   };
+  /** Equivalent of the legacy `location.reload()`: the TSS Money balance changed upstream. */
+  async function invalidateQuote(user: Principal, storeId: string, checkoutId: string) {
+    await sessions.exclusive(user.id, storeId, checkoutId, async (state: CheckoutState) => {
+      if (state.phase !== 'quoted' || state.busyOperationId) return { state: null, value: null };
+      return {
+        state: {
+          ...state,
+          phase: 'open',
+          quote: null,
+          version: state.version + 1,
+          updatedAt: clock(),
+        },
+        value: null,
+      };
+    });
+  }
 }

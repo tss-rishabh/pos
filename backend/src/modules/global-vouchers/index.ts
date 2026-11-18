@@ -6,6 +6,7 @@ import type { Databases } from '../../db/pools.js';
 import { identifier } from '../../domain/validation.js';
 import {
   voucherCancellationSchema,
+  voucherCheckSchema,
   voucherConversionSchema,
   voucherIssuanceSchema,
   voucherLookupSchema,
@@ -75,15 +76,27 @@ export async function registerGlobalVouchers(
       );
     },
   );
+  const checkoutScope = z.object({ storeId: identifier, checkoutId: z.uuid() }).strict();
+  app.post(
+    '/api/v1/stores/:storeId/checkout-sessions/:checkoutId/voucher-checks',
+    trace('gift-voucher-check', 'create'),
+    async (request, reply) => {
+      privateResponse(reply);
+      const parameters = checkoutScope.parse(request.params);
+      return service.check(
+        authenticated(request),
+        parameters.storeId,
+        parameters.checkoutId,
+        voucherCheckSchema.parse(request.body),
+      );
+    },
+  );
   app.post(
     '/api/v1/stores/:storeId/checkout-sessions/:checkoutId/voucher-conversions',
     trace('gift-voucher-conversion', 'create'),
     async (request, reply) => {
       privateResponse(reply);
-      const parameters = z
-        .object({ storeId: identifier, checkoutId: z.uuid() })
-        .strict()
-        .parse(request.params);
+      const parameters = checkoutScope.parse(request.params);
       return service.convert(
         authenticated(request),
         parameters.storeId,
@@ -97,10 +110,7 @@ export async function registerGlobalVouchers(
     trace('gift-voucher-conversion-capability', 'read'),
     async (request, reply) => {
       privateResponse(reply);
-      const parameters = z
-        .object({ storeId: identifier, checkoutId: z.uuid() })
-        .strict()
-        .parse(request.params);
+      const parameters = checkoutScope.parse(request.params);
       return service.conversionCapabilities(
         authenticated(request),
         parameters.storeId,

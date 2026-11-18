@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import { z } from 'zod';
 import { PosUser } from '../../db/legacy-schema.js';
 import type { Principal } from '../../domain/access.js';
@@ -6,8 +6,11 @@ import { AppError } from '../../domain/errors.js';
 import { assertCurrentOperatorRole } from '../administration/authorization.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
 import type { CheckoutState } from '../checkout/contracts.js';
-import { voucherUnavailable } from './errors.js';
 
+/**
+ * core/views.py:1482 `advance_permisson("[1,2,3]")`; the Special Permission page also excludes
+ * franchise users (`user_type_exempt("[2]")`, core/views.py:1176), enforced here too.
+ */
 export async function authorizeVoucherIssuer(tx: AdministrationTransaction, user: Principal) {
   await assertCurrentOperatorRole(tx, user.id, [1, 2, 3]);
   const [operator] = await tx
@@ -16,33 +19,12 @@ export async function authorizeVoucherIssuer(tx: AdministrationTransaction, user
     .where(eq(PosUser.id, BigInt(user.id)))
     .limit(1)
     .for('share');
-  if (operator?.type !== 1)
+  if (!operator || operator.type === 2)
     throw new AppError(
       403,
       'GLOBAL_VOUCHER_ACCESS_DENIED',
       'Gift voucher issuance requires an internal administrator.',
     );
-}
-export async function assertVoucherLegacyCompatibility(tx: AdministrationTransaction) {
-  const result =
-    await tx.execute(sql`SELECT TABLE_NAME AS tableName,COLUMN_NAME AS columnName,IS_NULLABLE AS nullable,COLUMN_TYPE AS columnType
-    FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND
-    ((TABLE_NAME='coupons' AND COLUMN_NAME='end_date') OR
-    (TABLE_NAME='gift_vouchers' AND COLUMN_NAME IN ('start_date','end_date')) OR
-    (TABLE_NAME='gift_voucher_history' AND COLUMN_NAME='platform'))`);
-  const rows = z
-    .array(
-      z.object({
-        tableName: z.string(),
-        columnName: z.string(),
-        nullable: z.enum(['YES', 'NO']),
-        columnType: z.string(),
-      }),
-    )
-    .parse(result[0]);
-  // The writer adapts to the production schema (zero-date validity, platform '') and
-  // needs no DDL; it only requires the columns it writes to exist.
-  if (rows.length !== 4) throw voucherUnavailable();
 }
 function hasVoucherMeta(raw: unknown): boolean {
   const projected = z
