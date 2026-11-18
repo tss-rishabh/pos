@@ -147,15 +147,11 @@ requires this contract and invalidates the old quote atomically; phone/email
 changes use separate identity workflows. The candidate does not weaken the
 independent financial projection/refund/wallet-lock requirements.
 
-Run `npm run worker:security` with `AUTH_SECURITY_WORKER_ENABLED=true` and the
-approved `LOGIN_SECURITY_SLACK_WEBHOOK` to deliver durable lockout alerts and
-prune expired login proofs/sessions. It is disabled by default. Delivery is
-at least once for these nonfinancial alerts; an interrupted acknowledgment can
-repeat the same alert ID. Retries have backoff and stop after ten attempts.
-Recover one exhausted alert explicitly with `-- --retry-alert ALERT_UUID` after
-fixing its dependency. Logs retain original request/user IDs and static event
-names, never the webhook URL, phone, email or OTP. Alert delivery does not hold
-the login request open.
+Sessions and login OTP state live in `REDIS_URL` (legacy redis database 0), which
+must run with `maxmemory-policy noeviction`. Lockout alerts post to
+`LOGIN_SECURITY_SLACK_WEBHOOK` once, fire-and-forget, as legacy does; there is no
+security worker. Alerts and logs never carry the OTP, password, email or an unmasked
+phone.
 
 Provide BigQuery ADC/workload identity, project/location and verified view/table
 contracts. Current business-day reports use the data reader; historical and
