@@ -1,0 +1,11 @@
+{
+  "allOwnedResourcesAbsent": true,
+  "checks": [
+    {
+      "kind": "container",
+      "id": "43600c3d8198bcc7082e894aea07c65c12a9b492e9148644fd0f32c6de3a300f",
+      "absent": true
+    }
+  ],
+  "privateEnvironmentRemoved": true
+}
