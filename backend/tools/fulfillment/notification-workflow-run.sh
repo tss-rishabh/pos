@@ -13,7 +13,7 @@ git -C "$NOTIFICATION_SOURCE_ROOT" cat-file -e 78d5b63d6a149a6bf2c748fa1d191799c
 notification_temporary=$(mktemp -d /tmp/pos-notification-native-workflow.XXXXXX)
 notification_container=''
 cleanup() {
-  if [ -n "$notification_container" ]; then docker rm -f "$notification_container" >/dev/null 2>&1 || true; fi
+  if [ -n "$notification_container" ]; then docker rm -fv "$notification_container" >/dev/null 2>&1 || true; fi
   rm -rf "$notification_temporary"
 }
 trap cleanup EXIT HUP INT TERM

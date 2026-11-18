@@ -90,10 +90,11 @@ describe.skipIf(!process.env.NOTIFICATION_WORKFLOW_MYSQL_URL)(
       return page;
     }
     async function sourcePage(variant: 'main' | 'compact' = 'main') {
+      const before = fixture.streamCount('source');
       const current = await context(true),
         page = await current.newPage();
       await page.goto(fixture.origin + '/__notification_source_header__?variant=' + variant);
-      await ui.poll(() => fixture.streamCount('source')).toBeGreaterThan(0);
+      await ui.poll(() => fixture.streamCount('source')).toBe(before + 1);
       // An ordinary user gesture permits the original media element to play.
       await page.locator('#source-media-gesture').click();
       return page;
@@ -345,7 +346,10 @@ describe.skipIf(!process.env.NOTIFICATION_WORKFLOW_MYSQL_URL)(
       expect((await http(notificationFeed, 'GET', '7', credential)).status).toBe(401);
       await ui(page.locator('.notification-panel article')).toHaveCount(0);
       await fixture.archiveActor(true);
-      for (const revoke of [() => fixture.removeAssignment(), () => fixture.expireCheckIn()]) {
+      for (const [reason, revoke] of [
+        ['assignment revoked', () => fixture.removeAssignment()],
+        ['check-in expired', () => fixture.expireCheckIn()],
+      ] as const) {
         await fixture.reset();
         await fixture.seedNotice(nextId(1), 'Authority synthetic');
         const stream = await socket('candidate');
@@ -353,7 +357,7 @@ describe.skipIf(!process.env.NOTIFICATION_WORKFLOW_MYSQL_URL)(
         await revoke();
         await fixture.publish(nextId(1), false);
         expect(await close).toBe(1008);
-        expect((await http()).status).toBe(403);
+        expect((await http()).status, reason).toBe(403);
       }
       await fixture.reset();
       const short = await socket('candidate', '7', '1', { ttl: 750 });

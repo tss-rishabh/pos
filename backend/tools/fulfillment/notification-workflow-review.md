@@ -1,6 +1,6 @@
 # Notification joined workflow candidate
 
-Status: authored, **unexecuted**. No parity admission or pass claim is made by this candidate. The production graph must first incorporate Root recovery, device-clock, and WorkspaceContext commits (6d4e124, da8f9bc, 9716048), then be recorded from the actual execution checkout. No receipt has been generated.
+Status: execution in progress, **not admitted**. The first three attempts stopped in fixture setup; the fourth reached seven cases with two passing and five failing. Four failures shared a now-corrected browser carrier readiness typo. The fifth exposed a notification read authority contract mismatch, reported to Root before any production edit. No parity admission or final pass claim is made by this candidate. The production graph must first incorporate Root recovery, device-clock, and WorkspaceContext commits (6d4e124, da8f9bc, 9716048), then be recorded from the actual execution checkout. No receipt has been generated.
 
 The proposed scope is the original `notification/routing.py:6` WebSocket route and `notification/urls.py:7` mark-read route, pinned to source 78d5b63d6a149a6bf2c748fa1d191799c59ecb8a. It does not admit either entire base template or navbar. Seven grouped cases join original producer/Redis/consumer/header controls and original native Django ORM to the real production App, authenticated native API, actual Redis bus, WebSockets, and the same disposable physical MySQL rows.
 
@@ -26,3 +26,9 @@ Authoring checks passed: both scoped TypeScript strict projects, changed-file ba
 Required execution evidence remains pending: complete terminal canonical output, immutable hashes of all used source and production App inputs, exact tool/dependency versions, retained sanitized log digest, native database final-state and no-financial-change checks. An authoring count cannot replace those results.
 
 Explicit exclusions: external SSO and source identity-provider bootstrap, generic production ASGI/CDN/deployment infrastructure, full header/template acceptance, warehouse/history/cart/order-provider workflows, fulfillment financial/webhook producers, global expiry/day-close feature admission, physical speaker/OS audio output, Electron package/platform acceptance, and full release readiness. Only local real browser media/WebAudio behavior is proposed here.
+
+## Retained failure evidence
+
+Private logs `/tmp/pos-notification-private-20261118/native-workflow-{first,second,third,fourth}.log` retain exact failures. Fixture seed corrections preserve physical schema: stores use STORE/IN_HOUSE, has_products uses PLACED, express_line_item uses small native order IDs301/302. Native notifications retain BIGINT IDs and order references above2^53; navigation proof does not certify downstream order resolution. No DDL was widened. The first runner used docker rm-f and its anonymous volume cannot currently be conclusively bound after container removal; it is explicitly left unidentified rather than broadly pruned. Subsequent exact-created-container cleanup uses rm-fv.
+
+Observed production mismatch: expired current check-in closes the real WebSocket1008 but native notification GET still returns200. GET/index301 and PUT/index317 lack requireCurrentCheckIn; the stored GET uses principal scope and primary-reader data. Root has been asked to resolve whether stored read/read-receipt must follow the current-check-in boundary. Existing deadlines and the failing guard assertion remain intact.

@@ -160,7 +160,7 @@ export async function nativeNotificationFixture(output: string) {
         store_name: `Synthetic store ${store}`,
         location_code: `SYN${store}`,
         type: 'STORE',
-        category: 'COCO',
+        category: 'IN_HOUSE',
         is_active: 1,
       });
       await physical.insert('store_counters', {
@@ -192,8 +192,8 @@ export async function nativeNotificationFixture(output: string) {
     });
     const timestamp = () => localTimestamp(Temporal.Now.instant(), 'Asia/Kolkata');
     for (const [id, store] of [
-      [notificationOrder, 1],
-      [notificationOtherOrder, 2],
+      ['301', 1],
+      ['302', 2],
     ] as const) {
       await physical.insert(getTableName(Order), {
         id,
@@ -206,7 +206,7 @@ export async function nativeNotificationFixture(output: string) {
         order_id: id,
         prod_id: 10,
         qty: 1,
-        status: 'CONFIRMED',
+        status: 'PLACED',
       });
       await physical.insert(getTableName(ExpressLineItem), {
         id: store,
