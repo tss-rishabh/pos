@@ -44,7 +44,7 @@ import { counterTriggers } from '../../src/modules/legacy-order-imports/screenin
 
 export const fixtureCounterSourceKey = 'isolated-import-counter-source-key-'.repeat(2);
 export const fixtureCounterPublicationKey = 'isolated-import-counter-publication-key-'.repeat(2);
-const nativeDml = new Set(
+const nativeDml = new Set<string>(
   [
     PosUser,
     Store,
