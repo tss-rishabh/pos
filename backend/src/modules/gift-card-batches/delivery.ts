@@ -1,25 +1,22 @@
-import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
-import { boundedJson } from '../../domain/http-json.js';
 import type { GiftCardBatchDelivery } from './contracts.js';
 import type { GiftCardBatchOptions } from './options.js';
 import { maxGiftCardArchiveBytes } from './generation.js';
 
-/** Source Netcore attachment contract. Unknown acknowledgment is never automatically called delivered/retried. */
+/**
+ * Legacy `Helpers.send_mail` → `send_netcore_email` (helpers/helpers.py:1434-1475): one Netcore
+ * POST with the zip as `GC_CARD_DATA.zip`. Legacy swallows every failure (`raise_for_status`
+ * then `.json()`, exceptions logged); `send` returns false instead of throwing.
+ */
 export function createGiftCardBatchDelivery(
-  config: Pick<Config, 'NODE_ENV' | 'DEMO_MODE'>,
+  config: Pick<Config, 'DEMO_MODE'>,
   options: GiftCardBatchOptions,
   fetcher: typeof fetch = fetch,
 ): GiftCardBatchDelivery | undefined {
-  if (
-    config.DEMO_MODE ||
-    !options.GIFT_CARD_BATCHES_ENABLED ||
-    !options.NETCORE_EMAIL_URL ||
-    !options.NETCORE_API_KEY
-  )
-    return undefined;
-  const endpoint = new URL(options.NETCORE_EMAIL_URL);
+  if (config.DEMO_MODE || !options.NETCORE_EMAIL_URL || !options.NETCORE_API_KEY) return undefined;
+  const endpoint = new URL(options.NETCORE_EMAIL_URL),
+    apiKey = options.NETCORE_API_KEY;
   if (
     endpoint.protocol !== 'https:' ||
     endpoint.username ||
@@ -33,35 +30,27 @@ export function createGiftCardBatchDelivery(
       'Configure an approved gift card email endpoint.',
     );
   return {
-    async send(attemptId, input, signal) {
+    async send(input, signal) {
       if (
-        !z.uuid().safeParse(attemptId).success ||
-        !/^[1-9]\d{0,18}$/.test(input.batchId) ||
-        !z.email().safeParse(input.recipient).success ||
+        !input.recipient ||
         input.archive.length < 1 ||
         input.archive.length > maxGiftCardArchiveBytes
       )
-        return 'rejected';
+        return false;
+      const timeout = AbortSignal.timeout(options.GIFT_CARD_BATCH_DELIVERY_TIMEOUT_MS);
       let response: Response | undefined;
       try {
         response = await fetcher(endpoint, {
           method: 'POST',
           redirect: 'error',
-          headers: {
-            api_key: options.NETCORE_API_KEY!,
-            'Content-Type': 'application/json',
-            'Idempotency-Key': attemptId,
-            ...(input.requestId && /^[A-Za-z0-9._-]{1,128}$/.test(input.requestId)
-              ? { 'X-Request-Id': input.requestId }
-              : {}),
-          },
+          headers: { api_key: apiKey, 'content-type': 'application/json' },
           body: JSON.stringify({
             from: { email: 'connect@thesouledstore.com', name: 'The Souled Store' },
             subject: 'GC Card Data',
             content: [
               {
                 type: 'html',
-                value: `Please download the attached file for Collection: ${input.batchId}. Retrieve its access password from your signed-in Gift card batches page.`,
+                value: `Please download the attached file for Collection: ${input.collectionId}`,
               },
             ],
             personalizations: [
@@ -69,32 +58,18 @@ export function createGiftCardBatchDelivery(
             ],
             attachments: [{ content: input.archive.toString('base64'), name: 'GC_CARD_DATA.zip' }],
           }),
-          signal: signal
-            ? AbortSignal.any([
-                signal,
-                AbortSignal.timeout(options.GIFT_CARD_BATCH_DELIVERY_TIMEOUT_MS),
-              ])
-            : AbortSignal.timeout(options.GIFT_CARD_BATCH_DELIVERY_TIMEOUT_MS),
+          signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
         });
-        if (
-          response.status >= 400 &&
-          response.status < 500 &&
-          response.status !== 408 &&
-          response.status !== 429
-        )
-          return 'rejected';
-        if (!response.ok) return 'uncertain';
-        const result = await boundedJson(response, 64000);
-        return z.object({ status: z.literal('success') }).safeParse(result).success
-          ? 'accepted'
-          : 'uncertain';
+        if (!response.ok) return false;
+        await response.json();
+        return true;
       } catch {
-        return 'uncertain';
+        return false;
       } finally {
         try {
-          await response?.body?.cancel();
+          if (response && !response.bodyUsed) await response.body?.cancel();
         } catch {
-          /* Response was already consumed; no provider data is logged. */
+          /* No provider data is logged. */
         }
       }
     },

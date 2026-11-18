@@ -1,20 +1,15 @@
-import { randomBytes } from 'node:crypto';
 import { ZipReader, Uint8ArrayReader, TextWriter } from '@zip.js/zip.js';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   generateGiftCards,
+  giftCardArchiveNames,
+  giftCardArchivePassword,
   giftCardCsv,
   giftCardRecipient,
   sourceGiftCardPin,
 } from '../../src/modules/gift-card-batches/generation.js';
 import { giftCardArchive } from '../../src/modules/gift-card-batches/archives.js';
-import { readGiftCardBatchOptions } from '../../src/modules/gift-card-batches/options.js';
-import {
-  newGiftCardSecrets,
-  openGiftCardSecrets,
-  sealGiftCardSecrets,
-} from '../../src/modules/gift-card-batches/secrets.js';
 import { goldenStdout } from '../golden/load.js';
 
 const oracle = (cases: unknown[]) =>
@@ -25,7 +20,7 @@ const oracle = (cases: unknown[]) =>
         goldenStdout('administration', 'gift-card-batches', JSON.stringify({ cases })),
       ) as unknown,
     ).cases;
-describe('gift card batch source format and private archives', () => {
+describe('gift card batch source format and legacy archives', () => {
   it('matches actual pinned Python CSV/Hashids/PIN output for source random draws, including exact serials above2^53', () => {
     const inputs = ['1', '10', '123', '999999', '123456789', '999999999'].flatMap((collectionId) =>
       [1, 3, 123].map((size) => ({ operation: 'generate', collectionId, size, seed: size * 11 })),
@@ -93,15 +88,27 @@ describe('gift card batch source format and private archives', () => {
     emails.forEach((email, index) =>
       expect(giftCardRecipient(email)).toBe(expected[serials.length + index]),
     );
-    for (const value of [null, '', 'pos.', 'invalid'])
-      expect(() => giftCardRecipient(value)).toThrow();
+    // Legacy sends to whatever clean_email returns; an empty result means "not eligible".
+    expect([null, '', 'pos.', 'invalid'].map(giftCardRecipient)).toEqual(['', '', '', 'invalid']);
   });
-  it('writes an authenticated AES256 archive with no plaintext card data and rejects the wrong password', async () => {
+  it('derives the legacy archive password and file names (helpers/helpers.py:1323-1350)', () => {
+    expect(giftCardArchivePassword('0123456789', '10')).toBe('45678910');
+    expect(giftCardArchivePassword('98765', '7')).toBe('987657');
+    expect(giftCardArchivePassword(null, '7')).toBe('1234567');
+    expect(giftCardArchivePassword('', '42')).toBe('12345642');
+    expect(giftCardArchiveNames(1731990000123450n, () => 7)).toEqual({
+      entry: 'GFTCRDS-173199000012345777777.csv',
+      key: 'uploads/csv/giftcards/GFTCRDS-173199000012345777777.zip',
+    });
+    expect(giftCardArchiveNames(1731990000000000n, () => 1).entry).toBe(
+      'GFTCRDS-17319900000111111.csv',
+    );
+  });
+  it('writes a ZipCrypto archive with one CSV entry named like the legacy file', async () => {
     const cards = generateGiftCards('7', 3, 'fixture-gift-card-batch-salt'),
       csv = giftCardCsv(cards),
-      password = randomBytes(32).toString('base64url'),
-      archive = await giftCardArchive(csv, password);
-    expect(archive.includes(csv)).toBe(false);
+      password = giftCardArchivePassword('9876543210', '7'),
+      archive = await giftCardArchive(csv, 'GFTCRDS-17319900001.csv', password);
     expect(archive.includes(Buffer.from(cards[0]!.code))).toBe(false);
     const reader = new ZipReader(new Uint8ArrayReader(archive), { useWebWorkers: false });
     try {
@@ -109,46 +116,19 @@ describe('gift card batch source format and private archives', () => {
       expect(entries).toHaveLength(1);
       const entry = entries[0]!;
       if (entry.directory) throw new Error('Fixture archive does not contain a file.');
-      expect(entry.filename).toBe('gift-cards.csv');
+      expect(entry.filename).toBe('GFTCRDS-17319900001.csv');
       expect(entry.encrypted).toBe(true);
-      expect(entry.zipCrypto).not.toBe(true);
+      expect(entry.zipCrypto).toBe(true);
       if (!entry.getData) throw new Error('Encrypted archive entry is unavailable.');
       await expect(
         entry.getData(new TextWriter(), { password: 'incorrect-password' }),
       ).rejects.toThrow();
-      expect(await entry.getData(new TextWriter(), { password })).toBe(csv.toString('utf8'));
+      expect(await entry.getData(new TextWriter(), { password: '5432107' })).toBe(
+        csv.toString('utf8'),
+      );
     } finally {
       await reader.close();
     }
-  });
-  it('binds sealed artifact secrets to batch/key IDs and retains old keys during rotation', () => {
-    const options = readGiftCardBatchOptions({
-        GC_SALTKEY: 'fixture-gift-card-batch-salt',
-        GIFT_CARD_BATCH_ACTIVE_KEY_ID: 'first',
-        GIFT_CARD_BATCH_ENCRYPTION_KEYS: JSON.stringify({ first: 'ab'.repeat(32) }),
-      }),
-      sealed = newGiftCardSecrets(options, '7', 'fixture@example.test');
-    expect(sealed).not.toContain('fixture@example.test');
-    const first = openGiftCardSecrets(options, '7', sealed);
-    expect(first.password).toHaveLength(43);
-    expect(() => openGiftCardSecrets(options, '8', sealed)).toThrow();
-    expect(() => openGiftCardSecrets(options, '7', sealed.slice(0, -3) + 'xxx')).toThrow();
-    const rotated = {
-      ...options,
-      GIFT_CARD_BATCH_ACTIVE_KEY_ID: 'second',
-      GIFT_CARD_BATCH_ENCRYPTION_KEYS: { first: 'ab'.repeat(32), second: 'cd'.repeat(32) },
-    };
-    expect(openGiftCardSecrets(rotated, '7', sealed)).toEqual(first);
-    const resealed = sealGiftCardSecrets(rotated, first);
-    expect(resealed.startsWith('second.')).toBe(true);
-    expect(openGiftCardSecrets(rotated, '7', resealed)).toEqual(first);
-    expect(() =>
-      openGiftCardSecrets(
-        { ...rotated, GIFT_CARD_BATCH_ENCRYPTION_KEYS: { second: 'cd'.repeat(32) } },
-        '7',
-        sealed,
-      ),
-    ).toThrow();
   });
   it('refuses malformed/oversized/undecodable batch formats and bounds generated archives', async () => {
     for (const [collectionId, size] of [
@@ -161,11 +141,8 @@ describe('gift card batch source format and private archives', () => {
       expect(() => generateGiftCards(collectionId, size, 'fixture-salt')).toThrow();
     expect(() => generateGiftCards('1', 1, 'fixture-salt', () => 90)).toThrow();
     expect(generateGiftCards('1', 10000, 'fixture-salt')).toHaveLength(10000);
-    await expect(giftCardArchive(Buffer.from('private'), 'short')).rejects.toMatchObject({
-      code: 'GIFT_CARD_ARCHIVE_INVALID',
-    });
-    expect(() =>
-      readGiftCardBatchOptions({ GIFT_CARD_BATCH_ENCRYPTION_KEYS: 'private-not-json' }),
-    ).toThrow();
+    await expect(
+      giftCardArchive(Buffer.from('private'), 'gift-cards.csv', '1234561'),
+    ).rejects.toMatchObject({ code: 'GIFT_CARD_ARCHIVE_INVALID' });
   });
 });

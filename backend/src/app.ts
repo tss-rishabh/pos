@@ -402,7 +402,7 @@ export async function buildApp(
   registerApplicationLinks(app, config, db);
   registerMotivationalQuotes(app);
   registerDashboard(app, config, db);
-  registerGiftCardBatches(app, config, db, readGiftCardBatchOptions());
+  registerGiftCardBatches(app, config, db, readGiftCardBatchOptions(), moduleRuntime);
   registerAdministrationHistory(app, config, db, readAdministrationHistoryOptions());
   app.get('/api/v1/reports/daily-store-sales', async (request) => {
     const user = authenticated(request);
