@@ -266,6 +266,41 @@ export async function nativeNotificationFixture(output: string) {
       if (redis.isOpen) await redis.quit();
     });
     await redis.connect();
+    // Observe the real Redis transport; no bus or publication is replaced.
+    const publicationObserver = redis.duplicate();
+    publicationObserver.on('error', () => {});
+    disposers.push(async () => {
+      if (publicationObserver.isOpen) await publicationObserver.quit();
+    });
+    await publicationObserver.connect();
+    let publishedMessages = 0;
+    const barriers = new Map<string, () => void>();
+    await publicationObserver.subscribe(
+      ['pos-rewrite:notifications:1', 'pos-rewrite:notifications:2'],
+      (raw) => {
+        const settle = barriers.get(raw);
+        if (settle) {
+          barriers.delete(raw);
+          settle();
+        } else publishedMessages++;
+      },
+    );
+    async function publicationCount() {
+      const marker = 'owned-notification-barrier-' + randomUUID();
+      const observed = new Promise<void>((done, reject) => {
+        const timeout = setTimeout(() => {
+          barriers.delete(marker);
+          reject(new Error('Owned Redis observation barrier timed out'));
+        }, 3000);
+        barriers.set(marker, () => {
+          clearTimeout(timeout);
+          done();
+        });
+      });
+      await redis.publish('pos-rewrite:notifications:1', marker);
+      await observed;
+      return publishedMessages;
+    }
     base.pathname = '/' + schema;
     const sourcePort = await unusedPort();
     const sourceOrigin = `http://127.0.0.1:${sourcePort}`;
@@ -578,6 +613,7 @@ export async function nativeNotificationFixture(output: string) {
       });
     }
     return {
+      publicationCount,
       origin,
       sourceOrigin,
       traffic,

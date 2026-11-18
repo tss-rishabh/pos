@@ -164,6 +164,10 @@ describe.skipIf(!process.env.NOTIFICATION_WORKFLOW_MYSQL_URL)(
       cdp.on('WebAudio.audioNodeCreated', (event) => {
         if (event.node.nodeType === 'Oscillator') oscillators.push(event.node.nodeId);
       });
+      // Opening the panel may already release the browser's autoplay gate.
+      // Exercise both real preference controls regardless of initial permission.
+      const mute = page.getByRole('button', { name: 'Mute notification sound', exact: true });
+      if (await mute.isVisible()) await mute.click();
       await page.getByRole('button', { name: 'Enable notification sound', exact: true }).click();
       await ui(
         page.getByRole('button', { name: 'Mute notification sound', exact: true }),
@@ -344,6 +348,14 @@ describe.skipIf(!process.env.NOTIFICATION_WORKFLOW_MYSQL_URL)(
       await fixture.publish(nextId(1), false);
       expect(await closed).toBe(1008);
       expect((await http(notificationFeed, 'GET', '7', credential)).status).toBe(401);
+      const archivedRows = await fixture.recipients(nextId(1)),
+        archivedPublications = await fixture.publicationCount();
+      expect(
+        (await http(notificationFeed + '/' + nextId(1) + '/read-receipt', 'PUT', '7', credential))
+          .status,
+      ).toBe(401);
+      expect(await fixture.recipients(nextId(1))).toEqual(archivedRows);
+      expect(await fixture.publicationCount()).toBe(archivedPublications);
       await ui(page.locator('.notification-panel article')).toHaveCount(0);
       await fixture.archiveActor(true);
       for (const [reason, revoke] of [
@@ -358,8 +370,24 @@ describe.skipIf(!process.env.NOTIFICATION_WORKFLOW_MYSQL_URL)(
         await fixture.publish(nextId(1), false);
         expect(await close).toBe(1008);
         expect((await http()).status, reason).toBe(403);
+        const rows = await fixture.recipients(nextId(1)),
+          publications = await fixture.publicationCount();
+        expect(
+          (await http(notificationFeed + '/' + nextId(1) + '/read-receipt', 'PUT')).status,
+          reason,
+        ).toBe(403);
+        expect(await fixture.recipients(nextId(1)), reason).toEqual(rows);
+        expect(await fixture.publicationCount(), reason).toBe(publications);
       }
       await fixture.reset();
+      await fixture.seedNotice(nextId(1), 'Wrong store read synthetic', 2);
+      const wrongStoreRows = await fixture.recipients(nextId(1)),
+        wrongStorePublications = await fixture.publicationCount();
+      expect(
+        (await http('/api/v1/stores/2/notifications/' + nextId(1) + '/read-receipt', 'PUT')).status,
+      ).toBe(403);
+      expect(await fixture.recipients(nextId(1))).toEqual(wrongStoreRows);
+      expect(await fixture.publicationCount()).toBe(wrongStorePublications);
       const short = await socket('candidate', '7', '1', { ttl: 750 });
       expect(await new Promise<number>((done) => short.once('close', done))).toBe(1008);
     });
@@ -367,7 +395,12 @@ describe.skipIf(!process.env.NOTIFICATION_WORKFLOW_MYSQL_URL)(
     it('rejects malformed real Redis messages and uses safe React text and internal navigation for original unsafe titles/URLs', async () => {
       const page = await workspace(),
         source = await sourcePage();
-      const receiver = frames(await socket('candidate'));
+      const receivingSocket = await socket('candidate');
+      const receiver = frames(receivingSocket);
+      let receiverCloseCode: number | null = null;
+      receivingSocket.once('close', (code) => {
+        receiverCloseCode = code;
+      });
       for (const raw of [
         'not-json',
         '{}',
@@ -383,7 +416,11 @@ describe.skipIf(!process.env.NOTIFICATION_WORKFLOW_MYSQL_URL)(
       const unsafe = '<img src=x onerror="window.notificationSourcePwned=true"> synthetic';
       const id = sourcePublish(unsafe, false);
       await fixture.publish(id, false);
-      await ui.poll(() => receiver.length).toBe(1);
+      expect(await fixture.recipients(id)).toMatchObject([{ pos_admin_id: 7, is_viewed: 0 }]);
+      expect((await feed()).data.some((row) => row.id === id)).toBe(true);
+      await ui
+        .poll(() => ({ frames: receiver.length, closeCode: receiverCloseCode }))
+        .toEqual({ frames: 1, closeCode: null });
       await ui(article(page, unsafe)).toBeVisible();
       expect(await page.locator('.notification-widget img').count()).toBe(0);
       expect(
