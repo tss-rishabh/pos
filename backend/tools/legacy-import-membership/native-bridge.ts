@@ -1,5 +1,6 @@
 /** Disposable cross-language component proof, never an upstream app bootstrap. */
 import assert from 'node:assert/strict';
+import { readNativeMembershipAccount } from '../checkout/native-membership-account.js';
 import mysql, { type RowDataPacket } from 'mysql2/promise';
 import { sql } from 'drizzle-orm';
 import { z } from 'zod';
@@ -47,13 +48,15 @@ const connection = await mysql.createConnection({
   supportBigNumbers: true,
   bigNumberStrings: true,
 });
+const nativeAccount = readNativeMembershipAccount(raw);
+Object.assign(process.env, nativeAccount.environment);
 const db = createDatabases(
   readConfig({
     NODE_ENV: 'test',
     SESSION_SECRET: 'isolated-membership-native-bridge-session-secret',
     MYSQL_ALLOW_LOCAL_PLAINTEXT: 'true',
-    MYSQL_WRITER_URL: raw,
-    MYSQL_PRIMARY_READER_URL: raw,
+    MYSQL_WRITER_URL: nativeAccount.applicationUrl,
+    MYSQL_PRIMARY_READER_URL: nativeAccount.applicationUrl,
   }),
 );
 const parse = (value: unknown): unknown => (typeof value === 'string' ? JSON.parse(value) : value);

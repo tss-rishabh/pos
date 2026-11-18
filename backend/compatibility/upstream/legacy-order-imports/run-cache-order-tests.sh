@@ -25,6 +25,7 @@ until docker exec "$cache_name" mysql --protocol=TCP -h127.0.0.1 -uroot -Dpos_ch
 done
 cache_port=$(docker port "$cache_name" 3306/tcp | cut -d: -f2)
 export cache_root cache_backend cache_work cache_name cache_port
+export POS_IMPORT_NATIVE_ACCOUNT_FILE="$cache_work/fixture-bridge/account.json"
 cd "$cache_backend"
 node --import tsx "$cache_root/run-go-native-fixture.mjs" "$cache_work" "$cache_name" "$cache_port" unused cache
 exit

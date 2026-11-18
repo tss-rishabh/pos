@@ -566,10 +566,11 @@ func TestScreeningDifferentCustomerSourceInsertHasNoRangeGap(t *testing.T) {
 		other, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
 		raw, _ := importFixtureApplications.Load(db)
-		writer, releaseWriter, e := poscheckout.ImportNativeFixtureBegin(other, raw.(*sql.DB), []int64{78}, []int64{5002}, []int64{6002})
+		writer, releaseWriter, closeWriter, e := poscheckout.ImportNativeFixtureBegin(other, raw.(*sql.DB), []int64{78}, []int64{5002}, []int64{6002})
 		if e != nil {
 			return e
 		}
+		defer closeWriter()
 		defer writer.Rollback()
 		defer releaseWriter()
 		for _, query := range []string{`SELECT id FROM stores WHERE id=2 FOR UPDATE`, `SELECT id FROM users WHERE id=78 FOR UPDATE`, `SELECT id FROM orders WHERE id=5002 FOR UPDATE`, `INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(5002,6002,78)`} {

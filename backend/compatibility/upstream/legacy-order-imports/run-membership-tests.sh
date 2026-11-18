@@ -23,6 +23,7 @@ until docker exec "$member_name" mysql --protocol=TCP -h127.0.0.1 -uroot -Dpos_c
 done
 member_port=$(docker port "$member_name" 3306/tcp | cut -d: -f2)
 export member_root member_backend member_work member_name member_port
+export POS_IMPORT_NATIVE_ACCOUNT_FILE="$member_work/fixture-bridge/account.json"
 cd "$member_backend"
 node --import tsx "$member_root/run-go-native-fixture.mjs" "$member_work" "$member_name" "$member_port" unused membership
 exit

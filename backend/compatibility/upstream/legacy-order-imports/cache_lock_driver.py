@@ -14,15 +14,20 @@ import membership_cache as cache
 url=urlparse(os.environ['MEMBERSHIP_NATIVE_URL'])
 if url.scheme!='mysql+pymysql' or url.hostname!='127.0.0.1' or url.path!='/pos_checkout_contract_test' or not url.port or url.password or url.query:
     raise RuntimeError('Disposable cache lock fixture required')
-engine=create_engine(os.environ['MEMBERSHIP_NATIVE_URL'],pool_size=24,max_overflow=0,echo=False,hide_parameters=True)
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'pending-cancellation'))
+from native_membership_account import read_membership_account
+admin_engine=create_engine(os.environ['MEMBERSHIP_NATIVE_URL'],pool_size=4,max_overflow=0,echo=False,hide_parameters=True)
+application_url,native_environment=read_membership_account(os.environ['MEMBERSHIP_NATIVE_URL'])
+os.environ.update(native_environment)
+engine=create_engine(application_url,pool_size=24,max_overflow=0,echo=False,hide_parameters=True)
 Session=sessionmaker(bind=engine)
 OP='5a5d1efb-727e-45ea-b214-9136be787031';KEY=os.environ['POS_LEGACY_IMPORT_PROOF_KEY']
 
 def execute(statement,params=None):
-    with engine.begin() as connection:return connection.execute(text(statement),params or {})
+    with admin_engine.begin() as connection:return connection.execute(text(statement),params or {})
 
 def scalar(statement,params=None):
-    with engine.connect() as connection:return connection.execute(text(statement),params or {}).scalar_one()
+    with admin_engine.connect() as connection:return connection.execute(text(statement),params or {}).scalar_one()
 
 def reset():execute("DELETE FROM pos_rewrite_import_financial_source_receipts WHERE kind='member-cache'")
 
@@ -115,4 +120,4 @@ try:
         assert calls==[1]
         print('actual cache consumer: unknown outcome is durable and never automatically replays')
     else:raise RuntimeError('Unknown owned fixture action')
-finally:engine.dispose()
+finally:engine.dispose();admin_engine.dispose()

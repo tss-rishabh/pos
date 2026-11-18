@@ -3,6 +3,8 @@ package sourcefixture
 import (
 	"backend-tss-domestic_payments_api/internal/poscheckout"
 	"database/sql"
+	"errors"
+	mysql "github.com/go-sql-driver/mysql"
 	"os"
 	"reflect"
 	"sync"
@@ -22,6 +24,9 @@ func bridgeDB(t *testing.T) *sql.DB {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { db.Close() })
+	if os.Getenv("POS_BASE_MEMBERSHIP_HEAD_FIXTURE") == "1" {
+		return nativeHeadFixtureApplication(t, db, "connect")
+	}
 	return db
 }
 func TestMembershipBridgeInitialize(t *testing.T) {
@@ -41,10 +46,16 @@ func TestMembershipBridgeActivationRollback(t *testing.T) {
 	db := bridgeDB(t)
 	tables := []string{"user_eav", "pos_rewrite_membership_versions", "pos_rewrite_cancellation_membership_provenance", "product_store", "orders"}
 	before := snapshot(t, db, tables)
-	execute(t, db, `CREATE TRIGGER fixture_membership_stock_failure BEFORE UPDATE ON product_store FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='fixture late stock failure'`)
-	_, err := confirm(db, 5001)
-	execute(t, db, `DROP TRIGGER fixture_membership_stock_failure`)
-	if err == nil || !reflect.DeepEqual(before, snapshot(t, db, tables)) {
+	execute(t, db, `ALTER TABLE pos_rewrite_checkout_projections ADD CONSTRAINT fixture_membership_stock_failure CHECK(order_id<0)`)
+	ctx, err := consentContext(db, 5001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	called := false
+	_, err = poscheckout.Confirm(ctx, db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
+	execute(t, db, `ALTER TABLE pos_rewrite_checkout_projections DROP CHECK fixture_membership_stock_failure`)
+	var native *mysql.MySQLError
+	if !errors.As(err, &native) || native.Number != 3819 || !called || !reflect.DeepEqual(before, snapshot(t, db, tables)) {
 		t.Fatal("late source failure did not roll membership/revision/proof/stock back")
 	}
 }

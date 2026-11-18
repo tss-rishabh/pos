@@ -87,8 +87,11 @@ func importFixtureBridge(t *testing.T, action string) importFixtureReply {
 	return importFixtureReply{}
 }
 func installImportNativeHead(t *testing.T, admin *sql.DB) {
+	connectImportNativeHead(t, admin, "install")
+}
+func connectImportNativeHead(t *testing.T, admin *sql.DB, action string) {
 	t.Helper()
-	reply := importFixtureBridge(t, "install")
+	reply := importFixtureBridge(t, action)
 	for key, value := range reply.Environment {
 		t.Setenv(key, value)
 	}
@@ -129,7 +132,7 @@ func importFixtureConfirm(ctx context.Context, admin *sql.DB, order int64, hashe
 func importApplicationBridgeDB(t *testing.T) *sql.DB {
 	t.Helper()
 	db := bridgeDB(t)
-	installImportNativeHead(t, db)
+	connectImportNativeHead(t, db, "connect")
 	return db
 }
 

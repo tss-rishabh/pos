@@ -38,7 +38,7 @@ const consentFixtureKey = "fixture-customer-consent-key-0123456789"
 
 func execute(t *testing.T, db *sql.DB, query string, args ...interface{}) {
 	t.Helper()
-	if _, err := db.Exec(query, args...); err != nil {
+	if _, err := fixtureAdministrator(db).Exec(query, args...); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -161,6 +161,9 @@ func fixture(t *testing.T) *sql.DB {
 		if strings.TrimSpace(statement) != "" {
 			execute(t, db, statement)
 		}
+	}
+	if os.Getenv("POS_BASE_MEMBERSHIP_HEAD_FIXTURE") == "1" {
+		return nativeHeadFixtureApplication(t, db, "install")
 	}
 	return db
 }

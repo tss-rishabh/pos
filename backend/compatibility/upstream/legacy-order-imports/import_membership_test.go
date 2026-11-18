@@ -58,11 +58,11 @@ func TestImportMembershipActivationRollback(t *testing.T) {
 	db := importApplicationBridgeDB(t)
 	tables := []string{"user_eav", "pos_rewrite_membership_versions", "pos_rewrite_cancellation_membership_provenance", "product_store", "orders", "pos_rewrite_import_financial_source_receipts"}
 	before := snapshot(t, db, tables)
-	execute(t, db, `CREATE TRIGGER csv_member_late_failure BEFORE UPDATE ON product_store FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='private late source stock canary'`)
+	execute(t, db, `ALTER TABLE pos_rewrite_checkout_projections ADD CONSTRAINT csv_member_late_failure CHECK(order_id<0)`)
 	called := false
 	_, err := importFixtureConfirm(importContext(t, importMembershipCapability(t, db)), db, 5001, poscheckout.DefaultHashes, func(tx *sql.Tx) error { called = true; return sourceApply(tx, 5001, false) })
-	execute(t, db, `DROP TRIGGER csv_member_late_failure`)
-	if err == nil || !called || !reflect.DeepEqual(before, snapshot(t, db, tables)) {
+	execute(t, db, `ALTER TABLE pos_rewrite_checkout_projections DROP CHECK csv_member_late_failure`)
+	if importFixtureError(err) != "mysql3819" || !called || !reflect.DeepEqual(before, snapshot(t, db, tables)) {
 		t.Fatalf("CSV source membership activation escaped late stock rollback: called=%t error=%v", called, importFixtureError(err))
 	}
 }

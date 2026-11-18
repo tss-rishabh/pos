@@ -8,14 +8,25 @@ import (
 	"sort"
 )
 
-func ImportNativeFixtureBegin(ctx context.Context, db *sql.DB, customers, orders, lines []int64) (*sql.Tx, func() error, error) {
-	tx, err := db.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+func ImportNativeFixtureBegin(ctx context.Context, db *sql.DB, customers, orders, lines []int64) (*sql.Tx, func() error, func(), error) {
+	conn, err := db.Conn(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
-	p := &importConfirmationPrelude{}
+	tx, err := conn.BeginTx(ctx, &sql.TxOptions{Isolation: sql.LevelReadCommitted})
+	if err != nil {
+		conn.Close()
+		return nil, nil, nil, err
+	}
+	p := &importConfirmationPrelude{counterConnection: conn}
+	closeWriter := func() { closeScreeningCounterConnection(p) }
 	release := func() error { return releaseScreeningCounter(ctx, tx, p) }
-	fail := func(e error) (*sql.Tx, func() error, error) { release(); tx.Rollback(); return nil, nil, e }
+	fail := func(e error) (*sql.Tx, func() error, func(), error) {
+		release()
+		tx.Rollback()
+		closeWriter()
+		return nil, nil, nil, e
+	}
 	if len(customers) < 1 || len(customers) > 10 || len(orders) > 100 || len(lines) > 100 {
 		return fail(ErrReview)
 	}
@@ -56,5 +67,5 @@ func ImportNativeFixtureBegin(ctx context.Context, db *sql.DB, customers, orders
 			}
 		}
 	}
-	return tx, release, nil
+	return tx, release, closeWriter, nil
 }

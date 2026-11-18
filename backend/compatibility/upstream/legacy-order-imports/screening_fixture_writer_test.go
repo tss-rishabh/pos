@@ -17,11 +17,11 @@ func screeningFixtureWriter(t *testing.T, db *sql.DB, customers, orders, lines [
 	if !ok {
 		t.Fatal("invalid application writer")
 	}
-	tx, release, err := poscheckout.ImportNativeFixtureBegin(context.Background(), app, customers, orders, lines)
+	tx, release, closeWriter, err := poscheckout.ImportNativeFixtureBegin(context.Background(), app, customers, orders, lines)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { release(); tx.Rollback() })
+	t.Cleanup(func() { release(); tx.Rollback(); closeWriter() })
 	return tx, release
 }
 func screeningFixtureMutation(t *testing.T, db *sql.DB, customers, orders, lines []int64, query string, args ...interface{}) {

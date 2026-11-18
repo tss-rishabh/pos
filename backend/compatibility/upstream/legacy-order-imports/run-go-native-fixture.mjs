@@ -1,5 +1,4 @@
 // Runner-only local fixture IPC. No production startup, live provider or install.
-import { randomUUID } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -13,11 +12,15 @@ import {
 } from 'node:fs';
 import { spawn } from 'node:child_process';
 const [work, network, port, pattern, mode = 'confirmation'] = process.argv.slice(2);
-if (!['confirmation', 'membership', 'cache'].includes(mode))
+if (!['confirmation', 'membership', 'cache', 'ordinary', 'ordinary-membership'].includes(mode))
   throw new Error('Unknown native fixture mode');
 if (
-  !/^\/tmp\/pos-(?:import-go|csv-member|csv-cache)\.[A-Za-z0-9]+$/.test(work ?? '') ||
-  !/^pos-(?:import-contract|csv-member|csv-cache)-[0-9]+$/.test(network ?? '') ||
+  !/^\/tmp\/pos-(?:import-go|csv-member|csv-cache|checkout-go|membership-native)\.[A-Za-z0-9]+$/.test(
+    work ?? '',
+  ) ||
+  !/^pos-(?:import-contract|csv-member|csv-cache|checkout-contract|membership-native)-[0-9]+$/.test(
+    network ?? '',
+  ) ||
   !/^[0-9]+$/.test(port ?? '')
 )
   throw new Error('Explicit disposable import runner required');
@@ -49,14 +52,13 @@ const admin = await mysql.createConnection({
 const sourceKey = 'isolated-go-import-source-key-'.repeat(2),
   publicationKey = 'isolated-go-import-publication-key-'.repeat(2);
 let native;
-let basic;
 const appDSN = (url) =>
   decodeURIComponent(url.username) +
   ':' +
   decodeURIComponent(url.password) +
   '@tcp(mysql:3306)/pos_checkout_contract_test?parseTime=true&transaction_isolation=%27READ-COMMITTED%27';
-async function cleanup() {
-  if (mode !== 'confirmation') return;
+async function cleanup(force = false) {
+  if (!force && !['confirmation', 'ordinary'].includes(mode)) return;
   if (native) {
     await native.cleanup();
     native = undefined;
@@ -115,7 +117,9 @@ async function grantApplication(name) {
     const table = String(row.name);
     if (ordinary.has(table) || table.startsWith('pos_rewrite_import_'))
       await admin.query(
-        'GRANT INSERT,UPDATE,DELETE ON ' +
+        (table === 'pos_rewrite_membership_versions'
+          ? 'GRANT INSERT,UPDATE ON '
+          : 'GRANT INSERT,UPDATE,DELETE ON ') +
           mysql.escapeId('pos_checkout_contract_test') +
           '.' +
           mysql.escapeId(table) +
@@ -125,28 +129,28 @@ async function grantApplication(name) {
       );
   }
 }
-async function basicApplication() {
-  if (!basic) {
-    const name = 'nh_import_' + randomUUID().replaceAll('-', '').slice(0, 12),
-      password = 'fixture-' + randomUUID();
-    await admin.query(
-      'CREATE USER ' + mysql.escape(name) + "@'%' IDENTIFIED BY " + mysql.escape(password),
-    );
-    await admin.query(
-      'GRANT SELECT ON pos_checkout_contract_test.* TO ' + mysql.escape(name) + "@'%'",
-    );
-    basic = { name, password };
-  }
-  await grantApplication(basic.name);
-  const url = new URL('mysql://root@127.0.0.1:' + port + '/pos_checkout_contract_test');
-  url.username = basic.name;
-  url.password = basic.password;
-  return { environment: {}, dsn: appDSN(url) };
+function connectionReply() {
+  if (!native) throw new Error('Native fixture was not initialized');
+  const environment = {
+    ...native.environment,
+    ...(mode === 'confirmation'
+      ? {
+          POS_SCREENING_COUNTER_CONTRACT: 'pos-screening-current-counter-v1',
+          POS_SCREENING_COUNTER_PUBLICATION_KEY: publicationKey,
+        }
+      : {}),
+  };
+  Object.assign(process.env, environment);
+  const account = { environment, applicationUrl: native.appUrl };
+  const accountPath = resolve(bridge, 'account.json');
+  writeFileSync(accountPath + '.tmp', JSON.stringify(account), { mode: 0o600 });
+  renameSync(accountPath + '.tmp', accountPath);
+  return { environment, dsn: appDSN(new URL(native.appUrl)) };
 }
 async function install() {
-  if (mode !== 'confirmation') return basicApplication();
-  if (native) throw new Error('Prior fixture was not closed');
-  // No membership products are selected by this confirmation runner.
+  if (native) await cleanup(true);
+  // Replace the base fixture root-owned copies with the exact locked-owner family.
+  // Counter-only confirmation selects no membership products.
   for (const name of [
     'pos_rewrite_mem_eav_insert',
     'pos_rewrite_mem_eav_update',
@@ -157,62 +161,57 @@ async function install() {
   native = await installNativeHeadFixture(
     admin,
     'mysql://root@127.0.0.1:' + port + '/pos_checkout_contract_test',
-    { families: ['counter'] },
+    { families: mode === 'confirmation' ? ['counter'] : ['membershipRevision'] },
   );
   // An explicit fixture-only writer allowlist. Head/projection DML remains solely
   // under the independent trigger owners and publication account.
   await grantApplication(native.names.app);
-  const [customers] = await admin.query(
-    'SELECT CAST(id AS CHAR) id FROM users ORDER BY id LIMIT 101',
-  );
-  if (customers.length > 100) throw new Error('Unexpected fixture customer count');
-  for (const customer of customers) {
-    const snapshot = await screeningCounterSourceCapture(
-      native.sourceDb,
-      sourceKey,
-      Date.now,
-      native.headMetadata,
-    ).snapshot(String(customer.id));
-    const [rows] = await admin.query(
-      'SELECT CAST(s.id AS CHAR) markerId,CAST(s.order_id AS CHAR) orderId,CAST(s.has_product_id AS CHAR) lineId,CAST(IF(hp.prod_id=390238 AND o.order_status NOT IN(0,17),1,0) AS CHAR) included FROM spiderman_screening_orders s LEFT JOIN orders o ON o.id=s.order_id LEFT JOIN has_products hp ON hp.id=s.has_product_id WHERE s.user_id=? ORDER BY s.id',
-      [customer.id],
+  if (mode === 'confirmation') {
+    const [customers] = await admin.query(
+      'SELECT CAST(id AS CHAR) id FROM users ORDER BY id LIMIT 101',
     );
-    const baseline = sealCounterPublication(snapshot.capture, sourceKey, publicationKey, {
-      generationId: 'a'.repeat(64),
-      snapshotId: snapshot.capture.snapshotId,
-      sourceCaptureHash: snapshot.capture.signature,
-      sourceCdcThrough: Date.now(),
-      complete: true,
-      rows: rows.map((row) => ({
-        markerId: String(row.markerId),
-        orderId: String(row.orderId),
-        lineId: String(row.lineId),
-        included: row.included === '1',
-      })),
-    });
-    await initializeScreeningCounter(
-      native.publisherDb,
-      baseline,
-      publicationKey,
-      null,
-      Date.now(),
-      {
-        headMetadata: native.headMetadata,
-        configuration: snapshot.configuration,
-        purpose: 'counter-publication',
-      },
-    );
+    if (customers.length > 100) throw new Error('Unexpected fixture customer count');
+    for (const customer of customers) {
+      const snapshot = await screeningCounterSourceCapture(
+        native.sourceDb,
+        sourceKey,
+        Date.now,
+        native.headMetadata,
+      ).snapshot(String(customer.id));
+      const [rows] = await admin.query(
+        'SELECT CAST(s.id AS CHAR) markerId,CAST(s.order_id AS CHAR) orderId,CAST(s.has_product_id AS CHAR) lineId,CAST(IF(hp.prod_id=390238 AND o.order_status NOT IN(0,17),1,0) AS CHAR) included FROM spiderman_screening_orders s LEFT JOIN orders o ON o.id=s.order_id LEFT JOIN has_products hp ON hp.id=s.has_product_id WHERE s.user_id=? ORDER BY s.id',
+        [customer.id],
+      );
+      const baseline = sealCounterPublication(snapshot.capture, sourceKey, publicationKey, {
+        generationId: 'a'.repeat(64),
+        snapshotId: snapshot.capture.snapshotId,
+        sourceCaptureHash: snapshot.capture.signature,
+        sourceCdcThrough: Date.now(),
+        complete: true,
+        rows: rows.map((row) => ({
+          markerId: String(row.markerId),
+          orderId: String(row.orderId),
+          lineId: String(row.lineId),
+          included: row.included === '1',
+        })),
+      });
+      await initializeScreeningCounter(
+        native.publisherDb,
+        baseline,
+        publicationKey,
+        null,
+        Date.now(),
+        {
+          headMetadata: native.headMetadata,
+          configuration: snapshot.configuration,
+          purpose: 'counter-publication',
+        },
+      );
+    }
   }
-  const app = new URL(native.appUrl);
-  return {
-    environment: {
-      ...native.environment,
-      POS_SCREENING_COUNTER_CONTRACT: 'pos-screening-current-counter-v1',
-      POS_SCREENING_COUNTER_PUBLICATION_KEY: publicationKey,
-    },
-    dsn: appDSN(app),
-  };
+  return connectionReply();
 }
+
 let busy = false;
 const timer = setInterval(async () => {
   if (busy) return;
@@ -225,6 +224,7 @@ const timer = setInterval(async () => {
       try {
         const value = JSON.parse(readFileSync(path, 'utf8'));
         if (value.action === 'install') reply = await install();
+        else if (value.action === 'connect') reply = connectionReply();
         else if (value.action === 'cleanup') {
           await cleanup();
           reply = {};
@@ -239,7 +239,11 @@ const timer = setInterval(async () => {
       }
       writeFileSync(response + '.tmp', JSON.stringify(reply), { mode: 0o600 });
       renameSync(response + '.tmp', response);
-      unlinkSync(path);
+      try {
+        unlinkSync(path);
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error;
+      }
     }
   } finally {
     busy = false;
@@ -248,57 +252,64 @@ const timer = setInterval(async () => {
 try {
   const image =
     'golang:1.25.4@sha256:698183780de28062f4ef46f82a79ec0ae69d2d22f7b160cf69f71ea8d98bf25d';
-  const child =
-    mode === 'confirmation'
-      ? spawn(
-          'docker',
-          [
-            'run',
-            '--rm',
-            '--network',
-            network,
-            '-v',
-            work + ':/work',
-            '-v',
-            'pos-rewrite-membership-go-modules:/go/pkg/mod:ro',
-            '-v',
-            buildCache + ':/root/.cache/go-build',
-            '-w',
-            '/work',
-            '-e',
-            'GOPROXY=off',
-            '-e',
-            'POS_IMPORT_NATIVE_FIXTURE_BRIDGE=/work/fixture-bridge',
-            '-e',
-            'POS_MEMBERSHIP_PRODUCT_IDS=[]',
-            '-e',
-            'POS_CHECKOUT_MYSQL_DSN=root@tcp(mysql:3306)/pos_checkout_contract_test?parseTime=true&transaction_isolation=%27READ-COMMITTED%27',
-            image,
-            'go',
-            'test',
-            '-mod=readonly',
-            '-race',
-            '-count=1',
-            '-run',
-            pattern,
-            '-v',
-            './internal/poscheckout',
-            './internal/poscheckout/sourcefixture',
-          ],
-          { stdio: 'inherit' },
-        )
-      : spawn(
-          'sh',
-          [
-            resolve(
-              backend,
-              'compatibility/upstream/legacy-order-imports',
-              mode === 'membership' ? 'run-membership-tests.sh' : 'run-cache-order-tests.sh',
-            ),
-            '--steps',
-          ],
-          { stdio: 'inherit' },
-        );
+  process.env.POS_IMPORT_NATIVE_ACCOUNT_FILE = resolve(bridge, 'account.json');
+  const child = ['confirmation', 'ordinary'].includes(mode)
+    ? spawn(
+        'docker',
+        [
+          'run',
+          '--rm',
+          '--network',
+          network,
+          '-v',
+          work + ':/work',
+          '-v',
+          'pos-rewrite-membership-go-modules:/go/pkg/mod:ro',
+          '-v',
+          buildCache + ':/root/.cache/go-build',
+          '-w',
+          '/work',
+          '-e',
+          'GOPROXY=off',
+          '-e',
+          'POS_IMPORT_NATIVE_FIXTURE_BRIDGE=/work/fixture-bridge',
+          '-e',
+          'POS_MEMBERSHIP_PRODUCT_IDS=[]',
+          '-e',
+          'POS_BASE_MEMBERSHIP_HEAD_FIXTURE=' + (mode === 'ordinary' ? '1' : ''),
+          '-e',
+          'POS_CHECKOUT_MYSQL_DSN=root@tcp(mysql:3306)/pos_checkout_contract_test?parseTime=true&transaction_isolation=%27READ-COMMITTED%27',
+          image,
+          'go',
+          'test',
+          '-mod=readonly',
+          '-race',
+          '-count=1',
+          '-run',
+          pattern,
+          '-v',
+          ...(mode === 'ordinary'
+            ? ['./internal/poscheckout/...']
+            : ['./internal/poscheckout', './internal/poscheckout/sourcefixture']),
+        ],
+        { stdio: 'inherit' },
+      )
+    : spawn(
+        'sh',
+        [
+          resolve(
+            backend,
+            'compatibility/upstream/legacy-order-imports',
+            mode === 'membership'
+              ? 'run-membership-tests.sh'
+              : mode === 'cache'
+                ? 'run-cache-order-tests.sh'
+                : '../pending-cancellation/run-membership-native.sh',
+          ),
+          '--steps',
+        ],
+        { stdio: 'inherit' },
+      );
   const code = await new Promise((resolve, reject) => {
     child.once('error', reject);
     child.once('exit', resolve);
@@ -307,7 +318,6 @@ try {
 } finally {
   clearInterval(timer);
   while (busy) await new Promise((r) => setTimeout(r, 10));
-  await cleanup();
-  if (basic) await admin.query('DROP USER IF EXISTS ' + mysql.escape(basic.name) + "@'%'");
+  await cleanup(true);
   await admin.end();
 }

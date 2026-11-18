@@ -31,6 +31,10 @@ from membership_cache import invalidate
 raw=os.environ['MEMBERSHIP_NATIVE_URL'];url=urlparse(raw)
 if url.scheme!='mysql+pymysql' or url.hostname!='127.0.0.1' or url.path!='/pos_checkout_contract_test' or not url.port or url.password or url.query:
     raise RuntimeError('Disposable native import membership fixture required')
+from native_membership_account import read_membership_account
+admin_engine=sqlalchemy.create_engine(raw,pool_size=4,max_overflow=0,echo=False,hide_parameters=True)
+raw,native_environment=read_membership_account(raw)
+os.environ.update(native_environment)
 engine=sqlalchemy.create_engine(raw,pool_size=24,max_overflow=0,echo=False,hide_parameters=True)
 Session=sessionmaker(bind=engine)
 Base=declarative_base();namespace={'Base':Base,'Column':Column,'Integer':Integer,'String':String,'Enum':Enum,'enum':enum,'datetime':datetime}
@@ -109,7 +113,7 @@ def snapshot():
             'SELECT * FROM pos_rewrite_import_financial_source_receipts ORDER BY id')]
 
 def execute(query):
-    with engine.begin() as connection:connection.execute(text(query))
+    with admin_engine.begin() as connection:connection.execute(text(query))
 
 try:
     if sys.argv[1]=='stage':
@@ -153,4 +157,4 @@ try:
         assert calls==[1]
         print('post-commit unknown cache response stayed quarantined without resend')
     else:raise RuntimeError('Unknown fixture action')
-finally:engine.dispose()
+finally:engine.dispose();admin_engine.dispose()
