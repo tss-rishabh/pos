@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { createDatabases } from '../../src/db/pools.js';
 import { readConfig } from '../../src/config.js';
@@ -38,15 +37,6 @@ export async function customerContactFixture(
       'evidence/mysql-global-benefits-schema.json',
     ]);
     await fixture.create(tables);
-    for (const path of [
-      'src/modules/customer-contacts/migration.sql',
-      'src/modules/customer-contacts/contact-revisions-migration.sql',
-    ])
-      for (const statement of readFileSync(path, 'utf8')
-        .replace(/^--.*$/gm, '')
-        .split(';')
-        .filter((value) => value.trim()))
-        await connection.query(statement);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',

@@ -87,7 +87,6 @@ import {
 } from './modules/global-vouchers/index.js';
 import { registerCustomerContacts } from './modules/customer-contacts/index.js';
 import { registerCustomerWebsiteHandoff } from './modules/customer-website-handoff/index.js';
-import { readCustomerContactOptions } from './modules/customer-contacts/options.js';
 import {
   customerOtpService,
   readCustomerOtpOptions,
@@ -390,7 +389,7 @@ export async function buildApp(
   registerProductFeedback(app, config, db);
   registerCheckoutPerformance(app, config, db);
   registerInvoiceDocuments(app, config, db);
-  registerCustomerContacts(app, config, db, readCustomerContactOptions());
+  registerCustomerContacts(app, config, db);
   await registerFinance(app, config, db, {
     paymentCorrections,
     ...(config.DEMO_MODE ? { demoStores: services.catalog.stores } : {}),
