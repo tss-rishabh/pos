@@ -105,6 +105,11 @@ const ApplicationLinkLandingPage = lazy(() =>
 const DesktopSsoApprovalPage = lazy(() =>
   import('./pages/desktop-sso').then((module) => ({ default: module.DesktopSsoApprovalPage })),
 );
+const OnlineOrderDetailPage = lazy(() =>
+  import('./pages/order-history/OnlineOrderDetail').then((module) => ({
+    default: module.OnlineOrderDetailPage,
+  })),
+);
 const OrdersPage = lazy(() =>
   import('./pages/operations').then((m) => ({ default: m.OrdersPage })),
 );
@@ -575,6 +580,10 @@ function Workspace({ user }: { user: Principal }) {
                 <Route
                   path="/orders"
                   element={<OrdersPage user={user} storeId={state.storeId} />}
+                />
+                <Route
+                  path="/orders/details/:type/:orderId"
+                  element={<OnlineOrderDetailPage user={user} storeId={state.storeId} />}
                 />
                 <Route
                   path="/stores/:storeId/checkout-sessions/:checkoutId/customers/:customerId/orders/:orderId/feedback"

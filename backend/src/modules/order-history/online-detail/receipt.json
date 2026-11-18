@@ -1,0 +1,31 @@
+{
+  "scope": "N-HL-HE bounded detail read and native routed entry; not whole source template/provider acceptance",
+  "base": "a01f0552c7217dffc16cde28263bca9766659880",
+  "source": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "inputs": {
+    "backend/src/app.ts": "2041df4949077acd89054ef2c55e7eef4068b1485f1adee6c3ff773e4dd9cc57",
+    "backend/src/modules/order-history/online-detail/authority.ts": "92015baa8e0adc17c6e351b51b4be473c3b75e2faad3472d74bbe8c78a7f0a4d",
+    "backend/src/modules/order-history/online-detail/contracts.ts": "d2c3987f757c0c68b5b89a253951b6ee9246e4354763ea23e36b40936709cda9",
+    "backend/src/modules/order-history/online-detail/errors.ts": "20fcf704cf9c327f86b7875bc12a0a859f938dea780e83a29212258626a416aa",
+    "backend/src/modules/order-history/online-detail/native.ts": "47b3f5f01769b9686fc098b3b6e528ebfcaaf16fccd4eb74bf0ad7059e895a86",
+    "backend/src/modules/order-history/online-detail/options.ts": "670ae6fe069912fd413dc39a7fadbc4affbcdd90c9f31c91ec2f6940af8c32e1",
+    "backend/src/modules/order-history/online-detail/qualification.ts": "b93beb1ee7f736eba80ed3473a90522730129cc84ec1f884201efda8630cd855",
+    "backend/src/modules/order-history/online-detail/reader.ts": "856e4bf314a20c7efdf37fc47fa4328cca23c1d2765d3d8c0ac01cab223077ac",
+    "backend/src/modules/order-history/online-detail/routes.ts": "2271f98ac6e147d69d7814d68fc311fb33cb641c23409363dd1882e5d04901d7",
+    "backend/src/modules/order-history/online-detail/service.ts": "4c8c52d05a33a76dd7146dc090b3525a11e14163007a46cc1475177e344aa2c0",
+    "backend/src/modules/order-history/online-detail/values.ts": "bc7e62ec074d82eeaa4bb65ef283b7d4b9aa7824eeff819d4fad528fdc354ecd",
+    "backend/tests/order-history/online-detail-publication.test.ts": "8f6e631ec4a6c957008a8bb65576ebbf71f8f948308593cdd38b6f1ac305e066",
+    "backend/tests/order-history/online-detail-source.py": "267b05f7268499743dd659597efbf9d0e370c4d551ad4c49ad8026f55901bc7b",
+    "backend/tests/order-history/online-detail-values.test.ts": "06689caf11c9f7aead4ed9a49f7d6f52014a607164f927fe057af4827ef6cc35",
+    "backend/tests/order-history/online-detail.mysql.test.ts": "92a0424d4d33d3f1208dde47f0b18825006e34ddf1657e7022c8814a58d22fcb",
+    "frontend/src/app.tsx": "323c066413dc21a85387d37eaf19e6f8eae7c8d1667c76f608c0886eb023c1c8",
+    "frontend/src/pages/order-history/OnlineOrderDetail.tsx": "1ddc1348ffae15f77ede3f43047a6e1c91ca08106487d73e9e0fa9c206e8e7ee",
+    "frontend/src/pages/order-history/SourceOrderList.tsx": "162738dc75b6d2b295afd68a6569918b2a0214db0b0205b20013110dec78ac5e",
+    "frontend/src/pages/order-history/online-detail-client.ts": "64f8eea9a6c424a7db5e4fd10aed88fbe650c384bcf63fbe17fab679fc2ce78b"
+  },
+  "logs": {
+    "/tmp/pos-online-detail-native-ui-310-20261118.log": "b5517fa6593b5d1df2583a8cb89fa85033a5c050de18ad0980fb6bbef77c432c",
+    "/tmp/pos-online-detail-build-310-20261118.log": "7f3fe757f8b63a517195610128cc655fcceb9ef0a4b682fc246fbfb7fc0a9223",
+    "/tmp/pos-online-detail-component-final-20261118.log": "427bed784cee1d0e861024aab8171cc2ada4088e9930542a9531592f26a365db"
+  }
+}

@@ -177,6 +177,11 @@ try {
   if (requests.at(-1).body.storeIds.join(',') !== '2')
     throw new Error('Express selected-store scope changed.');
   passed++;
+  await expect(page.getByRole('link', { name: /^View order / }).first()).toHaveAttribute(
+    'href',
+    /\/orders\/details\/HE\/[^?]+\?operatorId=1&storeId=2/,
+  );
+  passed++;
   await page.getByLabel('In queue', { exact: true }).check();
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
   await expect(page.getByText(/Live queue with historical details/)).toBeVisible();
@@ -253,6 +258,11 @@ try {
     storeIds: [],
     inQueue: true,
   });
+  passed++;
+  await expect(page.getByRole('link', { name: /^View order / }).first()).toHaveAttribute(
+    'href',
+    /\/orders\/details\/HL\/[^?]+\?operatorId=1&storeId=1/,
+  );
   passed++;
   await context.close();
   process.stdout.write(

@@ -109,6 +109,7 @@ import { catalogService } from './modules/catalog.js';
 import { ordersService } from './modules/orders.js';
 import { publicOrderHistory } from './modules/order-history/index.js';
 import { registerPublicOrders } from './modules/order-history/routes.js';
+import { registerOnlineOrderDetails } from './modules/order-history/online-detail/routes.js';
 import { historicalOrderCopyFacts } from './modules/order-history/copy-adapter.js';
 import {
   registerOrderSearch,
@@ -519,6 +520,7 @@ export async function buildApp(
     );
   });
   registerPublicOrders(app, services.orders);
+  registerOnlineOrderDetails(app, config, db);
   await registerOrderSearch(
     app,
     config,

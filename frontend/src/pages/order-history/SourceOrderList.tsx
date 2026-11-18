@@ -16,6 +16,8 @@ import {
   type SourceOrderRow,
 } from './search-client';
 import './order-search.css';
+import { onlineOrderDetailLink } from './online-detail-client';
+import { currentOrderDay } from './client';
 const titles = { ST: 'Store', HL: 'Local delivery', HE: 'Express', N: 'Online' } as const;
 const columns: [keyof SourceOrderRow, string, SearchSort?][] = [
   ['id', 'Order', 'id'],
@@ -128,6 +130,8 @@ export function SourceOrderList({
     queryFn: ({ signal }) => searchOrders(user.id, storeId, selection.body, signal),
   });
   const data = orders.data;
+  const appliedType =
+    selection.body.inQueue || selection.body.notPacked ? 'HL' : selection.body.orderType;
   function apply(next: OrderSearchBody) {
     setError('');
     setSummary(null);
@@ -188,6 +192,22 @@ export function SourceOrderList({
   const select = (event: React.ChangeEvent<HTMLSelectElement>) =>
       Array.from(event.currentTarget.selectedOptions, (option) => option.value),
     queue = form.notPacked || form.inQueue;
+  function detailLink(row: SourceOrderRow) {
+    const type = appliedType;
+    if (type === 'ST') throw new Error('Use the store-order detail path.');
+    const clock = defaults ?? metadata.data?.defaults;
+    const today = clock ? currentOrderDay(Date.parse(clock.generatedAt), clock.timeZone) : null;
+    const day = row.created_at.slice(0, 10);
+    return onlineOrderDetailLink(
+      user,
+      type === 'HE'
+        ? (selection.body.storeIds[0] ?? metadata.data?.checkedInStoreId ?? storeId)
+        : storeId,
+      row.id,
+      type,
+      today && day < today ? { from: day, to: day } : undefined,
+    );
+  }
   function exportPage() {
     if (!data) return;
     const blob = new Blob([sourcePageCsv(data.data, visible)], { type: 'text/csv;charset=utf-8' }),
@@ -534,16 +554,20 @@ export function SourceOrderList({
                         </td>
                       ))}
                     <td>
-                      <button
-                        className="text-button"
-                        onClick={() =>
-                          row.actionStoreId === storeId && selection.body.orderType === 'ST'
-                            ? onOpen(row)
-                            : setSummary(row)
-                        }
-                      >
-                        View order {row.id}
-                      </button>
+                      {appliedType === 'ST' ? (
+                        <button
+                          className="text-button"
+                          onClick={() =>
+                            row.actionStoreId === storeId ? onOpen(row) : setSummary(row)
+                          }
+                        >
+                          View order {row.id}
+                        </button>
+                      ) : (
+                        <NavLink className="text-button" to={detailLink(row)}>
+                          View order {row.id}
+                        </NavLink>
+                      )}
                       {row.payment_methods__id === '14' &&
                         !row.is_manually_paid &&
                         ['Paid', 'Pending'].includes(row.payment_statuses__payment_status) &&
@@ -633,7 +657,7 @@ export function SourceOrderList({
                   </div>
                 ))}
             </dl>
-            {summary.actionStoreId === storeId && selection.body.orderType === 'ST' && (
+            {summary.actionStoreId === storeId && appliedType === 'ST' && (
               <button
                 className="button primary"
                 onClick={() => {
@@ -644,12 +668,17 @@ export function SourceOrderList({
                 Open order details
               </button>
             )}
-            {selection.body.orderType === 'HL' && (
+            {appliedType !== 'ST' && (
+              <NavLink className="button primary" to={detailLink(summary)}>
+                Open order details
+              </NavLink>
+            )}
+            {appliedType === 'HL' && (
               <NavLink className="button secondary" to="/local-deliveries">
                 Open local deliveries
               </NavLink>
             )}
-            {selection.body.orderType === 'HE' && (
+            {appliedType === 'HE' && (
               <NavLink className="button secondary" to="/fulfillment">
                 Open Express fulfillment
               </NavLink>
