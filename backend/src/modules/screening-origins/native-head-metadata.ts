@@ -447,30 +447,35 @@ export async function readNativeHeadMetadata(
     // Pin the known platform base table before reading attached trigger hashes.
     await tx.execute(sql.raw('SELECT 1 FROM `sys`.`sys_config` WHERE FALSE'));
   }
-  for (const [name, expectedHash] of [
-    [INFO, descriptor.metadataHash],
-    [TRANSACTION_INFO, descriptor.transactionMetadataHash],
-  ]) {
-    const routine = await one(
-      tx,
-      `SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='${name}' AND ROUTINE_TYPE='FUNCTION'`,
-    );
-    if (
-      routine.owner !== audit ||
-      routine.security !== 'DEFINER' ||
-      routine.accessMode !== 'READS SQL DATA' ||
-      typeof routine.body !== 'string' ||
-      Buffer.byteLength(routine.body) > 60000 ||
-      digest(normal(routine.body)) !== expectedHash
-    )
-      return refuse();
+  async function checkMetadataRoutines() {
+    for (const [name, expectedHash] of [
+      [INFO, descriptor.metadataHash],
+      [TRANSACTION_INFO, descriptor.transactionMetadataHash],
+    ]) {
+      const routine = await one(
+        tx,
+        `SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='${name}' AND ROUTINE_TYPE='FUNCTION'`,
+      );
+      if (
+        routine.owner !== audit ||
+        routine.security !== 'DEFINER' ||
+        routine.accessMode !== 'READS SQL DATA' ||
+        typeof routine.body !== 'string' ||
+        Buffer.byteLength(routine.body) > 60000 ||
+        digest(normal(routine.body)) !== expectedHash
+      )
+        return refuse();
+    }
   }
+  await checkMetadataRoutines();
   // Execute the fixed function to retain its native routine MDL for this transaction.
   await one(tx, 'SELECT pos_rewrite_origin_transaction_metadata() AS document');
   const result = await one(
     tx,
     'SELECT /*+ MAX_EXECUTION_TIME(3000) */ pos_rewrite_origin_history_metadata() AS document',
   );
+  // Both invoked routine identities are now held by native routine MDL.
+  await checkMetadataRoutines();
   let raw: unknown = result.document;
   if (Buffer.isBuffer(raw)) raw = raw.toString('utf8');
   if (typeof raw === 'string') {

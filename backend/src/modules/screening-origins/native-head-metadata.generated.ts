@@ -2,7 +2,7 @@
 export const nativeHeadDescriptor = {
   "metadataHash": "dbf8a979580b2ebf20715f1f16a81da6f9e379300264f284b3e76a9c0eb1fcf5",
   "transactionMetadataHash": "a6d819e936ff66c6f2e5392c70f70e48dd2b25bdde591524255c2d6eed95a06f",
-  "qualifierHash": "be796e4b81397f945a66d8ecfd0b206e39199055c7310adb587ce5df73084ff8",
+  "qualifierHash": "145e4397940e9cda0b9b92ea191af59b217c6f42a2286f094638986889c1c71c",
   "participantQualifierHash": "786c4285b5693a540785229a1fcd8ba0eea2b0594d73d8645b9a7e29b3d41d58",
   "originTriggers": [
     {

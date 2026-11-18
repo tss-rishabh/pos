@@ -118,18 +118,21 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     match=re.search(r'\nRETURN (.*?)\n\$\$',definition,re.S)
     if match is None:refused()
     body='RETURN '+match.group(1)
-    routine=one(session,"SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_history_metadata' AND ROUTINE_TYPE='FUNCTION'")
-    if (routine['owner']!=audit or routine['security']!='DEFINER' or routine['accessMode']!='READS SQL DATA'
-            or normal(routine['body'])!=normal(body)):refused()
     transaction_source=Path(__file__).with_name('transaction-security.review.sql').read_text()
     transaction_match=re.search(r'\nRETURN (.*?)\n\$\$',transaction_source,re.S)
     if transaction_match is None:refused()
     transaction_body='RETURN '+transaction_match.group(1)
-    transaction_routine=one(session,"SELECT DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_transaction_metadata' AND ROUTINE_TYPE='FUNCTION'")
-    if (transaction_routine['owner']!=audit or transaction_routine['security']!='DEFINER' or transaction_routine['accessMode']!='READS SQL DATA'
-            or normal(transaction_routine['body'])!=normal(transaction_body)):refused()
+    def check_metadata_routines():
+        routine=one(session,"SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_history_metadata' AND ROUTINE_TYPE='FUNCTION'")
+        if (routine['owner']!=audit or routine['security']!='DEFINER' or routine['accessMode']!='READS SQL DATA'
+                or normal(routine['body'])!=normal(body)):refused()
+        transaction_routine=one(session,"SELECT DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_transaction_metadata' AND ROUTINE_TYPE='FUNCTION'")
+        if (transaction_routine['owner']!=audit or transaction_routine['security']!='DEFINER' or transaction_routine['accessMode']!='READS SQL DATA'
+                or normal(transaction_routine['body'])!=normal(transaction_body)):refused()
+    check_metadata_routines()
     one(session,'SELECT pos_rewrite_origin_transaction_metadata() AS document')
     result=one(session,'SELECT /*+ MAX_EXECUTION_TIME(3000) */ pos_rewrite_origin_history_metadata() AS document')
+    check_metadata_routines()
     if len(str(result['document']).encode())>500000:refused()
     data=json_value(result['document'])
     sections={'triggers','accounts','roles','proxies','privileges','routineGrants','objects','aliases','tables','foreignKeys','replicationChannels',
