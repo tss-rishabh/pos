@@ -1,22 +1,30 @@
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import {
-  paymentAttemptSchema,
+  PaymentOutcomeUnknown,
+  channelForMode,
   paymentInputSchema,
-  type PaymentAttempt,
+  paymentModeOf,
   type PaytmTerminal,
+  type PineTerminal,
 } from '../../src/modules/checkout/payments/contracts.js';
 import {
   paytmBody,
-  paytmDecision,
   pythonJson,
   terminalGateway,
 } from '../../src/modules/checkout/payments/gateway.js';
 import {
-  legacyPaymentSourceHash,
-  type LegacyTerminalRecord,
+  classifyPaytmRequest,
+  classifyPaytmStatus,
+  classifyPineCancel,
+  classifyPineStatus,
+  classifyPineUpload,
+  legacyPayDict,
+  legacyPaymentMessage,
+  legacyTransactionId,
+  pythonFloat,
+  pythonRepr,
 } from '../../src/modules/checkout/payments/legacy.js';
-import { operationHash } from '../../src/modules/checkout/crypto.js';
 import { validatePaymentSplit } from '../../src/modules/checkout/payments/repository.js';
 import {
   pineUploadPayload,
@@ -25,28 +33,7 @@ import {
 } from '../../src/modules/checkout/payloads.js';
 import { goldenStdout } from '../golden/load.js';
 
-const attempt: PaymentAttempt = paymentAttemptSchema.parse({
-  id: crypto.randomUUID(),
-  operatorId: '44',
-  storeId: '1',
-  counterId: '3',
-  orderId: '8002',
-  channel: 'paytm-card',
-  onlineAmount: '59.95',
-  cashAmount: '40.00',
-  cashReceived: '100.00',
-  machineId: '2',
-  externalReference: null,
-  transactionId: 'FIXTURE8002',
-  providerReference: null,
-  status: 'pending',
-  busyOperationId: null,
-  requestHash: '0'.repeat(64),
-  errorCode: null,
-  createdAt: '2026-11-16 12:00:00',
-  updatedAt: '2026-11-16 12:00:00',
-});
-const machine: PaytmTerminal = {
+const paytm: PaytmTerminal = {
   provider: 'paytm',
   id: '2',
   merchantKey: 'fixture-key-1234',
@@ -54,12 +41,29 @@ const machine: PaytmTerminal = {
   tid: 'fixture-tid',
   channelId: 'fixture-channel',
 };
-describe('payment source parity and provider evidence', () => {
+const pine: PineTerminal = {
+  provider: 'pine',
+  id: '1',
+  merchantId: 'fixture',
+  securityToken: 'secret',
+  clientId: 'fixture',
+  storePosCode: 'fixture',
+  imei: 'fixture',
+};
+const reply = (responseMessage: string, responseCode: number | null = 1) => ({
+  responseCode,
+  responseMessage,
+  plutusId: 'PLUTUS',
+  apiResponse: '',
+});
+const paytmReply = (resultCode: string) => ({ resultCode, resultMessage: '', apiResponse: '' });
+
+describe('payment source parity', () => {
   it('matches six source-extracted Pine Labs and Paytm dispatch/status/cancel payloads', () => {
     const oracle: unknown = JSON.parse(
       goldenStdout('checkout', 'payments', JSON.stringify({ operation: 'terminal_payloads' })),
     );
-    const pine = {
+    const machine = {
         merchantId: 'fixture-merchant',
         securityToken: 'fixture-secret',
         clientId: 'fixture-client',
@@ -68,28 +72,31 @@ describe('payment source parity and provider evidence', () => {
       calls: { path: string; payload: Record<string, unknown> }[] = [
         {
           path: 'V1/UploadBilledTransaction',
-          payload: pineUploadPayload(pine, 'FIXTURE8002', '59.95', 1, '44', 5),
+          payload: pineUploadPayload(machine, 'FIXTURE8002', '59.95', 1, '44', 5),
         },
-        { path: 'V1/GetCloudBasedTxnStatus', payload: pineStatusPayload(pine, 'PLUTUS') },
+        { path: 'V1/GetCloudBasedTxnStatus', payload: pineStatusPayload(machine, 'PLUTUS') },
         {
           path: 'V1/CancelTransaction',
-          payload: pineCancelPayload(pine, 'PLUTUS', '59.95', false),
+          payload: pineCancelPayload(machine, 'PLUTUS', '59.95', false),
         },
         {
           path: 'V1/CancelTransactionForced',
-          payload: pineCancelPayload(pine, 'PLUTUS', '59.95', true),
+          payload: pineCancelPayload(machine, 'PLUTUS', '59.95', true),
         },
       ],
       checksums: string[] = [];
-    for (const channel of ['paytm-card', 'paytm-qr'] as const) {
-      const body = paytmBody({ ...attempt, channel }, machine, '2026-11-16 12:00:00', true);
+    for (const mode of ['CARD', 'QR'] as const) {
+      const body = paytmBody(paytm, 'FIXTURE8002', '2026-11-16 12:00:00', {
+        onlineAmount: '59.95',
+        mode,
+      });
       checksums.push(pythonJson(body));
       calls.push({
         path: 'payment/request',
         payload: {
           head: {
             requestTimeStamp: '2026-11-16 12:00:00',
-            channelId: machine.channelId,
+            channelId: paytm.channelId,
             checksum: 'fixture-checksum',
             version: '3.1',
           },
@@ -98,35 +105,127 @@ describe('payment source parity and provider evidence', () => {
       });
     }
     expect({ calls, checksums }).toEqual(oracle);
+    // terminal_helpers.py:455-459: the status body carries no terminal id.
+    expect(Object.keys(paytmBody(paytm, 'T1', '2026-11-16 12:00:00'))).toEqual([
+      'paytmMid',
+      'transactionDateTime',
+      'merchantTransactionId',
+    ]);
   });
-  it('requires provider settlement evidence to match merchant, terminal, transaction and amount', () => {
-    const body = {
-      paytmMid: machine.mid,
-      paytmTid: machine.tid,
-      merchantTransactionId: attempt.transactionId,
-      transactionAmount: '5995',
-      resultInfo: { resultCodeId: '0000' },
-    };
-    expect(paytmDecision({ body }, attempt, machine, false).status).toBe('paid');
-    for (const mismatch of [
-      { paytmMid: 'another-mid' },
-      { paytmTid: 'another-terminal' },
-      { merchantTransactionId: 'another-transaction' },
-      { transactionAmount: '5994' },
+  it('treats definitive terminal rejections as re-initiable failures, as legacy does', () => {
+    expect(classifyPineUpload(reply('APPROVED', 0))).toMatchObject({
+      status: 'pending',
+      legacyStatus: 'Approved',
+    });
+    for (const [message, legacy] of [
+      ['PLEASE APPROVE OPEN TXN FIRST', 'Open'],
+      ['TXN ALREADY COMPLETED', 'Already Completed'],
+      ['INVALID MERCHANT', 'Invalid Merchant'],
+      ['SOMETHING ELSE', 'SOMETHING ELSE'],
+      ['Failed', 'Failed'],
+    ] as const)
+      expect(classifyPineUpload(reply(message))).toMatchObject({
+        status: 'failed',
+        legacyStatus: legacy,
+      });
+    expect(classifyPaytmRequest(paytmReply('0009')).status).toBe('pending');
+    for (const [code, legacy] of [
+      ['0333', 'Open'],
+      ['0233', 'Duplicate Order ID'],
+      ['0007', 'Terminal Not In Active State'],
+      ['0002', 'Request parameters are not valid'],
+    ] as const)
+      expect(classifyPaytmRequest(paytmReply(code))).toMatchObject({
+        status: 'failed',
+        legacyStatus: legacy,
+      });
+    expect(classifyPineStatus(reply('INVALID PLUTUS TXN REF ID'))).toEqual({
+      status: 'failed',
+      legacyStatus: 'INVALID PLUTUS ID',
+      message: 'Time Out, Initialize Transaction Again',
+    });
+    expect(classifyPineStatus(reply('TXN APPROVED')).status).toBe('paid');
+    expect(classifyPineStatus(reply('TXN UPLOADED')).status).toBe('pending');
+    expect(classifyPineStatus(reply('OTHER')).legacyStatus).toBe('Failed');
+    expect(classifyPaytmStatus(paytmReply('0000')).status).toBe('paid');
+    expect(classifyPaytmStatus(paytmReply('0404')).status).toBe('failed');
+    expect(classifyPaytmStatus(paytmReply('0010')).status).toBe('pending');
+    expect(classifyPineCancel(reply('APPROVED', 0))?.status).toBe('cancelled');
+    expect(classifyPineCancel(reply('TRANSACTION NOT FOUND'))?.status).toBe('pending');
+    expect(classifyPineCancel(reply('Failed', null))).toBeNull();
+  });
+  it('keeps only timeouts, transport errors, 5xx and unreadable replies unknown', async () => {
+    const config = readConfig({
+      NODE_ENV: 'test',
+      DEMO_MODE: 'true',
+      SESSION_SECRET: 'fixture-payment-secret-'.repeat(3),
+    });
+    const gatewayWith = (respond: () => Promise<Response>) =>
+      terminalGateway(
+        config,
+        { pineBaseUrl: 'https://provider.example.test/', autoCancelMinutes: 5 },
+        respond,
+      );
+    const json = (value: unknown, status = 200) =>
+      Promise.resolve(
+        new Response(JSON.stringify(value), {
+          status,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    const upload = (gateway: ReturnType<typeof gatewayWith>) =>
+      gateway.pineUpload(pine, 'T1', '10.00', 1, '44');
+    await expect(
+      upload(gatewayWith(() => json({ ResponseCode: 1, ResponseMessage: 'INVALID MERCHANT' }))),
+    ).resolves.toMatchObject({ responseMessage: 'INVALID MERCHANT' });
+    await expect(upload(gatewayWith(() => json({}, 401)))).resolves.toMatchObject({
+      responseMessage: 'Failed',
+    });
+    for (const respond of [
+      () => json({}, 503),
+      () => Promise.resolve(new Response('not json')),
+      () => json({ ResponseCode: 0, ResponseMessage: 'APPROVED' }),
+      () => Promise.reject(new TypeError('fetch failed')),
     ])
-      expect(() =>
-        paytmDecision({ body: { ...body, ...mismatch } }, attempt, machine, false),
-      ).toThrow('did not match');
-    expect(
-      paytmDecision({ body: { resultInfo: { resultCodeId: '0009' } } }, attempt, machine, true)
-        .status,
-    ).toBe('pending');
-    for (const resultCodeId of ['0010', '0030', '0404', '0330', 'unknown'])
-      expect(
-        paytmDecision({ body: { resultInfo: { resultCodeId } } }, attempt, machine, false).status,
-      ).not.toBe('paid');
+      await expect(upload(gatewayWith(respond))).rejects.toBeInstanceOf(PaymentOutcomeUnknown);
+    const approved = await upload(
+      gatewayWith(() =>
+        json({ ResponseCode: 0, ResponseMessage: 'APPROVED', PlutusTransactionReferenceID: 77 }),
+      ),
+    );
+    expect(approved).toMatchObject({ plutusId: '77' });
+    expect(approved.apiResponse).toBe(
+      "{'ResponseCode': 0, 'ResponseMessage': 'APPROVED', 'PlutusTransactionReferenceID': 77}",
+    );
   });
-  it('validates exact cents, cash received, terminal assignment and external references before dispatch', () => {
+  it('routes every active mode the legacy way instead of dropping unknown ones', () => {
+    expect([1, 10, 1001, 1003, 1004, 1005, 1006, 7, 1002].map(channelForMode)).toEqual([
+      'pine-card',
+      'pine-upi',
+      'other',
+      'paytm-card',
+      'paytm-qr',
+      'district',
+      'pincode',
+      'pine',
+      'pine',
+    ]);
+    expect(paymentModeOf({ channel: 'pine', paymentMode: 7 })).toBe(7);
+    const base = {
+      operationId: crypto.randomUUID(),
+      onlineAmount: '10.00',
+      cashAmount: '0.00',
+      cashReceived: '0.00',
+    };
+    expect(paymentInputSchema.safeParse({ ...base, channel: 'pine', paymentMode: 7 }).success).toBe(
+      true,
+    );
+    expect(paymentInputSchema.safeParse({ ...base, channel: 'pine' }).success).toBe(false);
+    expect(
+      paymentInputSchema.safeParse({ ...base, channel: 'pine-card', paymentMode: 7 }).success,
+    ).toBe(false);
+  });
+  it('validates the exact legacy pay amount and form rules', () => {
     const input = paymentInputSchema.parse({
       operationId: crypto.randomUUID(),
       channel: 'cash',
@@ -135,117 +234,62 @@ describe('payment source parity and provider evidence', () => {
       cashReceived: '1.00',
     });
     expect(() => validatePaymentSplit(input, '0.30')).not.toThrow();
-    expect(() => validatePaymentSplit(input, '0.31')).toThrow('authoritative');
+    expect(() => validatePaymentSplit(input, 0.3)).not.toThrow();
+    expect(() => validatePaymentSplit(input, '0.31')).toThrow('Incorrect Pay amount.');
     expect(() => validatePaymentSplit({ ...input, cashReceived: '0.29' }, '0.30')).toThrow(
       'Cash received',
     );
-    expect(() =>
-      validatePaymentSplit(
-        { ...input, channel: 'pine-card', onlineAmount: '0.10', cashAmount: '0.20' },
-        '0.30',
-      ),
-    ).toThrow('terminal');
+    expect(() => validatePaymentSplit({ ...input, cashReceived: '0' }, '0.30')).not.toThrow();
     expect(() =>
       validatePaymentSplit(
         { ...input, channel: 'district', onlineAmount: '0.10', cashAmount: '0.20' },
         '0.30',
       ),
-    ).toThrow('external transaction');
+    ).toThrow('Provide District Transaction ID');
     expect(() => paymentInputSchema.parse({ ...input, is_verified: true })).toThrow();
-  });
-  it('does not equate a terminal upload or ambiguous cancellation with payment or cancellation', async () => {
-    const config = readConfig({
-        NODE_ENV: 'test',
-        DEMO_MODE: 'true',
-        SESSION_SECRET: 'fixture-payment-secret-'.repeat(3),
-      }),
-      responses = [
-        { ResponseCode: 0, ResponseMessage: 'APPROVED', PlutusTransactionReferenceID: 'PLUTUS' },
-        { ResponseCode: 1, ResponseMessage: 'CANNOT CANCEL AS TRANSACTION IS IN PROGRESS' },
-      ],
-      gateway = terminalGateway(
-        config,
-        { pineBaseUrl: 'https://provider.example.test/', autoCancelMinutes: 5 },
-        async () =>
-          new Response(JSON.stringify(responses.shift()), {
-            headers: { 'Content-Type': 'application/json' },
-          }),
-      );
-    const pine = {
-        provider: 'pine' as const,
-        id: '1',
-        merchantId: 'fixture',
-        securityToken: 'secret',
-        clientId: 'fixture',
-        storePosCode: 'fixture',
-        imei: 'fixture',
-      },
-      state = { ...attempt, channel: 'pine-card' as const };
-    const uploaded = await gateway.start(state, pine);
-    expect(uploaded.status).toBe('pending');
-    expect((await gateway.cancel({ ...state, providerReference: 'PLUTUS' }, pine)).status).toBe(
-      'uncertain',
-    );
-    expect(() => gateway.cancel(attempt, machine)).toThrow('Cancel or void');
   });
 });
 
-describe('versioned legacy terminal source fingerprints', () => {
-  const secret = 'isolated-fingerprint-secret-'.repeat(3);
-  const row: LegacyTerminalRecord = {
-    provider: 'pine',
-    id: '9007199254740993',
-    storeId: '1',
-    transactionId: 'OLD1',
-    providerReference: null,
-    storePosCode: 'fixture',
-    imei: 'device',
-    mid: '',
-    tid: '',
-    onlineAmount: '59.95',
-    cashAmount: '40.00',
-    cashReceived: '100.00',
-    paymentMode: 1,
-    platform: 'txn_created',
-  };
-  it('hashes only versioned financial and terminal fields, independently of SELECT aliases', () => {
-    const selected = {
-      ...row,
-      reference: '',
-      code: 'fixture',
-      api_response: 'must-not-enter-hash',
+describe('legacy record shapes', () => {
+  it('derives the transaction id as Helpers.get_transaction_id does', () => {
+    const base = {
+      orderId: '8002',
+      orderRefNo: 'TSS-0001-ABC',
+      inactivePineCreated: 0,
+      inactivePaytmCreated: 0,
+      activePaytmCreated: 0,
     };
-    expect(legacyPaymentSourceHash(selected, secret, 1)).toBe(
-      legacyPaymentSourceHash(row, secret, 1),
+    expect(legacyTransactionId(base)).toBe('TSS-0001-ABC');
+    expect(legacyTransactionId({ ...base, orderRefNo: 'AB-1' })).toBe('8002');
+    expect(legacyTransactionId({ ...base, orderRefNo: '' })).toBe('8002');
+    expect(legacyTransactionId({ ...base, inactivePineCreated: 1 })).toBe('TSS-0001-ABC-2');
+    expect(legacyTransactionId({ ...base, inactivePineCreated: 1, inactivePaytmCreated: 2 })).toBe(
+      'TSS-0001-ABC-5',
     );
-    for (const changed of [
-      { onlineAmount: '59.94' },
-      { storeId: '2' },
-      { providerReference: 'another-reference' },
-      { imei: 'another-device' },
-      { platform: 'txn_completed' },
-    ])
-      expect(legacyPaymentSourceHash({ ...row, ...changed }, secret, 1)).not.toBe(
-        legacyPaymentSourceHash(row, secret, 1),
-      );
+    expect(legacyTransactionId({ ...base, inactivePaytmCreated: 1, activePaytmCreated: 1 })).toBe(
+      'TSS0001ABC2',
+    );
   });
-  it('verifies initial versionless Pine aliases and Paytm records without changing their stored contract', () => {
-    expect(legacyPaymentSourceHash(row, secret)).toBe(
-      operationHash('payment.legacy.source', { ...row, reference: '', code: 'fixture' }, secret),
+  it('writes Python repr text for pay_dict and api_response', () => {
+    expect(pythonFloat(100)).toBe('100.0');
+    expect(pythonFloat(99.5)).toBe('99.5');
+    expect(pythonFloat(0.1 + 0.2)).toBe('0.30000000000000004');
+    expect(
+      legacyPayDict([
+        ['cash payment', 40],
+        ['online payment', 59.95],
+        ['total amount on counter', 40 + 59.95],
+      ]),
+    ).toBe("{'cash payment': 40.0, 'online payment': 59.95, 'total amount on counter': 99.95}");
+    expect(pythonRepr({ a: null, b: true, c: "it's", d: [1, 2.5] })).toBe(
+      `{'a': None, 'b': True, 'c': "it's", 'd': [1, 2.5]}`,
     );
-    const paytm: LegacyTerminalRecord = {
-      ...row,
-      provider: 'paytm',
-      providerReference: 'OLD1',
-      storePosCode: '',
-      imei: '',
-      mid: 'merchant',
-      tid: 'terminal',
-      paymentMode: 1003,
-    };
-    expect(legacyPaymentSourceHash(paytm, secret)).toBe(
-      operationHash('payment.legacy.source', paytm, secret),
+  });
+  it('composes the legacy payment message', () => {
+    expect(
+      legacyPaymentMessage({ online: '0', cashReceived: '500', cash: '450', change: '50' }),
+    ).toBe(
+      '#Card/UPI Received: 0\n#Cash Received:500\n#Cash To Be Accepted:450\n#Cash To Be Return:50',
     );
-    expect(legacyPaymentSourceHash(row, secret)).not.toBe(legacyPaymentSourceHash(row, secret, 1));
   });
 });

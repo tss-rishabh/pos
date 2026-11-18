@@ -1,122 +1,218 @@
-import { AppError } from '../../../domain/errors.js';
-import { amount, minorUnits } from '../../../domain/money.js';
-import type { PaymentAttempt, PaymentInput } from './contracts.js';
-import { operationHash } from '../crypto.js';
+/**
+ * Pure ports of the legacy payment rules (backend-pos-web@78d5b63). No I/O.
+ */
+import type { PaytmReply, PineReply } from './contracts.js';
 
-/** Minimal source facts only; raw provider responses and credentials are never loaded. */
-export interface LegacyTerminalRecord {
-  provider: 'pine' | 'paytm';
-  id: string;
-  storeId: string;
-  transactionId: string;
-  providerReference: string | null;
-  storePosCode: string;
-  imei: string;
-  mid: string;
-  tid: string;
-  onlineAmount: string;
-  cashAmount: string;
-  cashReceived: string;
-  paymentMode: number;
-  platform: string;
+/** `Helpers.get_transaction_id` (helpers/helpers.py:714-737). */
+export function legacyTransactionId(input: {
+  orderId: string;
+  orderRefNo: string;
+  inactivePineCreated: number;
+  inactivePaytmCreated: number;
+  activePaytmCreated: number;
+}): string {
+  const pine = input.inactivePineCreated ? input.inactivePineCreated + 1 : 0,
+    paytm = input.inactivePaytmCreated ? input.inactivePaytmCreated + 1 : 0,
+    total = pine + paytm;
+  let reference = input.orderRefNo,
+    suffix: string;
+  if (input.activePaytmCreated) {
+    reference = reference.replaceAll('-', '');
+    suffix = String(total);
+  } else suffix = `-${total}`;
+  if (total) return reference ? `${reference}${suffix}` : `${input.orderId}${suffix}`;
+  const result = reference || input.orderId;
+  return result.replaceAll('-', '').length >= 8 ? result : input.orderId;
 }
-/** Stable field contract. ORM aliases/raw provider responses never enter new hashes. */
-export function legacyPaymentSourceHash(record: LegacyTerminalRecord, secret: string, version?: 1) {
-  const fields = {
-    provider: record.provider,
-    id: record.id,
-    storeId: record.storeId,
-    transactionId: record.transactionId,
-    providerReference: record.providerReference,
-    storePosCode: record.storePosCode,
-    imei: record.imei,
-    mid: record.mid,
-    tid: record.tid,
-    onlineAmount: record.onlineAmount,
-    cashAmount: record.cashAmount,
-    cashReceived: record.cashReceived,
-    paymentMode: record.paymentMode,
-    platform: record.platform,
-  };
-  if (version === 1)
-    return operationHash('payment.legacy.source.v1', { version, ...fields }, secret);
-  // Compatibility with the initial, undeployed unversioned record shape. Rebuild
-  // its two Pine aliases explicitly instead of depending on a SELECT spread.
-  return operationHash(
-    'payment.legacy.source',
-    record.provider === 'pine'
-      ? { ...fields, reference: record.providerReference ?? '', code: record.storePosCode }
-      : fields,
-    secret,
-  );
-}
-export function legacyChannel(row: LegacyTerminalRecord): PaymentInput['channel'] {
-  const channel =
-    row.provider === 'pine'
-      ? row.paymentMode === 1
-        ? 'pine-card'
-        : row.paymentMode === 10
-          ? 'pine-upi'
-          : null
-      : row.paymentMode === 1003
-        ? 'paytm-card'
-        : row.paymentMode === 1004
-          ? 'paytm-qr'
-          : null;
-  if (!channel) throw legacyReview();
-  return channel;
-}
-export const legacyReview = () =>
-  new AppError(
-    409,
-    'LEGACY_PAYMENT_REVIEW_REQUIRED',
-    'The original terminal payment needs review. Do not collect another payment or cancel the order.',
-  );
 
-export function legacyPaymentEvidence(
-  records: readonly LegacyTerminalRecord[],
-  attempts: readonly PaymentAttempt[],
-) {
-  if (records.length > 200 || attempts.length > 100) throw legacyReview();
-  const matches = (record: LegacyTerminalRecord, attempt: PaymentAttempt) => {
-    if (!attempt.channel.startsWith('pine-') && !attempt.channel.startsWith('paytm-')) return false;
-    if (record.provider !== (attempt.channel.startsWith('pine-') ? 'pine' : 'paytm')) return false;
-    if (
-      attempt.legacySource?.legacyId === record.id &&
-      attempt.legacySource.provider === record.provider
-    )
-      return true;
-    return (
-      record.transactionId === attempt.transactionId &&
-      minorUnits(record.onlineAmount) === minorUnits(attempt.onlineAmount) &&
-      minorUnits(record.cashAmount) === minorUnits(attempt.cashAmount) &&
-      minorUnits(record.cashReceived) === minorUnits(attempt.cashReceived)
-    );
-  };
-  // A historical completed event is money evidence even when mutable order flags were reverted.
-  const completed = records.some(
-    (row) =>
-      row.platform === 'txn_completed' &&
-      !attempts.some((a) => a.status === 'paid' && matches(row, a)),
-  );
-  const candidates = records.filter(
-    (row) => row.platform === 'txn_created' && !attempts.some((a) => matches(row, a)),
-  );
-  const unique = new Set(candidates.map((row) => `${row.provider}:${row.transactionId}`));
-  return {
-    completed,
-    candidates,
-    ambiguous: unique.size !== candidates.length || candidates.length > 1,
-  };
+/** Python `repr(float)` for a finite money value (`100.0`, `99.5`). */
+export function pythonFloat(value: number): string {
+  if (!Number.isFinite(value)) return value > 0 ? 'inf' : value < 0 ? '-inf' : 'nan';
+  if (Number.isInteger(value) && Math.abs(value) < 1e16) return value.toFixed(1);
+  const text = String(value);
+  return text.includes('e') ? text.replace(/e([+-])(\d)$/, 'e$10$2') : text;
 }
-export function normalizedLegacyAmounts(row: LegacyTerminalRecord) {
-  try {
-    return {
-      onlineAmount: amount(minorUnits(row.onlineAmount)),
-      cashAmount: amount(minorUnits(row.cashAmount)),
-      cashReceived: amount(minorUnits(row.cashReceived)),
-    };
-  } catch {
-    throw legacyReview();
+function pythonString(value: string): string {
+  const quote = value.includes("'") && !value.includes('"') ? '"' : "'";
+  let out = quote;
+  for (const character of value) {
+    const code = character.codePointAt(0)!;
+    if (character === '\\') out += '\\\\';
+    else if (character === quote) out += '\\' + quote;
+    else if (character === '\n') out += '\\n';
+    else if (character === '\r') out += '\\r';
+    else if (character === '\t') out += '\\t';
+    else if (code < 0x20 || code === 0x7f) out += '\\x' + code.toString(16).padStart(2, '0');
+    else if (code >= 0x80 && code < 0xa0) out += '\\x' + code.toString(16).padStart(2, '0');
+    else out += character;
   }
+  return out + quote;
+}
+/** Python `str(value)` of parsed JSON, as Django stores a dict in a TextField. */
+export function pythonRepr(value: unknown): string {
+  if (value === null || value === undefined) return 'None';
+  if (value === true) return 'True';
+  if (value === false) return 'False';
+  if (typeof value === 'number')
+    return Number.isInteger(value) ? String(value) : pythonFloat(value);
+  if (typeof value === 'bigint') return value.toString();
+  if (typeof value === 'string') return pythonString(value);
+  if (Array.isArray(value)) return '[' + value.map(pythonRepr).join(', ') + ']';
+  if (typeof value === 'object')
+    return (
+      '{' +
+      Object.entries(value as Record<string, unknown>)
+        .map(([key, item]) => pythonString(key) + ': ' + pythonRepr(item))
+        .join(', ') +
+      '}'
+    );
+  return pythonString(String(value));
+}
+/** `pay_dict` written by `complete_order` / `AjaxPaymentStatusView` (floats, Python repr). */
+export function legacyPayDict(entries: [string, number][]): string {
+  return '{' + entries.map(([key, item]) => `'${key}': ${pythonFloat(item)}`).join(', ') + '}';
+}
+
+/** Result of a provider reply, classified as legacy handles it. */
+export interface Classified {
+  /** pending = awaiting the terminal; failed = definitive, cashier may re-initiate. */
+  status: 'pending' | 'paid' | 'failed' | 'cancelled';
+  /** Legacy status string returned by the original view. */
+  legacyStatus: string;
+  /** Legacy UI text shown for it (create_order.html / show.html). */
+  message: string;
+}
+const printable = (value: string) =>
+  value
+    .replace(/[^\x20-\x7e]/g, ' ')
+    .trim()
+    .slice(0, 200) || 'Failed, unknown response';
+
+/** `TerminalHelper.upload_billed_transaction` (terminal_helpers.py:56-86). */
+export function classifyPineUpload(reply: PineReply): Classified {
+  if (reply.responseCode === 0 && reply.responseMessage === 'APPROVED')
+    return { status: 'pending', legacyStatus: 'Approved', message: 'Approved' };
+  switch (reply.responseMessage) {
+    case 'PLEASE APPROVE OPEN TXN FIRST':
+      return { status: 'failed', legacyStatus: 'Open', message: 'Please Approve Open Txn First' };
+    case 'TXN ALREADY COMPLETED':
+      return {
+        status: 'failed',
+        legacyStatus: 'Already Completed',
+        message: 'Already Completed',
+      };
+    case 'INVALID MERCHANT':
+      return { status: 'failed', legacyStatus: 'Invalid Merchant', message: 'Invalid Merchant' };
+    default: {
+      const text = printable(reply.responseMessage);
+      return { status: 'failed', legacyStatus: text, message: text };
+    }
+  }
+}
+/** `PaytmHelper.create_paytm_payment_request` (terminal_helpers.py:392-418). */
+export function classifyPaytmRequest(reply: PaytmReply): Classified {
+  const known: Record<string, string> = {
+    '0333': 'Open',
+    '0233': 'Duplicate Order ID',
+    '0007': 'Terminal Not In Active State',
+    '0002': 'Request parameters are not valid',
+  };
+  if (reply.resultCode === '0009')
+    return { status: 'pending', legacyStatus: 'Approved', message: 'Approved' };
+  const legacy = known[reply.resultCode];
+  if (legacy)
+    return {
+      status: 'failed',
+      legacyStatus: legacy,
+      message: legacy === 'Open' ? 'Please Approve Open Txn First' : legacy,
+    };
+  const text = printable(`${reply.resultCode} ${reply.resultMessage}`);
+  return { status: 'failed', legacyStatus: text, message: text };
+}
+/** `TerminalHelper.get_transaction_status` (terminal_helpers.py:128-157) + show.html:536-556. */
+export function classifyPineStatus(reply: PineReply): Classified {
+  if (reply.responseMessage === 'TXN APPROVED')
+    return {
+      status: 'paid',
+      legacyStatus: 'Approved',
+      message: 'Transaction Completed Successfully',
+    };
+  if (reply.responseMessage === 'TXN UPLOADED')
+    return {
+      status: 'pending',
+      legacyStatus: 'UPLOADED',
+      message: 'Status :UPLOADED, Check Status Again',
+    };
+  if (reply.responseMessage === 'INVALID PLUTUS TXN REF ID')
+    return {
+      status: 'failed',
+      legacyStatus: 'INVALID PLUTUS ID',
+      message: 'Time Out, Initialize Transaction Again',
+    };
+  return {
+    status: 'pending',
+    legacyStatus: 'Failed',
+    message: 'Status :Failed, Check Status Again',
+  };
+}
+/** `PaytmHelper.paytm_payment_status_check` (terminal_helpers.py:477-535). */
+export function classifyPaytmStatus(reply: PaytmReply): Classified {
+  if (reply.resultCode === '0000')
+    return {
+      status: 'paid',
+      legacyStatus: 'Approved',
+      message: 'Transaction Completed Successfully',
+    };
+  // Legacy compares against ' 0011' (leading space) and so never matches; the
+  // provider's definitive failure is surfaced without any extra write.
+  if (reply.resultCode === '0011')
+    return {
+      status: 'failed',
+      legacyStatus: 'sale txn has failed',
+      message: 'sale txn has failed',
+    };
+  if (reply.resultCode === '0404')
+    return {
+      status: 'failed',
+      legacyStatus: 'Merchant transaction id does not exits..!',
+      message: 'Merchant transaction id does not exits..!',
+    };
+  const text =
+    'Payment has been cancelled or there is an issue with status check please reload the page';
+  return { status: 'pending', legacyStatus: text, message: `Status :${text}, Check Status Again` };
+}
+/** `TerminalHelper.cancel_transaction` (terminal_helpers.py:205-232) + show.html cancel handler. */
+export function classifyPineCancel(reply: PineReply): Classified | null {
+  if (reply.responseCode === 0 && reply.responseMessage === 'APPROVED')
+    return {
+      status: 'cancelled',
+      legacyStatus: 'Approved',
+      message: 'Transaction Cancelled Successfully',
+    };
+  if (reply.responseCode === 1 && reply.responseMessage === 'TRANSACTION NOT FOUND')
+    return {
+      status: 'pending',
+      legacyStatus: 'TRANSACTION NOT FOUND',
+      message: 'Status :TRANSACTION NOT FOUND, Check Status Again',
+    };
+  if (
+    reply.responseCode === 1 &&
+    reply.responseMessage === 'CANNOT CANCEL AS TRANSACTION IS IN PROGRESS'
+  )
+    return {
+      status: 'pending',
+      legacyStatus: 'CANNOT CANCEL AS TRANSACTION IS IN PROGRESS',
+      message: 'Cannot Cancel as Transaction is in Progress',
+    };
+  return null;
+}
+
+/** Message the legacy form composes (create_order.html:6044-6046). */
+export function legacyPaymentMessage(values: {
+  online: string;
+  cashReceived: string;
+  cash: string;
+  change: string;
+}): string {
+  return `#Card/UPI Received: ${values.online}\n#Cash Received:${values.cashReceived}\n#Cash To Be Accepted:${values.cash}\n#Cash To Be Return:${values.change}`;
 }
