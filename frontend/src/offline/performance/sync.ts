@@ -1,12 +1,9 @@
 import { ApiError, captureOperatorScope } from '../../api/client';
 import { db } from '../database';
-import { fastCashCommandSchema } from '../fast-cash/contracts';
 import { performanceApi, assertPerformanceReceipt, type PerformanceApi } from './client';
 import { performanceCommand, type PerformanceCommand } from './contracts';
 import {
   claimPerformance,
-  bindPaidPerformance,
-  deferUnpaidPerformance,
   finishPerformanceClaim,
   type PerformanceStorageOptions,
 } from './storage';
@@ -55,29 +52,9 @@ export async function syncPreparedPerformance(
   const database = options.database ?? db,
     signal = options.signal ?? captureOperatorScope(ownerId);
   const now = options.clock?.() ?? Date.now();
-  // Repair the tiny local crash window after a proved cash commit but before
-  // optional metadata binding. Read its exact retained command; never redispatch it.
-  const captured = await database.performanceCommands
-    .where('[ownerId+storeId+counterId+state+nextAttemptAt]')
-    .between(
-      [ownerId, storeId, counterId, 'captured', 0],
-      [ownerId, storeId, counterId, 'captured', now],
-      true,
-      true,
-    )
-    .limit(10)
-    .toArray();
-  for (const record of captured) {
-    signal.throwIfAborted();
-    const parsed = performanceCommand.safeParse(record);
-    if (!parsed.success) continue;
-    const cash = fastCashCommandSchema.safeParse(
-      await database.fastCashCommands.get(parsed.data.id),
-    );
-    if (cash.success && cash.data.state === 'paid')
-      await bindPaidPerformance(cash.data, { ...options, signal });
-    else await deferUnpaidPerformance(parsed.data, { ...options, signal });
-  }
+  // Only commands already bound to a proved order/receipt are sent. The fast-cash
+  // binder that turned 'captured' commands into 'prepared' ones was removed with
+  // fast cash; captured records stay inert.
   const records: PerformanceCommand[] = [];
   for (const state of ['prepared', 'sending', 'unknown'] as const) {
     if (records.length >= 10) break;

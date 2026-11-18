@@ -109,9 +109,7 @@ describe('independent performance ownership and bounded-work review', () => {
     });
     expect(writes).toBe(1);
     expect((await database.performanceCommands.get(pending.id))?.state).toBe('recorded');
-    expect(await database.fastCashCommands.count()).toBe(0);
     expect(await database.completedSales.count()).toBe(0);
-    expect(await database.offlineCashReceipts.count()).toBe(0);
     expect(cursorMoves).toBeLessThanOrEqual(30);
   });
 });

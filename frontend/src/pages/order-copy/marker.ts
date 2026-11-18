@@ -17,7 +17,7 @@ export function markOrderCopyOrigin(
   );
   window.dispatchEvent(new Event('pos-order-copy-marker-changed'));
 }
-/** Offline cash must fail closed until the original online sale/clear completes. */
+/** A copied origin fails closed (needs online review) until the original online sale/clear completes. */
 export function orderCopyRequiresOnlineReview(
   operatorId: string,
   storeId: string,

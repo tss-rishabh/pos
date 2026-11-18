@@ -119,9 +119,7 @@ describe('optional post-payment performance recording', () => {
       operationId: job.operationId,
       performance: job.performance,
     });
-    expect(await database.fastCashCommands.count()).toBe(0);
     expect(await database.completedSales.count()).toBe(0);
-    expect(await database.offlineCashReceipts.count()).toBe(0);
   });
   it('recovers a lost committed response by GET without another POST or new timing values', async () => {
     api.write = async (command) => {

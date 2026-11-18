@@ -30,8 +30,6 @@ import { completeSale } from '../offline/complete-sale';
 import { prepareReview } from '../offline/review-snapshot';
 import { recoveryFor } from './checkout/client';
 import { clearReviewedDraft } from '../offline/clear-reviewed-draft';
-import { CashTools } from './checkout/offline-cash/cash-tools';
-import type { LocalCashReceipt } from '../offline/cash/storage-types';
 import { recordPerformancePhase } from '../offline/performance/storage';
 import { captureOperatorScope } from '../api/client';
 import { addProduct, commitScannedProduct, resolveBarcode } from './counter-catalog/barcode';
@@ -46,7 +44,7 @@ import {
 import { CashierShortcutHelp } from './cashier-shortcuts/help';
 import { useCashierShortcutPreference } from './cashier-shortcuts/preference';
 import { MotivationalQuote } from '../components/motivational-quote';
-import { clearOrderCopyOrigin, orderCopyRequiresOnlineReview } from './order-copy';
+import { clearOrderCopyOrigin } from './order-copy';
 import {
   bindCashierShortcuts,
   cashierShortcutScope,
@@ -147,7 +145,6 @@ export function CounterPage({
     [busy, setBusy] = useState(false),
     [review, setReview] = useState<LocalDraft | null>(null);
   const [reviewOpening, setReviewOpening] = useState(false);
-  const [cashOpen, setCashOpen] = useState(false);
   const [recoveryNotice, setRecoveryNotice] = useState<string>();
   const [lastPaid, setLastPaid] = useState<{ storeId: string; orderId: string } | null>(null);
   const [automaticInvoice, setAutomaticInvoice] = useState<AutomaticInvoiceRequest | null>(null);
@@ -171,10 +168,6 @@ export function CounterPage({
     user.id,
     storeId,
     cart?.lines.map((line) => line.productId) || [],
-  );
-  const recoveredCheckoutId = cart ? recoveryFor(user.id, cart.id)?.checkoutId : undefined;
-  const copiedOriginNeedsOnline = Boolean(
-    recoveredCheckoutId && orderCopyRequiresOnlineReview(user.id, storeId, recoveredCheckoutId),
   );
   const draftId =
     cart?.ownerId === user.id && cart.storeId === storeId && cart.counterId === counterId
@@ -466,7 +459,7 @@ export function CounterPage({
     }
   }
   async function openReview(action?: CashierShortcut) {
-    if (!cart || openingReview.current || reviewOpening || cashOpen) return;
+    if (!cart || openingReview.current || reviewOpening) return;
     const scope = `${cart.ownerId}:${cart.storeId}:${cart.counterId}`,
       signal = captureOperatorScope(cart.ownerId);
     if (scope !== workspaceScope.current) return;
@@ -493,41 +486,14 @@ export function CounterPage({
       setReviewOpening(false);
     }
   }
-  function cashCompleted(snapshot: LocalDraft, receipt: LocalCashReceipt) {
-    clearRecovery(snapshot.ownerId, snapshot.id);
-    setReview((current) => (current?.id === snapshot.id ? null : current));
-    if (
-      workspaceScope.current !== `${snapshot.ownerId}:${snapshot.storeId}:${snapshot.counterId}` ||
-      (activeDraftId.current && activeDraftId.current !== snapshot.id)
-    )
-      return;
-    setActive((current) =>
-      !current || current === snapshot.id ? receipt.replacementDraftId : current,
-    );
-    setLastPaid(null);
-    setAutomaticInvoice(null);
-    setProblem(null);
-    setMessage(
-      receipt.preservedDraftId
-        ? 'Cash received. Later changes are kept in a new sale; your cash receipt is saved.'
-        : 'Cash received. Your cash receipt is saved on this device.',
-    );
-  }
   const pending = operations.find((o) => o.draftId === cart?.id);
   const allProducts = products.data?.pages.flatMap((p) => p.data) || [];
   const cached = products.data?.pages.some((p) => p.cached);
   shortcutAction.current = (action) => {
     const root = shortcutRoot.current,
       scope = root && cashierShortcutScope(root);
-    if (!root || !scope || cashOpen || automaticInvoice) return false;
-    if (review) {
-      if (invokeCashierShortcut(scope, action)) return true;
-      if (action === 'fast-cash' && online) {
-        setShortcutRequest({ id: crypto.randomUUID(), action, requestedAt: Date.now() });
-        return true;
-      }
-      return false;
-    }
+    if (!root || !scope || automaticInvoice) return false;
+    if (review) return invokeCashierShortcut(scope, action);
     if (openingReview.current || busy) return false;
     if (action === 'barcode' || action === 'new-sale') return invokeCashierShortcut(root, action);
     if (action === 'refresh') {
@@ -811,12 +777,10 @@ export function CounterPage({
               <span>Estimated total</span>
               <strong>{currency(total(cart?.lines || []))}</strong>
             </div>
-            <p className="price-note">
-              Review the final total before payment. Offline cash uses saved prices.
-            </p>
+            <p className="price-note">Review the final total before payment.</p>
             <button
               className="button primary full"
-              disabled={!cart?.lines.length || reviewOpening || cashOpen}
+              disabled={!cart?.lines.length || reviewOpening}
               onClick={() => void openReview()}
             >
               Review sale
@@ -833,17 +797,6 @@ export function CounterPage({
             <div className="safe-local">
               <span className="status-dot" /> Cart changes are saved on this device
             </div>
-            <CashTools
-              user={user}
-              storeId={storeId}
-              counterId={counterId}
-              draft={cart}
-              online={online}
-              reviewBusy={Boolean(review) || reviewOpening}
-              onlineReviewRequired={copiedOriginNeedsOnline}
-              onOpenChange={setCashOpen}
-              onCompleted={cashCompleted}
-            />
           </div>
         </aside>
       </div>

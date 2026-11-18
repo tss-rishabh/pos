@@ -1,13 +1,6 @@
 import Dexie, { type Table, type EntityTable } from 'dexie';
 import type { Draft, DraftMutation, Principal, Product, Store, Counter } from '../api/types';
-import type {
-  LocalCashAuthorization,
-  LocalCashDevice,
-  LocalCashReceipt,
-  LocalCashSync,
-} from './cash/storage-types';
 import type { WalletCommand, WalletCommandOwner } from './benefits/storage';
-import type { FastCashCommand, FastCashOwner } from './fast-cash/contracts';
 import type { PerformanceCapture, PerformanceCommand } from './performance/contracts';
 
 export interface LocalDraft extends Draft {
@@ -90,18 +83,15 @@ export class PosDatabase extends Dexie {
   completedSales!: Table<CompletedSale, [string, string]>;
   reviewSnapshots!: Table<ReviewSnapshot, [string, string]>;
   clearedDrafts!: Table<ClearedDraft, [string, string]>;
-  offlineCashDevices!: Table<LocalCashDevice, [string, string]>;
-  offlineCashAuthorizations!: EntityTable<LocalCashAuthorization, 'id'>;
-  offlineCashReceipts!: Table<LocalCashReceipt, [string, string]>;
-  offlineCashSync!: EntityTable<LocalCashSync, 'receiptId'>;
   walletCommands!: EntityTable<WalletCommand, 'id'>;
   walletCommandOwners!: EntityTable<WalletCommandOwner, 'ownerId'>;
-  fastCashCommands!: EntityTable<FastCashCommand, 'id'>;
-  fastCashOwners!: Table<FastCashOwner, [string, string, string]>;
   performanceCaptures!: Table<PerformanceCapture, [string, string]>;
   performanceCommands!: EntityTable<PerformanceCommand, 'id'>;
   constructor(name = 'souled-pos-v1') {
     super(name, { chromeTransactionDurability: 'strict' });
+    // Versions 5, 7 and 9 created the retired IndexedDB offline-cash and fast-cash
+    // tables. Their declarations stay so every historical schema still upgrades in
+    // order; version 11 deletes the tables (Dexie drops a table declared as null).
     this.version(1).stores({
       drafts: '[ownerId+id],ownerId,[ownerId+storeId],updatedAt',
       operations: 'id,ownerId,&[ownerId+draftId],nextAttemptAt',
@@ -132,31 +122,22 @@ export class PosDatabase extends Dexie {
       performanceCaptures: '[ownerId+draftId],ownerId,[ownerId+checkoutId]',
       performanceCommands: 'id,ownerId,[ownerId+storeId+counterId+state+nextAttemptAt]',
     });
-    this.version(9)
-      .stores({
-        offlineCashSync:
-          'receiptId,ownerId,storeId,[ownerId+state],[storeId+state],nextAttemptAt,[ownerId+storeId+counterId+state],[storeId+counterId+state]',
-      })
-      .upgrade(async (transaction) => {
-        const jobs = transaction.table<LocalCashSync, string>('offlineCashSync'),
-          receipts = transaction.table<LocalCashReceipt, [string, string]>('offlineCashReceipts');
-        // Only queue routing metadata changes. Never replace a signed receipt,
-        // create another cash claim or clear an incomplete/uncertain record.
-        for (const id of await jobs.toCollection().primaryKeys()) {
-          const job = await jobs.get(id);
-          if (!job) continue;
-          const receipt = await receipts.get([job.ownerId, job.receiptId]);
-          if (
-            receipt?.ownerId === job.ownerId &&
-            receipt.receiptId === job.receiptId &&
-            receipt.storeId === job.storeId &&
-            receipt.counterId === receipt.envelope.receipt.counterId
-          )
-            await jobs.update(id, { counterId: receipt.counterId });
-        }
-      });
+    // The version 9 queue-routing upgrade only touched offlineCashSync, which
+    // version 11 deletes, so it is no longer run.
+    this.version(9).stores({
+      offlineCashSync:
+        'receiptId,ownerId,storeId,[ownerId+state],[storeId+state],nextAttemptAt,[ownerId+storeId+counterId+state],[storeId+counterId+state]',
+    });
     this.version(10).stores({
       catalogBarcodes: '[ownerId+storeId+barcode+productId],[ownerId+storeId+barcode],ownerId',
+    });
+    this.version(11).stores({
+      offlineCashDevices: null,
+      offlineCashAuthorizations: null,
+      offlineCashReceipts: null,
+      offlineCashSync: null,
+      fastCashCommands: null,
+      fastCashOwners: null,
     });
   }
 }

@@ -13,7 +13,6 @@ import {
   readCheckout,
   readOperation,
   reconcileCustomerVerification,
-  readSettlementNote,
   recoveryFor,
   saveRecovery,
   registrationSchema,
@@ -21,7 +20,6 @@ import {
   type Customer,
 } from './client';
 import { PaymentPanel, type ConfirmedPayment } from './PaymentPanel';
-import { FastCashCheckout } from './FastCashCheckout';
 import { SalespersonAssignments } from './SalespersonAssignments';
 import { confirmedPaymentSchema } from './receipts';
 import { InvoiceActions } from './InvoiceActions';
@@ -38,7 +36,6 @@ import { GlobalVoucherConversion } from '../global-vouchers/conversion';
 import './CheckoutReview.css';
 import type { CheckoutClearance } from '../../api/checkout-clearance';
 import { bindReviewedCheckout } from '../../offline/review-snapshot';
-import { cashIntentAmounts } from '../../offline/fast-cash/contracts';
 import { invokeCashierShortcut, type CashierShortcutRequest } from '../cashier-shortcuts/shortcuts';
 import { displayedMembershipBenefits } from '../cashier-shortcuts/membership';
 import { CustomerWebsiteHandoffAction } from '../customer-website-handoff';
@@ -71,7 +68,7 @@ export function CheckoutReview({
   shortcutRequest,
 }: CheckoutReviewProps) {
   const shortcutRoot = useRef<HTMLElement>(null),
-    shortcutIntent = useRef({ id: '', consumed: false, loaded: false, quoted: false });
+    shortcutIntent = useRef({ id: '', consumed: false, loaded: false });
   const [openSections, setOpenSections] = useState({ messages: false, membership: false });
   function sectionProps(name: 'messages' | 'membership') {
     return {
@@ -128,8 +125,6 @@ export function CheckoutReview({
     copyActive.current = value;
     setCopyPending(value);
   }, []);
-  const [fastCashBusy, setFastCashBusy] = useState(false),
-    [fastCashPending, setFastCashPending] = useState(true);
   const [recoveryError, setRecoveryError] = useState(() => {
     const saved = recoveryFor(draft.ownerId, draft.id);
     return saved && saved.draftVersion !== draft.updatedAt
@@ -148,7 +143,6 @@ export function CheckoutReview({
   );
   const current = useRef<Checkout | null>(null),
     locked = useRef(false),
-    fastCashActive = useRef(false),
     notifiedReceipt = useRef<string | null>(null),
     completedCallback = useRef(onPaymentConfirmed),
     notifiedClear = useRef<string | null>(null),
@@ -258,9 +252,7 @@ export function CheckoutReview({
       !recoveryError &&
       !profilePending &&
       !contactPending &&
-      !conversionPending &&
-      !fastCashBusy &&
-      !fastCashPending,
+      !conversionPending,
     );
   }
   const act = async (
@@ -271,7 +263,6 @@ export function CheckoutReview({
       purpose === 'cancelled-copy-clear' && canClearCancelledCopy(current.current);
     if (
       locked.current ||
-      fastCashActive.current ||
       (purpose === 'cancelled-copy-clear' && !clearingCancelledCopy) ||
       (!clearingCancelledCopy &&
         (copyActive.current ||
@@ -462,12 +453,9 @@ export function CheckoutReview({
       !conversionPending &&
       !copyPending &&
       !copyOwned &&
-      !fastCashBusy &&
-      !fastCashPending &&
       !checkout.busyOperationId,
     disabled =
       busy ||
-      fastCashBusy ||
       profilePending ||
       contactPending ||
       conversionPending ||
@@ -482,7 +470,7 @@ export function CheckoutReview({
       root = shortcutRoot.current;
     if (!request || !root) return;
     if (shortcutIntent.current.id !== request.id)
-      shortcutIntent.current = { id: request.id, consumed: false, loaded: false, quoted: false };
+      shortcutIntent.current = { id: request.id, consumed: false, loaded: false };
     const intent = shortcutIntent.current;
     if (intent.consumed) return;
     if (
@@ -506,16 +494,7 @@ export function CheckoutReview({
     if (!checkout && !intent.loaded && !recoveryFor(draft.ownerId, draft.id)) {
       intent.loaded = true;
       invokeCashierShortcut(root, 'quote');
-    } else if (
-      request.action === 'fast-cash' &&
-      checkout?.phase === 'open' &&
-      editable &&
-      !intent.quoted
-    ) {
-      intent.quoted = true;
-      invokeCashierShortcut(root, 'quote');
-    } else if (checkout?.phase === 'quoted' && request.action !== 'fast-cash')
-      intent.consumed = true;
+    } else if (checkout?.phase === 'quoted') intent.consumed = true;
   }, [
     shortcutRequest,
     checkout,
@@ -533,7 +512,7 @@ export function CheckoutReview({
     if (
       !request ||
       !root ||
-      !['salesperson', 'fast-cash'].includes(request.action) ||
+      request.action !== 'salesperson' ||
       disabled ||
       pendingId
     )
@@ -777,8 +756,6 @@ export function CheckoutReview({
                 online={online}
                 disabled={
                   busy ||
-                  fastCashBusy ||
-                  fastCashPending ||
                   contactPending ||
                   conversionPending ||
                   copyPending ||
@@ -813,8 +790,6 @@ export function CheckoutReview({
                 online={online}
                 disabled={
                   busy ||
-                  fastCashBusy ||
-                  fastCashPending ||
                   profilePending ||
                   conversionPending ||
                   copyPending ||
@@ -848,8 +823,6 @@ export function CheckoutReview({
                 online={online}
                 disabled={
                   busy ||
-                  fastCashBusy ||
-                  fastCashPending ||
                   profilePending ||
                   contactPending ||
                   conversionPending ||
@@ -950,8 +923,6 @@ export function CheckoutReview({
                 disabled={
                   disabled ||
                   busy ||
-                  fastCashBusy ||
-                  fastCashPending ||
                   profilePending ||
                   contactPending ||
                   conversionPending ||
@@ -970,8 +941,6 @@ export function CheckoutReview({
                 online={online}
                 disabled={
                   busy ||
-                  fastCashBusy ||
-                  fastCashPending ||
                   profilePending ||
                   contactPending ||
                   copyPending ||
@@ -1017,7 +986,6 @@ export function CheckoutReview({
                 online={online}
                 disabled={
                   disabled ||
-                  fastCashPending ||
                   Boolean(pendingId) ||
                   Boolean(checkout.busyOperationId)
                 }
@@ -1036,7 +1004,6 @@ export function CheckoutReview({
                 online={online}
                 disabled={
                   disabled ||
-                  fastCashPending ||
                   Boolean(pendingId) ||
                   Boolean(checkout.busyOperationId)
                 }
@@ -1597,51 +1564,6 @@ export function CheckoutReview({
                 <strong>{currency(total)}</strong>
               </div>
             )}
-            {checkout.draftImport?.status === 'complete' && checkout.phase !== 'cleared' && (
-              <FastCashCheckout
-                draft={draft}
-                checkout={checkout}
-                online={online}
-                disabled={disabled}
-                canStart={
-                  editable &&
-                  checkout.phase === 'quoted' &&
-                  approvalState?.version === checkout.version &&
-                  approvalState.ready
-                }
-                onCheckout={async (state, operationId) => {
-                  await adopt(state);
-                  store(state, operationId);
-                }}
-                onSaveNote={async (message, cashReceived) => {
-                  const original = current.current;
-                  if (original?.settlementNote?.cashReceived === cashReceived) {
-                    const note = await readSettlementNote(original);
-                    if (
-                      note?.hash === original.settlementNote.hash &&
-                      note.message === message &&
-                      note.payable ===
-                        cashIntentAmounts(authoritativeTotal(original) ?? '', cashReceived)
-                          .payable &&
-                      current.current?.version === original.version &&
-                      current.current.id === original.id
-                    )
-                      return original;
-                  }
-                  const reply = await mutate('settlement-note', 'PUT', { message, cashReceived });
-                  if (!reply.state)
-                    throw new Error('The payment note checkpoint could not be verified.');
-                  return reply.state;
-                }}
-                onConfirmed={(receipt) => completedCallback.current?.(receipt)}
-                onOrderCreated={onOrderCreated}
-                onBusyChange={(value) => {
-                  fastCashActive.current = value;
-                  setFastCashBusy(value);
-                }}
-                onPendingChange={setFastCashPending}
-              />
-            )}
             {checkout.phase === 'quoted' && (
               <>
                 <DiscountApproval
@@ -1710,9 +1632,7 @@ export function CheckoutReview({
                     </button>
                   </>
                 ) : (
-                  checkout.orderId &&
-                  !fastCashPending &&
-                  !fastCashBusy && (
+                  checkout.orderId && (
                     <PaymentPanel
                       ownerId={draft.ownerId}
                       draftId={draft.id}

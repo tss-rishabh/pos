@@ -21,7 +21,7 @@ beforeEach(() => {
   });
 });
 afterEach(() => vi.unstubAllGlobals());
-it('retains a separate owner-scoped offline-cash fence until an independently confirmed completion clears it', () => {
+it('retains a separate owner-scoped online-review fence until an independently confirmed completion clears it', () => {
   expect(orderCopyRequiresOnlineReview('44', '1', checkout)).toBe(false);
   markOrderCopyOrigin('44', '1', checkout, command);
   expect(orderCopyRequiresOnlineReview('44', '1', checkout)).toBe(true);

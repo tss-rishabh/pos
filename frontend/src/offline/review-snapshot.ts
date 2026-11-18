@@ -41,13 +41,10 @@ export async function bindReviewedCheckout(
       database.reviewSnapshots,
       database.clearedDrafts,
       database.completedSales,
-      database.offlineCashReceipts,
     ],
     async () => {
       const key: [string, string] = [candidate.ownerId, candidate.id],
         cleared = await database.clearedDrafts.get(key);
-      if (await database.offlineCashReceipts.where('[ownerId+draftId]').equals(key).first())
-        throw new Error('Cash has already been received for this sale. Open its saved receipt.');
       if (cleared) {
         if (
           cleared.checkoutId !== checkoutId ||
@@ -90,12 +87,9 @@ export async function prepareReview(
       database.reviewSnapshots,
       database.completedSales,
       database.clearedDrafts,
-      database.offlineCashReceipts,
     ],
     async () => {
       const key: [string, string] = [candidate.ownerId, candidate.id];
-      if (await database.offlineCashReceipts.where('[ownerId+draftId]').equals(key).first())
-        throw new Error('Cash has already been received for this sale. Open its saved receipt.');
       if (await database.clearedDrafts.get(key))
         throw new Error(
           'This checkout was cleared. Open a new sale; the original items will not be imported again.',
