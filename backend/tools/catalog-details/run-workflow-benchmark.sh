@@ -19,17 +19,30 @@ node "$catalog_backend/tools/dependency-security/verify.mjs"
 catalog_work=$(mktemp -d /tmp/pos-catalog-workflow.XXXXXX)
 chmod 700 "$catalog_work"
 catalog_container=
+catalog_nonce=
 cleanup() {
-  if [ -n "$catalog_container" ]; then docker rm -f "$catalog_container" >/dev/null 2>&1 || true; fi
+  if [ -f "$catalog_work/container.cid" ]; then
+    catalog_container=$(cat "$catalog_work/container.cid")
+    case "$catalog_container" in ''|*[!0-9a-f]*) catalog_container=;; esac
+    if [ "${#catalog_container}" -eq 64 ]; then
+      catalog_label=$(docker inspect --format '{{index .Config.Labels "pos-rewrite.catalog-workflow-nonce"}}' "$catalog_container" 2>/dev/null || true)
+      if [ "$catalog_label" = "$catalog_nonce" ] && [ -n "$catalog_nonce" ]; then
+        docker rm -fv "$catalog_container" >/dev/null 2>&1 || true
+      fi
+    fi
+  fi
   rm -rf "$catalog_work"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' HUP TERM
 export UV_CACHE_DIR="$catalog_work/uv-cache"
 export UV_PYTHON_INSTALL_DIR="$catalog_work/python-toolchain"
 uv venv --python 3.12.15 "$catalog_work/python"
 uv pip install --python "$catalog_work/python/bin/python" --requirement "$catalog_backend/tools/lookup-workflow/requirements.txt"
 catalog_nonce=$(node --input-type=module -e 'import {randomBytes} from "node:crypto"; process.stdout.write(randomBytes(6).toString("hex"))')
 catalog_container=$(docker run -d --pull=never --cpus=2 --memory=2g \
+  --cidfile "$catalog_work/container.cid" \
   --label "pos-rewrite.catalog-workflow-nonce=$catalog_nonce" \
   --tmpfs /var/lib/mysql:rw,size=1g \
   -p 127.0.0.1::3306 -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -e MYSQL_ROOT_HOST=% \
