@@ -93,13 +93,19 @@ Go/MySQL networking, real SQL bytes and assertions. It is not arbitrary TCP
 half-close or production latency qualification. All listeners/threads/exec
 clients and owned resources are confirmed closed after final head execution.
 
-Current active task is catalogue benchmark VALIDATE ONLY in the lookup worker's
-isolated current-production checkout. First attempt64988 failed before any
-profile observations; its artifact is retained and cleanup complete. Bounded
-stage/error-kind diagnostics and physical fixture checks are underway; no
-performance measurement or production defect is claimed. Root performs only
-metadata/static work while that slot is active. Full consolidated r9 has not
-started. Remote final Windows/macOS rerun is next after pushing these fixes.
+Catalogue benchmark validation r4 passes all8 mixed/dense scenarios across
+source Django, candidate service and native API response boundaries. Native
+statement counters are calibrated;922 input hashes are unchanged. Earlier setup
+failures remain retained. The isolated fixture's pinned PyMySQL RSA dependency
+is installed only in a private hashlocked environment; authentication and schema
+were not weakened. Validation is untimed and supplies no latency conclusion.
+
+Following the user's request to speed up, the lookup worker has the exclusive
+local measurement slot. In parallel, the feedback worker follows remote
+Windows/macOS CI44314698088 on8b912f7, and the shortcut worker prepares the
+consolidated r9 checkout/prerequisites without competing heavy local work.
+Remote full-verifier feasibility is being checked. Full r9 has not started;
+measurement starts only after static checks and a quiescence check.
 
 ### Platform and remaining acceptance
 
@@ -107,7 +113,7 @@ Desktop CI44284340523 succeeds on Windows/macOS at5c06f1f. Later CI44289877978
 at7efedf7 succeeds on macOS but fails1/53 Windows cases: synchronous lookup
 counter inspected before async response. `702d899` adds an actual response/ready-UI
 barrier and keeps exact-one request checks, including a final lifecycle recheck.
-Fresh browser/Windows execution is still pending. Old OTP failure6c remains
+Fresh browser/Windows execution is running remotely on8b912f7. Old OTP failure6c remains
 unattributed; no timeout or retry workaround was added.
 
 Last complete r8 remains FAILED:144 checks passed,1 backend check failed,
