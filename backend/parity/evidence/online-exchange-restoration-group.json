@@ -1,0 +1,26 @@
+{
+  "scope": "Complete bounded native legacy exchange restoration group; not full App/provider acceptance",
+  "base": "27e2b8a5c0f4b9b1151606798666fa66700aa536",
+  "source": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "checks": {
+    "backendStrict": true,
+    "changedLint": true,
+    "conservationUnits": 8,
+    "nativeSelected": 3,
+    "nativeUnrelatedSkipped": 68,
+    "nativeSeconds": 4.33
+  },
+  "inputs": {
+    "backend/src/modules/checkout/return-workflow/contracts.ts": "710d77175a1f5db304846959a0606cc4400a05dd464f931ded8684bb865d3c2e",
+    "backend/src/modules/checkout/return-workflow/repository.ts": "4277d88f01102e56d7bc8e2369025236be1aee0955066bf6832d40b3420e3ca9",
+    "backend/src/modules/checkout/return-workflow/legacy-restoration-group.ts": "8979b41d95439131229683fa601a4e50e2d019752a4a6502dc9016202f1a4e45",
+    "backend/src/modules/checkout/return-workflow/legacy-restoration-native.ts": "56eaafd7551c57087ff5dddea434cf2c1b6c343dee638ec58dc4c02f699f2a27",
+    "backend/tests/checkout/mysql.integration.test.ts": "e79658075feddecddf20d94c13105eab2cbf26e7e59e464ed7eb6553643a5d49",
+    "backend/tests/checkout/legacy-restoration-group.test.ts": "f1bd1c9b2044e6aa86fa4e632cde22dffcea4fa676ebe6d54d5857bde113b0e4"
+  },
+  "log": {
+    "path": "/tmp/pos-exchange-group-native-20261118.log",
+    "sha256": "52eafb94f7c27b352ea15f5d6d3db08884161ba27ac54e6935c76041821dfe2f"
+  },
+  "fixture": "Exact owned b4e54f466051755421a7108042c37e4ec84ca385e68affe69bafdca340d45f05 label verified; rm-fv completed; absent"
+}

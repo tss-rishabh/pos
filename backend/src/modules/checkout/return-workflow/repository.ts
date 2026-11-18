@@ -70,6 +70,7 @@ import {
 } from './contracts.js';
 import { returnOperations, returnOutbox, returnVerifications } from './schema.js';
 import { exchangeOrderLog } from './exchange-ledger.js';
+import { readRestorationGroup } from './legacy-restoration-native.js';
 import { exchangeStockConfirmations, exchangeStockContract } from './stock-proof.js';
 import {
   recordRejectedReturnRepair,
@@ -279,6 +280,36 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       )
       .limit(1)
       .for('update');
+    if (proof.kind === 'group') {
+      const group = await readRestorationGroup(
+        tx,
+        {
+          orderId: operation.orderId,
+          productId: operation.productId,
+          storeId: operation.storeId,
+          targetLineId: operation.lineId,
+        },
+        options.hashSecret,
+        sourceExchangeHash,
+        operation.exchange.logId,
+      );
+      if (
+        !log ||
+        sourceExchangeHash(log) !== proof.sourceHash ||
+        !credit ||
+        credit.credit_note_no !== operation.creditNote ||
+        credit.created_at < operation.createdAt ||
+        credit.qty !== operation.quantity ||
+        !group ||
+        group.digest !== proof.group.digest
+      )
+        throw new AppError(
+          409,
+          'EXCHANGE_ADOPTION_EVIDENCE_CHANGED',
+          'The complete restoration group changed. Reconcile it before continuing.',
+        );
+      return;
+    }
     const receipt =
       proof.stockLogKind === 'saleable'
         ? (
@@ -907,6 +938,19 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       BigInt(stock[0].after) - BigInt(stock[0].before) === scope.line.qty
         ? stock[0]
         : null;
+    const groupProof =
+      log &&
+      credit &&
+      ((!operation && !stockProof) || operation?.exchange?.adoptionEvidence?.kind === 'group') &&
+      String(log.store_id) === storeId
+        ? await readRestorationGroup(
+            tx,
+            { orderId, productId: String(scope.line.product), storeId, targetLineId: lineId },
+            options.hashSecret,
+            sourceExchangeHash,
+            operation?.exchange?.logId,
+          )
+        : null;
     const revision = operationHash(
       'exchange.recovery',
       JSON.stringify(
@@ -922,15 +966,16 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           log,
           credits,
           stock,
+          groupProof,
         },
         (_key, value: unknown) => (typeof value === 'bigint' ? String(value) : value),
       ),
       options.hashSecret,
     );
-    return { scope, operation, log, credit, stockProof, revision };
+    return { scope, operation, log, credit, stockProof, groupProof, revision };
   }
   function recoveryView(value: Awaited<ReturnType<typeof recoverySnapshot>>, storeId: string) {
-    const { operation, log, credit, stockProof, scope, revision } = value;
+    const { operation, log, credit, stockProof, groupProof, scope, revision } = value;
     if (operation)
       return {
         revision,
@@ -946,7 +991,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       return { revision, state: 'none' as const, operation: null, newSize: null };
     if (String(log.store_id) !== storeId)
       return { revision, state: 'wrong-store' as const, operation: null, newSize: null };
-    if (!stockProof)
+    if (!stockProof && !groupProof)
       return {
         revision,
         state: 'restoration-unconfirmed' as const,
@@ -1025,7 +1070,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           options.hashSecret,
         );
         const snapshot = await recoverySnapshot(tx, user, storeId, orderId, lineId, proof);
-        const { scope, log, credit, stockProof } = snapshot;
+        const { scope, log, credit, stockProof, groupProof } = snapshot;
         if (
           snapshot.operation?.recoveryClaim?.id === input.operationId &&
           snapshot.operation.recoveryClaim.revision === input.expectedRevision &&
@@ -1068,9 +1113,35 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               'An exchange request is still in progress. Read its outcome before claiming it.',
             );
           await phaseOneProof(tx, operation, scope.line.status, operation.phase === 'completed');
+          let exchange = operation.exchange;
+          const evidence = exchange?.adoptionEvidence;
+          if (exchange && evidence?.kind === 'group') {
+            if (
+              !groupProof ||
+              !log ||
+              sourceExchangeHash(log) !== evidence.sourceHash ||
+              !credit ||
+              String(credit.id) !== evidence.creditId ||
+              credit.credit_note_no !== operation.creditNote
+            )
+              throw new AppError(
+                409,
+                'EXCHANGE_ADOPTION_EVIDENCE_CHANGED',
+                'The complete restoration group is not confirmed.',
+              );
+            exchange = {
+              ...exchange,
+              adoptionEvidence: {
+                ...evidence,
+                revision: input.expectedRevision,
+                group: groupProof,
+              },
+            };
+          } else await assertAdoptionEvidence(tx, operation);
           return publicReturn(
             await save(tx, {
               ...operation,
+              exchange,
               authorityCounterId: input.counterId,
               recoveryClaim: claim,
             }),
@@ -1080,7 +1151,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           recoveryView(snapshot, storeId).state !== 'legacy' ||
           !log ||
           !credit ||
-          !stockProof ||
+          (!stockProof && !groupProof) ||
           log.new_order_id ||
           log.old_prod_id !== Number(scope.line.product) ||
           credit.qty !== Number(scope.line.qty)
@@ -1141,13 +1212,22 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             logId: String(log.id),
             childOrderId: null,
             sourceCounterId: String(log.counter_id || 0),
-            adoptionEvidence: {
-              revision: input.expectedRevision,
-              sourceHash: sourceExchangeHash(log),
-              creditId: String(credit.id),
-              stockLogId: String(stockProof.id),
-              stockLogKind: log.saleable ? 'saleable' : 'held',
-            },
+            adoptionEvidence: stockProof
+              ? {
+                  kind: 'single',
+                  revision: input.expectedRevision,
+                  sourceHash: sourceExchangeHash(log),
+                  creditId: String(credit.id),
+                  stockLogId: String(stockProof.id),
+                  stockLogKind: log.saleable ? 'saleable' : 'held',
+                }
+              : {
+                  kind: 'group',
+                  revision: input.expectedRevision,
+                  sourceHash: sourceExchangeHash(log),
+                  creditId: String(credit.id),
+                  group: groupProof,
+                },
           },
           input: {
             operationId: input.operationId,

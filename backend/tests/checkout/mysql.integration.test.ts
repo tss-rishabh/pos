@@ -3318,7 +3318,7 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
     ).toBe(claimed.id);
     expect((await repo.read(operator, '1', claimed.id)).input.counterId).toBe('3');
     expect((await repo.read(operator, '1', claimed.id)).authorityCounterId).toBe('4');
-    expect(checked.slice(-2)).toEqual(['4','4']);
+    expect(checked.slice(-2)).toEqual(['4', '4']);
     expect(returnCalls.inbound - before).toBe(1);
     expect((await service.retry(operator, '1', claimed.id, '5')).phase).toBe('completed');
     expect(returnCalls.inbound - before).toBe(1);
@@ -3426,6 +3426,114 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       'SELECT id FROM return_orders WHERE order_id=9221',
     );
     expect(rows).toHaveLength(1);
+  });
+  it('adopts a complete duplicate-SKU restoration group and rechecks its conserved buckets', async () => {
+    const fixture = await returnFixture(9222, { duplicate: true });
+    const gateway = exchangeGateway(async () => ({ status: 'FAIL' })),
+      service = exchangeWorkflow(gateway);
+    const first = exchangeRequest(fixture.input),
+      second = { ...first, operationId: crypto.randomUUID() };
+    await expect(
+      service.start(operator, '1', fixture.orderId, fixture.lineId, first),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_REPLACEMENT_REJECTED' });
+    await expect(
+      service.start(operator, '1', fixture.orderId, String(9222 + 101), second),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_REPLACEMENT_REJECTED' });
+    await connection.execute('DELETE FROM pos_rewrite_return_operations WHERE id IN (?,?)', [
+      first.operationId,
+      second.operationId,
+    ]);
+    const config = readConfig({
+      NODE_ENV: 'test',
+      DEMO_MODE: 'true',
+      SESSION_SECRET: 'recovery-fixture-secret-'.repeat(3),
+    });
+    const repo = returnRepository(db, config, {
+      hashSecret: signingEnvironment.hs256,
+      returnPeriodDays: 30,
+      assertCheckIn: async () => {},
+    });
+    const selection = { counterId: '3', verificationId: fixture.input.verificationId };
+    const snapshot = await repo.exchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      selection,
+    );
+    expect(snapshot.state).toBe('legacy');
+    const claimed = await repo.claimExchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      {
+        ...selection,
+        operationId: crypto.randomUUID(),
+        expectedRevision: snapshot.revision,
+        salespersonId: '5',
+      },
+    );
+    const durable = await repo.read(operator, '1', claimed.id);
+    expect(durable.exchange?.adoptionEvidence).toMatchObject({
+      kind: 'group',
+      group: { heldQuantity: '3', saleableQuantity: '0' },
+    });
+    await seed(HasProduct, {
+      id: 9324,
+      order_id: 9222,
+      prod_id: 10,
+      qty: 1,
+      status: 'DELIVERED',
+      return_status: 0,
+    });
+    await seed(AmountToBeRefundedLog, {
+      order_id: 9222,
+      prod_id: 10,
+      has_product_id: 9324,
+      is_refunded: false,
+      amount_to_be_refunded: 25,
+    });
+    await expect(
+      service.start(operator, '1', fixture.orderId, '9324', {
+        ...first,
+        operationId: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_REPLACEMENT_REJECTED' });
+    await expect(repo.read(operator, '1', claimed.id)).rejects.toMatchObject({
+      code: 'EXCHANGE_ADOPTION_EVIDENCE_CHANGED',
+    });
+    const refreshed = await repo.exchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      selection,
+    );
+    await repo.claimExchangeRecovery(operator, '1', fixture.orderId, fixture.lineId, {
+      ...selection,
+      operationId: crypto.randomUUID(),
+      expectedRevision: refreshed.revision,
+    });
+    expect((await repo.read(operator, '1', claimed.id)).exchange?.adoptionEvidence).toMatchObject({
+      kind: 'group',
+      group: { heldQuantity: '4', saleableQuantity: '0' },
+    });
+    const [events] = await connection.query<mysql.RowDataPacket[]>(
+      "SELECT id,stock_after FROM pos_hold_stock_logs WHERE comment LIKE '%[Order ID:9222]' ORDER BY id",
+    );
+    expect(events).toHaveLength(3);
+    await connection.execute('UPDATE pos_hold_stock_logs SET stock_after=? WHERE id=?', [
+      String(BigInt(String(events[1]!.stock_after)) + 1n),
+      events[1]!.id,
+    ]);
+    await expect(repo.read(operator, '1', claimed.id)).rejects.toMatchObject({
+      code: 'EXCHANGE_ADOPTION_EVIDENCE_CHANGED',
+    });
+    const [notes] = await connection.query<mysql.RowDataPacket[]>(
+      'SELECT id FROM return_orders WHERE order_id=9222',
+    );
+    expect(notes).toHaveLength(3);
   });
   it('completes one cross-store exchange with zero new cash and correct source credit-note/child markers', async () => {
     const fixture = await returnFixture(9201),

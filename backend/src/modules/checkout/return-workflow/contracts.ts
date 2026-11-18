@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { identifier } from '../../../domain/validation.js';
+import { legacyRestorationGroupSchema } from './legacy-restoration-group.js';
 export const returnInputSchema = z
   .object({
     operationId: z.uuid(),
@@ -41,14 +42,36 @@ export const returnOperationSchema = z
           )
           .optional(),
         adoptionEvidence: z
-          .object({
-            revision: z.string().regex(/^[a-f0-9]{64}$/),
-            sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
-            creditId: identifier,
-            stockLogId: identifier,
-            stockLogKind: z.enum(['saleable', 'held']),
-          })
-          .strict()
+          .preprocess(
+            (value) =>
+              typeof value === 'object' &&
+              value !== null &&
+              !Array.isArray(value) &&
+              !Object.hasOwn(value, 'kind')
+                ? { ...value, kind: 'single' }
+                : value,
+            z.discriminatedUnion('kind', [
+              z
+                .object({
+                  kind: z.literal('single'),
+                  revision: z.string().regex(/^[a-f0-9]{64}$/),
+                  sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
+                  creditId: identifier,
+                  stockLogId: identifier,
+                  stockLogKind: z.enum(['saleable', 'held']),
+                })
+                .strict(),
+              z
+                .object({
+                  kind: z.literal('group'),
+                  revision: z.string().regex(/^[a-f0-9]{64}$/),
+                  sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
+                  creditId: identifier,
+                  group: legacyRestorationGroupSchema,
+                })
+                .strict(),
+            ]),
+          )
           .optional(),
       })
       .nullable()
