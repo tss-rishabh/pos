@@ -393,6 +393,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
               <label>
                 Sort report
                 <select
+                  aria-label="Sort report"
                   value={sort}
                   onChange={(event) => {
                     const selected = dailyReportFields.find(([key]) => key === event.target.value);
@@ -410,6 +411,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
               <label>
                 Sort direction
                 <select
+                  aria-label="Sort direction"
                   value={direction}
                   onChange={(event) => {
                     setDirection(event.target.value === 'asc' ? 'asc' : 'desc');
@@ -423,6 +425,7 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
               <label>
                 Rows
                 <select
+                  aria-label="Rows"
                   value={pageSize}
                   onChange={(event) => {
                     setPageSize(Number(event.target.value));

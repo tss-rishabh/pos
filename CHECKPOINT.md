@@ -1,10 +1,11 @@
 # POS rewrite checkpoint
 
-Implementation is active again. The earlier closure at `fdbc650` was disproved
-by review of active source controls. The source map now retains explicit gaps
-for manager return-window extensions, report presentation/export variants,
-selected-store static QR/details and administration list controls. Preserve all
-396 source IDs and external release gates; code presence is not certification.
+The active-control implementation pass is reconciled on `d12d250` after the
+deliveries below. All 396 original IDs remain: 100 implementation-present,
+292 external-acceptance, zero identified missing active implementation groups,
+and four explicitly inactive/diagnostic exclusions. No certifications are
+added. This supersedes the earlier closure at `fdbc650`, which was disproved
+by review of actual source controls. Code presence is not production readiness.
 
 Report controls are integrated on `e6f4a09`, with separate full/visible actions
 on flash-sales and returned-orders on `387cd7b`. Administration collection
@@ -15,19 +16,27 @@ The credential-free terminal directory, provider/scope filters, pagination,
 column visibility and both CSV actions are on `9ec375b`. The integrated
 backend/frontend strict programs compile; this is not workflow certification.
 
-Still being implemented: source export-history table controls and cash-ledger
-row options (reporting owner). The payment owner verified that the original
+Export-history, cash-ledger row options and day-close current-page CSV are
+integrated on `3bab30a`; daily-report search, sort, rows and selected-column CSV
+are on `a9d76fe`. The payment owner verified that the original
 upload-log routes and both views are commented out at the pinned commit;
 the earlier active-list gap inference is retracted. Its failed-record download
-target is being checked independently for an active route and actual mapping.
+route and class are independently verified commented out too.
 Do not invent a new list workflow from the dormant referring template. The
 administration owner's source review found catalogue/gift/special-permission
-controls present in actual implementation; its exact evidence is being saved.
+controls present in actual implementation; evidence is saved on `e72164a`.
 The pinned static candidate inventory is
 `backend/parity/legacy-template-controls.review.json` (106 templates); its
 finite control names/locations are an audit aid, not coverage certification.
-Reconcile the source map after actual deliveries, then resume consolidated
-validation. Do not restart the broad gate while known code gaps remain.
+The validation phase has now started in isolated worktrees. The actual daily
+report component passed seven Chromium checks on Node 24.22.3, and six report
+component-to-builder CSV workflows passed. Both are local synthetic workflows,
+not source/production certification. Both browser groups now join the full
+verifier, with owned temporary Vite caches and automatic cleanup. Terminal
+native tests found a genuine mixed-collation union failure; its owner is fixing
+it before the full gate. Reporting validation is correcting legacy NULL/empty
+period preservation. Root is not running the consolidated gate while these
+known corrections are still being integrated. All release gates remain open.
 
 The `fde67f5` verifier was intentionally interrupted after two completed checks
 when the active return-window gap was confirmed. Its partial report is retained

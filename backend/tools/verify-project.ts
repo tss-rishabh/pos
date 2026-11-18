@@ -738,9 +738,7 @@ const checks: Check[] = [
     args: [
       'node_modules/vitest/vitest.mjs',
       'run',
-      ...(flags.has('--mysql')
-        ? ['--maxWorkers=1', '--no-file-parallelism']
-        : ['--maxWorkers=4']),
+      ...(flags.has('--mysql') ? ['--maxWorkers=1', '--no-file-parallelism'] : ['--maxWorkers=4']),
     ],
     timeoutMs: flags.has('--mysql') ? 20 * 60 * 1000 : 10 * 60 * 1000,
   },
@@ -1210,6 +1208,21 @@ if (flags.has('--mysql')) {
   );
 }
 if (flags.has('--browser')) {
+  checks.push({
+    id: 'daily-reports-browser-tests',
+    directory: 'frontend',
+    args: ['tools/run-browser-fixture.mjs', 'daily-reports'],
+  });
+  checks.push({
+    id: 'report-columns-browser-tests',
+    directory: 'frontend',
+    args: [
+      '--import',
+      '../backend/node_modules/tsx/dist/loader.mjs',
+      'tools/run-browser-fixture.mjs',
+      'report-columns',
+    ],
+  });
   checks.push({
     id: 'order-search-browser-tests',
     directory: 'frontend',

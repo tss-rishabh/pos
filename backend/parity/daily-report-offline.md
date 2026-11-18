@@ -38,7 +38,15 @@ its original unfiltered data, columns and totals. Both retain the full server
 totals rather than recalculating financial totals from a page or text search.
 Column display labels and presentation remain intentionally redesigned.
 
-This records implementation, not fresh runtime or CSV-byte certification.
-Source/browser qualification of smart-search, null/numeric sorting, multirow
-headings/totals and both exports remains in the deferred validation phase.
+The actual React component now passes seven isolated Chromium checks on Node
+24.22.3: all 34 source/additive columns, correction values and full totals,
+quoted search, sorting and page lengths without another report query,
+all-matching selected-column CSV, formula protection, and byte-identical
+complete CSV before/after local filtering. Saved evidence is
+`parity/evidence/reports/browser.json`; HTTP/warehouse facts are synthetic.
+The fixture runner is included in the consolidated `--browser` gate and uses
+an owned temporary Vite cache with automatic server/cache cleanup.
+This is not deployed source-workflow or original CSV-byte certification.
+Source-browser qualification of smart-search, null/numeric sorting and original
+multirow headings/totals remains in the validation phase.
 

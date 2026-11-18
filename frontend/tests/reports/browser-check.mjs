@@ -50,6 +50,8 @@ const row = (index) => ({
   gift_voucher: 0.04,
   district: 0.05,
   cash: 50,
+  payment_correction_cash_out: index === 0 ? 5.25 : 0,
+  cash_after_payment_corrections: index === 0 ? 44.75 : 50,
   total_online: 50,
   banking: 50,
   membership_revenue: 99.99,
@@ -93,6 +95,9 @@ await page.route('**/*', async (route) => {
           total_revenue: 6100,
           total_orders: 122,
           total_qty: 183,
+          cash: 3050,
+          payment_correction_cash_out: 5.25,
+          cash_after_payment_corrections: 3044.75,
           pending_offline_orders: 1,
         },
         pendingOrderCount: 1,
@@ -122,9 +127,9 @@ try {
     page.getByRole('status').filter({ hasText: 'offline cash receipt is awaiting order import' }),
   ).toBeVisible();
   await expect(page.getByText(/^Data updated through/)).toBeVisible();
-  await page.getByText('Columns (16 of 32)', { exact: true }).click();
+  await page.getByText('Columns (18 of 34)', { exact: true }).click();
   await page.getByRole('button', { name: 'Show all columns' }).click();
-  await expect(table.locator('thead th')).toHaveCount(32);
+  await expect(table.locator('thead th')).toHaveCount(34);
   await expect(
     table.getByRole('columnheader', { name: 'Offline orders awaiting import' }),
   ).toBeVisible();
@@ -139,6 +144,37 @@ try {
   expect(csv).toContain('"Offline orders awaiting import"');
   expect(csv).toContain('"Fixture store 60"');
   expect(csv).toContain('"\'\u200b=SUM(1,2)"');
+  expect(csv).toContain('"Cash returned on corrections"');
+  expect(csv).toContain('"3044.75"');
+  await page.getByLabel('Search report', { exact: true }).fill('"Fixture store"');
+  await page.getByLabel('Sort report', { exact: true }).selectOption('store_name');
+  await page.getByLabel('Sort direction', { exact: true }).selectOption('asc');
+  await page.getByLabel('Rows', { exact: true }).selectOption('10');
+  await expect(table.locator('tbody tr')).toHaveCount(10);
+  await expect(table.locator('tbody tr').first().locator('td').first()).toHaveText(
+    'Fixture store 01',
+  );
+  await expect(table.locator('tfoot')).toContainText('6100');
+  await page.getByRole('checkbox', { name: 'Online quantity', exact: true }).uncheck();
+  const selectedWaiting = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export visible columns CSV', exact: true }).click();
+  const selectedFile = await selectedWaiting,
+    selectedCsv = await readFile(await selectedFile.path(), 'utf8');
+  expect(selectedCsv.trim().split('\r\n')).toHaveLength(62);
+  expect(selectedCsv).not.toContain('"Online quantity"');
+  expect(selectedCsv).not.toContain('SUM(1,2)');
+  expect(selectedCsv).toContain('"Fixture store 60"');
+  expect(selectedCsv).toContain('"3044.75"');
+  expect(selectedCsv.indexOf('"Fixture store 01"')).toBeLessThan(
+    selectedCsv.indexOf('"Fixture store 60"'),
+  );
+  const fullWaiting = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export CSV', exact: true }).click();
+  const fullFile = await fullWaiting;
+  expect(await readFile(await fullFile.path(), 'utf8')).toBe(csv);
+  expect(
+    requests.filter((entry) => entry.path === '/api/v1/reports/daily-store-sales'),
+  ).toHaveLength(1);
   expect(errors).toEqual([]);
   expect(unexpected).toEqual([]);
   await mkdir('../backend/parity/evidence/reports', { recursive: true });
@@ -151,11 +187,13 @@ try {
     checks: [
       'captured operator and multi-store request',
       'pending cash and warehouse freshness notices',
-      'all32 source/additive columns',
+      'all34 source/additive columns including cash corrections',
       '50row paging and full totals',
       'all-results CSV and formula protection',
+      'quoted search, stable sorting and source page-size controls without extra queries',
+      'visible-column all-matching CSV and unchanged complete CSV after filtering',
     ],
-    passed: 5,
+    passed: 7,
     requests: requests.length,
     pageErrors: errors,
     unexpectedRequests: unexpected,

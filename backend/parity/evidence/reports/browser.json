@@ -3,11 +3,13 @@
   "checks": [
     "captured operator and multi-store request",
     "pending cash and warehouse freshness notices",
-    "all32 source/additive columns",
+    "all34 source/additive columns including cash corrections",
     "50row paging and full totals",
-    "all-results CSV and formula protection"
+    "all-results CSV and formula protection",
+    "quoted search, stable sorting and source page-size controls without extra queries",
+    "visible-column all-matching CSV and unchanged complete CSV after filtering"
   ],
-  "passed": 5,
+  "passed": 7,
   "requests": 2,
   "pageErrors": [],
   "unexpectedRequests": [],
