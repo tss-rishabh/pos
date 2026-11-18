@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { describe, expect, it } from 'vitest';
 import {
   cashierPerformance,
@@ -67,7 +67,7 @@ describe('source staff performance arithmetic', () => {
         }),
       );
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/operational-reports/performance-oracle.py'], {
+      executePosSourceOracle(['tools/operational-reports/performance-oracle.py'], {
         input: JSON.stringify({ cases: [...cashierCases, ...salesCases] }),
         encoding: 'utf8',
       }),

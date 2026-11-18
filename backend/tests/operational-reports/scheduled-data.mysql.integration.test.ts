@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -256,8 +256,7 @@ describe.skipIf(!connection)('scheduled report queries on verified-schema local 
     await admin?.end();
   });
   async function source(kind: 'timing' | 'delays' | 'cancellations' | 'tickets' | 'availability') {
-    const query = execFileSync(
-        'python3',
+    const query = executePosSourceOracle(
         [
           'tools/operational-reports/scheduled-query-oracle.py',
           kind,

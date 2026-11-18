@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import {
@@ -235,7 +235,7 @@ describe('actual source scheduled-report method fixtures', () => {
             includeCompleted,
           });
     const expected = JSON.parse(
-      execFileSync('python3', ['tools/operational-reports/scheduled-oracle.py'], {
+      executePosSourceOracle(['tools/operational-reports/scheduled-oracle.py'], {
         input: JSON.stringify({
           cases: cases.map(({ artifact: _, ...value }) => ({ ...value, now: now.toString() })),
         }),

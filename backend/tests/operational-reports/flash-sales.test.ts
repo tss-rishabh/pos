@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
@@ -60,7 +60,7 @@ describe('source flash-sales reducer and warehouse bindings', () => {
         })),
       });
     const expected = JSON.parse(
-      execFileSync('python3', ['tools/operational-reports/flash-sales-oracle.py'], {
+      executePosSourceOracle(['tools/operational-reports/flash-sales-oracle.py'], {
         input: JSON.stringify({ cases }),
         encoding: 'utf8',
       }),

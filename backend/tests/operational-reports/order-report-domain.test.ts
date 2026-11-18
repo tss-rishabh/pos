@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { describe, expect, it } from 'vitest';
 import {
   preparedOrderRecords,
@@ -46,14 +46,13 @@ describe('combined order report financial shaping', () => {
       ],
     });
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/operational-reports/order-report-oracle.py'], {
+      executePosSourceOracle(['tools/operational-reports/order-report-oracle.py'], {
         input: JSON.stringify({ cases }),
         encoding: 'utf8',
       }),
     );
     expect(cases.map((value) => preparedOrderRecords(value.rows))).toEqual(expected);
-    const headerSource = execFileSync(
-      'python3',
+    const headerSource = executePosSourceOracle(
       ['tools/operational-reports/order-report-oracle.py'],
       { input: JSON.stringify({ operation: 'headers' }), encoding: 'utf8' },
     );

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
@@ -212,8 +212,7 @@ describe.skipIf(!connection)('flash-sales source SQL on verified-schema local My
       [mode] = await admin!.query<mysql.RowDataPacket[]>('SELECT @@SESSION.sql_mode AS value'),
       original = String(mode[0]?.value || '');
     const source = async (kind: 'interactive' | 'export' | 'refunds') => {
-      const query = execFileSync(
-        'python3',
+      const query = executePosSourceOracle(
         [
           'tools/operational-reports/flash-sales-query-oracle.py',
           kind,

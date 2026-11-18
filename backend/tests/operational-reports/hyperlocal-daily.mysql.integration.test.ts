@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -146,8 +146,7 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
         from: '2026-11-16T00:00:00',
         to: '2026-11-16T23:59:59',
       }),
-      query = execFileSync(
-        'python3',
+      query = executePosSourceOracle(
         [
           'tools/operational-reports/hyperlocal-daily-oracle.py',
           '2026-11-16 00:00:00',
@@ -167,8 +166,7 @@ describe.skipIf(!connection)('source hyperlocal daily SQL on verified-schema loc
         async queryReport(statement, params) {
           // Native original SELECT is the isolated compatible-view oracle,
           // including duplicate ELI multiplicity and all-history lifecycle MINs.
-          const sourceQuery = execFileSync(
-            'python3',
+          const sourceQuery = executePosSourceOracle(
             [
               'tools/operational-reports/hyperlocal-daily-oracle.py',
               String(params.start),

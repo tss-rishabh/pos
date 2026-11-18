@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise';
 import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
 import { and, eq, inArray } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import * as models from '../../src/db/legacy-schema.js';
@@ -343,8 +343,7 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
         to: '2026-11-16T23:59:59',
         storeIds: ['1'],
       }),
-      query = execFileSync(
-        'python3',
+      query = executePosSourceOracle(
         [
           'tools/operational-reports/returned-orders-oracle.py',
           '2026-11-16 00:00:00',
@@ -556,8 +555,7 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
         reports.cashiers({ ...user, role: 1 }, cashierInputSchema.parse(input)),
       ]);
     const sqlFor = (kind: string) =>
-        execFileSync(
-          'python3',
+        executePosSourceOracle(
           [
             'tools/operational-reports/performance-query-oracle.py',
             kind,
@@ -600,7 +598,7 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
         )
         .parse(sourceCashiers),
       expected: unknown = JSON.parse(
-        execFileSync('python3', ['tools/operational-reports/performance-oracle.py'], {
+        executePosSourceOracle(['tools/operational-reports/performance-oracle.py'], {
           input: JSON.stringify({
             cases: [
               {
@@ -638,8 +636,7 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
         pageSize: 25,
       }),
       result = await report.read({ ...user, role: 1 }, input);
-    const sourceSql = execFileSync(
-        'python3',
+    const sourceSql = executePosSourceOracle(
         [
           'tools/operational-reports/acceptance-oracle.py',
           '2026-11-16 00:00:00',
@@ -699,7 +696,7 @@ describe.skipIf(!connection)('operational reports on isolated local MySQL', () =
   it('matches the original parent-selection SQL, batches repairs and preserves existing stock/flags', async () => {
     const source = z.array(z.string()).parse(
         JSON.parse(
-          execFileSync('python3', ['tools/operational-reports/inventory-oracle.py'], {
+          executePosSourceOracle(['tools/operational-reports/inventory-oracle.py'], {
             input: JSON.stringify({ stores: [1] }),
             encoding: 'utf8',
           }),

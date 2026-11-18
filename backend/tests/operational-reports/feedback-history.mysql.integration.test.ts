@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { Temporal } from '@js-temporal/polyfill';
 import mysql from 'mysql2/promise';
@@ -52,7 +52,7 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       }[] = [],
       sourceQueries = z.object({ queries: z.array(z.string()) }).parse(
         JSON.parse(
-          execFileSync('python3', ['tools/operational-reports/feedback-query-oracle.py'], {
+          executePosSourceOracle(['tools/operational-reports/feedback-query-oracle.py'], {
             input: JSON.stringify(feedbackHistoryCases.map(([, input]) => input)),
             encoding: 'utf8',
             timeout: 20000,

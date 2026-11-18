@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { sql } from 'drizzle-orm';
@@ -314,8 +314,7 @@ describe.skipIf(!connection)(
             );
           projected = checked.data;
           const result = await service.read(user, input),
-            query = execFileSync(
-              'python3',
+            query = executePosSourceOracle(
               [
                 'tools/operational-reports/order-report-query-oracle.py',
                 source,

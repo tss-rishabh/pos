@@ -1,4 +1,4 @@
-import { execFileSync } from 'node:child_process';
+import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { describe, expect, it } from 'vitest';
 import {
   maskCustomerEmail,
@@ -21,7 +21,7 @@ describe('restricted-operator customer masking', () => {
         phone: '1'.repeat(index),
       });
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/operational-reports/privacy-oracle.py'], {
+      executePosSourceOracle(['tools/operational-reports/privacy-oracle.py'], {
         input: JSON.stringify({ cases }),
         encoding: 'utf8',
       }),
