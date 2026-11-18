@@ -12,13 +12,16 @@ selection and calendar expectation mode. Original-bug expectation mode and the
 historical failing/default-vet evidence remain unchanged. No fixture assertions
 are removed or weakened, and no source/prod/provider endpoint is accepted.
 
-The ten wallet subcases invoke **only the two generated selected methods**.
-The two original active methods are separately bound by exact per-method
-DateOnly literal and clock-site assertions, assembly-file hashes, and complete
-build/vet before clock/environment substitution. Do not claim four methods were
-natively invoked. Native original-method invocation would need a separately
-reviewed fixture: original and selected methods have different existing ledger
-and cashback responsibilities.
+The ten retained wallet subcases invoke the two generated selected methods.
+The additive `active-original-calendar_test.go` invokes both original methods
+with the same five-date vectors, adding ten more wallet cases. All cases require
+cashback7. Original methods temporarily receive the same strictly isolated ORM
+through their argument and `utils.Db`, with the global restored by cleanup and
+no parallel execution. The original reward-history mirror remains asserted as a
+retained source contract and flagged for separate financial acceptance; selected
+generated Money retains its existing absence of that mirror. Both original and
+generated methods receive exact DateOnly/clock-site assertions, assembly-file
+hashes and complete build/vet before clock/environment substitution.
 
 ## Requirements and preparation
 
@@ -73,16 +76,17 @@ POS_EXPIRY_NATIVE_SLOT_RELEASED=yes \
 The runner creates one private copied tree, one unique internal-only Docker
 network and one disposable MySQL database without published host ports. It first
 builds and vets `./internal/poscheckout ./juspay` with the active four methods
-unchanged. It then freezes exactly one clock comparison in each generated
-restoration method in the disposable test copy, matching the retained fixture's
-2026-11-18 clock. No other `time.Now()` site is replaced. The original methods
-retain their real clock. The disposable loader guard permits only the exact
+unchanged. It then freezes exactly one clock comparison in each of the four
+original/generated restoration methods in the disposable test copy, matching
+the retained fixture's 2026-11-18 clock. No other `time.Now()` site is replaced.
+The disposable loader guard permits only the exact
 fixture DSN, avoiding original package startup overwriting provider/database env.
 
 One `go test -mod=readonly -race -count=1 -timeout=5m -json ./juspay` execution,
-with default vet, selects exactly the wallet fixture parent and two retained TLS
-gateway cases. Success requires all ten wallet child cases, both TLS cases, their
-parent and the package pass; any failure, skip, missing or duplicate case fails
+with default vet, selects exactly both wallet fixture parents and two retained
+TLS gateway cases. Success requires all twenty wallet child cases, both TLS
+cases, both parents and the package pass (24 named pass events); any failure,
+skip, missing or duplicate case fails
 the receipt. Raw JSON events, stderr, build/vet logs and hashed preflight/result
 receipts remain in the private evidence directory; do not paste raw diagnostics
 or synthetic request values into public logs. The runner cleans its own network,

@@ -156,7 +156,21 @@ def compose_payments(target: Path | str, reference: Path | str,
     expiry_source = expiry_path.read_text()
     if expiry_source.count('.Format("2006-02-01")') != 4:
         raise RuntimeError('Pinned wallet expiry date boundary changed')
-    expiry_path.write_text(expiry_source.replace('.Format("2006-02-01")', '.Format("2006-01-02")'))
+    expiry_source = expiry_source.replace('.Format("2006-02-01")', '.Format("2006-01-02")')
+    # The approved restoration preserves independent cashback. Limit this
+    # change to the original Money method; retain both original history writes.
+    money_signature = 'func (o *Order) RevertTssMoney(Db *gorm.DB) {'
+    points_signature = 'func (o *Order) RevertTssPoints(Db *gorm.DB) {'
+    if expiry_source.count(money_signature) != 1 or expiry_source.count(points_signature) != 1:
+        raise RuntimeError('Pinned original wallet method boundary changed')
+    money_start = expiry_source.index(money_signature)
+    money_end = expiry_source.index(points_signature, money_start)
+    money_body = once(
+        expiry_source[money_start:money_end],
+        'Db.Exec("UPDATE users SET cashback = ?, tss_money = ? WHERE id = ? LIMIT 1", finalTSSMoneyToUpdate, finalTSSMoneyToUpdate, o.User)',
+        'Db.Exec("UPDATE users SET tss_money=? WHERE id=? LIMIT 1", finalTSSMoneyToUpdate, o.User)',
+    )
+    expiry_path.write_text(expiry_source[:money_start] + money_body + expiry_source[money_end:])
 
     # Existing public/CSV confirmation remains intact. The extra credit is
     # computed under its already-held global customer lock, using only the

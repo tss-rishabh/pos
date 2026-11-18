@@ -79,16 +79,25 @@ for name, selected in methods.items():
         body = text[start:end]
         check(body.count('.Format("2006-01-02")') == 2 and '2006-02-01' not in body)
         check(body.count('time.Now().Format("2006-01-02")') == 1)
+        if method in ('RevertTssMoney','revertOtherOriginMoney'):
+            check(body.count('"UPDATE users SET tss_money=? WHERE id=? LIMIT 1"') == 1)
+            check('"UPDATE users SET cashback' not in body)
+        if method == 'RevertTssMoney':
+            check(body.count('rh := RewardPointHistory{') == 2 and body.count('utils.Db.Create(&rh)') == 2)
+        if method == 'revertOtherOriginMoney':
+            check('RewardPointHistory' not in body)
         sites[method] = {'sha256':hashlib.sha256(body.encode()).hexdigest(),'calendarLiterals':2,'clockSites':1}
 inputs = {str(path.relative_to(here.parent)):digest(path) for path in
           [here.parent/'compose.py',here.parent/'transform_source.go',here/'expiry_candidate_test.go',
            here.parent/'origin_gateway_test.go',here/'run-active-calendar.sh']}
+inputs['expiry-review/active-original-calendar_test.go'] = digest(here/'active-original-calendar_test.go')
 pathlib.Path(sys.argv[4]).write_text(json.dumps({'sourcePin':pin,'assemblyManifestSha256':digest(assembly/'pos-composed-payments-manifest.json'),
-    'inputHashes':inputs,'sites':sites,'scope':{'nativeGeneratedExpirySubcases':10,'nativeOriginalMethods':0,'tlsGatewayCases':2,
-    'originalMethodEvidence':'exact bounded DateOnly literals plus unmodified-output build and vet'}}, indent=2)+'\n')
+    'inputHashes':inputs,'sites':sites,'scope':{'nativeGeneratedExpirySubcases':10,'nativeOriginalExpirySubcases':10,'tlsGatewayCases':2,
+    'originalHistoryMirror':'retained source contract; separate financial acceptance required'}}, indent=2)+'\n')
 PY
 cp -R "$expiry_assembly/." "$expiry_work/"
 cp "$expiry_here/expiry_candidate_test.go" "$expiry_work/juspay/expiry_candidate_test.go"
+cp "$expiry_here/active-original-calendar_test.go" "$expiry_work/juspay/active-original-calendar_test.go"
 cp "$expiry_here/../origin_gateway_test.go" "$expiry_work/juspay/origin_gateway_test.go"
 expiry_assert_exited_successfully() {
   test "$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$1")" = 'exited 0'
@@ -110,20 +119,26 @@ expiry_compile() {
 # These gates see all four active methods before any test clock/env substitution.
 expiry_compile build -mod=readonly ./internal/poscheckout ./juspay >"$expiry_evidence/build.log" 2>&1
 expiry_compile vet -mod=readonly ./internal/poscheckout ./juspay >"$expiry_evidence/vet.log" 2>&1
-python3 - "$expiry_work/juspay/origin_source.go" <<'PY'
+python3 - "$expiry_work/juspay" <<'PY'
 import pathlib, re, sys
-path = pathlib.Path(sys.argv[1]); text = path.read_text()
-for method in ('revertOtherOriginMoney','revertOtherOriginPoints'):
-    matches = list(re.finditer(r'(?m)^func \(o \*Order\) '+method+r'\(', text))
-    if len(matches) != 1: raise RuntimeError('DISPOSABLE_CLOCK_SCOPE_CHANGED')
-    begin = matches[0].start(); tail = re.search(r'(?m)^func ', text[matches[0].end():])
-    end = matches[0].end()+tail.start() if tail else len(text)
-    body = text[begin:end]; old = 'time.Now().Format("2006-01-02")'
-    if body.count(old) != 1: raise RuntimeError('DISPOSABLE_CLOCK_COUNT_CHANGED')
-    text = text[:begin]+body.replace(old,'originExpiryFixtureNow().Format("2006-01-02")',1)+text[end:]
-if text.count('originExpiryFixtureNow().Format("2006-01-02")') != 2:
+root = pathlib.Path(sys.argv[1]); replaced = 0
+for filename, methods in {'model.go':('RevertTssMoney','RevertTssPoints'),
+                          'origin_source.go':('revertOtherOriginMoney','revertOtherOriginPoints')}.items():
+    path = root/filename; text = path.read_text()
+    for method in methods:
+        matches = list(re.finditer(r'(?m)^func \(o \*Order\) '+method+r'\(', text))
+        if len(matches) != 1: raise RuntimeError('DISPOSABLE_CLOCK_SCOPE_CHANGED')
+        begin = matches[0].start(); tail = re.search(r'(?m)^func ', text[matches[0].end():])
+        end = matches[0].end()+tail.start() if tail else len(text)
+        body = text[begin:end]; old = 'time.Now().Format("2006-01-02")'
+        if body.count(old) != 1: raise RuntimeError('DISPOSABLE_CLOCK_COUNT_CHANGED')
+        text = text[:begin]+body.replace(old,'originExpiryFixtureNow().Format("2006-01-02")',1)+text[end:]
+        replaced += 1
+    if text.count('originExpiryFixtureNow().Format("2006-01-02")') != 2:
+        raise RuntimeError('DISPOSABLE_FILE_CLOCK_TOTAL_CHANGED')
+    path.write_text(text)
+if replaced != 4:
     raise RuntimeError('DISPOSABLE_CLOCK_TOTAL_CHANGED')
-path.write_text(text)
 PY
 # Existing package init would overwrite provider/DB env and AutoMigrate live DSNs.
 # Replace only the disposable copy's loader with the existing isolated contract.
@@ -152,7 +167,7 @@ docker create --pull=never --network "$expiry_network_id" --read-only --tmpfs /t
   -e POS_ORIGIN_EXPIRY_CANDIDATE=1 -e 'DB=root@tcp(mysql:3306)/pos_origin_contract_test?parseTime=true' \
   -e 'POS_ORIGIN_MYSQL_DSN=root@tcp(mysql:3306)/pos_origin_contract_test?parseTime=true' \
   "$expiry_go" go test -mod=readonly -race -count=1 -timeout=5m \
-  -run '^(TestOriginExpiryReviewNativeWallets|TestOriginGatewayLostOrderACKRecoversOnlyGET|TestOriginGatewayDirectRecoveryCannotCreateCustomer)$' \
+  -run '^(TestOriginExpiryReviewNativeWallets|TestOriginActiveOriginalCalendarWallets|TestOriginGatewayLostOrderACKRecoversOnlyGET|TestOriginGatewayDirectRecoveryCannotCreateCustomer)$' \
   -json ./juspay >/dev/null
 expiry_go_id=$(cat "$expiry_work/native-go.cid")
 docker start -a "$expiry_go_id" >"$expiry_evidence/native.jsonl" 2>"$expiry_evidence/native.stderr"
@@ -162,12 +177,12 @@ expiry_go_id=
 python3 - "$expiry_evidence" "$expiry_assembly" "$expiry_reference" "$expiry_here" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
 directory = pathlib.Path(sys.argv[1]); events = [json.loads(line) for line in (directory/'native.jsonl').read_text().splitlines()]
-parent = 'TestOriginExpiryReviewNativeWallets'
-expected = {parent, 'TestOriginGatewayLostOrderACKRecoversOnlyGET','TestOriginGatewayDirectRecoveryCannotCreateCustomer'}
-expected.update(parent+'/'+asset+'/'+date for asset in ('money','points') for date in
+parents = ('TestOriginExpiryReviewNativeWallets','TestOriginActiveOriginalCalendarWallets')
+expected = {*parents, 'TestOriginGatewayLostOrderACKRecoversOnlyGET','TestOriginGatewayDirectRecoveryCannotCreateCustomer'}
+expected.update(parent+'/'+asset+'/'+date for parent in parents for asset in ('money','points') for date in
                 ('2026-12-01','2026-10-20','2026-11-18','2026-11-17','2027-01-01'))
 passed = [event['Test'] for event in events if event.get('Action') == 'pass' and 'Test' in event]
-if len(passed) != 13 or set(passed) != expected or any(event.get('Action') in ('fail','skip') for event in events):
+if len(passed) != 24 or set(passed) != expected or any(event.get('Action') in ('fail','skip') for event in events):
     raise RuntimeError('EXACT_ACTIVE_CALENDAR_SCOPE_DID_NOT_PASS')
 if not any(event.get('Action') == 'pass' and 'Test' not in event for event in events):
     raise RuntimeError('NATIVE_PACKAGE_DID_NOT_PASS')
@@ -183,9 +198,9 @@ if any(digest(here.parent/name) != expected for name, expected in evidence['inpu
     raise RuntimeError('ACTIVE_PRODUCER_OR_FIXTURE_CHANGED_DURING_RUN')
 if subprocess.check_output(['git','-C',str(reference),'rev-parse','HEAD'], text=True).strip() != evidence['sourcePin'] or subprocess.check_output(['git','-C',str(reference),'status','--porcelain','--untracked-files=no'], text=True).strip():
     raise RuntimeError('PINNED_SOURCE_CHANGED_DURING_RUN')
-evidence.update({'completed':True,'defaultVet':True,'race':True,'expirySubcasesPassed':10,'tlsGatewayCasesPassed':2,
-    'originalMethodsNativeInvoked':False,'passedTestEvents':passed,
+evidence.update({'completed':True,'defaultVet':True,'race':True,'generatedExpirySubcasesPassed':10,'originalExpirySubcasesPassed':10,'tlsGatewayCasesPassed':2,
+    'originalMethodsNativeInvoked':True,'passedTestEvents':passed,
     'rawEventsSha256':hashlib.sha256((directory/'native.jsonl').read_bytes()).hexdigest()})
 (directory/'result.json').write_text(json.dumps(evidence, indent=2)+'\n')
-print('Active calendar verification passed: 10 generated expiry subcases, 2 TLS recovery cases; original methods build/vet + bounded literal evidence.')
+print('Active calendar verification passed: 10 original + 10 generated expiry subcases, 2 TLS recovery cases; retained original history mirror remains a separate financial-acceptance item.')
 PY

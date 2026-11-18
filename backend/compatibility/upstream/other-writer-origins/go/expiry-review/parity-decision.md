@@ -37,6 +37,23 @@ the activated output.
 
 ## Activation provenance
 
+The user's approval explicitly requires preserving cashback. The retained
+original Money method is used by authenticated webhook/cron fallbacks for
+unregistered online orders, so its old combined cashback/Money UPDATE was not
+unreachable. The composer now changes only that exact statement, within the
+pinned original `RevertTssMoney` boundary, to the same Money-only UPDATE used by
+the selected generated method. It removes the duplicate cashback binding while
+retaining the amount expression and both original history writes. External
+pinned source remains unchanged. The prior DateOnly-only assembly is historical
+and cannot qualify this additional preservation correction.
+
+The original Money method still writes `reward_point_history` alongside
+`tss_money_history`, even though actual cashback remains unchanged. This mirror
+is a retained source contract and a separate **financial-acceptance item**, not
+newly approved financial behavior. The generated selected Money method retains
+its existing deliberate omission of that mirror. This change does not unify
+those histories or infer an approval to change them.
+
 The exact reviewed `calendar-expiry-candidate.patch` is now applied to
 `../compose.py` and `../transform_source.go`; the patch is retained unchanged as
 the historical activation input. No external source repository is modified.
@@ -55,11 +72,16 @@ the historical activation input. No external source repository is modified.
   rounding, ledger behavior, cashback preservation and independent cancellation
   policies retain their existing implementation.
 
-The follow-up verification remains the same ten native Money/Points expiry
-subcases and two real TLS gateway recovery cases with default vet and the race
-detector. Use the calendar expectation mode
+Follow-up verification now adds ten direct original Money/Points expiry
+subcases to the retained ten generated subcases and two real TLS gateway
+recovery cases, all with default vet and the race detector. Every wallet case
+requires cashback7. Use the calendar expectation mode
 `POS_ORIGIN_EXPIRY_CANDIDATE=1` in the retained review fixture; its original
 expectation mode remains available to reproduce the historical source defect.
+The additive `active-original-calendar_test.go` temporarily binds `utils.Db` to
+the same guarded disposable ORM and restores it after the test; it performs no
+provider calls. Four precisely counted comparison clocks are frozen only in
+the disposable test copy. Native execution of this expanded scope is pending.
 
 
 ## Native fixture evidence (2026-11-18)
