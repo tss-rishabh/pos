@@ -225,15 +225,28 @@ describe.skipIf(!url)('native source membership publication capture', () => {
     });
     expect(get).not.toHaveBeenCalled();
   });
-  it('refuses source timestamp ties, future data and mixed first-ordinary flags', async () => {
+  it('preserves future source rows because the literal membership queries have no upper date bound', async () => {
+    await f.admin.query("UPDATE orders SET created_at='2026-11-17 12:00:01'");
+    const capture = await publisher().capture(membershipHistoryScope, 'c'.repeat(64));
+    expect(capture.orderCount).toBe('1');
+    expect(capture.lineCount).toBe('1');
+    expect(capture.selection.lastDeliveredOrder?.createdAt).toBe('2026-11-17 12:00:01');
+    expect(capture.selection.recentDeliveredOrders.map((row) => row.createdAt)).toEqual([
+      '2026-11-17 12:00:01',
+    ]);
+    expect(
+      verifyCsvMembershipSourceCapture(
+        capture,
+        membershipSourceKey,
+        ['10', '12'],
+        membershipHistoryNow,
+      ),
+    ).toEqual(capture);
+  });
+  it('refuses source timestamp ties and mixed first-ordinary flags', async () => {
     await f.seed([membershipFixtureOrder({ id: '9007199254741003', lines: [] })]);
     await expect(publisher().capture(membershipHistoryScope, 'c'.repeat(64))).rejects.toMatchObject(
       { code: 'ORDER_IMPORT_MEMBERSHIP_PUBLICATION_SOURCE_AMBIGUOUS' },
-    );
-    await f.reset();
-    await f.admin.query("UPDATE orders SET created_at='2026-11-17 12:00:01'");
-    await expect(publisher().capture(membershipHistoryScope, 'c'.repeat(64))).rejects.toMatchObject(
-      { code: 'ORDER_IMPORT_MEMBERSHIP_PUBLICATION_SOURCE_INVALID' },
     );
     await f.reset();
     await f.fixture.insert('has_products', {

@@ -28,12 +28,22 @@ import {
   sourceKey,
 } from '../legacy-import-financial/fixture.js';
 
+import {
+  installOriginCreditFixture,
+  installImportCounterFixture,
+  type ImportCounterFixture,
+} from '../legacy-import-screening/native-counter-fixture.js';
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 type Prepared = Awaited<ReturnType<FinancialOrderPreparationPort['prepare']>>;
 describe.skipIf(!template)('screening quota across native no-dispatch preparation', () => {
-  let f: Awaited<ReturnType<typeof importFinancialFixture>>, clock: number;
+  let f: Awaited<ReturnType<typeof importFinancialFixture>>,
+    clock: number,
+    quota: ImportCounterFixture | undefined,
+    rootDb: typeof f.db;
   beforeAll(async () => {
     f = await importFinancialFixture(template!);
+    rootDb = f.db;
+    await installOriginCreditFixture(f.connection);
     await verifiedMysqlFixture(f.connection, ['evidence/mysql-screening-schema.json']).create([
       'spiderman_screening_orders',
     ]);
@@ -46,9 +56,13 @@ describe.skipIf(!template)('screening quota across native no-dispatch preparatio
       await f.connection.query(statement);
   }, 15000);
   afterAll(async () => {
+    await quota?.close();
     await f?.close();
   });
   beforeEach(async () => {
+    await quota?.close();
+    quota = undefined;
+    f.db = rootDb;
     await f.connection.query('DELETE FROM pos_rewrite_import_financial_preparations');
     await f.connection.query('DELETE FROM pos_rewrite_import_screening_reservations');
     await f.connection.query('DELETE FROM spiderman_screening_orders');
@@ -76,6 +90,9 @@ describe.skipIf(!template)('screening quota across native no-dispatch preparatio
       product_id: '390238',
       gtin: '8900000000001',
     });
+    quota = await installImportCounterFixture(f.connection, template!);
+    await quota.initialize('77');
+    f.db = quota.appDb;
   });
   function setup(
     prepare: FinancialOrderPreparationPort['prepare'],
@@ -87,6 +104,7 @@ describe.skipIf(!template)('screening quota across native no-dispatch preparatio
         financialSecret: options.secret,
         proofKey: key,
         clock: () => clock,
+        counter: quota!.options,
         ...(qualified
           ? {
               contract: screeningProfileContract,
