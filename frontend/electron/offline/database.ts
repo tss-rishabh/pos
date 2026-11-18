@@ -145,7 +145,11 @@ const migrations: readonly string[] = [
 ];
 
 function migrate(db: SqliteDatabase) {
-  const version = z.number().int().min(0).parse(db.pragma('user_version', { simple: true }));
+  const version = z
+    .number()
+    .int()
+    .min(0)
+    .parse(db.pragma('user_version', { simple: true }));
   if (version > migrations.length)
     throw new Error('The offline billing database was created by a newer application version.');
   for (let index = version; index < migrations.length; index++)
@@ -280,7 +284,13 @@ export function offlineStore(db: SqliteDatabase) {
     if (row === undefined) return null;
     const parsed = conflictRow.parse(row);
     const code = z
-      .enum(['STOCK_SHORTFALL', 'PRICE_CHANGED', 'TENDER_REFERENCE_NOT_FOUND', 'OPERATOR_REVOKED', 'REJECTED'])
+      .enum([
+        'STOCK_SHORTFALL',
+        'PRICE_CHANGED',
+        'TENDER_REFERENCE_NOT_FOUND',
+        'OPERATOR_REVOKED',
+        'REJECTED',
+      ])
       .catch('REJECTED')
       .parse(parsed.code);
     return { code, message: parsed.message, createdAt: parsed.created_at };
@@ -294,7 +304,10 @@ export function offlineStore(db: SqliteDatabase) {
         ? {
             mode: 'cash',
             receivedPaise: sale.cash_received_paise ?? sale.payable_paise,
-            changePaise: Math.max(0, (sale.cash_received_paise ?? sale.payable_paise) - sale.payable_paise),
+            changePaise: Math.max(
+              0,
+              (sale.cash_received_paise ?? sale.payable_paise) - sale.payable_paise,
+            ),
           }
         : { mode: sale.mode, reference: sale.reference ?? '' };
     const resolution = sale.resolution ? resolutionJson.parse(JSON.parse(sale.resolution)) : null;
@@ -431,7 +444,15 @@ export function offlineStore(db: SqliteDatabase) {
         'INSERT OR IGNORE INTO barcodes (store_id, barcode, product_id) VALUES (?, ?, ?)',
       );
       for (const item of products) {
-        product.run(storeId, item.productId, item.name, item.barcode, item.unitPricePaise, item.stock, now);
+        product.run(
+          storeId,
+          item.productId,
+          item.name,
+          item.barcode,
+          item.unitPricePaise,
+          item.stock,
+          now,
+        );
         if (item.barcode) barcode.run(storeId, item.barcode, item.productId);
       }
       // Re-apply local decrements for sales the server has not yet received.
@@ -515,7 +536,14 @@ export function offlineStore(db: SqliteDatabase) {
         'INSERT INTO sale_lines (sale_id, line_no, product_id, name, unit_price_paise, quantity) VALUES (?, ?, ?, ?, ?, ?)',
       );
       sale.lines.forEach((item, index) =>
-        line.run(sale.saleId, index + 1, item.productId, item.name, item.unitPricePaise, item.quantity),
+        line.run(
+          sale.saleId,
+          index + 1,
+          item.productId,
+          item.name,
+          item.unitPricePaise,
+          item.quantity,
+        ),
       );
       writeTender(sale.saleId, sale.tender, sale.payablePaise, sale.createdAt);
       db.prepare(
@@ -530,7 +558,9 @@ export function offlineStore(db: SqliteDatabase) {
     list(status: SaleStatus | undefined, limit: number): QueueEntry[] {
       return (
         status
-          ? db.prepare(`${saleSelect} WHERE s.status = ? ORDER BY s.sequence DESC LIMIT ?`).all(status, limit)
+          ? db
+              .prepare(`${saleSelect} WHERE s.status = ? ORDER BY s.sequence DESC LIMIT ?`)
+              .all(status, limit)
           : db.prepare(`${saleSelect} ORDER BY s.sequence DESC LIMIT ?`).all(limit)
       ).map(toSale);
     },
@@ -548,7 +578,10 @@ export function offlineStore(db: SqliteDatabase) {
       const result = { queued: 0, syncing: 0, needsManager: 0, synced: 0, voided: 0 };
       for (const row of rows) {
         const parsed = z
-          .object({ status: z.enum(['queued', 'syncing', 'synced', 'needs_manager', 'voided']), count: z.number().int() })
+          .object({
+            status: z.enum(['queued', 'syncing', 'synced', 'needs_manager', 'voided']),
+            count: z.number().int(),
+          })
           .parse(row);
         if (parsed.status === 'needs_manager') result.needsManager = parsed.count;
         else result[parsed.status] = parsed.count;
@@ -558,12 +591,20 @@ export function offlineStore(db: SqliteDatabase) {
     /** Order count for the limit: every sale not yet accepted by the server. */
     unsyncedCount(): number {
       return countRow.parse(
-        db.prepare("SELECT count(*) AS count FROM sales WHERE status IN ('queued','syncing','needs_manager')").get(),
+        db
+          .prepare(
+            "SELECT count(*) AS count FROM sales WHERE status IN ('queued','syncing','needs_manager')",
+          )
+          .get(),
       ).count;
     },
     markSyncing(saleId: string, now: number) {
-      db.prepare("UPDATE sales SET status = 'syncing' WHERE sale_id = ? AND status = 'queued'").run(saleId);
-      db.prepare('UPDATE sync_queue SET attempts = attempts + 1, updated_at = ? WHERE sale_id = ?').run(now, saleId);
+      db.prepare("UPDATE sales SET status = 'syncing' WHERE sale_id = ? AND status = 'queued'").run(
+        saleId,
+      );
+      db.prepare(
+        'UPDATE sync_queue SET attempts = attempts + 1, updated_at = ? WHERE sale_id = ?',
+      ).run(now, saleId);
     },
     markSynced(saleId: string, orderId: string, invoice: string | null, now: number) {
       db.prepare(
@@ -572,7 +613,9 @@ export function offlineStore(db: SqliteDatabase) {
       db.prepare('DELETE FROM sync_queue WHERE sale_id = ?').run(saleId);
     },
     markRetry(saleId: string, code: string, nextAttemptAt: number, now: number) {
-      db.prepare("UPDATE sales SET status = 'queued' WHERE sale_id = ? AND status = 'syncing'").run(saleId);
+      db.prepare("UPDATE sales SET status = 'queued' WHERE sale_id = ? AND status = 'syncing'").run(
+        saleId,
+      );
       db.prepare(
         'UPDATE sync_queue SET next_attempt_at = ?, last_error_code = ?, updated_at = ? WHERE sale_id = ?',
       ).run(nextAttemptAt, code, now, saleId);
@@ -588,7 +631,12 @@ export function offlineStore(db: SqliteDatabase) {
     },
     resolve(
       saleId: string,
-      resolution: { action: 'accept' | 'correct-tender' | 'void'; managerId: string; reason: string; resolvedAt: number },
+      resolution: {
+        action: 'accept' | 'correct-tender' | 'void';
+        managerId: string;
+        reason: string;
+        resolvedAt: number;
+      },
     ) {
       db.prepare(
         'UPDATE conflicts SET resolved_at = ?, resolved_by = ?, resolution = ? WHERE sale_id = ? AND resolved_at IS NULL',
@@ -598,7 +646,8 @@ export function offlineStore(db: SqliteDatabase) {
         JSON.stringify(resolution),
         saleId,
       );
-      if (resolution.action === 'void') db.prepare('DELETE FROM sync_queue WHERE sale_id = ?').run(saleId);
+      if (resolution.action === 'void')
+        db.prepare('DELETE FROM sync_queue WHERE sale_id = ?').run(saleId);
       else
         db.prepare(
           'UPDATE sync_queue SET next_attempt_at = 0, updated_at = ? WHERE sale_id = ?',

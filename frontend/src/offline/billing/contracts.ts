@@ -8,7 +8,10 @@ export const paise = z.number().int().min(0).max(9_999_999_999);
 export const tenderReference = z
   .string()
   .trim()
-  .regex(/^[A-Za-z0-9][A-Za-z0-9._/-]{3,99}$/, 'Enter the card or UPI reference from the terminal.');
+  .regex(
+    /^[A-Za-z0-9][A-Za-z0-9._/-]{3,99}$/,
+    'Enter the card or UPI reference from the terminal.',
+  );
 export const provisionalReferenceSchema = z.string().max(55).regex(PROVISIONAL_REFERENCE_PATTERN);
 
 export const tenderSchema = z.discriminatedUnion('mode', [
@@ -54,7 +57,13 @@ export const ipcRequestSchemas = {
     })
     .strict(),
   'offline:catalog:barcode': z
-    .object({ storeId: identifier, barcode: z.string().trim().regex(/^[A-Za-z0-9-]{1,64}$/) })
+    .object({
+      storeId: identifier,
+      barcode: z
+        .string()
+        .trim()
+        .regex(/^[A-Za-z0-9-]{1,64}$/),
+    })
     .strict(),
   'offline:catalog:refresh': empty,
   'offline:sale:create': z
@@ -63,7 +72,9 @@ export const ipcRequestSchemas = {
       storeId: identifier,
       counterId: identifier,
       lines: z
-        .array(z.object({ productId: identifier, quantity: z.number().int().min(1).max(999) }).strict())
+        .array(
+          z.object({ productId: identifier, quantity: z.number().int().min(1).max(999) }).strict(),
+        )
         .min(1)
         .max(100)
         .refine(
@@ -74,7 +85,10 @@ export const ipcRequestSchemas = {
     })
     .strict(),
   'offline:sale:list': z
-    .object({ status: saleStatusSchema.optional(), limit: z.number().int().min(1).max(200).default(50) })
+    .object({
+      status: saleStatusSchema.optional(),
+      limit: z.number().int().min(1).max(200).default(50),
+    })
     .strict(),
   'offline:sale:reprint': z.object({ saleId: z.uuid() }).strict(),
   'offline:sync:status': empty,
@@ -95,9 +109,7 @@ export const ipcRequestSchemas = {
 export type IpcRequest<C extends IpcChannel> = z.input<(typeof ipcRequestSchemas)[C]>;
 export type IpcParsedRequest<C extends IpcChannel> = z.output<(typeof ipcRequestSchemas)[C]>;
 
-export const ipcEnvelopeSchema = z
-  .object({ requestId: z.uuid(), payload: z.unknown() })
-  .strict();
+export const ipcEnvelopeSchema = z.object({ requestId: z.uuid(), payload: z.unknown() }).strict();
 
 export const limitStatusSchema = z.object({
   allowed: z.boolean(),

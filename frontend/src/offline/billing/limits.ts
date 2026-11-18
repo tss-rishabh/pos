@@ -96,7 +96,9 @@ export function evaluateLimits(
   window: WindowState | null,
   unsyncedOrders: number,
 ): LimitEvaluation {
-  const minutesUsed = window ? Math.min(limits.maxMinutes, Math.floor(window.elapsedMs / 60000)) : 0,
+  const minutesUsed = window
+      ? Math.min(limits.maxMinutes, Math.floor(window.elapsedMs / 60000))
+      : 0,
     usage = `${minutesUsed} of ${limits.maxMinutes} minutes and ${unsyncedOrders} of ${limits.maxOrders} orders used.`;
   const result = (reason: LimitBlock | null, message: string): LimitEvaluation => ({
     allowed: reason === null,

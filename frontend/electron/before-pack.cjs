@@ -48,7 +48,13 @@ async function verifyOfflineBilling(appDir, context) {
     path.join(appDir, 'electron', 'dist', 'offline-billing.cjs'),
     path.join(appDir, 'electron', 'preload.cjs'),
     path.join(appDir, 'node_modules', 'better-sqlite3-multiple-ciphers', 'lib', 'index.js'),
-    path.join(appDir, 'node_modules', 'better-sqlite3-multiple-ciphers', 'prebuilds', `${platform}-${arch}.node`),
+    path.join(
+      appDir,
+      'node_modules',
+      'better-sqlite3-multiple-ciphers',
+      'prebuilds',
+      `${platform}-${arch}.node`,
+    ),
   ];
   for (const file of required) {
     const stat = await fs.stat(file).catch(() => null);

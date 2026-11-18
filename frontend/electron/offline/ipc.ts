@@ -48,7 +48,11 @@ export async function dispatchIpc(
   };
   if (!envelope.success)
     return finish(
-      { ok: false, requestId, error: { code: 'INVALID_REQUEST', message: 'The request was malformed.' } },
+      {
+        ok: false,
+        requestId,
+        error: { code: 'INVALID_REQUEST', message: 'The request was malformed.' },
+      },
       'INVALID_REQUEST',
     );
   try {
@@ -59,16 +63,26 @@ export async function dispatchIpc(
   } catch (error) {
     if (error instanceof ZodError)
       return finish(
-        { ok: false, requestId, error: { code: 'INVALID_REQUEST', message: 'Check the entered details.' } },
+        {
+          ok: false,
+          requestId,
+          error: { code: 'INVALID_REQUEST', message: 'Check the entered details.' },
+        },
         'INVALID_REQUEST',
       );
     if (error instanceof OfflineBillingError)
-      return finish({ ok: false, requestId, error: { code: error.code, message: error.message } }, error.code);
+      return finish(
+        { ok: false, requestId, error: { code: error.code, message: error.message } },
+        error.code,
+      );
     return finish(
       {
         ok: false,
         requestId,
-        error: { code: 'OFFLINE_BILLING_FAILED', message: 'Offline billing could not complete this request.' },
+        error: {
+          code: 'OFFLINE_BILLING_FAILED',
+          message: 'Offline billing could not complete this request.',
+        },
       },
       'OFFLINE_BILLING_FAILED',
     );
@@ -85,7 +99,13 @@ export function registerOfflineIpc(
     ipc.handle(channel, async (event, raw) => {
       if (!trustedSender(event)) {
         const requestId = randomUUID();
-        log({ eventId: 'offline.ipc.rejected', channel, traceId: requestId, outcome: 'failed', code: 'UNTRUSTED_SENDER' });
+        log({
+          eventId: 'offline.ipc.rejected',
+          channel,
+          traceId: requestId,
+          outcome: 'failed',
+          code: 'UNTRUSTED_SENDER',
+        });
         return {
           ok: false,
           requestId,

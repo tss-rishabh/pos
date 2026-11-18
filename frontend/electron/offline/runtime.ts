@@ -23,7 +23,11 @@ export const STATUS_EVENT = 'offline:status:changed';
 /** PII-free structured log line: identifiers, outcome codes and timings only. */
 function log(event: OfflineLogEvent & { channel?: string }) {
   process.stdout.write(
-    JSON.stringify({ module: 'desktop-offline-billing', time: new Date().toISOString(), ...event }) + '\n',
+    JSON.stringify({
+      module: 'desktop-offline-billing',
+      time: new Date().toISOString(),
+      ...event,
+    }) + '\n',
   );
 }
 
@@ -96,7 +100,8 @@ function electronHttp(origin: string, profile: Session): HttpClient {
 
 const wrapper: SecretWrapper = {
   async available() {
-    if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text') return false;
+    if (process.platform === 'linux' && safeStorage.getSelectedStorageBackend() === 'basic_text')
+      return false;
     return safeStorage.isAsyncEncryptionAvailable();
   },
   encrypt: (plain) => safeStorage.encryptStringAsync(plain),
@@ -140,11 +145,16 @@ export interface OfflineBillingRuntimeOptions {
 
 /** Start desktop offline billing in the Electron main process. Failures leave
  * the online workspace usable and report offline billing as unavailable. */
-export async function startOfflineBilling(options: OfflineBillingRuntimeOptions): Promise<() => void> {
+export async function startOfflineBilling(
+  options: OfflineBillingRuntimeOptions,
+): Promise<() => void> {
   const { window, workspaceOrigin, profile } = options;
   const trustedSender = (event: unknown) => {
     const parsed = z
-      .object({ sender: z.object({ id: z.number() }), senderFrame: z.object({ url: z.string() }).nullable() })
+      .object({
+        sender: z.object({ id: z.number() }),
+        senderFrame: z.object({ url: z.string() }).nullable(),
+      })
       .safeParse(event);
     if (!parsed.success || !parsed.data.senderFrame) return false;
     try {
@@ -171,8 +181,15 @@ export async function startOfflineBilling(options: OfflineBillingRuntimeOptions)
   } catch (error) {
     // Never delete or replace an existing database: it may hold sold goods.
     const reason =
-      error instanceof Error ? error.message : 'Offline billing storage is unavailable on this device.';
-    log({ eventId: 'offline.storage.unavailable', traceId: randomUUID(), outcome: 'failed', code: 'STORAGE_UNAVAILABLE' });
+      error instanceof Error
+        ? error.message
+        : 'Offline billing storage is unavailable on this device.';
+    log({
+      eventId: 'offline.storage.unavailable',
+      traceId: randomUUID(),
+      outcome: 'failed',
+      code: 'STORAGE_UNAVAILABLE',
+    });
     const status = unavailableStatus(reason);
     const refuse = async () => {
       throw new OfflineBillingError('OFFLINE_BILLING_UNAVAILABLE', reason);
@@ -216,13 +233,19 @@ export async function startOfflineBilling(options: OfflineBillingRuntimeOptions)
     'offline:status': () => service.status(),
     'offline:sync:status': () => service.status(),
     'offline:sync:retry': (_payload, traceId) => service.retry(traceId),
-    'offline:catalog:search': async (payload) => ({ products: await service.searchCatalog(payload) }),
+    'offline:catalog:search': async (payload) => ({
+      products: await service.searchCatalog(payload),
+    }),
     'offline:catalog:barcode': async (payload) => ({ product: await service.byBarcode(payload) }),
-    'offline:catalog:refresh': async (_payload, traceId) => ({ products: await service.refreshCatalog(traceId) }),
+    'offline:catalog:refresh': async (_payload, traceId) => ({
+      products: await service.refreshCatalog(traceId),
+    }),
     'offline:sale:create': (payload, traceId) => service.createSale(payload, traceId),
     'offline:sale:list': (payload) => ({ sales: service.list(payload) }),
     'offline:sale:reprint': (payload) => ({ receipt: service.reprint(payload.saleId) }),
-    'offline:conflict:resolve': async (payload, traceId) => ({ sale: await service.resolve(payload, traceId) }),
+    'offline:conflict:resolve': async (payload, traceId) => ({
+      sale: await service.resolve(payload, traceId),
+    }),
   };
   const unregister = registerOfflineIpc(ipcMain, handlers, trustedSender, log);
   let beating = false;
@@ -231,7 +254,9 @@ export async function startOfflineBilling(options: OfflineBillingRuntimeOptions)
     beating = true;
     void service
       .heartbeat(randomUUID(), { catalog })
-      .catch(() => log({ eventId: 'offline.heartbeat.failed', traceId: randomUUID(), outcome: 'failed' }))
+      .catch(() =>
+        log({ eventId: 'offline.heartbeat.failed', traceId: randomUUID(), outcome: 'failed' }),
+      )
       .finally(() => {
         beating = false;
       });

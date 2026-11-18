@@ -77,7 +77,12 @@ export function serverApi(http: HttpClient) {
   return {
     async reachable(traceId: string): Promise<boolean> {
       try {
-        const response = await http.request({ method: 'GET', path: '/health/ready', traceId, timeoutMs: 5000 });
+        const response = await http.request({
+          method: 'GET',
+          path: '/health/ready',
+          traceId,
+          timeoutMs: 5000,
+        });
         return response.status === 200;
       } catch {
         return false;
@@ -85,7 +90,11 @@ export function serverApi(http: HttpClient) {
     },
     /** null means the session is gone (signed out, expired or revoked). */
     async session(traceId: string): Promise<ServerSession | null> {
-      const response = await http.request({ method: 'GET', path: '/api/v1/auth/sessions/current', traceId });
+      const response = await http.request({
+        method: 'GET',
+        path: '/api/v1/auth/sessions/current',
+        traceId,
+      });
       if (response.status === 401) return null;
       if (response.status !== 200) throw new NetworkUnavailableError();
       return sessionSchema.parse(response.body);
@@ -101,7 +110,9 @@ export function serverApi(http: HttpClient) {
       const data = checkInSchema.parse(response.body).data;
       if (!data) return null;
       const expiresAt = Date.parse(data.expiresAt);
-      return Number.isFinite(expiresAt) ? { storeId: data.storeId, counterId: data.counterId, expiresAt } : null;
+      return Number.isFinite(expiresAt)
+        ? { storeId: data.storeId, counterId: data.counterId, expiresAt }
+        : null;
     },
     async settings(traceId: string, operatorId: string) {
       const response = await http.request({
@@ -160,12 +171,20 @@ export function serverApi(http: HttpClient) {
         const result = offlineSaleResultSchema.safeParse(response.body);
         if (!result.success || result.data.provisionalRef !== sale.provisionalRef)
           return { kind: 'retry', code: 'INVALID_SERVER_REPLY' };
-        return { kind: 'synced', orderId: result.data.orderId, invoiceNumber: result.data.invoiceNumber };
+        return {
+          kind: 'synced',
+          orderId: result.data.orderId,
+          invoiceNumber: result.data.invoiceNumber,
+        };
       }
       const error = errorOf(response.body);
       if (response.status === 401) return { kind: 'unauthorized' };
       if (error.code.startsWith('OFFLINE_CONFLICT_'))
-        return { kind: 'conflict', code: error.code.slice('OFFLINE_CONFLICT_'.length), message: error.message };
+        return {
+          kind: 'conflict',
+          code: error.code.slice('OFFLINE_CONFLICT_'.length),
+          message: error.message,
+        };
       if (
         response.status >= 500 ||
         response.status === 429 ||
