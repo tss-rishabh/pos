@@ -32,5 +32,9 @@ existing workflow fixture helper owns a random-port pinned local MySQL container
 and cleans it up. Never supply production/shared-reader credentials or port54777.
 The wrapper uses private temporary Python dependencies, strict checking and the
 production frontend build. Keep failure logs private0600. No execution or pass
-claim is implied by this authored harness; complete canonical verification belongs
-to the coordinated final run.
+claim is implied by this authored harness alone. The targeted canonical command
+subsequently passed on Rootbf4ce5e production plus the test-only CSS-import
+correction; see `release-notes-receipt.json`. All3072 tracked input hashes were
+unchanged before/after, and the default helper's exact container and anonymous
+volume were independently confirmed removed. This targeted result leaves the
+separate complete global-reminder and Go-native acceptance boundaries intact.
