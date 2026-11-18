@@ -12,7 +12,6 @@ import {
   remindersFixture,
 } from '../../../backend/tools/global-reminders/native.js';
 import { nativeUiServer } from '../../../backend/tools/global-reminders/native-ui-server.js';
-import { dayClosePromptSchema } from '../../src/pages/finance/day-close-reminder.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 const originalSchema = z.object({
@@ -153,8 +152,10 @@ try {
   await fixture.dayClose('STALE');
   const nag = page.waitForResponse(async (response) => {
     if (new URL(response.url()).pathname !== nagPath || response.status() !== 200) return false;
-    const body = dayClosePromptSchema.safeParse((await response.json()) as unknown);
-    return body.success && body.data.prompt && body.data.status === 'STALE';
+    const body = z
+      .object({ prompt: z.literal(true), status: z.literal('STALE') })
+      .safeParse((await response.json()) as unknown);
+    return body.success;
   });
   await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
   await nag;
