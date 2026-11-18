@@ -13,10 +13,12 @@ git -C "$CUSTOMER_PROFILE_SOURCE_ROOT" cat-file -e 78d5b63d6a149a6bf2c748fa1d191
 profile_temporary=$(mktemp -d /tmp/pos-profile-native-workflow.XXXXXX)
 profile_container=''
 cleanup() {
-  if [ -n "$profile_container" ]; then docker rm -f "$profile_container" >/dev/null 2>&1 || true; fi
+  if [ -n "$profile_container" ]; then docker rm -fv "$profile_container" >/dev/null 2>&1 || true; fi
   rm -rf "$profile_temporary"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' HUP TERM
 if [ -z "${CUSTOMER_PROFILE_SOURCE_PYTHON:-}" ]; then
   export UV_CACHE_DIR="$profile_temporary/uv-cache"
   uv venv --python 3.12 "$profile_temporary/python"

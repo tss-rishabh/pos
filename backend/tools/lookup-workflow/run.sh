@@ -12,10 +12,12 @@ lookup_work=$(mktemp -d /tmp/pos-lookup-workflow.XXXXXX)
 chmod 700 "$lookup_work"
 lookup_container=
 cleanup() {
-  if [ -n "$lookup_container" ]; then docker rm -f "$lookup_container" >/dev/null 2>&1 || true; fi
+  if [ -n "$lookup_container" ]; then docker rm -fv "$lookup_container" >/dev/null 2>&1 || true; fi
   rm -rf "$lookup_work"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' HUP TERM
 export UV_CACHE_DIR="$lookup_work/uv-cache"
 export UV_PYTHON_INSTALL_DIR="$lookup_work/python-toolchain"
 uv venv --python 3.12.15 "$lookup_work/python"
