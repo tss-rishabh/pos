@@ -196,7 +196,7 @@ export function registerAdministration(
     },
   );
   const settings = settingsService(config, db, options);
-  const mfa = operatorMfaService(config, db);
+  const mfa = operatorMfaService(config, db, undefined, undefined, ephemeral);
   const storeImages = storeImageService(config, db, options.storeImageStore);
   registerStoreImages(app, storeImages);
   const access = administrationAccessService(config, db);

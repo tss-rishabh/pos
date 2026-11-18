@@ -1,5 +1,10 @@
-import { datetime, index, int, json, mysqlTable, varchar } from 'drizzle-orm/mysql-core';
+import { datetime, index, int, mysqlTable, varchar } from 'drizzle-orm/mysql-core';
 
+/**
+ * @deprecated Enrollments moved to `pos_user.mfa_hash` + Redis `pos:mfa_enroll:{operatorId}`
+ * (`mfa.ts`). Nothing in this module reads or writes the table; the export remains only because
+ * `src/auth/revocation.ts` (W3) still updates it. Remove with that caller.
+ */
 export const operatorMfaEnrollments = mysqlTable(
   'pos_rewrite_operator_mfa_enrollments',
   {
@@ -22,12 +27,3 @@ export const operatorMfaEnrollments = mysqlTable(
     index('ix_rewrite_operator_mfa_expiry').on(table.expiresAt),
   ],
 );
-export const operatorMfaMutations = mysqlTable('pos_rewrite_operator_mfa_mutations', {
-  id: varchar('id', { length: 36 }).primaryKey(),
-  actorId: varchar('actor_id', { length: 32 }).notNull(),
-  operatorId: varchar('operator_id', { length: 32 }).notNull(),
-  hash: varchar('hash', { length: 64 }).notNull(),
-  result: json('result').$type<{ status: 'success'; message: string }>().notNull(),
-  requestId: varchar('request_id', { length: 128 }),
-  createdAt: datetime('created_at', { mode: 'string', fsp: 3 }).notNull(),
-});
