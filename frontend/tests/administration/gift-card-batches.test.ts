@@ -1,13 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
-  batchHistoryCsv,
-  batchPreferences,
-  batchSecret,
-  defaultBatchPreferences,
+  batchList,
+  batchListCsv,
+  validateBatchRequest,
 } from '../../src/pages/administration/gift-card-batches/api';
 
-describe('gift batch private contracts and source metadata export', () => {
-  it('exports current-page visible metadata with CSV quoting and spreadsheet formula guards', () => {
+describe('gift card batch page contracts', () => {
+  it('validates like the legacy page before posting', () => {
+    expect(validateBatchRequest('', 'x')).toBe('Please Enter Valid value');
+    expect(validateBatchRequest('0', 'x')).toBe('Size must be greater than zero');
+    expect(validateBatchRequest('10001', 'x')).toBe('Size must be less than 10,000');
+    expect(validateBatchRequest('10', '')).toBe('Please provide the message');
+    expect(validateBatchRequest('10', 'Diwali')).toBeNull();
+  });
+  it('exports the visible legacy columns with CSV quoting and formula guards', () => {
     const row = {
       id: '9007199254740993',
       size: 2,
@@ -15,28 +21,21 @@ describe('gift batch private contracts and source metadata export', () => {
       completed: true,
       blocked: true,
       printed: false,
-      createdById: '1',
-      createdByName: 'Fixture, Operator',
+      createdBy: 'Fixture, Operator',
       createdAt: '2026-11-16 12:00:00',
     };
-    expect(batchHistoryCsv([row], ['id', 'message', 'createdByName'])).toBe(
-      '"Batch","Message","Created by"\r\n"9007199254740993","\'=HYPERLINK(""private"")","Fixture, Operator"\r\n',
-    );
-    expect(batchHistoryCsv([row], ['status'])).toContain('Blocked · Ready');
-  });
-  it('persists only bounded static table preferences and validates private password responses', () => {
-    expect(batchPreferences.parse(defaultBatchPreferences).columns).toHaveLength(6);
-    expect(
-      batchPreferences.safeParse({ ...defaultBatchPreferences, columns: ['id', 'id'] }).success,
-    ).toBe(false);
-    expect(batchPreferences.safeParse({ ...defaultBatchPreferences, columns: [] }).success).toBe(
-      false,
+    expect(batchListCsv([row])).toBe(
+      '"ID","Size","Message","Created By","Created At"\r\n"9007199254740993","2","\'=HYPERLINK(""private"")","Fixture, Operator","2026-11-16 12:00:00"\r\n',
     );
     expect(
-      batchSecret.safeParse({ filename: 'gift-cards-7.zip', password: 'x'.repeat(43) }).success,
+      batchList.safeParse({
+        draw: 1,
+        recordsTotal: '1',
+        recordsFiltered: '1',
+        start: 0,
+        length: 10,
+        data: [row],
+      }).success,
     ).toBe(true);
-    expect(batchSecret.safeParse({ filename: '../private.zip', password: '1234' }).success).toBe(
-      false,
-    );
   });
 });
