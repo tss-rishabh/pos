@@ -141,6 +141,15 @@ export async function publicScreeningFixture(
     : f.config;
   async function refreshApplicationGrants() {
     if (!heads) return;
+    // The pinned Go allocation path always updates this source operational
+    // referral row. It needs no INSERT/DELETE or head/projection privileges.
+    await f.connection.query(
+      'GRANT UPDATE ON ' +
+        mysql.escapeId(heads.schema) +
+        '.referral_log TO ' +
+        mysql.escape(heads.names.app) +
+        "@'%'",
+    );
     const [tables] = await f.connection.query<mysql.RowDataPacket[]>(
       "SELECT TABLE_NAME name FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_TYPE='BASE TABLE'",
     );
