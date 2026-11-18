@@ -22,9 +22,7 @@ export function readStoreDefaultOperatorOptions(
   if (raw === undefined) return {};
   if (raw.trim() === '') return { defaultStoreOperatorContactEmails: [] };
   return {
-    defaultStoreOperatorContactEmails: identities.parse(
-      raw.split(',').map((value) => value.trim()),
-    ),
+    defaultStoreOperatorContactEmails: identities.parse(raw.split(',')),
   };
 }
 

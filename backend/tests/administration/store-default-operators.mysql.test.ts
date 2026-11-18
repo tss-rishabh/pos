@@ -39,6 +39,15 @@ it('distinguishes missing, explicitly empty and invalid source contact configura
       STOREDEFAULTUSER: 'recipient@example.test,,other@example.test',
     }),
   ).toThrow();
+  for (const token of [' recipient@example.test', 'recipient@example.test '])
+    expect(() => readStoreDefaultOperatorOptions({ STOREDEFAULTUSER: token })).toThrow();
+  expect(
+    readStoreDefaultOperatorOptions({
+      STOREDEFAULTUSER: 'Recipient@example.test,other@example.test',
+    }),
+  ).toEqual({
+    defaultStoreOperatorContactEmails: ['Recipient@example.test', 'other@example.test'],
+  });
 });
 
 describe.skipIf(!template)('actual App native-cookie store default identities', () => {

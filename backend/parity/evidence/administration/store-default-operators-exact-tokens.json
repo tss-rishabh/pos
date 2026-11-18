@@ -1,0 +1,49 @@
+{
+  "version": 1,
+  "recordedAt": "2026-11-18T16:16:48.131765+00:00",
+  "baseCommit": "946f61707c214f1b1eb6e686200ce77722dba677",
+  "correction": {
+    "priorReceiptPath": "backend/parity/evidence/administration/store-default-operators-native.json",
+    "priorReceiptSha256": "7eaac6293a6946f376c035a6c0898fd2916d8957689c71d0dc886168e938e011",
+    "priorActualParser": "raw.split comma followed by per-token trim; recorded input hashes remain accurate",
+    "priorProseError": "The earlier no-trimming refinement claim was incorrect because the replacement missed the formatted multiline expression. Prior raw runs and receipt remain unchanged.",
+    "currentParser": "Exact comma tokens; reject whitespace-wrapped email tokens; preserve case; blank entire value remains explicit empty."
+  },
+  "tests": {
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "nativeAppCases": 6,
+    "configurationCases": 1,
+    "leadingTrailingWhitespaceRejected": true,
+    "casePreserved": true,
+    "rawPath": "/tmp/pos-store-default-operators-evidence-20261118/exact-tokens-vitest.json",
+    "rawSha256": "d34339ed6faeee03610ac5034bc5282e8f73c68b39510c845f7220f0803fc43c"
+  },
+  "inputsBefore": {
+    "backend/src/modules/administration/index.ts": "7d3c00103732cae1cec50d1cba3a7ac29ed1c8c34101dc99051a7968b46d5b22",
+    "backend/src/modules/administration/service.ts": "b666f09b5033fcb9b4693b2811501ba0cd07c9633e2c5686c2b7bebdc0e798c8",
+    "backend/src/modules/administration/store-default-operators.ts": "96b67dce35935ed9c599044acff5577358f8fcb5e8c2ffe47272b711604002c5",
+    "backend/tests/administration/store-default-operators.mysql.test.ts": "e330316b175330b0bbfebb9ac6fc93d3ffcdf17b047ebd5a899959874a6a031c"
+  },
+  "inputsAfter": {
+    "backend/src/modules/administration/index.ts": "7d3c00103732cae1cec50d1cba3a7ac29ed1c8c34101dc99051a7968b46d5b22",
+    "backend/src/modules/administration/service.ts": "b666f09b5033fcb9b4693b2811501ba0cd07c9633e2c5686c2b7bebdc0e798c8",
+    "backend/src/modules/administration/store-default-operators.ts": "96b67dce35935ed9c599044acff5577358f8fcb5e8c2ffe47272b711604002c5",
+    "backend/tests/administration/store-default-operators.mysql.test.ts": "e330316b175330b0bbfebb9ac6fc93d3ffcdf17b047ebd5a899959874a6a031c"
+  },
+  "inputsUnchanged": true,
+  "checks": {
+    "backendStrict": "passed",
+    "scopedTestStrict": "passed",
+    "changedEslint": "passed"
+  },
+  "cleanup": {
+    "ownedContainerId": "eacdf81d6e08c4642cc20c1fa96fa53c66ee9e8b7a48d4e328b8be13052e2716",
+    "containerAbsent": true,
+    "anonymousVolumes": 0,
+    "removedWithVolumes": true
+  },
+  "historicalCreator15RegressionsRerun": false,
+  "releaseLedgerPromoted": false
+}
