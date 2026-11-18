@@ -1,6 +1,6 @@
 {
   "scenario": "queued-export-archive-and-cash-ledger",
-  "browser": "157.0.8103.51",
+  "browser": "157.0.8103.80",
   "checks": [
     "operator-header",
     "named-export",
@@ -14,9 +14,17 @@
     "ledger-smart-search",
     "ledger-filtered-csv",
     "ledger-named-full-export",
+    "metadata-source-columns-and-500row-paging",
+    "visible-loaded-page-metadata-csv-and-formula-safety",
+    "metadata-hidden-columns-retain-file-action",
+    "legacy-empty-period-and-protected-file-action",
+    "cash-source31-62-100-500-menu",
+    "close-source10-25-50-100-500-menu",
+    "close-page-csv-distinct-from-complete-filtered-file",
+    "loaded-csv-refuses-changed-actor",
     "no-page-errors"
   ],
-  "apiRequests": 21,
+  "apiRequests": 38,
   "unexpectedApiRequests": 0,
   "realServiceCalls": false
 }

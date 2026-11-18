@@ -339,12 +339,33 @@ try {
     if (path === 'salesperson') expect(csv).not.toContain('Fixture store');
     if (path === 'returns') expect(csv).not.toContain('private fixture note');
     if (path === 'flash') expect(csv).toContain('"Total District Amount (da)"');
+    if (path === 'returns' || path === 'flash') {
+      await page.getByRole('button', { name: 'Export complete CSV', exact: true }).click();
+      await expect.poll(() => requests.at(-1)?.commandId).not.toBe(command.commandId);
+      const full = requests.at(-1),
+        artifact = jobs.get(full.commandId),
+        lines = artifact.bytes.toString().split('\r\n');
+      expect(full.input).not.toHaveProperty('columns');
+      expect(full.input).not.toHaveProperty('sort');
+      expect(full.input).not.toHaveProperty('direction');
+      expect(artifact.rowCount).toBe(61);
+      expect(lines).toHaveLength(62);
+      if (path === 'flash') {
+        expect(lines[0].split(',')).toHaveLength(22);
+        expect(lines[0]).toContain('"district_transation_amt"');
+        expect(lines[1].split(',')[14]).toBe('""');
+      } else expect(lines[0].split(',')).toHaveLength(12);
+    }
     await page.getByRole('button', { name: 'Show all columns', exact: true }).click();
     await expect(page.locator('thead th')).toHaveCount(originalColumns);
     for (const checkbox of await page.getByRole('checkbox').all()) await checkbox.uncheck();
     await expect(
       page.getByRole('button', { name: 'Export visible columns CSV', exact: true }),
     ).toBeDisabled();
+    if (path === 'returns' || path === 'flash')
+      await expect(
+        page.getByRole('button', { name: 'Export complete CSV', exact: true }),
+      ).toBeEnabled();
   }
   await page.goto(new URL('/column-fixture/transactions', base).href);
   await expect(page.locator('tbody tr')).toHaveCount(25);
@@ -375,6 +396,7 @@ try {
       workflows: 6,
       rowsPerExport: 61,
       lostReplySameCommand: true,
+      fullAndSelectedVariants: ['returned-orders', 'flash-sales', 'order-transactions'],
       sourceQueries: 'synthetic warehouse; native source checks separate',
       realServices: false,
     }) + '\n',

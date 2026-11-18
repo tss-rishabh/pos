@@ -46,6 +46,96 @@ const archived = {
   rowCount: 2,
   canDownload: true,
 };
+const archiveRows = Array.from({ length: 537 }, (_, index) =>
+    index === 0
+      ? archived
+      : {
+          ...archived,
+          id: `10000000-0000-4000-8000-${String(index).padStart(12, '0')}`,
+          reportName:
+            index === 1 ? '\u200b=SUM(1,2)' : `Fixture archive ${String(index).padStart(3, '0')}`,
+          canDownload: false,
+        },
+  ),
+  legacyArchived = {
+    ...archived,
+    id: '42',
+    origin: 'legacy',
+    reportName: 'Legacy fixture report',
+    period: '',
+    note: null,
+    from: null,
+    to: null,
+    canDownload: false,
+  };
+const closeFields = [
+  ['store_name', 'Store'],
+  ['close_date', 'Date'],
+  ['version', 'Attempt'],
+  ['status', 'Status'],
+  ['stale_reason', 'Invalidated by'],
+  ['cash_system', 'Cash (system)'],
+  ['cash_refund_system', 'Cash refund'],
+  ['cash_actual', 'Cash (actual)'],
+  ['cash_manual_punched', 'Cash manual punched'],
+  ['cash_manual_created', 'Cash manual created'],
+  ['cash_difference', 'Cash difference'],
+  ['cash_result', 'Cash result'],
+  ['cash_reason', 'Cash reason'],
+  ['cash_comment', 'Cash comment'],
+  ['card_system', 'Online (system)'],
+  ['card_actual', 'Online (actual)'],
+  ['card_manual_punched', 'Online manual punched'],
+  ['card_manual_created', 'Online manual created'],
+  ['card_difference', 'Online difference'],
+  ['card_result', 'Online result'],
+  ['card_reason', 'Online reason'],
+  ['card_comment', 'Online comment'],
+  ['district_system', 'District'],
+  ['banking_amount', 'Banking'],
+  ['closed_by', 'Closed by'],
+  ['closed_at', 'Closed at'],
+  ['closed_late', 'Closed late'],
+  ['last_verified_at', 'Last verified'],
+];
+const closeRows = Array.from({ length: 23 }, (_, index) => ({
+  id: String(index + 1),
+  store_id: '1',
+  store_name: 'Fixture Store',
+  close_date: '2026-11-16',
+  version: index + 1,
+  status: 'CLOSED',
+  stale_reason: null,
+  cash_system: '50.00',
+  cash_refund_system: '0.00',
+  cash_actual: '50.00',
+  cash_manual_punched: '0.00',
+  cash_manual_created: '0.00',
+  cash_difference: '0.00',
+  cash_result: 'TALLIED',
+  cash_reason: '',
+  cash_comment: index === 22 ? '\u200b=SUM(1,2)' : 'Fixture close note',
+  card_system: '5.00',
+  card_actual: '5.00',
+  card_manual_punched: '0.00',
+  card_manual_created: '0.00',
+  card_difference: '0.00',
+  card_result: 'TALLIED',
+  card_reason: '',
+  card_comment: '',
+  district_system: '0.00',
+  banking_amount: '0.00',
+  closed_by: 'Fixture Operator',
+  closed_at: '2026-11-17 10:00:00',
+  closed_late: 'No',
+  last_verified_at: null,
+}));
+const safeCsvCell = (value) => {
+  let text = value === null ? '' : String(value);
+  if (/^[\p{C}\p{Z}\s]*[=+\-@\t\r]/u.test(text) && !/^[-+]?\d+(?:\.\d+)?$/.test(text))
+    text = "'" + text;
+  return '"' + text.replaceAll('"', '""') + '"';
+};
 const ledgerTo = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Kolkata',
     year: 'numeric',
@@ -112,10 +202,46 @@ try {
       });
     if (path === '/api/v1/report-exports/search') {
       const input = request.postDataJSON();
-      expect(input.origin).toBe('current');
-      const data = input.period === 'archive' ? [archived] : jobs;
-      return json({ data, total: data.length, page: 1, pageSize: 25 });
+      expect(['current', 'legacy']).toContain(input.origin);
+      expect([10, 25, 50, 100, 500]).toContain(input.pageSize);
+      const source =
+          input.origin === 'legacy'
+            ? [legacyArchived]
+            : input.period === 'archive'
+              ? archiveRows
+              : jobs,
+        matching = source.filter(
+          (row) =>
+            !input.search || row.reportName.toLowerCase().includes(input.search.toLowerCase()),
+        ),
+        data = matching.slice((input.page - 1) * input.pageSize, input.page * input.pageSize);
+      return json({ data, total: matching.length, page: input.page, pageSize: input.pageSize });
     }
+    if (path === '/api/v1/reports/day-close-history') {
+      const query = new URL(request.url()).searchParams,
+        page = Number(query.get('page') || 1),
+        pageSize = Number(query.get('pageSize') || 25);
+      expect([10, 25, 50, 100, 500]).toContain(pageSize);
+      return json({
+        reader: 'bigquery',
+        data: closeRows.slice((page - 1) * pageSize, page * pageSize),
+        total: closeRows.length,
+        page,
+        totalPages: Math.ceil(closeRows.length / pageSize),
+      });
+    }
+    if (path === '/api/v1/reports/day-close-history/export')
+      return route.fulfill({
+        contentType: 'text/csv; charset=utf-8',
+        body:
+          '\uFEFF' +
+          [
+            closeFields.map(([, label]) => label),
+            ...closeRows.map((row) => closeFields.map(([key]) => row[key])),
+          ]
+            .map((row) => row.map(safeCsvCell).join(','))
+            .join('\r\n'),
+      });
     if (path === '/api/v1/report-exports' && method === 'POST') {
       const body = request.postDataJSON();
       expect(request.headers()['x-operator-id']).toBe(user.id);
@@ -190,6 +316,58 @@ try {
   const download = await downloadEvent;
   expect(download.suggestedFilename()).toBe('cash-balance-2026-11-01-2026-11-02.csv');
   await download.delete();
+  await history.getByLabel('Search', { exact: true }).fill('');
+  await history.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(10);
+  await page.getByLabel('Export history rows per page', { exact: true }).selectOption('500');
+  await expect(page.locator('tbody tr')).toHaveCount(500);
+  await page.locator('summary').filter({ hasText: 'Metadata columns' }).click();
+  await page.getByRole('checkbox', { name: 'Message', exact: true }).uncheck();
+  await expect(page.locator('thead th')).toHaveCount(12);
+  await expect(page.getByRole('columnheader', { name: 'File', exact: true })).toBeVisible();
+  const beforeMetadataCsv = requests.length,
+    metadataDownloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download visible metadata CSV', exact: true }).click();
+  const metadataDownload = await metadataDownloadEvent,
+    metadataText = await readFile(await metadataDownload.path(), 'utf8');
+  expect(metadataText.split('\r\n')).toHaveLength(501);
+  expect(metadataText.split('\r\n')[0]).not.toContain('"Message"');
+  expect(metadataText.split('\r\n')[0]).not.toContain('"File"');
+  expect(metadataText).toContain("'\u200b=SUM(1,2)");
+  expect(requests).toHaveLength(beforeMetadataCsv);
+  await metadataDownload.delete();
+  for (const checkbox of await page.getByRole('checkbox').all()) await checkbox.uncheck();
+  await expect(page.locator('thead th')).toHaveCount(1);
+  await expect(
+    page.getByRole('button', { name: 'Download visible metadata CSV', exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByRole('button', { name: 'Download Archived fixture report', exact: true }),
+  ).toBeEnabled();
+  await page.getByRole('button', { name: 'Show all metadata columns', exact: true }).click();
+  await expect(page.locator('thead th')).toHaveCount(13);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(37);
+  await page.getByLabel('Export history rows per page', { exact: true }).selectOption('10');
+  await expect(page.locator('tbody tr')).toHaveCount(10);
+  await page.getByRole('combobox', { name: 'History', exact: true }).selectOption('legacy');
+  await expect(
+    page.getByRole('cell', { name: 'Legacy fixture report', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Download Legacy fixture report', exact: true }),
+  ).toBeDisabled();
+  const legacyDownloadEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download visible metadata CSV', exact: true }).click();
+  const legacyDownload = await legacyDownloadEvent,
+    legacyText = await readFile(await legacyDownload.path(), 'utf8');
+  expect(legacyText.split('\r\n')[1].split(',')[3]).toBe('""');
+  expect(legacyText).not.toContain('Legacy report');
+  await legacyDownload.delete();
+  await page.getByRole('combobox', { name: 'History', exact: true }).selectOption('current');
+  await history.getByLabel('Search', { exact: true }).fill('Archived fixture');
+  await history.getByRole('button', { name: 'Apply', exact: true }).click();
+  await expect(page.getByRole('cell', { name: /^Archived fixture report/ })).toBeVisible();
   expect(unexpected).toEqual([]);
   expect(pageErrors).toEqual([]);
   const evidence = new URL(
@@ -207,6 +385,13 @@ try {
   await page.locator('form.ledger-filters').getByLabel(/^To/).fill(ledgerTo);
   await page.getByRole('button', { name: 'View ledger', exact: true }).click();
   await expect(page.locator('tbody tr')).toHaveCount(31);
+  const ledgerSize = page.getByRole('combobox', { name: /^Rows/ });
+  expect(await ledgerSize.locator('option').allTextContents()).toEqual(['31', '62', '100', '500']);
+  for (const size of ['62', '100', '500']) {
+    await ledgerSize.selectOption(size);
+    await expect(page.locator('tbody tr')).toHaveCount(60);
+  }
+  await ledgerSize.selectOption('31');
   await page.getByRole('button', { name: 'Next', exact: true }).click();
   await expect(page.locator('tbody tr')).toHaveCount(29);
   await page.getByLabel('Search ledger', { exact: true }).fill('Needle');
@@ -231,6 +416,56 @@ try {
     path: fileURLToPath(new URL('cash-ledger-controls.png', evidence)),
     fullPage: true,
   });
+  await page.goto(new URL('/reports/day-close-history', base).href);
+  await expect(page.getByRole('heading', { name: 'Day-close history.', exact: true })).toBeVisible();
+  await expect(page.locator('tbody tr')).toHaveCount(10);
+  const closeSize = page.getByRole('combobox', { name: /^Rows/ });
+  expect(await closeSize.locator('option').allTextContents()).toEqual([
+    '10',
+    '25',
+    '50',
+    '100',
+    '500',
+  ]);
+  await closeSize.selectOption('500');
+  await expect(page.locator('tbody tr')).toHaveCount(23);
+  await closeSize.selectOption('10');
+  await expect(page.locator('tbody tr')).toHaveCount(10);
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(3);
+  const beforeClosePage = requests.length,
+    closePageEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Download current page CSV', exact: true }).click();
+  const closePage = await closePageEvent,
+    closePageText = await readFile(await closePage.path(), 'utf8');
+  expect(closePageText.split('\r\n')).toHaveLength(4);
+  expect(closePageText.split('\r\n')[0].split(',')).toHaveLength(28);
+  expect(closePageText).toContain("'\u200b=SUM(1,2)");
+  expect(requests).toHaveLength(beforeClosePage);
+  await closePage.delete();
+  const closeFullEvent = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export filtered CSV', exact: true }).click();
+  const closeFull = await closeFullEvent,
+    closeFullText = await readFile(await closeFull.path(), 'utf8');
+  expect(closeFullText.split('\r\n')).toHaveLength(24);
+  expect(closeFullText.split('\r\n')[0].split(',')).toHaveLength(28);
+  await closeFull.delete();
+  const blockedDownloads = [];
+  page.on('download', (file) => blockedDownloads.push(file));
+  await page.evaluate(async () => {
+    const client = await import('/src/api/client.ts');
+    client.setRequestOperator('11');
+  });
+  await page.getByRole('button', { name: 'Download current page CSV', exact: true }).click();
+  await expect(page.getByRole('alert')).toBeVisible();
+  expect(blockedDownloads).toEqual([]);
+  await page.evaluate(async () => {
+    const client = await import('/src/api/client.ts');
+    client.setRequestOperator('10');
+  });
+  expect(unexpected).toEqual([]);
+  expect(pageErrors).toEqual([]);
   const result = {
     scenario: 'queued-export-archive-and-cash-ledger',
     browser: browser.version(),
@@ -247,6 +482,14 @@ try {
       'ledger-smart-search',
       'ledger-filtered-csv',
       'ledger-named-full-export',
+      'metadata-source-columns-and-500row-paging',
+      'visible-loaded-page-metadata-csv-and-formula-safety',
+      'metadata-hidden-columns-retain-file-action',
+      'legacy-empty-period-and-protected-file-action',
+      'cash-source31-62-100-500-menu',
+      'close-source10-25-50-100-500-menu',
+      'close-page-csv-distinct-from-complete-filtered-file',
+      'loaded-csv-refuses-changed-actor',
       'no-page-errors',
     ],
     apiRequests: requests.length,
