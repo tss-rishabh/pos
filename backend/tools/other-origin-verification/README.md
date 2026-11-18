@@ -108,13 +108,12 @@ prune or unrelated dangling-volume cleanup occurs. Catchable interruption stops
 the active runner process group before resource cleanup; SIGKILL/host failure
 still requires inspecting the retained journal/nonce label manually.
 
-## Minimal full-verifier registration
+## Full-verifier registration
 
-Root should validate and explicitly forward only the two path variables above
-into its sanitized child environment, following existing source-root handling.
-Under `--mysql`, register `sh tools/other-origin-verification/run.sh preflight`
-as a prerequisite and register three serial checks with final argument
-`general`, `head`, and `calendar`. Keep distinct IDs/results and retain each
-private receipt. Do not reuse successful prior runs, prior assemblies, build
-caches, default shared Go volumes, or the unrelated public-screening bridge as
-evidence for these phases. No shared verifier/config edits are included here.
+`tools/verify-project.ts` forwards only the two explicit path variables above
+through its sanitized environment. With `--mysql`, it runs `preflight` as a
+prerequisite, followed by distinct serial `other-origin-go-general-native-tests`,
+`other-origin-go-head-native-tests` and `other-origin-go-calendar-native-tests`
+checks. Each invocation retains its own private receipt. Prior successful runs,
+prior assemblies, default shared Go volumes and the unrelated public-screening
+bridge do not substitute for execution in the consolidated run.

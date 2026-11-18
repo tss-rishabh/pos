@@ -128,6 +128,16 @@ under a private runner directory. The native command retains `-race -count=1`.
 This avoids repeating a cold compiler build; it does not reuse test results or
 convert an earlier timeout into a passing run.
 
+The complete `--mysql` run also requires
+`POS_ORIGIN_PAYMENTS_SOURCE_ROOT`, a clean payments checkout pinned to
+`434f3e438d1cb48c64e5723222c6efda506db571`, and
+`POS_ORIGIN_GO_MODULE_CACHE_SOURCE`, a caller-owned offline Go module cache.
+Its prerequisite verifies those inputs and the locally cached pinned Go/MySQL
+images before running the separate general, head and calendar phases. These
+phases create fresh private assemblies and fixture resources; the public
+screening checks do not replace them. Follow the
+[orchestration prerequisites and evidence boundaries](backend/tools/other-origin-verification/README.md).
+
 The workbook writer uses the existing durable report queue
 and private bounded spool; review `backend/parity/inventory-workbooks.md`.
 
