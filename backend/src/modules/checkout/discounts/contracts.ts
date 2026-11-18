@@ -20,7 +20,10 @@ export const discountChallengeSchema = z
     attempts: z.number().int().min(0),
     delivered: z.number().int().min(0),
     recipients: z.number().int().min(0),
-    approvedBy: z.string().regex(/^[1-9]\d*$/).nullable(),
+    approvedBy: z
+      .string()
+      .regex(/^[1-9]\d*$/)
+      .nullable(),
     approvedAt: z.number().int().nullable(),
   })
   .strict();

@@ -81,7 +81,8 @@ const legacyInt = (value: string) => {
 /** Legacy renders `parseInt(pg) + parseInt(store)` (create_order.html) without decimals. */
 const displayAmount = (amount: string) => new Decimal(amount).toString();
 /** Python f-string of a NULL `first_name` renders "None" (core/tasks.py:254,261). */
-const pyName = (value: string | null | undefined) => (value === null || value === undefined ? 'None' : value);
+const pyName = (value: string | null | undefined) =>
+  value === null || value === undefined ? 'None' : value;
 
 export function discountApprovals(
   db: Databases,
@@ -171,12 +172,19 @@ export function discountApprovals(
   const readChallenge = async (checkoutId: string) =>
     readJson(store, discountKeys.challenge(checkoutId), discountChallengeSchema);
   async function readLimit(operatorId: string): Promise<DiscountApprovalLimit | null> {
-    const limit = await readJson(store, discountKeys.limit(operatorId), discountApprovalLimitSchema);
+    const limit = await readJson(
+      store,
+      discountKeys.limit(operatorId),
+      discountApprovalLimitSchema,
+    );
     if (!limit || limit.windowStartedAt + LIMIT_WINDOW_MS <= now()) return null;
     return limit;
   }
   async function writeLimit(operatorId: string, limit: DiscountApprovalLimit) {
-    const remaining = Math.max(1, Math.ceil((limit.windowStartedAt + LIMIT_WINDOW_MS - now()) / 1000));
+    const remaining = Math.max(
+      1,
+      Math.ceil((limit.windowStartedAt + LIMIT_WINDOW_MS - now()) / 1000),
+    );
     await store.set(discountKeys.limit(operatorId), JSON.stringify(limit), remaining);
   }
   async function saveChallenge(challenge: DiscountChallenge) {
@@ -230,7 +238,12 @@ export function discountApprovals(
           .get('writer')
           .select({ id: PosUser.id, name: PosUser.first_name, email: PosUser.contact_email })
           .from(PosUser)
-          .where(inArray(PosUser.id, ids.map((id) => BigInt(id))))
+          .where(
+            inArray(
+              PosUser.id,
+              ids.map((id) => BigInt(id)),
+            ),
+          )
       : [];
     return (id: string) => rows.find((row) => String(row.id) === id);
   }
