@@ -99,7 +99,6 @@ export function customerContactService(
       !delivery
     )
       throw contactUnavailable();
-    delivery.assertEffectsReady();
     return delivery;
   }
   function now() {
@@ -599,7 +598,7 @@ export function customerContactService(
             throw new AppError(
               409,
               'CUSTOMER_CONTACT_ALREADY_COMMITTED',
-              'The contact is already saved. Its synchronization must be recovered without undoing the customer record.',
+              'The contact is already saved and cannot be cancelled.',
             );
           await cancelPending(tx, row, 'CANCELLED', time);
           return {
@@ -622,7 +621,7 @@ export function customerContactService(
         async (tx, state, row, customer, input, time) => {
           await assertEditableContactCheckout(tx, state, input.checkoutVersion);
           await assertContactWriterIsolation(tx);
-          ready().assertEffectsReady();
+          ready();
           return commitCustomerContact(
             tx,
             state,
@@ -633,64 +632,6 @@ export function customerContactService(
             config.BUSINESS_TIMEZONE,
             time,
           );
-        },
-      );
-    },
-    async recover(user: Principal, scope: Scope, id: string, raw: unknown) {
-      return mutate(
-        user,
-        scope,
-        id,
-        'recover',
-        raw,
-        resendContactChange,
-        async (tx, _state, row, _customer, input, time) => {
-          ready().assertEffectsReady();
-          if (
-            !options.CUSTOMER_CONTACT_EFFECTS_REPLAY_SAFE ||
-            !['COMMITTING', 'UNCERTAIN'].includes(row.status) ||
-            row.retryAt > time
-          )
-            throw contactChanged();
-          const [job] = await tx
-            .select()
-            .from(deliveries)
-            .where(and(eq(deliveries.challengeId, row.id), eq(deliveries.kind, 'source-effects')))
-            .orderBy(desc(deliveries.createdAt), desc(deliveries.id))
-            .limit(1)
-            .for('update');
-          if (!job || !['UNCERTAIN', 'REJECTED'].includes(job.status) || !job.encryptedPayload)
-            throw new AppError(
-              409,
-              'CUSTOMER_CONTACT_SYNC_PENDING',
-              'The saved synchronization is already queued or requires operational review.',
-            );
-          await tx
-            .update(deliveries)
-            .set({
-              status: 'PENDING',
-              attempts: 0,
-              leaseToken: null,
-              leaseExpiresAt: null,
-              updatedAt: time,
-            })
-            .where(eq(deliveries.id, job.id));
-          await tx
-            .update(challenges)
-            .set({
-              status: 'COMMITTING',
-              version: row.version + 1,
-              retryAt: time + 30000,
-              updatedAt: time,
-            })
-            .where(eq(challenges.id, row.id));
-          return {
-            id: input.operationId,
-            challengeId: row.id,
-            status: 'success',
-            message:
-              'The same saved synchronization has been requeued. The customer contact was not written again.',
-          };
         },
       );
     },

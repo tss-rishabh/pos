@@ -28,6 +28,10 @@ import {
 import { goldenStdout } from '../golden/load.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
+// Non-production index the cancellation voucher reader currently requires (see
+// backend/parity/w2-followups.md); installed only in this disposable fixture.
+const voucherHistoryIndexSql =
+  'CREATE INDEX ix_pos_gv_history_order_voucher ON gift_voucher_history (order_id, gv_id, id)';
 const profile: CancellationBenefitProfile = {
   policy: cancellationBenefitPolicy,
   walletWriterContract: 'pos-wallet-user-lock-v1',
@@ -87,12 +91,7 @@ describe.skipIf(!template)(
         'gift_card_collection',
         'user_eav',
       ]);
-      await connection.query(
-        readFileSync(
-          'compatibility/upstream/pending-cancellation/voucher-history-index.sql',
-          'utf8',
-        ),
-      );
+      await connection.query(voucherHistoryIndexSql);
       for (const statement of readFileSync(
         'src/modules/checkout/migrations/0015_gift_card_issuance.sql',
         'utf8',
@@ -452,12 +451,7 @@ describe.skipIf(!template)(
           code: 'CANCELLATION_VOUCHER_INDEX_UNVERIFIED',
         });
       } finally {
-        await connection.query(
-          readFileSync(
-            'compatibility/upstream/pending-cancellation/voucher-history-index.sql',
-            'utf8',
-          ),
-        );
+        await connection.query(voucherHistoryIndexSql);
       }
       const [after] = await connection.query<RowDataPacket[]>(query, params);
       expect(after).toEqual(before);

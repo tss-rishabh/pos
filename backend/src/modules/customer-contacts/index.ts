@@ -81,18 +81,6 @@ export function registerCustomerContacts(
       .header('Cache-Control', 'private, no-store')
       .send(await service.cancel(user, scope, challengeId, request.body));
   });
-  app.post(
-    challengePath + '/synchronization-retries',
-    trace('recover-sync', 10),
-    async (request, reply) => {
-      const user = authenticated(request);
-      empty.parse(request.query);
-      const { challengeId, ...scope } = challengeParams.parse(request.params);
-      return reply
-        .header('Cache-Control', 'private, no-store')
-        .send(await service.recover(user, scope, challengeId, request.body));
-    },
-  );
   app.get(
     challengePath + '/operations/:operationId',
     trace('read-operation', 60),

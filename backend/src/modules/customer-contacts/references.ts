@@ -203,19 +203,5 @@ export async function carryCustomerEmailReferences(
     failed,
   );
   await tx.update(alternatives).set({ email: input.newEmail }).where(eligible);
-  const remail = await tx
-    .select({ orderId: alternatives.orderId, refundRequestId: alternatives.refundRequestId })
-    .from(alternatives)
-    .where(and(eligible, eq(alternatives.email, input.newEmail)))
-    .orderBy(asc(alternatives.id))
-    .limit(1001)
-    .for('share');
-  if (remail.length > 1000) throw invalid();
-  return {
-    sharedOldEmail: shared,
-    refundRemails: remail.map((row) => ({
-      orderId: row.orderId.toString(),
-      refundRequestId: row.refundRequestId.toString(),
-    })),
-  };
+  return { sharedOldEmail: shared };
 }

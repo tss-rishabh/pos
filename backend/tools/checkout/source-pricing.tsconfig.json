@@ -5,7 +5,6 @@
     "rootDir": "../.."
   },
   "include": [
-    "../../tests/checkout/offline-cash-source-pricing*.test.ts",
-    "../../tools/checkout/offline-source-template-fixture.ts"
+    "../../tests/checkout/offline-cash-source-pricing*.test.ts"
   ]
 }

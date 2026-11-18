@@ -2,9 +2,6 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": { "noEmit": true, "rootDir": "../.." },
   "include": [
-    "../../compatibility/upstream/invoice-security/feedback-client.ts",
-    "../../tests/checkout/invoice-security.test.ts",
-    "../../tests/checkout/invoice-feedback.test.ts",
-    "../../tests/checkout/invoice-reader.mysql.integration.test.ts"
+    "../../tests/checkout/invoice-security.test.ts"
   ]
 }

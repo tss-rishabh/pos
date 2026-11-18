@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { contactChangeContract, contactEffectsContract } from './contracts.js';
+import { contactChangeContract } from './contracts.js';
 const optional = <T extends z.ZodType>(value: T) =>
   z.preprocess((input) => (input === '' ? undefined : input), value.optional());
 const flag = z.preprocess(
@@ -41,10 +41,6 @@ export function readCustomerContactOptions(env: NodeJS.ProcessEnv = process.env)
             'Configure exactly one code placeholder in the approved contact SMS template.',
           ),
       ),
-      CUSTOMER_CONTACT_EFFECTS_URL: optional(z.url()),
-      CUSTOMER_CONTACT_EFFECTS_KEY: optional(secret),
-      CUSTOMER_CONTACT_EFFECTS_CONTRACT: optional(z.literal(contactEffectsContract)),
-      CUSTOMER_CONTACT_EFFECTS_REPLAY_SAFE: flag,
       REFUND_SUCCESS_STATUS: z.literal('SUCCESS').default('SUCCESS'),
       REFUND_FAILED_STATUS: z.literal('FAILED').default('FAILED'),
     })

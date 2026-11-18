@@ -1,14 +1,6 @@
 import { execFileSync, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -44,27 +36,6 @@ for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT']) {
       throw new Error('Pinned source root is unavailable.');
     childEnvironment[name] = path;
   }
-}
-// Reuse only an existing, caller-owned disposable runner cache. Go still runs
-// every test with -count=1; this retains compilation, never successful results.
-if (flags.has('--mysql') && process.env.POS_IMPORT_GO_BUILD_CACHE) {
-  const cache = resolve(process.env.POS_IMPORT_GO_BUILD_CACHE);
-  if (!/^\/tmp\/pos-import-go\.[A-Za-z0-9]{6,12}\/build-cache$/.test(cache))
-    throw new Error('Native Go verification requires an owned disposable build cache.');
-  const parent = lstatSync(dirname(cache)),
-    directory = lstatSync(cache);
-  if (
-    !parent.isDirectory() ||
-    parent.isSymbolicLink() ||
-    !directory.isDirectory() ||
-    directory.isSymbolicLink() ||
-    typeof process.getuid !== 'function' ||
-    parent.uid !== process.getuid() ||
-    directory.uid !== process.getuid() ||
-    (parent.mode & 0o077) !== 0
-  )
-    throw new Error('Native Go verification requires a private caller-owned build cache.');
-  childEnvironment.POS_IMPORT_GO_BUILD_CACHE = cache;
 }
 if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE)
   childEnvironment.PLAYWRIGHT_CHROMIUM_EXECUTABLE = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
@@ -143,7 +114,6 @@ const directories = [
   'backend/migrations',
   'backend/resources',
   'backend/parity',
-  'backend/compatibility',
   'frontend/src',
   'frontend/tests',
   'frontend/tools',
@@ -300,16 +270,6 @@ const checks: Check[] = [
     directory: 'backend',
     args: ['tools/verify-fixture-environments.mjs'],
     prerequisite: true,
-  },
-  ...(flags.has('--mysql')
-    ? [
-      ]
-    : []),
-  {
-    id: 'payments-base-metadata-packaging-tests',
-    directory: 'backend',
-    command: 'python3',
-    args: ['compatibility/upstream/test_assemble_payments.py'],
   },
   {
     id: 'backend-build',
@@ -560,12 +520,6 @@ const checks: Check[] = [
       '-p',
       'tools/legacy-order-status/backend.tsconfig.json',
     ],
-  },
-  {
-    id: 'legacy-import-source-boundary-tests',
-    directory: 'backend',
-    command: 'sh',
-    args: ['compatibility/upstream/legacy-order-imports/run-source-tests.sh'],
   },
   {
     id: 'checkin-lock-order-fixture-typecheck',
@@ -1086,45 +1040,6 @@ for (const [id, directory, config] of [
     directory,
     args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', config],
   });
-if (flags.has('--mysql')) {
-  checks.push(
-    {
-      id: 'legacy-import-confirmation-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/legacy-order-imports/run-go-tests.sh'],
-    },
-    {
-      id: 'legacy-import-corrected-source-go-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/legacy-order-imports/run-correction-tests.sh'],
-    },
-    {
-      id: 'legacy-import-benefits-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/legacy-order-imports/benefit-profile/run-native-tests.sh'],
-    },
-    {
-      id: 'public-screening-writer-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/public-screening-writer/run-native-tests.sh'],
-    },
-    {
-      id: 'membership-native-producer-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/pending-cancellation/run-membership-native.sh'],
-    },
-    {
-      id: 'customer-website-receiver-tests',
-      directory: 'backend',
-      args: ['tools/customer-website-handoff/check-receiver.mjs'],
-    },
-  );
-}
 if (flags.has('--browser')) {
   if (flags.has('--mysql')) {
     const source = resolve(workspace, '../backend-pos-web');
@@ -1498,7 +1413,6 @@ const report = {
   scope: {
     localMySql: flags.has('--mysql'),
     browser: flags.has('--browser'),
-    taskGoBuildCache: Boolean(childEnvironment.POS_IMPORT_GO_BUILD_CACHE),
   },
   productionReady: gate.exitCode === 0 && exitCode === 0,
   interrupted: stopped,

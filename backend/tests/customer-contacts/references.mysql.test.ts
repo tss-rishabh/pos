@@ -1,7 +1,5 @@
-import { spawnSync } from 'node:child_process';
 import { Temporal } from '@js-temporal/polyfill';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import {
   carryCustomerEmailReferences,
   assertEmailNotRegistered,
@@ -151,92 +149,6 @@ describe.skipIf(!template)(
       }
       return JSON.parse(JSON.stringify(output)) as unknown;
     }
-    function source(value = input) {
-      const result = spawnSync(
-        'uv',
-        [
-          'run',
-          '--no-project',
-          '--python',
-          '3.10',
-          '--with',
-          'SQLAlchemy==1.4.53',
-          '--with',
-          'PyMySQL==1.1.0',
-          '--with',
-          'python-dateutil==2.8.2',
-          'python',
-          'tools/customer-contacts/source-reference-oracle.py',
-        ],
-        {
-          input: JSON.stringify({ database: native.url, ...value }),
-          encoding: 'utf8',
-          timeout: 30000,
-        },
-      );
-      if (result.status !== 0) throw new Error('Pinned contact oracle failed: ' + result.stdout);
-      return z
-        .object({
-          sourceCommit: z.string(),
-          tables: z.record(z.string(), z.unknown()),
-          refundRemails: z.array(z.object({ orderId: z.string(), refundRequestId: z.string() })),
-        })
-        .parse(JSON.parse(result.stdout) as unknown);
-    }
-    it.each([false, true])(
-      'matches pinned Python reference effects for sharedOldEmail=%s without changing balances',
-      async (shared) => {
-        if (shared)
-          await native.connection.query('UPDATE users SET email=? WHERE id=2', [oldEmail]);
-        const expected = source();
-        const result = await native.db
-          .get('writer')
-          .transaction((tx) => carryCustomerEmailReferences(tx, input));
-        expect(await snapshot()).toEqual(expected.tables);
-        expect(result.refundRemails).toEqual(expected.refundRemails);
-        expect(result.sharedOldEmail).toBe(shared);
-        const [users] = await native.connection.query<import('mysql2').RowDataPacket[]>(
-          'SELECT tss_money FROM users WHERE id=1',
-        );
-        expect(Number(users[0]?.tss_money)).toBe(123.45);
-      },
-      30000,
-    );
-    it('retains the source55-character welcome boundary and taken Juspay-address fallback', async () => {
-      const long = 'long.'.repeat(10) + 'fixture@example.test';
-      expect(long.length).toBeGreaterThan(55);
-      await native.fixture.insert('jp_customers', { id: 203, user: 2, email: long });
-      const value = { ...input, newEmail: long },
-        expected = source(value);
-      await native.db.get('writer').transaction((tx) => carryCustomerEmailReferences(tx, value));
-      expect(await snapshot()).toEqual(expected.tables);
-    }, 30000);
-    it('preserves the source reference result after the proposed nonunique order/status refund index', async () => {
-      const expected = source();
-      await native.connection.query(
-        'CREATE INDEX ix_contact_refund_order_status_request ON refund_alternate_payment_details(order_id,status,refund_request_id)',
-      );
-      try {
-        const result = await native.db
-          .get('writer')
-          .transaction((tx) => carryCustomerEmailReferences(tx, input));
-        expect(await snapshot()).toEqual(expected.tables);
-        expect(result.refundRemails).toEqual(expected.refundRemails);
-        const [plan] = await native.connection.query<import('mysql2').RowDataPacket[]>(
-          'EXPLAIN SELECT id FROM refund_alternate_payment_details WHERE order_id=? AND status=?',
-          ['101', 'PENDING'],
-        );
-        expect(
-          plan.some((row) =>
-            String(row.possible_keys).includes('ix_contact_refund_order_status_request'),
-          ),
-        ).toBe(true);
-      } finally {
-        await native.connection.query(
-          'DROP INDEX ix_contact_refund_order_status_request ON refund_alternate_payment_details',
-        );
-      }
-    });
     it('rejects registered email/member claims and active employee coupons on the current writer', async () => {
       await expect(
         native.db

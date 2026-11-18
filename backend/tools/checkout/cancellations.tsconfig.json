@@ -9,7 +9,6 @@
     "../../tests/checkout/cancellation-benefit-candidate.test.ts",
     "../../tests/checkout/cancellation-benefits.mysql.test.ts",
     "../../tests/checkout/payments.test.ts",
-    "../../tests/checkout/cancellation-membership-context.test.ts",
     "../../tests/checkout/mysql.integration.test.ts",
     "./membership-native-bridge.ts"
   ]

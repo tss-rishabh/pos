@@ -3,7 +3,6 @@ import { identifier } from '../../domain/validation.js';
 import { contactStatuses } from './schema.js';
 
 export const contactChangeContract = 'pos-customer-contact-v1';
-export const contactEffectsContract = 'pos-customer-contact-effects-v1';
 export const contactStage = z.enum(['current', 'new']);
 export const contactKind = z.enum(['telephone', 'email']);
 const version = z.number().int().nonnegative().refine(Number.isSafeInteger),
@@ -68,37 +67,11 @@ export const contactOtpPayload = z
     code: z.string().regex(/^\d{6}$/),
   })
   .strict();
-export const contactEffectPayload = z
-  .object({
-    contract: z.literal(contactEffectsContract),
-    operationId: z.uuid(),
-    challengeId: z.uuid(),
-    operatorId: identifier,
-    customerId: identifier,
-    storeId: identifier,
-    checkoutId: z.uuid(),
-    kind: contactKind,
-    oldEmail: z.string().max(96),
-    oldTelephone: z.string().max(32),
-    newValue: z.string().min(1).max(96),
-    refundRemails: z
-      .array(z.object({ orderId: identifier, refundRequestId: identifier }).strict())
-      .max(1000),
-    requestId: z.string().max(128).nullable(),
-  })
-  .strict();
-export type ContactEffectPayload = z.infer<typeof contactEffectPayload>;
 export interface CustomerContactDelivery {
   assertReady(channel: 'sms' | 'email'): void;
   sendOtp(
     id: string,
     input: z.infer<typeof contactOtpPayload>,
-    signal: AbortSignal,
-  ): Promise<'accepted' | 'rejected' | 'uncertain'>;
-  assertEffectsReady(): void;
-  sourceEffects(
-    id: string,
-    input: ContactEffectPayload,
     signal: AbortSignal,
   ): Promise<'accepted' | 'rejected' | 'uncertain'>;
 }

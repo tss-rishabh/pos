@@ -63,7 +63,6 @@ try {
       throw new Error('Contact worker requires its configured writer and feature contract.');
     const sender = createCustomerContactDelivery(config, options);
     if (!sender) throw new Error('Contact worker delivery is unavailable.');
-    sender.assertEffectsReady();
     db = createDatabases(config);
     const database = db,
       worker = customerContactOutbox(config, database, options, sender, Date.now, (event) =>

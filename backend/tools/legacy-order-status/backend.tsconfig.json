@@ -4,7 +4,6 @@
   "include": [
     "../../src/**/*.ts",
     "../../tests/legacy-order-status/**/*.ts",
-    "../../compatibility/upstream/whole-order-status/*.ts",
     "./*.ts"
   ]
 }

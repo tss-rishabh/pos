@@ -3,13 +3,7 @@ import { createOtpTransport } from '../../auth/delivery.js';
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 import { boundedJson } from '../../domain/http-json.js';
-import { operationHash } from '../checkout/crypto.js';
-import {
-  contactEffectsContract,
-  contactEffectPayload,
-  contactOtpPayload,
-  type CustomerContactDelivery,
-} from './contracts.js';
+import { contactOtpPayload, type CustomerContactDelivery } from './contracts.js';
 import type { CustomerContactOptions } from './options.js';
 
 const unavailable = () =>
@@ -27,9 +21,6 @@ export function createCustomerContactDelivery(
   if (config.DEMO_MODE || !options.CUSTOMER_CONTACTS_ENABLED) return undefined;
   const transport = createOtpTransport(env, fetcher),
     providers = transport.options;
-  const effects = options.CUSTOMER_CONTACT_EFFECTS_URL
-    ? transport.url(options.CUSTOMER_CONTACT_EFFECTS_URL)
-    : undefined;
   function assertReady(channel: 'sms' | 'email') {
     if (
       channel === 'sms' &&
@@ -42,15 +33,6 @@ export function createCustomerContactDelivery(
       if (!providers.NETCORE_EMAIL_URL || !providers.NETCORE_API_KEY) throw unavailable();
       transport.url(providers.NETCORE_EMAIL_URL);
     }
-  }
-  function assertEffectsReady() {
-    if (
-      !effects ||
-      !options.CUSTOMER_CONTACT_EFFECTS_KEY ||
-      options.CUSTOMER_CONTACT_EFFECTS_CONTRACT !== contactEffectsContract ||
-      !options.CUSTOMER_CONTACT_EFFECTS_REPLAY_SAFE
-    )
-      throw unavailable();
   }
   async function accepted(response: Response) {
     if (!response.ok)
@@ -66,7 +48,6 @@ export function createCustomerContactDelivery(
   }
   return {
     assertReady,
-    assertEffectsReady,
     async sendOtp(id, raw, signal) {
       const parsed = contactOtpPayload.safeParse(raw);
       if (!parsed.success || !z.uuid().safeParse(id).success) return 'rejected';
@@ -119,50 +100,6 @@ export function createCustomerContactDelivery(
           signal: AbortSignal.any([signal, AbortSignal.timeout(5000)]),
         });
         return await accepted(response);
-      } catch {
-        return 'uncertain';
-      } finally {
-        await response?.body?.cancel().catch(() => undefined);
-      }
-    },
-    async sourceEffects(id, raw, signal) {
-      const parsed = contactEffectPayload.safeParse(raw);
-      if (!parsed.success || !z.uuid().safeParse(id).success) return 'rejected';
-      let response: Response | undefined;
-      try {
-        assertEffectsReady();
-        const payload = parsed.data,
-          key = options.CUSTOMER_CONTACT_EFFECTS_KEY!,
-          bodyHash = operationHash(contactEffectsContract, payload, key);
-        response = await fetcher(effects!, {
-          method: 'POST',
-          redirect: 'error',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Customer-Contact-Key': key,
-            'X-Customer-Contact-Contract': contactEffectsContract,
-            'Idempotency-Key': id,
-            ...(payload.requestId && /^[A-Za-z0-9._-]{1,128}$/.test(payload.requestId)
-              ? { 'X-Request-ID': payload.requestId }
-              : {}),
-          },
-          body: JSON.stringify({ deliveryId: id, bodyHash, payload }),
-          signal: AbortSignal.any([signal, AbortSignal.timeout(10000)]),
-        });
-        if (!response.ok)
-          return response.status >= 400 &&
-            response.status < 500 &&
-            ![408, 429].includes(response.status)
-            ? 'rejected'
-            : 'uncertain';
-        const ack = z.object({
-          contract: z.literal(contactEffectsContract),
-          deliveryId: z.literal(id),
-          operationId: z.literal(payload.operationId),
-          bodyHash: z.literal(bodyHash),
-          status: z.literal('accepted'),
-        });
-        return ack.safeParse(await boundedJson(response, 64000)).success ? 'accepted' : 'uncertain';
       } catch {
         return 'uncertain';
       } finally {

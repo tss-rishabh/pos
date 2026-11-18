@@ -111,7 +111,7 @@ export type ContactIntent =
   | { action: 'verify'; challengeId: string; input: z.infer<typeof contactVerifyInput> }
   | { action: 'commit'; challengeId: string; input: z.infer<typeof contactCommitInput> }
   | {
-      action: 'resend' | 'cancel' | 'recover';
+      action: 'resend' | 'cancel';
       challengeId: string;
       input: z.infer<typeof contactVersionInput>;
     };
@@ -212,7 +212,6 @@ export async function sendContactIntent(
       commit: 'commits',
       resend: 'resends',
       cancel: 'cancellations',
-      recover: 'synchronization-retries',
     }[intent.action],
     input =
       intent.action === 'verify'

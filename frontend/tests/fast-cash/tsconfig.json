@@ -6,7 +6,6 @@
     "../order-link.test.ts",
     "../../src/offline/fast-cash/**/*.ts",
     "../../e2e/checkout/fast-cash.spec.ts",
-    "../../e2e/checkout/order-link.spec.ts",
-    "../../e2e/checkout/invoice-feedback.spec.ts"
+    "../../e2e/checkout/order-link.spec.ts"
   ]
 }

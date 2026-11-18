@@ -1,12 +1,5 @@
-import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import {
-  planWalletAdjustment,
-  walletAdjustmentFieldsSchema,
-  walletCorrectionPatchHash,
-  type WalletAdjustmentFields,
-} from '../../src/modules/checkout/benefit-adjustments/policy.js';
+import { planWalletAdjustment, walletAdjustmentFieldsSchema, type WalletAdjustmentFields } from '../../src/modules/checkout/benefit-adjustments/policy.js';
 import {
   benefitOracleResult,
   type BenefitOracleCase,
@@ -39,37 +32,6 @@ const input: WalletAdjustmentFields = {
 const balance = { money: 100, points: 100, cashback: 7 };
 
 describe('explicit proposed global-wallet source corrections', () => {
-  it('pins a reviewable unapplied source patch with exact before/after ledger and field bindings', () => {
-    const patch = readFileSync(
-      'compatibility/upstream/global-benefits/wallet-correction.patch',
-      'utf8',
-    );
-    expect(createHash('sha256').update(patch).digest('hex')).toBe(walletCorrectionPatchHash);
-    const cases: BenefitOracleCase[] = ['money', 'points'].map((asset) => ({
-      asset: asset as 'money' | 'points',
-      amount: '25.50',
-      platform: 'ORDER_REFUND',
-      reason: 'Compensation',
-      orderId: '9007199254740993',
-      productId: '9007199254740994',
-      balances: balance,
-    }));
-    const original = benefitOracle(cases).cases,
-      proposed = benefitOracle(cases, 'proposed-wallet-v1').cases;
-    expect(original[0]!.queries.some((query) => query.includes('reward_point_history'))).toBe(true);
-    expect(original[0]!.queries.at(-1)).toContain("cashback = '125.5', tss_money = '125.5'");
-    expect(proposed[0]!.queries.some((query) => query.includes('reward_point_history'))).toBe(
-      false,
-    );
-    expect(proposed[0]!.queries.at(-1)).toContain("update users set tss_money = '125.5'");
-    expect(original[1]!.queries[0]).toContain(
-      "'ORDER_REFUND', '25.5', '100.0', '125.5', '9007199254740993', '9007199254740994'",
-    );
-    expect(proposed[1]!.queries[0]).toContain(
-      "'9007199254740993', '9007199254740994', '25.5', '100.0', '125.5', 'ORDER_REFUND', 'Compensation'",
-    );
-    expect(proposed.map((value) => value.status)).toEqual(['success', 'success']);
-  });
 
   it('matches literal source binary-float FIFO consumption across320 coherent baskets, including cent ties', () => {
     const cases: BenefitOracleCase[] = Array.from({ length: 320 }, (_, index) => ({

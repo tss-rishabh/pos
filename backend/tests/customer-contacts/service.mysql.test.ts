@@ -1,13 +1,10 @@
-import { z } from 'zod';
 import { randomUUID } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { eq } from 'drizzle-orm';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
 import type { Principal } from '../../src/domain/access.js';
 import { checkoutStateSchema, type CheckoutState } from '../../src/modules/checkout/contracts.js';
 import { checkoutSessions } from '../../src/modules/checkout/schema.js';
-import { operationHash } from '../../src/modules/checkout/crypto.js';
 import { checkInService } from '../../src/modules/administration/checkins.js';
 import { readCustomerContactOptions } from '../../src/modules/customer-contacts/options.js';
 import { customerContactService } from '../../src/modules/customer-contacts/service.js';
@@ -75,71 +72,12 @@ describe.skipIf(!template)(
       time: number;
     let service: ReturnType<typeof customerContactService>,
       worker: ReturnType<typeof customerContactOutbox>;
-    const sent: Parameters<CustomerContactDelivery['sendOtp']>[1][] = [],
-      effects: Parameters<CustomerContactDelivery['sourceEffects']>[1][] = [];
-    let effectResult: 'accepted' | 'uncertain' = 'accepted';
-    let nativeBridge = false;
-    let nativeBridgeOutput: unknown;
-    let nativeBridgeExit: number | null = null;
+    const sent: Parameters<CustomerContactDelivery['sendOtp']>[1][] = [];
     const sender: CustomerContactDelivery = {
       assertReady: () => undefined,
-      assertEffectsReady: () => undefined,
       async sendOtp(_id, input) {
         sent.push(input);
         return 'accepted';
-      },
-      async sourceEffects(_id, input) {
-        effects.push(input);
-        if (nativeBridge) {
-          const transportKey = 'synthetic-native-contact-bridge-service-key-'.repeat(2),
-            body = {
-              deliveryId: _id,
-              bodyHash: operationHash('pos-customer-contact-effects-v1', input, transportKey),
-              payload: input,
-            };
-          const result = spawnSync(
-            'uv',
-            [
-              'run',
-              '--project',
-              'compatibility/customer-contacts',
-              'python',
-              'tools/customer-contacts/bridge-native-oracle.py',
-            ],
-            {
-              input: JSON.stringify({ database: native.url, transportKey, body }),
-              encoding: 'utf8',
-              timeout: 30000,
-            },
-          );
-          nativeBridgeExit = result.status;
-          try {
-            nativeBridgeOutput = JSON.parse(result.stdout) as unknown;
-          } catch {
-            nativeBridgeOutput = { error: 'BRIDGE_OUTPUT_INVALID' };
-          }
-          const expected = z
-            .object({
-              ack: z
-                .object({
-                  contract: z.literal('pos-customer-contact-effects-v1'),
-                  deliveryId: z.literal(_id),
-                  operationId: z.literal(input.operationId),
-                  bodyHash: z.literal(body.bodyHash),
-                  status: z.literal('accepted'),
-                })
-                .strict(),
-              receiptCount: z.literal(1),
-              jobCount: z.literal(5),
-              succeeded: z.literal(5),
-              publishCalls: z.literal(5),
-            })
-            .strict();
-          return result.status === 0 && expected.safeParse(nativeBridgeOutput).success
-            ? 'accepted'
-            : 'uncertain';
-        }
-        return effectResult;
       },
     };
     const scope = () => ({ storeId: '1', checkoutId: state.id });
@@ -181,9 +119,6 @@ describe.skipIf(!template)(
         await native.connection.query('DELETE FROM `' + String(Object.values(row)[0]) + '`');
       time = Date.now();
       sent.length = 0;
-      effects.length = 0;
-      effectResult = 'accepted';
-      nativeBridge = false;
       await native.fixture.insert('pos_user', {
         id: '1',
         username: 'synthetic-operator',
@@ -313,8 +248,7 @@ describe.skipIf(!template)(
           checkoutVersion: state.version,
         };
       const result = await service.commit(user, scope(), row.id, operation);
-      expect(result.challenge.status).toBe('COMMITTING');
-      expect(effects).toHaveLength(0);
+      expect(result.challenge.status).toBe('COMMITTED');
       const [customers] = await native.connection.query<import('mysql2').RowDataPacket[]>(
         'SELECT email,telephone,is_email_verified,tss_money,tss_points FROM users WHERE id=7',
       );
@@ -361,14 +295,6 @@ describe.skipIf(!template)(
           .from(mutations)
           .where(eq(mutations.id, operation.operationId)),
       ).toHaveLength(1);
-      await worker.drain(new AbortController().signal, 1);
-      expect(effects).toHaveLength(1);
-      expect(effects[0]).toMatchObject({
-        operatorId: '1',
-        customerId: '7',
-        newValue: newEmail,
-        kind: 'email',
-      });
       expect((await service.challenge(user, scope(), row.id)).status).toBe('COMMITTED');
       expect(await revision()).toBe(1n);
     });
@@ -463,7 +389,7 @@ describe.skipIf(!template)(
         code: 'STORE_ACCESS_DENIED',
       });
     });
-    it('rolls back customer, audit, checkout and effects on downstream transaction failure', async () => {
+    it('rolls back customer, audit and checkout on downstream transaction failure', async () => {
       const row = await prove();
       await native.connection.query(
         "CREATE TRIGGER contact_fixture_audit_failure BEFORE INSERT ON user_detail_logs FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Synthetic audit failure'",
@@ -484,13 +410,6 @@ describe.skipIf(!template)(
       );
       expect(rows[0]?.email).toBe(oldEmail);
       expect((await service.challenge(user, scope(), row.id)).status).toBe('READY');
-      expect(
-        await native.db
-          .get('writer')
-          .select()
-          .from(deliveries)
-          .where(eq(deliveries.kind, 'source-effects')),
-      ).toHaveLength(0);
       const [saved] = await native.db
         .get('writer')
         .select()
@@ -499,7 +418,7 @@ describe.skipIf(!template)(
       expect(saved?.state).toEqual(state);
       expect(await revision()).toBe(0n);
     });
-    it('serializes20 concurrent exact final commits and20 workers without duplicate audits or external sends', async () => {
+    it('serializes20 concurrent exact final commits without duplicate audits', async () => {
       const row = await prove(),
         input = { operationId: randomUUID(), version: row.version, checkoutVersion: 5 };
       const results = await Promise.all(
@@ -510,10 +429,6 @@ describe.skipIf(!template)(
         'SELECT id FROM user_detail_logs',
       );
       expect(audits).toHaveLength(1);
-      await Promise.all(
-        Array.from({ length: 20 }, () => worker.drain(new AbortController().signal, 1)),
-      );
-      expect(effects).toHaveLength(1);
       expect(await revision()).toBe(1n);
     });
     it('never revives an old proof when contact values are restored after an intervening mutation', async () => {
@@ -538,23 +453,6 @@ describe.skipIf(!template)(
         }),
       ).rejects.toMatchObject({ code: 'CUSTOMER_CONTACT_CHANGED' });
       expect(await revision()).toBe(1n);
-    });
-    it('retries the exact idempotent effect obligation after uncertainty while leaving collected money and new contact intact', async () => {
-      const row = await prove();
-      await service.commit(user, scope(), row.id, {
-        operationId: randomUUID(),
-        version: row.version,
-        checkoutVersion: 5,
-      });
-      effectResult = 'uncertain';
-      expect(await worker.drain(new AbortController().signal, 1)).toMatchObject({ retry: 1 });
-      expect((await service.challenge(user, scope(), row.id)).status).toBe('COMMITTING');
-      time += 10000;
-      effectResult = 'accepted';
-      await worker.drain(new AbortController().signal, 1);
-      expect(effects).toHaveLength(2);
-      expect(effects[0]).toEqual(effects[1]);
-      expect((await service.challenge(user, scope(), row.id)).status).toBe('COMMITTED');
     });
     it('never auto-resends an OTP after an expired sending lease, but accepts a legitimately arrived code', async () => {
       const row = await request(),
@@ -592,7 +490,7 @@ describe.skipIf(!template)(
         .where(eq(deliveries.challengeId, row.id));
       expect(job).toMatchObject({ status: 'CANCELLED', encryptedPayload: '' });
     });
-    it('expires only pending proofs and never prunes an already saved contact or its source obligation', async () => {
+    it('expires only pending proofs and never prunes an already saved contact', async () => {
       const row = await prove();
       await service.commit(user, scope(), row.id, {
         operationId: randomUUID(),
@@ -606,15 +504,7 @@ describe.skipIf(!template)(
         .select()
         .from(challenges)
         .where(eq(challenges.id, row.id));
-      expect(saved).toMatchObject({ status: 'COMMITTING', activeCustomerId: '7' });
-      const jobs = await native.db
-        .get('writer')
-        .select()
-        .from(deliveries)
-        .where(eq(deliveries.kind, 'source-effects'));
-      expect(jobs).toHaveLength(1);
-      expect(jobs[0]).toMatchObject({ status: 'PENDING' });
-      expect(jobs[0]!.encryptedPayload.length).toBeGreaterThan(30);
+      expect(saved).toMatchObject({ status: 'COMMITTED', activeCustomerId: null });
     });
     it('prunes an expired pending proof and cancels its unsent code while retaining its audit identity', async () => {
       const row = await request();
@@ -635,24 +525,5 @@ describe.skipIf(!template)(
       expect((await worker.drain(new AbortController().signal, 1)).delivered).toBe(0);
       expect(sent).toHaveLength(0);
     });
-    it('accepts the actual committed Node effect proof in the MySQL bridge and fences20 duplicate accepts/workers', async () => {
-      const row = await prove();
-      await service.commit(user, scope(), row.id, {
-        operationId: randomUUID(),
-        version: row.version,
-        checkoutVersion: 5,
-      });
-      nativeBridge = true;
-      const outcome = await worker.drain(new AbortController().signal, 1);
-      expect(nativeBridgeExit, JSON.stringify(nativeBridgeOutput)).toBe(0);
-      expect(nativeBridgeOutput).toMatchObject({
-        receiptCount: 1,
-        jobCount: 5,
-        succeeded: 5,
-        publishCalls: 5,
-      });
-      expect(outcome).toMatchObject({ delivered: 1 });
-      expect((await service.challenge(user, scope(), row.id)).status).toBe('COMMITTED');
-    }, 30000);
   },
 );

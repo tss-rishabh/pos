@@ -38,9 +38,8 @@ export async function contactChallengeView(
     .where(
       and(
         eq(deliveries.challengeId, row.id),
-        ['COMMITTING', 'COMMITTED', 'UNCERTAIN'].includes(row.status)
-          ? eq(deliveries.kind, 'source-effects')
-          : and(eq(deliveries.kind, 'otp'), eq(deliveries.stage, row.stage)),
+        eq(deliveries.kind, 'otp'),
+        eq(deliveries.stage, row.stage),
       ),
     )
     .orderBy(desc(deliveries.createdAt), desc(deliveries.id))

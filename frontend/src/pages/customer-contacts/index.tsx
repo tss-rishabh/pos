@@ -105,10 +105,7 @@ function ScopedCustomerContactPanel({
       ),
     refetchInterval: (query) => {
       const value = query.state.data;
-      return value &&
-        (value.status === 'COMMITTING' || ['PENDING', 'SENDING'].includes(value.delivery ?? ''))
-        ? 2000
-        : false;
+      return value && ['PENDING', 'SENDING'].includes(value.delivery ?? '') ? 2000 : false;
     },
   });
   useEffect(() => {
@@ -284,7 +281,7 @@ function ScopedCustomerContactPanel({
     intent.current = { action: 'verify', challengeId: challenge.id, input: parsed.data };
     await run('send');
   }
-  async function command(action: 'resend' | 'cancel' | 'commit' | 'recover') {
+  async function command(action: 'resend' | 'cancel' | 'commit') {
     if (frozen || !challenge || intent.current) return;
     const input = { operationId: crypto.randomUUID(), version: challenge.version };
     intent.current =
@@ -499,32 +496,10 @@ function ScopedCustomerContactPanel({
                   </button>
                 </div>
               )}
-              {challenge.status === 'COMMITTING' && (
-                <p role="status">
-                  Contact saved. Its synchronization obligation is being recorded.
-                </p>
-              )}
               {challenge.status === 'COMMITTED' && (
                 <p role="status">
-                  Contact saved and synchronization accepted. Verify the customer again before using
-                  account benefits.
+                  Contact saved. Verify the customer again before using account benefits.
                 </p>
-              )}
-              {challenge.status === 'UNCERTAIN' && (
-                <div>
-                  <p>
-                    Contact saved; synchronization needs recovery. The customer record will not be
-                    written again.
-                  </p>
-                  <button
-                    type="button"
-                    className="button secondary"
-                    disabled={frozen || remaining > 0}
-                    onClick={() => void command('recover')}
-                  >
-                    Retry saved synchronization
-                  </button>
-                </div>
               )}
               {['PENDING_CURRENT', 'PENDING_NEW', 'READY'].includes(challenge.status) && (
                 <button

@@ -2,25 +2,15 @@ import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { createCustomerContactDelivery } from '../../src/modules/customer-contacts/delivery.js';
 import { readCustomerContactOptions } from '../../src/modules/customer-contacts/options.js';
-import { operationHash } from '../../src/modules/checkout/crypto.js';
-import {
-  contactEffectPayload,
-  contactOtpPayload,
-} from '../../src/modules/customer-contacts/contracts.js';
+import { contactOtpPayload } from '../../src/modules/customer-contacts/contracts.js';
 
-const contactKey = 'synthetic-contact-transport-key-'.repeat(2),
-  options = readCustomerContactOptions({
+const options = readCustomerContactOptions({
     CUSTOMER_CONTACTS_ENABLED: 'true',
     CUSTOMER_CONTACTS_CONTRACT: 'pos-customer-contact-v1',
     CUSTOMER_CONTACTS_SECRET: 'synthetic-contact-payload-key-'.repeat(2),
     CUSTOMER_REGISTRATION_SECRET: 'synthetic-registration-fence-key-'.repeat(2),
     CUSTOMER_CONTACT_SMS_TEMPLATE:
       '{{code}} confirms the customer contact addition you requested. Do not share this code.',
-    CUSTOMER_CONTACT_EFFECTS_URL:
-      'https://private.fixture.test/internal/pos/customer-contact-effects',
-    CUSTOMER_CONTACT_EFFECTS_KEY: contactKey,
-    CUSTOMER_CONTACT_EFFECTS_CONTRACT: 'pos-customer-contact-effects-v1',
-    CUSTOMER_CONTACT_EFFECTS_REPLAY_SAFE: 'true',
   }),
   environment = {
     GUPSHUP_SMS_USER_ID: 'synthetic-user',
@@ -79,63 +69,7 @@ describe('purpose-only private contact transport', () => {
     expect(String(calls[0]?.init?.body)).toContain('private.fixture@example.test');
     expect(calls[0]?.init?.redirect).toBe('error');
   });
-  it('binds delivery/operation/body HMAC in the acknowledgement before accepting source effects', async () => {
-    const payload = contactEffectPayload.parse({
-        contract: 'pos-customer-contact-effects-v1',
-        operationId: randomUUID(),
-        challengeId: randomUUID(),
-        operatorId: '1',
-        customerId: '7',
-        storeId: '1',
-        checkoutId: randomUUID(),
-        kind: 'email',
-        oldEmail: '9876543210@temp.id',
-        oldTelephone: '9876543210',
-        newValue: 'private.fixture@example.test',
-        refundRemails: [],
-        requestId: randomUUID(),
-      }),
-      id = randomUUID();
-    let mismatch = false;
-    const sender = createCustomerContactDelivery(
-      { DEMO_MODE: false },
-      options,
-      environment,
-      async (input, init) => {
-        expect(String(input)).toBe(options.CUSTOMER_CONTACT_EFFECTS_URL);
-        expect(init?.redirect).toBe('error');
-        const body = JSON.parse(String(init?.body)) as unknown;
-        expect(body).toEqual({
-          deliveryId: id,
-          bodyHash: operationHash('pos-customer-contact-effects-v1', payload, contactKey),
-          payload,
-        });
-        return Response.json({
-          contract: 'pos-customer-contact-effects-v1',
-          deliveryId: mismatch ? randomUUID() : id,
-          operationId: payload.operationId,
-          bodyHash: operationHash('pos-customer-contact-effects-v1', payload, contactKey),
-          status: 'accepted',
-        });
-      },
-    )!;
-    expect(await sender.sourceEffects(id, payload, new AbortController().signal)).toBe('accepted');
-    mismatch = true;
-    expect(await sender.sourceEffects(id, payload, new AbortController().signal)).toBe('uncertain');
-  });
-  it('fails closed on credential/query/nonHTTPS endpoints and invalid private inputs without dispatch', async () => {
-    for (const url of [
-      'http://private.fixture.test/send',
-      'https://user:password@private.fixture.test/send',
-      'https://private.fixture.test/send?email=private.fixture@example.test',
-    ])
-      expect(() =>
-        createCustomerContactDelivery(
-          { DEMO_MODE: false },
-          { ...options, CUSTOMER_CONTACT_EFFECTS_URL: url },
-          environment,
-        ),
-      ).toThrow('HTTPS endpoint');
+  it('fails closed on invalid private inputs without dispatch', async () => {
     let sent = 0;
     const sender = createCustomerContactDelivery(
       { DEMO_MODE: false },

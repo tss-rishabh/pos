@@ -191,13 +191,6 @@ const plan = {
       appliedToLive: false,
       applicationMigration: false,
     },
-    {
-      resource: 'source-offline-order-unset-events',
-      sql: 'compatibility/upstream/offline-cash-import/001_unset_event_dates.sql',
-      evidence: 'compatibility/upstream/offline-cash-import/improve-query.md',
-      appliedToLive: false,
-      applicationMigration: false,
-    },
   ],
   financialPublication: {
     contract: dailyOfflineWarehouseContract,
