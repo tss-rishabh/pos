@@ -859,6 +859,8 @@ export function hyperlocalLifecycle(runtime: LifecycleRuntime, stock: LifecycleS
 
   /** `AutoHlOrderView.post` (`order/views.py:3675-3720`), after authentication. */
   async function arrival(orderId: string, locationId: string, notify: boolean) {
+    // Refuse before any hold or notice when the O2 timer cannot be scheduled.
+    if (!deps.jobs) throw jobUnavailable();
     const current = await order(orderId);
     if (!current?.start)
       throw new AppError(404, 'LOCAL_DELIVERY_ORDER_NOT_FOUND', 'Order not found.');
