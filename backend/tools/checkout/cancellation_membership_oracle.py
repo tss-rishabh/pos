@@ -8,12 +8,13 @@ import copy
 import datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 from types import SimpleNamespace
 
 COMMIT = '2960acbea10c4eaf16b6d99e15ff6e03ef7724c5'
-ROOT = Path(__file__).resolve().parents[4] / 'backend-tss-api_v2'
+ROOT = Path(os.environ['MEMBERSHIP_NATIVE_SOURCE_REPOSITORY']) if os.environ.get('MEMBERSHIP_NATIVE_SOURCE_REPOSITORY') else Path(__file__).resolve().parents[4] / 'backend-tss-api_v2'
 source = subprocess.check_output(['git', 'show', COMMIT + ':controllers/user/userDal.py'], cwd=ROOT, text=True)
 controller = subprocess.check_output(['git', 'show', COMMIT + ':controllers/OrderController.py'], cwd=ROOT, text=True)
 names = {'set_exclusive_expiry', 'set_exclusive_upgrade_expiry', 'set_exclusive_user', 'set_exclusive_upgrade_user'}

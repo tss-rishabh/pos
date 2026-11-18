@@ -13,6 +13,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
 import threading
 from types import SimpleNamespace
 from urllib.parse import urlparse
@@ -25,7 +26,24 @@ from native_membership_account import read_membership_account
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
-from prepare_membership_producers import api_candidates, source, MUTATORS
+sys.path.insert(0, str(ROOT.parent / 'screening-origins'))
+sys.path.insert(0, str(ROOT.parent / 'public-screening-writer'))
+sys.path.insert(0, str(ROOT.parent / 'legacy-order-imports'))
+import prepare_membership_producers as producers
+from prepare_membership_producers import api_candidates, MUTATORS
+
+# Resolve only fixture I/O from the explicitly pinned checkout. The producer's
+# literal source commit and all downstream hashes remain unchanged.
+source_root = os.environ.get('MEMBERSHIP_NATIVE_SOURCE_REPOSITORY') or os.environ.get('POS_LEGACY_IMPORT_SOURCE_ROOT')
+if source_root:
+    def source(path):
+        return subprocess.check_output(
+            ['git', 'show', producers.COMMIT + ':' + path],
+            cwd=Path(source_root), text=True,
+        )
+    producers.source = source
+else:
+    source = producers.source
 from membership_provenance import (
     MembershipReview,
     membership_order_stage,
@@ -201,6 +219,16 @@ def staged():
     # The late proof failure occurs after literal source setters called commit;
     # the compatibility facade suppresses those nested commits.
     before = snapshot()
+    with Session() as preflight:
+        preflight.execute(text('SELECT id FROM users WHERE id=77 FOR UPDATE')).close()
+        try:
+            from origin_history_privileges import qualified_head_metadata
+            qualified_head_metadata(preflight)
+            assert_fence(preflight, 'fixture@example.test')
+        except Exception as error:
+            import traceback
+            frames = ','.join(Path(row.filename).name + ':' + str(row.lineno) for row in traceback.extract_tb(error.__traceback__))
+            raise AssertionError('Native fixture metadata preflight ' + type(error).__name__ + ' module=' + str(getattr(error, 'name', None)) + ' at ' + frames) from None
     execute_admin('ALTER TABLE pos_rewrite_cancellation_membership_provenance ADD CONSTRAINT fixture_stage_failure CHECK(order_id<0)')
     failures = []
     def native_failure(context):

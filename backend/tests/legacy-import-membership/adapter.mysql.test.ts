@@ -66,7 +66,8 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
   let previousEnvironment: Record<string, string | undefined> = {};
   let baseFixture: Awaited<ReturnType<typeof importFinancialFixture>>;
   beforeAll(async () => {
-    f = await importFinancialFixture(template!);
+    baseFixture = await importFinancialFixture(template!);
+    f = baseFixture;
     for (const path of [
       'src/modules/checkout/cancellations/benefit-migration.sql',
       'src/modules/checkout/cancellations/membership-producer-migration.sql',
@@ -86,7 +87,9 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       'pos_rewrite_legacy_order_imports',
       'pos_rewrite_legacy_order_import_rows',
       'pos_rewrite_import_authority_heads',
-      'pos_rewrite_import_authority_grants',
+      'pos_rewrite_import_authority_successions',
+      'pos_rewrite_import_authority_stage_claims',
+      'pos_rewrite_import_authority_continuations',
       'pos_rewrite_import_financial_operations',
       'pos_rewrite_import_financial_stages',
       'pos_rewrite_import_financial_approvals',
@@ -107,14 +110,28 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
       'pos_rewrite_gift_card_issuances',
       'product_store',
       'product_stocks',
-      'stock_log',
       'product_inventory_logs',
+      'pos_product_inventory_logs',
       'pos_inventory_sync_log',
       'products_inventory_logs',
       'order_stores',
+      'order_status',
+      'amount_to_be_refunded_log',
+      'comments',
+      'pos_transaction_logs',
       'gift_vouchers',
       'store_day_close',
     ];
+    for (const table of ['stores', 'pos_user', 'products'])
+      await f.connection.query(
+        'GRANT UPDATE ON ' +
+          mysql.escapeId(heads.schema) +
+          '.' +
+          mysql.escapeId(table) +
+          ' TO ' +
+          mysql.escape(heads.names.app) +
+          "@'%'",
+      );
     for (const table of operational)
       await f.connection.query(
         'GRANT INSERT, UPDATE, DELETE ON ' +
@@ -125,7 +142,6 @@ describe.skipIf(!template)('server-installed membership adapter on isolated nati
           mysql.escape(heads.names.app) +
           "@'%'",
       );
-    baseFixture = f;
     f = {
       ...baseFixture,
       db: heads.appDb,
