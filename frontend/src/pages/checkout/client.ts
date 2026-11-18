@@ -110,6 +110,20 @@ export const checkoutSchema = z
     settlement: confirmedPaymentSchema.nullable().optional(),
     cart: cartSchema.nullable(),
     quote: z.record(z.string(), z.unknown()).nullable(),
+    quoteDisplay: z
+      .object({
+        nonCouponDiscount: z
+          .string()
+          .regex(/^-?\d+(?:\.\d+)?$/)
+          .nullable(),
+        totalBeforeRounding: z
+          .string()
+          .regex(/^-?\d+(?:\.\d+)?$/)
+          .nullable(),
+        cashbackCreditMessage: z.string().max(2000),
+      })
+      .strict()
+      .optional(),
     busyOperationId: z.string().nullable(),
     orderCopy: copyBindingSchema.nullable().optional(),
     giftCards: z.record(

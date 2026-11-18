@@ -45,6 +45,9 @@ import { CustomerWebsiteHandoffAction } from '../customer-website-handoff';
 import { OrderCopyPanel } from '../order-copy';
 import { checkoutOperationReference } from './operation-reference';
 import { ScreeningRecovery } from '../screening-writer';
+import { CartQuoteSummary } from './CartQuoteSummary';
+import { CheckoutCartLines } from './CheckoutCartLines';
+import { quoteIsCurrent } from './quote-summary';
 
 export interface CheckoutReviewProps {
   user: Principal;
@@ -1614,6 +1617,17 @@ export function CheckoutReview({
                 </button>
               </>
             )}
+            <CheckoutCartLines
+              checkout={checkout}
+              disabled={disabled || !editable}
+              act={act}
+              mutate={mutate}
+            />
+            <CartQuoteSummary
+              checkout={checkout}
+              operatorId={draft.ownerId}
+              current={quoteIsCurrent(checkout, draft, editable && !disabled)}
+            />
             {total !== null && (
               <div className="grand-total">
                 <span>Confirmed payable</span>
