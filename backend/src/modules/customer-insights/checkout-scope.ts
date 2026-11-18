@@ -1,11 +1,11 @@
-import { and, eq } from 'drizzle-orm';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
 import { requireStore, type Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import { checkInService, type AdministrationTransaction } from '../administration/checkins.js';
-import { checkoutStateSchema, type CheckoutState } from '../checkout/contracts.js';
-import { checkoutSessions } from '../checkout/schema.js';
+import type { CheckoutState } from '../checkout/contracts.js';
+import { checkoutSessionStore } from '../checkout/session-store.js';
+import { configuredStateStore } from '../checkout/state-store.js';
 import type { CustomerProfileScope } from './contracts.js';
 
 export function missingCustomerProfile(): AppError {
@@ -28,6 +28,8 @@ export function customerProfileEditable(state: CheckoutState): boolean {
 /** Shared authority and lock order for all customer panels and scoped edits. */
 export function customerCheckoutScope(config: Config, db: Databases) {
   const checkIns = checkInService(db, config);
+  // W4: checkout sales live in the Redis session store (pos_rewrite_checkout_sessions removed).
+  const sessions = config.DEMO_MODE ? null : checkoutSessionStore(configuredStateStore(config));
   return async function withCheckout<T>(
     user: Principal,
     scope: CustomerProfileScope,
@@ -44,36 +46,15 @@ export function customerCheckoutScope(config: Config, db: Databases) {
         'Customer details are unavailable in this workspace.',
       );
     requireStore(user, scope.storeId);
-    const where = and(
-      eq(checkoutSessions.id, scope.checkoutId),
-      eq(checkoutSessions.operatorId, user.id),
-      eq(checkoutSessions.storeId, scope.storeId),
-    );
-    const [initial] = await db
-      .get('writer')
-      .select({ state: checkoutSessions.state })
-      .from(checkoutSessions)
-      .where(where)
-      .limit(1);
-    const preflight = checkoutStateSchema.safeParse(initial?.state);
-    if (!preflight.success) throw missingCustomerProfile();
+    const preflight = await sessions!.readScoped(user.id, scope.storeId, scope.checkoutId);
+    if (!preflight) throw missingCustomerProfile();
     return db.get('writer').transaction(async (tx) => {
-      await checkIns.assertCheckIn(user.id, scope.storeId, preflight.data.counterId, tx);
-      const [row] = await tx
-        .select({ state: checkoutSessions.state, version: checkoutSessions.version })
-        .from(checkoutSessions)
-        .where(where)
-        .limit(1)
-        .for(lock);
-      const parsed = checkoutStateSchema.safeParse(row?.state);
-      if (!parsed.success) throw missingCustomerProfile();
-      const state = parsed.data;
+      await checkIns.assertCheckIn(user.id, scope.storeId, preflight.counterId, tx);
+      const state = await sessions!.readScoped(user.id, scope.storeId, scope.checkoutId);
       if (
+        !state ||
         state.id !== scope.checkoutId ||
-        state.operatorId !== user.id ||
-        state.storeId !== scope.storeId ||
-        state.counterId !== preflight.data.counterId ||
-        state.version !== row?.version ||
+        state.counterId !== preflight.counterId ||
         !state.customerId ||
         state.phase === 'cleared'
       )

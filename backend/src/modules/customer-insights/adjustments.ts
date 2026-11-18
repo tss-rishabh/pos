@@ -7,7 +7,8 @@ import type { Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
 import { currentRequestTrace } from '../../observability/context.js';
-import { checkoutSessions } from '../checkout/schema.js';
+import { checkoutSessionStore } from '../checkout/session-store.js';
+import { configuredStateStore } from '../checkout/state-store.js';
 import { operationHash } from '../checkout/crypto.js';
 import {
   assertCustomerContextReady,
@@ -43,6 +44,7 @@ export function customerProfileAdjustmentService(
   clock: () => number = Date.now,
 ) {
   const withCheckout = customerCheckoutScope(config, db);
+  const sessions = checkoutSessionStore(configuredStateStore(config));
   function assertScopeIdentifiers(user: Principal, scope: CustomerProfileScope) {
     identifier.parse(user.id);
     customerProfileScope.parse(scope);
@@ -200,24 +202,11 @@ export function customerProfileAdjustmentService(
           requestId: currentRequestTrace()?.requestId ?? null,
           createdAt: applied.appliedAt.slice(0, 23).replace('T', ' '),
         });
-        await tx
-          .update(checkoutSessions)
-          .set({
-            version,
-            state: {
-              ...state,
-              version,
-              phase: 'open',
-              quote: null,
-              updatedAt: clock(),
-            },
-          })
-          .where(
-            and(
-              eq(checkoutSessions.id, scope.checkoutId),
-              eq(checkoutSessions.version, state.version),
-            ),
-          );
+        // W4: the sale lives in the Redis session store; replace it only at the read version.
+        await sessions.replaceIfVersion(
+          { ...state, version, phase: 'open', quote: null, updatedAt: clock() },
+          state.version,
+        );
         receipt = { success: true, data: applied };
       }
       if (!receipt?.success) throw receiptUnavailable();

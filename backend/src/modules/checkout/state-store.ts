@@ -252,9 +252,18 @@ export async function withStateLock<T>(
 export const idempotencyKey = (scope: string, actorId: string, key: string) =>
   `pos:idem:${scope}:${actorId}:${key}`;
 
+const configuredStores = new Map<string, PosStateStore>();
+/**
+ * The process-wide store for `config.REDIS_URL` (one lazily connected client per URL). Without
+ * REDIS_URL outside production, one shared in-memory store, so every module sees the same sales.
+ */
 export function configuredStateStore(config: Config): PosStateStore {
-  if (config.REDIS_URL) return redisStateStore(config, config.REDIS_URL);
-  if (config.NODE_ENV === 'production' && !config.DEMO_MODE)
+  const key = config.REDIS_URL ?? 'memory:';
+  const existing = configuredStores.get(key);
+  if (existing) return existing;
+  if (!config.REDIS_URL && config.NODE_ENV === 'production' && !config.DEMO_MODE)
     throw new Error('Production requires REDIS_URL for checkout state.');
-  return memoryStateStore();
+  const created = config.REDIS_URL ? redisStateStore(config, config.REDIS_URL) : memoryStateStore();
+  configuredStores.set(key, created);
+  return created;
 }
