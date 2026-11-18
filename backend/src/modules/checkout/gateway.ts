@@ -73,6 +73,8 @@ export class CheckoutGatewayError extends AppError {
     message: string,
     public readonly uncertain: boolean,
     status = 502,
+    /** API-v2 `is_pin_required` on a rejected gift-voucher apply. */
+    public readonly pinRequired = false,
   ) {
     super(status, code, message);
   }
@@ -165,7 +167,11 @@ export function checkoutGateway(
     const value = await body(response, response.ok || response.status >= 500);
     if (!response.ok) {
       const error = z
-        .object({ title: z.string().max(500).optional(), message: z.string().max(500).optional() })
+        .object({
+          title: z.string().max(500).optional(),
+          message: z.string().max(500).optional(),
+          is_pin_required: z.unknown().optional(),
+        })
         .passthrough()
         .safeParse(value);
       throw new CheckoutGatewayError(
@@ -175,6 +181,7 @@ export function checkoutGateway(
           : 'Checkout could not complete this operation.',
         response.status >= 500,
         response.status >= 500 ? 502 : 422,
+        error.success && Boolean(error.data.is_pin_required),
       );
     }
     return value;

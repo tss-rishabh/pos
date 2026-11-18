@@ -1157,7 +1157,23 @@ export function checkoutService(
         { code, pin },
         async (state) => {
           await requireVerified(user, state);
-          return cartMutation(state, 'giftvoucher', giftVoucherPayload(context(state), code, pin));
+          try {
+            return await cartMutation(
+              state,
+              'giftvoucher',
+              giftVoucherPayload(context(state), code, pin),
+            );
+          } catch (error) {
+            if (error instanceof CheckoutGatewayError && error.pinRequired)
+              throw new AppError(
+                422,
+                pin === '0' ? 'GIFT_VOUCHER_PIN_REQUIRED' : 'GIFT_VOUCHER_PIN_INVALID',
+                pin === '0'
+                  ? 'Please Enter the GIFT CARD PIN.'
+                  : 'The gift card PIN was not accepted. Check it and try again.',
+              );
+            throw error;
+          }
         },
       );
     },

@@ -84,10 +84,11 @@ export const removeBenefitPayload = (
     ...(kind === 'coupon' ? { localcart: cart } : {}),
   },
 });
+/** AjaxGiftVoucherView.gift_voucher (order/views.py:2344-2362). */
 export const giftVoucherPayload = (context: CartContext, code: string, pin: string) => ({
-  ...cartScope(context),
   voucher_code: code,
   gc_pin: pin.replaceAll('_', ''),
+  ...cartScope(context),
 });
 export const exclusivePayload = (context: CartContext, enabled: boolean) => ({
   ...cartScope(context),

@@ -127,6 +127,7 @@ export function registerCheckout(
         registrationEnvironment(),
         phoneOtpDelivery(),
         config.BUSINESS_TIMEZONE,
+        shared,
       ),
     finalizeOrder:
       overrides.finalizeOrder || orderFinalizer(db, config, 'ordinary', overrides.jobs),
@@ -384,7 +385,15 @@ export function registerCheckout(
     const user = authenticated(request),
       p = sessionScope.parse(request.params),
       body = mutationSchema
-        .extend({ code: z.string().min(1).max(100), pin: z.string().regex(/^[\d_]{4,20}$/) })
+        // Legacy applies with gc_pin 0 and asks for the PIN only when API-v2 answers
+        // is_pin_required (create_order.html:3433-3557).
+        .extend({
+          code: z.string().min(1).max(100),
+          pin: z
+            .string()
+            .regex(/^[\d_]{1,20}$/)
+            .default('0'),
+        })
         .strict()
         .parse(request.body);
     return response(
