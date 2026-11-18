@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
@@ -17,6 +16,7 @@ import {
   type CollectionSnapshot,
 } from '../../src/modules/finance/domain.js';
 import type { Role } from '../../src/domain/access.js';
+import { goldenStdout } from '../golden/load.js';
 
 const config = readConfig({
   NODE_ENV: 'test',
@@ -32,12 +32,7 @@ const legacyConfig = {
   DAY_CLOSE_TOLERANCE: '0',
 };
 function oracle(value: unknown): unknown {
-  return JSON.parse(
-    execFileSync('python3', ['tools/finance/oracle.py'], {
-      input: JSON.stringify(value),
-      encoding: 'utf8',
-    }),
-  );
+  return JSON.parse(goldenStdout('finance', 'domain', JSON.stringify(value)));
 }
 describe('day-close legacy policy and arithmetic parity', () => {
   it('matches all roles before/at/after the trading window, revisions and stale closes', () => {

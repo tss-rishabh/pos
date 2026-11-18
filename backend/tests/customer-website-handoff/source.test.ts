@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
 describe('executed pinned website-handoff source oracle', () => {
   it('preserves original customer/store/operator identity facts while exposing the source URL credential flaw', () => {
     const result = z
@@ -21,22 +21,7 @@ describe('executed pinned website-handoff source oracle', () => {
           }),
         ),
       })
-      .parse(
-        JSON.parse(
-          execFileSync(
-            'uv',
-            [
-              'run',
-              '--frozen',
-              '--project',
-              'compatibility/upstream/invoice-security/runtime',
-              'python',
-              'compatibility/upstream/customer-website-handoff/source_oracle.py',
-            ],
-            { encoding: 'utf8', timeout: 15000, stdio: ['ignore', 'pipe', 'pipe'] },
-          ),
-        ) as unknown,
-      );
+      .parse(JSON.parse(goldenStdout('customer-website-handoff', 'source')) as unknown);
     expect(result.pin).toBe('78d5b63d6a149a6bf2c748fa1d191799c59ecb8a');
     expect(result.vectors.map((v) => [v.algorithm, v.prefix, v.operatorCustomerId])).toEqual([
       ['HS256', false, '88'],

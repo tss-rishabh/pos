@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import { Temporal } from '@js-temporal/polyfill';
@@ -21,15 +20,12 @@ import {
   createLegacyProvider,
   providerHttpRequest,
 } from '../../src/modules/legacy-fulfillment/lifecycle/provider.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
 const uuid = '00000000-0000-4000-a000-000000000001',
   orderId = '9007199254740993';
 function oracle(cases: unknown[]) {
-  const result = spawnSync('python3', ['tools/legacy-fulfillment/lifecycle-oracle.py'], {
-    input: JSON.stringify(cases),
-    encoding: 'utf8',
-    timeout: 20000,
-  });
+  const result = goldenSpawnResult('legacy-fulfillment', 'lifecycle-domain', JSON.stringify(cases));
   expect(result.status, result.stderr).toBe(0);
   return JSON.parse(result.stdout) as unknown;
 }

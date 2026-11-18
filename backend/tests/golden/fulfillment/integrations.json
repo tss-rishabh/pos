@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/fulfillment/request-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:39Z",
+  "test": "tests/fulfillment/integrations.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "326d9e83c9c5119edd280bd94f7261eec90e2b57fb7f4cfe7fdbdb8a0df4c276",
+      "args": ["tools/fulfillment/request-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "url": "https://sync.example.test/order/status",
+          "payload": {
+            "orderId": "1001",
+            "has_product_ids": ["501", "502"],
+            "platform": "PACK"
+          },
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "fixture-sync-key"
+          }
+        },
+        {
+          "url": "https://sync.example.test/order/status",
+          "payload": {
+            "orderId": "1001",
+            "has_product_ids": ["501"],
+            "platform": "SHIP"
+          },
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "fixture-sync-key"
+          }
+        },
+        {
+          "url": "https://sync.example.test/order/rto",
+          "payload": {
+            "orderId": "1001",
+            "has_product_ids": ["501", "502"]
+          },
+          "headers": {
+            "Content-Type": "application/json",
+            "x-api-key": "fixture-sync-key"
+          }
+        },
+        {
+          "url": "https://mailr.example.test/api/v2/mailr/express-order/out-for-delivery/",
+          "payload": {
+            "order_id": "1001",
+            "awb": "FIXTURE-AWB"
+          },
+          "headers": {
+            "Content-Type": "application/json"
+          }
+        },
+        {
+          "url": "https://preorder.example.test/express-delivery/concurrency-sync",
+          "payload": {
+            "storeId": 12,
+            "pending": -2,
+            "accepted": 2
+          },
+          "headers": {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer fixture-preorder-key"
+          }
+        },
+        {
+          "url": "https://preorder.example.test/express-delivery/concurrency-sync",
+          "payload": {
+            "storeId": 12,
+            "accepted": -2
+          },
+          "headers": {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer fixture-preorder-key"
+          }
+        },
+        null
+      ]
+    }
+  ]
+}

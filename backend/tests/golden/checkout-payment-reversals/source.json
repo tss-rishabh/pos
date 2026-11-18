@@ -1,0 +1,272 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/payment-reversals/source_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:37Z",
+  "test": "tests/checkout-payment-reversals/source.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "d3f71f56d17dd0bcfa4715e2fd4980d65468e33b534328318d6cf1e6747dd950",
+      "args": ["tools/payment-reversals/source_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceRevision": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "methodHash": "544cd2cd93fbb935b842f0eaffb8fefb4f04a3d31f9298e842e8765082377407",
+        "results": [
+          {
+            "response": {
+              "status": "success",
+              "message": "Payment status updated successfully."
+            },
+            "order": {
+              "id": 91,
+              "pay_amt": 100.0,
+              "payment_statuses": 1,
+              "order_statuses": 1
+            },
+            "mapping": {
+              "order_id": 91,
+              "is_manually_paid": 0,
+              "offline_payment": 0.0,
+              "online_payment": 0.0,
+              "transaction_id": null,
+              "message": ""
+            },
+            "lines": [
+              {
+                "id": 8,
+                "order_id": 91,
+                "status": "PLACED"
+              }
+            ],
+            "comments": [
+              {
+                "order_id": 91,
+                "status_id": 1,
+                "comment": "Store Order: Status Reverted to PLACED by pos admin.",
+                "notify": 0,
+                "user_id": 44,
+                "package_details": ""
+              }
+            ],
+            "effects": [
+              ["stale", 1, "2026-11-16", "PAYMENT_REVERSED", 91],
+              [
+                "transaction",
+                91,
+                1,
+                0,
+                44,
+                {},
+                "Store Order: Status Reverted to PLACED by pos admin. Recieved Amount Return to customer on Counter (Only counter amount)"
+              ]
+            ]
+          },
+          {
+            "response": {
+              "status": "success",
+              "message": "Payment status updated successfully."
+            },
+            "order": {
+              "id": 91,
+              "pay_amt": 100.0,
+              "payment_statuses": 4,
+              "order_statuses": 3.0
+            },
+            "mapping": {
+              "order_id": 91,
+              "is_manually_paid": 1,
+              "offline_payment": 100.0,
+              "online_payment": 0.0,
+              "transaction_id": null,
+              "message": ""
+            },
+            "lines": [
+              {
+                "id": 8,
+                "order_id": 91,
+                "status": "DELIVERED"
+              }
+            ],
+            "comments": [
+              {
+                "order_id": 91,
+                "status_id": 3,
+                "comment": "original delivered audit"
+              },
+              {
+                "order_id": 91,
+                "status_id": 3.0,
+                "comment": "Store Order: DELIVERED status changed by pos admin.",
+                "notify": 0,
+                "user_id": 44,
+                "package_details": ""
+              }
+            ],
+            "effects": [
+              ["kinesis", 91],
+              ["engagement", 91],
+              ["stale", 1, "2026-11-16", "MANUAL_PAID", 91],
+              [
+                "transaction",
+                91,
+                1,
+                0,
+                44,
+                {
+                  "cash payment": 100.0,
+                  "online payment": 0.0,
+                  "total amount on counter": 100.0
+                },
+                "Order Delivered : Total Amount Recieved at Counter : 100.0"
+              ]
+            ]
+          },
+          {
+            "response": {
+              "status": "fail",
+              "message": "Incorrect Pay amount."
+            },
+            "order": {
+              "id": 91,
+              "pay_amt": 100.0,
+              "payment_statuses": 4,
+              "order_statuses": 3
+            },
+            "mapping": {
+              "order_id": 91,
+              "is_manually_paid": 1,
+              "offline_payment": 100.0,
+              "online_payment": 0.0
+            },
+            "lines": [
+              {
+                "id": 8,
+                "order_id": 91,
+                "status": "DELIVERED"
+              }
+            ],
+            "comments": [
+              {
+                "order_id": 91,
+                "status_id": 3,
+                "comment": "original delivered audit"
+              }
+            ],
+            "effects": []
+          },
+          {
+            "response": {
+              "status": "success",
+              "message": "Payment status updated successfully."
+            },
+            "order": {
+              "id": 91,
+              "pay_amt": 100.0,
+              "payment_statuses": 1,
+              "order_statuses": 1
+            },
+            "mapping": {
+              "order_id": 91,
+              "is_manually_paid": 0,
+              "offline_payment": 9999.0,
+              "online_payment": 88.0,
+              "transaction_id": null,
+              "message": ""
+            },
+            "lines": [
+              {
+                "id": 8,
+                "order_id": 91,
+                "status": "PLACED"
+              }
+            ],
+            "comments": [
+              {
+                "order_id": 91,
+                "status_id": 1,
+                "comment": "Store Order: Status Reverted to PLACED by pos admin.",
+                "notify": 0,
+                "user_id": 44,
+                "package_details": ""
+              }
+            ],
+            "effects": [
+              ["stale", 1, "2026-11-16", "PAYMENT_REVERSED", 91],
+              [
+                "transaction",
+                91,
+                1,
+                0,
+                44,
+                {},
+                "Store Order: Status Reverted to PLACED by pos admin. Recieved Amount Return to customer on Counter (Only counter amount)"
+              ]
+            ]
+          },
+          {
+            "response": {
+              "status": "success",
+              "message": "Payment status updated successfully."
+            },
+            "order": {
+              "id": 91,
+              "pay_amt": 100.0,
+              "payment_statuses": 4,
+              "order_statuses": 3.0
+            },
+            "mapping": {
+              "order_id": 91,
+              "is_manually_paid": 1,
+              "offline_payment": 0.0,
+              "online_payment": 100.0,
+              "transaction_id": null,
+              "message": ""
+            },
+            "lines": [
+              {
+                "id": 8,
+                "order_id": 91,
+                "status": "DELIVERED"
+              }
+            ],
+            "comments": [
+              {
+                "order_id": 91,
+                "status_id": 3,
+                "comment": "original delivered audit"
+              },
+              {
+                "order_id": 91,
+                "status_id": 3.0,
+                "comment": "Store Order: DELIVERED status changed by pos admin.",
+                "notify": 0,
+                "user_id": 44,
+                "package_details": ""
+              }
+            ],
+            "effects": [
+              ["kinesis", 91],
+              ["engagement", 91],
+              ["stale", 1, "2026-11-16", "MANUAL_PAID", 91],
+              [
+                "transaction",
+                91,
+                1,
+                0,
+                44,
+                {
+                  "cash payment": 0.0,
+                  "online payment": 100.0,
+                  "total amount on counter": 100.0
+                },
+                "Order Delivered : Total Amount Recieved at Counter : 100.0"
+              ]
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

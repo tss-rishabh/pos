@@ -1,0 +1,260 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/fulfillment/oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/fulfillment/domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "7d86d25b3f0b96c276fa4733d7bcf6cb57f5a74be417b7f476a25ff5186c611b",
+      "args": ["tools/fulfillment/oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "store_order_amt": 104.99,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 104.99,
+          "is_rto": true,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 104.99,
+          "is_rto": false,
+          "can_mark_rto": true,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 104.99,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": true,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 209.98,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 209.98,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": true,
+          "has_awb": true
+        },
+        {
+          "store_order_amt": 0,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 0.0,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 2.81,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 5.99,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 8.43,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 11.98,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 14.04,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 17.98,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 19.66,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 23.97,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 25.28,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 29.96,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 30.9,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 35.95,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 36.51,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 41.94,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 42.13,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 47.94,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 47.75,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 53.93,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": false,
+          "has_shipment_id": false,
+          "has_awb": false
+        },
+        {
+          "store_order_amt": 53.37,
+          "is_rto": false,
+          "can_mark_rto": false,
+          "is_timed_out": false,
+          "is_vinc_allocated": true,
+          "has_shipment_id": false,
+          "has_awb": false
+        }
+      ]
+    }
+  ]
+}

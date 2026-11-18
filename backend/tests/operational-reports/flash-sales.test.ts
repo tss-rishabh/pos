@@ -1,4 +1,3 @@
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
 import { Temporal } from '@js-temporal/polyfill';
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
@@ -13,6 +12,7 @@ import {
   type FlashSalesSourceRow,
   type FlashRefundRow,
 } from '../../src/modules/operational-reports/flash-sales.js';
+import { goldenStdout } from '../golden/load.js';
 const sample = (overrides: Partial<FlashSalesSourceRow> = {}): FlashSalesSourceRow => ({
   StoreName: 'Fixture store',
   date: '2026-11-16',
@@ -60,10 +60,7 @@ describe('source flash-sales reducer and warehouse bindings', () => {
         })),
       });
     const expected = JSON.parse(
-      executePosSourceOracle(['tools/operational-reports/flash-sales-oracle.py'], {
-        input: JSON.stringify({ cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout('operational-reports', 'flash-sales', JSON.stringify({ cases })),
     ) as unknown;
     expect(cases.map((value) => prepareFlashSales(value.sales, value.refunds))).toEqual(expected);
     const csv = flashSalesCsv(prepareFlashSales([sample()], [])),

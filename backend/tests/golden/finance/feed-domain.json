@@ -1,0 +1,732 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/finance/feed-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/finance/feed-domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "7b237eea9ed776e477fcdfddfc7fc098a1d2002be1671e18dda17918b4119ccf",
+      "args": ["tools/finance/feed-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "100",
+              "transaction_date": null,
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "refund_amount": 0,
+              "refund_mode": null,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 1,
+            "total_records": 4,
+            "total_pages": 4
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 1.005,
+              "refund_mode": "OTHER",
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            },
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 5.1049999999999995,
+              "cashgram_refund": 0,
+              "refund_amount": 5.1049999999999995,
+              "refund_mode": "CASH",
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 102.66,
+              "gst_amount": 5.13
+            }
+          ],
+          "pagination": {
+            "page": 2,
+            "page_size": 2,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [],
+          "pagination": {
+            "page": 3,
+            "page_size": 3,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 5.305,
+              "cashgram_refund": 0,
+              "refund_amount": 5.305,
+              "refund_mode": "CASH",
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 108.01,
+              "gst_amount": 5.4
+            }
+          ],
+          "pagination": {
+            "page": 4,
+            "page_size": 1,
+            "total_records": 4,
+            "total_pages": 4
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "100",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "refund_amount": 0,
+              "refund_mode": null,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            },
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 2.675,
+              "refund_mode": "TSS_MONEY",
+              "tss_money_refunded": 2.675,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 2,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 5.505,
+              "cashgram_refund": 0,
+              "refund_amount": 5.505,
+              "refund_mode": "CASH",
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 113.36,
+              "gst_amount": 5.67
+            }
+          ],
+          "pagination": {
+            "page": 2,
+            "page_size": 3,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 1.005,
+              "refund_mode": "OTHER",
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            }
+          ],
+          "pagination": {
+            "page": 3,
+            "page_size": 1,
+            "total_records": 4,
+            "total_pages": 4
+          }
+        },
+        {
+          "success": true,
+          "data": [],
+          "pagination": {
+            "page": 4,
+            "page_size": 2,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "100",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "refund_amount": 0,
+              "refund_mode": null,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            },
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 2.675,
+              "refund_mode": "TSS_MONEY",
+              "tss_money_refunded": 2.675,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            },
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 1.005,
+              "refund_mode": "OTHER",
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 3,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 2.675,
+              "refund_mode": "TSS_MONEY",
+              "tss_money_refunded": 2.675,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            }
+          ],
+          "pagination": {
+            "page": 2,
+            "page_size": 1,
+            "total_records": 4,
+            "total_pages": 4
+          }
+        },
+        {
+          "success": true,
+          "data": [],
+          "pagination": {
+            "page": 3,
+            "page_size": 2,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [],
+          "pagination": {
+            "page": 4,
+            "page_size": 3,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "100",
+              "transaction_date": null,
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "refund_amount": 0,
+              "refund_mode": null,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 1,
+            "total_records": 4,
+            "total_pages": 4
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 1.005,
+              "refund_mode": "OTHER",
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            },
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 6.305,
+              "cashgram_refund": 0,
+              "refund_amount": 6.305,
+              "refund_mode": "CASH",
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 134.76,
+              "gst_amount": 6.74
+            }
+          ],
+          "pagination": {
+            "page": 2,
+            "page_size": 2,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [],
+          "pagination": {
+            "page": 3,
+            "page_size": 3,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 6.505,
+              "cashgram_refund": 0,
+              "refund_amount": 6.505,
+              "refund_mode": "CASH",
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 140.12,
+              "gst_amount": 7.01
+            }
+          ],
+          "pagination": {
+            "page": 4,
+            "page_size": 1,
+            "total_records": 4,
+            "total_pages": 4
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "100",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "refund_amount": 0,
+              "refund_mode": null,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            },
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 2.675,
+              "refund_mode": "TSS_MONEY",
+              "tss_money_refunded": 2.675,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            }
+          ],
+          "pagination": {
+            "page": 1,
+            "page_size": 2,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "SALE",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "cash_amount": "100.10",
+              "paytm_amount": 0,
+              "pinelab_amount": 0,
+              "online_other_amount": 0,
+              "district_amount": 0,
+              "tss_money_used": 0,
+              "tss_money_refunded": 0,
+              "cash_refunded": 6.705,
+              "cashgram_refund": 0,
+              "refund_amount": 6.705,
+              "refund_mode": "CASH",
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "credit_pincode_amount": 0,
+              "voucher_amount": 0,
+              "coupon_amount": 0,
+              "tss_points_used": 0,
+              "pg_discount": 0,
+              "taxable_value": 145.46,
+              "gst_amount": 7.27
+            }
+          ],
+          "pagination": {
+            "page": 2,
+            "page_size": 3,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        },
+        {
+          "success": true,
+          "data": [
+            {
+              "order_id": "20",
+              "transaction_date": "2026-11-16",
+              "store_code": "FIXTURE",
+              "transaction_type": "RETURN",
+              "payment_mode": "POC(Cash)",
+              "pay_amount": 100.1,
+              "order_ref_no": "FIXTURE-1001",
+              "counter_name": "Fixture counter",
+              "payment_status": "Paid",
+              "order_amount": 110,
+              "refund_amount": 1.005,
+              "refund_mode": "OTHER",
+              "tss_money_refunded": 0,
+              "cash_refunded": 0,
+              "cashgram_refund": 0,
+              "taxable_value": 99.99,
+              "gst_amount": 5.0
+            }
+          ],
+          "pagination": {
+            "page": 3,
+            "page_size": 1,
+            "total_records": 4,
+            "total_pages": 4
+          }
+        },
+        {
+          "success": true,
+          "data": [],
+          "pagination": {
+            "page": 4,
+            "page_size": 2,
+            "total_records": 4,
+            "total_pages": 2
+          }
+        }
+      ]
+    }
+  ]
+}

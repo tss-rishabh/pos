@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { it, expect } from 'vitest';
 import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
 it('executes six literal source handler vectors without Django/Redis/providers', () => {
   const vectors = z
     .record(
@@ -15,11 +15,7 @@ it('executes six literal source handler vectors without Django/Redis/providers',
         syncedItems: z.array(z.object({ prod_id: z.number(), quantity: z.number() })),
       }),
     )
-    .parse(
-      JSON.parse(
-        execFileSync('python3', ['-B', 'tools/order-copy/source_oracle.py'], { encoding: 'utf8' }),
-      ) as unknown,
-    );
+    .parse(JSON.parse(goldenStdout('checkout-order-copy', 'source')) as unknown);
   expect(Object.keys(vectors)).toHaveLength(6);
   expect(vectors.normal!.calls).toBe(2);
   expect(vectors['duplicate-sku']!.productIds).toEqual([10, 10]);

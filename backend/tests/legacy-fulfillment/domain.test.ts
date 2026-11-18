@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
@@ -8,13 +7,10 @@ import {
   legacyTrackingUrl,
   sourceLegacyStatus,
 } from '../../src/modules/legacy-fulfillment/domain.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
 function source(cases: unknown[]) {
-  const result = spawnSync('python3', ['tools/legacy-fulfillment/source-oracle.py'], {
-    input: JSON.stringify(cases),
-    encoding: 'utf8',
-    timeout: 10000,
-  });
+  const result = goldenSpawnResult('legacy-fulfillment', 'domain', JSON.stringify(cases));
   expect(result.status, result.stderr).toBe(0);
   return JSON.parse(result.stdout) as unknown;
 }

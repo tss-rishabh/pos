@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   feedLineSchema,
@@ -6,6 +5,7 @@ import {
   reconciliationRecords,
   type FeedLine,
 } from '../../src/modules/finance/feed-domain.js';
+import { goldenStdout } from '../golden/load.js';
 const line = (change: Partial<FeedLine> = {}): FeedLine => ({
   id: '1001',
   transaction_date: '2026-11-16',
@@ -61,10 +61,7 @@ describe('Glassbox orders feed source record parity', () => {
         pageSize: (index % 3) + 1,
       });
     const oracle: unknown = JSON.parse(
-      execFileSync('python3', ['tools/finance/feed-oracle.py'], {
-        input: JSON.stringify({ cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout('finance', 'feed-domain', JSON.stringify({ cases })),
     );
     expect(
       cases.map((test) =>

@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { afterAll, describe, expect, it } from 'vitest';
@@ -8,6 +7,7 @@ import {
   sourcePerformanceJson,
 } from '../../src/modules/checkout-performance/contracts.js';
 import { cashierPerformance } from '../../src/modules/operational-reports/performance-domain.js';
+import { goldenStdout } from '../golden/load.js';
 
 const empty = {
     product_main_list: '',
@@ -62,11 +62,7 @@ const empty = {
     })
     .parse(
       JSON.parse(
-        execFileSync('python3', ['tools/checkout-performance/source-oracle.py'], {
-          input: JSON.stringify(vectors),
-          encoding: 'utf8',
-          timeout: 20000,
-        }),
+        goldenStdout('checkout-performance', 'contracts', JSON.stringify(vectors)),
       ) as unknown,
     );
 describe('source-native checkout performance format and report meaning', () => {

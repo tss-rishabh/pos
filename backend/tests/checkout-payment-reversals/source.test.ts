@@ -1,10 +1,10 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
   paymentReversalInputSchema,
   paymentReversalOptions,
 } from '../../src/modules/checkout/payment-reversals/contracts.js';
+import { goldenStdout } from '../golden/load.js';
 const resultSchema = z.object({
   sourceRevision: z.string(),
   methodHash: z.string(),
@@ -23,8 +23,10 @@ describe('literal payment-status source characterization and strict correction b
   it('executes five original source cases, proving flag parity and the unsafe deletion/unconfirmed-provider differences', () => {
     const oracle = resultSchema.parse(
       JSON.parse(
-        execFileSync('python3', ['tools/payment-reversals/source_oracle.py'], {
-          input: JSON.stringify([
+        goldenStdout(
+          'checkout-payment-reversals',
+          'source',
+          JSON.stringify([
             { input: { pay_type: '0', offline_payment: '0', online_payment: '0' } },
             {
               input: {
@@ -58,8 +60,7 @@ describe('literal payment-status source characterization and strict correction b
               },
             },
           ]),
-          encoding: 'utf8',
-        }),
+        ),
       ) as unknown,
     );
     expect(oracle.sourceRevision).toBe('78d5b63d6a149a6bf2c748fa1d191799c59ecb8a');

@@ -1,4 +1,3 @@
-import { spawnSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
@@ -6,6 +5,7 @@ import {
   sourceShippingStoreAddress,
   type ShippingAddressParts,
 } from '../../src/modules/fulfillment/shipping-label/contracts.js';
+import { goldenSpawnResult } from '../golden/load.js';
 
 describe('pinned shipping-label address formatting', () => {
   it('matches the actual source method across missing fields, paired address lines and Python whitespace', () => {
@@ -37,11 +37,11 @@ describe('pinned shipping-label address formatting', () => {
       })),
       Object.fromEntries(fields.map((field) => [field, null])) as unknown as ShippingAddressParts,
     ];
-    const source = spawnSync('python3', ['tools/fulfillment/shipping-label-source-oracle.py'], {
-      input: JSON.stringify([null, ...vectors.map((value) => fields.map((field) => value[field]))]),
-      encoding: 'utf8',
-      timeout: 10_000,
-    });
+    const source = goldenSpawnResult(
+      'fulfillment',
+      'shipping-label-address',
+      JSON.stringify([null, ...vectors.map((value) => fields.map((field) => value[field]))]),
+    );
     expect(source.status, source.stderr).toBe(0);
     const output = z
       .object({
@@ -61,17 +61,15 @@ describe('pinned shipping-label address formatting', () => {
     expect(output.addresses[0]).toBeNull();
     expect(output.query).toContain('WHERE o.id = %s');
     expect(vectors.map(sourceShippingAddress)).toEqual(
-      output.addresses
-        .slice(1)
-        .map(
-          (value) =>
-            value && {
-              name: value.name,
-              addressLine: value.address_line,
-              cityLine: value.city_line,
-              phone: value.phone_no,
-            },
-        ),
+      output.addresses.slice(1).map(
+        (value) =>
+          value && {
+            name: value.name,
+            addressLine: value.address_line,
+            cityLine: value.city_line,
+            phone: value.phone_no,
+          },
+      ),
     );
   });
   it('preserves source return-address spacing and explicit Python null formatting', () => {

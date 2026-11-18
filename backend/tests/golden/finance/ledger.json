@@ -1,0 +1,212 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/finance/ledger-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/finance/ledger.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "06221cf2b6d081abab680a8600b13889df0b5d4aed4f0c27cb0c6e45b6bdf21d",
+      "args": ["tools/finance/ledger-oracle.py"],
+      "status": 0,
+      "output": [
+        [
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-01",
+            "opening_cash": "50.00",
+            "sales_cash": "96.00",
+            "running_total": "146.00",
+            "actual_cash": "96.00",
+            "difference": "0.00",
+            "banking_amount": "40.00",
+            "closing_balance": "106.00",
+            "status": "CLOSED",
+            "note": ""
+          },
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-02",
+            "opening_cash": "106.00",
+            "sales_cash": "96.00",
+            "running_total": "202.00",
+            "actual_cash": "96.00",
+            "difference": "0.00",
+            "banking_amount": "40.00",
+            "closing_balance": "162.00",
+            "status": "CLOSED",
+            "note": ""
+          },
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-03",
+            "opening_cash": "162.00",
+            "sales_cash": "75.00",
+            "running_total": "237.00",
+            "actual_cash": null,
+            "difference": null,
+            "banking_amount": null,
+            "closing_balance": null,
+            "status": "NOT_CLOSED",
+            "note": ""
+          }
+        ],
+        [
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-01",
+            "opening_cash": "50.00",
+            "sales_cash": "96.00",
+            "running_total": "146.00",
+            "actual_cash": "96.00",
+            "difference": "0.00",
+            "banking_amount": "70.00",
+            "closing_balance": "76.00",
+            "status": "CLOSED",
+            "note": ""
+          },
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-02",
+            "opening_cash": "76.00",
+            "sales_cash": "96.00",
+            "running_total": "172.00",
+            "actual_cash": "96.00",
+            "difference": "0.00",
+            "banking_amount": "40.00",
+            "closing_balance": "132.00",
+            "status": "CLOSED",
+            "note": ""
+          },
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-03",
+            "opening_cash": "132.00",
+            "sales_cash": "75.00",
+            "running_total": "207.00",
+            "actual_cash": null,
+            "difference": null,
+            "banking_amount": null,
+            "closing_balance": null,
+            "status": "NOT_CLOSED",
+            "note": ""
+          }
+        ],
+        [
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-01",
+            "opening_cash": "50.00",
+            "sales_cash": "96.00",
+            "running_total": "146.00",
+            "actual_cash": "96.00",
+            "difference": "2.10",
+            "banking_amount": "30.00",
+            "closing_balance": "116.00",
+            "status": "STALE",
+            "note": ""
+          },
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-02",
+            "opening_cash": "116.00",
+            "sales_cash": "96.00",
+            "running_total": "212.00",
+            "actual_cash": "96.00",
+            "difference": "0.00",
+            "banking_amount": "40.00",
+            "closing_balance": "172.00",
+            "status": "CLOSED",
+            "note": ""
+          },
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-03",
+            "opening_cash": "172.00",
+            "sales_cash": "75.00",
+            "running_total": "247.00",
+            "actual_cash": null,
+            "difference": null,
+            "banking_amount": null,
+            "closing_balance": null,
+            "status": "NOT_CLOSED",
+            "note": ""
+          }
+        ],
+        [
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-01",
+            "opening_cash": "50.00",
+            "sales_cash": null,
+            "running_total": null,
+            "actual_cash": null,
+            "difference": null,
+            "banking_amount": null,
+            "closing_balance": null,
+            "status": "NOT_CLOSED",
+            "note": "Ledger stopped here: this day is not closed yet"
+          }
+        ],
+        [
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-03",
+            "opening_cash": "200.00",
+            "sales_cash": "75.00",
+            "running_total": "275.00",
+            "actual_cash": null,
+            "difference": null,
+            "banking_amount": null,
+            "closing_balance": null,
+            "status": "NOT_CLOSED",
+            "note": ""
+          }
+        ],
+        [],
+        [
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-02",
+            "opening_cash": "100.00",
+            "sales_cash": "96.00",
+            "running_total": "196.00",
+            "actual_cash": "96.00",
+            "difference": "0.00",
+            "banking_amount": "40.00",
+            "closing_balance": "156.00",
+            "status": "CLOSED",
+            "note": ""
+          },
+          {
+            "store_id": "1",
+            "store_name": "Fixture A",
+            "date": "2026-11-03",
+            "opening_cash": "156.00",
+            "sales_cash": "75.00",
+            "running_total": "231.00",
+            "actual_cash": null,
+            "difference": null,
+            "banking_amount": null,
+            "closing_balance": null,
+            "status": "NOT_CLOSED",
+            "note": ""
+          }
+        ]
+      ]
+    }
+  ]
+}

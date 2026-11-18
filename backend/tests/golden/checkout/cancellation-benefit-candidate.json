@@ -1,0 +1,953 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "oracle": "tools/checkout/cancellation_wallet_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/checkout/cancellation-benefit-candidate.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/checkout/cancellation_wallet_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+        "cases": [
+          {
+            "kind": "money",
+            "name": "one-earning",
+            "original": {
+              "user": {
+                "tss_money": 105.0,
+                "tss_points": 200.0,
+                "cashback": 105.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 5.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 105.0,
+                  "points": 200.0,
+                  "cashback": 105.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "reward",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 5.0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "Reward Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30"
+                },
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            },
+            "candidate": {
+              "user": {
+                "tss_money": 105.0,
+                "tss_points": 200.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 5.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 105.0,
+                  "points": 200.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 0,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            }
+          },
+          {
+            "kind": "money",
+            "name": "two-same-expiry",
+            "original": {
+              "user": {
+                "tss_money": 105.0,
+                "tss_points": 200.0,
+                "cashback": 105.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 2.0
+                },
+                {
+                  "kind": "mapping",
+                  "id": "2",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 105.0,
+                  "points": 200.0,
+                  "cashback": 105.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "reward",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 5.0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "Reward Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30"
+                },
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            },
+            "candidate": {
+              "user": {
+                "tss_money": 105.0,
+                "tss_points": 200.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 2.0
+                },
+                {
+                  "kind": "mapping",
+                  "id": "2",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 105.0,
+                  "points": 200.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 0,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            }
+          },
+          {
+            "kind": "money",
+            "name": "two-expiries",
+            "original": {
+              "user": {
+                "tss_money": 105.0,
+                "tss_points": 200.0,
+                "cashback": 105.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 2.0
+                },
+                {
+                  "kind": "mapping",
+                  "id": "2",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 102.0,
+                  "points": 200.0,
+                  "cashback": 102.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 105.0,
+                  "points": 200.0,
+                  "cashback": 105.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "reward",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 2.0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 102.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "Reward Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30"
+                },
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 2.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 102.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                },
+                {
+                  "ledger": "reward",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 3.0,
+                  "amt_before_update": 102.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "Reward Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30"
+                },
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 3.0,
+                  "used_amt": 0,
+                  "amt_before_update": 102.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-05-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 2,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            },
+            "candidate": {
+              "user": {
+                "tss_money": 105.0,
+                "tss_points": 200.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 2.0
+                },
+                {
+                  "kind": "mapping",
+                  "id": "2",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 102.0,
+                  "points": 200.0,
+                  "cashback": 7.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 105.0,
+                  "points": 200.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 2.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 102.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                },
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 3.0,
+                  "used_amt": 0,
+                  "amt_before_update": 102.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-05-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 0,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            }
+          },
+          {
+            "kind": "money",
+            "name": "expired-earning",
+            "original": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 200.0,
+                "cashback": 7.0
+              },
+              "effects": [],
+              "ledger": [
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": -5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 100.0,
+                  "platform": "TSS_MONEY_EXPIRED",
+                  "comment": "TSS Money Already Expired",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "is_expired": 1,
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                },
+                {
+                  "ledger": "reward",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": -5.0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 100.0,
+                  "platform": "CASHBACK_EXPIRED",
+                  "comment": "Reward Points Already Expired",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30"
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            },
+            "candidate": {
+              "rejected": "CANCELLATION_EXPIRED_EARNING_POLICY_REQUIRED"
+            }
+          },
+          {
+            "kind": "money",
+            "name": "incomplete-mapping",
+            "original": {
+              "user": {
+                "tss_money": 103.0,
+                "tss_points": 200.0,
+                "cashback": 103.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 103.0,
+                  "points": 200.0,
+                  "cashback": 103.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "reward",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 3.0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 103.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "Reward Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30"
+                },
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 3.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 103.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            },
+            "candidate": {
+              "rejected": "CANCELLATION_EARNING_TRACE_INCOMPLETE"
+            }
+          },
+          {
+            "kind": "money",
+            "name": "no-mapping",
+            "original": {
+              "user": {
+                "tss_money": 105.0,
+                "tss_points": 200.0,
+                "cashback": 105.0
+              },
+              "effects": [
+                {
+                  "kind": "balance",
+                  "money": 105.0,
+                  "points": 200.0,
+                  "cashback": 105.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "reward",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 5.0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "Reward Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-11-17 12:00:00+05:30"
+                },
+                {
+                  "ledger": "money",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 100.0,
+                  "amt_after_update": 105.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Money Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-11-17 12:00:00+05:30",
+                  "product_id": 10,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "1075100e9012f6f3bfd37a0913166c8d514f0cec21100b5042a495bad2567163"
+            },
+            "candidate": {
+              "rejected": "CANCELLATION_MISSING_EARNING_MAPPING"
+            }
+          },
+          {
+            "kind": "points",
+            "name": "one-earning",
+            "original": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 205.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 5.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 100.0,
+                  "points": 205.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "points",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "prod_id": 10,
+                  "game_category_id": 0,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 200.0,
+                  "amt_after_update": 205.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "0d949b1d3b56d866244b3fb0e0b1589c840f8bf095e5f5ea7f85e4c908926659"
+            },
+            "candidate": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 205.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 5.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 100.0,
+                  "points": 205.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "points",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "prod_id": 10,
+                  "game_category_id": 0,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 200.0,
+                  "amt_after_update": 205.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 0,
+              "sourceHash": "0d949b1d3b56d866244b3fb0e0b1589c840f8bf095e5f5ea7f85e4c908926659"
+            }
+          },
+          {
+            "kind": "points",
+            "name": "two-same-expiry",
+            "original": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 205.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 2.0
+                },
+                {
+                  "kind": "mapping",
+                  "id": "2",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 100.0,
+                  "points": 205.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "points",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "prod_id": 10,
+                  "game_category_id": 0,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 200.0,
+                  "amt_after_update": 205.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "0d949b1d3b56d866244b3fb0e0b1589c840f8bf095e5f5ea7f85e4c908926659"
+            },
+            "candidate": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 205.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 2.0
+                },
+                {
+                  "kind": "mapping",
+                  "id": "2",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 100.0,
+                  "points": 205.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "points",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "prod_id": 10,
+                  "game_category_id": 0,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 200.0,
+                  "amt_after_update": 205.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 0,
+              "sourceHash": "0d949b1d3b56d866244b3fb0e0b1589c840f8bf095e5f5ea7f85e4c908926659"
+            }
+          },
+          {
+            "kind": "points",
+            "name": "two-expiries",
+            "original": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 205.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 2.0
+                },
+                {
+                  "kind": "mapping",
+                  "id": "2",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 100.0,
+                  "points": 205.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "points",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "prod_id": 10,
+                  "game_category_id": 0,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 200.0,
+                  "amt_after_update": 205.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-05-01 00:00:00",
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "0d949b1d3b56d866244b3fb0e0b1589c840f8bf095e5f5ea7f85e4c908926659"
+            },
+            "candidate": {
+              "rejected": "CANCELLATION_POINTS_EXPIRY_POLICY_REQUIRED"
+            }
+          },
+          {
+            "kind": "points",
+            "name": "expired-earning",
+            "original": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 200.0,
+                "cashback": 7.0
+              },
+              "effects": [],
+              "ledger": [
+                {
+                  "ledger": "points",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "prod_id": 10,
+                  "game_category_id": 0,
+                  "added_amt": -5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 200.0,
+                  "amt_after_update": 200.0,
+                  "platform": "TSS_POINTS_EXPIRED",
+                  "comment": "TSS Points Already Expired",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "is_expired": 1,
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "0d949b1d3b56d866244b3fb0e0b1589c840f8bf095e5f5ea7f85e4c908926659"
+            },
+            "candidate": {
+              "rejected": "CANCELLATION_EXPIRED_EARNING_POLICY_REQUIRED"
+            }
+          },
+          {
+            "kind": "points",
+            "name": "incomplete-mapping",
+            "original": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 203.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "mapping",
+                  "id": "1",
+                  "before": 0.0,
+                  "after": 3.0
+                },
+                {
+                  "kind": "balance",
+                  "money": 100.0,
+                  "points": 203.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "points",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "prod_id": 10,
+                  "game_category_id": 0,
+                  "added_amt": 3.0,
+                  "used_amt": 0,
+                  "amt_before_update": 200.0,
+                  "amt_after_update": 203.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-02-01 00:00:00",
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "0d949b1d3b56d866244b3fb0e0b1589c840f8bf095e5f5ea7f85e4c908926659"
+            },
+            "candidate": {
+              "rejected": "CANCELLATION_EARNING_TRACE_INCOMPLETE"
+            }
+          },
+          {
+            "kind": "points",
+            "name": "no-mapping",
+            "original": {
+              "user": {
+                "tss_money": 100.0,
+                "tss_points": 205.0,
+                "cashback": 7.0
+              },
+              "effects": [
+                {
+                  "kind": "balance",
+                  "money": 100.0,
+                  "points": 205.0,
+                  "cashback": 7.0
+                }
+              ],
+              "ledger": [
+                {
+                  "ledger": "points",
+                  "user_id": 777,
+                  "order_id": 9007199254740993,
+                  "prod_id": 10,
+                  "game_category_id": 0,
+                  "added_amt": 5.0,
+                  "used_amt": 0,
+                  "amt_before_update": 200.0,
+                  "amt_after_update": 205.0,
+                  "platform": "ORDER_CANCELLED",
+                  "comment": "TSS Points Reverted For Order Cancellation",
+                  "added_user": 0,
+                  "created_at": "2026-11-17 12:00:00+05:30",
+                  "updated_at": "2026-11-17 12:00:00+05:30",
+                  "expiry": "2027-11-17 12:00:00",
+                  "has_product_id": 9007199254740995
+                }
+              ],
+              "sourceCommits": 1,
+              "sourceHash": "0d949b1d3b56d866244b3fb0e0b1589c840f8bf095e5f5ea7f85e4c908926659"
+            },
+            "candidate": {
+              "rejected": "CANCELLATION_MISSING_EARNING_MAPPING"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

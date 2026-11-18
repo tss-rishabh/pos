@@ -1,0 +1,127 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:38Z",
+  "test": "tests/checkout/discounts.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "0637984839a0a56183f0c6e094e79625e43a612fea8dd4636afd59bee9c3cc46",
+      "args": ["tools/checkout/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "emails": ["base@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["base@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["base@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["base@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["base@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["base@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["ten@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["ten@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["ten@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["ten@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["twenty@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["twenty@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["twenty@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": ["twenty@example.test"],
+          "fallback": false,
+          "exempt": false
+        },
+        {
+          "emails": [],
+          "fallback": true,
+          "exempt": false
+        },
+        {
+          "emails": [],
+          "fallback": false,
+          "exempt": true
+        },
+        {
+          "emails": [],
+          "fallback": true,
+          "exempt": false
+        },
+        {
+          "emails": [],
+          "fallback": false,
+          "exempt": true
+        },
+        {
+          "emails": [],
+          "fallback": true,
+          "exempt": false
+        },
+        {
+          "emails": [],
+          "fallback": false,
+          "exempt": true
+        },
+        {
+          "emails": [],
+          "fallback": true,
+          "exempt": false
+        },
+        {
+          "emails": [],
+          "fallback": false,
+          "exempt": true
+        }
+      ]
+    }
+  ]
+}
