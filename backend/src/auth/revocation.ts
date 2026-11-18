@@ -1,18 +1,16 @@
 import { createHash } from 'node:crypto';
-import { and, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { identifier } from '../domain/validation.js';
-import { bigint, mysqlTable, varchar } from 'drizzle-orm/mysql-core';
 import type { Databases } from '../db/pools.js';
 import { credentialVersion } from './crypto.js';
-import { operatorSessions } from './session-schema.js';
-import { loginChallenges, loginSecurity } from './mfa-schema.js';
-import { operatorMfaEnrollments } from '../modules/administration/mfa-schema.js';
 
-export const operatorAuthEpochs = mysqlTable('pos_rewrite_operator_auth_epochs', {
-  userId: varchar('operator_id', { length: 32 }).primaryKey(),
-  epoch: bigint('epoch', { mode: 'bigint', unsigned: true }).notNull().default(0n),
-});
+/**
+ * Compatibility surface for modules that bound short-lived grants to an
+ * "authentication version". The rewrite-only per-operator auth epochs
+ * (`pos_rewrite_operator_auth_epochs`) are gone (D1/D6, S5): legacy revokes sessions only
+ * on a password change or deactivation, which `sessions.ts` enforces on every request.
+ * The version is now derived from the account row alone, with no table read.
+ */
 type Database = ReturnType<Databases['get']>;
 export type AuthenticationTransaction = Parameters<Parameters<Database['transaction']>[0]>[0];
 type Reader = Pick<Database, 'select'>;
@@ -24,57 +22,26 @@ export function authenticationVersion(account: Account, epoch: bigint = 0n): str
     .update(String(epoch))
     .digest('hex');
 }
+/** Same value as before for an operator who never had an epoch; `_reader` is unused. */
 export async function currentAuthenticationVersion(
-  reader: Reader,
+  _reader: Reader,
   account: Account,
 ): Promise<string> {
-  const [row] = await reader
-    .select({ epoch: operatorAuthEpochs.epoch })
-    .from(operatorAuthEpochs)
-    .where(eq(operatorAuthEpochs.userId, String(account.id)))
-    .limit(1);
-  return authenticationVersion(account, row?.epoch ?? 0n);
+  return authenticationVersion(account);
 }
-/** Caller holds the operator row lock. Keep this in the credential mutation TX. */
+/**
+ * No-op kept for callers. Deactivation and password changes already end sessions on the
+ * next request (per-request `is_active` and password-hash checks), as legacy Django does.
+ */
 export async function invalidateOperatorAuthentication(
-  tx: AuthenticationTransaction,
+  _tx: AuthenticationTransaction,
   userId: string,
 ): Promise<void> {
-  return invalidateOperatorAuthenticationBatch(tx, [userId]);
+  identifier.parse(userId);
 }
-/** At most500 already-locked operators, five bounded SQL statements per batch. */
 export async function invalidateOperatorAuthenticationBatch(
-  tx: AuthenticationTransaction,
+  _tx: AuthenticationTransaction,
   userIds: readonly string[],
 ): Promise<void> {
-  const ids = [...new Set(z.array(identifier).max(500).parse(userIds))].sort((a, b) =>
-    BigInt(a) < BigInt(b) ? -1 : a === b ? 0 : 1,
-  );
-  if (!ids.length) return;
-  await tx
-    .insert(operatorAuthEpochs)
-    .values(ids.map((userId) => ({ userId, epoch: 1n })))
-    .onDuplicateKeyUpdate({ set: { epoch: sql`${operatorAuthEpochs.epoch}+1` } });
-  await tx
-    .update(operatorSessions)
-    .set({ revokedAt: new Date() })
-    .where(and(inArray(operatorSessions.userId, ids), isNull(operatorSessions.revokedAt)));
-  await tx.delete(loginChallenges).where(inArray(loginChallenges.userId, ids));
-  // Preserve failed attempts, resend cooldown and account lockout budgets.
-  await tx
-    .update(loginSecurity)
-    .set({ otpHash: null, otpExpiresAt: null })
-    .where(inArray(loginSecurity.userId, ids));
-  await tx
-    .update(operatorMfaEnrollments)
-    .set({ state: 'CANCELLED' })
-    .where(
-      and(
-        eq(operatorMfaEnrollments.state, 'PENDING'),
-        or(
-          inArray(operatorMfaEnrollments.operatorId, ids),
-          inArray(operatorMfaEnrollments.actorId, ids),
-        ),
-      ),
-    );
+  z.array(identifier).max(500).parse(userIds);
 }

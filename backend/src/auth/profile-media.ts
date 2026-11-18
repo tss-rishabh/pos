@@ -5,7 +5,6 @@ import { PosUser } from '../db/legacy-schema.js';
 import type { Principal } from '../domain/access.js';
 import { AppError } from '../domain/errors.js';
 import type { DocumentationMediaStore } from '../modules/administration/media-storage.js';
-import { ownedImageService } from '../modules/administration/image-lifecycle/service.js';
 import {
   imageAttachmentInput,
   imageKind,
@@ -14,7 +13,8 @@ import {
   type ImageOwnerAdapter,
 } from '../modules/administration/image-lifecycle/domain.js';
 import { profileRevision } from './profile.js';
-import { profileMediaJobs, profileUploads } from './profile-media-schema.js';
+import type { RedisPort } from '../redis/port.js';
+import { redisImageService } from './image-reservations.js';
 
 export const profileImageKind = imageKind;
 export type ProfileImageKind = ImageKind;
@@ -80,15 +80,10 @@ export function profileMediaService(
   config: Config,
   db: Databases,
   media: DocumentationMediaStore | undefined,
+  redis: RedisPort | undefined,
   now: () => number = Date.now,
 ) {
-  const lifecycle = ownedImageService(
-    db,
-    { uploads: profileUploads, jobs: profileMediaJobs },
-    profileImageOwner(config),
-    media,
-    now,
-  );
+  const lifecycle = redisImageService(db, redis, profileImageOwner(config), media, now);
   const context = (user: Principal) => ({ user, ownerId: user.id });
   return {
     reserve: (user: Principal, input: Parameters<typeof lifecycle.reserve>[1]) =>

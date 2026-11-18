@@ -7,10 +7,18 @@ import { PosUser } from '../db/legacy-schema.js';
 import { retryTransaction } from '../db/retry.js';
 import { AppError } from '../domain/errors.js';
 import type { Principal } from '../domain/access.js';
-import { lockAdministrationRegistry } from '../modules/administration/locks.js';
 import { credentialVersion, djangoPasswordHash, verifyDjangoPassword } from './crypto.js';
 import { assertPasswordPolicy } from './password-policy.js';
-import { currentAuthenticationVersion, invalidateOperatorAuthentication } from './revocation.js';
+
+/** mysql2 duplicate-key error on the pos_user unique keys (email, phone, contact_email). */
+function duplicateKey(error: unknown): boolean {
+  let current: unknown = error;
+  for (let depth = 0; depth < 4 && typeof current === 'object' && current !== null; depth++) {
+    if ('code' in current && current.code === 'ER_DUP_ENTRY') return true;
+    current = 'cause' in current ? current.cause : undefined;
+  }
+  return false;
+}
 
 const password = z.string().min(1).max(512);
 const phone = z
@@ -115,59 +123,68 @@ export function profileService(
     change: (row: Account) => Partial<Account>,
     protectUnique = false,
   ) {
-    return retryTransaction(() =>
-      db.get('writer').transaction(async (tx) => {
-        if (protectUnique) await lockAdministrationRegistry(tx, 'operators');
-        const [row] = await tx
-          .select()
-          .from(PosUser)
-          .where(eq(PosUser.id, BigInt(user.id)))
-          .limit(1)
-          .for('update');
-        if (!row || !row.is_active)
-          throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
-        if (revision(row) !== expected)
-          throw new AppError(
-            409,
-            'PROFILE_CHANGED',
-            'Your profile changed. Reload it before saving.',
-          );
-        const values = change(row);
-        if (protectUnique) {
-          const [duplicate] = await tx
-            .select({ id: PosUser.id })
+    // Legacy profile and password saves take no registry lock (users/views.py:297-316,508-516);
+    // the pos_user unique keys reject a duplicate contact.
+    try {
+      return await retryTransaction(() =>
+        db.get('writer').transaction(async (tx) => {
+          const [row] = await tx
+            .select()
             .from(PosUser)
-            .where(
-              and(
-                ne(PosUser.id, row.id),
-                or(
-                  values.email ? eq(PosUser.email, values.email) : undefined,
-                  values.phone ? eq(PosUser.phone, values.phone) : undefined,
-                  values.contact_email
-                    ? eq(PosUser.contact_email, values.contact_email)
-                    : undefined,
-                ),
-              ),
-            )
-            .limit(1);
-          if (duplicate)
+            .where(eq(PosUser.id, BigInt(user.id)))
+            .limit(1)
+            .for('update');
+          if (!row || !row.is_active)
+            throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
+          if (revision(row) !== expected)
             throw new AppError(
               409,
-              'PROFILE_CONTACT_UNAVAILABLE',
-              'A contact field is already in use.',
+              'PROFILE_CHANGED',
+              'Your profile changed. Reload it before saving.',
             );
-        }
-        await tx.update(PosUser).set(values).where(eq(PosUser.id, row.id));
-        const updated = { ...row, ...values };
-        const credentialsChanged = credentialVersion(row) !== credentialVersion(updated);
-        if (credentialsChanged) await invalidateOperatorAuthentication(tx, user.id);
-        return {
-          profile: view(updated),
-          authVersion: await currentAuthenticationVersion(tx, updated),
-          credentialsChanged,
-        };
-      }),
-    );
+          const values = change(row);
+          if (protectUnique) {
+            const [duplicate] = await tx
+              .select({ id: PosUser.id })
+              .from(PosUser)
+              .where(
+                and(
+                  ne(PosUser.id, row.id),
+                  or(
+                    values.email ? eq(PosUser.email, values.email) : undefined,
+                    values.phone ? eq(PosUser.phone, values.phone) : undefined,
+                    values.contact_email
+                      ? eq(PosUser.contact_email, values.contact_email)
+                      : undefined,
+                  ),
+                ),
+              )
+              .limit(1);
+            if (duplicate)
+              throw new AppError(
+                409,
+                'PROFILE_CONTACT_UNAVAILABLE',
+                'A contact field is already in use.',
+              );
+          }
+          await tx.update(PosUser).set(values).where(eq(PosUser.id, row.id));
+          const updated = { ...row, ...values };
+          return {
+            profile: view(updated),
+            /** Set when the password hash changed: other sessions end on their next request. */
+            password: updated.password !== row.password ? updated.password : null,
+          };
+        }),
+      );
+    } catch (error) {
+      if (duplicateKey(error))
+        throw new AppError(
+          409,
+          'PROFILE_CONTACT_UNAVAILABLE',
+          'That email or phone number is already used by another account.',
+        );
+      throw error;
+    }
   }
   return {
     async get(user: Principal) {

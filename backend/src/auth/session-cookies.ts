@@ -6,6 +6,7 @@ import { seal, unseal } from './crypto.js';
 import type { SessionCredential, SessionService } from './sessions.js';
 
 export const sessionCookieName = 'pos_session';
+export const pendingCookieName = 'pos_pending_login';
 export const sessionTokenSchema = z
   .object({
     id: identifier,
@@ -14,31 +15,41 @@ export const sessionTokenSchema = z
     secret: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   })
   .strict();
-export function authCookieOptions(config: Config) {
+export type SessionToken = z.infer<typeof sessionTokenSchema>;
+/** HttpOnly; Secure unless SESSION_COOKIE_SECURE=false (local http only); SameSite=Lax (legacy default). */
+export function authCookieOptions(config: Pick<Config, 'SESSION_COOKIE_SECURE'>) {
   return {
     httpOnly: true,
-    secure: config.NODE_ENV === 'production',
+    secure: config.SESSION_COOKIE_SECURE,
     sameSite: 'lax' as const,
     path: '/',
   };
 }
-/** Install only a committed credential; an idempotent replay preserves itself. */
+export function readSessionToken(
+  request: FastifyRequest,
+  config: Pick<Config, 'SESSION_SECRET'>,
+): SessionToken | undefined {
+  const raw = request.cookies[sessionCookieName];
+  if (!raw) return undefined;
+  try {
+    return sessionTokenSchema.parse(unseal(raw, config.SESSION_SECRET));
+  } catch {
+    return undefined;
+  }
+}
+/**
+ * Installs a new session cookie. Like Django's `login()` cycling the session key, the
+ * browser's previous session is deleted first.
+ */
 export async function writeSessionCookie(
-  config: Config,
-  sessions: SessionService,
+  config: Pick<Config, 'SESSION_SECRET' | 'SESSION_COOKIE_SECURE'>,
+  sessions: Pick<SessionService, 'revoke'>,
   request: FastifyRequest,
   reply: FastifyReply,
   operatorId: string,
   credential: SessionCredential,
 ) {
-  let prior: z.infer<typeof sessionTokenSchema> | undefined;
-  try {
-    prior = sessionTokenSchema.parse(
-      unseal(request.cookies[sessionCookieName] ?? '', config.SESSION_SECRET),
-    );
-  } catch {
-    /* A new or expired browser has no prior authenticated cookie. */
-  }
+  const prior = readSessionToken(request, config);
   if (prior && prior.sessionId !== credential.sessionId) await sessions.revoke(prior.sessionId);
   reply.setCookie(
     sessionCookieName,

@@ -9,14 +9,13 @@ import type { Principal } from '../domain/access.js';
 import { AppError } from '../domain/errors.js';
 import { qrDataUrl } from '../domain/qr.js';
 import { verifyDjangoPassword } from './crypto.js';
-import { currentAuthenticationVersion } from './revocation.js';
 import type { DeviceHandoffStore } from './device-handoff-store.js';
+import type { IdentityService } from './identity.js';
 
 const optional = (value: unknown) => (value === '' ? undefined : value);
 export function deviceHandoffOptions(env: NodeJS.ProcessEnv = process.env) {
   return z
     .object({
-      POS_DEVICE_HANDOFF_REDIS_URL: z.preprocess(optional, z.url().optional()),
       UPSTREAM_POS_DEVICE_HANDOFF_CONTRACT: z.preprocess(
         optional,
         z.literal('pos-auth-qr-v1').optional(),
@@ -44,13 +43,20 @@ export function deviceHandoffOptions(env: NodeJS.ProcessEnv = process.env) {
     .parse(env);
 }
 export type DeviceHandoffOptions = ReturnType<typeof deviceHandoffOptions>;
+/** mPOS app sign-in (legacy MPosLogin): email plus the QR code, or email plus password. */
 export const deviceHandoffVerification = z
   .object({
     email: z.email().max(254),
-    code: z.string().regex(/^\d{6}$/),
-    password: z.string().max(1024).optional(),
+    code: z
+      .string()
+      .regex(/^\d{6}$/)
+      .optional(),
+    password: z.string().max(4096).optional(),
   })
-  .strict();
+  .strict()
+  .refine((input) => input.code !== undefined || Boolean(input.password), {
+    message: 'Send the device code or the password.',
+  });
 export const deviceHandoffRevision = z
   .object({ revision: z.string().regex(/^[a-f0-9]{64}$/) })
   .strict();
@@ -66,15 +72,27 @@ export function handoffTotp(secret: string, period: number, timestamp: number): 
     period,
   }).generate({ timestamp });
 }
+type Account = typeof PosUser.$inferSelect;
+const failed = { status: 'failed' as const, isAuthenticated: false as const };
+/**
+ * Legacy AuthQRGen / MPosLogin over the legacy `auth_qr_{uid}` secret, with the S9
+ * hardening: QR codes are issued only for the signed-in operator (S2: legacy
+ * AjaxGenAuthQR let anyone fetch any user's code), are single use, expire with the QR
+ * period, are bound to the operator's current password hash, and verification attempts
+ * are limited per email. The mPOS service authenticates with a shared service key.
+ */
 export function deviceHandoffService(
   config: Config,
   db: Databases,
   options: DeviceHandoffOptions,
   store: DeviceHandoffStore | undefined,
+  identity: Pick<IdentityService, 'authenticate'>,
   now: () => number = Date.now,
 ) {
   const digest = (value: string) =>
     createHmac('sha256', config.SESSION_SECRET).update(value).digest('hex');
+  /** Legacy revocation semantics: a password change or deactivation ends the QR binding. */
+  const version = (account: Account) => digest(`version:${account.id}:${account.password}`);
   const available = Boolean(
     store && options.UPSTREAM_POS_DEVICE_HANDOFF_CONTRACT && options.POS_DEVICE_HANDOFF_SERVICE_KEY,
   );
@@ -83,9 +101,8 @@ export function deviceHandoffService(
       throw new AppError(503, 'DEVICE_HANDOFF_UNAVAILABLE', 'Device sign-in is not configured.');
     return store;
   }
-  function eligible(
-    account: typeof PosUser.$inferSelect | undefined,
-  ): account is typeof PosUser.$inferSelect & { email: string } {
+  /** legacy `user_type_exempt("[2]")` on AuthQRGen: franchise users are refused. */
+  function eligible(account: Account | undefined): account is Account & { email: string } {
     return Boolean(
       account?.is_active &&
       account.user_type === 1 &&
@@ -105,7 +122,7 @@ export function deviceHandoffService(
       throw new AppError(
         403,
         'DEVICE_HANDOFF_DENIED',
-        'Device sign-in requires an active internal account with an email address.',
+        'Device sign-in requires an active in-house account with an email address.',
       );
     return account;
   }
@@ -134,7 +151,7 @@ export function deviceHandoffService(
         const account = await current(tx, user),
           issued = await cache.issue(
             user.id,
-            digest(await currentAuthenticationVersion(tx, account)),
+            version(account),
             freshSecret(),
             options.POS_AUTH_USER_SECRET_EXP,
           ),
@@ -176,7 +193,21 @@ export function deviceHandoffService(
       const cache = ready(),
         email = input.email.trim().toLowerCase();
       if (!(await cache.attempt(digest(`attempt:${email}`), options.POS_AUTH_QR_EXP_SEC)))
-        return { status: 'failed' as const, isAuthenticated: false as const };
+        return failed;
+      if (input.code === undefined) {
+        // legacy MPosLogin without MPOS_QR_TAKE_PASSWORD and without a code:
+        // `authenticate(username=email, password=password)` (with S1 applied).
+        if (options.MPOS_QR_TAKE_PASSWORD || !input.password) return failed;
+        const account = await identity.authenticate(input.email, input.password);
+        return eligible(account ?? undefined)
+          ? {
+              status: 'success' as const,
+              isAuthenticated: true as const,
+              operatorId: String(account!.id),
+            }
+          : failed;
+      }
+      const code = input.code;
       return db.get('writer').transaction(async (tx) => {
         const accounts = await tx
           .select()
@@ -185,28 +216,24 @@ export function deviceHandoffService(
           .limit(2)
           .for('share');
         const account = accounts.length === 1 ? accounts[0] : undefined;
-        if (!eligible(account))
-          return { status: 'failed' as const, isAuthenticated: false as const };
+        if (!eligible(account)) return failed;
         const existing = await cache.read(String(account.id)),
-          version = digest(await currentAuthenticationVersion(tx, account)),
+          bound = version(account),
           timestamp = now();
         if (
           !existing ||
-          existing.version !== version ||
-          !sameCode(
-            input.code,
-            handoffTotp(existing.secret, options.POS_AUTH_QR_EXP_SEC, timestamp),
-          ) ||
+          existing.version !== bound ||
+          !sameCode(code, handoffTotp(existing.secret, options.POS_AUTH_QR_EXP_SEC, timestamp)) ||
           (options.MPOS_QR_TAKE_PASSWORD &&
             !(await verifyDjangoPassword(input.password || '', account.password)))
         )
-          return { status: 'failed' as const, isAuthenticated: false as const };
+          return failed;
         const used = digest(
-            `used:${account.id}:${Math.floor(timestamp / (options.POS_AUTH_QR_EXP_SEC * 1000))}:${input.code}`,
+            `used:${account.id}:${Math.floor(timestamp / (options.POS_AUTH_QR_EXP_SEC * 1000))}:${code}`,
           ),
           consumed = await cache.consume(
             String(account.id),
-            version,
+            bound,
             existing.secret,
             freshSecret(),
             used,
@@ -219,7 +246,7 @@ export function deviceHandoffService(
               isAuthenticated: true as const,
               operatorId: String(account.id),
             }
-          : { status: 'failed' as const, isAuthenticated: false as const };
+          : failed;
       });
     },
   };

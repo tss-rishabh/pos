@@ -12,16 +12,28 @@ import { identityService } from './auth/identity.js';
 import { registerAuth, authenticated } from './auth/routes.js';
 import { AppError } from './domain/errors.js';
 import { catalogBarcode, readCatalogBarcode } from './modules/catalog-barcode.js';
-import { memorySessions, mysqlSessions } from './auth/sessions.js';
+import { activeAccountReader, redisSessions } from './auth/sessions.js';
 import { loginChallengeService } from './auth/mfa.js';
-import { otpDelivery } from './auth/delivery.js';
+import {
+  liveLoginOtpTransport,
+  loginDeliveryOptions,
+  loginOtpDelivery,
+  sandboxLoginOtpTransport,
+} from './auth/delivery.js';
+import { authEventLogger } from './auth/events.js';
+import { fixedOtpSettings, loginOtpState } from './auth/login-otp.js';
+import { pendingLogins } from './auth/login-pending.js';
+import { loginCheckIns, storeDirectory } from './auth/checkin.js';
+import { demoAccountReader } from './auth/demo-session.js';
+import { connectRedisPort, unavailableRedisPort } from './redis/node-client.js';
+import { memoryRedisPort } from './redis/memory.js';
+import type { RedisPort } from './redis/port.js';
 import { profileService } from './auth/profile.js';
 import { registerProfile } from './auth/profile-routes.js';
 import { profileMediaService } from './auth/profile-media.js';
 import { deviceHandoffOptions, deviceHandoffService } from './auth/device-handoff.js';
 import { redisDeviceHandoffStore } from './auth/device-handoff-store.js';
 import { registerDeviceHandoffs } from './auth/device-handoff-routes.js';
-import { registerOperatorBinding } from './auth/operator-binding.js';
 import { registerProfileMedia } from './auth/profile-media-routes.js';
 import { checkInService } from './modules/administration/checkins.js';
 import { createProductSyncAdapter } from './modules/administration/product-sync.js';
@@ -86,7 +98,10 @@ import {
   registerGlobalVouchers,
 } from './modules/global-vouchers/index.js';
 import { registerCustomerContacts } from './modules/customer-contacts/index.js';
-import { registerCustomerWebsiteHandoff } from './modules/customer-website-handoff/index.js';
+import {
+  readCustomerWebsiteHandoffOptions,
+  registerCustomerWebsiteHandoff,
+} from './modules/customer-website-handoff/index.js';
 import { readCustomerContactOptions } from './modules/customer-contacts/options.js';
 import {
   customerOtpService,
@@ -132,7 +147,7 @@ class PrivateLogController extends LogController {
 }
 export async function buildApp(
   config: Config,
-  options: { logger?: FastifyServerOptions['logger'] } = {},
+  options: { logger?: FastifyServerOptions['logger']; authRedis?: RedisPort } = {},
 ) {
   const logger = options.logger
     ? ({
@@ -168,8 +183,17 @@ export async function buildApp(
   await app.register(cors, { origin: new URL(config.WEB_ORIGIN).origin, credentials: true });
   await app.register(helmet);
   await app.register(rateLimit, { max: 240, timeWindow: '1 minute' });
+  const authEvents = authEventLogger(app.log);
+  // Legacy redis_instance database 0: sessions, login OTP state, check-in lists, mPOS QR.
+  const authRedis =
+    options.authRedis ??
+    (config.DEMO_MODE
+      ? memoryRedisPort()
+      : config.REDIS_URL
+        ? connectRedisPort(config.REDIS_URL, config.NODE_ENV)
+        : unavailableRedisPort());
   const db = createDatabases(config),
-    identity = identityService(config, db);
+    identity = identityService(config, db, authEvents);
   const paymentCorrections = paymentCorrectionFinanceOptions(),
     checkoutRuntime = checkoutEnvironment(),
     reports = reportService(config, db, { paymentCorrections }),
@@ -278,11 +302,48 @@ export async function buildApp(
     });
   });
   const checkins = checkInService(db, config);
-  const challenges = loginChallengeService(config, db, identity, otpDelivery(), {
-    setCheckIn: (user, storeId, transaction) => checkins.set(user, storeId, null, transaction),
+  const sessions = redisSessions(
+    config,
+    config.DEMO_MODE ? demoAccountReader(demoUser) : activeAccountReader(db),
+    authRedis,
+  );
+  const deliveryOptions = loginDeliveryOptions(process.env, config.NODE_ENV);
+  const otpDelivery = loginOtpDelivery(
+    deliveryOptions.mode === 'live'
+      ? liveLoginOtpTransport(deliveryOptions)
+      : sandboxLoginOtpTransport(),
+    authEvents,
+    deliveryOptions.SERVICE_NAME,
+  );
+  const loginCheckIn = loginCheckIns(storeDirectory(db), authRedis);
+  const challenges = loginChallengeService(
+    config,
+    identity,
+    pendingLogins(authRedis, config.LOGIN_MFA_PENDING_TTL),
+    loginOtpState(authRedis, config),
+    otpDelivery,
+    fixedOtpSettings(),
+    authEvents,
+    { checkIn: loginCheckIn },
+  );
+  registerAuth(app, {
+    config,
+    identity,
+    sessions,
+    challenges,
+    checkIns: loginCheckIn,
+    log: authEvents,
+    demoUser,
+    // Interim: keep the administration check-in record in step until it reads the legacy keys.
+    mirrorCheckIn: config.DEMO_MODE
+      ? undefined
+      : (user, storeId) =>
+          storeId === '0' ? checkins.clear(user) : checkins.set(user, storeId, null),
   });
-  const sessions = config.DEMO_MODE ? memorySessions() : mysqlSessions(db);
-  const auth = registerAuth(app, config, identity, demoUser, sessions, challenges);
+  app.addHook('onClose', async () => {
+    await otpDelivery.drain();
+    await authRedis.close();
+  });
   const profileStore = config.DEMO_MODE
     ? undefined
     : createScopedMediaStore(config, readPrivateS3Options(), 'uploads/users', {
@@ -290,18 +351,19 @@ export async function buildApp(
         'cover-image': 'cover_image',
       });
   const profiles = profileService(config, db, { imagesAvailable: Boolean(profileStore) });
-  registerOperatorBinding(app);
-  registerProfile(app, profiles, identity, auth.rotateSession);
-  registerProfileMedia(app, profileMediaService(config, db, profileStore), profiles);
+  registerProfile(app, profiles, identity, sessions);
+  registerProfileMedia(app, profileMediaService(config, db, profileStore, authRedis), profiles);
   const handoffOptions = deviceHandoffOptions();
   const handoffStore =
     !config.DEMO_MODE &&
-    handoffOptions.POS_DEVICE_HANDOFF_REDIS_URL &&
     handoffOptions.UPSTREAM_POS_DEVICE_HANDOFF_CONTRACT &&
     handoffOptions.POS_DEVICE_HANDOFF_SERVICE_KEY
-      ? redisDeviceHandoffStore(config, handoffOptions.POS_DEVICE_HANDOFF_REDIS_URL)
+      ? redisDeviceHandoffStore(authRedis)
       : undefined;
-  registerDeviceHandoffs(app, deviceHandoffService(config, db, handoffOptions, handoffStore));
+  registerDeviceHandoffs(
+    app,
+    deviceHandoffService(config, db, handoffOptions, handoffStore, identity),
+  );
   const productSync = config.DEMO_MODE
     ? undefined
     : createProductSyncAdapter(config, readAdministrationWorkerOptions());
@@ -327,7 +389,6 @@ export async function buildApp(
     profileStore?.close();
     mediaStore?.close();
     storeImageStore?.close();
-    await handoffStore?.close();
     await settingsDelivery?.close?.();
   });
   registerAdministration(app, config, db, {
@@ -337,6 +398,7 @@ export async function buildApp(
     mediaStore,
     storeImageStore,
     operatorImageStore: profileStore,
+    operatorImageReservations: authRedis,
     settingsDelivery,
     ecommerceSyncVerified: ecommerceSync.ready,
     ecommerceCooldownSeconds: settingsOptions?.ECOM_DELIVERY_CHANGES_TIME,
@@ -377,7 +439,14 @@ export async function buildApp(
     projection: checkoutRuntime,
   });
   await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
-  registerCustomerWebsiteHandoff(app, config, db, customerOtp);
+  registerCustomerWebsiteHandoff(
+    app,
+    config,
+    db,
+    customerOtp,
+    readCustomerWebsiteHandoffOptions(),
+    sessions.alive,
+  );
   await registerFulfillment(app, config, db);
   registerShippingLabels(app, db);
   registerLegacyFulfillment(app, config, db);
