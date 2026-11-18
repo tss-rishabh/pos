@@ -331,10 +331,9 @@ def define_families():
            scope='Online fast-cash/prepaid sequence, frozen financial intent, receipt recovery and independent postpaid timing metadata.',
            external=['Accept real terminals/printers/provider and source private financial projection contracts.'])
     bind('fast-cash', ['AjaxFastCheckoutView'])
-    family('cashier-shortcuts', frontend=['src/pages/cashier-shortcuts', 'src/pages/counter.tsx', 'src/pages/checkout/CheckoutReview.tsx'],
-           tests=['frontend/tests/cashier-shortcuts/shortcuts.test.ts', 'frontend/e2e/checkout/cashier-shortcuts.spec.ts'], docs=['parity/cashier-shortcuts.md'],
-           scope='Source R/P/PP/F/N/E/B/S/T keyboard actions and help/off preference through current eligible controls, with typing/modifier/IME/modal/actor/financial fences; no shortcut charges or completes cash.',
-           state='partial', gaps=['Restore authenticated shortcut-reference access without a selected store/counter or store assignments. Source keyShortcutsView is login-only; the current help renders only inside the selection-gated counter. Preserve counter action fences while making the reference independently accessible.'])
+    family('cashier-shortcuts', frontend=['src/app.tsx', 'src/pages/cashier-shortcuts', 'src/pages/counter.tsx', 'src/pages/checkout/CheckoutReview.tsx'],
+           tests=['frontend/tests/cashier-shortcuts/shortcuts.test.ts', 'frontend/e2e/checkout/cashier-shortcuts.spec.ts', 'tools/cashier-shortcuts/source-help.py', 'tools/cashier-shortcuts/native-reference-fixture.ts', 'frontend/tools/cashier-shortcuts/joined-help.ts', 'frontend/tools/cashier-shortcuts/native-reference.ts'], docs=['parity/cashier-shortcuts.md'],
+           scope='Source R/P/PP/F/N/E/B/S/T keyboard actions and login-only standalone reference without store/counter selection or assignments; shared operator-scoped preference and guarded counter controls with typing/modifier/IME/modal/actor/financial fences. No shortcut charges or completes cash.')
     bind('cashier-shortcuts', ['keyShortcutsView', 'CreateOrderView'])
     family('order-to-cart-copy', ['src/modules/checkout/order-copy', 'src/modules/order-history/copy-adapter.ts'], ['src/pages/order-copy', 'src/pages/checkout/CheckoutReview.tsx', 'src/pages/counter.tsx', 'src/offline/review-snapshot.ts'],
            ['tests/checkout-order-copy', 'frontend/tests/order-copy', 'frontend/tests/offline-cash.test.ts'], ['parity/order-copy.md'],

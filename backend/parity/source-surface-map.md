@@ -16,7 +16,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **cashier-shortcuts (partial)**: Restore authenticated shortcut-reference access without a selected store/counter or store assignments. Source keyShortcutsView is login-only; the current help renders only inside the selection-gated counter. Preserve counter action fences while making the reference independently accessible.
+No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.
 
 ## Line-bound implementation review
 
@@ -106,7 +106,7 @@ Mapped surfaces: `order/urls.py:8` (external_acceptance), `order/urls.py:9` (ext
 
 ### checkout-cart
 
-Mapped surfaces: `order/urls.py:22` (external_acceptance), `order/urls.py:23` (partial), `order/urls.py:24` (external_acceptance), `order/urls.py:25` (external_acceptance), `order/urls.py:26` (external_acceptance), `order/urls.py:27` (external_acceptance), `order/urls.py:28` (external_acceptance), `order/urls.py:29` (external_acceptance), `order/urls.py:30` (external_acceptance), `order/urls.py:31` (external_acceptance), `order/urls.py:32` (external_acceptance), `order/urls.py:35` (external_acceptance), `order/urls.py:36` (external_acceptance), `order/urls.py:38` (external_acceptance), `order/urls.py:39` (external_acceptance), `order/templates/order/create_order.html` (partial), `order/templates/order/tab.html` (external_acceptance).
+Mapped surfaces: `order/urls.py:22` (external_acceptance), `order/urls.py:23` (external_acceptance), `order/urls.py:24` (external_acceptance), `order/urls.py:25` (external_acceptance), `order/urls.py:26` (external_acceptance), `order/urls.py:27` (external_acceptance), `order/urls.py:28` (external_acceptance), `order/urls.py:29` (external_acceptance), `order/urls.py:30` (external_acceptance), `order/urls.py:31` (external_acceptance), `order/urls.py:32` (external_acceptance), `order/urls.py:35` (external_acceptance), `order/urls.py:36` (external_acceptance), `order/urls.py:38` (external_acceptance), `order/urls.py:39` (external_acceptance), `order/templates/order/create_order.html` (external_acceptance), `order/templates/order/tab.html` (external_acceptance).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -243,9 +243,9 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 67 | 2 | 0 | 186 |
+| routes | 68 | 0 | 0 | 187 |
 | jobs | 0 | 0 | 1 | 31 |
-| templates | 31 | 2 | 3 | 70 |
+| templates | 32 | 0 | 3 | 71 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
@@ -363,7 +363,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:20` | `ajax-get-exchange-sizes/` | returns-exchanges | external_acceptance |
 | `order/urls.py:21` | `ajax-get-exchange-reasons/` | returns-exchanges | external_acceptance |
 | `order/urls.py:22` | `tab/` | motivational-quotes, checkout-cart | external_acceptance |
-| `order/urls.py:23` | `create-order/<int:store_id>/<int:counter_id>/<int:tab_id>/` | motivational-quotes, checkout-cart, cashier-shortcuts, order-to-cart-copy, customer-website-handoff | partial |
+| `order/urls.py:23` | `create-order/<int:store_id>/<int:counter_id>/<int:tab_id>/` | motivational-quotes, checkout-cart, cashier-shortcuts, order-to-cart-copy, customer-website-handoff | external_acceptance |
 | `order/urls.py:24` | `ajax-cart/` | checkout-cart | external_acceptance |
 | `order/urls.py:25` | `ajax-sync-cart/` | checkout-cart | external_acceptance |
 | `order/urls.py:26` | `ajax-wallet/` | checkout-cart | external_acceptance |
@@ -391,7 +391,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:50` | `ajax-transaction-status-check-paytm/` | payments | external_acceptance |
 | `order/urls.py:51` | `ajax-get-payment-mode-by-order-id/` | payments | external_acceptance |
 | `order/urls.py:54` | `ajax-fast-checkout/` | fast-cash | external_acceptance |
-| `order/urls.py:57` | `key-shortcuts/` | cashier-shortcuts | partial |
+| `order/urls.py:57` | `key-shortcuts/` | cashier-shortcuts | implementation_present |
 | `order/urls.py:58` | `ajax-m-user-mobile` | customer-contacts | external_acceptance |
 | `order/urls.py:59` | `ajax-m-user-email` | customer-contacts | external_acceptance |
 | `order/urls.py:60` | `ajax-add-feedback/` | product-feedback | implementation_present |
@@ -602,7 +602,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/_hl_banner.html` | `order/templates/order/_hl_banner.html` | express-fulfillment, notifications | external_acceptance |
 | `order/templates/order/add_order_feedback.html` | `order/templates/order/add_order_feedback.html` | product-feedback | implementation_present |
 | `order/templates/order/basic_error.html` | `order/templates/order/basic_error.html` | system-health | implementation_present |
-| `order/templates/order/create_order.html` | `order/templates/order/create_order.html` | checkout-cart, customer-workspace, customer-contacts, customer-verification, payments, fast-cash, cashier-shortcuts, order-to-cart-copy, customer-website-handoff, motivational-quotes | partial |
+| `order/templates/order/create_order.html` | `order/templates/order/create_order.html` | checkout-cart, customer-workspace, customer-contacts, customer-verification, payments, fast-cash, cashier-shortcuts, order-to-cart-copy, customer-website-handoff, motivational-quotes | external_acceptance |
 | `order/templates/order/hyperlocal/_all_stores_order_cards.html` | `order/templates/order/hyperlocal/_all_stores_order_cards.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/_hl_image_preview.html` | `order/templates/order/hyperlocal/_hl_image_preview.html` | express-fulfillment | external_acceptance |
@@ -616,7 +616,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
 | `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
 | `order/templates/order/shipping.html` | `order/templates/order/shipping.html` | shipping-labels | external_acceptance |
-| `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | partial |
+| `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
 | `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | external_acceptance |
 | `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | external_acceptance |
 | `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |

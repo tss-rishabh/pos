@@ -5,7 +5,7 @@
     {
       "kind": "route",
       "id": "core/urls.py:66",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/modules/motivational-quotes/index.ts",
         "backend/src/modules/motivational-quotes/pool.ts",
@@ -23,12 +23,12 @@
       "evidence": [
         "backend/evidence/quotes-route-reviewed-d717c89.json"
       ],
-      "notes": "Standalone authenticated quote retrieval: all 83 frozen source values, exact source handler/URL/auth binding, candidate HTTP guards and actual production-built counter\u2192backend refresh. Transport naming/envelope and strict validation follow the requested redesign/hardening. This does not certify whole counter/dashboard templates or other workflows. Current certificate is re-executed and re-bound; historical receipt remains unchanged."
+      "notes": "Standalone authenticated quote retrieval: all 83 frozen source values, exact source handler/URL/auth binding, candidate HTTP guards and actual production-built counter\u2192backend refresh. Transport naming/envelope and strict validation follow the requested redesign/hardening. This does not certify whole counter/dashboard templates or other workflows. Current certificate is re-executed and re-bound; historical receipt remains unchanged. Standalone help/shared-shell implementation changed after this execution; affected workflows must be re-executed before current admission. Historical evidence is retained."
     },
     {
       "kind": "route",
       "id": "core/urls.py:31",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -47,12 +47,12 @@
       "evidence": [
         "backend/evidence/lookup-routes-reviewed-d717c89.json"
       ],
-      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance."
+      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Standalone help/shared-shell implementation changed after this execution; affected workflows must be re-executed before current admission. Historical evidence is retained."
     },
     {
       "kind": "route",
       "id": "core/urls.py:167",
-      "status": "verified",
+      "status": "pending",
       "implementation": [
         "backend/src/app.ts",
         "backend/src/auth/routes.ts",
@@ -73,7 +73,7 @@
       "evidence": [
         "backend/evidence/lookup-routes-reviewed-d717c89.json"
       ],
-      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance."
+      "notes": "Exact source lookup route: original Django class/native rows, actual authenticated API and direct React consumer; documented transport/hardening changes. Does not certify the complete surrounding administration forms, identity provider or deployed reader acceptance. Standalone help/shared-shell implementation changed after this execution; affected workflows must be re-executed before current admission. Historical evidence is retained."
     }
   ],
   "requirements": [

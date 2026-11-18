@@ -18,26 +18,23 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 290,
-      "implementation_present": 98,
-      "partial": 4,
+      "external_acceptance": 292,
+      "implementation_present": 100,
       "missing": 4
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 186,
-        "implementation_present": 67,
-        "partial": 2
+        "external_acceptance": 187,
+        "implementation_present": 68
       },
       "jobs": {
         "external_acceptance": 31,
         "missing": 1
       },
       "templates": {
-        "implementation_present": 31,
-        "external_acceptance": 70,
-        "missing": 3,
-        "partial": 2
+        "implementation_present": 32,
+        "external_acceptance": 71,
+        "missing": 3
       },
       "websockets": {
         "external_acceptance": 1
@@ -47,7 +44,7 @@
       }
     },
     "families": 76,
-    "code_task_groups": 1,
+    "code_task_groups": 0,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -229,7 +226,7 @@
     "backend/parity/administration-settings.md": "dcc60ce8b79eeef09887da482873a3ffd6de2dfb2885ea1178b4629b9927a79e",
     "backend/parity/administration.md": "bed0fc1992cdc0dd52905a360304d03059bab4eb75c0229899883c9c058ed643",
     "backend/parity/business-metrics-prototype.md": "660c2e93228a914be1d6479be3c1b58e344b95f4a50375f046116861b3ea06ff",
-    "backend/parity/cashier-shortcuts.md": "38cec40f460030462832f60048893f40b529c84069398b2c9fc15d32b10a8fee",
+    "backend/parity/cashier-shortcuts.md": "94b147529890df6fcbd953df0b8c41408d3c8fb86ef5504cf3daaaccbb44136f",
     "backend/parity/catalog-details.md": "029db5d4a19e4709e5e1231b13803a6904207833742dbbe58ad80e5645400e22",
     "backend/parity/checkout-customer-verification.md": "f638f0929caf008f2a9ab329f3a82cd71809cc8cd17a6c06c88d3d9cac1fc0f6",
     "backend/parity/checkout-performance.md": "31a1d228231ba90578e01a0cc63bb5b966f57fb98b60440ed1e862872c6b1b16",
@@ -1329,6 +1326,8 @@
     "backend/tests/return-window/tsconfig.json": "c253f6c24ae7773991c73113a6a06eaf6b3e8fc90d50a8d646798e7b28942c14",
     "backend/tools/administration/model-accounts/source-oracle.py": "d5ac4f7e7b6e371fd4e17cff3a83f0b172a5ad6e0644bf7f073876b13e79b6c9",
     "backend/tools/administration/parent-store-imports/source-oracle.py": "9e120a1e2e326cfeaf47c33def3dd3d873c6815101c62d462a0bb24858fc6acc",
+    "backend/tools/cashier-shortcuts/native-reference-fixture.ts": "99a4f9c86bc6965d904292127ee7c13feb75e79c974e4aff67834f7f433355f2",
+    "backend/tools/cashier-shortcuts/source-help.py": "627255c9140b23eb0632c51c37a4e138eb8dec6f1c32b3e4e148b4d182f7d6be",
     "backend/tools/customer-website-handoff/check-receiver.mjs": "a9edc47ef04f06bbf62988ba15a993c56b8443617cb10bcf9ebe3232aad05e87",
     "backend/tools/order-search/source_oracle.py": "e51847adbae48cdff60394d43f6c62e9d2d67ed530a6362e12e68a859ee21ac2",
     "backend/tools/parity/check_business_metrics_reachability.py": "17aef4f9622964313a7a92c1c83f1a0df3124c5bc652839f3ae641670a21c0df",
@@ -1349,7 +1348,7 @@
     "frontend/e2e/checkout/product-feedback.spec.ts": "ea4472b0f05ada86a836e7772dbedc9a59a9634b999cc3366deb66e723b3c963",
     "frontend/e2e/checkout/wallet-adjustments.spec.ts": "4316c31ee98c66ed3c6f293f6827d5f67a0f4e17055114078f40938e5ac4312d",
     "frontend/e2e/motivational-quotes.spec.ts": "4451358d1f5915a1368ee58940fb9a6ea2f3510a34fb56e6e72dbd99643f7bf3",
-    "frontend/src/app.tsx": "1df789026fd0427fd6698021bff1f9eebcd5649d8b072b4f6147b441d1a17cc6",
+    "frontend/src/app.tsx": "6f13e46366bde8cd59bb8a16a7c8b21f12f624f36f2d28a01e570e83bbe58bfc",
     "frontend/src/components/common.tsx": "91b559434cf73ef433e191ed9157c8a381b49acbfa55cc5528314a609c7f11f4",
     "frontend/src/components/error-boundary.tsx": "068a7926f94588d641584e72e1589902be6134394b7aab971ca8866dfef7a13c",
     "frontend/src/components/motivational-quote.tsx": "c5ae3992a5beb1ff2b3e1ba3a4060159220811961158d8f2613d1ed3c7e02d50",
@@ -1444,8 +1443,10 @@
     "frontend/src/pages/administration/stores.tsx": "f95647d74a94d99b8e383626c83dde99bca0355ffc692e49cf3d77fc34f04901",
     "frontend/src/pages/administration/terminal-directory.tsx": "aefbf987fc867b879d0613c8021731d279baec02301426699b85dd0fc40c32ed",
     "frontend/src/pages/administration/terminals.tsx": "016662cccbf375f59d2e491be113bdca40c766fe0bfbdec5c94eb698ec6952d8",
-    "frontend/src/pages/cashier-shortcuts/help.tsx": "3a052529895659176fd98b6febe656add4ef4338ea878cb70ecf90ea72923e81",
+    "frontend/src/pages/cashier-shortcuts/help.tsx": "237ba8d16c10e807bda49e68eb297e31dee9a8822efce3cf6e30ab2ea7b1080a",
     "frontend/src/pages/cashier-shortcuts/membership.ts": "1f208a80ac5fea0149743cb3ff917b4b1ed5e35038c2db4bde10cdc90a95ea86",
+    "frontend/src/pages/cashier-shortcuts/preference.ts": "149c25b59a74b3b6100f374b60b3969e14f9553da9720c8b086dfe07807256fa",
+    "frontend/src/pages/cashier-shortcuts/reference.tsx": "e18c9c751ba28d47fbc2ae53ae855588d8918d45a101312a42634c940fa904b9",
     "frontend/src/pages/cashier-shortcuts/shortcuts.ts": "4139e80a44b1194e3e3b1906b7f22ca1a7d7514304386b679bd20dd231131fda",
     "frontend/src/pages/catalog/audit.tsx": "02adb7fc7dbbdf4296b90159b020e65dfedeed7aa6d2cf323e0e1c251bb23c6c",
     "frontend/src/pages/catalog/contracts.ts": "4b918c92bfe8e65539c31b0ac57dbccf30bc1294082f6f8f457b7bea5673cba0",
@@ -1490,7 +1491,7 @@
     "frontend/src/pages/checkout/payment-recovery.ts": "83d3572cd95316f612452718c3cdddff1415c1054f8c402a777a7c05e383ca4a",
     "frontend/src/pages/checkout/receipts.ts": "dea4b79b7c70c3dad061256ce2ad3a4e3ad16f3d42907094cccb5afcbd9c9790",
     "frontend/src/pages/checkout/salespeople.ts": "b228e05671c49eea491c3eb58805fb91f1ba9af46438668924dadfb1268db601",
-    "frontend/src/pages/counter.tsx": "d79e65a9ae3517b86121f6724d088a210a63e51443a1388513747462b963b846",
+    "frontend/src/pages/counter.tsx": "cf713116ae1edf781663d490f98c0a782a6dbc53c9e52438ab82591302f3b986",
     "frontend/src/pages/customer-contacts/api.ts": "c1dd8125e50ce6d0ae2ee2926796a58a3a2dbf86ab149b35138aa3ecbd110eb0",
     "frontend/src/pages/customer-contacts/index.tsx": "fba77951ceebc9782bd6aab991b9232e3b16bfbd0f6ef5fb49a5ea77321a2b10",
     "frontend/src/pages/customer-contacts/style.css": "d688a69f962186b8cbb7492e933b7f42578578ed066c294e8adfa8aab63cc76b",
@@ -1782,7 +1783,9 @@
     "frontend/tests/source-oracles/datatables-smart-search.json": "839e83f4ad0d23b4366e5d96086e137014411c3e03891e62e51eb2bb7a28b88f",
     "frontend/tests/source-oracles/datatables-smart-search.ts": "3ff5c5cb9fec3f656e9003b7a4efc3755b53002bb324565479f0121fa1074f23",
     "frontend/tests/wallet-adjustments/tsconfig.json": "b1cefe16a1ac1d17da31cc6c7ec884405316374a94633ccb1c022d4f07f4150f",
-    "frontend/tests/wallet-commands.test.ts": "5b296a0ac2fec9dca87c807a30cd13628208dc7d48232b63d1e364d288bd1443"
+    "frontend/tests/wallet-commands.test.ts": "5b296a0ac2fec9dca87c807a30cd13628208dc7d48232b63d1e364d288bd1443",
+    "frontend/tools/cashier-shortcuts/joined-help.ts": "9195498f80e56db44af05ce6a2e291e0bce15c2bf72159610ae7f528e5d5f76a",
+    "frontend/tools/cashier-shortcuts/native-reference.ts": "90ad3f0da5604a7a31c65edc173667af28d87ccedaf08ddffec8b0987ef3b716"
   },
   "families": [
     {
@@ -5071,7 +5074,7 @@
         {
           "kind": "routes",
           "id": "order/urls.py:23",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "routes",
@@ -5141,7 +5144,7 @@
         {
           "kind": "templates",
           "id": "order/templates/order/create_order.html",
-          "disposition": "partial"
+          "disposition": "external_acceptance"
         },
         {
           "kind": "templates",
@@ -5974,24 +5977,27 @@
     },
     {
       "id": "cashier-shortcuts",
-      "implementation_status": "partial",
+      "implementation_status": "implementation_present",
       "backend": [],
       "frontend": [
+        "frontend/src/app.tsx",
         "frontend/src/pages/cashier-shortcuts",
         "frontend/src/pages/counter.tsx",
         "frontend/src/pages/checkout/CheckoutReview.tsx"
       ],
       "tests": [
         "frontend/tests/cashier-shortcuts/shortcuts.test.ts",
-        "frontend/e2e/checkout/cashier-shortcuts.spec.ts"
+        "frontend/e2e/checkout/cashier-shortcuts.spec.ts",
+        "backend/tools/cashier-shortcuts/source-help.py",
+        "backend/tools/cashier-shortcuts/native-reference-fixture.ts",
+        "frontend/tools/cashier-shortcuts/joined-help.ts",
+        "frontend/tools/cashier-shortcuts/native-reference.ts"
       ],
       "parity_documents": [
         "backend/parity/cashier-shortcuts.md"
       ],
-      "implemented_scope": "Source R/P/PP/F/N/E/B/S/T keyboard actions and help/off preference through current eligible controls, with typing/modifier/IME/modal/actor/financial fences; no shortcut charges or completes cash.",
-      "remaining_code": [
-        "Restore authenticated shortcut-reference access without a selected store/counter or store assignments. Source keyShortcutsView is login-only; the current help renders only inside the selection-gated counter. Preserve counter action fences while making the reference independently accessible."
-      ],
+      "implemented_scope": "Source R/P/PP/F/N/E/B/S/T keyboard actions and login-only standalone reference without store/counter selection or assignments; shared operator-scoped preference and guarded counter controls with typing/modifier/IME/modal/actor/financial fences. No shortcut charges or completes cash.",
+      "remaining_code": [],
       "external_acceptance": [],
       "code_task_required": true,
       "notes": [],
@@ -5999,8 +6005,12 @@
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
       "test_files": [
+        "backend/tools/cashier-shortcuts/native-reference-fixture.ts",
+        "backend/tools/cashier-shortcuts/source-help.py",
         "frontend/e2e/checkout/cashier-shortcuts.spec.ts",
-        "frontend/tests/cashier-shortcuts/shortcuts.test.ts"
+        "frontend/tests/cashier-shortcuts/shortcuts.test.ts",
+        "frontend/tools/cashier-shortcuts/joined-help.ts",
+        "frontend/tools/cashier-shortcuts/native-reference.ts"
       ]
     },
     {
@@ -7762,15 +7772,7 @@
       ]
     }
   ],
-  "remaining_code_tasks": [
-    {
-      "family": "cashier-shortcuts",
-      "state": "partial",
-      "tasks": [
-        "Restore authenticated shortcut-reference access without a selected store/counter or store assignments. Source keyShortcutsView is login-only; the current help renders only inside the selection-gated counter. Preserve counter action fences while making the reference independently accessible."
-      ]
-    }
-  ],
+  "remaining_code_tasks": [],
   "routes": [
     {
       "source": {
@@ -11014,7 +11016,7 @@
         "order-to-cart-copy",
         "customer-website-handoff"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11886,7 +11888,7 @@
       "families": [
         "cashier-shortcuts"
       ],
-      "status": "partial",
+      "status": "implementation_present",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -17281,7 +17283,7 @@
         "customer-website-handoff",
         "motivational-quotes"
       ],
-      "status": "partial",
+      "status": "external_acceptance",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -17541,7 +17543,7 @@
       "families": [
         "cashier-shortcuts"
       ],
-      "status": "partial",
+      "status": "implementation_present",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

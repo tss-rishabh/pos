@@ -1,5 +1,24 @@
 # POS rewrite checkpoint
 
+The shortcut-access code gap is closed by `a1d54c8`/`4decfd5` (worker
+`12a9bf7`/`2c15317`): authenticated standalone reference and all-role navigation
+precede operational store-loading/selection guards, including optional trailing
+slash. The shared operator-keyed preference ignores legacy unowned values and
+retains counter actions/fences. Source10 cases, counter8 checks and native full
+App10 unassigned identities/8 access-isolation checks passed, with zero response
+interceptions or reference financial/catalogue dispatches. Current source map
+again has zero identified code gaps; do not describe the historical gap below
+as still active.
+
+The shared production shell/counter changed, so all three formerly current
+route certificates are temporarily pending re-execution; their original
+receipts remain untouched. Refresh workflows rather than editing old hashes.
+Feedback13 source-browser/native cases are integrated but full App entry proof
+remains unexecuted; warehouse-dependent history discovery stays separate.
+Next: focused affected proof refresh, prerequisite-complete/quiescent full r8,
+and latest native desktop CI. Root's original shared dependencies and Python
+environments remain unchanged.
+
 Current code gap: shortcut reference is inaccessible without a selected
 store/counter or store assignment, unlike source login-only help. The map now
 records one partial family (four affected surfaces); a worker owns global
