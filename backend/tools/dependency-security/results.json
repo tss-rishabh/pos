@@ -1,0 +1,63 @@
+{
+  "contract": "pos-picomatch-review-evidence-v1",
+  "date": "2026-11-18",
+  "sourceHead": "f5d3e56054067ca48fc0fd666353824cf6f0d5b8",
+  "node": "v22.23.2",
+  "platform": "macOS",
+  "activated": false,
+  "candidateParserSha256": "a9cd16504c08652f1beae523a517b210edacefc79c49ec24275df29a84d37ab5",
+  "publishedArchiveVerification": {
+    "bytes": 24326,
+    "sha512MatchesBothProjectLocks": true,
+    "originalFilesCompared": 9
+  },
+  "boundedRegexChecks": {
+    "childMemoryMiB": 128,
+    "hostileDeadlineMilliseconds": 1500,
+    "baselineCasesKilledAtDeadline": 8,
+    "candidateCasesCompleted": 8,
+    "candidateInputLengthAtLeast": 10001,
+    "largestObservedCandidateMilliseconds": 8.214,
+    "unsupportedFormsActuallyLiteralized": 5
+  },
+  "compatibility": {
+    "ownedConfigAndToolDefaultPatterns": 127,
+    "trackedAndGeneratedSubjects": 5675,
+    "optionSets": 6,
+    "identicalRegexSources": 762,
+    "equalOwnedMatchPairs": 4324350,
+    "equalQualifiedLinearizationPairs": 9750,
+    "differences": 0,
+    "arbitraryExtglobSemanticsPreserved": false,
+    "arbitraryCaptureDistributionPreserved": false
+  },
+  "upstream254": {
+    "commit": "c63a5bf4e61dbdb81bc41e97dc2616c30acce337",
+    "parserGitBlobVerified": "379ea41bae6ca13a855d4687b6d50e28dc79faff",
+    "separatorCounterexample": {
+      "pattern": "+([a/]*)",
+      "subject": "a/a",
+      "publishedResult": true,
+      "proposalResult": false
+    },
+    "multiBranchStillExceedsDeadline": true
+  },
+  "isolatedIntegration": {
+    "projectInstallChanged": false,
+    "npmFileOverrideTested": true,
+    "deduplicatedCandidateCopies": 1,
+    "packageName": "picomatch",
+    "packageVersion": "4.0.7",
+    "tinyglobbyVersion": "0.2.17",
+    "fdirVersion": "6.5.0",
+    "fixtureTestsDiscovered": 3,
+    "temporaryPackageAndCacheRemoved": true
+  },
+  "limits": [
+    "Development advisory remains open; candidate not selected",
+    "No complete Vite/Vitest project run against candidate",
+    "No Windows/Linux candidate run",
+    "No general untrusted-regex safety certification",
+    "No independently unpacked Electron artifact certified"
+  ]
+}

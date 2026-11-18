@@ -1,0 +1,166 @@
+{
+  "contract": "pos-development-glob-exposure-v1",
+  "sourceHead": "f5d3e56054067ca48fc0fd666353824cf6f0d5b8",
+  "packages": [
+    {
+      "project": "backend",
+      "lockSha256": "f9720784789d7ca8b2780a671fe592776303701569f8d9f0f0e270e94a5a9e69",
+      "installedPicomatch": [
+        {
+          "version": "4.0.7",
+          "dev": true,
+          "location": "node_modules/picomatch"
+        }
+      ],
+      "directConsumers": [
+        {
+          "package": "fdir",
+          "version": "6.5.0",
+          "kind": "peerDependencies",
+          "range": "^3 || ^4",
+          "development": true
+        },
+        {
+          "package": "tinyglobby",
+          "version": "0.2.17",
+          "kind": "dependencies",
+          "range": "^4.0.4",
+          "development": true
+        },
+        {
+          "package": "vite",
+          "version": "8.3.8",
+          "kind": "dependencies",
+          "range": "^4.0.7",
+          "development": true
+        },
+        {
+          "package": "vitest",
+          "version": "5.1.0",
+          "kind": "dependencies",
+          "range": "^4.0.7",
+          "development": true
+        }
+      ],
+      "dependencyPaths": [
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/parser@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/parser@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/type-utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/type-utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/type-utils@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/type-utils@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/parser@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/parser@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "vitest@5.1.0 → @vitest/mocker@5.1.0 → vite@8.3.8 → picomatch@4.0.7",
+        "vitest@5.1.0 → @vitest/mocker@5.1.0 → vite@8.3.8 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "vitest@5.1.0 → @vitest/mocker@5.1.0 → vite@8.3.8 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "vitest@5.1.0 → picomatch@4.0.7",
+        "vitest@5.1.0 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "vitest@5.1.0 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "vitest@5.1.0 → vite@8.3.8 → picomatch@4.0.7",
+        "vitest@5.1.0 → vite@8.3.8 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "vitest@5.1.0 → vite@8.3.8 → tinyglobby@0.2.17 → picomatch@4.0.7"
+      ],
+      "productionDependencyPresent": false
+    },
+    {
+      "project": "frontend",
+      "lockSha256": "58672f2fc8fb9740e70b8cc935ffd42efd2ebcc866da42f0d43fec6f96b44ef9",
+      "installedPicomatch": [
+        {
+          "version": "4.0.7",
+          "dev": true,
+          "location": "node_modules/picomatch"
+        }
+      ],
+      "directConsumers": [
+        {
+          "package": "fdir",
+          "version": "6.5.0",
+          "kind": "peerDependencies",
+          "range": "^3 || ^4",
+          "development": true
+        },
+        {
+          "package": "tinyglobby",
+          "version": "0.2.17",
+          "kind": "dependencies",
+          "range": "^4.0.4",
+          "development": true
+        },
+        {
+          "package": "vite",
+          "version": "8.3.8",
+          "kind": "dependencies",
+          "range": "^4.0.7",
+          "development": true
+        },
+        {
+          "package": "vitest",
+          "version": "5.1.0",
+          "kind": "dependencies",
+          "range": "^4.0.7",
+          "development": true
+        }
+      ],
+      "dependencyPaths": [
+        "@vitejs/plugin-react@6.3.0 → vite@8.3.8 → picomatch@4.0.7",
+        "@vitejs/plugin-react@6.3.0 → vite@8.3.8 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "@vitejs/plugin-react@6.3.0 → vite@8.3.8 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "electron-builder@26.18.0 → app-builder-lib@26.18.0 → @electron/rebuild@4.2.1 → node-gyp@12.4.0 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "electron-builder@26.18.0 → app-builder-lib@26.18.0 → @electron/rebuild@4.2.1 → node-gyp@12.4.0 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "electron-builder@26.18.0 → dmg-builder@26.18.0 → app-builder-lib@26.18.0 → @electron/rebuild@4.2.1 → node-gyp@12.4.0 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "electron-builder@26.18.0 → dmg-builder@26.18.0 → app-builder-lib@26.18.0 → @electron/rebuild@4.2.1 → node-gyp@12.4.0 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/parser@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/parser@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/type-utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/type-utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/type-utils@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/type-utils@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/eslint-plugin@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/parser@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/parser@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "typescript-eslint@8.72.2 → @typescript-eslint/utils@8.72.2 → @typescript-eslint/typescript-estree@8.72.2 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "vite@8.3.8 → picomatch@4.0.7",
+        "vite@8.3.8 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "vite@8.3.8 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "vitest@5.1.0 → @vitest/mocker@5.1.0 → vite@8.3.8 → picomatch@4.0.7",
+        "vitest@5.1.0 → @vitest/mocker@5.1.0 → vite@8.3.8 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "vitest@5.1.0 → @vitest/mocker@5.1.0 → vite@8.3.8 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "vitest@5.1.0 → picomatch@4.0.7",
+        "vitest@5.1.0 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "vitest@5.1.0 → tinyglobby@0.2.17 → picomatch@4.0.7",
+        "vitest@5.1.0 → vite@8.3.8 → picomatch@4.0.7",
+        "vitest@5.1.0 → vite@8.3.8 → tinyglobby@0.2.17 → fdir@6.5.0 → picomatch@4.0.7",
+        "vitest@5.1.0 → vite@8.3.8 → tinyglobby@0.2.17 → picomatch@4.0.7"
+      ],
+      "productionDependencyPresent": false
+    }
+  ],
+  "sourceImports": [],
+  "sourceGlobImports": [],
+  "existingFrontendArtifact": {
+    "exists": true,
+    "javascriptFiles": 57,
+    "parserMarkers": [],
+    "exhaustiveModuleGraph": false
+  },
+  "frontendDevCommand": "vite --host 127.0.0.1",
+  "frontendPreviewCommand": "vite preview --host 127.0.0.1",
+  "desktopBuildFiles": [
+    "dist/**/*",
+    "electron/**/*",
+    "package.json",
+    "!node_modules/**/*"
+  ]
+}
