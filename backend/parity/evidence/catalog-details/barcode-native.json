@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "scope": "Exact barcode PRIMARY SQL and writer-current authority, isolated native fixture; not whole source checkout parity",
+  "nativeExecution": {
+    "fixture": "owned-barcode-native",
+    "image": "sha256:ccb8f749bb5e59f9f8f03bf7282c7ef27a93a1814a24f0a8a926fb4e19b7fb97",
+    "inputsBefore": {
+      "backend/src/app.ts": "e19d3ffd1bce183a2134525b1043e84990a4b00e7103fc5563a7b596fff43989",
+      "backend/src/modules/catalog.ts": "7fe7701597e570eb53ba13b8c2808fbc6afeb18bf7881cd1c0bc2dfde6b852d5",
+      "backend/src/modules/catalog-barcode.ts": "6a9c129cd0f3b10246d5b8badabda77cfc6afd4a78a9a6ee9b9c0a99f596e4e6",
+      "backend/tests/catalog-barcode.test.ts": "63b57c789d7d09fba9a53b2a36a8db057faafcd67abc3d603301016d75757a62",
+      "backend/tests/catalog-details/mysql.integration.test.ts": "1b089a94205d364b46810a95d444ef016b4c9d3f9571cc499cf0d75f8d1d17a5"
+    },
+    "native": {
+      "exitCode": 0,
+      "numPassedTests": 1,
+      "numFailedTests": 0,
+      "numPendingTests": 5
+    },
+    "unit": {
+      "exitCode": 0,
+      "numPassedTests": 11,
+      "numFailedTests": 0,
+      "numPendingTests": 0
+    },
+    "inputsAfter": {
+      "backend/src/app.ts": "e19d3ffd1bce183a2134525b1043e84990a4b00e7103fc5563a7b596fff43989",
+      "backend/src/modules/catalog.ts": "7fe7701597e570eb53ba13b8c2808fbc6afeb18bf7881cd1c0bc2dfde6b852d5",
+      "backend/src/modules/catalog-barcode.ts": "6a9c129cd0f3b10246d5b8badabda77cfc6afd4a78a9a6ee9b9c0a99f596e4e6",
+      "backend/tests/catalog-barcode.test.ts": "63b57c789d7d09fba9a53b2a36a8db057faafcd67abc3d603301016d75757a62",
+      "backend/tests/catalog-details/mysql.integration.test.ts": "1b089a94205d364b46810a95d444ef016b4c9d3f9571cc499cf0d75f8d1d17a5"
+    },
+    "cleanup": {
+      "containerId": "4351b7dd81ebdbb797f099cd3b7ab10832b446e6ccf85da9312d9d886d12510f",
+      "absent": true,
+      "anonymousVolumes": 0
+    }
+  },
+  "rawReports": {
+    "native": {
+      "path": "/var/folders/kg/n7qdhw654h5711v5h9hkvg040000gn/T/pos-barcode-native-final-1ggfw129/native.json",
+      "sha256": "1b6764a95ac36d2d67c9594f66366b34ba0dadb5ea60a735b0517f2938242bfe"
+    },
+    "unit": {
+      "path": "/var/folders/kg/n7qdhw654h5711v5h9hkvg040000gn/T/pos-barcode-native-final-1ggfw129/unit.json",
+      "sha256": "7e82c40029772b16be6bc8c3fedf0b1220c053bfffbdbc4e26868c2fea26fdbd"
+    }
+  },
+  "boundaries": {
+    "nativeCases": 1,
+    "nativeUnselectedCases": 5,
+    "unitAndActualDemoAppCases": 11,
+    "sourceOrProviderCalls": false,
+    "afterNativeFormattingOnly": [
+      "backend/tests/catalog-barcode.test.ts"
+    ],
+    "finalUnitRerunPassed": 11,
+    "mainAndScopedStrict": "passed",
+    "changedEslint": "passed",
+    "initialFailure": "Retained /var/folders/kg/n7qdhw654h5711v5h9hkvg040000gn/T/pos-barcode-native-bcp3r4xg: generic physical fixture lacked saved uq_product_store index required by existing FORCE INDEX. Fixture restores/drops verified index; production SQL unchanged."
+  }
+}

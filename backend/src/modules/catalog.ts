@@ -83,6 +83,7 @@ export function catalogService(databases: Databases) {
       after = '0',
       limit = 30,
       includeOutOfStock = false,
+      exactBarcode?: string,
     ): Promise<Page<ProductDto>> {
       requireStore(user, storeId);
       const parent = alias(Product, 'catalog_parent');
@@ -138,13 +139,15 @@ export function catalogService(databases: Databases) {
             ),
             or(ne(Product.parent_prod_id, 0n), ne(Product.prod_type, 3n)),
             gt(Product.id, BigInt(after)),
-            search
-              ? or(
-                  like(Product.product, pattern),
-                  sql`cast(${Product.id} as char) like ${pattern}`,
-                  sql`exists (select 1 from ${ProductBarcode} where ${ProductBarcode.product}=${Product.id} and ${ProductBarcode.gtin} like ${pattern})`,
-                )
-              : undefined,
+            exactBarcode !== undefined
+              ? sql`exists (select 1 from ${ProductBarcode} where ${ProductBarcode.product}=${Product.id} and ${ProductBarcode.gtin}=${BigInt(exactBarcode)})`
+              : search
+                ? or(
+                    like(Product.product, pattern),
+                    sql`cast(${Product.id} as char) like ${pattern}`,
+                    sql`exists (select 1 from ${ProductBarcode} where ${ProductBarcode.product}=${Product.id} and ${ProductBarcode.gtin} like ${pattern})`,
+                  )
+                : undefined,
           ),
         )
         .orderBy(asc(Product.id))

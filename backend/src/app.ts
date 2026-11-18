@@ -11,6 +11,7 @@ import { configuredStockProjection } from './db/stock-projection/options.js';
 import { identityService } from './auth/identity.js';
 import { registerAuth, authenticated } from './auth/routes.js';
 import { AppError } from './domain/errors.js';
+import { catalogBarcode, readCatalogBarcode } from './modules/catalog-barcode.js';
 import { memorySessions, mysqlSessions } from './auth/sessions.js';
 import { desktopSsoService } from './auth/desktop-sso.js';
 import { registerDesktopSso } from './auth/desktop-sso-routes.js';
@@ -214,6 +215,7 @@ export async function buildApp(
         '/api/v1/stores',
         '/api/v1/stores/:storeId/counters',
         '/api/v1/stores/:storeId/catalog/products',
+        '/api/v1/stores/:storeId/catalog/products/by-barcode/:barcode',
         '/api/v1/stores/:storeId/orders',
         '/api/v1/stores/:storeId/orders/:orderId',
         '/api/v1/stores/:storeId/orders/searches',
@@ -519,6 +521,33 @@ export async function buildApp(
       q.includeOutOfStock,
     );
   });
+  app.get(
+    '/api/v1/stores/:storeId/catalog/products/by-barcode/:barcode',
+    { config: { trace: { module: 'catalog', resource: 'barcode-product', action: 'read' } } },
+    async (request, reply) => {
+      const user = authenticated(request);
+      const params = scope.extend({ barcode: catalogBarcode }).strict().parse(request.params);
+      z.object({}).strict().parse(request.query);
+      if (request.headers['x-operator-id'] !== user.id)
+        throw new AppError(
+          409,
+          'OPERATOR_CHANGED',
+          'The active operator changed. Refresh this workspace.',
+        );
+      if (!request.authSessionValid || !(await request.authSessionValid()))
+        throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
+      const result = await readCatalogBarcode(
+        services.catalog,
+        config.DEMO_MODE ? null : db,
+        user,
+        params.storeId,
+        params.barcode,
+      );
+      if (!(await request.authSessionValid()))
+        throw new AppError(401, 'AUTH_REQUIRED', 'Sign in to continue.');
+      return reply.header('Cache-Control', 'private, no-store').send(result);
+    },
+  );
   registerPublicOrders(app, services.orders);
   registerOnlineOrderDetails(app, config, db);
   await registerOrderSearch(

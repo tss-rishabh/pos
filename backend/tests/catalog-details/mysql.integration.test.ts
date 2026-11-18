@@ -16,6 +16,8 @@ import {
 import { catalogDetailsService } from '../../src/modules/catalog-details/service.js';
 import { inventoryAuditService } from '../../src/modules/catalog-details/audit.js';
 import { catalogSnapshotService } from '../../src/modules/catalog-details/snapshot.js';
+import { catalogService } from '../../src/modules/catalog.js';
+import { readCatalogBarcode } from '../../src/modules/catalog-barcode.js';
 import {
   inventoryMatrixService,
   inventoryMatrixInput,
@@ -59,6 +61,44 @@ describe.skipIf(!integration)(
       if (!connection) throw new Error('Catalog fixture unavailable.');
       return connection;
     };
+    it('resolves exact alternate barcodes without fuzzy matches or duplicate SKU multiplication', async () => {
+      // The generic source fixture omits secondary indexes. Restore this saved
+      // physical unique index for the existing POS catalog FORCE INDEX contract.
+      await native().query(
+        'CREATE UNIQUE INDEX uq_product_store ON product_store(product_id,store_id)',
+      );
+      try {
+        const catalog = catalogService(db());
+        const read = (barcode: string, store = '1') =>
+          readCatalogBarcode(catalog, db(), principal, store, barcode);
+        const alternate = await read('0009007199254740994');
+        expect(alternate).toMatchObject({
+          matchedBarcode: '9007199254740994',
+          product: { id: '11', barcode: '9007199254740993', stock: 3 },
+        });
+        await expect(read('900719925474099')).rejects.toMatchObject({ code: 'BARCODE_NOT_FOUND' });
+        await expect(read('9007199254740995')).rejects.toMatchObject({ code: 'BARCODE_NOT_FOUND' });
+        await expect(read('9007199254740993', '3')).rejects.toMatchObject({
+          code: 'STORE_ACCESS_DENIED',
+        });
+        await native().query(
+          'INSERT INTO products_gs1(id,product_id,gtin,created_at,updated_at) VALUES(100,11,9007199254740994,NOW(),NOW())',
+        );
+        try {
+          expect((await read('9007199254740994')).product.id).toBe('11');
+          await native().query(
+            'INSERT INTO products_gs1(id,product_id,gtin,created_at,updated_at) VALUES(101,30,9007199254740994,NOW(),NOW())',
+          );
+          await expect(read('9007199254740994')).rejects.toMatchObject({
+            code: 'BARCODE_AMBIGUOUS',
+          });
+        } finally {
+          await native().query('DELETE FROM products_gs1 WHERE id IN (100,101)');
+        }
+      } finally {
+        await native().query('DROP INDEX uq_product_store ON product_store');
+      }
+    });
     beforeAll(async () => {
       const url = new URL(integration!);
       if (!['127.0.0.1', 'localhost'].includes(url.hostname))
