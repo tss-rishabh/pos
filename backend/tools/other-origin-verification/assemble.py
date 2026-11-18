@@ -20,6 +20,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import uuid
 
 HERE = Path(__file__).resolve().parent
 BACKEND = HERE.parents[1]
@@ -284,7 +285,7 @@ def run_phase(phase, source, modules_source, docker, before_source, before_produ
                 else:
                     mapped.append(value)
             command = [str(proxy), 'run', '--rm', '--network', 'none', '--read-only',
-                       '--tmpfs', '/tmp:rw,nosuid,nodev,size=512m']
+                       '--tmpfs', '/tmp:rw,exec,nosuid,nodev,size=512m']
             for root, mount in roots:
                 command += ['-v', str(root) + ':' + mount + ':ro']
             command += ['-v', str(producer_cache) + ':/cache', '-e', 'GOCACHE=/cache',
@@ -409,6 +410,7 @@ def run_phase(phase, source, modules_source, docker, before_source, before_produ
         # Source/caches/logs stay private for review. No raw diagnostics escape.
         print(json.dumps({'module': 'verification', 'resource': 'other-origin-' + phase,
                           'eventId': 'verification.other-origin.' + phase + '.completed',
+                          'eventInstanceId': str(uuid.uuid4()), 'requestId': None, 'userId': None,
                           'completed': result['completed'], 'evidenceDirectory': str(work),
                           'failure': result.get('failure')}), flush=True)
     return result['completed']
@@ -421,7 +423,10 @@ def main():
     os.umask(0o077)
     source, modules, docker, source_hashes, producer_hashes = preflight()
     if arguments.phase == 'preflight':
-        print(json.dumps({'eventId': 'verification.other-origin.preflight.completed', 'valid': True, 'sourcePin': PIN}))
+        print(json.dumps({'module': 'verification', 'resource': 'other-origin-preflight',
+                          'eventId': 'verification.other-origin.preflight.completed',
+                          'eventInstanceId': str(uuid.uuid4()), 'requestId': None, 'userId': None,
+                          'valid': True, 'sourcePin': PIN}))
         return 0
     return 0 if run_phase(arguments.phase, source, modules, docker, source_hashes, producer_hashes) else 1
 
@@ -434,5 +439,8 @@ if __name__ == '__main__':
             sys.exit(main())
         except Exception as error:
             code = str(error) if isinstance(error, RuntimeError) else 'ORIGIN_VERIFICATION_PREFLIGHT_FAILED'
-            print(json.dumps({'eventId': 'verification.other-origin.preflight.failed', 'failure': code}), file=sys.stderr)
+            print(json.dumps({'module': 'verification', 'resource': 'other-origin-preflight',
+                              'eventId': 'verification.other-origin.preflight.failed',
+                              'eventInstanceId': str(uuid.uuid4()), 'requestId': None, 'userId': None,
+                              'failure': code}), file=sys.stderr)
             sys.exit(1)
