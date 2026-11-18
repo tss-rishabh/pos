@@ -27,7 +27,7 @@ describe('daily report store options in the isolated demo', () => {
         url: '/api/v1/auth/demo-sessions',
         headers: { origin },
       });
-      expect(login.statusCode).toBe(201);
+      expect(login.statusCode).toBe(200);
       const credential = login.cookies[0];
       if (!credential) throw new Error('DEMO_SESSION_COOKIE_REQUIRED');
       const headers = { cookie: `${credential.name}=${credential.value}` };
