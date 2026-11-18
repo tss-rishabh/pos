@@ -14,15 +14,41 @@ test ! -e "$expiry_evidence" && test ! -e "$expiry_build"
 test -d "$expiry_modules"
 mkdir -m 700 "$expiry_evidence" "$expiry_build"
 expiry_work=$(mktemp -d /tmp/pos-expiry-active.XXXXXX)
-expiry_name="pos-expiry-active-$$"
+expiry_nonce=${expiry_work##*.}
+expiry_name="pos-expiry-active-$expiry_nonce"
+expiry_network_id=
+expiry_mysql_id=
+expiry_go_id=
+expiry_compile_count=0
 expiry_go='golang:1.25.4@sha256:698183780de28062f4ef46f82a79ec0ae69d2d22f7b160cf69f71ea8d98bf25d'
 expiry_mysql='mysql:8.4@sha256:a81d043930e51745522bd5c430961cf8286f0a23f0a9a2a6e0108f7ea71b0902'
 cleanup() {
-  docker rm -f "$expiry_name-go" "$expiry_name" >/dev/null 2>&1 || true
-  docker network rm "$expiry_name" >/dev/null 2>&1 || true
+  # cidfiles also cover interruption after creation but before shell assignment.
+  for expiry_cidfile in "$expiry_work"/*.cid; do
+    test -f "$expiry_cidfile" || continue
+    expiry_owned_id=$(cat "$expiry_cidfile")
+    case "$expiry_owned_id" in ''|*[!0-9a-f]*) continue;; esac
+    test "${#expiry_owned_id}" -eq 64 || continue
+    expiry_owned_label=$(docker inspect --format '{{index .Config.Labels "pos-rewrite.expiry-nonce"}}' "$expiry_owned_id" 2>/dev/null || true)
+    if [ "$expiry_owned_label" = "$expiry_nonce" ]; then
+      docker rm -fv "$expiry_owned_id" >/dev/null 2>&1 || true
+    fi
+  done
+  if [ -f "$expiry_work/network.id" ]; then
+    expiry_owned_network=$(cat "$expiry_work/network.id")
+    case "$expiry_owned_network" in ''|*[!0-9a-f]*) expiry_owned_network=;; esac
+    if [ "${#expiry_owned_network}" -eq 64 ]; then
+      expiry_owned_label=$(docker network inspect --format '{{index .Labels "pos-rewrite.expiry-nonce"}}' "$expiry_owned_network" 2>/dev/null || true)
+      if [ "$expiry_owned_label" = "$expiry_nonce" ]; then
+        docker network rm "$expiry_owned_network" >/dev/null 2>&1 || true
+      fi
+    fi
+  fi
   rm -rf "$expiry_work"
 }
-trap cleanup EXIT HUP INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' HUP TERM
 python3 - "$expiry_assembly" "$expiry_reference" "$expiry_here" "$expiry_evidence/preflight.json" <<'PY'
 import hashlib, json, pathlib, re, subprocess, sys
 assembly, reference, here = map(lambda v: pathlib.Path(v).resolve(strict=True), sys.argv[1:4])
@@ -64,11 +90,22 @@ PY
 cp -R "$expiry_assembly/." "$expiry_work/"
 cp "$expiry_here/expiry_candidate_test.go" "$expiry_work/juspay/expiry_candidate_test.go"
 cp "$expiry_here/../origin_gateway_test.go" "$expiry_work/juspay/origin_gateway_test.go"
+expiry_assert_exited_successfully() {
+  test "$(docker inspect --format '{{.State.Status}} {{.State.ExitCode}}' "$1")" = 'exited 0'
+}
 expiry_compile() {
-  docker run --rm --pull=never --network none --read-only --tmpfs /tmp:rw,size=512m \
+  expiry_compile_count=$((expiry_compile_count+1))
+  expiry_compile_cidfile="$expiry_work/compile-$expiry_compile_count.cid"
+  docker create --pull=never --network none --read-only --tmpfs /tmp:rw,size=512m \
+    --label "pos-rewrite.expiry-nonce=$expiry_nonce" --cidfile "$expiry_compile_cidfile" \
     -v "$expiry_work:/work:ro" -v "$expiry_modules:/module-cache:ro" -v "$expiry_build:/build-cache" \
     -w /work -e GOMODCACHE=/module-cache -e GOCACHE=/build-cache -e GOTOOLCHAIN=local \
-    -e GOPROXY=off -e GOSUMDB=off -e GOWORK=off "$expiry_go" go "$@"
+    -e GOPROXY=off -e GOSUMDB=off -e GOWORK=off "$expiry_go" go "$@" >/dev/null
+  expiry_go_id=$(cat "$expiry_compile_cidfile")
+  docker start -a "$expiry_go_id"
+  expiry_assert_exited_successfully "$expiry_go_id"
+  docker rm -v "$expiry_go_id" >/dev/null
+  expiry_go_id=
 }
 # These gates see all four active methods before any test clock/env substitution.
 expiry_compile build -mod=readonly ./internal/poscheckout ./juspay >"$expiry_evidence/build.log" 2>&1
@@ -95,15 +132,20 @@ package config
 import "os"
 func InitEnv(){if os.Getenv("ENV")!="POS_ORIGIN_FIXTURE"||os.Getenv("DB")!="root@tcp(mysql:3306)/pos_origin_contract_test?parseTime=true"{panic("refusing non-isolated origin fixture startup")}}
 GO
-docker network create --internal "$expiry_name" >/dev/null
-docker run -d --pull=never --name "$expiry_name" --network "$expiry_name" --network-alias mysql \
+docker network create --internal --label "pos-rewrite.expiry-nonce=$expiry_nonce" "$expiry_name" >"$expiry_work/network.id"
+expiry_network_id=$(cat "$expiry_work/network.id")
+docker create --pull=never --network "$expiry_network_id" --network-alias mysql \
+  --label "pos-rewrite.expiry-nonce=$expiry_nonce" --cidfile "$expiry_work/mysql.cid" \
   -e MYSQL_ALLOW_EMPTY_PASSWORD=yes -e MYSQL_ROOT_HOST=% -e MYSQL_DATABASE=pos_origin_contract_test \
   "$expiry_mysql" >/dev/null
+expiry_mysql_id=$(cat "$expiry_work/mysql.cid")
+docker start "$expiry_mysql_id" >/dev/null
 expiry_attempt=0
-until docker exec "$expiry_name" mysql --protocol=TCP -h127.0.0.1 -uroot -Dpos_origin_contract_test -e 'SELECT 1' >/dev/null 2>&1; do
+until docker exec "$expiry_mysql_id" mysql --protocol=TCP -h127.0.0.1 -uroot -Dpos_origin_contract_test -e 'SELECT 1' >/dev/null 2>&1; do
   expiry_attempt=$((expiry_attempt+1)); test "$expiry_attempt" -lt 60 || exit 1; sleep 1
 done
-docker run --rm --pull=never --name "$expiry_name-go" --network "$expiry_name" --read-only --tmpfs /tmp:rw,size=512m \
+docker create --pull=never --network "$expiry_network_id" --read-only --tmpfs /tmp:rw,size=512m \
+  --label "pos-rewrite.expiry-nonce=$expiry_nonce" --cidfile "$expiry_work/native-go.cid" \
   -v "$expiry_work:/work:ro" -v "$expiry_modules:/module-cache:ro" -v "$expiry_build:/build-cache" \
   -w /work -e GOMODCACHE=/module-cache -e GOCACHE=/build-cache -e GOTOOLCHAIN=local \
   -e GOPROXY=off -e GOSUMDB=off -e GOWORK=off -e ENV=POS_ORIGIN_FIXTURE \
@@ -111,7 +153,12 @@ docker run --rm --pull=never --name "$expiry_name-go" --network "$expiry_name" -
   -e 'POS_ORIGIN_MYSQL_DSN=root@tcp(mysql:3306)/pos_origin_contract_test?parseTime=true' \
   "$expiry_go" go test -mod=readonly -race -count=1 -timeout=5m \
   -run '^(TestOriginExpiryReviewNativeWallets|TestOriginGatewayLostOrderACKRecoversOnlyGET|TestOriginGatewayDirectRecoveryCannotCreateCustomer)$' \
-  -json ./juspay >"$expiry_evidence/native.jsonl" 2>"$expiry_evidence/native.stderr"
+  -json ./juspay >/dev/null
+expiry_go_id=$(cat "$expiry_work/native-go.cid")
+docker start -a "$expiry_go_id" >"$expiry_evidence/native.jsonl" 2>"$expiry_evidence/native.stderr"
+expiry_assert_exited_successfully "$expiry_go_id"
+docker rm -v "$expiry_go_id" >/dev/null
+expiry_go_id=
 python3 - "$expiry_evidence" "$expiry_assembly" "$expiry_reference" "$expiry_here" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
 directory = pathlib.Path(sys.argv[1]); events = [json.loads(line) for line in (directory/'native.jsonl').read_text().splitlines()]
