@@ -16,9 +16,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-- **express-fulfillment (partial)**: Restore the source global 30/5-minute grouped expiry reminders, scoped persisted deduplication and unaccepted/unpacked/packed banner outside the fulfillment page. Share one configured poller with page consumers and use the explicit business timezone.
-- **notifications (partial)**: Restore actionable order/queue navigation for notices without url_key, source-equivalent visual toast/queue indication and gesture-safe audible alerts with scoped preferences. Reject browser-normalized external paths, including the confirmed backslash-origin bypass.
-- **finance-day-close (partial)**: Mount the source foreground-only global day-close reminder with operator/store snooze, cross-tab suppression, modal priority and correct target-date navigation; the server prompt alone has no frontend consumer.
+No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.
 
 ## Line-bound implementation review
 
@@ -137,12 +135,30 @@ Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (e
 | `frontend/src/pages/returns/client.ts:243` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
 | `frontend/src/pages/returns/ReturnWindowExtension.tsx:48` | Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only. |
 
-### finance-day-close
+### express-fulfillment
 
-Mapped surfaces: `report/urls.py:16` (partial), `report/urls.py:73` (partial), `report/urls.py:74` (partial), `report/urls.py:75` (partial), `report/urls.py:76` (partial), `report/urls.py:77` (partial), `report/urls.py:78` (partial), `report/urls.py:79` (partial), `report/urls.py:80` (partial), `report/urls.py:81` (partial), `report/datatables/cash_balance_datatable.py:83` (partial), `report/datatables/day_close_datatable.py:216` (partial), `report/templates/day_close/cash_balance.html` (partial), `report/templates/day_close/index.html` (partial), `report/templates/day_close/logs.html` (partial).
+Mapped surfaces: `order/urls.py:93` (external_acceptance), `order/urls.py:96` (external_acceptance), `order/urls.py:97` (external_acceptance), `order/urls.py:98` (external_acceptance), `order/urls.py:99` (external_acceptance), `order/urls.py:100` (external_acceptance), `order/urls.py:101` (external_acceptance), `order/urls.py:102` (external_acceptance), `order/urls.py:103` (external_acceptance), `order/urls.py:104` (external_acceptance), `order/urls.py:105` (external_acceptance), `order/urls.py:107` (external_acceptance), `order/urls.py:110` (external_acceptance), `order/urls.py:111` (external_acceptance), `order/urls.py:112` (external_acceptance), `order/urls.py:113` (external_acceptance), `order/tasks.py:150` (external_acceptance), `order/templates/order/_hl_banner.html` (external_acceptance), `order/templates/order/hyperlocal/_all_stores_order_cards.html` (external_acceptance), `order/templates/order/hyperlocal/_hl_eli_status_badge.html` (external_acceptance), `order/templates/order/hyperlocal/_hl_image_preview.html` (external_acceptance), `order/templates/order/hyperlocal/_hl_line_items_table.html` (external_acceptance), `order/templates/order/hyperlocal/_order_cards.html` (external_acceptance), `order/templates/order/hyperlocal/_progress_content.html` (external_acceptance), `order/templates/order/hyperlocal/all_stores_dashboard.html` (external_acceptance), `order/templates/order/hyperlocal/progress.html` (external_acceptance).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
+| `frontend/src/pages/fulfillment/global-expiry-alerts.tsx:53` | Global selected-store/current-check-in eligibility, grouped reminders and status banner are implemented; behavior still needs joined source/native/browser verification. |
+| `frontend/src/pages/fulfillment/expiry-alerts.ts:31` | Shared scoped cache with one background poll owner, authority-denial masking and bounded server interval. This is implementation evidence, not a runtime certification. |
+
+### notifications
+
+Mapped surfaces: `notification/urls.py:7` (external_acceptance), `order/templates/order/_hl_banner.html` (external_acceptance), `notification/routing.py:6` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/fulfillment/notification-links.ts:29` | Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Joined notification/provider acceptance remains unproven. |
+
+### finance-day-close
+
+Mapped surfaces: `report/urls.py:16` (external_acceptance), `report/urls.py:73` (external_acceptance), `report/urls.py:74` (external_acceptance), `report/urls.py:75` (external_acceptance), `report/urls.py:76` (external_acceptance), `report/urls.py:77` (external_acceptance), `report/urls.py:78` (external_acceptance), `report/urls.py:79` (external_acceptance), `report/urls.py:80` (external_acceptance), `report/urls.py:81` (external_acceptance), `report/datatables/cash_balance_datatable.py:83` (external_acceptance), `report/datatables/day_close_datatable.py:216` (external_acceptance), `report/templates/day_close/cash_balance.html` (external_acceptance), `report/templates/day_close/index.html` (external_acceptance), `report/templates/day_close/logs.html` (external_acceptance).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/pages/finance/day-close-reminder.tsx:43` | Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending. |
 | `frontend/src/pages/finance/ledger.tsx:33` | Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations. |
 | `frontend/src/pages/finance/history.tsx:148` | Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page. |
 
@@ -170,7 +186,7 @@ Mapped surfaces: `report/urls.py:19` (external_acceptance), `report/urls.py:20` 
 
 ### report-exports
 
-Mapped surfaces: `report/urls.py:91` (external_acceptance), `report/urls.py:92` (external_acceptance), `report/datatables/cash_balance_datatable.py:83` (partial), `report/datatables/day_close_datatable.py:216` (partial), `report/datatables/hyperlocal_daily_datatable.py:40` (external_acceptance), `report/datatables/inventory_datatable.py:60` (external_acceptance), `report/datatables/return_orders_datatable.py:63` (external_acceptance), `report/datatables/return_orders_datatable.py:328` (external_acceptance), `report/datatables/sales_data.py:66` (external_acceptance), `report/templates/export/index.html` (external_acceptance).
+Mapped surfaces: `report/urls.py:91` (external_acceptance), `report/urls.py:92` (external_acceptance), `report/datatables/cash_balance_datatable.py:83` (external_acceptance), `report/datatables/day_close_datatable.py:216` (external_acceptance), `report/datatables/hyperlocal_daily_datatable.py:40` (external_acceptance), `report/datatables/inventory_datatable.py:60` (external_acceptance), `report/datatables/return_orders_datatable.py:63` (external_acceptance), `report/datatables/return_orders_datatable.py:328` (external_acceptance), `report/datatables/sales_data.py:66` (external_acceptance), `report/templates/export/index.html` (external_acceptance).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -245,10 +261,10 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 27 | 0 | 160 |
-| jobs | 0 | 3 | 1 | 28 |
-| templates | 32 | 12 | 3 | 59 |
-| websockets | 0 | 1 | 0 | 0 |
+| routes | 68 | 0 | 0 | 187 |
+| jobs | 0 | 0 | 1 | 31 |
+| templates | 32 | 0 | 3 | 71 |
+| websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
 “External acceptance” means code exists and the named real dependency remains unaccepted. It does not turn a missing callback/financial adapter into a deployed feature. Warehouse absence, source collation/generation proofs, shared writer patches, physical printers, real OAuth/SMS/mail and SDD/legal rendering are carried at their specific family boundaries in the JSON; they are not hundreds of invented code tasks.
@@ -349,7 +365,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `dashboard/urls.py:8` | `shortcut` | motivational-quotes, shared-shell | implementation_present |
 | `dashboard/urls.py:9` | `ajax-feed-live-internet-speed/` | shared-shell | implementation_present |
 | `dashboard/urls.py:10` | `ajax-live-internet-data/` | shared-shell | implementation_present |
-| `notification/urls.py:7` | `ajax-notification-update/` | notifications | partial |
+| `notification/urls.py:7` | `ajax-notification-update/` | notifications | external_acceptance |
 | `order/urls.py:8` | `store/` | orders-read | external_acceptance |
 | `order/urls.py:9` | `online/` | orders-read | external_acceptance |
 | `order/urls.py:10` | `ajax-order-list/` | orders-read | external_acceptance |
@@ -413,23 +429,23 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:86` | `ajax-gift-voucher-convert/` | global-vouchers | external_acceptance |
 | `order/urls.py:88` | `ajax-pg-disc-otp-send/` | discount-approval | external_acceptance |
 | `order/urls.py:90` | `ajax-pg-disc-otp-check/` | discount-approval | external_acceptance |
-| `order/urls.py:93` | `ajax-express-line-item-pack/` | express-fulfillment | partial |
-| `order/urls.py:96` | `hyperlocal/progress/` | express-fulfillment | partial |
-| `order/urls.py:97` | `ajax-hyperlocal-progress-data/` | express-fulfillment | partial |
-| `order/urls.py:98` | `ajax-hyperlocal-progress-content/` | express-fulfillment | partial |
-| `order/urls.py:99` | `ajax-hyperlocal-rejection-reasons/` | express-fulfillment | partial |
-| `order/urls.py:100` | `ajax-express-line-items-bulk-action/` | express-fulfillment | partial |
-| `order/urls.py:101` | `ajax-express-order-pack-all/` | express-fulfillment | partial |
-| `order/urls.py:102` | `ajax-express-order-mark-shipped/` | express-fulfillment | partial |
-| `order/urls.py:103` | `ajax-express-order-notify/` | express-fulfillment | partial |
-| `order/urls.py:104` | `ajax-hyperlocal-load-more/` | express-fulfillment | partial |
-| `order/urls.py:105` | `ajax-express-order-mark-rto/` | express-fulfillment | partial |
-| `order/urls.py:107` | `ajax-hyperlocal-expiry-alerts/` | express-fulfillment | partial |
-| `order/urls.py:110` | `hyperlocal/all-stores/` | express-fulfillment | partial |
-| `order/urls.py:111` | `ajax-hyperlocal-all-stores-data/` | express-fulfillment | partial |
-| `order/urls.py:112` | `ajax-hl-admin-edit/` | express-fulfillment | partial |
-| `order/urls.py:113` | `ship-express-order/` | express-fulfillment | partial |
-| `report/urls.py:16` | `api/v1/reconciliation/<str:feed_type>/` | finance-day-close | partial |
+| `order/urls.py:93` | `ajax-express-line-item-pack/` | express-fulfillment | external_acceptance |
+| `order/urls.py:96` | `hyperlocal/progress/` | express-fulfillment | external_acceptance |
+| `order/urls.py:97` | `ajax-hyperlocal-progress-data/` | express-fulfillment | external_acceptance |
+| `order/urls.py:98` | `ajax-hyperlocal-progress-content/` | express-fulfillment | external_acceptance |
+| `order/urls.py:99` | `ajax-hyperlocal-rejection-reasons/` | express-fulfillment | external_acceptance |
+| `order/urls.py:100` | `ajax-express-line-items-bulk-action/` | express-fulfillment | external_acceptance |
+| `order/urls.py:101` | `ajax-express-order-pack-all/` | express-fulfillment | external_acceptance |
+| `order/urls.py:102` | `ajax-express-order-mark-shipped/` | express-fulfillment | external_acceptance |
+| `order/urls.py:103` | `ajax-express-order-notify/` | express-fulfillment | external_acceptance |
+| `order/urls.py:104` | `ajax-hyperlocal-load-more/` | express-fulfillment | external_acceptance |
+| `order/urls.py:105` | `ajax-express-order-mark-rto/` | express-fulfillment | external_acceptance |
+| `order/urls.py:107` | `ajax-hyperlocal-expiry-alerts/` | express-fulfillment | external_acceptance |
+| `order/urls.py:110` | `hyperlocal/all-stores/` | express-fulfillment | external_acceptance |
+| `order/urls.py:111` | `ajax-hyperlocal-all-stores-data/` | express-fulfillment | external_acceptance |
+| `order/urls.py:112` | `ajax-hl-admin-edit/` | express-fulfillment | external_acceptance |
+| `order/urls.py:113` | `ship-express-order/` | express-fulfillment | external_acceptance |
+| `report/urls.py:16` | `api/v1/reconciliation/<str:feed_type>/` | finance-day-close | external_acceptance |
 | `report/urls.py:19` | `return-orders/` | operational-reports | external_acceptance |
 | `report/urls.py:20` | `ajax-return-order-list/` | operational-reports | external_acceptance |
 | `report/urls.py:21` | `orders-data/` | operational-reports | external_acceptance |
@@ -452,15 +468,15 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/urls.py:66` | `ajax-sales-data/` | operational-reports | external_acceptance |
 | `report/urls.py:69` | `daily-store-report/` | daily-store-report | external_acceptance |
 | `report/urls.py:70` | `ajax-daily-store-report/` | daily-store-report | external_acceptance |
-| `report/urls.py:73` | `day-close/` | finance-day-close | partial |
-| `report/urls.py:74` | `ajax-day-close-state/` | finance-day-close | partial |
-| `report/urls.py:75` | `ajax-day-close-submit/` | finance-day-close | partial |
-| `report/urls.py:76` | `ajax-day-close-nag/` | finance-day-close | partial |
-| `report/urls.py:77` | `day-close-pending-alert/` | finance-day-close | partial |
-| `report/urls.py:78` | `day-close-logs/` | finance-day-close | partial |
-| `report/urls.py:79` | `ajax-day-close-logs/` | finance-day-close | partial |
-| `report/urls.py:80` | `day-close-cash-balance/` | finance-day-close | partial |
-| `report/urls.py:81` | `ajax-day-close-cash-balance/` | finance-day-close | partial |
+| `report/urls.py:73` | `day-close/` | finance-day-close | external_acceptance |
+| `report/urls.py:74` | `ajax-day-close-state/` | finance-day-close | external_acceptance |
+| `report/urls.py:75` | `ajax-day-close-submit/` | finance-day-close | external_acceptance |
+| `report/urls.py:76` | `ajax-day-close-nag/` | finance-day-close | external_acceptance |
+| `report/urls.py:77` | `day-close-pending-alert/` | finance-day-close | external_acceptance |
+| `report/urls.py:78` | `day-close-logs/` | finance-day-close | external_acceptance |
+| `report/urls.py:79` | `ajax-day-close-logs/` | finance-day-close | external_acceptance |
+| `report/urls.py:80` | `day-close-cash-balance/` | finance-day-close | external_acceptance |
+| `report/urls.py:81` | `ajax-day-close-cash-balance/` | finance-day-close | external_acceptance |
 | `report/urls.py:84` | `store-hyperlocal-record/` | scheduled-reports | external_acceptance |
 | `report/urls.py:87` | `hyperlocal-reports/daily-report/` | operational-reports | external_acceptance |
 | `report/urls.py:88` | `ajax-hyperlocal-daily-export/` | operational-reports | external_acceptance |
@@ -535,13 +551,13 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/tasks.py:226` | `push_vinc_order_for_all` | legacy-vinculum-status | external_acceptance |
 | `core/tasks.py:232` | `send_pg_disc_otp` | discount-approval | external_acceptance |
 | `core/tasks.py:271` | `pg_disc_otp_applied_email` | discount-approval | external_acceptance |
-| `order/tasks.py:150` | `auto_reject_timed_out_for_store` | express-fulfillment | partial |
+| `order/tasks.py:150` | `auto_reject_timed_out_for_store` | express-fulfillment | external_acceptance |
 | `order/views.py:3839` | `auto_hl_order_create` | local-deliveries | external_acceptance |
 | `order/views.py:3845` | `auto_hl_order_transfer` | local-deliveries | external_acceptance |
 | `order/views.py:3938` | `auto_hl_order_to_online` | local-deliveries | external_acceptance |
 | `order/views.py:4482` | `advance_order_notification` | local-deliveries | external_acceptance |
-| `report/datatables/cash_balance_datatable.py:83` | `do_cash_balance_export` | finance-day-close, report-exports | partial |
-| `report/datatables/day_close_datatable.py:216` | `do_day_close_export` | finance-day-close, report-exports | partial |
+| `report/datatables/cash_balance_datatable.py:83` | `do_cash_balance_export` | finance-day-close, report-exports | external_acceptance |
+| `report/datatables/day_close_datatable.py:216` | `do_day_close_export` | finance-day-close, report-exports | external_acceptance |
 | `report/datatables/hyperlocal_daily_datatable.py:40` | `do_hyperlocal_daily_export` | operational-reports, report-exports | external_acceptance |
 | `report/datatables/inventory_datatable.py:60` | `do_return_export` | inventory-workbooks, report-exports | external_acceptance |
 | `report/datatables/return_orders_datatable.py:63` | `do_return_export` | operational-reports, report-exports | external_acceptance |
@@ -601,18 +617,18 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `dashboard/templates/dashboard/dashboard.html` | `dashboard/templates/dashboard/dashboard.html` | dashboard-summary | external_acceptance |
 | `dashboard/templates/dashboard/main_dashboard.html` | `dashboard/templates/dashboard/main_dashboard.html` | shared-shell, motivational-quotes | implementation_present |
 | `order/templates/order/_exchange_js.html` | `order/templates/order/_exchange_js.html` | returns-exchanges | external_acceptance |
-| `order/templates/order/_hl_banner.html` | `order/templates/order/_hl_banner.html` | express-fulfillment, notifications | partial |
+| `order/templates/order/_hl_banner.html` | `order/templates/order/_hl_banner.html` | express-fulfillment, notifications | external_acceptance |
 | `order/templates/order/add_order_feedback.html` | `order/templates/order/add_order_feedback.html` | product-feedback | implementation_present |
 | `order/templates/order/basic_error.html` | `order/templates/order/basic_error.html` | system-health | implementation_present |
 | `order/templates/order/create_order.html` | `order/templates/order/create_order.html` | checkout-cart, customer-workspace, customer-contacts, customer-verification, payments, fast-cash, cashier-shortcuts, order-to-cart-copy, customer-website-handoff, motivational-quotes | external_acceptance |
-| `order/templates/order/hyperlocal/_all_stores_order_cards.html` | `order/templates/order/hyperlocal/_all_stores_order_cards.html` | express-fulfillment | partial |
-| `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | express-fulfillment | partial |
-| `order/templates/order/hyperlocal/_hl_image_preview.html` | `order/templates/order/hyperlocal/_hl_image_preview.html` | express-fulfillment | partial |
-| `order/templates/order/hyperlocal/_hl_line_items_table.html` | `order/templates/order/hyperlocal/_hl_line_items_table.html` | express-fulfillment | partial |
-| `order/templates/order/hyperlocal/_order_cards.html` | `order/templates/order/hyperlocal/_order_cards.html` | express-fulfillment | partial |
-| `order/templates/order/hyperlocal/_progress_content.html` | `order/templates/order/hyperlocal/_progress_content.html` | express-fulfillment | partial |
-| `order/templates/order/hyperlocal/all_stores_dashboard.html` | `order/templates/order/hyperlocal/all_stores_dashboard.html` | express-fulfillment | partial |
-| `order/templates/order/hyperlocal/progress.html` | `order/templates/order/hyperlocal/progress.html` | express-fulfillment | partial |
+| `order/templates/order/hyperlocal/_all_stores_order_cards.html` | `order/templates/order/hyperlocal/_all_stores_order_cards.html` | express-fulfillment | external_acceptance |
+| `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | `order/templates/order/hyperlocal/_hl_eli_status_badge.html` | express-fulfillment | external_acceptance |
+| `order/templates/order/hyperlocal/_hl_image_preview.html` | `order/templates/order/hyperlocal/_hl_image_preview.html` | express-fulfillment | external_acceptance |
+| `order/templates/order/hyperlocal/_hl_line_items_table.html` | `order/templates/order/hyperlocal/_hl_line_items_table.html` | express-fulfillment | external_acceptance |
+| `order/templates/order/hyperlocal/_order_cards.html` | `order/templates/order/hyperlocal/_order_cards.html` | express-fulfillment | external_acceptance |
+| `order/templates/order/hyperlocal/_progress_content.html` | `order/templates/order/hyperlocal/_progress_content.html` | express-fulfillment | external_acceptance |
+| `order/templates/order/hyperlocal/all_stores_dashboard.html` | `order/templates/order/hyperlocal/all_stores_dashboard.html` | express-fulfillment | external_acceptance |
+| `order/templates/order/hyperlocal/progress.html` | `order/templates/order/hyperlocal/progress.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | external_acceptance |
 | `order/templates/order/invoice.html` | `order/templates/order/invoice.html` | invoice-documents | external_acceptance |
 | `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
@@ -624,9 +640,9 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |
 | `report/templates/bd_report/daily_report_matric_upload.html` | `report/templates/bd_report/daily_report_matric_upload.html` | business-metrics-upload | missing |
 | `report/templates/daily_store_report/index.html` | `report/templates/daily_store_report/index.html` | daily-store-report | external_acceptance |
-| `report/templates/day_close/cash_balance.html` | `report/templates/day_close/cash_balance.html` | finance-day-close | partial |
-| `report/templates/day_close/index.html` | `report/templates/day_close/index.html` | finance-day-close | partial |
-| `report/templates/day_close/logs.html` | `report/templates/day_close/logs.html` | finance-day-close | partial |
+| `report/templates/day_close/cash_balance.html` | `report/templates/day_close/cash_balance.html` | finance-day-close | external_acceptance |
+| `report/templates/day_close/index.html` | `report/templates/day_close/index.html` | finance-day-close | external_acceptance |
+| `report/templates/day_close/logs.html` | `report/templates/day_close/logs.html` | finance-day-close | external_acceptance |
 | `report/templates/export/index.html` | `report/templates/export/index.html` | report-exports | external_acceptance |
 | `report/templates/orders/daily_tracker.html` | `report/templates/orders/daily_tracker.html` | operational-reports | external_acceptance |
 | `report/templates/orders/hyperlocal_daily_report.html` | `report/templates/orders/hyperlocal_daily_report.html` | operational-reports | external_acceptance |
@@ -669,7 +685,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 
 | Source | Surface | Families | Implementation disposition |
 | --- | --- | --- | --- |
-| `notification/routing.py:6` | `ws/notification/(?P<room_name>\w+)/$` | notifications | partial |
+| `notification/routing.py:6` | `ws/notification/(?P<room_name>\w+)/$` | notifications | external_acceptance |
 
 ### administration
 

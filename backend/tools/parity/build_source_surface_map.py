@@ -370,10 +370,13 @@ def define_families():
            external=['Accept provider/outcome adapters, source monetary/projection/cancellation cooperation and service/scheduler credentials.'])
     bind('local-deliveries', ['AjaxHlOrderView', 'AutoHlOrderView', 'AJaxConvertOnlineView', 'AjaxRtoRecievedView', 'AjaxOrderPackView', 'AjaxPassOrderView', 'WebhookCancelledOrderView', 'AjaxCheckOrderStatusView'])
     family('express-fulfillment', ['src/modules/fulfillment'], ['src/pages/fulfillment'], ['tests/fulfillment', 'frontend/tests/fulfillment'],
-           ['parity/fulfillment.md'], state='partial',
-           scope='Express tabs/progress/content/load-more/reasons, bulk accept/reject/pack/ship/RTO/admin edits, page expiry data and all-store monitoring.',
-           gaps=['Restore the source global 30/5-minute grouped expiry reminders, scoped persisted deduplication and unaccepted/unpacked/packed banner outside the fulfillment page. Share one configured poller with page consumers and use the explicit business timezone.'],
+           ['parity/fulfillment.md'],
+           scope='Express tabs/progress/content/load-more/reasons, bulk accept/reject/pack/ship/RTO/admin edits, global 30/5-minute grouped expiry reminders, scoped persisted deduplication and status banners, and all-store monitoring. The shared query has one configured background poller and explicit business-zone parsing.',
            external=['Accept actual Express courier/concurrency/status/email providers and stock cooperation.'])
+    families['express-fulfillment']['implementation_review'] = [
+        review_reference('frontend/src/pages/fulfillment/global-expiry-alerts.tsx', 'export function GlobalFulfillmentExpiryAlerts', 'Global selected-store/current-check-in eligibility, grouped reminders and status banner are implemented; behavior still needs joined source/native/browser verification.'),
+        review_reference('frontend/src/pages/fulfillment/expiry-alerts.ts', 'export function useFulfillmentExpiryAlerts', 'Shared scoped cache with one background poll owner, authority-denial masking and bounded server interval. This is implementation evidence, not a runtime certification.'),
+    ]
     bind('express-fulfillment', ['AjaxExpressLineItemPackView', 'HyperlocalProgressView', 'AjaxHyperlocalProgressDataView', 'AjaxHyperlocalProgressContentView', 'AjaxHyperlocalRejectionReasonsView', 'AjaxExpressLineItemsBulkActionView', 'AjaxExpressOrderPackAllView', 'AjaxExpressOrderMarkShippedView', 'AjaxExpressOrderNotifyView', 'AjaxHyperlocalLoadMoreView', 'AjaxExpressOrderMarkRTOView', 'AjaxHyperlocalExpiryAlertsView', 'HyperlocalAllStoresDashboardView', 'AjaxHyperlocalAllStoresDataView', 'AjaxHyperlocalAdminEditView', 'ExpressOrderMarkShippedApiView'])
     family('shipping-labels', ['src/modules/fulfillment/shipping-label'], ['src/pages/fulfillment/shipping-label.tsx'],
            ['tests/fulfillment', 'frontend/tests/shipping-label'], ['parity/fulfillment-shipping.md'],
@@ -387,18 +390,19 @@ def define_families():
            external=['Qualify the independently deployed source receiver, vendor and Netcore outcomes, shared-writer coordination and representative queue workload.'])
     bind('legacy-vinculum-status', ['AjaxUpdateStatusVincView'])
     family('notifications', ['src/modules/fulfillment/index.ts', 'src/modules/fulfillment/notification-bus.ts', 'src/modules/fulfillment/notifications.ts'],
-           ['src/pages/fulfillment/notifications.tsx'], ['tests/fulfillment'], ['parity/fulfillment.md'],
-           state='partial',
-           scope='Persisted notifications/read receipts and one store-scoped authenticated/current-check-in WebSocket subscription with expiry/backpressure.',
-           gaps=['Restore actionable order/queue navigation for notices without url_key, source-equivalent visual toast/queue indication and gesture-safe audible alerts with scoped preferences. Reject browser-normalized external paths, including the confirmed backslash-origin bypass.'],
+           ['src/pages/fulfillment/notifications.tsx', 'src/pages/fulfillment/notification-alerts.tsx', 'src/pages/fulfillment/notification-links.ts', 'src/pages/fulfillment/notification-sound.ts'], ['tests/fulfillment'], ['parity/fulfillment.md'],
+           scope='Persisted notices/read receipts, scoped current-check-in WebSocket with expiry/backpressure, actionable order/queue navigation with NULL url_key, incoming visual alerts/queue indication and scoped gesture-safe sound. Internal URL parsing rejects backslashes/control characters and normalized external origins.',
            external=['Accept production Redis/pubsub/websocket gateway and original consumer cutover.'])
+    families['notifications']['implementation_review'] = [
+        review_reference('frontend/src/pages/fulfillment/notification-links.ts', 'export function notificationDestination', 'Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Joined notification/provider acceptance remains unproven.'),
+    ]
     bind('notifications', ['AjaxNotificationUpdateView'])
     family('finance-day-close', ['src/modules/finance'], ['src/pages/finance'], ['tests/finance', 'frontend/tests/finance'],
-           ['parity/finance.md', 'parity/export-history-controls.md'], state='partial',
-           scope='Day-close state/revisions/server prompt/pending alerts, cash-ledger/history and exact Glassbox orders feed; pending offline cash retained.',
-           gaps=['Mount the source foreground-only global day-close reminder with operator/store snooze, cross-tab suppression, modal priority and correct target-date navigation; the server prompt alone has no frontend consumer.'],
+           ['parity/finance.md', 'parity/export-history-controls.md'],
+           scope='Day-close state/revisions/server prompt, foreground global reminder with scoped cross-tab snooze/modal priority and target-date navigation, pending alerts, cash-ledger/history and exact Glassbox feed; pending offline cash retained.',
            external=['Accept generation/CDC warehouse financial publication, source timezone/rollout and actual scheduled notices.'])
     families['finance-day-close']['implementation_review'] = [
+        review_reference('frontend/src/pages/finance/day-close-reminder.tsx', 'export function DayCloseReminder', 'Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending.'),
         review_reference('frontend/src/pages/finance/ledger.tsx', '[pageSize, setPageSize] = useState(31)', 'Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations.'),
         review_reference('frontend/src/pages/finance/history.tsx', 'const pageCsv = useMutation(', 'Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page.'),
     ]

@@ -1,0 +1,68 @@
+{
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "rewriteCommit": "7fb0a96",
+  "recordedAt": "2026-11-18T10:15:23.474803Z",
+  "scope": "Combined global-alert implementation compilation/build/lint and pre-existing regression checks only.",
+  "checks": {
+    "backendStrict": true,
+    "frontendStrict": true,
+    "changedBackendLint": true,
+    "changedFrontendLint": true,
+    "backendProductionBuild": true,
+    "frontendProductionBuild": true,
+    "regressions": {
+      "backend": {
+        "passed": 50,
+        "failed": 0,
+        "skipped": 42,
+        "reportSha256": "c41532285b1d7377b234c1424f1bfd2b456dd215fdd4abb760f6190024b0743e"
+      },
+      "frontend": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "reportSha256": "f6d0779c439039151aff2eb9d34c57f40048abd2252dbb8e3e681f39a402588e"
+      }
+    }
+  },
+  "commands": [
+    "backend/frontend: node node_modules/typescript/bin/tsc --noEmit -p tsconfig.json",
+    "backend/frontend: npm run build",
+    "backend/frontend: node node_modules/vitest/vitest.mjs run tests/fulfillment tests/finance --maxWorkers=1 --reporter=json --outputFile=<private-output>"
+  ],
+  "privateBuildLogSha256": {
+    "backend": "680604577d5df80ba2f6104ab6f11ae64124e08a4c16b356496ab4b5e7c54dc0",
+    "frontend": "644ef98d8ffb6112589deb5b45264c74d1e89ecbdbc6b608a9be5cfa91ffc2f4"
+  },
+  "checksums": {
+    "backend/src/config.ts": "9bbea6ee9cc8c1214a200d45c3978d110eaf92da0b705ef483c9c430a0e7b756",
+    "backend/src/modules/finance/index.ts": "405e2a0db8fc3ff1829ebd5e5141c217e83d1f85cac013f602c7a3c0f3ddc50e",
+    "backend/src/modules/fulfillment/index.ts": "63f238e55763793bbf68250717a62d5faf80dcaed9b6bfcd9c4d36ac39525bea",
+    "backend/src/modules/fulfillment/options.ts": "620472d123da5fcbc4a6d91a156c3b531c77e20a2ee4d2faab8d3db92fa79809",
+    "backend/src/modules/fulfillment/service.ts": "e0fb7a9a80f79a19d10bc0bb53781bcfe742c43c95144faa102b77693b98b51e",
+    "frontend/src/app.tsx": "89f5e74d3390c25d182b2800e84b4bb8f15963c0376c265cd49ba203bf84838f",
+    "frontend/src/pages/fulfillment/expiry-alerts.ts": "ede6c4f4d2a0a1d3d27b5ad773f5d79533b45f182705b4d1c66b14720e422dc4",
+    "frontend/src/pages/fulfillment/global-expiry-alerts.tsx": "46863a060f7eaedaa784770c44d7bc57e5066f24da271f13216d9e949cfd77ed",
+    "frontend/src/pages/fulfillment/global-expiry-alerts.css": "14080651aff660519f79b63d5fdc1ccf83d0cdf09d79309b1cc63c7c2f7213a5",
+    "frontend/src/pages/fulfillment/notifications.tsx": "5ef0958701acb3866d53edda609afb26d7d63a9947a0a328af9cd7fe7af42120",
+    "frontend/src/pages/fulfillment/notification-alerts.tsx": "7f120175428aa416a245f42f20a1eb530b85c43919e70e389d10a42da3d8791f",
+    "frontend/src/pages/fulfillment/notification-contracts.ts": "a12e6f23b237f58b9d95493aa1f02c0e86dbb295f7070903d4e546db9af3dd51",
+    "frontend/src/pages/fulfillment/notification-links.ts": "c4ae15f37f280d4822dbb414637a357a226efbd83985abecd97a4fa9fa098997",
+    "frontend/src/pages/fulfillment/notification-sound.ts": "b18d9fb17b07c1564e5f4e986b55c3c024858707b5d36a9853648197c55e10c9",
+    "frontend/src/pages/fulfillment/index.tsx": "0b27f57d43b0ddc7057d25ed18ba2313e7d15bbe5d5e510ce3238b5cd86e193a",
+    "frontend/src/pages/fulfillment/style.css": "975880389da10c0a9dd09e83241a5c3268ff6484f8fde44b6b82e5ffcd4208e5",
+    "frontend/src/pages/finance/index.tsx": "e07a1490cdf5e9281a3e2026eaa45aba4b06ccee25c322163dcde8d61fe9a627",
+    "frontend/src/pages/finance/day-close-reminder.tsx": "ecc7aa56af4320ff60cc025ffa1a3980b9ed2c70da40a3c165d3716a1899d16e",
+    "frontend/src/pages/finance/day-close-reminder.css": "42afcf9d697996e6d795083d539e778e6cf1ef761534afeec9ca73533a3727e8",
+    "backend/package-lock.json": "02b3e906ece30377231ea67891ef8b125708c188db343979588826c76db3c1d6",
+    "frontend/package-lock.json": "2a25d21fe5fdfde27792a1a38b3956c8820239c53ff83405c1c660b99c4a2713"
+  },
+  "limitations": [
+    "New global source/native/browser/Redis/media workflows are not certified by these existing regression counts.",
+    "Native backend tests were intentionally outside this non-database run; 42 skipped cases remain explicit.",
+    "All earlier broad workflow certificates require affected re-execution against the changed graph.",
+    "No live database/provider/cloud writes; own mitigated installs used."
+  ],
+  "fullProjectVerification": false,
+  "productionReady": false
+}

@@ -4,11 +4,12 @@ Source baseline: `backend-pos-web` commit `78d5b63d6a149a6bf2c748fa1d191799c59ec
 
 The plugin implements 19 resource routes. This is implementation coverage, not certification of all legacy routes or production integrations.
 
-Source review identified missing global expiry reminders and incoming notification
-links, visual alerts and sound. These variants are being implemented before
-further parity/performance execution; the page-level expiry banner and existing
-notification badge alone do not provide their behavior. Historical scoped proofs
-remain unchanged and require affected re-execution after the shared shell changes.
+Global expiry reminders and incoming notification links, visual alerts and sound
+are now implemented alongside the foreground global day-close reminder. Strict
+checks, changed-module lint and both production builds pass; the existing scoped
+regressions pass. Joined source/native/browser verification of these variants is
+still required. Historical scoped proofs remain unchanged and require affected
+re-execution after the shared shell changes.
 
 | Source surface | Rewrite |
 |---|---|

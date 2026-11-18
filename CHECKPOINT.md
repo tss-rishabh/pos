@@ -1,77 +1,56 @@
 # POS rewrite checkpoint
 
-## Current state — 18 November 2026, implementation first: global alerts
+## Current state — 18 November 2026, global alert implementation closed
 
-Three actual implementation gaps were found during notification source review.
-The source supplies actionable order/queue links even when `url_key` is NULL,
-audible incoming alerts, visual toasts/new-queue indication, and global expiry
-reminders/banners across pages. The rewrite had only a notification badge and
-fulfillment-page expiry summary. Do not describe implementation as complete.
-Source map now records three partial code groups: notifications, global
-express expiry and foreground day-close reminders. Finish these variants before new parity/full/performance runs.
+The three identified global UI gaps are implemented on `7fb0a96`: notification
+links/audio/visual alerts, global fulfillment expiry reminders/banner and the
+foreground day-close reminder/date navigation. Source-map references bind their
+actual code; no known variant in the assigned scope remains unimplemented.
+This is implementation closure, not full feature parity or production acceptance.
 
-Production work is isolated and owned: feedback worker handles notification
-navigation, safe URL parsing, visual/audio alerts/preferences and the existing
-FulfillmentPage query/tab; shortcut worker handles global expiry component,
-App mount and shared expiry query helper. Root handles backend poll/timezone
-metadata and coordination. The source also prompts for missing/stale day close outside the finance page;
-the former client never called its implemented prompt endpoint. Source expiry defaults to 60,000 ms with grouped 30/5-minute
-warnings, persistent dedup/cleanup and pending/accepted/packed counts. Root has
-added validated HL_EXPIRY_POLL_INTERVAL_MS and businessTimeZone response metadata,
-plus strict empty-query validation and environment documentation. Native current
-check-in must match before/after expiry reads. The existing day-close prompt now
-exposes its configured snooze interval (source default 10 minutes) and timezone;
-its financial eligibility/staleness logic is unchanged. The foreground global
-reminder consumer and correct close-date navigation are being implemented.
-Frontend variants remain in implementation. A bounded Node WHATWG URL evaluation proved
-the old slash-prefix check accepts a backslash path normalized to another origin;
-no external request was made. That sanitizer correction is owned by feedback.
+Root backend timing metadata preserves the source defaults: expiry 60 s, day-close
+snooze 10 min. Selected-store expiry requires a current native check-in before and
+after the read. Financial calculations/stale policy are unchanged. The new
+notification URL parser rejects the concretely demonstrated backslash-origin
+bypass. Stored-title versus live-flag routing matches the actual source template;
+an uncommitted Root misreading was corrected before it changed the tested snapshot.
+Invalid/duplicate day-close date navigation also blocks manual refresh before HTTP.
 
-These shared production edits invalidate the broad current proof bindings.
-All eight prior admitted surfaces are explicitly pending; original execution
-receipts remain immutable. Re-execute affected workflows once after code closure,
-never just rehash them. Full release acceptance remains unproven.
+Combined backend/frontend strict checks, changed-module lint and both production
+builds pass. Existing backend fulfillment/finance regressions: 50 pass, 42 native
+cases explicitly outside scope; frontend regressions: 8 pass. Exact checked source
+hashes and bounded results: `backend/evidence/global-alerts-implementation-7fb0a96.json`.
+No whole-template, new global workflow, Redis/provider or release certification is
+inferred from those counts. Original shared installs/environments are unchanged.
+
+Current global reminder proof candidate e773f70 is executing in an owned native
+fixture on base `7fb0a96`. Early failures are harness seed/source assumptions only:
+physical has_products.status uses PLACED, not model-generated CONFIRMED; expiry
+script exists in both source layouts but the day-close nag exists only in base.html.
+Native/source/App behavior verdict remains pending. Notification joined proof is
+being authored separately; no in-memory fake bus or candidate response fulfillment.
+Benchmark validation/measurement stays held until competing jobs and fixes finish.
 
 Profile proof `8383911` + `397c432` is integrated as `bfa9ae0` / `fdbc2c0`: 7/7 pass in 28.11 s,
-scoped strict/lint/syntax pass, 1,233 matched input hashes and canonical log digest.
-Exactly users/urls.py:23,:28 only; no whole checkout/template or shared cart
-provider acceptance. Real App/native profile operations use a bounded localhost
-read-only cart contract seam with actual signed token/context/native bindings.
-A reversed source mixin order allows anonymous property writes; candidate auth
-and confirmed UI refresh are intentional security/interface corrections. No
-production defect was found in that resource. Native workflow/verifier
-registration and existing compiler-target declaration coverage are prepared;
-legacy profile compiler target, verifier strict and lint pass. Current source
-graph changes mean admission waits for affected re-execution after code closure.
+strict/lint/syntax pass, 1,233 matched inputs and canonical log digest. Exactly two
+profile routes only; bounded native-cart read provider seam is excluded from
+provider/whole-checkout acceptance. Archival `d02a5cf` + `e38c527` has 12 source/native
+postconditions and 6 scoped API/built-App checks against `851f620`, with its incomplete
+final wrapper/rebuild boundary and pre-header transport-replay limit preserved.
+Both need the coordinated affected refresh after these shared production edits.
 
-Archive candidate `d02a5cf` + `e38c527` retains twelve native/source postconditions and
-six scoped API/built-App checks for four archive/reactivate routes. Its final
-scoped runner exited 0 against `851f620`; the complete build+wrapper was not rerun
-after harness corrections because of the implementation-first hold. Source
-history/assignments and old-cookie revocation are verified only in that bounded
-snapshot. A partial-body lost reply produced one PATCH and one epoch increment;
-an earlier pre-header transport fault repeated PATCH, with historical native
-counts unavailable. Preserve that limit. Its owned MySQL is removed and no
-archive process is live. New code must precede further parity runs.
-
-Catalogue/matrix benchmark `54e9ce4` + `53cf24e` is static-ready only. Native validation
-and measurement remain held until all implementation and competing jobs finish.
-No performance/production p95 claim is made. Root's completed-run MySQL fixture
-was stopped (volume retained); no unrelated containers/shared installs changed.
-
-Last full r8 on `6cbae5f` is terminal failed: 146 expected, 145 executed, 144 passed,
-one backend check failed; generic browser check unexecuted. Inputs unchanged,
-not interrupted. Backend: 2,701 pass / 90 skip, with two Node-runner files accidentally
-collected by Vitest and one stale NULL-label assertion. `851f620` bounded follow-ups
-pass 15 native cases, exact 344→342 discovery, strict/lint. Both Windows/macOS CI
-`44268539314` pass `851f620` including native/offline/unsigned packaging. Older `6cbae5f`
-Windows OTP failure remains archived; unchanged assertions pass but old cause
-is unresolved. Reports and all bounded limits remain in backend/evidence.
+All eight earlier admitted surfaces are explicitly pending; original evidence
+is immutable. Refresh actual affected executions once, never merely rehash them.
+Last complete r8 remains failed: 144 pass, one backend check failed, one generic
+browser check unexecuted of 146 expected; inputs unchanged. `851f620` bounded corrections
+pass 15 native cases and exact 344→342 discovery. Both Windows/macOS CI `44268539314`
+pass `851f620` including unsigned native/offline/recovery. These are older snapshots,
+not certification of the new `7fb0a96` graph. Current desktop CI is next after this code
+integration. No benchmark/native production-p95 claim exists.
 
 Complete source parity, live SSO/warehouse/providers/inventory/background-worker
 acceptance, representative performance/security review, signed desktop/physical
-printing/offline reconciliation and deployment/rollback remain required. Do not
-claim production readiness.
+printing/offline reconciliation and deployment/rollback remain required.
 
 ## Historical checkpoint entries (superseded where noted above)
 
