@@ -40,7 +40,12 @@ import type { ReturnGateway } from './return-workflow/contracts.js';
 import type { ReturnEnvironment } from './return-workflow/gateway.js';
 import { registerInvoices } from './invoices.js';
 import { discountApprovals } from './discounts/repository.js';
-import { discountPolicy, discountRemark, storeDiscountReasons } from './discounts/policy.js';
+import {
+  discountPolicy,
+  discountRemark,
+  pgDiscountRemark,
+  storeDiscountReasons,
+} from './discounts/policy.js';
 import { assertDiscountDeliveryReady, discountDeliveryEnvironment } from './discounts/delivery.js';
 import type { DiscountApprovals } from './discounts/contracts.js';
 import { phoneOtpDelivery } from '../../auth/delivery.js';
@@ -491,10 +496,19 @@ export function registerCheckout(
           kind: z.enum(['pg', 'store']),
           amount: amountSchema,
           apply: z.boolean(),
-          remark: discountRemark.optional(),
+          // Old-PG remark has no legacy maximum; store-PG remark keeps the legacy 35 characters.
+          remark: z.string().max(255).optional(),
           reason: z.enum(storeDiscountReasons).optional(),
         })
         .strict()
+        .refine(
+          (value) =>
+            !value.apply ||
+            (value.kind === 'pg'
+              ? pgDiscountRemark.safeParse(value.remark).success
+              : discountRemark.safeParse(value.remark).success),
+          { message: 'Enter a meaningful discount remark.' },
+        )
         .refine(
           (value) => !value.apply || Boolean(value.remark && (value.kind === 'pg' || value.reason)),
           { message: 'A discount remark and store discount reason are required.' },

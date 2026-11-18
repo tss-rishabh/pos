@@ -1340,7 +1340,11 @@ export function checkoutService(
         reason?: string;
       },
     ) {
-      requireRole(user, options.discounts?.permittedRoles || [1, 2, 3]);
+      // Legacy has no role check on store-PG (AjaxStoreDiscountPGView, order/views.py:2237-2283) or
+      // removals; old-PG apply is limited to PG_DISC_ROLE_PERM ("You do not have permission.").
+      if (options.discounts)
+        options.discounts.assertApplyPermission(user, request.kind, request.apply);
+      else if (request.kind === 'pg' && request.apply) requireRole(user, [1, 2, 3, 4]);
       return mutate(user, storeId, id, input, 'discount.update', request, async (state) => {
         if (request.apply && new Decimal(request.amount).isZero())
           throw new AppError(422, 'DISCOUNT_NOT_APPLICABLE', 'A nonzero discount is required.');
