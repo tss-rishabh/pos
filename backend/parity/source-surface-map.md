@@ -16,7 +16,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.
+- **returns-exchanges (partial)**: Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control.
 
 ## Line-bound implementation review
 
@@ -77,9 +77,9 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 0 | 0 | 187 |
+| routes | 68 | 7 | 0 | 180 |
 | jobs | 0 | 0 | 1 | 31 |
-| templates | 32 | 0 | 2 | 72 |
+| templates | 32 | 5 | 2 | 67 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
@@ -190,12 +190,12 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:13` | `store/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:14` | `online/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
 | `order/urls.py:15` | `online_sdd/<int:order_id>/invoice/` | invoice-documents | external_acceptance |
-| `order/urls.py:16` | `ajax-get-sub-reasons/` | returns-exchanges | external_acceptance |
-| `order/urls.py:17` | `ajax-get-pay-amt/` | returns-exchanges | external_acceptance |
-| `order/urls.py:18` | `ajax-product-return/` | returns-exchanges | external_acceptance |
-| `order/urls.py:19` | `ajax-product-exchange/` | returns-exchanges | external_acceptance |
-| `order/urls.py:20` | `ajax-get-exchange-sizes/` | returns-exchanges | external_acceptance |
-| `order/urls.py:21` | `ajax-get-exchange-reasons/` | returns-exchanges | external_acceptance |
+| `order/urls.py:16` | `ajax-get-sub-reasons/` | returns-exchanges | partial |
+| `order/urls.py:17` | `ajax-get-pay-amt/` | returns-exchanges | partial |
+| `order/urls.py:18` | `ajax-product-return/` | returns-exchanges | partial |
+| `order/urls.py:19` | `ajax-product-exchange/` | returns-exchanges | partial |
+| `order/urls.py:20` | `ajax-get-exchange-sizes/` | returns-exchanges | partial |
+| `order/urls.py:21` | `ajax-get-exchange-reasons/` | returns-exchanges | partial |
 | `order/urls.py:22` | `tab/` | motivational-quotes, checkout-cart | external_acceptance |
 | `order/urls.py:23` | `create-order/<int:store_id>/<int:counter_id>/<int:tab_id>/` | motivational-quotes, checkout-cart, cashier-shortcuts, order-to-cart-copy, customer-website-handoff | external_acceptance |
 | `order/urls.py:24` | `ajax-cart/` | checkout-cart | external_acceptance |
@@ -217,7 +217,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | external_acceptance |
 | `order/urls.py:41` | `ajax-check-save-gc/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:42` | `ajax-save-gc-date/` | purchased-gift-cards | external_acceptance |
-| `order/urls.py:43` | `ajax-extend-return/` | returns-exchanges | external_acceptance |
+| `order/urls.py:43` | `ajax-extend-return/` | returns-exchanges | partial |
 | `order/urls.py:46` | `ajax-transaction-upload/` | payments | external_acceptance |
 | `order/urls.py:47` | `ajax-transaction-cancel/` | payments | external_acceptance |
 | `order/urls.py:48` | `ajax-transaction-status-check/` | payments | external_acceptance |
@@ -432,7 +432,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/user_to_app/index.html` | `core/templates/user_to_app/index.html` | customer-application-handoff | external_acceptance |
 | `dashboard/templates/dashboard/dashboard.html` | `dashboard/templates/dashboard/dashboard.html` | dashboard-summary | external_acceptance |
 | `dashboard/templates/dashboard/main_dashboard.html` | `dashboard/templates/dashboard/main_dashboard.html` | shared-shell, motivational-quotes | implementation_present |
-| `order/templates/order/_exchange_js.html` | `order/templates/order/_exchange_js.html` | returns-exchanges | external_acceptance |
+| `order/templates/order/_exchange_js.html` | `order/templates/order/_exchange_js.html` | returns-exchanges | partial |
 | `order/templates/order/_hl_banner.html` | `order/templates/order/_hl_banner.html` | express-fulfillment, notifications | external_acceptance |
 | `order/templates/order/add_order_feedback.html` | `order/templates/order/add_order_feedback.html` | product-feedback | implementation_present |
 | `order/templates/order/basic_error.html` | `order/templates/order/basic_error.html` | system-health | implementation_present |
@@ -445,13 +445,13 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/templates/order/hyperlocal/_progress_content.html` | `order/templates/order/hyperlocal/_progress_content.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/all_stores_dashboard.html` | `order/templates/order/hyperlocal/all_stores_dashboard.html` | express-fulfillment | external_acceptance |
 | `order/templates/order/hyperlocal/progress.html` | `order/templates/order/hyperlocal/progress.html` | express-fulfillment | external_acceptance |
-| `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | external_acceptance |
+| `order/templates/order/index.html` | `order/templates/order/index.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries | partial |
 | `order/templates/order/invoice.html` | `order/templates/order/invoice.html` | invoice-documents | external_acceptance |
-| `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
-| `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | external_acceptance |
+| `order/templates/order/online/_return_exchange_cells.html` | `order/templates/order/online/_return_exchange_cells.html` | orders-read, returns-exchanges, invoice-documents | partial |
+| `order/templates/order/online/show.html` | `order/templates/order/online/show.html` | orders-read, returns-exchanges, invoice-documents | partial |
 | `order/templates/order/shipping.html` | `order/templates/order/shipping.html` | shipping-labels | external_acceptance |
 | `order/templates/order/shortcuts.html` | `order/templates/order/shortcuts.html` | cashier-shortcuts | implementation_present |
-| `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | external_acceptance |
+| `order/templates/order/show.html` | `order/templates/order/show.html` | orders-read, payments, returns-exchanges, pending-order-cancellation, local-deliveries, legacy-vinculum-status | partial |
 | `order/templates/order/tab.html` | `order/templates/order/tab.html` | checkout-cart, motivational-quotes | external_acceptance |
 | `report/templates/bd_report/daily_report_matric_report_datatable.html` | `report/templates/bd_report/daily_report_matric_report_datatable.html` | business-metrics-upload | missing |
 | `report/templates/bd_report/daily_report_matric_upload.html` | `report/templates/bd_report/daily_report_matric_upload.html` | business-metrics-upload | missing |

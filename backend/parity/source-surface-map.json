@@ -18,14 +18,16 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 293,
+      "external_acceptance": 281,
       "implementation_present": 100,
+      "partial": 12,
       "missing": 3
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 187,
-        "implementation_present": 68
+        "external_acceptance": 180,
+        "implementation_present": 68,
+        "partial": 7
       },
       "jobs": {
         "external_acceptance": 31,
@@ -33,7 +35,8 @@
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 72,
+        "external_acceptance": 67,
+        "partial": 5,
         "missing": 2
       },
       "websockets": {
@@ -44,7 +47,7 @@
       }
     },
     "families": 75,
-    "code_task_groups": 0,
+    "code_task_groups": 1,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -4779,7 +4782,7 @@
     },
     {
       "id": "returns-exchanges",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/checkout/return-workflow",
         "backend/src/modules/checkout/returns.ts"
@@ -4795,7 +4798,9 @@
         "backend/parity/checkout.md"
       ],
       "implemented_scope": "Reason/subreason/size/payable choices, order-bound verification, accepted return/exchange saga, stock/hold/refund proof and GET recovery.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control."
+      ],
       "external_acceptance": [
         "Accept deployed source refund/atomic exchange/stock/ledger contracts and legal credit-note provider output."
       ],
@@ -6298,7 +6303,15 @@
       ]
     }
   ],
-  "remaining_code_tasks": [],
+  "remaining_code_tasks": [
+    {
+      "family": "returns-exchanges",
+      "state": "partial",
+      "tasks": [
+        "Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control."
+      ]
+    }
+  ],
   "routes": [
     {
       "source": {
@@ -9318,7 +9331,7 @@
       "families": [
         "returns-exchanges"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -9349,7 +9362,7 @@
       "families": [
         "returns-exchanges"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -9380,7 +9393,7 @@
       "families": [
         "returns-exchanges"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -9411,7 +9424,7 @@
       "families": [
         "returns-exchanges"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -9442,7 +9455,7 @@
       "families": [
         "returns-exchanges"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -9473,7 +9486,7 @@
       "families": [
         "returns-exchanges"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -10166,7 +10179,7 @@
       "families": [
         "returns-exchanges"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -15726,7 +15739,7 @@
       "families": [
         "returns-exchanges"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -15974,7 +15987,7 @@
         "pending-order-cancellation",
         "local-deliveries"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16012,7 +16025,7 @@
         "returns-exchanges",
         "invoice-documents"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -16032,7 +16045,7 @@
         "returns-exchanges",
         "invoice-documents"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16091,7 +16104,7 @@
         "local-deliveries",
         "legacy-vinculum-status"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

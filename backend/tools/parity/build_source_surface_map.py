@@ -282,8 +282,9 @@ def define_families():
            external=['Deploy and accept coordinated source membership producers/revision fences and shared wallet/stock writer cutover, real provider state and independently proved old funding. Reviewed compatibility patches and local source execution do not establish deployed acceptance; no fabricated historical backfill.'])
     bind('pending-order-cancellation', ['AjaxOrderCancelView'])
     family('returns-exchanges', ['src/modules/checkout/return-workflow', 'src/modules/checkout/returns.ts'],
-           ['src/pages/returns'], ['tests/checkout', 'frontend/tests/customer-otp'], ['parity/checkout.md'],
+           ['src/pages/returns'], ['tests/checkout', 'frontend/tests/customer-otp'], ['parity/checkout.md'], state='partial',
            scope='Reason/subreason/size/payable choices, order-bound verification, accepted return/exchange saga, stock/hold/refund proof and GET recovery.',
+           gaps=['Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control.'],
            external=['Accept deployed source refund/atomic exchange/stock/ledger contracts and legal credit-note provider output.'])
     bind('returns-exchanges', ['AjaxGetSubReasonView', 'AjaxGetPayAmtView', 'AjaxProductReturnView', 'AjaxProductExchangeView', 'AjaxGetExchangeSizesView', 'AjaxGetExchangeReasonsView', 'AjaxExtendReturnView'])
     family('purchased-gift-cards', ['src/modules/checkout/gift-cards.ts', 'src/modules/checkout/payments'], ['src/pages/checkout/CheckoutReview.tsx'],
