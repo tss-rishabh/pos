@@ -3,14 +3,16 @@ import { Temporal } from '@js-temporal/polyfill';
 import { AppError } from '../../domain/errors.js';
 import type { OrderDto, Page } from '../../domain/contracts.js';
 export const orderHistoryContract = 'pos-public-order-history-v1';
+const positivePattern = /^[1-9]\d{0,18}$/;
+const nonnegativePattern = /^(0|[1-9]\d{0,18})$/;
 export const positiveId = z
   .string()
-  .regex(/^[1-9]\d{0,18}$/)
-  .refine((value) => BigInt(value) <= 9223372036854775807n);
+  .regex(positivePattern)
+  .refine((value) => positivePattern.test(value) && BigInt(value) <= 9223372036854775807n);
 export const nonnegativeId = z
   .string()
-  .regex(/^(0|[1-9]\d{0,18})$/)
-  .refine((value) => BigInt(value) <= 9223372036854775807n);
+  .regex(nonnegativePattern)
+  .refine((value) => nonnegativePattern.test(value) && BigInt(value) <= 9223372036854775807n);
 export const count = nonnegativeId;
 export const hash = z.string().regex(/^[a-f0-9]{64}$/);
 export const sourceDate = z.string().regex(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d{1,6})?$/);
