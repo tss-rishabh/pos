@@ -1,0 +1,43 @@
+{
+  "afterInputsSha256": "010fbf42343ee074593c0b02e76b0c55d3a24391b12b25dee3264ea0653db3c5",
+  "assemblyManifestSha256": "14ef21d7808117167de15f27ebd149fef9f0a29caf269a31e746028254463ba8",
+  "beforeInputsSha256": "010fbf42343ee074593c0b02e76b0c55d3a24391b12b25dee3264ea0653db3c5",
+  "cleanup": {
+    "allAbsent": true,
+    "anonymousVolumes": 1,
+    "independentlyConfirmedAbsent": true,
+    "resourceRecords": 9
+  },
+  "defaultVet": true,
+  "exclusions": [
+    "Complete public HTTP/controller/provider parity",
+    "Live financial provider/database qualification",
+    "Original package config bootstrap",
+    "Performance/latency claims",
+    "Later wrapper or production changes"
+  ],
+  "executedInputHashes": {
+    "assemble.py": "f9a1454e66ce9e83c3a24cdb0e342c4c9592a197314b921ed90b769aa8c99b54",
+    "relay.py": "4f352d5904f939575a9f1542bb2c19d53cbcea1996e304c27b19878e9d989815"
+  },
+  "executedProductionBase": "ecb4571",
+  "executedRunnerSha256": "a310cab9e5c22b48cae18414b704065f25b757f10e24dd7eeaf94d347e2da931",
+  "executedWrapperCommit": "567b2ff",
+  "financialBoundary": "Approved current composer/runner retains original extra history entry; no financial policy or assertion changed by orchestration.",
+  "generatedExpiryChildrenPassed": 10,
+  "hashPolicy": "Hashes identify actual executed bytes; no rebinding of earlier general/head/manual receipts.",
+  "inputsUnchanged": true,
+  "namedPassEvents": 24,
+  "nativeReceiptSha256": "c1d687499ca5155b4257adc1cbc161af4136bc6f908068a453bd949c61d4dd50",
+  "originalExpiryChildrenPassed": 10,
+  "phase": "calendar",
+  "privateEvidenceDirectory": "/private/tmp/pos-origin-verification.i8a_ewu2",
+  "privateReceiptSha256": "29b4bb0a3d95f4b3b165782d9d9bcae116d08c80803d26a88519b8e4f4b8b2bf",
+  "race": true,
+  "rawNativeEventsSha256": "6d35cdb5d047346d0eff11a15cbcb32277427c21bbac39da100100ba077631fc",
+  "runnerLogSha256": "133dd884fdc4d90716b82fff11d9b8d7419daaddfd9b38a8e3ff3ac606af13dd",
+  "schema": "pos-other-origin-wrapper-review-v1",
+  "sourcePin": "434f3e438d1cb48c64e5723222c6efda506db571",
+  "status": "passed-bounded",
+  "tlsGatewayCasesPassed": 2
+}

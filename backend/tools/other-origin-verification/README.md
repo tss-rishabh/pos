@@ -1,9 +1,18 @@
 # Other-origin Go verification orchestration
 
-This wrapper is authored for registration in the full verifier. Native execution
-has not been performed for this wrapper. The three phases are separate bounded
-checks; passing them does not establish complete public HTTP/controller/provider
-parity or authorize deployment, schema installation, or live financial writes.
+The three phases have each completed a bounded native validation against the
+approved `ecb4571` production input graph. Their separate review files retain
+the actual executed before-map hashes: `general-review.json`, `head-review.json`
+and `calendar-review.json`. The general pass predates the head-only network and
+relay fixes; its hashes have not been rebound. Head and calendar passed with
+the final relay implementation. First path/port setup failures and the partial
+head run that required interruption for a relay EOF hang remain in private
+evidence and are explicitly excluded from accepted wrapper results.
+
+These are separate bounded checks; passing them does not establish complete
+public HTTP/controller/provider parity or authorize deployment, schema
+installation, or live financial writes. The frozen full verifier must refresh
+its registered checks against its own final inputs.
 
 Supply both paths explicitly. There are no developer-specific default paths:
 
