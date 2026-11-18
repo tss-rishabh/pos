@@ -196,9 +196,11 @@ describe('daily warehouse publication and offline projection boundaries', () => 
         cdc_watermark: published,
       })),
       future = rollup('1', '2026-11-19'),
-      f = fixture(partitions, [future], [
-        { generation_id: 'fixture_generation_42', published_at: published },
-      ]);
+      f = fixture(
+        partitions,
+        [future],
+        [{ generation_id: 'fixture_generation_42', published_at: published }],
+      );
     const result = await readDailyWarehouseRollups(
       config,
       options,
@@ -216,9 +218,11 @@ describe('daily warehouse publication and offline projection boundaries', () => 
       expected_partitions: 7,
     });
     expect(f.calls).toHaveLength(3);
-    const missing = fixture(partitions.slice(0, -1), [], [
-      { generation_id: 'fixture_generation_42', published_at: published },
-    ]);
+    const missing = fixture(
+      partitions.slice(0, -1),
+      [],
+      [{ generation_id: 'fixture_generation_42', published_at: published }],
+    );
     await expect(
       readDailyWarehouseRollups(
         config,
@@ -235,9 +239,7 @@ describe('daily warehouse publication and offline projection boundaries', () => 
       partitions.map((entry) => ({
         ...entry,
         source_position:
-          entry.business_date === '2026-11-19'
-            ? 'mysql-bin.000042:123457'
-            : entry.source_position,
+          entry.business_date === '2026-11-19' ? 'mysql-bin.000042:123457' : entry.source_position,
       })),
       [future],
       [{ generation_id: 'fixture_generation_42', published_at: published }],
