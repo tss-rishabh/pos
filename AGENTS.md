@@ -100,3 +100,12 @@ These supersede earlier WIP patterns. Every agent must follow them.
 - The user authorizes parallel agents. Assign exclusive file ownership, do not
   revert other agents' work, and coordinate shared configuration/schema changes
   through the primary agent.
+- **Security and API decisions, 19 November 2026 (user):**
+  - Never copy legacy security holes. Take the secure option and record each decision in
+    `backend/parity/security-decisions.md` (S1, S2, …) for the user to review.
+  - Store login OTPs hashed (HMAC). Revoke sessions only on password change or deactivation, as legacy does.
+  - API errors use the HTTP status that fits the scenario, with clear messages. Record the legacy message
+    alongside the new one in the module's parity notes.
+- Evidence, 19 November 2026: legacy `settings.py` sets `STRICT_TRANS_TABLES` per connection.
+  Production nevertheless holds 478 `gift_voucher_history` rows with comment `GV ADD…` and
+  `platform=''`, up to 2026-11-17, so the effective legacy outcome is non-strict. Keep writing `''` explicitly.
