@@ -226,6 +226,7 @@ type Check = {
   args: string[];
   environment?: NodeJS.ProcessEnv;
   timeoutMs?: number;
+  prerequisite?: boolean;
 };
 type CheckResult = {
   id: string;
@@ -235,6 +236,37 @@ type CheckResult = {
   terminationSignal: NodeJS.Signals | null;
 };
 const checks: Check[] = [
+  {
+    id: 'backend-dependency-security-integrity',
+    directory: 'backend',
+    args: ['tools/dependency-security/verify.mjs'],
+    prerequisite: true,
+  },
+  {
+    id: 'frontend-dependency-security-integrity',
+    directory: 'frontend',
+    args: ['tools/dependency-security/verify.mjs'],
+    prerequisite: true,
+  },
+  {
+    id: 'dependency-security-mirrors',
+    directory: 'backend',
+    args: ['tools/dependency-security/sync-mirrors.mjs'],
+    prerequisite: true,
+  },
+  {
+    id: 'dependency-security-integrity-tests',
+    directory: 'backend',
+    args: ['--test', 'tools/dependency-security/verify.test.mjs'],
+    prerequisite: true,
+  },
+  {
+    id: 'dependency-security-pattern-regression',
+    directory: 'backend',
+    args: ['tools/dependency-security/review.mjs', '..'],
+    timeoutMs: 3 * 60 * 1000,
+    prerequisite: true,
+  },
   {
     id: 'payments-base-metadata-packaging-tests',
     directory: 'backend',
@@ -1535,13 +1567,17 @@ async function prepareTypechecks() {
 for (const check of checks) {
   if (stopped) break;
   if (check.id === 'browser-tests' && results.some((result) => result.exitCode !== 0)) break;
+  let result: CheckResult;
   if (isReadOnlyTypecheck(check)) {
     if (!typechecksPrepared) await prepareTypechecks();
     if (stopped) break;
-    const result = typecheckResults.get(check.id);
-    if (!result) throw new Error('A required compiler check was not recorded.');
-    results.push(result);
-  } else results.push(await run(check));
+    const prepared = typecheckResults.get(check.id);
+    if (!prepared) throw new Error('A required compiler check was not recorded.');
+    result = prepared;
+  } else result = await run(check);
+  results.push(result);
+  // Refuse toolchain execution when reviewed dependency integrity is absent.
+  if (check.prerequisite && result.exitCode !== 0) break;
 }
 // Compiler preparation can finish many checks before the sequential loop
 // consumes them. Retain those actual results even if a signal interrupts the

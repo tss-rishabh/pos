@@ -89,6 +89,15 @@ it does not select another source revision. Fixture launchers forward only
 that source location rather than inherited service credentials. Generated
 exchange metadata records repository/commit identity instead of a local path.
 
+The build toolchain selects an exact local picomatch mitigation in both
+lockfiles. Keep each project's `tools/dependency-security` artifact and verifier
+in its independent build context. Run `npm ci` before using a changed lockfile;
+the developer scripts and full verifier refuse stale installed parser bytes.
+See the [review and compatibility limits](backend/tools/dependency-security/README.md).
+The upstream advisory stays visible by version; the local mitigation is not an
+official patched-release or full-audit-zero claim. Production installs omit this
+development dependency and the Docker runtime stage verifies that absence.
+
 The frozen `b201724` verification executed 130 project checks: 123 passed and
 seven failed, with unchanged inputs. Its backend suite passed 2,688 tests with
 one stale route-count failure; the generic app browser group was not executed

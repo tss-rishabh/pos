@@ -36,7 +36,14 @@
     "inventory": "python3 tools/inventory_legacy.py",
     "parity:gate": "tsx tools/parity-gate.ts",
     "verify:mysql": "node tools/verify-mysql.cjs",
-    "lint": "eslint src tests tools"
+    "lint": "eslint src tests tools",
+    "verify:dependency-security": "node tools/dependency-security/verify.mjs && node tools/dependency-security/sync-mirrors.mjs",
+    "prebuild": "node tools/dependency-security/verify.mjs",
+    "predev": "node tools/dependency-security/verify.mjs",
+    "pretest": "node tools/dependency-security/verify.mjs",
+    "prelint": "node tools/dependency-security/verify.mjs",
+    "pretypecheck": "node tools/dependency-security/verify.mjs",
+    "pretest:watch": "node tools/dependency-security/verify.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1169.0",
@@ -75,9 +82,11 @@
     "tsx": "4.23.15",
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",
-    "vitest": "5.1.0"
+    "vitest": "5.1.0",
+    "picomatch": "file:tools/dependency-security/picomatch-4.0.7-pos-review.tgz"
   },
   "overrides": {
-    "minimatch": "11.0.1"
+    "minimatch": "11.0.1",
+    "picomatch": "$picomatch"
   }
 }

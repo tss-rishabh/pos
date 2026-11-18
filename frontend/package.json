@@ -21,7 +21,15 @@
     "desktop:pack:mac": "npm run build && electron-builder --mac --dir",
     "desktop:pack:win": "npm run build && electron-builder --win --x64 --dir",
     "desktop:dist:mac": "npm run build && electron-builder --mac --x64 --arm64",
-    "desktop:dist:win": "npm run build && electron-builder --win --x64"
+    "desktop:dist:win": "npm run build && electron-builder --win --x64",
+    "verify:dependency-security": "node tools/dependency-security/verify.mjs",
+    "prebuild": "node tools/dependency-security/verify.mjs",
+    "predev": "node tools/dependency-security/verify.mjs",
+    "pretest": "node tools/dependency-security/verify.mjs",
+    "prelint": "node tools/dependency-security/verify.mjs",
+    "pretypecheck": "node tools/dependency-security/verify.mjs",
+    "pretest:e2e": "node tools/dependency-security/verify.mjs",
+    "prepreview": "node tools/dependency-security/verify.mjs"
   },
   "build": {
     "appId": "com.thesouledstore.pos",
@@ -115,10 +123,12 @@
     "typescript": "6.0.3",
     "typescript-eslint": "8.72.2",
     "vite": "8.3.8",
-    "vitest": "5.1.0"
+    "vitest": "5.1.0",
+    "picomatch": "file:tools/dependency-security/picomatch-4.0.7-pos-review.tgz"
   },
   "overrides": {
-    "minimatch": "11.0.1"
+    "minimatch": "11.0.1",
+    "picomatch": "$picomatch"
   },
   "description": "Souled Store retail workspace for web, Windows and macOS",
   "author": "The Souled Store"

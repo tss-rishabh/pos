@@ -1,12 +1,19 @@
 # POS rewrite checkpoint
 
-Implementation-first resumed after the dependency-security audit confirmed that
-the reviewed picomatch mitigation was never integrated: both locks still ship
-the vulnerable development package. An isolated worker owns manifests/locks,
-self-contained artifacts, install integrity, Docker contexts and desktop CI.
-No advisory suppression or false audit-zero claim is permitted. Root's shared
-node_modules remain untouched. Complete that integration before the next full
-validation pass.
+The dependency-security implementation gap is now closed with isolated worker
+commits `446e26f`/`4af1806`, integrated together with Root's verifier guards.
+Both locks select the reviewed exact parser artifact; independent Docker
+contexts, developer command guards and desktop CI verify installed bytes.
+Eight guard/refusal tests, both builds/discovery, actual omit-dev installs,
+both final Docker targets and 4,488,942 compatibility comparisons pass.
+The advisory remains visible by its original version; no audit suppression or
+false full-audit-zero claim is permitted. Root's shared node_modules remain
+untouched. Next full validation runs in a dedicated sibling worktree with its
+own mitigated installs, copied fixture Python environment and private caches.
+Root verifier checks integrity/mirrors/regressions before running the toolchain.
+Desktop run `44242069782` succeeded on both OS for pre-mitigation `5f9c757`,
+including unsigned packaging; retained receipt `backend/evidence/desktop-ci-5f9c757.json`.
+Latest dependency-state platform and full-project checks are still required.
 
 The `5f9c757` r6 local verifier was deliberately stopped with SIGTERM for this
 newly confirmed implementation gap, not a timeout. Its original failed report

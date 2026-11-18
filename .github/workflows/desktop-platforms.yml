@@ -34,10 +34,25 @@ jobs:
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
-      - run: npm ci
+      - name: Verify backend mitigation archive
+        run: node tools/dependency-security/verify.mjs --archive-only
         working-directory: backend
       - run: npm ci
+        working-directory: backend
+      - run: npm run verify:dependency-security
+        working-directory: backend
+      - name: Verify frontend mitigation archive
+        run: node tools/dependency-security/verify.mjs --archive-only
         working-directory: frontend
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run verify:dependency-security
+        working-directory: frontend
+      - name: Bounded matcher security and compatibility checks
+        timeout-minutes: 3
+        run: |
+          node --test backend/tools/dependency-security/verify.test.mjs
+          node backend/tools/dependency-security/review.mjs
       - run: npx playwright install chromium
         working-directory: frontend
       - run: npm run typecheck

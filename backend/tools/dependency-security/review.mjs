@@ -1,8 +1,8 @@
-/** Bounded public-package checks; no project dependency activation. */
+/** Bounded public-package checks; baseline packages are read-only. */
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { readFileSync, mkdtempSync, rmSync } from 'node:fs';
+import { copyFileSync, mkdirSync, readFileSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
@@ -10,18 +10,39 @@ import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const project = resolve(process.argv[2] ?? join(here, '../../..'));
-const original = join(project, 'backend/node_modules/picomatch');
 const checksum = (value) => createHash('sha256').update(value).digest('hex');
 const manifest = JSON.parse(readFileSync(join(here, 'manifest.json'), 'utf8'));
 assert.equal(checksum(readFileSync(join(here, manifest.archive.path))), manifest.archive.sha256);
 const temporary = mkdtempSync(join(tmpdir(), 'pos-picomatch-check-'));
 const candidate = join(temporary, 'package');
+const original = process.argv[3] ? resolve(process.argv[3]) : join(temporary, 'baseline');
 try {
   execFileSync('tar', ['-xzf', join(here, manifest.archive.path), '-C', temporary], {
     stdio: 'pipe',
   });
-  for (const file of manifest.files) {
+  for (const file of manifest.files)
     assert.equal(checksum(readFileSync(join(candidate, file.path))), file.candidateSha256);
+  if (!process.argv[3]) {
+    // Reconstruct only the exact original npm bytes, never an assumed equivalent
+    // parser. Every reconstructed file must match the registry-verified hash.
+    for (const file of manifest.files) {
+      mkdirSync(dirname(join(original, file.path)), { recursive: true });
+      copyFileSync(join(candidate, file.path), join(original, file.path));
+    }
+    const replaceOnce = (source, before, after) => {
+      assert.equal(source.split(before).length, 2, 'Reviewed reverse transform changed');
+      return source.replace(before, after);
+    };
+    const path = join(original, 'lib/parse.js');
+    const needle = '    const analysis = analyzeRepeatedExtglob(body, opts);';
+    const insertion = readFileSync(join(here, 'repeated-extglob-guard.inc'), 'utf8').replaceAll('\r\n', '\n').trimEnd();
+    let parser = replaceOnce(readFileSync(path, 'utf8'), `${needle}\n${insertion}`, needle);
+    parser = replaceOnce(parser,
+      "    let output = (singleWildcard ? (token.type === 'star' ? ')?' : ')') : token.close) + (opts.capture ? ')' : '');",
+      "    let output = token.close + (opts.capture ? ')' : '');");
+    writeFileSync(path, parser);
+  }
+  for (const file of manifest.files) {
     assert.equal(checksum(readFileSync(join(original, file.path))), file.originalSha256);
   }
 
@@ -204,7 +225,8 @@ try {
     `${JSON.stringify(
       {
         contract: manifest.contract,
-        activated: false,
+        activated: manifest.activated,
+        baselineReconstructedOffline: !process.argv[3],
         node: process.version,
         parserSha256: manifest.files.find((file) => file.path === 'lib/parse.js').candidateSha256,
         hostileResults,

@@ -1,4 +1,4 @@
-/** Review candidate only. Never modifies an installed package or lockfile. */
+/** Reproduce the selected local mitigation; never modifies installed packages or lockfiles. */
 import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, utimesSync } from 'node:fs';
@@ -26,7 +26,7 @@ for (const file of upstream.files) {
 }
 const needle = '    const analysis = analyzeRepeatedExtglob(body, opts);';
 if (original.split(needle).length !== 2) throw new Error('Parser insertion boundary changed');
-const insertion = readFileSync(join(here, 'repeated-extglob-guard.inc'), 'utf8').trimEnd();
+const insertion = readFileSync(join(here, 'repeated-extglob-guard.inc'), 'utf8').replaceAll('\r\n', '\n').trimEnd();
 let patched = original.replace(needle, `${needle}\n${insertion}`);
 const close = "    let output = token.close + (opts.capture ? ')' : '');";
 if (patched.split(close).length !== 2) throw new Error('Parser close boundary changed');
@@ -72,7 +72,7 @@ try {
     `${JSON.stringify(
       {
         contract: 'pos-picomatch-review-candidate-v1',
-        activated: false,
+        activated: true,
         base: {
           name: metadata.name,
           version: metadata.version,
@@ -93,7 +93,7 @@ try {
     )}\n`,
   );
   process.stdout.write(
-    `${JSON.stringify({ stage: 'prepared', files: files.length, parserSha256: sha(patched), activated: false })}\n`,
+    `${JSON.stringify({ stage: 'prepared', files: files.length, parserSha256: sha(patched), activated: true })}\n`,
   );
 } finally {
   rmSync(temporary, { recursive: true, force: true });

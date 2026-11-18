@@ -1,6 +1,6 @@
 {
   "contract": "pos-picomatch-review-candidate-v1",
-  "activated": false,
+  "activated": true,
   "base": {
     "name": "picomatch",
     "version": "4.0.7",

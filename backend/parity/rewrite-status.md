@@ -10,7 +10,7 @@ The four dispositions retain the diagnostic account task, the inactive upload-lo
 
 The latest membership port closes a real runtime-authority incompatibility in Node, Python and Go. It authenticates four native revision fences through the shared 17-section metadata contract without granting application accounts TRIGGER privileges. The [review](membership-revision-head-metadata.md) records the exact owner, body, grant, isolation and rollback requirements. The regenerated 114-file payments assembly compiled offline with locked Go modules; [its bounded receipt](evidence/membership-revision/assembly-contract.json) does not certify deployment or complete financial workflows.
 
-A separate security implementation gap remains: the reviewed development-toolchain picomatch mitigation has not yet been integrated into both dependency locks and build contexts. Integration is underway in an isolated worktree. The [security review](../tools/dependency-security/README.md) keeps the advisory and compatibility restrictions explicit. Runtime exposure and development-toolchain exposure must not be conflated. The standing user order remains: complete implementation first, then full parity and verification.
+The development-toolchain picomatch mitigation is now integrated into both locks, independent Docker contexts and desktop CI. Installed-byte guards refuse stale packages before normal toolchain commands, and the full verifier checks integrity and bounded compatibility regressions first. The [security review](../tools/dependency-security/README.md) and [focused integration evidence](../tools/dependency-security/integration-evidence.json) retain the original advisory and compatibility restrictions; this is not a false full-audit-zero or complete security-acceptance claim. Root shared dependencies remain unchanged; the next consolidated run uses a dedicated worktree with its own mitigated installs.
 
 ## Executed validation
 
@@ -18,7 +18,7 @@ The frozen `b201724` r5 run executed 130 project checks: 123 passed and seven fa
 
 The `5f9c757` r6 run was deliberately interrupted when the unintegrated security mitigation was confirmed. [Its original report](../evidence/verification-5f9c757-r6-interrupted.json) remains failed, interrupted and productionReady false, with unchanged inputs. A reporting defect omitted prepared parallel compiler results from that partial JSON; the private stdout records 48 successful project checks and two signal-stopped compiler checks. The verifier has been corrected to retain those results and record termination signals. No backend/native/browser completion is claimed for r6.
 
-Desktop CI run `44235902175` passed Windows and macOS on `cd179c5`, including unsigned packaging, native/offline and integrity checks. It predates the metadata port. Run `44242069782` targets pre-mitigation `5f9c757`; consult its actual terminal status rather than treating an in-progress job as passed. Signing, installed-device/printer acceptance and production distribution remain separate requirements.
+Desktop CI run `44235902175` passed Windows and macOS on `cd179c5`, including unsigned packaging, native/offline and integrity checks. It predates the metadata port. Run `44242069782` also passed both OS on pre-mitigation `5f9c757`; [its bounded receipt](../evidence/desktop-ci-5f9c757.json) retains job/step results and artifact digests. It does not certify the later dependency state. Signing, installed-device/printer acceptance and production distribution remain separate requirements.
 
 ## Current parity and release evidence
 

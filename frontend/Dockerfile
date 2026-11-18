@@ -4,7 +4,8 @@ ARG POS_MEDIA_ORIGINS=
 ENV POS_MEDIA_ORIGINS=${POS_MEDIA_ORIGINS}
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+COPY tools/dependency-security/manifest.json tools/dependency-security/verify.mjs tools/dependency-security/picomatch-4.0.7-pos-review.tgz ./tools/dependency-security/
+RUN node tools/dependency-security/verify.mjs --archive-only && npm ci && node tools/dependency-security/verify.mjs
 COPY tsconfig*.json vite.config.ts index.html ./
 COPY public ./public
 COPY src ./src

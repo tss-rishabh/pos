@@ -1,0 +1,69 @@
+{
+  "scope": "selected-local-mitigation-owned-toolchain",
+  "sourceBaseline": "5f9c75733b0824cff75865d09b61003a6bf54b02",
+  "node": "v24.22.3",
+  "archiveSha256": "33cac3937347df24b2c9e03fc163fe62357829b4a5ca1675807c0d7af499184f",
+  "parserSha256": "a9cd16504c08652f1beae523a517b210edacefc79c49ec24275df29a84d37ab5",
+  "version": "4.0.7",
+  "advisory": "GHSA-fc5q-39xc-vjpf",
+  "officialPatchedRelease": false,
+  "focusedGuardsPassed": 8,
+  "isolatedInstalls": {
+    "backend": true,
+    "frontend": true,
+    "ignoreScripts": true,
+    "sharedDependenciesModified": false
+  },
+  "builds": {
+    "backend": true,
+    "frontend": true
+  },
+  "actualVitestFileDiscovery": {
+    "backend": true,
+    "frontend": true
+  },
+  "actualOmitDevReification": {
+    "backend": true,
+    "frontend": true
+  },
+  "dockerContexts": {
+    "backendBuild": true,
+    "frontendBuild": true,
+    "finalRuntimeBase": true,
+    "finalFrontendBuild": true,
+    "platform": "linux/arm64",
+    "applicationExecuted": false
+  },
+  "audit": {
+    "backend": {
+      "fullExit": 1,
+      "high": 11,
+      "productionExit": 0,
+      "productionFindings": 0
+    },
+    "frontend": {
+      "fullExit": 1,
+      "high": 18,
+      "productionExit": 0,
+      "productionFindings": 0
+    },
+    "rootAdvisories": [
+      "GHSA-fc5q-39xc-vjpf"
+    ],
+    "ignored": []
+  },
+  "currentOwnedPatternReview": {
+    "ownedPatterns": 127,
+    "ownedSubjects": 5891,
+    "ownedMatchPairs": 4488942,
+    "ownedRegexSources": 762,
+    "linearizationPairs": 9750,
+    "differences": 0,
+    "baselineHostileDeadlines": 8,
+    "candidateHostileCompleted": 8,
+    "baselineReconstructedOffline": true
+  },
+  "fullProjectCertified": false,
+  "windowsMacCertified": false,
+  "productionReady": false
+}
