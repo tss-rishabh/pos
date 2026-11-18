@@ -1235,6 +1235,16 @@ for (const [id, directory, config] of [
   ['lookup-workflow-backend-typecheck', 'backend', 'tools/lookup-workflow/backend.tsconfig.json'],
   ['lookup-workflow-browser-typecheck', 'frontend', 'tests/lookup-workflow/tsconfig.json'],
   [
+    'archival-native-workflow-typecheck',
+    'frontend',
+    'tests/administration/archival-workflow-tsconfig.json',
+  ],
+  [
+    'global-reminders-native-workflow-typecheck',
+    'frontend',
+    'tests/global-reminders/tsconfig.native.json',
+  ],
+  [
     'customer-profile-native-workflow-typecheck',
     'backend',
     'tools/customer-profile/native-workflow.tsconfig.json',
@@ -1344,6 +1354,18 @@ if (flags.has('--browser')) {
         directory: 'backend',
         command: 'sh',
         args: ['tools/cashier-shortcuts/run-joined.sh', source, '--native-reference'],
+      },
+      {
+        id: 'archival-native-source-api-browser-workflow',
+        directory: 'backend',
+        command: 'sh',
+        args: ['tools/administration/archival-workflow-run.sh', source],
+      },
+      {
+        id: 'global-reminders-native-source-api-browser-workflow',
+        directory: 'backend',
+        command: 'sh',
+        args: ['tools/global-reminders/run.sh', source],
       },
     );
   }

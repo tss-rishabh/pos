@@ -42,7 +42,10 @@ No financial command route is invoked.
 ## Run after coordinated authorization
 
 Requires Node24, mitigated locked dependencies in the owned checkout, Chromium,
-Python3.12, uv and an owned disposable MySQL8.0.39. The URL must use 127.0.0.1 with
+Python3.12, uv and Docker with the pinned MySQL8.0.39 image installed. By default
+the runner creates its own labeled container on a random loopback port and removes
+the container and its volumes on exit. It also accepts an explicitly supplied
+owned endpoint, which it never removes. The URL must use 127.0.0.1 with
 an explicit port other than 54777 and database admission marker
 `pos_rewrite_global_reminders`. The existing source-verified fixture builder creates
 and drops a private random schema. Never pass a live endpoint.
@@ -50,8 +53,7 @@ and drops a private random schema. Never pass a live endpoint.
 From backend:
 
 ```sh
-GLOBAL_REMINDERS_MYSQL_URL="$OWN_PRIVATE_MYSQL_URL" \
-  sh tools/global-reminders/run.sh /absolute/pinned/backend-pos-web
+sh tools/global-reminders/run.sh /absolute/pinned/backend-pos-web
 ```
 
 The runner uses a private Python venv/cache and strict checking, builds the frontend

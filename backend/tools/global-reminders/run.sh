@@ -4,15 +4,19 @@ if [ "$#" -ne 1 ]; then
   echo 'Usage: run.sh /absolute/pinned/backend-pos-web' >&2
   exit 2
 fi
-: "${GLOBAL_REMINDERS_MYSQL_URL:?Owned localhost native fixture required}"
 task_root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 task_temporary=$(mktemp -d "${TMPDIR:-/tmp}/pos-global-reminders.XXXXXX")
-cleanup(){ rm -rf "$task_temporary"; }
+. "$task_root/backend/tools/workflow-fixtures/mysql.sh"
+cleanup(){ workflow_mysql_cleanup; rm -rf "$task_temporary"; }
 trap cleanup EXIT HUP INT TERM
 cd "$task_root"
 node -e 'if (process.versions.node.split(".")[0] !== "24") throw new Error("Node24 required")'
 node backend/tools/dependency-security/verify.mjs
 node frontend/tools/dependency-security/verify.mjs
+if [ -z "${GLOBAL_REMINDERS_MYSQL_URL:-}" ]; then
+  workflow_mysql_start pos_rewrite_global_reminders
+  GLOBAL_REMINDERS_MYSQL_URL=$workflow_mysql_url
+fi
 UV_CACHE_DIR="$task_temporary/uv-cache" uv venv --no-python-downloads \
   --python "${GLOBAL_REMINDERS_PYTHON_VERSION:-3.12}" "$task_temporary/oracle-venv" >&2
 UV_CACHE_DIR="$task_temporary/uv-cache" uv pip install --python "$task_temporary/oracle-venv/bin/python" \

@@ -40,8 +40,11 @@ the user's approved archive/deleted-flag policy. No financial action is dispatch
 ## Reproduction
 
 Requires Node 24, the mitigated locked backend/frontend dependencies, Chromium,
-`uv`, Python 3.12 and an owned disposable MySQL 8 endpoint. Never use a live DB or
-the shared validation fixture on port 54777. The URL must have host 127.0.0.1, an
+`uv`, Python 3.12 and Docker with the pinned MySQL 8 image already installed.
+By default the runner creates its own labeled container on a random loopback port
+and removes that container and its volumes on exit. An explicitly supplied owned
+endpoint is also supported and is never removed by the runner. Never use a live DB
+or the shared validation fixture on port 54777. The URL must have host 127.0.0.1, an
 explicit private port and database name `pos_rewrite_archival_workflow`. The harness
 creates/drops its own random schema using the existing source-verified physical
 fixture builder; the URL's named database is an admission marker, not mutated.
@@ -49,8 +52,7 @@ fixture builder; the URL's named database is an admission marker, not mutated.
 From backend:
 
 ```sh
-ARCHIVAL_WORKFLOW_MYSQL_URL="$PRIVATE_ARCHIVAL_MYSQL_URL" \
-  sh tools/administration/archival-workflow-run.sh /absolute/backend-pos-web
+sh tools/administration/archival-workflow-run.sh /absolute/backend-pos-web
 ```
 
 The runner uses a private temporary Python venv/dependency cache, checks strict types and

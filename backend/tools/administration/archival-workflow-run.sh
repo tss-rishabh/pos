@@ -4,15 +4,19 @@ if [ "$#" -ne 1 ]; then
   echo 'Usage: archival-workflow-run.sh /absolute/pinned/backend-pos-web' >&2
   exit 2
 fi
-: "${ARCHIVAL_WORKFLOW_MYSQL_URL:?An owned localhost MySQL fixture is required}"
 task_root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 task_temporary=$(mktemp -d "${TMPDIR:-/tmp}/pos-archival-workflow.XXXXXX")
-cleanup(){ rm -rf "$task_temporary"; }
+. "$task_root/backend/tools/workflow-fixtures/mysql.sh"
+cleanup(){ workflow_mysql_cleanup; rm -rf "$task_temporary"; }
 trap cleanup EXIT HUP INT TERM
 cd "$task_root"
 node -e 'if (process.versions.node.split(".")[0] !== "24") throw new Error("Node 24 is required")'
 node backend/tools/dependency-security/verify.mjs
 node frontend/tools/dependency-security/verify.mjs
+if [ -z "${ARCHIVAL_WORKFLOW_MYSQL_URL:-}" ]; then
+  workflow_mysql_start pos_rewrite_archival_workflow
+  ARCHIVAL_WORKFLOW_MYSQL_URL=$workflow_mysql_url
+fi
 UV_CACHE_DIR="$task_temporary/uv-cache" uv venv --no-python-downloads \
   --python "${ARCHIVAL_WORKFLOW_PYTHON_VERSION:-3.12}" "$task_temporary/oracle-venv" >&2
 task_python="$task_temporary/oracle-venv/bin/python"
