@@ -62,14 +62,19 @@ include synthetic fixture DOM. Final output contains only source hashes, check n
 and explicit boundaries. No release ledger/certification is advanced automatically.
 This is authoring until actual coordinated execution passes.
 
-## Current implementation blocker on 7fb0a96
+## Historical red proof on 7fb0a96
 
 The baseline joined workflow passed, including foreground/no-read, full-dismissal
 snooze, dated navigation and date rejection. An additional native authority case
 then found a production gap: after assignment denial followed by restoration,
 an actual Store check-in page read can succeed with exactly the same check-in
 store/counter/expiry. Both global clients remain blocked instead of resuming.
-The test keeps its original five-second recovery expectations and fails for both
-clients. No production code is changed here. Further parity execution is paused
-until implementation addresses fresh same-record authority without remounting an
-already-visible modal for every harmless authority read.
+The historical test keeps its original five-second recovery expectations and fails
+for both clients. That evidence remains unchanged in `implementation-gap.json` and
+the original red branch. Recovery implementation `2f8106a` subsequently passed the
+complete command against the exact Root9716048 production graph; see
+`recovery-receipt.json`. Same-record refresh now restores both clients, while benign
+reads retain existing dialogs and do not re-stamp the snooze. The final proof uses
+real browser Back navigation into Store check-in for that benign read because the
+production app deliberately disables focus refetch. The later release-notes feature
+and Root's automatic Docker-fixture wrapper are outside this retained execution.
