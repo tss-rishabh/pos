@@ -14,17 +14,17 @@
     "internal/poscheckout/effects.go": "62b26ebc1a75b0cfc98b8691176a952c682cc0b14fae9af973f616a53c41233a",
     "internal/poscheckout/legacy_import.go": "178183d6887e8e65db2c9323c65009397b8a00c3e5f3935de62316f0a110000e",
     "internal/poscheckout/screening.go": "e8f46630a87b5ddfc2721df96fd623862246e24def235aeb09376a65684993d3",
-    "internal/poscheckout/screening_counter.go": "b5707b310b6b2734cfc80f158d38f999bdd8725eddb05b5e00fe5c47bff0b5e4",
+    "internal/poscheckout/screening_counter.go": "56fd725c20c4347726057b305aa216dd8ca9edb63a86e65969e3e38be052e36b",
     "internal/poscheckout/screening_counter_definition.go": "894373a498e90ef1da8ac98e3c160d4e78e97d9e1181158b612a5165492c772a",
-    "internal/poscheckout/screening_head_metadata.go": "d699fe0545490d73f32959f07632632f2e419c4cda24e56d724a27d88a3fee80",
-    "internal/poscheckout/screening_head_metadata_definition.go": "89d9a38bf5a845c60ba8c639795638e52027151e31fbe5036a2a08aff0351a3e",
+    "internal/poscheckout/screening_head_metadata.go": "8826c9373a29c0915373e13c959807599677ae975e632ac65a6e0b38a69f898d",
+    "internal/poscheckout/screening_head_metadata_definition.go": "7204aaaaa62198bc46e74fd0a5f77d83e978e843c3ee027a74f6919facdad099",
     "internal/poscheckout/public_screening.go": "1f8b38699166b93e41f201979e30df9c60ce0f7d1d49d409ed6d41d6bb96b4f5",
     "internal/poscheckout/public_screening_benefits.go": "f125547c3854c5116b724f45efd368b47c656fb7e11bfa382843e4212a11e93e",
     "internal/poscheckout/legacy_import_succession.go": "692bf0fd6cd4112bcc01433106cd33f2eaeb81833b684b2a0441938a22111610",
     "internal/poscheckout/legacy_import_membership_reference.go": "990a97f2fa13adbee7c81891a11b1f765970b8e36d56bb27376aafc1462e34b5",
     "internal/poscheckout/coupon_consumption.go": "400cc5ee1e19920a89adaba41ad8c34d5071738813db5d1e4614e4c7cf3c2368"
   },
-  "patchSha256": "5c8b8fc9a806e3ae37d73277494e0b16c5136eeb2ae1b0a2eab80cd59e4c19e0",
+  "patchSha256": "022cfce1ba93b8b0559532998cbc1bacaf3c94137b68a88944b6e2cb525b295d",
   "apiGuardPatchSha256": "32d0119806a4f91310efddbcc30137b850602c15c5523e248402bce9a070cc61",
   "apiGuardBaseSha256": "9ff6d13111aad06f29159768b631fc4757f7ad6a0a21dd229303c5afa78b9bc7",
   "sourceFiles": {
@@ -153,13 +153,14 @@
     "activated": false,
     "historicalRouting": "independently qualified BQ baseline; current atomic contributions only",
     "files": {
-      "screening_counter.py": "c1b49f42f11a1a90250d5ec56bc4cc46d6ce4868f90b93fd3183b9f8d732c41b",
+      "screening_counter.py": "710ea39b574c275cfc453e91dc3926216d577b9fc19f8bf73d416077f64c1cf9",
+      "native_head_limits.py": "e5b6911bba2622e46bd19627ae4c9e28e20f105c1802316f20bc53c28dce3f8b",
       "screening_preparation.py": "99a9bbc48f1eafa10d68ebfeb266b7cc262f7d86323884e8f4f1b9257c032762",
-      "screening_profile.py": "b1bccfc7f2a5b1ee199da693541b692571ee18acd5c330bf49c3e3c7e1086f6d",
-      "screening_counter.go": "b5707b310b6b2734cfc80f158d38f999bdd8725eddb05b5e00fe5c47bff0b5e4",
+      "screening_profile.py": "4075eba8794152791a8773a93b5c5dcfa6cfc39f52444d5f7f6e1fda10dd2932",
+      "screening_counter.go": "56fd725c20c4347726057b305aa216dd8ca9edb63a86e65969e3e38be052e36b",
       "screening_counter_definition.go": "894373a498e90ef1da8ac98e3c160d4e78e97d9e1181158b612a5165492c772a",
-      "screening_head_metadata.go": "d699fe0545490d73f32959f07632632f2e419c4cda24e56d724a27d88a3fee80",
-      "screening_head_metadata_definition.go": "89d9a38bf5a845c60ba8c639795638e52027151e31fbe5036a2a08aff0351a3e",
+      "screening_head_metadata.go": "8826c9373a29c0915373e13c959807599677ae975e632ac65a6e0b38a69f898d",
+      "screening_head_metadata_definition.go": "7204aaaaa62198bc46e74fd0a5f77d83e978e843c3ee027a74f6919facdad099",
       "screening-counter-definition.json": "ffbd319e6e885a7dbd5387d64bda91aa31ca311460483aaea4430eb566e0e2e2",
       "screening-counter.review.sql": "31bc97aff3151c25ce45393e8b0062b7c1ef10e68cea17ea4fc6b537f0b894ee",
       "screening-counter-writers.review.sql": "edf42ac7124f4ef5a088e3b6d081f6c542d4f6cba999af87c18d887f4070e24c",
@@ -172,7 +173,7 @@
     "activated": false,
     "files": {
       "screening_origin_pending.py": "f173d528df7208fc9f05c8a1ce410dd604c551ebc7738fe7beb040a8c5055413",
-      "screening_profile.py": "b1bccfc7f2a5b1ee199da693541b692571ee18acd5c330bf49c3e3c7e1086f6d"
+      "screening_profile.py": "4075eba8794152791a8773a93b5c5dcfa6cfc39f52444d5f7f6e1fda10dd2932"
     }
   },
   "publicBenefitBindingAbi": {

@@ -73,12 +73,12 @@ def outputs():
               'screeningCurrentCounter':{'contract':'pos-screening-current-counter-v1','activated':False,
                 'historicalRouting':'complete independently qualified BQ baseline plus atomic current contributions',
                 'files':{name:hashlib.sha256((COMMON/name).read_bytes()).hexdigest() for name in (
-                    'screening_counter.py','screening_preparation.py','screening-counter-definition.json','screening-counter.review.sql')}},
+                    'screening_counter.py','native_head_limits.py','screening_preparation.py','screening-counter-definition.json','screening-counter.review.sql')}},
               'benefits':{'contract':'pos-node-screening-benefits-v1','activated':False,
                 'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in benefit_files}},
               'otherOrigins':{**origin_manifest(changes),
                 'files':{path.name:hashlib.sha256(path.read_bytes()).hexdigest()
-                         for path in sorted(origins.iterdir()) if path.suffix in ('.py','.sql','.mjs')}},
+                         for path in sorted(origins.iterdir()) if path.suffix in ('.py','.sql','.mjs') or path.name=='native-head-limits.json'}},
               'patchSha256':hashlib.sha256(patch.encode()).hexdigest()}
     return {'public-pos-screening.patch':patch,'manifest.json':json.dumps(manifest,indent=2)+'\n'}
 

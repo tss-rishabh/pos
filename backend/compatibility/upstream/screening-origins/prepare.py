@@ -30,7 +30,7 @@ def outputs(root):
                   for name,(old,_) in changes.items() if old},
           'patchSha256':hashlib.sha256(patch.encode()).hexdigest(),
           'files':{path.name:hashlib.sha256(path.read_bytes()).hexdigest()
-                   for path in sorted(HERE.iterdir()) if path.suffix in ('.py','.sql','.mjs')}}
+                   for path in sorted(HERE.iterdir()) if path.suffix in ('.py','.sql','.mjs') or path.name=='native-head-limits.json'}}
     return {'legacy-pos-origin.patch':patch,'legacy-manifest.json':json.dumps(data,indent=2)+'\n'}
 
 

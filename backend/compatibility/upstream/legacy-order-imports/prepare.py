@@ -139,7 +139,7 @@ def outputs():
         'screeningCurrentCounter':{'contract':'pos-screening-current-counter-v1','activated':False,
             'historicalRouting':'independently qualified BQ baseline; current atomic contributions only',
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
-                'screening_counter.py','screening_preparation.py','screening_profile.py','screening_counter.go',
+                'screening_counter.py','native_head_limits.py','screening_preparation.py','screening_profile.py','screening_counter.go',
                 'screening_counter_definition.go','screening_head_metadata.go','screening_head_metadata_definition.go',
                 'screening-counter-definition.json','screening-counter.review.sql',
                 'screening-counter-writers.review.sql','screening-counter-bigquery.review.sql','screening-counter-grants.review.sql')}},
