@@ -49,10 +49,12 @@ and cannot qualify this additional preservation correction.
 
 The original Money method still writes `reward_point_history` alongside
 `tss_money_history`, even though actual cashback remains unchanged. This mirror
-is a retained source contract and a separate **financial-acceptance item**, not
-newly approved financial behavior. The generated selected Money method retains
-its existing deliberate omission of that mirror. This change does not unify
-those histories or infer an approval to change them.
+is retained source behavior. The user explicitly approved retaining this extra
+Points-history entry with **"use same behavior we have currently"**, reviewed at
+2026-11-18 12:21:27 UTC; see `source-history-retention-approval.json`. The generated
+selected Money method retains its existing deliberate omission of that mirror.
+The approval does not unify those histories or authorize a generated-method
+history change.
 
 The exact reviewed `calendar-expiry-candidate.patch` is now applied to
 `../compose.py` and `../transform_source.go`; the patch is retained unchanged as
@@ -123,15 +125,15 @@ as an unset original Go field. A nonzero earning expiry must retain its actual
 time value and representation. Those assertions passed in the final canonical
 run. They do not prove Django/frontend or another consumer's serialization.
 
-The optional question about removing the separate original Money reward-history
-entry remains unanswered. Baseline source parity therefore preserves that entry,
-its amounts/platform and its count. The same typed zero-expiry mapping now applies
+The user explicitly chose to retain the separate original Money reward-history
+entry, matching the already implemented and natively verified source baseline.
+Its amounts/platform and count remain unchanged. The typed zero-expiry mapping applies
 only to its two pinned Create sites, allowing the existing entry to persist under
 the actual nullable expiry contract. No runtime policy flag or mirror removal is
 introduced. SQL NULL/Go-zero/Go-JSON representation assertions cover that model
-too. The fresh assembly/native run passed on this preserved baseline; an explicit
-later answer may authorize a separate policy change. Earlier failed artifacts
-remain immutable.
+too. The fresh assembly/native run passed on this preserved baseline before the
+explicit retention answer. That answer requires no new code or native run.
+Earlier failed artifacts and the final execution receipt remain immutable.
 
 ## Final canonical execution (2026-11-18)
 
