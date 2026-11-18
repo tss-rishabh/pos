@@ -2,7 +2,28 @@ import { z } from 'zod';
 import { identifier } from '../../../domain/validation.js';
 import { customerContactBindingSchema } from '../customer-contact-authority.js';
 import type { CustomerOtpScope } from '../../customer-otp/index.js';
-import type { ReturnVerification } from './schema.js';
+import type { CustomerContactBinding } from '../customer-contact-authority.js';
+
+/** Customer OTP proof for a return; Redis `pos:return_verification:{id}` (see state.ts). */
+export interface ReturnVerification {
+  id: string;
+  operatorId: string;
+  storeId: string;
+  counterId: string;
+  orderId: string;
+  customerId: string;
+  requestHash: string;
+  sent: boolean;
+  expiresAt: number;
+  verifiedUntil: number | null;
+  busyOperationId: string | null;
+  contact?: CustomerContactBinding | null;
+  otpChallengeId?: string | null;
+  deliveryStatus?: 'pending' | 'sent' | 'uncertain' | 'rejected' | null;
+  requestOperationId?: string | null;
+  verifyOperationId?: string | null;
+  verificationError?: string | null;
+}
 
 export const returnVerificationSchema: z.ZodType<ReturnVerification> = z.object({
   id: z.uuid(),

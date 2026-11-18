@@ -1,6 +1,12 @@
 import { z } from 'zod';
 import { identifier } from '../../../domain/validation.js';
-import { legacyRestorationGroupSchema } from './legacy-restoration-group.js';
+import type { ExchangeCell, ExchangeCellFacts } from './exchange-cell.js';
+
+/**
+ * `AjaxProductReturnView` input (order/views.py:885-906). `quality_check`/`tag_check` are not
+ * saved; the template refuses only when both are unchecked (show.html:1262 "Please select
+ * checkboxes"). `click_type` is `normal` (return button) or `extreme` (force return).
+ */
 export const returnInputSchema = z
   .object({
     operationId: z.uuid(),
@@ -9,127 +15,124 @@ export const returnInputSchema = z
     reasonId: identifier,
     subReasonId: identifier.optional(),
     comment: z.string().max(255).default(''),
-    qualityConfirmed: z.literal(true),
-    tagConfirmed: z.literal(true),
+    qualityConfirmed: z.boolean(),
+    tagConfirmed: z.boolean(),
     saleable: z.boolean(),
     refundMode: z.enum(['tss-money', 'cash']).default('tss-money'),
     overrideEligibility: z.boolean().default(false),
+    clickType: z.enum(['normal', 'extreme']).default('normal'),
   })
-  .strict();
+  .strict()
+  .refine((value) => value.qualityConfirmed || value.tagConfirmed, {
+    message: 'Please select checkboxes',
+    path: ['qualityConfirmed'],
+  });
 export type ReturnInput = z.infer<typeof returnInputSchema>;
-export const exchangeInputSchema = returnInputSchema
-  .omit({ refundMode: true, overrideEligibility: true })
-  .extend({ replacementProductId: identifier, salespersonId: identifier });
-export type ExchangeInput = z.infer<typeof exchangeInputSchema>;
-export const returnOperationSchema = z
+export const exchangeInputSchema = z
   .object({
-    id: z.uuid(),
-    kind: z.enum(['return', 'exchange']).default('return'),
-    exchange: z
-      .object({
-        newProductId: identifier,
-        parentProductId: identifier,
-        newSize: z.string(),
-        oldSize: z.string().nullable(),
-        salespersonId: identifier,
-        logId: identifier,
-        childOrderId: identifier.nullable(),
-        sourceCounterId: z
-          .string()
-          .regex(/^(?:0|[1-9]\d{0,18})$/)
-          .refine(
-            (value) => /^(?:0|[1-9]\d{0,18})$/.test(value) && BigInt(value) <= 9223372036854775807n,
-          )
-          .optional(),
-        adoptionEvidence: z
-          .preprocess(
-            (value) =>
-              typeof value === 'object' &&
-              value !== null &&
-              !Array.isArray(value) &&
-              !Object.hasOwn(value, 'kind')
-                ? { ...value, kind: 'single' }
-                : value,
-            z.discriminatedUnion('kind', [
-              z
-                .object({
-                  kind: z.literal('single'),
-                  revision: z.string().regex(/^[a-f0-9]{64}$/),
-                  sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
-                  creditId: identifier,
-                  stockLogId: identifier,
-                  stockLogKind: z.enum(['saleable', 'held']),
-                })
-                .strict(),
-              z
-                .object({
-                  kind: z.literal('group'),
-                  revision: z.string().regex(/^[a-f0-9]{64}$/),
-                  sourceHash: z.string().regex(/^[a-f0-9]{64}$/),
-                  creditId: identifier,
-                  group: legacyRestorationGroupSchema,
-                })
-                .strict(),
-            ]),
-          )
-          .optional(),
-      })
-      .nullable()
-      .default(null),
-    authorityCounterId: identifier.optional(),
-    recoveryClaim: z
-      .object({
-        id: z.uuid(),
-        revision: z.string().regex(/^[a-f0-9]{64}$/),
-        operatorId: identifier,
-        counterId: identifier,
-        verificationId: z.uuid(),
-        claimedAt: z.string(),
-        requestHash: z.string().regex(/^[a-f0-9]{64}$/),
-      })
-      .strict()
-      .optional(),
-    operatorId: identifier,
-    storeId: identifier,
-    orderId: identifier,
-    lineId: identifier,
-    productId: identifier,
-    customerId: identifier,
-    quantity: z.number().int().positive(),
-    input: returnInputSchema,
-    requestHash: z.string().length(64),
-    phase: z.enum([
-      'inbound-dispatching',
-      'inbound-accepted',
-      'refund-dispatching',
-      'refund-confirmed',
-      'old-item-restored',
-      'replacement-dispatching',
-      'replacement-rejected',
-      'replacement-confirmed',
-      'completed',
-      'rejected',
-      'uncertain',
-    ]),
-    uncertainStage: z.enum(['inbound', 'refund', 'replacement']).nullable(),
-    creditNote: z.string().nullable(),
-    returnAmount: z.string().nullable(),
-    errorCode: z.string().nullable(),
-    createdAt: z.string(),
-    updatedAt: z.string(),
+    operationId: z.uuid(),
+    counterId: identifier,
+    verificationId: z.uuid(),
+    reasonId: identifier,
+    subReasonId: identifier.optional(),
+    comment: z.string().max(255).default(''),
+    qualityConfirmed: z.boolean(),
+    tagConfirmed: z.boolean(),
+    saleable: z.boolean(),
+    replacementProductId: identifier,
+    salespersonId: identifier,
   })
-  .refine(
-    (value) =>
-      (!value.authorityCounterId && !value.recoveryClaim) ||
-      (value.kind === 'exchange' && value.authorityCounterId === value.recoveryClaim?.counterId),
-    'Recovery authority must match its durable claim.',
-  )
-  .refine(
-    (value) =>
-      !value.exchange?.sourceCounterId ||
-      Boolean(value.exchange.adoptionEvidence && value.recoveryClaim),
-    'Original financial counter requires verified legacy adoption.',
-  );
+  .strict()
+  .refine((value) => value.qualityConfirmed || value.tagConfirmed, {
+    message: 'Please select checkboxes',
+    path: ['qualityConfirmed'],
+  });
+export type ExchangeInput = z.infer<typeof exchangeInputSchema>;
+
+const phases = [
+  'inbound-dispatching',
+  'inbound-accepted',
+  'refund-dispatching',
+  'refund-confirmed',
+  'old-item-restored',
+  'replacement-dispatching',
+  'replacement-rejected',
+  'replacement-confirmed',
+  'completed',
+  'rejected',
+  'uncertain',
+] as const;
+
+/** Redis `pos:return_op:{id}` (state.ts). Durable facts live in the legacy tables. */
+export const returnOperationSchema = z.object({
+  id: z.uuid(),
+  kind: z.enum(['return', 'exchange']).default('return'),
+  exchange: z
+    .object({
+      newProductId: identifier,
+      parentProductId: identifier,
+      newSize: z.string(),
+      oldSize: z.string().nullable(),
+      salespersonId: identifier,
+      /** pos_exchange_log.id */
+      logId: identifier,
+      childOrderId: identifier.nullable(),
+      /** Legacy retry sends the stored `counter_id or 0` (order/views.py:1071). */
+      sourceCounterId: z
+        .string()
+        .regex(/^(?:0|[1-9]\d{0,18})$/)
+        .optional(),
+    })
+    .nullable()
+    .default(null),
+  /** The counter of the operator who claimed a recovery (current check-in). */
+  authorityCounterId: identifier.optional(),
+  recoveryClaim: z
+    .object({
+      id: z.uuid(),
+      revision: z.string().regex(/^[a-f0-9]{64}$/),
+      operatorId: identifier,
+      counterId: identifier,
+      verificationId: z.uuid(),
+      claimedAt: z.string(),
+      requestHash: z.string().regex(/^[a-f0-9]{64}$/),
+    })
+    .strict()
+    .optional(),
+  operatorId: identifier,
+  storeId: identifier,
+  orderId: identifier,
+  lineId: identifier,
+  productId: identifier,
+  customerId: identifier,
+  quantity: z.number().int().positive(),
+  input: z.object({
+    operationId: z.uuid(),
+    counterId: identifier,
+    verificationId: z.uuid(),
+    reasonId: identifier,
+    subReasonId: identifier.optional(),
+    comment: z.string().max(255),
+    qualityConfirmed: z.boolean(),
+    tagConfirmed: z.boolean(),
+    saleable: z.boolean(),
+    refundMode: z.enum(['tss-money', 'cash']),
+    overrideEligibility: z.boolean(),
+    clickType: z.enum(['normal', 'extreme']).default('normal'),
+  }),
+  requestHash: z.string().length(64),
+  phase: z.enum(phases),
+  uncertainStage: z.enum(['inbound', 'refund', 'replacement']).nullable(),
+  creditNote: z.string().nullable(),
+  returnAmount: z.string().nullable(),
+  /** Python repr of the API return_amount, as `return_transaction_logger` stores it. */
+  returnAmountRepr: z.string().max(64).nullable().default(null),
+  errorCode: z.string().nullable(),
+  /** The legacy flash message shown for the last outcome, when legacy shows one. */
+  message: z.string().max(1024).nullable().default(null),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
 export type ReturnOperation = z.infer<typeof returnOperationSchema>;
 export interface InboundReturn {
   // Nullable stores.location_code; legacy sends kwargs.get('location_code') as-is
@@ -151,15 +154,29 @@ export interface InboundReturn {
   reason: string;
   exchange?: boolean;
 }
+/** One line of `Helpers.check_return_exchange_status` (helpers/helpers.py:1723-1777). */
+export interface LineEligibility {
+  return: { status: boolean; reason: string; upto: string | null };
+  exchange: { status: boolean; reason: string; upto: string | null };
+}
 export interface ReturnEligibility {
   reason?: string;
   allowed: boolean;
   until: string | null;
 }
+export type RefundOutcome =
+  | { kind: 'refunded'; returnAmount: string; returnAmountRaw: string | number }
+  | { kind: 'already-refunded' };
 export interface ReturnGateway {
   configured(): void;
   sendOtp(customerId: string): Promise<void>;
   verifyOtp(customerId: string, otp: string): Promise<boolean>;
+  /** All lines of the order; empty map when legacy would render "Check-in first". */
+  orderEligibility(
+    orderId: string,
+    storeId: string,
+    token: string,
+  ): Promise<Map<string, LineEligibility>>;
   eligibility(
     orderId: string,
     storeId: string,
@@ -175,7 +192,23 @@ export interface ReturnGateway {
     lineId: string;
     wallet: boolean;
     superAdmin: boolean;
-  }): Promise<{ returnAmount: string }>;
+  }): Promise<RefundOutcome>;
+  /** `Helpers.return_order` (helpers/helpers.py:600-610): inline, failures only logged. */
+  returnMail(value: {
+    orderId: string;
+    productId: string;
+    storeId: string;
+    lineId: string;
+  }): Promise<void>;
+  /** `Helpers.notify_exchange_order_email` (helpers/helpers.py:1203-1209): inline, failures only logged. */
+  exchangeMail(value: { orderId: string; productId: string; lineId: string | null }): Promise<void>;
+  /** `Helpers.slack_text_notification` (helpers/helpers.py:1093-1131) to the store channel. */
+  slack(value: {
+    message: string;
+    storeId: string;
+    staffUser: string;
+    storeSlackUrl: string | null;
+  }): Promise<void>;
 }
 export function publicReturn(value: ReturnOperation) {
   return {
@@ -199,9 +232,25 @@ export function publicReturn(value: ReturnOperation) {
         }
       : null,
     errorCode: value.errorCode,
+    message: value.message,
     createdAt: value.createdAt,
     updatedAt: value.updatedAt,
   };
+}
+
+/** Per-line eligibility response: everything needed to choose the legacy cell branch. */
+export interface LineEligibilityView {
+  orderId: string;
+  lineId: string;
+  kind: 'return' | 'exchange';
+  allowed: boolean;
+  until: string | null;
+  reason: string;
+  overrideAvailable: boolean;
+  /** `exchange_feature_enabled` of the operator's check-in store (EXCHANGE_ENABLED_STORE_IDS). */
+  exchangeFeatureEnabled: boolean;
+  facts: ExchangeCellFacts & { returnStatus: number; merged: boolean };
+  cell: ExchangeCell;
 }
 
 const returnWindowIdentifier = identifier.refine(
@@ -231,7 +280,7 @@ export const returnWindowInputSchema = returnWindowScopeSchema
 export type ReturnWindowScope = z.infer<typeof returnWindowScopeSchema>;
 export type ReturnWindowInput = z.infer<typeof returnWindowInputSchema>;
 
-/** The immutable provider/native financial counter may be zero in original failed exchanges. */
+/** The stored legacy counter (may be zero) for a recovered exchange, else the request counter. */
 export function exchangeFinancialCounter(operation: ReturnOperation): string {
   return operation.exchange?.sourceCounterId ?? operation.input.counterId;
 }

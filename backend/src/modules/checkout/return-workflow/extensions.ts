@@ -6,7 +6,7 @@ import { ExtendApplicabilityForReturnExchange as Extension } from '../../../db/l
 import type { Principal } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
-import { operationHash } from '../crypto.js';
+import { fingerprint } from './state.js';
 import type { ReturnRepository } from './repository.js';
 import {
   returnWindowInputSchema,
@@ -19,7 +19,7 @@ import {
 export function returnWindowExtensions(
   db: Databases,
   config: Pick<Config, 'BUSINESS_TIMEZONE'>,
-  options: { hashSecret: string; repository: Pick<ReturnRepository, 'extensionScope'> },
+  options: { repository: Pick<ReturnRepository, 'extensionScope'> },
 ) {
   const now = () => Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDateTime();
   async function state(
@@ -64,28 +64,24 @@ export function returnWindowExtensions(
         );
       }
     }
-    const revision = operationHash(
-      'return-window.snapshot.v1',
-      {
-        operatorId: user.id,
-        storeId,
-        orderId,
-        lineId,
-        ...input,
-        native: row
-          ? {
-              id: String(row.id),
-              date: row.extended_date,
-              active: row.is_active,
-              createdBy: String(row.created_by),
-              updatedBy: String(row.updated_by),
-              createdAt: row.created_at,
-              updatedAt: row.updated_at,
-            }
-          : null,
-      },
-      options.hashSecret,
-    );
+    const revision = fingerprint('return-window.snapshot.v1', {
+      operatorId: user.id,
+      storeId,
+      orderId,
+      lineId,
+      ...input,
+      native: row
+        ? {
+            id: String(row.id),
+            date: row.extended_date,
+            active: row.is_active,
+            createdBy: String(row.created_by),
+            updatedBy: String(row.updated_by),
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+          }
+        : null,
+    });
     return {
       row,
       view: {
@@ -112,14 +108,6 @@ export function returnWindowExtensions(
       },
     };
   }
-  function configured() {
-    if (Buffer.byteLength(options.hashSecret) < 32)
-      throw new AppError(
-        503,
-        'RETURN_EXTENSION_UNAVAILABLE',
-        'Return extension verification is not configured.',
-      );
-  }
   return {
     async read(
       user: Principal,
@@ -128,7 +116,6 @@ export function returnWindowExtensions(
       lineId: string,
       supplied: ReturnWindowScope,
     ) {
-      configured();
       const input = returnWindowScopeSchema.parse(supplied);
       return db.get('writer').transaction(
         async (tx) => {
@@ -152,7 +139,6 @@ export function returnWindowExtensions(
       lineId: string,
       supplied: ReturnWindowInput,
     ) {
-      configured();
       const input = returnWindowInputSchema.parse(supplied),
         scope = returnWindowScopeSchema.parse({
           counterId: input.counterId,

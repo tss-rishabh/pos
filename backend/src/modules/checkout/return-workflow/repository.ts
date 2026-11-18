@@ -1,17 +1,4 @@
-import {
-  and,
-  asc,
-  desc,
-  eq,
-  gte,
-  inArray,
-  isNull,
-  like,
-  ne,
-  notInArray,
-  or,
-  sql,
-} from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, like, ne, or, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
@@ -33,7 +20,6 @@ import {
   PosTransactionLog,
   Product,
   ProductStore,
-  ProductInventoryLog,
   ReturnOrder,
   ReversePickupReason,
   Store,
@@ -49,18 +35,15 @@ import { AppError } from '../../../domain/errors.js';
 import { checkInService, type AdministrationTransaction } from '../../administration/checkins.js';
 import { enqueueInventorySynchronization } from '../../administration/inventory.js';
 import type { StockProcedure } from '../../administration/stock-procedure.js';
-import { returnVerificationSchema } from './verification.js';
 import { readCustomerContactBinding, sameCustomerContact } from '../customer-contact-authority.js';
 import type { CustomerVerificationClient } from '../customer-verification.js';
-import { returnCustomerOtpScope } from './verification-state.js';
-import { operationHash } from '../crypto.js';
 import { financialYear } from '../finalizer.js';
 import { exchangeRetryable } from '../returns.js';
 import { wireId } from '../payloads.js';
+import { pythonFloat } from '../payments/legacy.js';
 import { currentRequestTrace } from '../../../observability/context.js';
+import { returnCustomerOtpScope } from './verification-state.js';
 import {
-  returnOperationSchema,
-  exchangeFinancialCounter,
   publicReturn,
   type ExchangeRecoveryScope,
   type ExchangeRecoveryClaim,
@@ -70,21 +53,16 @@ import {
   type ReturnWindowScope,
 } from './contracts.js';
 import {
-  returnOperations,
-  returnOutbox,
-  returnVerifications,
-  exchangeRecoveryClaims,
-} from './schema.js';
-import { exchangeOrderLog } from './exchange-ledger.js';
-import { readRestorationGroup } from './legacy-restoration-native.js';
-import { exchangeStockConfirmations, exchangeStockContract } from './stock-proof.js';
-import {
-  recordRejectedReturnRepair,
-  lockRejectedReturnScope,
-} from '../../legacy-order-status/repair-obligations.js';
+  fingerprint,
+  RECOVERY_CLAIM_TTL_SECONDS,
+  recoveryClaimReceiptSchema,
+  returnStateKeys,
+  type RecoveryClaimReceipt,
+  type ReturnState,
+} from './state.js';
+import { readJson } from '../state-store.js';
+
 export interface ReturnRepositoryOptions {
-  rejectedInboundRepairDispatcherEnabled?: boolean;
-  hashSecret: string;
   returnPeriodDays: number | undefined;
   inventoryProcedureVerified?: boolean;
   stockProcedure?: StockProcedure;
@@ -95,14 +73,33 @@ export interface ReturnRepositoryOptions {
     counterId: string,
     transaction: AdministrationTransaction,
   ) => Promise<void>;
+  state: ReturnState;
 }
+
+/** A failure that is committed first (legacy saves FAILED_NEEDS_MANUAL_FIX) and thrown after. */
+class CommittedFailure {
+  constructor(readonly error: AppError) {}
+}
+
+/** order/libs/calculations.py:21 STALE_PENDING_EXCHANGE_MINUTES. */
+const STALE_PENDING_MINUTES = 10;
+const RETURNED_OR_EXCHANGED = ['PRODUCT_RETURNED', 'EXCHANGE_COMPLETED'];
+
 export function returnRepository(db: Databases, config: Config, options: ReturnRepositoryOptions) {
-  const checkIns = checkInService(db, config),
+  const state = options.state,
+    checkIns = checkInService(db, config),
     checkIn =
       options.assertCheckIn ||
       ((user, store, counter, tx) => checkIns.assertCheckIn(user, store, counter, tx)),
     now = () => Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDateTime(),
     timestamp = () => now().toString({ smallestUnit: 'second' }).replace('T', ' ');
+  const stamp = (operation: ReturnOperation): ReturnOperation => ({
+    ...operation,
+    updatedAt: timestamp(),
+  });
+  const minutesSince = (value: string) =>
+    Temporal.PlainDateTime.from(value.replace(' ', 'T')).until(now()).total('minutes');
+
   async function context(
     tx: AdministrationTransaction,
     user: Principal,
@@ -115,7 +112,12 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     requireStore(user, storeId);
     await checkIn(user.id, storeId, counterId, tx);
     const [store] = await tx
-      .select({ id: Store.id, locationCode: Store.location_code, name: Store.store_name })
+      .select({
+        id: Store.id,
+        locationCode: Store.location_code,
+        name: Store.store_name,
+        slackUrl: Store.slack_group_url,
+      })
       .from(Store)
       .where(eq(Store.id, BigInt(storeId)))
       .for('update');
@@ -153,9 +155,10 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       .where(and(eq(HasProduct.id, BigInt(lineId)), eq(HasProduct.order, BigInt(orderId))))
       .for('update');
     if (!store || !order || !line)
-      throw new AppError(404, 'RETURN_LINE_NOT_FOUND', 'Return line was not found.');
+      throw new AppError(404, 'RETURN_LINE_NOT_FOUND', 'Product not found');
     return { store, order, line };
   }
+
   async function verifiedCustomer(
     tx: AdministrationTransaction,
     user: Principal,
@@ -165,13 +168,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     verificationId: string,
     customerId: string,
   ) {
-    const [session] = await tx
-      .select({ state: returnVerifications.state })
-      .from(returnVerifications)
-      .where(eq(returnVerifications.id, verificationId))
-      .limit(1)
-      .for('update');
-    const proof = session ? returnVerificationSchema.parse(session.state) : null;
+    const proof = await state.readVerification(verificationId);
     if (
       !proof ||
       proof.operatorId !== user.id ||
@@ -215,235 +212,53 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       );
     }
   }
-  function sourceExchangeHash(log: typeof PosExchangeLog.$inferSelect) {
-    const {
-      id,
-      order_id,
-      has_prod_id,
-      old_prod_id,
-      old_size,
-      new_prod_id,
-      new_size,
-      exchange_parent_prod_id,
-      store_id,
-      counter_id,
-      reason_id,
-      sub_reason_id,
-      comment,
-      saleable,
-      created_at,
-    } = log;
-    return operationHash(
-      'exchange.original-source',
-      JSON.stringify(
-        {
-          id,
-          order_id,
-          has_prod_id,
-          old_prod_id,
-          old_size,
-          new_prod_id,
-          new_size,
-          exchange_parent_prod_id,
-          store_id,
-          counter_id,
-          reason_id,
-          sub_reason_id,
-          comment,
-          saleable,
-          created_at,
-        },
-        (_key, value: unknown) => (typeof value === 'bigint' ? String(value) : value),
-      ),
-      options.hashSecret,
-    );
-  }
-  async function assertAdoptionEvidence(tx: AdministrationTransaction, operation: ReturnOperation) {
-    const proof = operation.exchange?.adoptionEvidence;
-    if (!proof || !operation.exchange) return;
-    const [log] = await tx
-      .select()
-      .from(PosExchangeLog)
-      .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)))
-      .limit(1)
-      .for('update');
-    const [credit] = await tx
-      .select()
-      .from(ReturnOrder)
-      .where(
-        and(
-          eq(ReturnOrder.id, BigInt(proof.creditId)),
-          eq(ReturnOrder.order_id, BigInt(operation.orderId)),
-          eq(ReturnOrder.has_product_id, BigInt(operation.lineId)),
-          eq(ReturnOrder.prod_id, BigInt(operation.productId)),
-          eq(ReturnOrder.store_id, Number(operation.storeId)),
-        ),
-      )
-      .limit(1)
-      .for('update');
-    if (proof.kind === 'group') {
-      const group = await readRestorationGroup(
-        tx,
-        {
-          orderId: operation.orderId,
-          productId: operation.productId,
-          storeId: operation.storeId,
-          targetLineId: operation.lineId,
-        },
-        options.hashSecret,
-        sourceExchangeHash,
-        operation.exchange.logId,
-      );
-      if (
-        !log ||
-        sourceExchangeHash(log) !== proof.sourceHash ||
-        !credit ||
-        credit.credit_note_no !== operation.creditNote ||
-        credit.created_at < operation.createdAt ||
-        credit.qty !== operation.quantity ||
-        !group ||
-        group.digest !== proof.group.digest
-      )
-        throw new AppError(
-          409,
-          'EXCHANGE_ADOPTION_EVIDENCE_CHANGED',
-          'The complete restoration group changed. Reconcile it before continuing.',
-        );
-      return;
-    }
-    const receipt =
-      proof.stockLogKind === 'saleable'
-        ? (
-            await tx
-              .select({
-                before: ProductInventoryLog.stock_before,
-                after: ProductInventoryLog.stock_after,
-                at: ProductInventoryLog.created_at,
-              })
-              .from(ProductInventoryLog)
-              .where(
-                and(
-                  eq(ProductInventoryLog.id, BigInt(proof.stockLogId)),
-                  eq(ProductInventoryLog.store_id, BigInt(operation.storeId)),
-                  eq(ProductInventoryLog.product_id, BigInt(operation.productId)),
-                ),
-              )
-              .limit(1)
-              .for('update')
-          )[0]
-        : (
-            await tx
-              .select({
-                before: PosHoldStockLog.stock_before,
-                after: PosHoldStockLog.stock_after,
-                at: PosHoldStockLog.created_at,
-              })
-              .from(PosHoldStockLog)
-              .where(
-                and(
-                  eq(PosHoldStockLog.id, BigInt(proof.stockLogId)),
-                  eq(PosHoldStockLog.store_id, BigInt(operation.storeId)),
-                  eq(PosHoldStockLog.product_id, BigInt(operation.productId)),
-                ),
-              )
-              .limit(1)
-              .for('update')
-          )[0];
-    if (
-      !log ||
-      sourceExchangeHash(log) !== proof.sourceHash ||
-      !credit ||
-      credit.credit_note_no !== operation.creditNote ||
-      credit.created_at < operation.createdAt ||
-      credit.qty !== operation.quantity ||
-      !receipt ||
-      !receipt.before ||
-      !receipt.after ||
-      !/^-?\d{1,20}$/.test(receipt.before) ||
-      !/^-?\d{1,20}$/.test(receipt.after) ||
-      BigInt(receipt.after) - BigInt(receipt.before) !== BigInt(operation.quantity) ||
-      receipt.at < credit.created_at
-    )
-      throw new AppError(
-        409,
-        'EXCHANGE_ADOPTION_EVIDENCE_CHANGED',
-        'The original exchange evidence changed. Reconcile it before continuing.',
-      );
-  }
-  async function owned(
-    tx: AdministrationTransaction,
-    user: Principal,
-    storeId: string,
-    id: string,
-    purpose: 'authority' | 'evidence' = 'authority',
-  ) {
-    const [first] = await tx
-      .select({ state: returnOperations.state })
-      .from(returnOperations)
-      .where(and(eq(returnOperations.id, id), eq(returnOperations.storeId, storeId)))
-      .limit(1);
-    if (!first)
+
+  /** Reads an operation for an action; the claim holder alone may act on a claimed recovery. */
+  async function load(user: Principal, storeId: string, id: string) {
+    const operation = await state.readOperation(id);
+    if (!operation || operation.storeId !== storeId)
       throw new AppError(404, 'RETURN_OPERATION_NOT_FOUND', 'Return operation was not found.');
-    const initial = returnOperationSchema.parse(first.state);
-    if (initial.recoveryClaim && initial.recoveryClaim.operatorId !== user.id)
+    if (operation.recoveryClaim && operation.recoveryClaim.operatorId !== user.id)
       throw new AppError(
         403,
         'EXCHANGE_RECOVERY_CLAIM_REQUIRED',
         'Claim this exchange with current customer verification before continuing.',
       );
+    return operation;
+  }
+
+  /** Native scope of an existing operation inside a writer transaction. */
+  async function owned(
+    tx: AdministrationTransaction,
+    user: Principal,
+    operation: ReturnOperation,
+    purpose: 'authority' | 'evidence' = 'authority',
+  ) {
     const scope = await context(
       tx,
       user,
-      storeId,
-      initial.orderId,
-      initial.lineId,
-      initial.authorityCounterId ?? initial.input.counterId,
-      initial.exchange?.childOrderId ? [initial.exchange.childOrderId] : [],
+      operation.storeId,
+      operation.orderId,
+      operation.lineId,
+      operation.authorityCounterId ?? operation.input.counterId,
+      operation.exchange?.childOrderId ? [operation.exchange.childOrderId] : [],
     );
-    const [locked] = await tx
-      .select({ state: returnOperations.state })
-      .from(returnOperations)
-      .where(eq(returnOperations.id, id))
-      .for('update');
-    if (!locked)
-      throw new AppError(404, 'RETURN_OPERATION_NOT_FOUND', 'Return operation was not found.');
-    const operation = returnOperationSchema.parse(locked.state);
-    if (
-      operation.orderId !== initial.orderId ||
-      operation.lineId !== initial.lineId ||
-      operation.input.counterId !== initial.input.counterId ||
-      operation.authorityCounterId !== initial.authorityCounterId ||
-      operation.recoveryClaim?.id !== initial.recoveryClaim?.id ||
-      operation.exchange?.childOrderId !== initial.exchange?.childOrderId
-    )
-      throw new AppError(
-        409,
-        'RETURN_OPERATION_CHANGED',
-        'The return operation changed while its orders were being locked. Read its original status before continuing.',
-      );
     if (operation.recoveryClaim && purpose === 'authority')
       await verifiedCustomer(
         tx,
         user,
-        storeId,
+        operation.storeId,
         operation.orderId,
         operation.authorityCounterId!,
         operation.recoveryClaim.verificationId,
         String(scope.order.customerId),
       );
-    if (operation.recoveryClaim && String(scope.order.customerId) !== operation.customerId)
+    if (String(scope.order.customerId) !== operation.customerId)
       throw new AppError(409, 'EXCHANGE_CUSTOMER_CHANGED', 'The original order customer changed.');
-    await assertAdoptionEvidence(tx, operation);
-    return { operation, ...scope };
+    return scope;
   }
-  async function save(tx: AdministrationTransaction, operation: ReturnOperation) {
-    const next = { ...operation, updatedAt: timestamp() };
-    await tx
-      .update(returnOperations)
-      .set({ phase: next.phase, state: next, updatedAt: next.updatedAt })
-      .where(eq(returnOperations.id, next.id));
-    return next;
-  }
+
+  /** `stockconfirmed` / `inward_product_to_store` / `hold_stock` (order/libs/calculations.py:252-347). */
   async function restore(
     tx: AdministrationTransaction,
     user: Principal,
@@ -471,7 +286,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         await tx
           .update(HoldStockStore)
           .set({ stock: after })
-          .where(eq(HoldStockStore.id, current.id));
+          .where(and(eq(HoldStockStore.product, productId), eq(HoldStockStore.store, storeId)));
       else
         await tx
           .insert(HoldStockStore)
@@ -584,10 +399,14 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       reason: operation.kind === 'exchange' ? 'exchange-return' : 'return',
     });
   }
+
+  /** `get_exchange_size_options` live re-check plus the active store salesperson. */
   async function exchangeSelection(
     tx: AdministrationTransaction,
     scope: Awaited<ReturnType<typeof context>>,
     selection: { replacementProductId: string; salespersonId: string },
+    retry: boolean,
+    storedSize?: string | null,
   ) {
     const [original] = await tx
         .select({ id: Product.id, parent: Product.parent_prod_id })
@@ -609,17 +428,20 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         )
         .limit(1)
         .for('update');
+    // order/views.py:1080-1086: the chosen option must exist with stock > 0.
     if (
       !original ||
       original.parent <= 0n ||
       !replacement ||
       replacement.parent !== original.parent ||
-      BigInt(replacement.stock) < scope.line.qty
+      replacement.stock <= 0
     )
       throw new AppError(
         409,
         'EXCHANGE_SIZE_UNAVAILABLE',
-        'Choose an available size of the same product.',
+        retry
+          ? `Replacement size ${storedSize ?? 'None'} is no longer in stock at this store — please contact tech support.`
+          : 'Selected size is no longer available at this store.',
       );
     const [salesperson] = await tx
       .select({ id: StoreSalesPerson.id })
@@ -638,7 +460,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       throw new AppError(
         422,
         'EXCHANGE_SALESPERSON_UNAVAILABLE',
-        'Choose an active salesperson at this store.',
+        'Salesperson selection is required for exchange.',
       );
     const sizes = await tx
         .select({ product: HasOptions.prod_id, value: HasOptions.attr_val })
@@ -651,7 +473,9 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           ),
         )
         .orderBy(asc(HasOptions.id)),
-      labels = new Map(sizes.map((size) => [String(size.product), size.value]));
+      labels = new Map<string, string>();
+    for (const size of sizes)
+      if (!labels.has(String(size.product))) labels.set(String(size.product), size.value);
     const newSize = labels.get(String(replacement.id));
     if (newSize === undefined)
       throw new AppError(
@@ -663,10 +487,51 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       newProductId: String(replacement.id),
       parentProductId: String(original.parent),
       newSize,
-      oldSize: labels.get(String(original.id)) ?? null,
+      // get_exchange_context: old_size_by_prod_id.get(p.product_id, '')
+      oldSize: labels.get(String(original.id)) ?? '',
       salespersonId: selection.salespersonId,
     };
   }
+
+  /** `pos_exchange_phase1_committed` (order/libs/calculations.py:25-36). */
+  async function phaseOneCommitted(
+    tx: AdministrationTransaction,
+    log: typeof PosExchangeLog.$inferSelect,
+  ) {
+    const [credit] = await tx
+      .select({ id: ReturnOrder.id, creditNote: ReturnOrder.credit_note_no })
+      .from(ReturnOrder)
+      .where(
+        and(
+          eq(ReturnOrder.order_id, BigInt(log.order_id)),
+          eq(ReturnOrder.prod_id, BigInt(log.old_prod_id)),
+          eq(ReturnOrder.has_product_id, BigInt(log.has_prod_id)),
+          eq(ReturnOrder.store_id, log.store_id),
+          gte(ReturnOrder.created_at, log.created_at),
+          ne(ReturnOrder.credit_note_no, ''),
+        ),
+      )
+      .limit(1);
+    return credit ?? null;
+  }
+
+  async function exchangeLog(tx: AdministrationTransaction, orderId: string, lineId: string) {
+    if (BigInt(orderId) > 2147483647n || BigInt(lineId) > 2147483647n) return null;
+    const [log] = await tx
+      .select()
+      .from(PosExchangeLog)
+      .where(
+        and(
+          eq(PosExchangeLog.order_id, Number(orderId)),
+          eq(PosExchangeLog.has_prod_id, Number(lineId)),
+        ),
+      )
+      .orderBy(asc(PosExchangeLog.id))
+      .limit(1)
+      .for('update');
+    return log ?? null;
+  }
+
   async function phaseOneProof(
     tx: AdministrationTransaction,
     operation: ReturnOperation,
@@ -694,109 +559,89 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       throw new AppError(
         409,
         'EXCHANGE_PHASE_ONE_UNCONFIRMED',
-        'This exchange no longer has a confirmed return leg at this store.',
+        'This item is no longer awaiting an exchange. Please refresh the page.',
       );
   }
-  async function assertNoReplacementChild(
+
+  /** `return_processed` preconditions (order/libs/calculations.py:52-99,175-186). */
+  async function returnWindow(
     tx: AdministrationTransaction,
-    operation: Pick<ReturnOperation, 'orderId' | 'lineId' | 'createdAt'>,
-    allOrphans = false,
-  ) {
-    const alive = or(isNull(Order.order_statuses), notInArray(Order.order_statuses, [4n, 22n]));
-    const [linked] = await tx
-      .select({ id: exchangeOrderLog.id })
-      .from(exchangeOrderLog)
-      .innerJoin(Order, eq(Order.id, exchangeOrderLog.orderId))
+    orderId: string,
+    lineId: string,
+    productId: bigint,
+    clickType: 'normal' | 'extreme',
+  ): Promise<AppError | null> {
+    if (options.returnPeriodDays === undefined)
+      throw new AppError(503, 'RETURN_POLICY_UNAVAILABLE', 'Return policy is not configured.');
+    const [delivery] = await tx
+      .select({ date: Comments.created_at })
+      .from(Comments)
+      .where(and(eq(Comments.order_id, BigInt(orderId)), eq(Comments.status_id, 3n)))
+      .orderBy(desc(Comments.created_at))
+      .limit(1);
+    if (!delivery) return new AppError(409, 'RETURN_DELIVERY_UNCONFIRMED', 'Order not found');
+    const [extension] = await tx
+      .select({ date: ExtendApplicabilityForReturnExchange.extended_date })
+      .from(ExtendApplicabilityForReturnExchange)
       .where(
         and(
-          eq(exchangeOrderLog.parentOrderId, BigInt(operation.orderId)),
-          eq(exchangeOrderLog.parentLineId, BigInt(operation.lineId)),
-          alive,
+          eq(ExtendApplicabilityForReturnExchange.order_id, BigInt(orderId)),
+          eq(ExtendApplicabilityForReturnExchange.prod_id, productId),
+          eq(ExtendApplicabilityForReturnExchange.has_product_id, BigInt(lineId)),
+          eq(ExtendApplicabilityForReturnExchange.is_active, true),
         ),
       )
       .limit(1);
-    const [orphan] = await tx
-      .select({ id: Order.id })
-      .from(Order)
-      .leftJoin(exchangeOrderLog, eq(exchangeOrderLog.orderId, Order.id))
+    const age = Math.floor(
+        Temporal.PlainDateTime.from(delivery.date.replace(' ', 'T')).until(now()).total('days'),
+      ),
+      extended =
+        extension &&
+        Temporal.PlainDateTime.compare(
+          Temporal.PlainDateTime.from(extension.date.replace(' ', 'T')),
+          now(),
+        ) >= 0;
+    if (!(age <= options.returnPeriodDays || clickType === 'extreme' || extended))
+      return new AppError(409, 'RETURN_WINDOW_CLOSED', 'This order is not applicable for return');
+    const [refundable] = await tx
+      .select({ id: AmountToBeRefundedLog.id })
+      .from(AmountToBeRefundedLog)
       .where(
         and(
-          eq(Order.parent_order_id, BigInt(operation.orderId)),
-          allOrphans ? undefined : gte(Order.created_at, operation.createdAt),
-          isNull(exchangeOrderLog.id),
-          alive,
+          eq(AmountToBeRefundedLog.order_id, BigInt(orderId)),
+          eq(AmountToBeRefundedLog.prod_id, productId),
+          eq(AmountToBeRefundedLog.has_product_id, BigInt(lineId)),
+          eq(AmountToBeRefundedLog.is_refunded, false),
         ),
       )
-      .limit(1);
-    if (linked || orphan)
+      .limit(1)
+      .for('update');
+    if (!refundable)
+      return new AppError(
+        409,
+        'RETURN_ALREADY_REFUNDED',
+        'This order is already returned, Not applicable for return',
+      );
+    return null;
+  }
+
+  /** Operations that may still have an external call in flight block a new attempt. */
+  async function assertNoActiveOperation(orderId: string, lineId: string) {
+    const active = await state.lineOperation(orderId, lineId);
+    if (
+      active &&
+      ['inbound-dispatching', 'refund-dispatching', 'replacement-dispatching'].includes(
+        active.phase,
+      ) &&
+      minutesSince(active.updatedAt) < STALE_PENDING_MINUTES
+    )
       throw new AppError(
         409,
-        'EXCHANGE_CHILD_RECONCILIATION_REQUIRED',
-        'A replacement child already exists or is incomplete. Reconcile it before continuing.',
+        'RETURN_ALREADY_ACTIVE',
+        'An earlier return or exchange for this item is still in progress.',
       );
   }
-  async function stockProof(
-    tx: AdministrationTransaction,
-    operation: ReturnOperation,
-    childId: bigint,
-    lineId: bigint,
-  ) {
-    const [proof] = await tx
-      .select({ id: exchangeStockConfirmations.orderId })
-      .from(exchangeStockConfirmations)
-      .where(
-        and(
-          eq(exchangeStockConfirmations.orderId, childId),
-          eq(exchangeStockConfirmations.parentOrderId, BigInt(operation.orderId)),
-          eq(exchangeStockConfirmations.parentLineId, BigInt(operation.lineId)),
-          eq(exchangeStockConfirmations.lineId, lineId),
-          eq(exchangeStockConfirmations.storeId, BigInt(operation.storeId)),
-          eq(exchangeStockConfirmations.counterId, BigInt(exchangeFinancialCounter(operation))),
-          eq(exchangeStockConfirmations.productId, BigInt(operation.exchange!.newProductId)),
-          eq(exchangeStockConfirmations.quantity, BigInt(operation.quantity)),
-          eq(exchangeStockConfirmations.contractVersion, exchangeStockContract),
-        ),
-      )
-      .limit(1);
-    return Boolean(proof);
-  }
-  async function completedProof(
-    tx: AdministrationTransaction,
-    operation: ReturnOperation,
-    childId: bigint,
-    lineId: bigint,
-    parentStatus: string | null,
-    childStatus: bigint | null,
-    lineStatus: string | null,
-  ) {
-    if (parentStatus !== 'EXCHANGE_COMPLETED' || childStatus !== 3n || lineStatus !== 'DELIVERED')
-      return false;
-    const [link] = await tx
-      .select({ id: exchangeOrderLog.id })
-      .from(exchangeOrderLog)
-      .where(
-        and(
-          eq(exchangeOrderLog.parentOrderId, BigInt(operation.orderId)),
-          eq(exchangeOrderLog.parentLineId, BigInt(operation.lineId)),
-          eq(exchangeOrderLog.orderId, childId),
-          eq(exchangeOrderLog.lineId, lineId),
-        ),
-      )
-      .limit(1);
-    const [ledger] = await tx
-      .select({ id: PosTransactionLog.id })
-      .from(PosTransactionLog)
-      .where(
-        and(
-          eq(PosTransactionLog.order_id, childId),
-          eq(PosTransactionLog.store_id, BigInt(operation.storeId)),
-          eq(PosTransactionLog.payment_status, 4n),
-          eq(PosTransactionLog.order_status, 3n),
-        ),
-      )
-      .limit(1);
-    return Boolean(link && ledger);
-  }
+
   async function recoverySnapshot(
     tx: AdministrationTransaction,
     user: Principal,
@@ -815,167 +660,38 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       input.verificationId,
       String(scope.order.customerId),
     );
-    const states = await tx
-      .select({ state: returnOperations.state })
-      .from(returnOperations)
-      .where(and(eq(returnOperations.lineId, lineId), ne(returnOperations.phase, 'rejected')))
-      .limit(2)
-      .for('update');
-    if (states.length > 1)
-      throw new AppError(
-        409,
-        'EXCHANGE_RECOVERY_AMBIGUOUS',
-        'Multiple earlier operations require reconciliation.',
-      );
-    const operation = states[0] ? returnOperationSchema.parse(states[0].state) : null;
+    const latest = await state.lineOperation(orderId, lineId);
+    const operation =
+      latest && latest.kind === 'exchange' && latest.phase !== 'rejected' ? latest : null;
     if (
       operation &&
-      (operation.orderId !== orderId ||
-        operation.storeId !== storeId ||
+      (operation.storeId !== storeId ||
         operation.customerId !== String(scope.order.customerId) ||
-        operation.productId !== String(scope.line.product) ||
-        operation.kind !== 'exchange')
+        operation.productId !== String(scope.line.product))
     )
       throw new AppError(
         409,
         'EXCHANGE_RECOVERY_SCOPE_CHANGED',
         'An earlier operation belongs to another return context.',
       );
-    const logs =
-      BigInt(orderId) <= 2147483647n && BigInt(lineId) <= 2147483647n
-        ? await tx
-            .select()
-            .from(PosExchangeLog)
-            .where(
-              and(
-                eq(PosExchangeLog.order_id, Number(orderId)),
-                eq(PosExchangeLog.has_prod_id, Number(lineId)),
-              ),
-            )
-            .limit(2)
-            .for('update')
-        : [];
-    if (logs.length > 1)
-      throw new AppError(
-        409,
-        'EXCHANGE_RECOVERY_AMBIGUOUS',
-        'Multiple original exchange records require reconciliation.',
-      );
-    const log = logs[0] ?? null;
-    const credits = log
-      ? await tx
-          .select()
-          .from(ReturnOrder)
-          .where(
-            and(
-              eq(ReturnOrder.order_id, BigInt(orderId)),
-              eq(ReturnOrder.has_product_id, BigInt(lineId)),
-              eq(ReturnOrder.prod_id, BigInt(log.old_prod_id)),
-              eq(ReturnOrder.store_id, log.store_id),
-              gte(ReturnOrder.created_at, log.created_at),
-              ne(ReturnOrder.credit_note_no, ''),
-            ),
-          )
-          .limit(2)
-          .for('update')
-      : [];
-    const credit = credits.length === 1 ? credits[0] : null;
-    const messages = [
-      `Product inventory added from admin panel on order return, [Order ID:${orderId}]`,
-      `Product inventory added from admin panel on store order return, [Order ID:${orderId}]`,
-      `Product inventory added from admin panel on online order return, [Order ID:${orderId}]`,
-    ];
-    const stock =
-      log && credit && !operation
-        ? log.saleable
-          ? await tx
-              .select({
-                id: ProductInventoryLog.id,
-                before: ProductInventoryLog.stock_before,
-                after: ProductInventoryLog.stock_after,
-                at: ProductInventoryLog.created_at,
-              })
-              .from(ProductInventoryLog)
-              .where(
-                and(
-                  eq(ProductInventoryLog.store_id, BigInt(log.store_id)),
-                  eq(ProductInventoryLog.product_id, BigInt(log.old_prod_id)),
-                  inArray(ProductInventoryLog.comment, messages),
-                  gte(ProductInventoryLog.created_at, credit.created_at),
-                ),
-              )
-              .limit(2)
-              .for('update')
-          : await tx
-              .select({
-                id: PosHoldStockLog.id,
-                before: PosHoldStockLog.stock_before,
-                after: PosHoldStockLog.stock_after,
-                at: PosHoldStockLog.created_at,
-              })
-              .from(PosHoldStockLog)
-              .where(
-                and(
-                  eq(PosHoldStockLog.store_id, BigInt(log.store_id)),
-                  eq(PosHoldStockLog.product_id, BigInt(log.old_prod_id)),
-                  eq(
-                    PosHoldStockLog.comment,
-                    `Hold Stock inventory added from admin panel on order return, [Order ID:${orderId}]`,
-                  ),
-                  gte(PosHoldStockLog.created_at, credit.created_at),
-                ),
-              )
-              .limit(2)
-              .for('update')
-        : [];
-    const stockProof =
-      stock.length === 1 &&
-      stock[0] &&
-      stock[0].before !== null &&
-      stock[0].after !== null &&
-      /^-?\d{1,20}$/.test(stock[0].before) &&
-      /^-?\d{1,20}$/.test(stock[0].after) &&
-      BigInt(stock[0].after) - BigInt(stock[0].before) === scope.line.qty
-        ? stock[0]
-        : null;
-    const groupProof =
-      log &&
-      credit &&
-      ((!operation && !stockProof) || operation?.exchange?.adoptionEvidence?.kind === 'group') &&
-      String(log.store_id) === storeId
-        ? await readRestorationGroup(
-            tx,
-            { orderId, productId: String(scope.line.product), storeId, targetLineId: lineId },
-            options.hashSecret,
-            sourceExchangeHash,
-            operation?.exchange?.logId,
-          )
-        : null;
-    const revision = operationHash(
-      'exchange.recovery',
-      JSON.stringify(
-        {
-          actor: user.id,
-          storeId,
-          orderId,
-          lineId,
-          input,
-          customer: scope.order.customerId,
-          line: scope.line,
-          operation,
-          log,
-          credits,
-          stock,
-          groupProof,
-        },
-        (_key, value: unknown) => (typeof value === 'bigint' ? String(value) : value),
-      ),
-      options.hashSecret,
-    );
-    return { scope, operation, log, credit, stockProof, groupProof, revision };
+    const log = await exchangeLog(tx, orderId, lineId);
+    const credit = log ? await phaseOneCommitted(tx, log) : null;
+    const revision = fingerprint('exchange.recovery', {
+      actor: user.id,
+      storeId,
+      orderId,
+      lineId,
+      input,
+      customer: scope.order.customerId,
+      line: scope.line,
+      operation: operation && { id: operation.id, phase: operation.phase, at: operation.updatedAt },
+      log,
+      credit,
+    });
+    return { scope, operation, log, credit, revision };
   }
   function recoveryView(value: Awaited<ReturnType<typeof recoverySnapshot>>, storeId: string) {
-    const { operation, log, credit, stockProof, groupProof, scope, revision } = value;
+    const { operation, log, credit, scope, revision } = value;
     if (operation)
       return {
         revision,
@@ -983,6 +699,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         operation: publicReturn(operation),
         newSize: operation.exchange?.newSize ?? null,
       };
+    // get_exchange_context: FAILED_NEEDS_MANUAL_FIX rows that pos_exchange_retryable accepts.
     if (
       !log ||
       log.status !== 'FAILED_NEEDS_MANUAL_FIX' ||
@@ -991,16 +708,26 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       return { revision, state: 'none' as const, operation: null, newSize: null };
     if (String(log.store_id) !== storeId)
       return { revision, state: 'wrong-store' as const, operation: null, newSize: null };
-    if (!stockProof && !groupProof)
-      return {
-        revision,
-        state: 'restoration-unconfirmed' as const,
-        operation: null,
-        newSize: log.new_size,
-      };
     return { revision, state: 'legacy' as const, operation: null, newSize: log.new_size };
   }
+
+  async function readClaim(
+    storeId: string,
+    orderId: string,
+    lineId: string,
+    claimId: string,
+  ): Promise<RecoveryClaimReceipt | null> {
+    return readJson(
+      state.store,
+      returnStateKeys.claim(storeId, orderId, lineId, claimId),
+      recoveryClaimReceiptSchema,
+    );
+  }
+
   return {
+    state,
+    load,
+    /** Facts the per-line eligibility response needs to choose the legacy cell branch. */
     async eligibilityScope(
       user: Principal,
       storeId: string,
@@ -1019,26 +746,52 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           input.verificationId,
           String(scope.order.customerId),
         );
+        const [product] = await tx
+          .select({ type: Product.prod_type })
+          .from(Product)
+          .where(eq(Product.id, scope.line.product))
+          .limit(1);
+        const [orderStore] = await tx
+          .select({ shopify: OrderStore.is_shopify_order })
+          .from(OrderStore)
+          .where(eq(OrderStore.order, BigInt(orderId)))
+          .orderBy(asc(OrderStore.id))
+          .limit(1);
+        // get_exchange_context (order/views.py:315-333).
+        const log = await exchangeLog(tx, orderId, lineId);
+        let failedExchange: { storeId: string; storeName: string; newSize: string } | null = null;
+        if (
+          log?.status === 'FAILED_NEEDS_MANUAL_FIX' &&
+          exchangeRetryable(scope.line.status, Boolean(await phaseOneCommitted(tx, log)))
+        ) {
+          const [origin] = await tx
+            .select({ name: Store.store_name })
+            .from(Store)
+            .where(eq(Store.id, BigInt(log.store_id)))
+            .limit(1);
+          failedExchange = {
+            storeId: String(log.store_id),
+            storeName: origin?.name ?? '',
+            newSize: log.new_size ?? 'None',
+          };
+        }
         return {
           customerId: String(scope.order.customerId),
           lineStatus: scope.line.status,
           returnStatus: scope.line.return_status,
-          binding: operationHash(
-            'return.eligibility-scope',
-            JSON.stringify(
-              {
-                user,
-                storeId,
-                orderId,
-                lineId,
-                input,
-                customerId: scope.order.customerId,
-                line: scope.line,
-              },
-              (_key, value: unknown) => (typeof value === 'bigint' ? String(value) : value),
-            ),
-            options.hashSecret,
-          ),
+          productType: product ? Number(product.type) : null,
+          storeOrder: Boolean(orderStore),
+          shopifyOrder: Boolean(orderStore?.shopify),
+          failedExchange,
+          binding: fingerprint('return.eligibility-scope', {
+            user: user.id,
+            storeId,
+            orderId,
+            lineId,
+            input,
+            customerId: scope.order.customerId,
+            line: scope.line,
+          }),
         };
       });
     },
@@ -1055,6 +808,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           recoveryView(await recoverySnapshot(tx, user, storeId, orderId, lineId, input), storeId),
         );
     },
+    /** Read-only outcome of a lost claim; an actor cannot read another actor's receipt. */
     async exchangeRecoveryClaimStatus(
       user: Principal,
       storeId: string,
@@ -1063,7 +817,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       claimId: string,
       input: ExchangeRecoveryScope,
     ) {
-      return db.get('writer').transaction(async (tx) => {
+      await db.get('writer').transaction(async (tx) => {
         const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
         await verifiedCustomer(
           tx,
@@ -1074,43 +828,30 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           input.verificationId,
           String(scope.order.customerId),
         );
-        const [receipt] = await tx
-          .select()
-          .from(exchangeRecoveryClaims)
-          .where(eq(exchangeRecoveryClaims.id, claimId))
-          .limit(1)
-          .for('share');
-        if (
-          !receipt ||
-          receipt.operatorId !== user.id ||
-          receipt.storeId !== storeId ||
-          receipt.orderId !== orderId ||
-          receipt.lineId !== lineId
-        )
-          return { status: 'not-recorded' as const };
-        const [row] = await tx
-          .select({ state: returnOperations.state })
-          .from(returnOperations)
-          .where(eq(returnOperations.id, receipt.operationId))
-          .limit(1)
-          .for('share');
-        const operation = row ? returnOperationSchema.parse(row.state) : null;
-        if (
-          !operation ||
-          operation.customerId !== String(scope.order.customerId) ||
-          operation.orderId !== orderId ||
+      });
+      const receipt = await readClaim(storeId, orderId, lineId, claimId);
+      if (!receipt || receipt.operatorId !== user.id || receipt.status !== 'recorded')
+        return { status: 'not-recorded' as const };
+      const operation = receipt.operationId ? await state.readOperation(receipt.operationId) : null;
+      if (
+        operation &&
+        (operation.orderId !== orderId ||
           operation.lineId !== lineId ||
           operation.storeId !== storeId ||
-          operation.kind !== 'exchange'
-        )
-          throw new AppError(
-            409,
-            'EXCHANGE_RECOVERY_RECEIPT_CHANGED',
-            'The recorded recovery binding needs reconciliation.',
-          );
-        return { status: 'recorded' as const, operationId: receipt.operationId };
-      });
+          operation.kind !== 'exchange')
+      )
+        throw new AppError(
+          409,
+          'EXCHANGE_RECOVERY_RECEIPT_CHANGED',
+          'The recorded recovery binding needs reconciliation.',
+        );
+      return { status: 'recorded' as const, operationId: receipt.operationId! };
     },
+    /**
+     * Explicit takeover of a failed exchange (legacy retry button, order/views.py:1016-1035).
+     * Metadata only: no provider, return, refund or stock effect. The durable takeover facts are
+     * written by the retry itself (pos_exchange_log.staff_user_id, retry_count).
+     */
     async claimExchangeRecovery(
       user: Principal,
       storeId: string,
@@ -1118,255 +859,205 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       lineId: string,
       input: ExchangeRecoveryClaim,
     ) {
-      return db.get('writer').transaction(async (tx) => {
-        const proof = { counterId: input.counterId, verificationId: input.verificationId };
-        const requestHash = operationHash(
-          'exchange.recovery-claim',
-          { userId: user.id, storeId, orderId, lineId, input },
-          options.hashSecret,
+      const requestHash = fingerprint('exchange.recovery-claim', {
+          userId: user.id,
+          storeId,
+          orderId,
+          lineId,
+          input,
+        }),
+        receiptKey = returnStateKeys.claim(storeId, orderId, lineId, input.operationId),
+        binding = `${storeId}:${orderId}:${lineId}`;
+      const conflict = () =>
+        new AppError(
+          409,
+          'IDEMPOTENCY_CONFLICT',
+          'This recovery command has different original input. Read its original outcome.',
         );
-        const snapshot = await recoverySnapshot(tx, user, storeId, orderId, lineId, proof);
-        const { scope, log, credit, stockProof, groupProof } = snapshot;
-        const [priorReceipt] = await tx
-          .select()
-          .from(exchangeRecoveryClaims)
-          .where(eq(exchangeRecoveryClaims.id, input.operationId))
-          .limit(1)
-          .for('update');
-        if (priorReceipt) {
-          if (
-            priorReceipt.requestHash !== requestHash ||
-            priorReceipt.operatorId !== user.id ||
-            priorReceipt.storeId !== storeId ||
-            priorReceipt.orderId !== orderId ||
-            priorReceipt.lineId !== lineId ||
-            priorReceipt.counterId !== input.counterId ||
-            priorReceipt.verificationId !== input.verificationId
-          )
-            throw new AppError(
-              409,
-              'IDEMPOTENCY_CONFLICT',
-              'This recovery command has different original input. Read its original outcome.',
-            );
-          if (!snapshot.operation || snapshot.operation.id !== priorReceipt.operationId)
+      if (
+        !(await state.store.set(
+          returnStateKeys.claimId(input.operationId),
+          binding,
+          RECOVERY_CLAIM_TTL_SECONDS,
+          true,
+        )) &&
+        (await state.store.get(returnStateKeys.claimId(input.operationId))) !== binding
+      )
+        throw conflict();
+      const pending: RecoveryClaimReceipt = {
+        v: 1,
+        requestHash,
+        operatorId: user.id,
+        counterId: input.counterId,
+        verificationId: input.verificationId,
+        revision: input.expectedRevision,
+        operationId: null,
+        status: 'pending',
+        recordedAt: null,
+      };
+      const pendingRaw = JSON.stringify(pending);
+      if (!(await state.store.set(receiptKey, pendingRaw, RECOVERY_CLAIM_TTL_SECONDS, true))) {
+        const prior = await readClaim(storeId, orderId, lineId, input.operationId);
+        if (
+          !prior ||
+          prior.requestHash !== requestHash ||
+          prior.operatorId !== user.id ||
+          prior.counterId !== input.counterId ||
+          prior.verificationId !== input.verificationId
+        )
+          throw conflict();
+        if (prior.status === 'recorded' && prior.operationId) {
+          const operation = await state.readOperation(prior.operationId);
+          if (!operation)
             throw new AppError(
               409,
               'EXCHANGE_RECOVERY_RECEIPT_CHANGED',
               'The recorded recovery operation needs reconciliation.',
             );
-          return publicReturn(snapshot.operation);
+          return publicReturn(operation);
         }
-        const finishClaim = async (operation: ReturnOperation) => {
-          await tx.insert(exchangeRecoveryClaims).values({
+      }
+      const adopted = await state.withLine(orderId, lineId, () =>
+        db.get('writer').transaction(async (tx) => {
+          const snapshot = await recoverySnapshot(tx, user, storeId, orderId, lineId, {
+            counterId: input.counterId,
+            verificationId: input.verificationId,
+          });
+          const { scope, log, credit } = snapshot;
+          const claim = {
             id: input.operationId,
+            revision: input.expectedRevision,
+            operatorId: user.id,
+            counterId: input.counterId,
+            verificationId: input.verificationId,
+            claimedAt: timestamp(),
+            requestHash,
+          };
+          // A re-run of a pending claim finds its own operation already adopted.
+          if (snapshot.operation?.recoveryClaim?.id === input.operationId)
+            return snapshot.operation;
+          if (snapshot.revision !== input.expectedRevision)
+            throw new AppError(
+              409,
+              'EXCHANGE_RECOVERY_CHANGED',
+              'The exchange changed. Read its current recovery status.',
+            );
+          if (snapshot.operation) {
+            const operation = snapshot.operation;
+            if (
+              ![
+                'replacement-rejected',
+                'uncertain',
+                'old-item-restored',
+                'inbound-accepted',
+                'replacement-confirmed',
+                'completed',
+              ].includes(operation.phase)
+            )
+              throw new AppError(
+                409,
+                'EXCHANGE_RECOVERY_BUSY',
+                'An exchange for this item is already in progress.',
+              );
+            await phaseOneProof(tx, operation, scope.line.status, operation.phase === 'completed');
+            return stamp({
+              ...operation,
+              authorityCounterId: input.counterId,
+              recoveryClaim: claim,
+            });
+          }
+          const view = recoveryView(snapshot, storeId);
+          if (view.state === 'wrong-store' && log) {
+            const [origin] = await tx
+              .select({ name: Store.store_name })
+              .from(Store)
+              .where(eq(Store.id, BigInt(log.store_id)))
+              .limit(1);
+            throw new AppError(
+              409,
+              'EXCHANGE_WRONG_STORE',
+              `This exchange was started at ${origin?.name || `store ${log.store_id}`}. Please retry it from there.`,
+            );
+          }
+          if (view.state !== 'legacy' || !log || !credit)
+            throw new AppError(
+              409,
+              'EXCHANGE_RECOVERY_UNCONFIRMED',
+              'There is no failed exchange to retry for this item. Please refresh the page.',
+            );
+          if (!input.salespersonId)
+            throw new AppError(
+              422,
+              'EXCHANGE_SALESPERSON_REQUIRED',
+              'Salesperson selection is required for exchange.',
+            );
+          const date = timestamp();
+          return {
+            id: input.operationId,
+            kind: 'exchange' as const,
             operatorId: user.id,
             storeId,
             orderId,
             lineId,
-            counterId: input.counterId,
-            verificationId: input.verificationId,
+            productId: String(log.old_prod_id),
+            customerId: String(scope.order.customerId),
+            quantity: Number(scope.line.qty),
+            authorityCounterId: input.counterId,
+            recoveryClaim: claim,
+            exchange: {
+              newProductId: String(log.new_prod_id),
+              parentProductId: String(log.exchange_parent_prod_id),
+              newSize: log.new_size ?? '',
+              oldSize: log.old_size,
+              salespersonId: input.salespersonId,
+              logId: String(log.id),
+              childOrderId: null,
+              // order/views.py:1071: counter_id = exchange_log.counter_id or 0
+              sourceCounterId: String(log.counter_id || 0),
+            },
+            input: {
+              operationId: input.operationId,
+              counterId: input.counterId,
+              verificationId: input.verificationId,
+              reasonId: String(log.reason_id),
+              ...(log.sub_reason_id ? { subReasonId: String(log.sub_reason_id) } : {}),
+              comment: log.comment || '',
+              qualityConfirmed: true,
+              tagConfirmed: true,
+              saleable: Boolean(log.saleable),
+              refundMode: 'tss-money' as const,
+              overrideEligibility: false,
+              clickType: 'normal' as const,
+            },
             requestHash,
-            revision: input.expectedRevision,
-            operationId: operation.id,
-            recordedAt: timestamp(),
-          });
-          return publicReturn(operation);
-        };
-        if (
-          snapshot.operation?.recoveryClaim?.id === input.operationId &&
-          snapshot.operation.recoveryClaim.revision === input.expectedRevision &&
-          snapshot.operation.recoveryClaim.operatorId === user.id &&
-          snapshot.operation.recoveryClaim.counterId === input.counterId &&
-          snapshot.operation.recoveryClaim.verificationId === input.verificationId &&
-          snapshot.operation.recoveryClaim.requestHash === requestHash
-        )
-          return finishClaim(snapshot.operation);
-        if (snapshot.revision !== input.expectedRevision)
-          throw new AppError(
-            409,
-            'EXCHANGE_RECOVERY_CHANGED',
-            'The exchange changed. Read its current recovery status.',
-          );
-        const claim = {
-          id: input.operationId,
-          revision: input.expectedRevision,
-          operatorId: user.id,
-          counterId: input.counterId,
-          verificationId: input.verificationId,
-          claimedAt: timestamp(),
-          requestHash,
-        };
-        if (snapshot.operation) {
-          const operation = snapshot.operation;
-          if (
-            ![
-              'replacement-rejected',
-              'uncertain',
-              'old-item-restored',
-              'inbound-accepted',
-              'replacement-confirmed',
-              'completed',
-            ].includes(operation.phase)
-          )
-            throw new AppError(
-              409,
-              'EXCHANGE_RECOVERY_BUSY',
-              'An exchange request is still in progress. Read its outcome before claiming it.',
-            );
-          await phaseOneProof(tx, operation, scope.line.status, operation.phase === 'completed');
-          let exchange = operation.exchange;
-          const evidence = exchange?.adoptionEvidence;
-          if (exchange && evidence?.kind === 'group') {
-            if (
-              !groupProof ||
-              !log ||
-              sourceExchangeHash(log) !== evidence.sourceHash ||
-              !credit ||
-              String(credit.id) !== evidence.creditId ||
-              credit.credit_note_no !== operation.creditNote
-            )
-              throw new AppError(
-                409,
-                'EXCHANGE_ADOPTION_EVIDENCE_CHANGED',
-                'The complete restoration group is not confirmed.',
-              );
-            exchange = {
-              ...exchange,
-              adoptionEvidence: {
-                ...evidence,
-                revision: input.expectedRevision,
-                group: groupProof,
-              },
-            };
-          } else await assertAdoptionEvidence(tx, operation);
-          return finishClaim(
-            await save(tx, {
-              ...operation,
-              exchange,
-              authorityCounterId: input.counterId,
-              recoveryClaim: claim,
-            }),
-          );
-        }
-        if (
-          recoveryView(snapshot, storeId).state !== 'legacy' ||
-          !log ||
-          !credit ||
-          (!stockProof && !groupProof) ||
-          log.new_order_id ||
-          log.old_prod_id !== Number(scope.line.product) ||
-          credit.qty !== Number(scope.line.qty)
-        )
-          throw new AppError(
-            409,
-            'EXCHANGE_RECOVERY_UNCONFIRMED',
-            'The original return, stock restoration or replacement state needs reconciliation before recovery.',
-          );
-        await assertNoReplacementChild(tx, { orderId, lineId, createdAt: log.created_at }, true);
-        if (!input.salespersonId)
-          throw new AppError(
-            422,
-            'EXCHANGE_SALESPERSON_REQUIRED',
-            'Select a current salesperson to recover this exchange.',
-          );
-        const selected = await exchangeSelection(tx, scope, {
-          replacementProductId: String(log.new_prod_id),
-          salespersonId: input.salespersonId,
-        });
-        // A fresh salesperson is selected explicitly at retry; adoption preserves stored size.
-        if (
-          selected.newSize !== log.new_size ||
-          selected.parentProductId !== String(log.exchange_parent_prod_id)
-        )
-          throw new AppError(
-            409,
-            'EXCHANGE_PRODUCT_CHANGED',
-            'The stored replacement size changed.',
-          );
-        const [existingId] = await tx
-          .select({ id: returnOperations.id })
-          .from(returnOperations)
-          .where(eq(returnOperations.id, input.operationId))
-          .limit(1)
-          .for('update');
-        if (existingId)
-          throw new AppError(409, 'IDEMPOTENCY_CONFLICT', 'This recovery key is already in use.');
-        const date = timestamp();
-        const operation = returnOperationSchema.parse({
-          id: input.operationId,
-          kind: 'exchange',
-          operatorId: user.id,
-          storeId,
-          orderId,
-          lineId,
-          productId: String(scope.line.product),
-          customerId: String(scope.order.customerId),
-          quantity: Number(scope.line.qty),
-          authorityCounterId: input.counterId,
-          recoveryClaim: claim,
-          exchange: {
-            newProductId: String(log.new_prod_id),
-            parentProductId: String(log.exchange_parent_prod_id),
-            newSize: log.new_size,
-            oldSize: log.old_size,
-            salespersonId: selected.salespersonId,
-            logId: String(log.id),
-            childOrderId: null,
-            sourceCounterId: String(log.counter_id || 0),
-            adoptionEvidence: stockProof
-              ? {
-                  kind: 'single',
-                  revision: input.expectedRevision,
-                  sourceHash: sourceExchangeHash(log),
-                  creditId: String(credit.id),
-                  stockLogId: String(stockProof.id),
-                  stockLogKind: log.saleable ? 'saleable' : 'held',
-                }
-              : {
-                  kind: 'group',
-                  revision: input.expectedRevision,
-                  sourceHash: sourceExchangeHash(log),
-                  creditId: String(credit.id),
-                  group: groupProof,
-                },
-          },
-          input: {
-            operationId: input.operationId,
-            counterId: input.counterId,
-            verificationId: input.verificationId,
-            reasonId: String(log.reason_id),
-            ...(log.sub_reason_id ? { subReasonId: String(log.sub_reason_id) } : {}),
-            comment: log.comment || '',
-            qualityConfirmed: true,
-            tagConfirmed: true,
-            saleable: Boolean(log.saleable),
-            refundMode: 'tss-money',
-            overrideEligibility: false,
-          },
-          requestHash: operationHash(
-            'exchange.legacy-adoption',
-            { orderId, lineId, claim },
-            options.hashSecret,
-          ),
-          phase: 'replacement-rejected',
-          uncertainStage: null,
-          creditNote: credit.credit_note_no,
-          returnAmount: null,
-          errorCode: 'LEGACY_EXCHANGE_ADOPTED',
-          createdAt: log.created_at,
-          updatedAt: date,
-        });
-        await tx.insert(returnOperations).values({
-          id: operation.id,
-          lineId,
-          storeId,
-          phase: operation.phase,
-          state: operation,
-          createdAt: operation.createdAt,
-          updatedAt: date,
-        });
-        return finishClaim(operation);
-      });
+            phase: 'replacement-rejected' as const,
+            uncertainStage: null,
+            creditNote: credit.creditNote,
+            returnAmount: null,
+            returnAmountRepr: null,
+            errorCode: 'LEGACY_EXCHANGE_ADOPTED',
+            message: log.last_error,
+            createdAt: log.created_at,
+            updatedAt: date,
+          };
+        }),
+      );
+      await state.saveOperation(adopted);
+      const recorded: RecoveryClaimReceipt = {
+        ...pending,
+        operationId: adopted.id,
+        status: 'recorded',
+        recordedAt: timestamp(),
+      };
+      const current = await state.store.get(receiptKey);
+      if (current !== null && current !== JSON.stringify(recorded))
+        await state.store.compareAndSet(
+          receiptKey,
+          current,
+          JSON.stringify(recorded),
+          RECOVERY_CLAIM_TTL_SECONDS,
+        );
+      return publicReturn(adopted);
     },
     async extensionScope(
       tx: AdministrationTransaction,
@@ -1398,18 +1089,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         input.verificationId,
         String(scope.order.customerId),
       );
-      const active = await tx
-        .select({ id: returnOperations.id })
-        .from(returnOperations)
-        .where(and(eq(returnOperations.lineId, lineId), ne(returnOperations.phase, 'rejected')))
-        .limit(1)
-        .for('update');
-      if (active.length)
-        throw new AppError(
-          409,
-          'RETURN_ALREADY_ACTIVE',
-          'An earlier return or exchange for this line needs review.',
-        );
       const actors = await tx
         .select({ id: MUser.id })
         .from(MUser)
@@ -1443,6 +1122,10 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         periodDays: options.returnPeriodDays,
       };
     },
+    /**
+     * Validates and records a new return/exchange (`AjaxProductReturnView` / `AjaxProductExchangeView`
+     * up to the warehouse call). The caller holds the line lock.
+     */
     async begin(
       user: Principal,
       storeId: string,
@@ -1450,61 +1133,40 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       lineId: string,
       input: ReturnInput,
       exchange?: { replacementProductId: string; salespersonId: string },
-    ) {
-      return db.get('writer').transaction(async (tx) => {
-        if (input.saleable && !options.inventoryProcedureVerified)
-          throw new AppError(
-            503,
-            'RETURN_INVENTORY_UNVERIFIED',
-            'The deployed inventory procedure must be verified before restoring saleable stock.',
-          );
-        if (options.returnPeriodDays === undefined)
-          throw new AppError(503, 'RETURN_POLICY_UNAVAILABLE', 'Return policy is not configured.');
-        if (input.overrideEligibility) requireRole(user, [1]);
-        const scope = await context(tx, user, storeId, orderId, lineId, input.counterId),
-          hash = operationHash(
-            exchange ? 'exchange.create' : 'return.create',
-            { storeId, orderId, lineId, input, ...(exchange ? { exchange } : {}) },
-            options.hashSecret,
-          );
-        const [previous] = await tx
-          .select({ state: returnOperations.state })
-          .from(returnOperations)
-          .where(eq(returnOperations.id, input.operationId))
-          .for('update');
-        if (previous) {
-          const operation = returnOperationSchema.parse(previous.state);
-          if (
-            operation.storeId !== storeId ||
-            operation.orderId !== orderId ||
-            operation.lineId !== lineId ||
-            operation.operatorId !== user.id ||
-            operation.requestHash !== hash
-          )
-            throw new AppError(
-              409,
-              'IDEMPOTENCY_CONFLICT',
-              'This return key was used with different data.',
-            );
-          return { operation, replay: true };
-        }
-        if (scope.line.status !== 'DELIVERED' || scope.line.return_status !== 0)
+    ): Promise<{ operation: ReturnOperation; replay: boolean }> {
+      const hash = fingerprint(exchange ? 'exchange.create' : 'return.create', {
+        storeId,
+        orderId,
+        lineId,
+        input,
+        ...(exchange ? { exchange } : {}),
+      });
+      const previous = await state.readOperation(input.operationId);
+      if (previous) {
+        if (
+          previous.storeId !== storeId ||
+          previous.orderId !== orderId ||
+          previous.lineId !== lineId ||
+          previous.operatorId !== user.id ||
+          previous.requestHash !== hash
+        )
           throw new AppError(
             409,
-            'RETURN_LINE_INELIGIBLE',
-            'This line is no longer available for a new return.',
+            'IDEMPOTENCY_CONFLICT',
+            'This return key was used with different data.',
           );
-        const [active] = await tx
-          .select({ id: returnOperations.id })
-          .from(returnOperations)
-          .where(and(eq(returnOperations.lineId, lineId), ne(returnOperations.phase, 'rejected')))
-          .limit(1);
-        if (active)
-          throw new AppError(
-            409,
-            'RETURN_ALREADY_ACTIVE',
-            'An earlier return for this line needs review.',
-          );
+        return { operation: previous, replay: true };
+      }
+      if (input.saleable && !options.inventoryProcedureVerified)
+        throw new AppError(
+          503,
+          'RETURN_INVENTORY_UNVERIFIED',
+          'The deployed inventory procedure must be verified before restoring saleable stock.',
+        );
+      if (input.overrideEligibility) requireRole(user, [1]);
+      if (!exchange) await assertNoActiveOperation(orderId, lineId);
+      const result = await db.get('writer').transaction(async (tx) => {
+        const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
         await verifiedCustomer(
           tx,
           user,
@@ -1514,67 +1176,15 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           input.verificationId,
           String(scope.order.customerId),
         );
-        const [delivery] = await tx
-            .select({ date: Comments.created_at })
-            .from(Comments)
-            .where(and(eq(Comments.order_id, BigInt(orderId)), eq(Comments.status_id, 3n)))
-            .orderBy(desc(Comments.created_at))
-            .limit(1),
-          [extension] = await tx
-            .select({ date: ExtendApplicabilityForReturnExchange.extended_date })
-            .from(ExtendApplicabilityForReturnExchange)
-            .where(
-              and(
-                eq(ExtendApplicabilityForReturnExchange.order_id, BigInt(orderId)),
-                eq(ExtendApplicabilityForReturnExchange.prod_id, scope.line.product),
-                eq(ExtendApplicabilityForReturnExchange.has_product_id, BigInt(lineId)),
-                eq(ExtendApplicabilityForReturnExchange.is_active, true),
-              ),
-            )
-            .limit(1);
-        if (!delivery)
-          throw new AppError(
-            409,
-            'RETURN_DELIVERY_UNCONFIRMED',
-            'No delivered record exists for this order.',
-          );
-        const deliveryAge = Temporal.PlainDateTime.from(delivery.date.replace(' ', 'T'))
-            .until(now())
-            .total('days'),
-          extended =
-            extension &&
-            Temporal.PlainDateTime.compare(
-              Temporal.PlainDateTime.from(extension.date.replace(' ', 'T')),
-              now(),
-            ) >= 0;
+        const exchangeInitiated = scope.line.status === 'EXCHANGE_INITIATED';
         if (
-          Math.floor(deliveryAge) > options.returnPeriodDays &&
-          !extended &&
-          !input.overrideEligibility
+          !(scope.line.status === 'DELIVERED' && scope.line.return_status === 0) &&
+          !(exchange && exchangeInitiated)
         )
           throw new AppError(
             409,
-            'RETURN_WINDOW_CLOSED',
-            'This line is outside the return window.',
-          );
-        const [refundable] = await tx
-          .select({ id: AmountToBeRefundedLog.id })
-          .from(AmountToBeRefundedLog)
-          .where(
-            and(
-              eq(AmountToBeRefundedLog.order_id, BigInt(orderId)),
-              eq(AmountToBeRefundedLog.prod_id, scope.line.product),
-              eq(AmountToBeRefundedLog.has_product_id, BigInt(lineId)),
-              eq(AmountToBeRefundedLog.is_refunded, false),
-            ),
-          )
-          .limit(1)
-          .for('update');
-        if (!refundable)
-          throw new AppError(
-            409,
-            'RETURN_ALREADY_REFUNDED',
-            'This line has no unrefunded ledger amount.',
+            'RETURN_LINE_INELIGIBLE',
+            'This line is no longer available for a new return.',
           );
         const [reason] = await tx
           .select({ id: ReversePickupReason.id })
@@ -1587,7 +1197,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           BigInt(storeId) > 2147483647n ||
           BigInt(input.subReasonId || '0') > 2147483647n
         )
-          throw new AppError(422, 'RETURN_REASON_UNAVAILABLE', 'Select a supported return reason.');
+          throw new AppError(422, 'RETURN_REASON_UNAVAILABLE', 'Please select correct reason');
         if (
           input.refundMode === 'cash' &&
           scope.order.paymentMethod === 3n &&
@@ -1607,8 +1217,36 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         const date = timestamp();
         let exchangeState: ReturnOperation['exchange'] = null;
         if (exchange) {
-          await assertNoReplacementChild(tx, { orderId, lineId, createdAt: date }, true);
-          const selected = await exchangeSelection(tx, scope, exchange);
+          // order/views.py:1013-1050, in the same order.
+          const log = await exchangeLog(tx, orderId, lineId);
+          if (log) {
+            if (log.status === 'SUCCESS')
+              throw new AppError(
+                409,
+                'EXCHANGE_ALREADY_COMPLETED',
+                'This item has already been exchanged.',
+              );
+            if (log.status === 'PENDING' && minutesSince(log.updated_at) < STALE_PENDING_MINUTES)
+              throw new AppError(
+                409,
+                'EXCHANGE_IN_PROGRESS',
+                'An exchange for this item is already in progress.',
+              );
+            const committed = Boolean(await phaseOneCommitted(tx, log));
+            if (exchangeRetryable(scope.line.status, committed))
+              throw new AppError(
+                409,
+                'EXCHANGE_RETRY_REQUIRED',
+                'A previous exchange attempt for this item failed. Please refresh the page and use the retry button.',
+              );
+            if (committed)
+              throw new AppError(
+                409,
+                'EXCHANGE_ALREADY_RETURNED',
+                'This item has already been returned or refunded. Please contact tech support.',
+              );
+          }
+          const selected = await exchangeSelection(tx, scope, exchange, false);
           if (
             [
               orderId,
@@ -1618,6 +1256,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               selected.newProductId,
               selected.parentProductId,
               user.id,
+              input.counterId,
               exchange.salespersonId,
             ].some((value) => BigInt(value) > 2147483647n)
           )
@@ -1626,51 +1265,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               'EXCHANGE_IDENTIFIER_UNSUPPORTED',
               'This exchange exceeds the supported legacy ledger identifiers.',
             );
-          const [legacy] = await tx
-            .select()
-            .from(PosExchangeLog)
-            .where(
-              and(
-                eq(PosExchangeLog.order_id, Number(orderId)),
-                eq(PosExchangeLog.has_prod_id, Number(lineId)),
-              ),
-            )
-            .orderBy(asc(PosExchangeLog.id))
-            .limit(1)
-            .for('update');
-          if (legacy) {
-            if (legacy.status === 'SUCCESS')
-              throw new AppError(
-                409,
-                'EXCHANGE_ALREADY_COMPLETED',
-                'This line was already exchanged.',
-              );
-            const [credit] = await tx
-              .select({ id: ReturnOrder.id })
-              .from(ReturnOrder)
-              .where(
-                and(
-                  eq(ReturnOrder.order_id, BigInt(orderId)),
-                  eq(ReturnOrder.has_product_id, BigInt(lineId)),
-                  eq(ReturnOrder.store_id, legacy.store_id),
-                  gte(ReturnOrder.created_at, legacy.created_at),
-                  ne(ReturnOrder.credit_note_no, ''),
-                ),
-              )
-              .limit(1);
-            if (
-              credit ||
-              (legacy.status === 'PENDING' &&
-                Temporal.PlainDateTime.from(legacy.updated_at.replace(' ', 'T'))
-                  .until(now())
-                  .total('minutes') < 10)
-            )
-              throw new AppError(
-                409,
-                'LEGACY_EXCHANGE_REVIEW_REQUIRED',
-                'An earlier exchange for this line needs reconciliation.',
-              );
-          }
           const values = {
             order_id: Number(orderId),
             has_prod_id: Number(lineId),
@@ -1686,33 +1280,54 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             sub_reason_id: Number(input.subReasonId || '0'),
             comment: input.comment,
             saleable: input.saleable,
-            new_order_id: null,
             status: 'PENDING',
-            retry_count: legacy?.retry_count || 0,
-            last_error: null,
             updated_at: date,
           };
-          if (legacy)
-            await tx.update(PosExchangeLog).set(values).where(eq(PosExchangeLog.id, legacy.id));
-          else await tx.insert(PosExchangeLog).values({ ...values, created_at: date });
-          const [log] = await tx
-            .select({ id: PosExchangeLog.id })
-            .from(PosExchangeLog)
-            .where(
-              and(
-                eq(PosExchangeLog.order_id, Number(orderId)),
-                eq(PosExchangeLog.has_prod_id, Number(lineId)),
-              ),
-            )
-            .orderBy(asc(PosExchangeLog.id))
-            .limit(1);
-          if (!log)
+          if (log) await tx.update(PosExchangeLog).set(values).where(eq(PosExchangeLog.id, log.id));
+          else
+            await tx.insert(PosExchangeLog).values({
+              ...values,
+              new_order_id: 0,
+              retry_count: 0,
+              last_error: null,
+              created_at: date,
+            });
+          const saved = log ?? (await exchangeLog(tx, orderId, lineId));
+          if (!saved)
             throw new AppError(
               503,
               'EXCHANGE_LEDGER_UNAVAILABLE',
               'The exchange ledger could not be recorded.',
             );
-          exchangeState = { ...selected, logId: String(log.id), childOrderId: null };
+          exchangeState = { ...selected, logId: String(saved.id), childOrderId: null };
+          // An exchange already marked on the line was approved once (order/views.py:1124-1126).
+          const failure = await returnWindow(
+            tx,
+            orderId,
+            lineId,
+            scope.line.product,
+            exchangeInitiated ? 'extreme' : 'normal',
+          );
+          if (failure) {
+            await tx
+              .update(PosExchangeLog)
+              .set({
+                status: 'FAILED_NEEDS_MANUAL_FIX',
+                last_error: failure.message,
+                updated_at: timestamp(),
+              })
+              .where(eq(PosExchangeLog.id, saved.id));
+            return new CommittedFailure(failure);
+          }
+        } else {
+          const failure = await returnWindow(
+            tx,
+            orderId,
+            lineId,
+            scope.line.product,
+            input.clickType,
+          );
+          if (failure) throw failure;
         }
         const operation: ReturnOperation = {
           id: input.operationId,
@@ -1731,25 +1346,23 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           uncertainStage: null,
           creditNote: null,
           returnAmount: null,
+          returnAmountRepr: null,
           errorCode: null,
+          message: null,
           createdAt: date,
           updatedAt: date,
         };
-        await tx.insert(returnOperations).values({
-          id: operation.id,
-          lineId,
-          storeId,
-          phase: operation.phase,
-          state: operation,
-          createdAt: date,
-          updatedAt: date,
-        });
-        return { operation, replay: false };
+        return operation;
       });
+      if (result instanceof CommittedFailure) throw result.error;
+      if (!(await state.createOperation(result)))
+        throw new AppError(409, 'IDEMPOTENCY_CONFLICT', 'This return key is already in use.');
+      return { operation: result, replay: false };
     },
     async inboundData(user: Principal, storeId: string, id: string): Promise<InboundReturn> {
+      const operation = await load(user, storeId, id);
       return db.get('writer').transaction(async (tx) => {
-        const { operation, store, order, line } = await owned(tx, user, storeId, id),
+        const { store, order, line } = await owned(tx, user, operation),
           [reason] = await tx
             .select({ reason: ReversePickupReason.reason })
             .from(ReversePickupReason)
@@ -1778,9 +1391,11 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         };
       });
     },
+    /** `add_to_return_orders`, `has_product_and_order_update`, `add_to_comment` (calculations.py:189-250). */
     async accepted(user: Principal, storeId: string, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation, store, line } = await owned(tx, user, storeId, id);
+      const operation = await load(user, storeId, id);
+      const next = await db.get('writer').transaction(async (tx) => {
+        const { store, line } = await owned(tx, user, operation);
         if (operation.phase !== 'inbound-dispatching')
           throw new AppError(
             409,
@@ -1796,11 +1411,9 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             .select({ id: HasProduct.id, status: HasProduct.status })
             .from(HasProduct)
             .where(eq(HasProduct.order, BigInt(operation.orderId))),
-          orderStatus = lines
-            .filter((row) => row.id !== line.id)
-            .every((row) => ['PRODUCT_RETURNED', 'EXCHANGE_COMPLETED'].includes(row.status || ''))
-            ? 6
-            : 37;
+          // calculations.py:112-117: count returned/exchanged lines including this one.
+          done = lines.filter((row) => RETURNED_OR_EXCHANGED.includes(row.status || '')).length,
+          orderStatus = lines.length - 1 === done ? 6 : 37;
         // Legacy helpers.py:2205,2284,2299 formats Store.location_code (nullable) in
         // f-strings, so a NULL code becomes 'None'.
         const storeCode = store.locationCode ?? 'None',
@@ -1873,12 +1486,14 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           created_at: date,
           updated_at: date,
         });
-        return save(tx, { ...operation, phase: 'inbound-accepted', creditNote });
+        return stamp({ ...operation, phase: 'inbound-accepted', creditNote });
       });
+      return state.saveOperation(next);
     },
     async claimRefund(user: Principal, storeId: string, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation, order } = await owned(tx, user, storeId, id);
+      const operation = await load(user, storeId, id);
+      const next = await db.get('writer').transaction(async (tx) => {
+        const { order } = await owned(tx, user, operation);
         if (operation.kind !== 'return')
           throw new AppError(409, 'RETURN_KIND_MISMATCH', 'This operation is not a refund return.');
         if (operation.phase !== 'inbound-accepted')
@@ -1898,34 +1513,62 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             'CASH_REFUND_NOT_PERMITTED',
             'This prepaid line is eligible for wallet refund only.',
           );
-        return save(tx, { ...operation, phase: 'refund-dispatching' });
+        return stamp({ ...operation, phase: 'refund-dispatching' });
       });
+      return state.saveOperation(next);
     },
-    async refundConfirmed(user: Principal, storeId: string, id: string, returnAmount: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation } = await owned(tx, user, storeId, id, 'evidence');
-        if (operation.phase !== 'refund-dispatching')
-          throw new AppError(
-            409,
-            'RETURN_PHASE_CHANGED',
-            'The return phase changed. Review its current status.',
-          );
-        return save(tx, { ...operation, phase: 'refund-confirmed', returnAmount });
-      });
+    async refundConfirmed(
+      user: Principal,
+      storeId: string,
+      id: string,
+      returnAmount: string,
+      returnAmountRepr: string,
+    ) {
+      const operation = await load(user, storeId, id);
+      if (operation.phase !== 'refund-dispatching')
+        throw new AppError(
+          409,
+          'RETURN_PHASE_CHANGED',
+          'The return phase changed. Review its current status.',
+        );
+      return state.saveOperation(
+        stamp({
+          ...operation,
+          phase: 'refund-confirmed',
+          returnAmount,
+          returnAmountRepr,
+        }),
+      );
     },
+    /** order/views.py:938-941: "Already refunded" ends the request without stock or audit. */
+    async alreadyRefunded(user: Principal, storeId: string, id: string) {
+      const operation = await load(user, storeId, id);
+      return state.saveOperation(
+        stamp({
+          ...operation,
+          phase: 'rejected',
+          uncertainStage: null,
+          errorCode: 'RETURN_ALREADY_REFUNDED',
+          message: 'Already refunded',
+        }),
+      );
+    },
+    /** Stock, `return_transaction_logger` and `mark_stale` (order/views.py:948-966). */
     async complete(user: Principal, storeId: string, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation, store } = await owned(tx, user, storeId, id);
-        if (operation.kind !== 'return')
-          throw new AppError(409, 'RETURN_KIND_MISMATCH', 'This operation is not a refund return.');
-        if (operation.phase === 'completed') return operation;
-        if (operation.phase !== 'refund-confirmed' || operation.returnAmount === null)
-          throw new AppError(
-            409,
-            'RETURN_REFUND_UNCONFIRMED',
-            'The refund must be confirmed before returning stock.',
-          );
+      const operation = await load(user, storeId, id);
+      if (operation.kind !== 'return')
+        throw new AppError(409, 'RETURN_KIND_MISMATCH', 'This operation is not a refund return.');
+      if (operation.phase === 'completed') return { operation, completedNow: false };
+      if (operation.phase !== 'refund-confirmed' || operation.returnAmount === null)
+        throw new AppError(
+          409,
+          'RETURN_REFUND_UNCONFIRMED',
+          'The refund must be confirmed before returning stock.',
+        );
+      const next = await db.get('writer').transaction(async (tx) => {
+        const { store } = await owned(tx, user, operation);
         await restore(tx, user, operation);
+        // helpers.py:442: filter(order_id, prod_id).first() — no line filter.
         const [ledger] = await tx
             .select()
             .from(AmountToBeRefundedLog)
@@ -1933,7 +1576,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               and(
                 eq(AmountToBeRefundedLog.order_id, BigInt(operation.orderId)),
                 eq(AmountToBeRefundedLog.prod_id, BigInt(operation.productId)),
-                eq(AmountToBeRefundedLog.has_product_id, BigInt(operation.lineId)),
               ),
             )
             .orderBy(asc(AmountToBeRefundedLog.id))
@@ -1945,7 +1587,8 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             .limit(1);
         if (!ledger || !order)
           throw new AppError(409, 'RETURN_LEDGER_UNAVAILABLE', 'The return ledger is unavailable.');
-        const date = timestamp();
+        const date = timestamp(),
+          amountRepr = operation.returnAmountRepr ?? operation.returnAmount!;
         await tx.insert(PosTransactionLog).values({
           order_id: BigInt(operation.orderId),
           store_id: BigInt(storeId),
@@ -1953,15 +1596,12 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           payment_status: order.paymentStatus ?? 0n,
           user_id: 0n,
           pos_user_id: BigInt(user.id),
-          pay_dict: JSON.stringify({
-            'tss point refunded': ledger.tss_point_used,
-            'tss money refunded': ledger.tss_money_used,
-            'gift voucher amount refunded': ledger.gift_voucher_amount,
-            [operation.input.refundMode === 'cash'
-              ? 'pay amt refunded into cash'
-              : 'pay amt refunded into tss money']: Number(operation.returnAmount),
-            'total amount refunded': ledger.amount_to_be_refunded + ledger.tss_point_used,
-          }),
+          pay_dict:
+            `{'tss point refunded': ${pythonFloat(ledger.tss_point_used)}, ` +
+            `'tss money refunded': ${pythonFloat(ledger.tss_money_used)}, ` +
+            `'gift voucher amount refunded': ${pythonFloat(ledger.gift_voucher_amount)}, ` +
+            `'${operation.input.refundMode === 'cash' ? 'pay amt refunded into cash' : 'pay amt refunded into tss money'}': ${amountRepr}, ` +
+            `'total amount refunded': ${pythonFloat(ledger.amount_to_be_refunded + ledger.tss_point_used)}}`,
           comment:
             `Product ID : ${operation.productId}, ${operation.quantity} Quantity Return to ${store.name}`.slice(
               0,
@@ -1987,414 +1627,269 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
                 eq(StoreDayClose.status, 'CLOSED'),
               ),
             );
-        await tx.insert(returnOutbox).values({
-          id: operation.id,
-          kind: 'return-email',
-          orderId: operation.orderId,
-          storeId,
-          productId: operation.productId,
-          lineId: operation.lineId,
-          status: 'pending',
-          requestId: currentRequestTrace()?.requestId || null,
-          operatorId: user.id,
-          createdAt: date,
+        return stamp({
+          ...operation,
+          phase: 'completed',
+          errorCode: null,
+          message: 'Product return request processed.',
         });
-        return save(tx, { ...operation, phase: 'completed', errorCode: null });
       });
+      return { operation: await state.saveOperation(next), completedNow: true };
     },
     async restoreExchange(user: Principal, storeId: string, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation, line } = await owned(tx, user, storeId, id);
-        if (operation.kind !== 'exchange' || !operation.exchange)
-          throw new AppError(409, 'EXCHANGE_NOT_FOUND', 'This operation is not an exchange.');
-        if (operation.phase === 'old-item-restored') return operation;
-        if (operation.phase !== 'inbound-accepted')
-          throw new AppError(
-            409,
-            'EXCHANGE_PHASE_CHANGED',
-            'This exchange is not ready for stock restoration.',
-          );
+      const operation = await load(user, storeId, id);
+      if (operation.kind !== 'exchange' || !operation.exchange)
+        throw new AppError(409, 'EXCHANGE_NOT_FOUND', 'This operation is not an exchange.');
+      if (operation.phase === 'old-item-restored') return operation;
+      if (operation.phase !== 'inbound-accepted')
+        throw new AppError(
+          409,
+          'EXCHANGE_PHASE_CHANGED',
+          'This exchange is not ready for stock restoration.',
+        );
+      const next = await db.get('writer').transaction(async (tx) => {
+        const { line } = await owned(tx, user, operation);
         await phaseOneProof(tx, operation, line.status);
         await restore(tx, user, operation);
-        return save(tx, { ...operation, phase: 'old-item-restored' });
+        return stamp({ ...operation, phase: 'old-item-restored' });
       });
+      return state.saveOperation(next);
     },
+    /** Retry bookkeeping (order/views.py:1116-1122) and the live stock re-check. */
     async claimReplacement(
       user: Principal,
       storeId: string,
       id: string,
       retrySalespersonId?: string,
     ) {
-      return db.get('writer').transaction(async (tx) => {
-        const scope = await owned(tx, user, storeId, id),
-          operation = scope.operation;
-        if (
-          operation.kind !== 'exchange' ||
-          !operation.exchange ||
-          !['old-item-restored', 'replacement-rejected'].includes(operation.phase)
-        )
-          throw new AppError(
-            409,
-            'EXCHANGE_REVIEW_REQUIRED',
-            'This exchange requires reconciliation before a replacement request can be made.',
-          );
+      const operation = await load(user, storeId, id);
+      if (
+        operation.kind !== 'exchange' ||
+        !operation.exchange ||
+        !['old-item-restored', 'replacement-rejected'].includes(operation.phase)
+      )
+        throw new AppError(
+          409,
+          'EXCHANGE_REVIEW_REQUIRED',
+          'This item is no longer awaiting an exchange. Please refresh the page.',
+        );
+      const exchange = operation.exchange,
+        retry = operation.phase === 'replacement-rejected';
+      const next = await db.get('writer').transaction(async (tx) => {
+        const scope = await owned(tx, user, operation);
         await phaseOneProof(tx, operation, scope.line.status);
-        await assertNoReplacementChild(tx, operation);
-        const selected = await exchangeSelection(tx, scope, {
-          replacementProductId: operation.exchange.newProductId,
-          salespersonId: retrySalespersonId || operation.exchange.salespersonId,
-        });
-        if (
-          selected.newSize !== operation.exchange.newSize ||
-          selected.parentProductId !== operation.exchange.parentProductId
-        )
-          throw new AppError(
-            409,
-            'EXCHANGE_PRODUCT_CHANGED',
-            'The stored replacement size changed. Review this exchange.',
-          );
         const [log] = await tx
-          .select({ retryCount: PosExchangeLog.retry_count })
+          .select()
           .from(PosExchangeLog)
-          .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)))
+          .where(eq(PosExchangeLog.id, BigInt(exchange.logId)))
           .limit(1)
           .for('update');
-        if (!log || log.retryCount >= 65535)
+        if (!log || log.retry_count >= 32767)
           throw new AppError(
             409,
             'EXCHANGE_LEDGER_UNAVAILABLE',
             'The exchange tracking record is unavailable.',
           );
+        if (log.status === 'SUCCESS')
+          throw new AppError(
+            409,
+            'EXCHANGE_ALREADY_COMPLETED',
+            'This item has already been exchanged.',
+          );
+        if (retry && String(log.store_id) !== storeId) {
+          const [origin] = await tx
+            .select({ name: Store.store_name })
+            .from(Store)
+            .where(eq(Store.id, BigInt(log.store_id)))
+            .limit(1);
+          throw new AppError(
+            409,
+            'EXCHANGE_WRONG_STORE',
+            `This exchange was started at ${origin?.name || `store ${log.store_id}`}. Please retry it from there.`,
+          );
+        }
+        const selected = await exchangeSelection(
+          tx,
+          scope,
+          {
+            replacementProductId: exchange.newProductId,
+            salespersonId: retrySalespersonId || exchange.salespersonId,
+          },
+          retry,
+          exchange.newSize,
+        );
         await tx
           .update(PosExchangeLog)
           .set({
             status: 'PENDING',
             staff_user_id: Number(user.id),
-            retry_count: log.retryCount + (operation.phase === 'replacement-rejected' ? 1 : 0),
-            last_error: null,
+            retry_count: log.retry_count + (retry ? 1 : 0),
             updated_at: timestamp(),
           })
-          .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)));
-        return save(tx, {
+          .where(eq(PosExchangeLog.id, log.id));
+        return stamp({
           ...operation,
-          exchange: { ...operation.exchange, salespersonId: selected.salespersonId },
+          exchange: { ...exchange, salespersonId: selected.salespersonId },
           phase: 'replacement-dispatching',
           uncertainStage: null,
           errorCode: null,
+          message: null,
         });
       });
+      return state.saveOperation(next);
     },
     async replacementConfirmed(user: Principal, storeId: string, id: string, childOrderId: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation } = await owned(tx, user, storeId, id, 'evidence');
-        if (
-          operation.kind !== 'exchange' ||
-          !operation.exchange ||
-          operation.phase !== 'replacement-dispatching'
-        )
-          throw new AppError(
-            409,
-            'EXCHANGE_PHASE_CHANGED',
-            'This exchange phase changed. Review its current status.',
-          );
-        await tx
-          .update(PosExchangeLog)
-          .set({
-            new_order_id: BigInt(childOrderId) <= 2147483647n ? Number(childOrderId) : null,
-            updated_at: timestamp(),
-          })
-          .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)));
-        return save(tx, {
+      const operation = await load(user, storeId, id);
+      if (
+        operation.kind !== 'exchange' ||
+        !operation.exchange ||
+        operation.phase !== 'replacement-dispatching'
+      )
+        throw new AppError(
+          409,
+          'EXCHANGE_PHASE_CHANGED',
+          'This exchange phase changed. Review its current status.',
+        );
+      const exchange = operation.exchange;
+      await db
+        .get('writer')
+        .update(PosExchangeLog)
+        .set({
+          new_order_id: BigInt(childOrderId) <= 2147483647n ? Number(childOrderId) : null,
+          status: 'SUCCESS',
+          updated_at: timestamp(),
+        })
+        .where(eq(PosExchangeLog.id, BigInt(exchange.logId)));
+      return state.saveOperation(
+        stamp({
           ...operation,
           phase: 'replacement-confirmed',
-          exchange: { ...operation.exchange, childOrderId },
-        });
-      });
+          exchange: { ...exchange, childOrderId },
+        }),
+      );
     },
-    async reconcileReplacement(user: Principal, storeId: string, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation, line } = await owned(tx, user, storeId, id);
-        if (operation.kind !== 'exchange' || !operation.exchange)
-          throw new AppError(404, 'EXCHANGE_NOT_FOUND', 'Exchange was not found.');
-        if (['completed', 'replacement-confirmed'].includes(operation.phase)) return operation;
-        if (
-          !(operation.phase === 'uncertain' && operation.uncertainStage === 'replacement') &&
-          operation.phase !== 'replacement-rejected'
-        )
-          throw new AppError(
-            409,
-            'EXCHANGE_REVIEW_REQUIRED',
-            'This exchange is not awaiting replacement reconciliation.',
-          );
-        await phaseOneProof(tx, operation, line.status, true);
-        const rows = await tx
-          .select({
-            childId: Order.id,
-            parentId: Order.parent_order_id,
-            customerId: Order.user,
-            paymentStatus: Order.payment_statuses,
-            method: Order.payment_methods,
-            payable: Order.pay_amt,
-            status: Order.order_statuses,
-            storeId: OrderStore.store,
-            counterId: OrderStore.counter,
-            lineId: HasProduct.id,
-            productId: HasProduct.product,
-            quantity: HasProduct.qty,
-            lineStatus: HasProduct.status,
-            childCreatedAt: Order.created_at,
-          })
-          .from(exchangeOrderLog)
-          .innerJoin(Order, eq(Order.id, exchangeOrderLog.orderId))
-          .leftJoin(OrderStore, eq(OrderStore.order, Order.id))
-          .leftJoin(HasProduct, eq(HasProduct.id, exchangeOrderLog.lineId))
-          .where(
-            and(
-              eq(exchangeOrderLog.parentOrderId, BigInt(operation.orderId)),
-              eq(exchangeOrderLog.parentLineId, BigInt(operation.lineId)),
-              or(isNull(Order.order_statuses), notInArray(Order.order_statuses, [4n, 22n])),
-            ),
-          )
-          .orderBy(desc(Order.id))
-          .limit(3)
-          .for('update');
-        if (rows.length !== 1) return operation;
-        const child = rows[0]!;
-        if (
-          child.parentId !== BigInt(operation.orderId) ||
-          String(child.customerId) !== operation.customerId ||
-          child.storeId !== BigInt(storeId) ||
-          child.counterId !== BigInt(exchangeFinancialCounter(operation)) ||
-          String(child.productId) !== operation.exchange.newProductId ||
-          child.quantity !== BigInt(operation.quantity) ||
-          child.childCreatedAt < operation.createdAt
-        )
-          return operation;
-        if (
-          child.paymentStatus !== 4n ||
-          child.method !== 3n ||
-          child.payable !== 0 ||
-          ![1n, 3n].includes(child.status || 0n) ||
-          !['PLACED', 'DELIVERED'].includes(child.lineStatus || '') ||
-          !child.lineId
-        )
-          return operation;
-        if (
-          !(await stockProof(tx, operation, child.childId, child.lineId)) &&
-          !(await completedProof(
-            tx,
-            operation,
-            child.childId,
-            child.lineId,
-            line.status,
-            child.status,
-            child.lineStatus,
-          ))
-        )
-          return operation;
-        const [allocation] = await tx
-          .select({ id: AmountToBeRefundedLog.id })
-          .from(AmountToBeRefundedLog)
-          .where(
-            and(
-              eq(AmountToBeRefundedLog.order_id, child.childId),
-              eq(AmountToBeRefundedLog.has_product_id, child.lineId),
-              eq(AmountToBeRefundedLog.prod_id, BigInt(operation.exchange.newProductId)),
-              eq(AmountToBeRefundedLog.is_refunded, false),
-            ),
-          )
-          .limit(1);
-        const lines = await tx
-          .select({ id: HasProduct.id })
-          .from(HasProduct)
-          .where(eq(HasProduct.order, child.childId))
-          .limit(2);
-        if (!allocation || lines.length !== 1) return operation;
-        await tx
-          .update(PosExchangeLog)
-          .set({
-            new_order_id: child.childId <= 2147483647n ? Number(child.childId) : null,
-            updated_at: timestamp(),
-          })
-          .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)));
-        return save(tx, {
-          ...operation,
-          phase: 'replacement-confirmed',
-          uncertainStage: null,
-          errorCode: null,
-          exchange: { ...operation.exchange, childOrderId: String(child.childId) },
-        });
-      });
+    /** FAILED_NEEDS_MANUAL_FIX + last_error (order/views.py:1286-1290). */
+    async replacementFailure(user: Principal, storeId: string, id: string, message: string) {
+      const operation = await load(user, storeId, id);
+      if (operation.kind !== 'exchange' || !operation.exchange)
+        throw new AppError(409, 'EXCHANGE_NOT_FOUND', 'This operation is not an exchange.');
+      if (operation.phase !== 'replacement-dispatching') return { operation, retryCount: null };
+      const [log] = await db
+        .get('writer')
+        .select({ retryCount: PosExchangeLog.retry_count })
+        .from(PosExchangeLog)
+        .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)))
+        .limit(1);
+      await db
+        .get('writer')
+        .update(PosExchangeLog)
+        .set({
+          status: 'FAILED_NEEDS_MANUAL_FIX',
+          last_error: message,
+          updated_at: timestamp(),
+        })
+        .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)));
+      return {
+        operation: await state.saveOperation(
+          stamp({
+            ...operation,
+            phase: 'replacement-rejected',
+            uncertainStage: null,
+            errorCode: 'EXCHANGE_REPLACEMENT_FAILED',
+            message,
+          }),
+        ),
+        retryCount: log?.retryCount ?? 0,
+      };
     },
-    async replacementFailure(
+    /** order/views.py:1188-1278: invoice, delivered status, comments, logs, addon. */
+    async completeExchange(
       user: Principal,
       storeId: string,
       id: string,
-      uncertain: boolean,
-      errorCode: string,
+      onInvoiceError: (error: unknown) => void,
     ) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation } = await owned(tx, user, storeId, id, 'evidence');
-        if (operation.kind !== 'exchange' || !operation.exchange)
-          throw new AppError(409, 'EXCHANGE_NOT_FOUND', 'This operation is not an exchange.');
-        if (
-          ['completed', 'replacement-confirmed', 'old-item-restored', 'inbound-accepted'].includes(
-            operation.phase,
-          )
-        )
-          return operation;
-        await tx
-          .update(PosExchangeLog)
-          .set({
-            status: 'FAILED_NEEDS_MANUAL_FIX',
-            last_error: errorCode,
-            updated_at: timestamp(),
-          })
-          .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)));
-        return save(tx, {
-          ...operation,
-          phase: uncertain ? 'uncertain' : 'replacement-rejected',
-          uncertainStage: uncertain ? 'replacement' : null,
-          errorCode,
-        });
-      });
-    },
-    async assertExchangeFinalizationAvailable(user: Principal, storeId: string, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation } = await owned(tx, user, storeId, id);
-        const childId = operation.exchange?.childOrderId;
-        if (operation.kind !== 'exchange' || !childId)
-          throw new AppError(
-            409,
-            'EXCHANGE_CHILD_UNCONFIRMED',
-            'The replacement order has not been confirmed.',
-          );
-        // owned() already holds both orders in ID order and checks both holds.
-        // The actual finalizer repeats this boundary in its mutation transaction.
-      });
-    },
-    async completeExchange(user: Principal, storeId: string, id: string) {
-      return db.get('writer').transaction(async (tx) => {
-        const { operation, line, order } = await owned(tx, user, storeId, id);
-        if (operation.kind !== 'exchange' || !operation.exchange)
-          throw new AppError(409, 'EXCHANGE_NOT_FOUND', 'This operation is not an exchange.');
-        if (operation.phase === 'completed') return operation;
-        const exchange = operation.exchange,
-          childId = exchange.childOrderId;
-        if (operation.phase !== 'replacement-confirmed' || !childId)
-          throw new AppError(
-            409,
-            'EXCHANGE_CHILD_UNCONFIRMED',
-            'The replacement order must be confirmed first.',
-          );
-        await phaseOneProof(tx, operation, line.status, true);
-        if (BigInt(childId) > 2147483647n)
-          throw new AppError(
-            409,
-            'EXCHANGE_IDENTIFIER_UNSUPPORTED',
-            'This replacement order exceeds the supported legacy ledger identifiers.',
-          );
-        const [child] = await tx
-            .select({
-              id: Order.id,
-              parentId: Order.parent_order_id,
-              customerId: Order.user,
-              status: Order.order_statuses,
-              wallet: Order.tss_money_used,
-              paymentStatus: Order.payment_statuses,
-              method: Order.payment_methods,
-              payable: Order.pay_amt,
-            })
-            .from(OrderStore)
-            .innerJoin(Order, eq(Order.id, OrderStore.order))
-            .where(
-              and(
-                eq(OrderStore.order, BigInt(childId)),
-                eq(OrderStore.store, BigInt(storeId)),
-                eq(OrderStore.counter, BigInt(exchangeFinancialCounter(operation))),
-              ),
-            )
-            .limit(1)
-            .for('update'),
-          childLines = await tx
-            .select({
-              id: HasProduct.id,
-              productId: HasProduct.product,
-              quantity: HasProduct.qty,
-              status: HasProduct.status,
-            })
-            .from(HasProduct)
-            .where(eq(HasProduct.order, BigInt(childId)))
-            .orderBy(asc(HasProduct.id))
-            .for('update');
-        const replacement = childLines.find(
-          (row) =>
-            String(row.productId) === exchange.newProductId &&
-            row.quantity === BigInt(operation.quantity),
+      const operation = await load(user, storeId, id);
+      if (operation.kind !== 'exchange' || !operation.exchange)
+        throw new AppError(409, 'EXCHANGE_NOT_FOUND', 'This operation is not an exchange.');
+      if (operation.phase === 'completed')
+        return { operation, alreadyFinished: true, replacementLineId: null };
+      const exchange = operation.exchange,
+        childId = exchange.childOrderId;
+      if (operation.phase !== 'replacement-confirmed' || !childId)
+        throw new AppError(
+          409,
+          'EXCHANGE_CHILD_UNCONFIRMED',
+          'The replacement order must be confirmed first.',
         );
-        if (
-          !child ||
-          child.parentId !== BigInt(operation.orderId) ||
-          String(child.customerId) !== operation.customerId ||
-          !replacement
-        )
+      if (BigInt(childId) > 2147483647n)
+        throw new AppError(
+          409,
+          'EXCHANGE_IDENTIFIER_UNSUPPORTED',
+          'This replacement order exceeds the supported legacy ledger identifiers.',
+        );
+      const result = await db.get('writer').transaction(async (tx) => {
+        const { line, order, store } = await owned(tx, user, operation, 'evidence');
+        const [child] = await tx
+          .select({
+            id: Order.id,
+            parentId: Order.parent_order_id,
+            status: Order.order_statuses,
+            wallet: Order.tss_money_used,
+            updatedAt: Order.updated_at,
+          })
+          .from(Order)
+          .where(eq(Order.id, BigInt(childId)))
+          .limit(1)
+          .for('update');
+        // Secure option: never mark an order that is not this line's replacement child.
+        if (!child || child.parentId !== BigInt(operation.orderId))
           throw new AppError(
             409,
             'EXCHANGE_CHILD_SCOPE_MISMATCH',
             'The replacement order does not match this exchange.',
           );
-        if (child.paymentStatus !== 4n || child.method !== 3n || child.payable !== 0)
-          throw new AppError(
-            409,
-            'EXCHANGE_PAYMENT_UNCONFIRMED',
-            'The replacement payment is still being confirmed. Check its status before handover.',
-          );
-        if (
-          ![1n, 3n].includes(child.status || 0n) ||
-          !['PLACED', 'DELIVERED'].includes(replacement.status || '')
-        )
-          throw new AppError(
-            409,
-            'EXCHANGE_CHILD_STATE_CHANGED',
-            'The replacement state changed. Review its status before handover.',
-          );
-        if (
-          childLines.length !== 1 ||
-          (!(await stockProof(tx, operation, child.id, replacement.id)) &&
-            !(await completedProof(
-              tx,
-              operation,
-              child.id,
-              replacement.id,
-              line.status,
-              child.status,
-              replacement.status,
-            )))
-        )
-          throw new AppError(
-            503,
-            'EXCHANGE_STOCK_UNCONFIRMED',
-            'Replacement inventory confirmation is unavailable. Keep this reference and check again before handover.',
-          );
-        const [allocation] = await tx
-          .select({ id: AmountToBeRefundedLog.id })
-          .from(AmountToBeRefundedLog)
-          .where(
-            and(
-              eq(AmountToBeRefundedLog.order_id, child.id),
-              eq(AmountToBeRefundedLog.has_product_id, replacement.id),
-              eq(AmountToBeRefundedLog.prod_id, replacement.productId),
-              eq(AmountToBeRefundedLog.is_refunded, false),
-            ),
-          )
-          .limit(1)
-          .for('update');
-        if (!allocation)
-          throw new AppError(
-            503,
-            'EXCHANGE_REFUND_ALLOCATION_UNCONFIRMED',
-            'Replacement refund allocation is not confirmed. Keep this reference and check again before handover.',
-          );
+        // Invoice number as soon as the child exists (views.py:1192-1203); errors are only logged.
+        try {
+          await tx.transaction(async (savepoint) => {
+            const stores = await savepoint
+              .select({ id: OrderStore.id, invoice: OrderStore.order_invoice })
+              .from(OrderStore)
+              .where(eq(OrderStore.order, child.id))
+              .orderBy(asc(OrderStore.id))
+              .limit(1)
+              .for('update');
+            if (stores[0] && !stores[0].invoice) {
+              const code = store.locationCode ?? 'None',
+                fy = financialYear(child.updatedAt || timestamp());
+              const [last] = await savepoint
+                .select({ invoice: OrderStore.order_invoice })
+                .from(OrderStore)
+                .where(
+                  and(
+                    eq(OrderStore.store, BigInt(storeId)),
+                    or(
+                      like(OrderStore.order_invoice, `${code}/${fy}/INV/%`),
+                      like(OrderStore.order_invoice, `${code}${fy}INV%`),
+                    ),
+                  ),
+                )
+                .orderBy(desc(OrderStore.order_invoice))
+                .limit(1)
+                .for('update');
+              const sequence = last?.invoice
+                ? Number(/(\d+)$/.exec(last.invoice)?.[1] || 0) + 1
+                : 1;
+              await savepoint
+                .update(OrderStore)
+                .set({ order_invoice: `${code}${fy}INV${String(sequence).padStart(5, '0')}` })
+                .where(eq(OrderStore.order, child.id));
+            }
+          });
+        } catch (error) {
+          onInvoiceError(error);
+        }
+        const alreadyFinished = child.status === 3n;
         const [status] = await tx
           .select({ name: OrderStatus.order_status })
           .from(OrderStatus)
@@ -2406,21 +1901,18 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             'ORDER_STATUS_UNAVAILABLE',
             'Delivered order status is unavailable.',
           );
-        const date = timestamp(),
-          alreadyFinished = child.status === 3n;
-        await tx.update(Order).set({ order_statuses: 3n }).where(eq(Order.id, child.id));
         await tx
-          .update(HasProduct)
-          .set({
-            status: storedEnumValue(hasProductStatuses, status.name),
-            salesperson_id: Number(exchange.salespersonId),
-          })
-          .where(eq(HasProduct.order, child.id));
-        await tx
-          .update(HasProduct)
-          .set({ status: 'EXCHANGE_COMPLETED' })
-          .where(eq(HasProduct.id, line.id));
-        if (!alreadyFinished) {
+          .update(Order)
+          .set({ payment_statuses: 4n, order_statuses: 3n })
+          .where(eq(Order.id, child.id));
+        const [replacement] = await tx
+          .select({ id: HasProduct.id })
+          .from(HasProduct)
+          .where(eq(HasProduct.order, child.id))
+          .orderBy(asc(HasProduct.id))
+          .limit(1);
+        const date = timestamp();
+        if (!alreadyFinished)
           await tx.insert(Comments).values({
             order_id: child.id,
             status_id: 3n,
@@ -2428,12 +1920,21 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             notify: 0,
             user_id: BigInt(user.id),
             package_details: '',
-            has_product_id: replacement.id,
+            has_product_id: replacement?.id ?? 0n,
             prod_id: BigInt(exchange.newProductId),
             created_at: date,
             updated_at: date,
           });
-          const pay = { 'tss money used': child.wallet, 'total amount on counter': 0 };
+        await tx
+          .update(HasProduct)
+          .set({ status: storedEnumValue(hasProductStatuses, status.name) })
+          .where(eq(HasProduct.order, child.id));
+        await tx
+          .update(HasProduct)
+          .set({ status: 'EXCHANGE_COMPLETED' })
+          .where(and(eq(HasProduct.id, line.id), eq(HasProduct.order, BigInt(operation.orderId))));
+        if (!alreadyFinished) {
+          const wallet = pythonFloat(child.wallet);
           await tx.insert(PosTransactionLog).values([
             {
               order_id: BigInt(operation.orderId),
@@ -2442,12 +1943,8 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               payment_status: order.paymentStatus ?? 0n,
               user_id: 0n,
               pos_user_id: BigInt(user.id),
-              pay_dict: JSON.stringify({
-                ...pay,
-                'has_product id': Number(operation.lineId),
-                'sku id': Number(operation.productId),
-              }),
-              comment: `Exchanged : TSS Money Used ${child.wallet} (New order ${childId} created)`,
+              pay_dict: `{'tss money used': ${wallet}, 'total amount on counter': 0, 'has_product id': ${operation.lineId}, 'sku id': ${operation.productId}}`,
+              comment: `Exchanged : TSS Money Used ${wallet} (New order ${childId} created)`,
               created_at: date,
               updated_at: date,
             },
@@ -2458,34 +1955,23 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               payment_status: 4n,
               user_id: 0n,
               pos_user_id: BigInt(user.id),
-              pay_dict: JSON.stringify(pay),
-              comment: `Order Delivered : TSS Money Used ${child.wallet} (Exchange from order ${operation.orderId})`,
+              pay_dict: `{'tss money used': ${wallet}, 'total amount on counter': 0}`,
+              comment: `Order Delivered : TSS Money Used ${wallet} (Exchange from order ${operation.orderId})`,
               created_at: date,
               updated_at: date,
             },
           ]);
-          await tx.insert(returnOutbox).values({
-            id: operation.id,
-            kind: 'exchange-email',
-            orderId: childId,
-            storeId,
-            productId: exchange.newProductId,
-            lineId: String(replacement.id),
-            status: 'pending',
-            requestId: currentRequestTrace()?.requestId || null,
-            operatorId: user.id,
-            createdAt: date,
-          });
         }
         const [parentAddon] = await tx
             .select({ checked: OrderAddon.is_nps_notification_checked })
             .from(OrderAddon)
             .where(eq(OrderAddon.order_id, BigInt(operation.orderId)))
+            .orderBy(asc(OrderAddon.id))
             .limit(1),
           [childAddon] = await tx
             .select({ id: OrderAddon.id })
             .from(OrderAddon)
-            .where(eq(OrderAddon.order_id, BigInt(childId)))
+            .where(eq(OrderAddon.order_id, child.id))
             .limit(1)
             .for('update'),
           addon = {
@@ -2498,7 +1984,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         else
           await tx.insert(OrderAddon).values({
             ...addon,
-            order_id: BigInt(childId),
+            order_id: child.id,
             hl_charges_refunded: 0,
             order_success_timestamp: date,
             order_transferred_timestamp: null,
@@ -2514,19 +2000,51 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             updated_at: date,
           })
           .where(eq(PosExchangeLog.id, BigInt(exchange.logId)));
-        return save(tx, {
-          ...operation,
-          phase: 'completed',
-          errorCode: null,
-          uncertainStage: null,
-        });
+        return {
+          next: stamp({
+            ...operation,
+            phase: 'completed',
+            errorCode: null,
+            uncertainStage: null,
+            message: 'Exchange completed successfully.',
+          }),
+          alreadyFinished,
+          replacementLineId: replacement ? String(replacement.id) : null,
+        };
       });
+      return {
+        operation: await state.saveOperation(result.next),
+        alreadyFinished: result.alreadyFinished,
+        replacementLineId: result.replacementLineId,
+      };
     },
     async read(user: Principal, storeId: string, id: string) {
-      return db
-        .get('writer')
-        .transaction(async (tx) => (await owned(tx, user, storeId, id)).operation);
+      const operation = await load(user, storeId, id);
+      await db.get('writer').transaction((tx) => owned(tx, user, operation, 'evidence'));
+      return operation;
     },
+    async storeSlackUrl(storeId: string) {
+      const [row] = await db
+        .get('primary')
+        .select({ url: Store.slack_group_url })
+        .from(Store)
+        .where(eq(Store.id, BigInt(storeId)))
+        .limit(1);
+      return row?.url || null;
+    },
+    async hasOrderStore(orderId: string) {
+      const [row] = await db
+        .get('writer')
+        .select({ id: OrderStore.id })
+        .from(OrderStore)
+        .where(eq(OrderStore.order, BigInt(orderId)))
+        .limit(1);
+      return Boolean(row);
+    },
+    /**
+     * A failed warehouse call (`return_processed` vinc failure, calculations.py:160-170): nothing
+     * native is written for a return; an exchange's tracking row becomes FAILED_NEEDS_MANUAL_FIX.
+     */
     async failure(
       user: Principal,
       storeId: string,
@@ -2534,89 +2052,38 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       stage: 'inbound' | 'refund',
       uncertain: boolean,
       errorCode: string,
+      message: string | null,
     ) {
-      return db.get('writer').transaction(async (tx) => {
-        const definite =
-          stage === 'inbound' && !uncertain && errorCode === 'RETURN_INBOUND_REJECTED';
-        let operation: ReturnOperation;
-        if (definite) {
-          const [initial] = await tx
-            .select({ state: returnOperations.state })
-            .from(returnOperations)
-            .where(eq(returnOperations.id, id))
-            .limit(1);
-          if (!initial)
-            throw new AppError(
-              404,
-              'RETURN_OPERATION_NOT_FOUND',
-              'Return operation was not found.',
-            );
-          const initialOperation = returnOperationSchema.parse(initial.state);
-          if (initialOperation.operatorId !== user.id || initialOperation.storeId !== storeId)
-            throw new AppError(
-              403,
-              'RETURN_OPERATION_OWNER_CHANGED',
-              'The retained return owner changed.',
-            );
-          await lockRejectedReturnScope(tx, user.id, storeId, initialOperation.orderId);
-          const [row] = await tx
-            .select()
-            .from(returnOperations)
-            .where(eq(returnOperations.id, id))
-            .limit(1)
-            .for('update');
-          operation = returnOperationSchema.parse(row?.state);
-          if (
-            operation.id !== id ||
-            operation.operatorId !== user.id ||
-            operation.storeId !== storeId
-          )
-            throw new AppError(
-              403,
-              'RETURN_OPERATION_OWNER_CHANGED',
-              'The retained return owner changed.',
-            );
-          if (
-            !['inbound-dispatching', 'rejected'].includes(operation.phase) ||
-            (operation.phase === 'rejected' && operation.errorCode !== 'RETURN_INBOUND_REJECTED')
-          )
-            return operation;
-        } else operation = (await owned(tx, user, storeId, id, 'evidence')).operation;
-        if (
-          [
-            'completed',
-            'refund-confirmed',
-            'inbound-accepted',
-            'old-item-restored',
-            'replacement-confirmed',
-          ].includes(operation.phase)
-        )
-          return operation;
-        if (operation.exchange)
-          await tx
-            .update(PosExchangeLog)
-            .set({
-              status: 'FAILED_NEEDS_MANUAL_FIX',
-              last_error: errorCode,
-              updated_at: timestamp(),
-            })
-            .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)));
-        const saved = await save(tx, {
+      const operation = await load(user, storeId, id);
+      if (
+        [
+          'completed',
+          'refund-confirmed',
+          'inbound-accepted',
+          'old-item-restored',
+          'replacement-confirmed',
+        ].includes(operation.phase)
+      )
+        return operation;
+      if (operation.exchange)
+        await db
+          .get('writer')
+          .update(PosExchangeLog)
+          .set({
+            status: 'FAILED_NEEDS_MANUAL_FIX',
+            last_error: message ?? errorCode,
+            updated_at: timestamp(),
+          })
+          .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)));
+      return state.saveOperation(
+        stamp({
           ...operation,
           phase: uncertain ? 'uncertain' : 'rejected',
           uncertainStage: uncertain ? stage : null,
           errorCode,
-        });
-        if (definite)
-          await recordRejectedReturnRepair(
-            tx,
-            user,
-            saved,
-            options.rejectedInboundRepairDispatcherEnabled === true && !config.DEMO_MODE,
-            currentRequestTrace()?.requestId,
-          );
-        return saved;
-      });
+          message,
+        }),
+      );
     },
   };
 }
