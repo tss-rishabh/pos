@@ -16,7 +16,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
-No additional missing source-feature implementation is currently identified by this map. The named external acceptance gates, default-disabled selections and explicit inactive/diagnostic exclusions remain. Known defects and inactive policy candidates retain their separate decision records; the wallet calendar-date decision in `compatibility/upstream/other-writer-origins/go/expiry-review/parity-decision.md` remains pending. No release, default-gate or full-workflow certification is added.
+- **legacy-order-imports (partial)**: Native membership-version fencing still queries trigger definitions directly, which fails for the required runtime account without TRIGGER privileges. Port Go/Node/Python consumers to the reviewed fixed-function membership-revision metadata section and locked trigger owner, preserving existing revision increments and transaction isolation; regenerate producer artifacts and verify genuine membership/cache paths before closing this code gap.
 
 ## Line-bound implementation review
 
@@ -161,7 +161,7 @@ Mapped surfaces: `report/urls.py:91` (external_acceptance), `report/urls.py:92` 
 
 ### legacy-order-imports
 
-Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (external_acceptance), `core/templates/order_punch/index.html` (external_acceptance), `core/templates/shopify_order_punch/index.html` (external_acceptance), `core/templates/upload_logs/index.html` (missing).
+Mapped surfaces: `core/tasks.py:51` (partial), `core/tasks.py:62` (partial), `core/templates/order_punch/index.html` (partial), `core/templates/shopify_order_punch/index.html` (partial), `core/templates/upload_logs/index.html` (missing).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -227,8 +227,8 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
 | routes | 68 | 0 | 0 | 187 |
-| jobs | 0 | 0 | 1 | 31 |
-| templates | 32 | 0 | 3 | 71 |
+| jobs | 0 | 2 | 1 | 29 |
+| templates | 32 | 2 | 3 | 69 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
@@ -504,8 +504,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | --- | --- | --- | --- |
 | `core/tasks.py:29` | `parse_csv_product_store` | parent-store-assignment-csv | external_acceptance |
 | `core/tasks.py:40` | `parse_csv_product_stock` | inventory-imports | external_acceptance |
-| `core/tasks.py:51` | `parse_csv_offline_order_punchin` | legacy-order-imports | external_acceptance |
-| `core/tasks.py:62` | `parse_csv_shopify_order_punchin` | legacy-order-imports | external_acceptance |
+| `core/tasks.py:51` | `parse_csv_offline_order_punchin` | legacy-order-imports | partial |
+| `core/tasks.py:62` | `parse_csv_shopify_order_punchin` | legacy-order-imports | partial |
 | `core/tasks.py:71` | `send_sms` | order-messages | external_acceptance |
 | `core/tasks.py:84` | `send_login_otp` | identity | external_acceptance |
 | `core/tasks.py:147` | `accept_order` | local-deliveries | external_acceptance |
@@ -558,7 +558,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/mpos_download/index.html` | `core/templates/mpos_download/index.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/mpos_download/thank_you.html` | `core/templates/mpos_download/thank_you.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/offline_billing/biller.html` | `core/templates/offline_billing/biller.html` | offline-scratch-invoice | external_acceptance |
-| `core/templates/order_punch/index.html` | `core/templates/order_punch/index.html` | legacy-order-imports | external_acceptance |
+| `core/templates/order_punch/index.html` | `core/templates/order_punch/index.html` | legacy-order-imports | partial |
 | `core/templates/products/hold_stock/hold_inventory_logs.html` | `core/templates/products/hold_stock/hold_inventory_logs.html` | inventory-audit | external_acceptance |
 | `core/templates/products/hold_stock/index.html` | `core/templates/products/hold_stock/index.html` | inventory-audit | external_acceptance |
 | `core/templates/products/index.html` | `core/templates/products/index.html` | catalog-read | external_acceptance |
@@ -575,7 +575,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/salespersons/edit.html` | `core/templates/salespersons/edit.html` | salespeople | implementation_present |
 | `core/templates/salespersons/index.html` | `core/templates/salespersons/index.html` | salespeople | implementation_present |
 | `core/templates/settings/index.html` | `core/templates/settings/index.html` | support | implementation_present |
-| `core/templates/shopify_order_punch/index.html` | `core/templates/shopify_order_punch/index.html` | legacy-order-imports | external_acceptance |
+| `core/templates/shopify_order_punch/index.html` | `core/templates/shopify_order_punch/index.html` | legacy-order-imports | partial |
 | `core/templates/special_permission/index.html` | `core/templates/special_permission/index.html` | special-permission-history, wallet-adjustments, global-vouchers, global-barcode-assignment | external_acceptance |
 | `core/templates/upload_logs/index.html` | `core/templates/upload_logs/index.html` | inventory-imports, legacy-order-imports, parent-store-assignment-csv, inactive-upload-logs | missing |
 | `core/templates/user_to_app/index.html` | `core/templates/user_to_app/index.html` | customer-application-handoff | external_acceptance |

@@ -1417,6 +1417,18 @@ function sourceBaseline() {
 const sourceBefore = sourceBaseline();
 if (sourceBefore.commit !== inventory.source_commit || !sourceBefore.clean)
   throw new Error('Parity verification requires the clean pinned source checkout.');
+function rewriteCommit() {
+  return z
+    .string()
+    .regex(/^[a-f0-9]{40}$/)
+    .parse(
+      execFileSync('git', ['-C', workspace, 'rev-parse', 'HEAD'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+      }).trim(),
+    );
+}
+const rewriteBefore = rewriteCommit();
 const activeProcesses = new Set<ReturnType<typeof spawn>>();
 let stopped = false;
 function stopProcess(child: ReturnType<typeof spawn>, signal: NodeJS.Signals) {
@@ -1521,6 +1533,12 @@ const gate = await run({
 const after = inputChecksums();
 const sourceAfter = sourceBaseline();
 const sourceChanged = sourceAfter.commit !== sourceBefore.commit || !sourceAfter.clean;
+const rewriteAfter = rewriteCommit();
+const rewriteChanged = rewriteBefore !== rewriteAfter;
+const completedIds = new Set(results.map((result) => result.id));
+const unexecutedChecks = checks
+  .filter((check) => !completedIds.has(check.id))
+  .map((check) => check.id);
 const changedInputs = [...new Set([...Object.keys(checksums), ...Object.keys(after)])].filter(
   (name) => checksums[name] !== after[name],
 );
@@ -1529,6 +1547,7 @@ const exitCode =
   results.length !== checks.length ||
   results.some((check) => check.exitCode !== 0) ||
   sourceChanged ||
+  rewriteChanged ||
   changedInputs.length ||
   (flags.has('--release') && gate.exitCode !== 0)
     ? 1
@@ -1537,12 +1556,17 @@ const report = {
   version: 1,
   sourceCommit: inventory.source_commit,
   sourceBaseline: { before: sourceBefore, after: sourceAfter, changed: sourceChanged },
+  rewriteBaseline: { before: rewriteBefore, after: rewriteAfter, changed: rewriteChanged },
   recordedAt: new Date().toISOString(),
   command: `node --import tsx tools/verify-project.ts${[...flags].map((flag) => ' ' + flag).join('')}`,
   exitCode,
   nodeVersion: process.versions.node,
   scope: { localMySql: flags.has('--mysql'), browser: flags.has('--browser') },
   productionReady: gate.exitCode === 0 && exitCode === 0,
+  interrupted: stopped,
+  expectedChecks: checks.length,
+  completedChecks: results.length,
+  unexecutedChecks,
   checks: results,
   releaseGate: gate,
   changedInputs,
@@ -1558,6 +1582,10 @@ process.stdout.write(
     eventId: 'verification.project.completed',
     exitCode,
     productionReady: report.productionReady,
+    rewriteCommit: rewriteAfter,
+    completedChecks: results.length,
+    expectedChecks: checks.length,
+    unexecutedChecks,
     changedInputs: changedInputs.length,
     evidence: 'backend/evidence/verification.json',
   }) + '\n',

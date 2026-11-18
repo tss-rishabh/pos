@@ -18,8 +18,9 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 292,
+      "external_acceptance": 288,
       "implementation_present": 100,
+      "partial": 4,
       "missing": 4
     },
     "by_kind": {
@@ -28,12 +29,14 @@
         "implementation_present": 68
       },
       "jobs": {
-        "external_acceptance": 31,
+        "external_acceptance": 29,
+        "partial": 2,
         "missing": 1
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 71,
+        "external_acceptance": 69,
+        "partial": 2,
         "missing": 3
       },
       "websockets": {
@@ -44,7 +47,7 @@
       }
     },
     "families": 76,
-    "code_task_groups": 0,
+    "code_task_groups": 1,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -80,7 +83,7 @@
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_claims.py": "40ab06ae1b844f36789d5568ae3b789295646471754b81b04b1dbd351ecc270e",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_codec.py": "f99b8cfd547c6e70f1dd9db6e6d1646cacd977ba9860dd3d53491c68fe6f1a0f",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_controls.py": "6a2c281a236f1ef357bac79f46e38f32bdfb7f8c24ae08cd2be5d62f2f0e8077",
-    "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_fence.py": "c019e912b336e51f29d03b93a784786e81fe48704638783f0148bec155bc05fe",
+    "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_fence.py": "08e964dd332a87aa8f5e301dd448cf43149b9a7b42948dbbc6517a56f3f3b2bd",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_history.py": "9ee54b42d26ee3d52c46e13cea18b9162b556d4e4136c779cf3b652d6b170e22",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_history_heads.py": "c843331ce9349274242fc409b3cc416dbfebcfec66c8cb247c8c9ae48abce13a",
     "backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_native.py": "5c982dd1b44ad569adddae3c2847b7bbbd1ab6786a6427cb4b4e1ab4d8a28918",
@@ -110,11 +113,12 @@
     "backend/compatibility/upstream/legacy-order-imports/fixture_broker.py": "1a1094baabb632a7173d582d493c2fcb22d8626e84baaabd45e250e5a11272c3",
     "backend/compatibility/upstream/legacy-order-imports/gunicorn.conf.py": "b49aac5579d25cd5b4fbc98d486a1742498d3afd0705a180011c40900515743f",
     "backend/compatibility/upstream/legacy-order-imports/http_app.py": "611fa16d06398ebc4c47cff74c986bc2d234e2a8c1eef8714952416593ac9500",
-    "backend/compatibility/upstream/legacy-order-imports/import_cache_test.go": "00d26ee4cf9dec9015cd501247cc92b98d2efc87520e6cac1ca4e15419ba37b4",
+    "backend/compatibility/upstream/legacy-order-imports/import_cache_test.go": "b88a956077a9d87291223a870735c3b96b0a50ee9307e23ecce9a09fa8431d1c",
     "backend/compatibility/upstream/legacy-order-imports/import_codec_test.go": "033eb813e722fa6afde05c6be8bc368214edb7e2d4fbc1711c4f739d5c7f13ab",
     "backend/compatibility/upstream/legacy-order-imports/import_correction_test.go": "3f1e14ce4e7aaeb3b8ae6c23e24e933cd3acc1b34a55dcf0d7ad3ffb795595c3",
-    "backend/compatibility/upstream/legacy-order-imports/import_membership_test.go": "9da8a169d4ab5addf1211e4be4a0a9ad1cca4f1f203c8ff90a88886be31ecde7",
-    "backend/compatibility/upstream/legacy-order-imports/import_native_test.go": "ffb265ccbe3ef3b3510f3fc121c7b2e0b069c474864e0d71240ec750e8a75a9f",
+    "backend/compatibility/upstream/legacy-order-imports/import_head_fixture_test.go": "8f098f67b9281b7a04f094c1284ecb73fa155de16f74845ae4a8deb1d89c666e",
+    "backend/compatibility/upstream/legacy-order-imports/import_membership_test.go": "d0010d905bf30c82000a83a8709db6613f9100b295ef8646f57678b3153a1510",
+    "backend/compatibility/upstream/legacy-order-imports/import_native_test.go": "833b462cbff168692a52231ae8a2fbbcc5e388bcc9914565555abd82729181e8",
     "backend/compatibility/upstream/legacy-order-imports/legacy_import.go": "7064f775b0ca5465f33e2c117dccd64f923ff1a151d8ef2dfd43433d880ff65e",
     "backend/compatibility/upstream/legacy-order-imports/legacy_import_membership_reference.go": "990a97f2fa13adbee7c81891a11b1f765970b8e36d56bb27376aafc1462e34b5",
     "backend/compatibility/upstream/legacy-order-imports/legacy_import_succession.go": "692bf0fd6cd4112bcc01433106cd33f2eaeb81833b684b2a0441938a22111610",
@@ -128,12 +132,13 @@
     "backend/compatibility/upstream/legacy-order-imports/membership_reference.py": "afefd4e23508536d932e65465be95876845289227393e83d87a5ba26b2d4e709",
     "backend/compatibility/upstream/legacy-order-imports/membership_staged_reference.py": "b37b17878e907833661a839a0b324ed0d109d8da30f6a5920d63aee00c2b4e4c",
     "backend/compatibility/upstream/legacy-order-imports/model_compat.py": "3492926c4c12afba4094a016befb6b6b48d47afdc80b237204a4dd7d6174af65",
+    "backend/compatibility/upstream/legacy-order-imports/native-confirmation-fixture.md": "80cbbb10403ca9f18e207316ef9029db43f5e0a8ea8bc3f4799e2f00ace39294",
     "backend/compatibility/upstream/legacy-order-imports/native.py": "9ee9d380c9197236e61f3fb3b0483b4ac932edf4b8fd1472d9eecd26caa6f9be",
     "backend/compatibility/upstream/legacy-order-imports/native_head_limits.py": "e5b6911bba2622e46bd19627ae4c9e28e20f105c1802316f20bc53c28dce3f8b",
-    "backend/compatibility/upstream/legacy-order-imports/native_membership_profile.py": "bac6dde0c3e00937a21f91c639573277fbac73f22e8ff343bd7b4e4263e17a96",
+    "backend/compatibility/upstream/legacy-order-imports/native_membership_profile.py": "ffda58747922de2541cb994324bc8ab2a335465d6e5f32664e7dd2947e3ae5db",
     "backend/compatibility/upstream/legacy-order-imports/native_source_driver.py": "ab183d016e9424258a84ce332ee2b1bfc95364c9c8b164bdedde340daec88692",
     "backend/compatibility/upstream/legacy-order-imports/order_guard.py": "1c82e092914b5797f3a18629016443739c272a73a406240d29bb148a8ff5ab71",
-    "backend/compatibility/upstream/legacy-order-imports/order_preparation.py": "3f160d908b3f7fd26efe49deeaedc0ecb32cc2ee472bd16510269156761c762a",
+    "backend/compatibility/upstream/legacy-order-imports/order_preparation.py": "712aa68e0418f1df5a2e171b8e7fcfa858251f9b75fb7fa8f1468a5db4f35fcd",
     "backend/compatibility/upstream/legacy-order-imports/prepare.py": "8cc0a225755da434290cede1fc7312ccd09034553d0dd5bd16499379bcb700ef",
     "backend/compatibility/upstream/legacy-order-imports/private_cache.py": "9d8013157dc4e6c8babbe13a9dc20afba63229c5b4a7295ff0a0737d38a1d6ff",
     "backend/compatibility/upstream/legacy-order-imports/private_celery.py": "4a53f09a5e2669fc0e2cd95335b6cb3a6b342c6944c0dc7eed46ae4fea2cc987",
@@ -142,11 +147,12 @@
     "backend/compatibility/upstream/legacy-order-imports/public_screening.go": "1f8b38699166b93e41f201979e30df9c60ce0f7d1d49d409ed6d41d6bb96b4f5",
     "backend/compatibility/upstream/legacy-order-imports/public_screening_benefits.go": "f125547c3854c5116b724f45efd368b47c656fb7e11bfa382843e4212a11e93e",
     "backend/compatibility/upstream/legacy-order-imports/receiver.py": "5f87dcc3a8bed79f35bc5d2e05d229232466227c0562d82f9118d50325749871",
-    "backend/compatibility/upstream/legacy-order-imports/run-cache-order-tests.sh": "086a3dd97f73c88affa846156ad4cdd57b1a1b5a1a22db61bf0b4aca2523f64e",
+    "backend/compatibility/upstream/legacy-order-imports/run-cache-order-tests.sh": "2a43f7ec3d7412ff82a3918aa399cfcdaff7c758495c8787c7938949b956e8c5",
     "backend/compatibility/upstream/legacy-order-imports/run-correction-tests.sh": "07359874be36305051cb1a2d4f5d49b24105b871ca9b9f509dfb0e40705f9cb3",
     "backend/compatibility/upstream/legacy-order-imports/run-coupon-tests.sh": "a151b65eb09da3440d6c502e546ab7000b1e780907ff7049688a67211ebe8082",
-    "backend/compatibility/upstream/legacy-order-imports/run-go-tests.sh": "beb7021cdfa563e84fcf3e53f57974378e79d511fcd0065bc6df0873c93decf5",
-    "backend/compatibility/upstream/legacy-order-imports/run-membership-tests.sh": "fc484e9182b3a18fa88c8e1ece654773bc9f32ad3a4d2ebf3ee32b859609e5fe",
+    "backend/compatibility/upstream/legacy-order-imports/run-go-native-fixture.mjs": "448686b05665b2b25736c40f4ab0fe45263a7678c3c661c714614c8d2b1c2e42",
+    "backend/compatibility/upstream/legacy-order-imports/run-go-tests.sh": "0c06bfd27e214e4eab076953bb81b241470414204c6f72d8a4f6b1cf2ddb4f96",
+    "backend/compatibility/upstream/legacy-order-imports/run-membership-tests.sh": "d17efa45c7f518ddd8f1d7646cea7c96b26ac9566865658de8d47a8bdc811298",
     "backend/compatibility/upstream/legacy-order-imports/run-source-tests.sh": "96f45c6b75c6f220e8d3975852f90e082a64e27e77cf5d7b9c8a6352342b73bc",
     "backend/compatibility/upstream/legacy-order-imports/runtime.py": "bf7eff6bc5127d74cda9760157c639f6fdcb05d06a0b7a95b3ed0cdf97ed7551",
     "backend/compatibility/upstream/legacy-order-imports/screening-counter-bigquery.review.sql": "8a579c405a63ae0078d1771cda1f00e5b0cd0ee8065613a2111fba52ef8cac3c",
@@ -158,9 +164,11 @@
     "backend/compatibility/upstream/legacy-order-imports/screening_counter.go": "56fd725c20c4347726057b305aa216dd8ca9edb63a86e65969e3e38be052e36b",
     "backend/compatibility/upstream/legacy-order-imports/screening_counter.py": "710ea39b574c275cfc453e91dc3926216d577b9fc19f8bf73d416077f64c1cf9",
     "backend/compatibility/upstream/legacy-order-imports/screening_counter_definition.go": "894373a498e90ef1da8ac98e3c160d4e78e97d9e1181158b612a5165492c772a",
+    "backend/compatibility/upstream/legacy-order-imports/screening_fixture_writer.go": "a5153fd3d8b4807bceeb12e2ecd25c9be12eafeb0061b3720fa14aef0a0a8a3e",
+    "backend/compatibility/upstream/legacy-order-imports/screening_fixture_writer_test.go": "a1c13176d343f6bb6f283c6de89258b349c506594fd24a4e6fbee3d2e9c2990e",
     "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go": "8826c9373a29c0915373e13c959807599677ae975e632ac65a6e0b38a69f898d",
     "backend/compatibility/upstream/legacy-order-imports/screening_head_metadata_definition.go": "7204aaaaa62198bc46e74fd0a5f77d83e978e843c3ee027a74f6919facdad099",
-    "backend/compatibility/upstream/legacy-order-imports/screening_native_test.go": "019bc48a905a3785fd6eb3474d6060bdf9b4b0016ce40adc121f50adf60f9bb5",
+    "backend/compatibility/upstream/legacy-order-imports/screening_native_test.go": "0d7d7fcba2f58aee9cc9b6d4206eada8536e505e9794828406a75bf9ad865849",
     "backend/compatibility/upstream/legacy-order-imports/screening_origin_pending.py": "f173d528df7208fc9f05c8a1ce410dd604c551ebc7738fe7beb040a8c5055413",
     "backend/compatibility/upstream/legacy-order-imports/screening_preparation.py": "99a9bbc48f1eafa10d68ebfeb266b7cc262f7d86323884e8f4f1b9257c032762",
     "backend/compatibility/upstream/legacy-order-imports/screening_profile.py": "4075eba8794152791a8773a93b5c5dcfa6cfc39f52444d5f7f6e1fda10dd2932",
@@ -176,6 +184,7 @@
     "backend/compatibility/upstream/legacy-order-imports/tender-profile/test_tender.py": "cfb9990e18987ba44ac2c8ef8422a2ce26ae0cc96dfcf1cbc0ad3a6e95aca094",
     "backend/compatibility/upstream/legacy-order-imports/test_membership_history.py": "761fcaa824adaa3274ce19372bcbc52f8bfc81ae528d431375729148f5e92a3f",
     "backend/compatibility/upstream/legacy-order-imports/test_membership_profile.py": "93d926d73c4b2f561779c576403446c57e49f4e0e7d908a1a6a891ba7eb24f76",
+    "backend/compatibility/upstream/legacy-order-imports/test_order_preparation_metadata.py": "8fb0df9aa1dda27330a1563da060fd76185772eff12b57e5e54a82602e48b7c7",
     "backend/compatibility/upstream/legacy-order-imports/test_protocol.py": "291aa48765f38d44291af1dd4e0e798dcebf428d7ee3c4edac36f4e55a916b24",
     "backend/compatibility/upstream/legacy-order-imports/test_screening_runtime.py": "855256f2e1df6947df177d9281c229c451bf9fe8d0940d6723348cf769f62e9a",
     "backend/compatibility/upstream/legacy-order-imports/test_source_sessions.py": "b9847facde116f2f1ea2fc58be71e1e601a919502da8687842b514845c0edc20",
@@ -233,8 +242,8 @@
     "backend/parity/dashboard.md": "0f93466279321b98e6ab5097175ada6f3f5d1f55eabccfe5b929bb6759d3f291",
     "backend/parity/device-handoff.md": "0f5eb709b3a72ed7c6eb5f6161b0ee0aa34bfac184cc8b234b381eda32458e3f",
     "backend/parity/ecommerce-inventory-sync.md": "b6e9fcb1797e791e42c5e8998436730e10193556d050b23c0f837704e142fe0d",
-    "backend/parity/export-history-controls.md": "cf5de555aeb90e92a0ce3f539d3d3243d9f6fa19864f3aee692195f045d61beb",
-    "backend/parity/export-history.md": "02a5b284414952fb9ccccf2dc9e2726526d4f6ea7cf191e8fa56003400c2451a",
+    "backend/parity/export-history-controls.md": "63d1c0566e99d1e320b02753ee27f300a0a81e395c672910a9cc17cf26ce2eee",
+    "backend/parity/export-history.md": "d301b27a559a01ee8e7626439341ec7cdf832ed8202edc7185884aea32d17b8b",
     "backend/parity/fast-cash.md": "d2a6989ff9bbd7bdb42d9ffcd5fc4f55e02ebebdf77c6d1cfa4593ef42ec50fc",
     "backend/parity/finance.md": "2c3ec9980227273d9b4a1dd9445db65d97ec1b74305ff916f56a5f634669a77f",
     "backend/parity/fulfillment-shipping.md": "fc258cf5779abe6de81c1945cd78c666d568b672635190f0250a17db097e2f91",
@@ -1121,7 +1130,7 @@
     "backend/tests/checkout/pending-cancellation-source.test.ts": "0a39b67e63c5df5b7dde9e98c37d7bbf25e14368a09054bf404b6378ba3203d5",
     "backend/tests/checkout/projection.test.ts": "8c05ee123ae1e43cb47731a39f44817acffc98f4f9a8fcfe2c89122e01a35fe1",
     "backend/tests/checkout/returns-parity.test.ts": "da1762743e6bf7c05a4b1b84126e4970352f5be433b3774cc031cc1e176fc19b",
-    "backend/tests/checkout/routes.test.ts": "b088f17e070c8c2dc829949a40f47e219474677e9a1f2412c0d97285244693fb",
+    "backend/tests/checkout/routes.test.ts": "4b66bfb494dff3bb2182454d6d0d50c8509527d4c3460ba644ac3483f59a36ca",
     "backend/tests/checkout/service.test.ts": "d7026539a6d9b329ddca41984090ae6910cea8c08f93b31bd296d2075f0d2d31",
     "backend/tests/customer-benefits.test.ts": "81f971a3aac9dae6d7f902baddea49632a8d903688394227fba92d90bc6db78f",
     "backend/tests/customer-contacts/crypto.test.ts": "a82dd1d22204a6a406b869eed828ddb1f72103d5802eeb31f22af037ba76748a",
@@ -1200,7 +1209,7 @@
     "backend/tests/legacy-import-preparation/adapter.mysql.test.ts": "c0c19a1096883fe266580c1bb144a4fd828734b61a03ffaeafdb04c38b130d0d",
     "backend/tests/legacy-import-preparation/benefit-bindings.test.ts": "0cbf68785bc60ebbf6cae68c7b898bcf75dfa57f189cbff14a2549bf41c45fb2",
     "backend/tests/legacy-import-preparation/benefit-preparation.test.ts": "80dd1c05b304b8d8a74644fd17c209ea13f7e54c4e8decb96bd75df9032a9665",
-    "backend/tests/legacy-import-preparation/benefit-source.mysql.test.ts": "1754b487cd2b8b0dd7ed449c0d8b40206c190cc266a00f43924e4c07dd83e592",
+    "backend/tests/legacy-import-preparation/benefit-source.mysql.test.ts": "4b1d7fd55b577bbb5c024e6c42b281af564216f86c1ab4b64321f2e0c8b9ea80",
     "backend/tests/legacy-import-preparation/benefit-transport.test.ts": "8188722e624b2c84fec8f5fd5c27bd4e58e804ec752ee6b7cb57bf383663a431",
     "backend/tests/legacy-import-preparation/coupon-artifact-fixtures.ts": "380d1dff322379a6a908a871c28d5aab34d0ae8bfe04c43cafb0f9275cf78af3",
     "backend/tests/legacy-import-preparation/esm.test.ts": "8a072a6fb8cc0bfb9e0e45910235f9c97e328a8b9b4d3fe1b4e00cf377690c32",
@@ -1212,7 +1221,7 @@
     "backend/tests/legacy-import-preparation/screening.mysql.test.ts": "9b4030e748584840b2b0c237c69daa54ff4fbe8bf08eba5c351ecf746551ea3c",
     "backend/tests/legacy-import-preparation/source.test.ts": "c8d77baef6264bb1944b4044a4d5264dd8df546c9cc9a11a9ea8efc8bc573da1",
     "backend/tests/legacy-import-preparation/tsconfig.json": "2caee39583c9c90ef5b10485b3f7de15816191a89826c2d6a763570972f212c7",
-    "backend/tests/legacy-import-screening/native-counter-fixture.ts": "9c05e196ff14d5bf425b9d86afbcaab27ed8e566f2d212b9429a6e72a3476a2b",
+    "backend/tests/legacy-import-screening/native-counter-fixture.ts": "ac11bf938b91b5acec63deb680f60e0ed21481a1aaf5e3cdfb0c3fda27ffc0d9",
     "backend/tests/legacy-import-screening/native_source_driver.py": "8afb365b0d9e5020a788265f7e968a8af6957b79adcd2c396008a826afbcb0b9",
     "backend/tests/legacy-import-screening/profile.mysql.test.ts": "ff32645ab59e1ed440db99ceb5048c8e4278c1700a29150781c6e5e3238965ee",
     "backend/tests/legacy-import-screening/source.test.ts": "66541f33868ada66ac080623899c88184e4e9a9ec16c62c22147b8531725f625",
@@ -1264,7 +1273,7 @@
     "backend/tests/operational-reports/acceptance.test.ts": "8857d9dad2728fe8fbcfca195930422ff4675382d404233cbb5ddff435864d8b",
     "backend/tests/operational-reports/administration-queue.test.ts": "cc79d55db0fda3b151ac83b4c4e14cac7db2440b78ad3688c73c9be0902c53c4",
     "backend/tests/operational-reports/column-exports.test.ts": "c678ef37f95d8c5c51916f006bd8203a230c6827231cfe80b3ce4eb520f64709",
-    "backend/tests/operational-reports/column-tsconfig.json": "8e1f243cdb24b7ca61ecfe71d7bc44cd83364d7c247d1b69eb3f7fba7ee3a21d",
+    "backend/tests/operational-reports/column-tsconfig.json": "ad904bc3be06d8346c6033fba1a02d064b5da684c78ecf38adae40ff3d2384dd",
     "backend/tests/operational-reports/export-history.test.ts": "633f6c3fe2ee62b9691300554f6fb5fc4531131fa73feb79cf25adbce665831b",
     "backend/tests/operational-reports/export-mysql.integration.test.ts": "346643db758f38d621e6e5a8df67343dbd1969d06351b2ac794994fb03586d5f",
     "backend/tests/operational-reports/export-storage.test.ts": "9449a872de61efe561f81e767c1726cfc31421cad4b5e11b24db5eb62a5dab04",
@@ -1285,6 +1294,7 @@
     "backend/tests/operational-reports/performance-domain.test.ts": "c4da99bbd68257e6eb4a6ea10717227b6853898afd2b9ce14cd48be4c77cf174",
     "backend/tests/operational-reports/performance.test.ts": "17c9931a06aab8b66b3e6faa9a9dbda2b65e57b7e34bac87502e36bb453b4b3d",
     "backend/tests/operational-reports/privacy.test.ts": "1789325acc1079ffe127c2aca46f19f4a847954794bd5d35297076ca0f3dc502",
+    "backend/tests/operational-reports/raw-export-private-output.test.ts": "895eb6f5eb11996cf8fc01f3e3832ec43836145b141805de1fb6ad0ea96489e0",
     "backend/tests/operational-reports/raw-export-projection.test.ts": "ffcb260573b5465fd844026f2e02945a4cff8196575f609ec2f3bd1e7b611cda",
     "backend/tests/operational-reports/returned-orders.test.ts": "7e19b6367bb61f80368d7d77e361ad111b45ace756434d2c1f3027d14c0443f5",
     "backend/tests/operational-reports/scheduled-data.mysql.integration.test.ts": "e8e7cd341db47b92f7131fb5d277adb4b055cd7d02c40fdefbb6380e6646485d",
@@ -1652,7 +1662,7 @@
     "frontend/tests/import-corrections/fixtures.ts": "466f2bc0caa137087daefe6286f3e868b54e8e6b37f8fb75f9f07b4a1a324e1c",
     "frontend/tests/import-corrections/harness.tsx": "a67bdf2bcfacdbe474f210539f7d0a643e2759a69f1dca6d88bbd87522013658",
     "frontend/tests/import-corrections/tsconfig.json": "1d15e4562d81fc6aff3a7bac42c568d7227dc0fab4fb41de8db6c59fa2e8a4c9",
-    "frontend/tests/inventory-workbooks/browser.test.ts": "b2fbf1a307501fb3b6bbe844b1db4b8411a55aed557e2e6e4ccf44dabf14ce36",
+    "frontend/tests/inventory-workbooks/browser.test.ts": "87e4a892c72a832da30a3a7cc0226dd64b89b40ab65a8888fde2ea8e6b99214c",
     "frontend/tests/inventory-workbooks/commands.test.ts": "9e574bae0a93e6e3bd8ffee12030f5e3c199faa70ad390c6e32610e145942722",
     "frontend/tests/inventory-workbooks/harness.tsx": "d4b859e15db9f049c98565e5e0020757e86075bed60972254c6295770f7f6dbc",
     "frontend/tests/inventory-workbooks/tsconfig.tests.json": "2dc5d418083aa1c58a54c954973f833044285fc0cc913fb9a4db2312ff07ead0",
@@ -1682,8 +1692,8 @@
     "frontend/tests/offline-worksheet/source-oracle.json": "c105ea8964495795ef189850a186b95ab13638ee7d94cb07b8033264b54f04c5",
     "frontend/tests/offline-worksheet/tsconfig.json": "73b6fc4f0c1884be763a9c93e081dd58badebd7b28fa6b7280f064eba45e4b09",
     "frontend/tests/offline.test.ts": "ff8f02dbf59b306cf3a5fc15ca6ea9fd9030f49b6e2340b0d3cb0c9d03e7a2b7",
-    "frontend/tests/operational-reports/browser-check.mjs": "91b3a8346372d0d64799e2237ff0ddcf8d159c615ef60dfcf656634c1c6f3015",
-    "frontend/tests/operational-reports/column-browser.mjs": "e92ed76f7425717c3c4bc2c4cd87e4c6a6a6638b4ce3058b38972ce9e8ab3013",
+    "frontend/tests/operational-reports/browser-check.mjs": "b5c59c00dcd85ff47e1c0475edeaaa5607380a4d688128390bfc26d116cb863d",
+    "frontend/tests/operational-reports/column-browser.mjs": "c0f902f9aa5ffca2d2d9c47b69818ed5d83a18a7395f033e1214299880dfcba1",
     "frontend/tests/operational-reports/column-entry.tsx": "2214eb614c6908afc393979db6c10e4234d073f04ecab9c9539b59babfca6ebc",
     "frontend/tests/operational-reports/column-tsconfig.json": "f79f82617234f831ce3a79fa9e69e53a38c200380d562f8288c7c92866e4949c",
     "frontend/tests/operational-reports/column-vite.config.ts": "5fc50bd079fed80494e95848bb30c6539a6f5c43dd2390f72a1c95aef7e51656",
@@ -6723,6 +6733,7 @@
         "backend/tests/operational-reports/performance-domain.test.ts",
         "backend/tests/operational-reports/performance.test.ts",
         "backend/tests/operational-reports/privacy.test.ts",
+        "backend/tests/operational-reports/raw-export-private-output.test.ts",
         "backend/tests/operational-reports/raw-export-projection.test.ts",
         "backend/tests/operational-reports/returned-orders.test.ts",
         "backend/tests/operational-reports/scheduled-data.mysql.integration.test.ts",
@@ -6781,6 +6792,7 @@
         "backend/tests/operational-reports/performance-domain.test.ts",
         "backend/tests/operational-reports/performance.test.ts",
         "backend/tests/operational-reports/privacy.test.ts",
+        "backend/tests/operational-reports/raw-export-private-output.test.ts",
         "backend/tests/operational-reports/raw-export-projection.test.ts",
         "backend/tests/operational-reports/returned-orders.test.ts",
         "backend/tests/operational-reports/scheduled-data.mysql.integration.test.ts",
@@ -6840,6 +6852,7 @@
         "backend/tests/operational-reports/performance-domain.test.ts",
         "backend/tests/operational-reports/performance.test.ts",
         "backend/tests/operational-reports/privacy.test.ts",
+        "backend/tests/operational-reports/raw-export-private-output.test.ts",
         "backend/tests/operational-reports/raw-export-projection.test.ts",
         "backend/tests/operational-reports/returned-orders.test.ts",
         "backend/tests/operational-reports/scheduled-data.mysql.integration.test.ts",
@@ -6976,6 +6989,7 @@
         "backend/tests/operational-reports/performance-domain.test.ts",
         "backend/tests/operational-reports/performance.test.ts",
         "backend/tests/operational-reports/privacy.test.ts",
+        "backend/tests/operational-reports/raw-export-private-output.test.ts",
         "backend/tests/operational-reports/raw-export-projection.test.ts",
         "backend/tests/operational-reports/returned-orders.test.ts",
         "backend/tests/operational-reports/scheduled-data.mysql.integration.test.ts",
@@ -7026,7 +7040,7 @@
     },
     {
       "id": "legacy-order-imports",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/legacy-order-imports",
         "backend/compatibility/upstream/legacy-order-imports",
@@ -7056,7 +7070,9 @@
         "backend/parity/csv-screening-runtime.md"
       ],
       "implemented_scope": "Source parsers/planners, encrypted immutable staging, current store/counter authority, job API, actor-bound recovery UI, bounded worker and qualified historical readers are integrated. Server-installed membership/provenance, automatic birthday-coupon and declared POS complementary profiles compose with actual private source creation and Go confirmation. The production Node factory now installs the screening reservation/counter lifecycle and the private WSGI factory installs its existing source wrapper, with explicit trusted line-mode agreement. The approved manager pause-and-correct workflow retains the original no-effect boundary and binds a corrected successor tender to the source calculation. Unknown outcomes remain GET-only; approval/preparation/resume never replace completed rows or original uncertain nonces.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Native membership-version fencing still queries trigger definitions directly, which fails for the required runtime account without TRIGGER privileges. Port Go/Node/Python consumers to the reviewed fixed-function membership-revision metadata section and locked trigger owner, preserving existing revision increments and transaction isolation; regenerate producer artifacts and verify genuine membership/cache paths before closing this code gap."
+      ],
       "external_acceptance": [
         "Accept closed-period/custom-date privilege, original source financial/Kinesis cooperation and historical publication.",
         "Qualify actual private source settings/runtime/broker, approved schema and both fixed readonly metadata functions, distinct locked owners, current counter baseline, all cooperating writers and complete membership/coupon history publications before selecting the default-disabled profiles. Component implementation is not deployed acceptance."
@@ -7221,22 +7237,22 @@
         {
           "kind": "jobs",
           "id": "core/tasks.py:51",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "jobs",
           "id": "core/tasks.py:62",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "core/templates/order_punch/index.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
           "id": "core/templates/shopify_order_punch/index.html",
-          "disposition": "external_acceptance"
+          "disposition": "partial"
         },
         {
           "kind": "templates",
@@ -7600,7 +7616,15 @@
       ]
     }
   ],
-  "remaining_code_tasks": [],
+  "remaining_code_tasks": [
+    {
+      "family": "legacy-order-imports",
+      "state": "partial",
+      "tasks": [
+        "Native membership-version fencing still queries trigger definitions directly, which fails for the required runtime account without TRIGGER privileges. Port Go/Node/Python consumers to the reviewed fixed-function membership-revision metadata section and locked trigger owner, preserving existing revision increments and transaction isolation; regenerate producer artifacts and verify genuine membership/cache paths before closing this code gap."
+      ]
+    }
+  ],
   "routes": [
     {
       "source": {
@@ -15561,7 +15585,7 @@
       "families": [
         "legacy-order-imports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -15584,7 +15608,7 @@
       "families": [
         "legacy-order-imports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -16602,7 +16626,7 @@
       "families": [
         "legacy-order-imports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -16914,7 +16938,7 @@
       "families": [
         "legacy-order-imports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",

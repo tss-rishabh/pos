@@ -11,14 +11,17 @@ Both desktop jobs in run `44229902258` failed only that same four-case selector
 ambiguity (102 other cases passed in their affected step); packaging was not
 reached. Do not describe these jobs or the full local run as green.
 
-Queued verified fixes: `4b78f25` (Set type, both checks pass), `54342e7`
-(explicit trace coverage of both return-window routes, ten tests pass),
-`e028ea4` (semantic Report combobox locator, five browser cases pass),
-`4f9142e` (genuine independent Go confirmation fixture, default vet/race pass),
-and `f282069` (exact no-row metadata guard compatibility and genuine coupon
-producers, composed-benefit group 11/11 plus three negative boundary methods).
-Proof-only `7aecc99` and bounded read-only BigQuery qualification `f4cbf73`
-are also ready. Root is unfreezing only after retaining this failed snapshot.
+Integrated post-run fixes: Set typing `12c8195` (both checks pass), explicit
+return-window traces `d149521` (ten tests pass), semantic Report combobox
+`18b6bcb` (five browser cases pass), genuine independent Go confirmation fixture
+`2adf039` (default vet/race pass), and exact no-row metadata compatibility
+`a3e2e26` (composed-benefit group 11/11 plus three negative boundary methods).
+The exact UPDATE-only referral fixture grant is on `d549224`: all 97 actual
+Go-enabled public-source tests pass, including denial/restoration regression.
+Proof-only report workflows `563f0d8` and read-only BigQuery qualification
+`85cf58d` are integrated. BigQuery confirms the period field's 15-column schema
+and three literal NULL/empty/date cases; no business rows, DDL or writes.
+The failed r5 report remains retained without relabeling its result.
 
 Native membership/cache checks now establish a real required code gap: old
 Go/Node/Python membership-version fencing reads trigger definitions directly,
@@ -29,9 +32,9 @@ cross-language qualification/registry/generator and generic base Go reader.
 Preserve native revision increments, original RR where required, actual RC for
 counter paths, and the existing two-function boundary. Do not grant runtime
 TRIGGER, allow root triggers, bypass guards or label this only external
-acceptance. Complete this port before the next consolidated run. CPP is
-separately proving the exact UPDATE-only referral_log fixture grant needed by
-the literal public Go allocation path. No live writes are authorized.
+acceptance. Complete this port before the next consolidated run. CPP now owns
+the Python/Node membership fixture consumers; Payment owns the Go consumers
+and producer packing. No live writes are authorized.
 
 The active-control implementation pass is reconciled on `d12d250` after the
 deliveries below. All 396 original IDs remain: 100 implementation-present,
