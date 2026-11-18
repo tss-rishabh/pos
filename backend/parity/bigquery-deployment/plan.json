@@ -15285,7 +15285,7 @@
       "activation": false,
       "limits": [
         "Column projection only; independent complete CDC/publication, source-clock and name-sort/search collation evidence still required.",
-        "Never returns private file URL, free-text source message, token or time_period JSON.",
+        "Retains bounded source time_period text exactly; never returns private file URL, free-text source message, token or command/filter JSON.",
         "Download authorization still uses writer-current internal-role1 and private storage checks."
       ]
     },

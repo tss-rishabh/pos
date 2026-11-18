@@ -7,7 +7,8 @@ const relation = z
 /**
  * Nonfinancial source-column projection for a reviewed publisher/CTE.
  * This is NOT a publication/freshness attestation and does not activate a reader.
- * No file key, provider message, time_period JSON or contact field is selected.
+ * Retains the original bounded time_period label, including NULL and empty.
+ * No file key, provider message, command/filter JSON or contact field is selected.
  */
 export function rawLegacyExportProjection(source = observedLegacyExportRawTable) {
   const table = '`' + relation.parse(source) + '`';
@@ -15,6 +16,7 @@ export function rawLegacyExportProjection(source = observedLegacyExportRawTable)
     report_type AS kind,
     COALESCE(NULLIF(report_name,''),NULLIF(report_type,''),'Legacy report') AS report_name,
     CAST(NULL AS STRING) AS note,CAST(NULL AS STRING) AS period_start,CAST(NULL AS STRING) AS period_end,
+    time_period,
     CASE WHEN is_completed<>0 THEN 'COMPLETED' WHEN UPPER(export_status) IN ('FAILED','ERROR') THEN 'FAILED' ELSE 'QUEUED' END AS status,
     CAST(export_requested_by AS STRING) AS operator_id,
     export_requested_at AS requested_at,export_completed_at AS completed_at,
@@ -27,7 +29,7 @@ export function rawLegacyExportProjection(source = observedLegacyExportRawTable)
 /** Metadata query used only after a separate complete-source publication contract exists. */
 export function rawLegacyExportValidationQuery() {
   return `WITH source_projection AS (${rawLegacyExportProjection()})
-  SELECT id,kind,report_name,note,period_start,period_end,status,operator_id,
+  SELECT id,kind,report_name,note,period_start,period_end,time_period,status,operator_id,
     CAST(requested_at AS STRING) AS requested_at,CAST(completed_at AS STRING) AS completed_at,
     CAST(terminal_at AS STRING) AS terminal_at,format,byte_count,row_count
   FROM source_projection

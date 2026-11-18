@@ -5,6 +5,9 @@
     "column-exports.test.ts",
     "export-mysql.integration.test.ts",
     "administration-queue.test.ts",
-    "export-history.test.ts"
+    "export-history.test.ts",
+    "raw-export-projection.test.ts",
+    "../../tools/operational-reports/validate-bigquery-raw.ts",
+    "../../tools/operational-reports/build-bigquery-deployment-plan.ts"
   ]
 }

@@ -81,11 +81,11 @@ try {
   result.errors.push('RAW_EXPORT_DRY_RUN_FAILED');
 }
 const fixture = `WITH fixture_source AS (
-  SELECT CAST('9007199254740993' AS INT64) AS id,'' AS report_name,'fixture-kind' AS report_type,1 AS is_completed,'FAILED' AS export_status,CAST('9007199254740995' AS INT64) AS export_requested_by,DATETIME '2026-11-01 10:00:00' AS export_requested_at,CAST(NULL AS DATETIME) AS export_completed_at,DATETIME '2026-11-01 11:00:00' AS updated_at,'CSV' AS export_format,2147483647 AS export_size,9 AS export_rows_count
-  UNION ALL SELECT 2,'Fixture title','fixture-kind',0,'error',44,DATETIME '2026-11-01 10:00:00',DATETIME '2026-11-01 12:00:00',DATETIME '2026-11-01 11:00:00','CSV',0,0
-  UNION ALL SELECT 3,'','',0,'RUNNING',44,DATETIME '2026-11-01 10:00:00',NULL,NULL,'CSV',1,0
+  SELECT CAST('9007199254740993' AS INT64) AS id,'' AS report_name,'fixture-kind' AS report_type,CAST(NULL AS STRING) AS time_period,1 AS is_completed,'FAILED' AS export_status,CAST('9007199254740995' AS INT64) AS export_requested_by,DATETIME '2026-11-01 10:00:00' AS export_requested_at,CAST(NULL AS DATETIME) AS export_completed_at,DATETIME '2026-11-01 11:00:00' AS updated_at,'CSV' AS export_format,2147483647 AS export_size,9 AS export_rows_count
+  UNION ALL SELECT 2,'Fixture title','fixture-kind','',0,'error',44,DATETIME '2026-11-01 10:00:00',DATETIME '2026-11-01 12:00:00',DATETIME '2026-11-01 11:00:00','CSV',0,0
+  UNION ALL SELECT 3,'','','2026-11-01 - 2026-11-02',0,'RUNNING',44,DATETIME '2026-11-01 10:00:00',NULL,NULL,'CSV',1,0
 ), projected AS (${rawLegacyExportProjection('fixture_source')})
-SELECT id,report_name,status,operator_id,byte_count,CAST(terminal_at AS STRING) AS terminal_at FROM projected ORDER BY CAST(id AS INT64)`;
+SELECT id,report_name,time_period,status,operator_id,byte_count,CAST(terminal_at AS STRING) AS terminal_at FROM projected ORDER BY CAST(id AS INT64)`;
 try {
   const [rows]: [unknown, ...unknown[]] = await client.query({
     query: fixture,
@@ -99,6 +99,7 @@ try {
       z.object({
         id: z.string(),
         report_name: z.string(),
+        time_period: z.string().nullable(),
         status: z.string(),
         operator_id: z.string(),
         byte_count: z.number().int().safe(),
@@ -110,6 +111,7 @@ try {
     {
       id: '2',
       report_name: 'Fixture title',
+      time_period: '',
       status: 'FAILED',
       operator_id: '44',
       byte_count: 0,
@@ -118,6 +120,7 @@ try {
     {
       id: '3',
       report_name: 'Legacy report',
+      time_period: '2026-11-01 - 2026-11-02',
       status: 'QUEUED',
       operator_id: '44',
       byte_count: 1024,
@@ -126,6 +129,7 @@ try {
     {
       id: '9007199254740993',
       report_name: 'fixture-kind',
+      time_period: null,
       status: 'COMPLETED',
       operator_id: '9007199254740995',
       byte_count: 2199023254528,
@@ -144,6 +148,7 @@ try {
       'empty-name fallback',
       'KiB-to-byte arithmetic',
       'DATETIME terminal fallback',
+      'original source period NULL/empty/literal values',
     ],
   };
 } catch {
