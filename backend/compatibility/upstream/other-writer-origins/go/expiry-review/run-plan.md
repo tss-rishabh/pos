@@ -1,8 +1,10 @@
 # Active calendar expiry verification preflight
 
-Authored after approval/activation `b30b679`. **Runner not executed.** Native
-execution remains held until notification verification terminates and Root
-releases the native slot. This is a run plan, not a verification receipt.
+Authored after approval/activation `b30b679`. The final preserved-baseline run
+passed20 expiry subcases and2 TLS cases under default vet/race; see
+`active-calendar-native.json` and `parity-decision.md` for the exact execution
+scope and retained earlier failures. Future executions still require the
+coordinated native-slot release and fresh output/cache paths.
 
 The existing `../run-native-tests.sh` supplies the pinned Go 1.25.4/MySQL 8.4
 isolation/startup contract, but does not copy the expiry review fixture and runs

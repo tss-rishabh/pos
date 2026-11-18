@@ -1,10 +1,10 @@
 # Approved correction: calendar date comparison on payment-failure wallet restoration
 
 Status: user approved **Use correct calendar-date ordering** on 2026-11-18.
-The reviewed correction is active in both owned producers. Fresh native
-verification of this activation remains pending until implementation is complete
-and the native verification slot is available; the evidence below remains the
-historical scratch-candidate result, not a new execution receipt.
+The reviewed correction is active in both owned producers. The final preserved-
+baseline native run passed20 expiry subcases and2 TLS gateway cases under default
+vet/race, recorded in `active-calendar-native.json`. The earlier scratch-candidate
+evidence below remains historical and is not substituted for that fresh result.
 
 Pinned payments `434f3e438d1cb48c64e5723222c6efda506db571`, `juspay/model.go` lines1677 and1763, calls **Format**, not Parse:
 
@@ -32,8 +32,8 @@ The two original and two generated failure-restoration predicates now compose
 together to calendar DateOnly. The swapped literal remains only in immutable
 pinned source and as an explicit, checked input seam to the producers. No
 dynamic-string workaround or vet suppression is introduced. The earlier default
-vet failure remains historical evidence until a fresh default-gate run verifies
-the activated output.
+vet failure remains historical evidence; the final activated output passed the
+fresh default build/vet and race gates.
 
 ## Activation provenance
 
@@ -81,7 +81,7 @@ expectation mode remains available to reproduce the historical source defect.
 The additive `active-original-calendar_test.go` temporarily binds `utils.Db` to
 the same guarded disposable ORM and restores it after the test; it performs no
 provider calls. Four precisely counted comparison clocks are frozen only in
-the disposable test copy. Native execution of this expanded scope is pending.
+the disposable test copy. The expanded native scope passed in the final run.
 
 
 ## Native fixture evidence (2026-11-18)
@@ -101,7 +101,7 @@ Review fixture: `expiry_candidate_test.go`; scratch candidate output:
 the user approval and activation above. It does not replace fresh native
 verification of the activated owned build outputs.
 
-## Strict native NULL mapping correction (implementation; verification pending)
+## Strict native NULL mapping correction
 
 The later original-method diagnostic found numeric MySQL1292 for unset expiry
 inserts under unchanged strict/NO_ZERO_DATE mode. Verified physical Money and
@@ -120,8 +120,8 @@ No table/default/SQL-mode modification or global model hook is introduced.
 Additive native assertions now require SQL NULL to scan into the original
 Go/GORM model as zero `time.Time`, with the same Go JSON expiry representation
 as an unset original Go field. A nonzero earning expiry must retain its actual
-time value and representation. Those assertions have not yet executed for this
-correction. They do not prove Django/frontend or another consumer's serialization.
+time value and representation. Those assertions passed in the final canonical
+run. They do not prove Django/frontend or another consumer's serialization.
 
 The optional question about removing the separate original Money reward-history
 entry remains unanswered. Baseline source parity therefore preserves that entry,
@@ -129,6 +129,26 @@ its amounts/platform and its count. The same typed zero-expiry mapping now appli
 only to its two pinned Create sites, allowing the existing entry to persist under
 the actual nullable expiry contract. No runtime policy flag or mirror removal is
 introduced. SQL NULL/Go-zero/Go-JSON representation assertions cover that model
-too. New assembly/native verification can proceed on this preserved baseline;
-an explicit later answer may authorize a separate policy change. Earlier failed
-artifacts remain immutable.
+too. The fresh assembly/native run passed on this preserved baseline; an explicit
+later answer may authorize a separate policy change. Earlier failed artifacts
+remain immutable.
+
+## Final canonical execution (2026-11-18)
+
+`active-calendar-native.json` binds the pinned clean source, all four actual
+method hashes, active producer/fixture/runner hashes and the 115-file fresh
+assembly manifest `14ef21d7808117167de15f27ebd149fef9f0a29caf269a31e746028254463ba8`.
+The unchanged output built and passed default vet before any disposable clock or
+startup-loader substitution. The exact native target then passed ten original
+expiry subcases, ten generated subcases and two real TLS gateway recovery cases
+with the race detector/default vet, no failures/skips and the unchanged five-
+minute test deadline. Both parent test events also passed (24 named events).
+All six original history-write sites, retained reward mirror, native earning
+expiry/mappings and independent cashback7 were checked.
+
+Four exact owned containers, one internal network and its one anonymous MySQL
+volume were confirmed absent after cleanup. No production database/provider was
+contacted, and no release ledger was promoted. The prior zero-test executable-
+tmpfs failure, seven-case original-history failure and numeric1292 diagnostic
+remain separately retained; none is counted as a pass. This bounded success is
+not a global feature parity or production-readiness certificate.
