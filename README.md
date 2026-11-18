@@ -8,8 +8,8 @@ release gate intentionally fails while any legacy feature lacks evidence. The
 source contains 263 route declarations, 106 templates, 32 background jobs and
 one WebSocket route. New REST endpoint counts do not establish legacy parity.
 
-Offline cash completion, receipt printing/reprinting, durable manager handoff
-and atomic order import are implemented with isolated verification. The
+Offline cash completion, receipt printing/reprinting and durable manager handoff
+are implemented with isolated verification. The
 confirmed policy permits sales using cached stock, with conflicts routed to a
 manager after reconnecting. Real source/provider/schema acceptance and physical
 printer checks on Windows and macOS remain release requirements.
@@ -59,15 +59,13 @@ npm test
 npm run parity:gate
 ```
 
-`parity:gate` must fail until the ledger is complete. Pure legacy report and
-checkout payload tests execute selected original Python methods through an AST
-oracle without importing Django, executing application startup, or using a live
-database. They require `../backend-pos-web` beside this project and Python 3.
-The source pricing/refund and stock suites additionally require the pinned
-`../backend-tss-api_v2` and `../backend-sync-api` reference checkouts. Install
-`uv` for the private source compatibility checks; its frozen lock selects an
-isolated Python 3.12 runtime and dependencies without importing source startup.
-These tests establish component parity, not complete request/runtime parity.
+`parity:gate` must fail until the ledger is complete. The repository contains
+no Python, Go or PHP. Legacy source behaviour is compared against committed
+golden JSON fixtures (`backend/tests/golden/`, captured outside the repository
+from the pinned legacy source) and read-only live MySQL parity tests. A few
+tests read pinned legacy files as text through `git show` and need
+`../backend-pos-web` beside this project. These tests establish component
+parity, not complete request/runtime parity.
 
 The optional MySQL integration suite only permits a local schema named
 `pos_rewrite_integration`; it verifies real transaction races and idempotency.
@@ -103,9 +101,8 @@ synthetic. Screenshots and traces stay under ignored `frontend/test-results/`.
 
 The Electron shell uses the same deployed web origin and persistent Chromium
 profile, including the cached offline app shell. Connect once before taking a
-device offline. Set `POS_DESKTOP_URL` to the production HTTPS URL. Configure
-`POS_SSO_ORIGINS` only with the exact trusted identity-provider origins needed
-for login. Optional application authorization uses the separate exact HTTPS
+device offline. Set `POS_DESKTOP_URL` to the production HTTPS URL. Optional
+application authorization uses the separate exact HTTPS
 `POS_OAUTH_ORIGINS` list (for Slack, `https://slack.com`). New windows, webviews and renderer Node access are
 disabled. Production never accepts an HTTP workspace URL.
 
@@ -131,9 +128,8 @@ certify both platforms or constitute a signed release.
 - BigQuery requires project/location, ADC, and verified table/view mappings.
   The daily rollup contract is documented under `backend/parity/`. Supplying a
   table name is not evidence of report parity or CDC freshness.
-- OIDC requires issuer, client and redirect configuration. Existing enabled
-  operator accounts are matched through a verified email; identity-provider
-  access alone cannot create roles or store assignments.
+- Operator login uses the legacy password plus OTP/TOTP flow and a store
+  check-in. There is no Google or desktop single sign-on.
 - Payment, ERP, inventory synchronization, fulfillment and notification adapters
   require their real sandbox/production contracts. Missing or uncertain external
   confirmation must never become a successful sale or refund.
@@ -153,7 +149,7 @@ payment payloads or raw SQL errors. Hostname/PID defaults are disabled. Tests
 check emitted logs with PII and secret canaries.
 
 Input validation, store/role/franchise access, browser-origin checks, cookie
-security, OIDC state/nonce/PKCE, server-session revocation and scoped offline
+security, server-session revocation and scoped offline
 storage are required gates. TypeScript `any` is forbidden by lint. Dependency
 audits and functional tests are necessary evidence; neither is a guarantee that
 an unfinished migration is secure or production ready.

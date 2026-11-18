@@ -6,7 +6,6 @@ import { wholeOrderStatusRepository, publicStatusCommand } from './repository.js
 import { readWholeOrderStatusOptions, type WholeOrderStatusOptions } from './options.js';
 import { wholeOrderStatusTransport, type WholeOrderStatusTransport } from './transport.js';
 import { wholeOrderStatusWorker } from './worker.js';
-import { requireHandoverBarrier, type AssertHandoverAvailable } from './handover.js';
 import { rejectedReturnRepairs } from './repair-obligations.js';
 export function wholeOrderStatusService(
   config: Config,
@@ -15,18 +14,11 @@ export function wholeOrderStatusService(
   dependencies: {
     transport?: WholeOrderStatusTransport;
     clock?: () => number;
-    assertHandoverAvailable?: AssertHandoverAvailable;
   } = {},
 ) {
-  const repository = wholeOrderStatusRepository(
-      config,
-      db,
-      dependencies.clock,
-      dependencies.assertHandoverAvailable,
-    ),
+  const repository = wholeOrderStatusRepository(config, db, dependencies.clock),
     transport = dependencies.transport ?? wholeOrderStatusTransport(config, options);
   const configured = () => {
-    requireHandoverBarrier(dependencies.assertHandoverAvailable);
     transport.configured();
   };
   const repairs = rejectedReturnRepairs(config, db, repository, {

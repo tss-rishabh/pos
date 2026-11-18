@@ -26,8 +26,6 @@ export const loginChallengeSchema = z.object({
 });
 export const capabilitiesSchema = z.object({
   password: z.boolean(),
-  sso: z.boolean(),
-  desktopSso: z.boolean().default(false),
   demo: z.boolean(),
 });
 export const storeSchema = z.object({

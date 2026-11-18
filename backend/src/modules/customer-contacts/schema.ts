@@ -79,7 +79,7 @@ export const customerContactLimits = mysqlTable('pos_rewrite_customer_contact_li
   failures: int('failures').notNull(),
   lastSentAt: bigint('last_sent_at_ms', { mode: 'number' }).notNull(),
 });
-export type ContactDeliveryKind = 'otp' | 'source-effects';
+export type ContactDeliveryKind = 'otp';
 export const customerContactDeliveries = mysqlTable(
   'pos_rewrite_customer_contact_deliveries',
   {

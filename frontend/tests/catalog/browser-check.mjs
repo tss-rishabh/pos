@@ -1,8 +1,40 @@
+import { inflateRawSync } from 'node:zlib';
 import { chromium, expect } from '@playwright/test';
 import { mkdir, writeFile, readFile } from 'node:fs/promises';
-import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+
+/** Row and first-row cell counts of the first worksheet's sheetData. */
+function worksheetShape(workbook) {
+  const end = workbook.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  if (end < 0) throw new Error('Workbook is not a ZIP archive.');
+  const entries = workbook.readUInt16LE(end + 10);
+  let offset = workbook.readUInt32LE(end + 16),
+    sheet;
+  for (let index = 0; index < entries && !sheet; index++) {
+    const method = workbook.readUInt16LE(offset + 10),
+      size = workbook.readUInt32LE(offset + 20),
+      nameLength = workbook.readUInt16LE(offset + 28),
+      extraLength = workbook.readUInt16LE(offset + 30),
+      commentLength = workbook.readUInt16LE(offset + 32),
+      local = workbook.readUInt32LE(offset + 42),
+      name = workbook.subarray(offset + 46, offset + 46 + nameLength).toString('utf8');
+    if (name === 'xl/worksheets/sheet1.xml') {
+      const start =
+        local + 30 + workbook.readUInt16LE(local + 26) + workbook.readUInt16LE(local + 28);
+      const data = workbook.subarray(start, start + size);
+      sheet = (method === 0 ? data : inflateRawSync(data)).toString('utf8');
+    }
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  if (!sheet) throw new Error('Workbook sheet is missing.');
+  const data = /<(?:\w+:)?sheetData\b[^>]*>([\s\S]*?)<\/(?:\w+:)?sheetData>/.exec(sheet)?.[1] ?? '';
+  const rows = data.match(/<(?:\w+:)?row\b[\s\S]*?<\/(?:\w+:)?row>|<(?:\w+:)?row\b[^>]*\/>/g) ?? [];
+  return {
+    rows: rows.length,
+    columns: rows[0] ? (rows[0].match(/<(?:\w+:)?c\b/g) ?? []).length : 0,
+  };
+}
 const base = 'http://127.0.0.1:4490';
 const macChrome = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 const executablePath =
@@ -488,16 +520,7 @@ try {
       let file = await download;
       expect(file.suggestedFilename()).toBe('store-1-catalog.xlsx');
       const workbook = await readFile(await file.path());
-      const shape = JSON.parse(
-        execFileSync(
-          'python3',
-          [
-            '-c',
-            "import io,sys,zipfile,json,xml.etree.ElementTree as E;z=zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read()));n={'m':'http://schemas.openxmlformats.org/spreadsheetml/2006/main'};s=E.fromstring(z.read('xl/worksheets/sheet1.xml')).find('m:sheetData',n);print(json.dumps({'rows':len(s),'columns':len(s[0])}))",
-          ],
-          { input: workbook, encoding: 'utf8' },
-        ),
-      );
+      const shape = worksheetShape(workbook);
       expect(shape).toEqual({ rows: 61, columns: 6 });
       download = page.waitForEvent('download');
       await page.getByRole('button', { name: 'Export all matches CSV' }).click();

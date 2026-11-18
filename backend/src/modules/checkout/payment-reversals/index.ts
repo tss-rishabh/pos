@@ -10,11 +10,3 @@ export {
   paymentCorrectionCashProjection,
   type PaymentCorrectionCashProjection,
 } from './cash-projection.js';
-
-export { cashReturnIntentContract } from './intent-contracts.js';
-export {
-  assertNoPendingCashReturnForOrders,
-  cashReturnControlHeads,
-  cashReturnPartitionHeads,
-  assertSameCashReturnHeads,
-} from './intent-guards.js';

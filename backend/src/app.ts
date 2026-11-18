@@ -13,8 +13,6 @@ import { registerAuth, authenticated } from './auth/routes.js';
 import { AppError } from './domain/errors.js';
 import { catalogBarcode, readCatalogBarcode } from './modules/catalog-barcode.js';
 import { memorySessions, mysqlSessions } from './auth/sessions.js';
-import { desktopSsoService } from './auth/desktop-sso.js';
-import { registerDesktopSso } from './auth/desktop-sso-routes.js';
 import { loginChallengeService } from './auth/mfa.js';
 import { otpDelivery } from './auth/delivery.js';
 import { profileService } from './auth/profile.js';
@@ -65,10 +63,6 @@ import {
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
 import { registerOfflineSync } from './modules/offline-sync/index.js';
-import { registerLegacyOrderImports } from './modules/legacy-order-imports/index.js';
-import { configuredLegacyOrderImports } from './modules/legacy-order-imports/runtime.js';
-import { readLegacyOrderImportOptions } from './modules/legacy-order-imports/options.js';
-import { orderMutationGuards } from './modules/checkout/order-mutation-guards.js';
 import {
   readWholeOrderStatusOptions,
   registerWholeOrderStatus,
@@ -288,9 +282,7 @@ export async function buildApp(
     setCheckIn: (user, storeId, transaction) => checkins.set(user, storeId, null, transaction),
   });
   const sessions = config.DEMO_MODE ? memorySessions() : mysqlSessions(db);
-  const desktopSso = desktopSsoService(config, db, identity, sessions);
-  const auth = registerAuth(app, config, identity, demoUser, sessions, challenges, { desktopSso });
-  registerDesktopSso(app, config, desktopSso, sessions);
+  const auth = registerAuth(app, config, identity, demoUser, sessions, challenges);
   const profileStore = config.DEMO_MODE
     ? undefined
     : createScopedMediaStore(config, readPrivateS3Options(), 'uploads/users', {
@@ -359,15 +351,6 @@ export async function buildApp(
     );
   registerBarcodeAssignments(app, config, db);
   registerOperatorModelAccounts(app, config, db);
-  registerLegacyOrderImports(
-    app,
-    config,
-    db,
-    configuredLegacyOrderImports(config, db, {
-      stockProcedure: stockProjection ?? undefined,
-      observe: (event) => app.log.info(event, 'Historical financial import stage recorded.'),
-    }),
-  );
   registerSecondaryCountrySearch(app, db);
   registerParentStoreImports(app, config, db, {
     stockProcedure: stockProjection,
@@ -376,12 +359,6 @@ export async function buildApp(
     historyOptions: readParentStoreImportOptions(),
   });
   const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
-  const financialGuards = orderMutationGuards({
-    cashReturnProofKey: paymentCorrections.proofKey ?? '',
-    importProofKey:
-      readLegacyOrderImportOptions(config.DEMO_MODE ? {} : process.env)
-        .LEGACY_ORDER_IMPORT_ENCRYPTION_KEY_V1 ?? '',
-  });
   const checkout = await registerCheckout(app, config, db, {
     environment: checkoutRuntime,
     paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
@@ -398,16 +375,13 @@ export async function buildApp(
     ...paymentReversalOptions(),
     hashSecret: paymentCorrections.proofKey ?? '',
     projection: checkoutRuntime,
-    assertHandoverReady: financialGuards.assertCashReturnHandoverReady,
   });
   await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
   registerCustomerWebsiteHandoff(app, config, db, customerOtp);
   await registerFulfillment(app, config, db);
   registerShippingLabels(app, db);
   registerLegacyFulfillment(app, config, db);
-  await registerWholeOrderStatus(app, config, db, wholeOrderOptions, {
-    assertHandoverAvailable: financialGuards.assertHandoverAvailable,
-  });
+  await registerWholeOrderStatus(app, config, db, wholeOrderOptions);
   registerCustomerWorkspace(app, config, db);
   registerCustomerHistory(app, config, db);
   registerProductFeedback(app, config, db);

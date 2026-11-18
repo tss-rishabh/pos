@@ -26,11 +26,6 @@ import {
   paymentCorrectionFinanceOptions,
   type PaymentCorrectionFinanceOptions,
 } from './finance/payment-corrections.js';
-import {
-  assertSameCashReturnHeads,
-  cashReturnPartitionHeads,
-} from './checkout/payment-reversals/intent-guards.js';
-import type { CashReturnControl } from './checkout/payment-reversals/intent-contracts.js';
 import { readPaymentCorrectionPartitions } from './finance/payment-correction-publication.js';
 import type { DailyWarehouseQuery } from './daily-report-warehouse.js';
 import { identifier } from '../domain/validation.js';
@@ -150,11 +145,6 @@ interface DailyReportDependencies {
   clock?: () => Temporal.Instant;
   paymentCorrections?: PaymentCorrectionFinanceOptions;
   paymentCorrectionQuery?: DailyWarehouseQuery;
-  cashReturnHeads?: (
-    storeIds: readonly string[],
-    from: string,
-    to: string,
-  ) => Promise<ReadonlyMap<string, CashReturnControl>>;
 }
 export function reportService(
   config: Config,
@@ -178,17 +168,6 @@ export function reportService(
       const storeIds = scopedStores(user, input.storeIds),
         range = dailyReportRange(input, config.BUSINESS_TIMEZONE);
       await assertDailyReportingEnabled(config, db, user);
-      const readHeads = () =>
-        dependencies.cashReturnHeads?.(storeIds, input.from, input.to) ??
-        cashReturnPartitionHeads(
-          db.get('writer'),
-          storeIds,
-          input.from,
-          input.to,
-          'daily',
-          corrections.proofKey ?? '',
-        );
-      const heads = await readHeads();
       const reader = routeRead({ kind: 'report', range }, clock(), config.BUSINESS_TIMEZONE);
       let storeRows: Rollup[],
         onlineRows: Rollup[],
@@ -230,11 +209,7 @@ export function reportService(
             'The payment report publication has no common source position.',
           );
         const paymentPublication = await readPaymentCorrectionPartitions(
-          {
-            table: corrections.publicationTable,
-            proofKey: corrections.proofKey,
-            controlHeads: heads,
-          },
+          { table: corrections.publicationTable, proofKey: corrections.proofKey },
           dependencies.paymentCorrectionQuery ?? warehouseService(config).queryReport,
           { kind: 'daily', storeIds, from: input.from, to: input.to },
           config.BUSINESS_TIMEZONE,
@@ -303,17 +278,6 @@ export function reportService(
         const database = db.get('data');
         const current = await database.transaction(
           async (transaction) => {
-            assertSameCashReturnHeads(
-              heads,
-              await cashReturnPartitionHeads(
-                transaction,
-                storeIds,
-                input.from,
-                input.to,
-                'daily',
-                corrections.proofKey ?? '',
-              ),
-            );
             const [excluded] = await transaction.execute(sql.raw(legacyReportSql.excludedProducts));
             const excludedRows = z.array(z.record(z.string(), z.unknown())).parse(excluded);
             const exclusions = excludedRows.map((row) =>
@@ -426,7 +390,6 @@ export function reportService(
         const names = [...storeRows, ...onlineRows].map((row) => row.store_name);
         auxiliary = await warehouse.auxiliary(names, input.from, input.to);
       }
-      assertSameCashReturnHeads(heads, await readHeads());
       const data = mergeDailyRows(storeRows, onlineRows, { ...auxiliary, banking });
       const totals = dailyTotals(data);
       return {

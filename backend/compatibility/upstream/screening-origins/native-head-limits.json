@@ -1,9 +1,0 @@
-{
-  "contract": "pos-native-head-capacity-v1",
-  "callerGrantRows": 512,
-  "callerGrantRowBytes": 8192,
-  "callerGrantTotalBytes": 524288,
-  "privilegeRows": 4096,
-  "sectionRows": 1000,
-  "metadataBytes": 2097152
-}

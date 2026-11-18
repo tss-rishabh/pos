@@ -46,7 +46,6 @@ import {
 import { applyCancellationBenefits, lockCancellationBenefits } from './benefits.js';
 import type { CancellationBenefitProfile } from './benefit-contracts.js';
 import type { PendingCancellationOptions } from './options.js';
-import { assertImportOrderMutationAvailable } from '../../legacy-order-imports/financial-adapter-proof.js';
 import { pendingOrderCancellations } from './schema.js';
 
 export interface PendingCancellationRepositoryOptions extends PendingCancellationOptions {
@@ -127,7 +126,6 @@ export function pendingCancellationRepository(
     if (rows.length !== 1)
       throw new AppError(404, 'ORDER_NOT_FOUND', 'A unique order was not found in this store.');
     const order = rows[0]!;
-    await assertImportOrderMutationAvailable(tx, orderId);
     await checkIn(user.id, storeId, String(order.counterId), tx);
     return order;
   }

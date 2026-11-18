@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdir, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -138,38 +137,4 @@ it('executes8 pinned original online grouping/calculation/template cases without
   const temporary = resolve(directory, 'global-source-oracle.json.tmp');
   await writeFile(temporary, JSON.stringify({ ...result, cases: evidence }, null, 2) + '\n');
   await rename(temporary, resolve(directory, 'global-source-oracle.json'));
-}, 30000);
-
-it('executes the private online wrapper/credential/stamp and additive startup artifact checks', () => {
-  const output = execFileSync(
-    'uv',
-    [
-      'run',
-      '--frozen',
-      '--project',
-      resolve('compatibility/upstream/invoice-security/runtime'),
-      'python',
-      '-m',
-      'unittest',
-      'discover',
-      '-s',
-      resolve('compatibility/upstream/invoice-documents'),
-      '-p',
-      'test_documents.py',
-    ],
-    {
-      encoding: 'utf8',
-      timeout: 20000,
-      maxBuffer: 128 * 1024,
-      env: {
-        PATH: process.env.PATH,
-        HOME: process.env.HOME,
-        PYTHONDONTWRITEBYTECODE: '1',
-        UV_CACHE_DIR: process.env.UV_CACHE_DIR,
-        UV_OFFLINE: 'true',
-      },
-      stdio: ['pipe', 'pipe', 'pipe'],
-    },
-  );
-  expect(output).toBe('');
 }, 30000);

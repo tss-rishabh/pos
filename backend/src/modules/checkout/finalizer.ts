@@ -1,4 +1,3 @@
-import { assertImportOrderMutationAvailable } from '../legacy-order-imports/financial-adapter-proof.js';
 import { and, asc, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Config } from '../../config.js';
@@ -19,9 +18,7 @@ import { paymentOutbox } from './payments/schema.js';
 import { currentRequestTrace } from '../../observability/context.js';
 import { assertCheckoutProjection } from './projection.js';
 import { assertCompletedGiftCardIssuance } from './gift-card-issuance.js';
-import type { PublicScreeningCoordinator } from './screening-writer/coordinator.js';
 import type { AdministrationTransaction } from '../administration/checkins.js';
-import { screeningReconciliationRequired } from './screening-writer/proof.js';
 
 /** Same fiscal-year and invoice representation as Helpers.get_financial_year. */
 export function financialYear(date: string): string {
@@ -53,7 +50,6 @@ export function orderFinalizer(
   db: Databases,
   config: Config,
   orderKind: 'ordinary' | 'exchange' = 'ordinary',
-  screening?: PublicScreeningCoordinator['finalization'],
 ) {
   return async (
     state: Pick<
@@ -65,7 +61,7 @@ export function orderFinalizer(
       | 'lineSalespersons'
       | 'salespersonId'
     > &
-      Partial<Pick<CheckoutState, 'orderNotifications' | 'operatorId' | 'screeningAdmission'>>,
+      Partial<Pick<CheckoutState, 'orderNotifications' | 'operatorId'>>,
     orderId: string,
   ) => {
     const work = async (tx: AdministrationTransaction) => {
@@ -128,9 +124,6 @@ export function orderFinalizer(
           'EXCHANGE_PARENT_CHANGED',
           'The replacement parent changed before finalization.',
         );
-      await assertImportOrderMutationAvailable(tx, orderId);
-      if (orderKind === 'exchange' && expectedParent > 0n)
-        await assertImportOrderMutationAvailable(tx, String(expectedParent));
       const customerId = state.customerId || state.operatorCustomerId;
       if (String(record.userId) !== customerId)
         throw new AppError(
@@ -268,7 +261,6 @@ export function orderFinalizer(
           })
           .onDuplicateKeyUpdate({ set: { id } });
       }
-      if (state.screeningAdmission && screening) await screening.finish(tx, orderId);
       return {
         invoice,
         transactionId: transactionIdentifier(
@@ -280,17 +272,12 @@ export function orderFinalizer(
         ),
       };
     };
-    return state.screeningAdmission && screening
-      ? screening.transaction(state, orderId, work)
-      : db.get('writer').transaction(work);
+    return db.get('writer').transaction(work);
   };
 }
 
 /** A zero-total order has no cash/terminal attempt. Verify committed allocation proof on every read. */
-export function prepaidSettlementReader(
-  db: Databases,
-  screening?: PublicScreeningCoordinator['finalization'],
-) {
+export function prepaidSettlementReader(db: Databases) {
   return async (state: CheckoutState): Promise<PrepaidSettlement | null> => {
     if (state.phase !== 'submitted' || !state.orderId || !state.orderSubmissionOperationId)
       return null;
@@ -318,7 +305,6 @@ export function prepaidSettlementReader(
         )
         .limit(1)
         .for('update');
-      if (row) await assertImportOrderMutationAvailable(tx, orderId);
       if (
         !row ||
         row.payment !== 4n ||
@@ -334,8 +320,6 @@ export function prepaidSettlementReader(
         counterId: state.counterId,
         customerId: state.customerId || state.operatorCustomerId,
       });
-      if (state.screeningAdmission && (!screening || !(await screening.read(tx, orderId))))
-        throw screeningReconciliationRequired();
       return {
         status: 'paid',
         source: 'prepaid',
@@ -349,8 +333,6 @@ export function prepaidSettlementReader(
         onlineAmount: '0.00',
       };
     };
-    return state.screeningAdmission && screening
-      ? screening.transaction(state, orderId, work)
-      : db.get('writer').transaction(work);
+    return db.get('writer').transaction(work);
   };
 }

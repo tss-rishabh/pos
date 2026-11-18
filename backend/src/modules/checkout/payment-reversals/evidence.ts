@@ -1,5 +1,4 @@
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
-import { Temporal } from '@js-temporal/polyfill';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
 import { StoreDayClose, GiftVoucher } from '../../../db/legacy-schema.js';
 import { AppError } from '../../../domain/errors.js';
@@ -14,17 +13,10 @@ import {
   paymentCorrectionOrders,
   paymentReversals,
 } from './schema.js';
-import { assertNoPendingCashReturnForOrders } from './intent-guards.js';
-import { advanceFinancialControl, instantSql } from './intent-evidence.js';
 
 type Transaction = AdministrationTransaction;
 export interface PaymentCorrectionPort {
-  effective(
-    tx: Transaction,
-    attempts: readonly PaymentAttempt[],
-    exceptIntentId?: string,
-    exceptClaimId?: string,
-  ): Promise<PaymentAttempt[]>;
+  effective(tx: Transaction, attempts: readonly PaymentAttempt[]): Promise<PaymentAttempt[]>;
   restrictedToCash(tx: Transaction, orderId: string): Promise<boolean>;
   assertStart(tx: Transaction, orderId: string, channel: PaymentAttempt['channel']): Promise<void>;
   recordSettlement(tx: Transaction, attempt: PaymentAttempt, timestamp: string): Promise<boolean>;
@@ -57,14 +49,7 @@ export function verifiedReversal(
     minorUnits(value.originalCash) !== minorUnits(value.returnedCash) ||
     minorUnits(value.originalCash) <= 0n ||
     minorUnits(value.originalCashReceived) < minorUnits(value.originalCash) ||
-    value.businessDate !== (value.cashReturn?.businessDate ?? value.recordedAt.slice(0, 10)) ||
-    (value.cashReturn &&
-      (value.cashReturn.businessDate !== value.cashReturn.returnedAt.slice(0, 10) ||
-        !value.recordedInstant ||
-        Temporal.Instant.compare(
-          Temporal.Instant.from(value.cashReturn.returnedInstant),
-          Temporal.Instant.from(value.recordedInstant),
-        ) > 0)) ||
+    value.businessDate !== value.recordedAt.slice(0, 10) ||
     new Set(value.lines.map((line) => line.id)).size !== value.lines.length
   )
     throw correctionReview();
@@ -141,8 +126,8 @@ function assertReversalMoney(
       row.storeId !== receipt.storeId ||
       row.counterId !== receipt.counterId ||
       row.orderId !== receipt.orderId ||
-      row.operatorId !== (incoming ? original.operatorId : reversalCashActor(receipt)) ||
-      row.recordedAt !== (incoming ? receipt.originalFundingAt : reversalCashTime(receipt)) ||
+      row.operatorId !== (incoming ? original.operatorId : receipt.operatorId) ||
+      row.recordedAt !== (incoming ? receipt.originalFundingAt : receipt.recordedAt) ||
       row.businessDate !== row.recordedAt.slice(0, 10) ||
       minorUnits(row.amount) !== minorUnits(incoming ? receipt.originalCash : receipt.returnedCash)
     )
@@ -156,7 +141,6 @@ export async function staleCorrectionClose(
   dates: readonly string[],
   sourceId: string,
   timestamp: string,
-  reason: 'PAYMENT_CORRECTION' | 'CASH_RETURN_PENDING' = 'PAYMENT_CORRECTION',
 ) {
   for (const date of [...new Set(dates)].sort()) {
     const [close] = await tx
@@ -186,7 +170,7 @@ export async function staleCorrectionClose(
         .set({
           status: 'STALE',
           stale_at: timestamp,
-          stale_reason: reason,
+          stale_reason: 'PAYMENT_CORRECTION',
           stale_trigger_ref: sourceId,
           updated_at: timestamp,
         })
@@ -195,20 +179,8 @@ export async function staleCorrectionClose(
 }
 /** Original paid JSON remains unchanged. Only a validated immutable compensation changes its effective view. */
 export function paymentCorrectionEvidence(secret: string): PaymentCorrectionPort {
-  const effective: PaymentCorrectionPort['effective'] = async (
-    tx,
-    attempts,
-    exceptIntentId,
-    exceptClaimId,
-  ) => {
+  const effective: PaymentCorrectionPort['effective'] = async (tx, attempts) => {
     if (!attempts.length) return [];
-    await assertNoPendingCashReturnForOrders(
-      tx,
-      attempts.map((value) => value.orderId),
-      secret,
-      exceptIntentId,
-      exceptClaimId,
-    );
     if (attempts.length > 100) throw correctionReview();
     const rows = await tx
       .select()
@@ -273,7 +245,6 @@ export function paymentCorrectionEvidence(secret: string): PaymentCorrectionPort
       return (await managedCorrectionOrder(tx, orderId, secret)) !== null;
     },
     async assertStart(tx, orderId, channel) {
-      await assertNoPendingCashReturnForOrders(tx, [orderId], secret);
       if (channel !== 'cash' && (await managedCorrectionOrder(tx, orderId, secret)))
         throw new AppError(
           409,
@@ -340,27 +311,7 @@ export function paymentCorrectionEvidence(secret: string): PaymentCorrectionPort
         attempt.id,
         timestamp,
       );
-      await advanceFinancialControl(
-        tx,
-        {
-          storeId: attempt.storeId,
-          id: attempt.id,
-          dates: [managed.orderDate, timestamp.slice(0, 10)],
-          hash: operationHash(
-            'cash-return.repayment.v1',
-            { attemptId: attempt.id, amount: attempt.cashAmount, recordedAt: timestamp },
-            secret,
-          ),
-        },
-        0,
-        secret,
-        instantSql(Temporal.Now.instant()),
-      );
       return true;
     },
   };
 }
-export const reversalCashActor = (receipt: PaymentReversalReceipt) =>
-  receipt.cashReturn?.returnedBy ?? receipt.operatorId;
-export const reversalCashTime = (receipt: PaymentReversalReceipt) =>
-  receipt.cashReturn?.returnedAt ?? receipt.recordedAt;

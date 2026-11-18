@@ -276,14 +276,6 @@
       "notes": "Component tests and implemented route counts do not certify complete legacy behavior."
     },
     {
-      "id": "sso-integration",
-      "status": "blocked",
-      "implementation": [],
-      "tests": [],
-      "evidence": [],
-      "notes": "Google OIDC authorization-code/PKCE and desktop system-browser integration are implemented with isolated checks. Live OAuth client credentials, registered production callback and tenant acceptance remain required."
-    },
-    {
       "id": "warehouse-parity-and-freshness",
       "status": "blocked",
       "implementation": [],

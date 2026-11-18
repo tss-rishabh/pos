@@ -3,8 +3,7 @@ import { readFileSync } from 'node:fs';
 import { z } from 'zod';
 import { checkoutService, giftCardWireData } from '../../src/modules/checkout/service.js';
 import { giftCardRows } from '../../src/modules/checkout/gift-card-cart.js';
-import { giftCardCode, validateGiftCardSerial } from '../../src/modules/checkout/gift-cards.js';
-import { giftCardIssuanceHashSql } from '../../src/modules/checkout/gift-card-issuance.js';
+import { giftCardCode } from '../../src/modules/checkout/gift-cards.js';
 import { CheckoutGatewayError } from '../../src/modules/checkout/gateway.js';
 import {
   FixtureGateway,
@@ -63,29 +62,6 @@ describe('physical gift-card cart correctness', () => {
       code: 'GIFT_CARD_CONTRACT_UNVERIFIED',
     });
     expect(gateway.calls.some((call) => call.path === 'pos/order')).toBe(false);
-  });
-  it('shares the exact native issuance hash with Go and requires a generated serial index within collection size', async () => {
-    const go = readFileSync('compatibility/upstream/go/internal/poscheckout/gift_cards.go', 'utf8'),
-      hash = /const GiftCardIssuanceHashSQL = ("[^\n]+")/.exec(go)?.[1];
-    expect(hash ? JSON.parse(hash) : null).toBe(giftCardIssuanceHashSql);
-    expect(
-      await validateGiftCardSerial(repository, '9901101', signingEnvironment.giftCardSalt),
-    ).toBe('9901101');
-    for (const serial of ['990101', '9901111', '99010011'])
-      await expect(
-        validateGiftCardSerial(repository, serial, signingEnvironment.giftCardSalt),
-      ).rejects.toMatchObject({ code: 'INVALID_GIFT_CARD_SERIAL' });
-    const legacy = checkoutService(
-        repository,
-        gateway,
-        { ...signingEnvironment, giftCardContract: 'pos-gift-card-v1' },
-        { migrationV2: true, now: () => now, assertCheckIn: async () => {} },
-      ),
-      state = await legacy.create(operator, '1', '3');
-    await expect(
-      legacy.addGiftCard(operator, '1', state.id, mutation(0), '80'),
-    ).rejects.toMatchObject({ code: 'GIFT_CARD_CONTRACT_UNVERIFIED' });
-    expect(gateway.calls.filter((call) => call.path === 'pos/product')).toHaveLength(0);
   });
   it('matches the original Python Hashids helper at safe-integer and signed-BIGINT boundaries', () => {
     const fixture = z

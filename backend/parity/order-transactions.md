@@ -1,6 +1,6 @@
 # Store and online order transaction evidence
 
-Source baseline: `backend-pos-web` commit `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. `order-report-sql.ts` records extracted source SQL and its SHA-256; `tools/operational-reports/generate-order-report-sql.py` regenerates that manifest and the frontend's 75-column manifest from the source. No source database or fulfillment API is called by this tool.
+Source baseline: `backend-pos-web` commit `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. `order-report-sql.ts` records extracted source SQL and its SHA-256; the former `tools/operational-reports/generate-order-report-sql.py` (removed 19 November 2026; output frozen) regenerated that manifest and the frontend's 75-column manifest from the source. No source database or fulfillment API is called by this tool.
 
 `POST /api/v1/reports/order-transactions/search` and `OrderTransactionsPage({user,storeId})` cover store and online sales plus returns. Filters select an inclusive business-local timestamp range, explicit stores, source and order-date/return-date basis. All authenticated source roles are supported; non-superadmins require assigned stores, and restricted user type 2 retains that boundary even with role 1. An empty selection returns no rows. The export queue's `order-transactions` kind produces the complete filtered 75-column CSV.
 

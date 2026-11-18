@@ -1,13 +1,8 @@
-import { readFileSync } from 'node:fs';
 import Fastify from 'fastify';
 import { expect, it } from 'vitest';
 import { checkoutGateway } from '../../src/modules/checkout/gateway.js';
 import { customerContextContract } from '../../src/modules/checkout/customer-context.js';
 import { issueCustomerToken } from '../../src/modules/checkout/crypto.js';
-import {
-  checkoutHeaderHashSql,
-  checkoutLineHashSql,
-} from '../../src/modules/checkout/projection.js';
 import { readConfig } from '../../src/config.js';
 import { registerRequestTrace } from '../../src/observability/context.js';
 import {
@@ -18,12 +13,6 @@ import {
   identity,
 } from './fixtures.js';
 import { checkoutService } from '../../src/modules/checkout/service.js';
-
-it('uses exactly the same native stored-value digest expressions as the upstream proof writer', () => {
-  const source = readFileSync('compatibility/upstream/go/internal/poscheckout/hashes.go', 'utf8');
-  expect(source.match(/const HeaderHashSQL = `([^`]+)`/)?.[1]).toBe(checkoutHeaderHashSql);
-  expect(source.match(/const LineHashSQL = `([^`]+)`/)?.[1]).toBe(checkoutLineHashSql);
-});
 
 it('refuses order creation before calling upstream when projection deployment is unverified', async () => {
   const gateway = new FixtureGateway(),

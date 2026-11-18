@@ -1,7 +1,5 @@
-import { execFileSync } from 'node:child_process';
 import { createHmac } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { z } from 'zod';
 import { feedbackVerifier } from '../../src/modules/checkout/feedback-proof.js';
 import {
   assertInvoiceResponseProof,
@@ -42,80 +40,6 @@ const now = Date.parse('2026-11-16T04:30:00Z'),
   };
 
 describe('purpose-separated invoice and feedback contracts', () => {
-  it('runs the independent Python source, import, settings, correlation and artifact-fence checks without rewriting inputs', () => {
-    expect(() =>
-      execFileSync(
-        'python3',
-        [
-          '-m',
-          'unittest',
-          'discover',
-          '-s',
-          'compatibility/upstream/invoice-security',
-          '-p',
-          'test_security.py',
-        ],
-        {
-          encoding: 'utf8',
-          timeout: 10000,
-          maxBuffer: 128 * 1024,
-          env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' },
-          stdio: ['pipe', 'pipe', 'pipe'],
-        },
-      ),
-    ).not.toThrow();
-  });
-  it('executes the literal patched source without writes and verifies its exact HTML proof and purpose-only link', () => {
-    const source = z
-      .object({
-        headers: z.record(z.string(), z.string()),
-        html: z.string(),
-        url: z.url(),
-        reads: z.array(z.string()),
-        writes: z.array(z.string()),
-        orderId: z.string(),
-        operatorId: z.string(),
-        requestId: z.string(),
-        nonce: z.string(),
-      })
-      .strict()
-      .parse(
-        JSON.parse(
-          execFileSync('python3', ['compatibility/upstream/invoice-security/probe.py'], {
-            encoding: 'utf8',
-            timeout: 10_000,
-            maxBuffer: 256 * 1024,
-            env: { PATH: process.env.PATH, HOME: process.env.HOME, PYTHONDONTWRITEBYTECODE: '1' },
-            stdio: ['pipe', 'pipe', 'pipe'],
-          }),
-        ) as unknown,
-      );
-    const scope = {
-        kind: 'store' as const,
-        orderId: source.orderId,
-        operatorId: source.operatorId,
-        requestId: source.requestId,
-        nonce: source.nonce,
-      },
-      response = new Response(source.html, { headers: source.headers });
-    expect(() =>
-      assertInvoiceResponseProof(response, scope, source.html, invoiceKey),
-    ).not.toThrow();
-    expect(source.writes).toEqual([]);
-    const url = new URL(source.url),
-      proof = url.hash.slice('#feedback_proof='.length);
-    expect(url.search).toBe('');
-    expect(verify(proof, Date.now(), source.orderId).orderId).toBe('9007199254740993');
-    const claims = JSON.parse(
-      Buffer.from(proof.split('.')[1] ?? '', 'base64url').toString('utf8'),
-    ) as unknown;
-    expect(claims).not.toHaveProperty('sub');
-    expect(claims).not.toHaveProperty('email');
-    const genericCustomerSignature = createHmac('sha256', customerKey)
-      .update(proof.split('.').slice(0, 2).join('.'))
-      .digest('base64url');
-    expect(genericCustomerSignature).not.toBe(proof.split('.')[2]);
-  });
   it('rejects body, nonce, order, actor and contract substitution on an otherwise valid invoice', () => {
     const scope = {
         kind: 'store' as const,

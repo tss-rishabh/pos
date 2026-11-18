@@ -25,7 +25,6 @@ import {
   sealPaymentCorrectionPartition,
   paymentCorrectionPublicationContract,
 } from '../../src/modules/finance/payment-correction-publication.js';
-import { emptyControl } from '../../src/modules/checkout/payment-reversals/intent-evidence.js';
 import { financePendingAlerts } from '../../src/modules/finance/alerts.js';
 import { fulfillmentEffects } from '../../src/modules/fulfillment/schema.js';
 import { closeHistoryService, dayCloseCsv } from '../../src/modules/finance/history.js';
@@ -144,7 +143,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     for (const path of [
       'src/modules/checkout/migrations/0003_payments.sql',
       'src/modules/checkout/payment-reversals/migration.sql',
-      'src/modules/checkout/payment-reversals/intent-migration.sql',
     ])
       for (const statement of readFileSync(path, 'utf8')
         .split(';')
@@ -272,7 +270,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         {
           contract: paymentCorrectionPublicationContract,
           kind: 'cash-ledger',
-          cashReturnControl: emptyControl('1'),
           generationId: 'current_ledger_fixture',
           sourcePosition: 'mysql-bin.fixture:42',
           cdcWatermark: '2026-11-16T17:29:30Z',
@@ -280,12 +277,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
           businessTimezone: 'Asia/Kolkata',
           storeId: '1',
           businessDate: '2026-11-16',
-          dataReference: {
-            generationId: 'current_ledger_fixture',
-            sourcePosition: 'mysql-bin.fixture:42',
-            cdcWatermark: '2026-11-16T17:29:30Z',
-            publishedAt: '2026-11-16T17:29:50Z',
-          },
           payload: {
             baselineHash: cashLedgerCorrectionBaselineHash(
               '1',
@@ -442,19 +433,21 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     const dates = ['2026-11-13', '2026-11-14', '2026-11-15'],
       proofKey = 'fixture-corrected-history-financial-key-'.repeat(2),
       anchors = [{ storeId: '1', date: dates[0]!, amount: '50.00' }],
-      closes = dates.slice(0, 2).map((date, index) => ({
-        storeId: '1',
-        date,
-        version: 1,
-        status: 'CLOSED',
-        cashSystem: index === 0 ? '100.00' : '0.00',
-        cashRefund: index === 0 ? '0.00' : '100.00',
-        cashPunched: '0.00',
-        cashCreated: '0.00',
-        cashActual: index === 0 ? '100.00' : '0.00',
-        cashDifference: '0.00',
-        banking: '0.00',
-      })),
+      closes = dates
+        .slice(0, 2)
+        .map((date, index) => ({
+          storeId: '1',
+          date,
+          version: 1,
+          status: 'CLOSED',
+          cashSystem: index === 0 ? '100.00' : '0.00',
+          cashRefund: index === 0 ? '0.00' : '100.00',
+          cashPunched: '0.00',
+          cashCreated: '0.00',
+          cashActual: index === 0 ? '100.00' : '0.00',
+          cashDifference: '0.00',
+          banking: '0.00',
+        })),
       sales = [
         {
           storeId: '1',
@@ -469,13 +462,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
           {
             contract: paymentCorrectionPublicationContract,
             kind: 'cash-ledger',
-            cashReturnControl: emptyControl('1'),
-            dataReference: {
-              generationId: 'fixture_cash_conservation',
-              sourcePosition: 'mysql-bin.42:123',
-              cdcWatermark: '2026-11-16T17:29:30Z',
-              publishedAt: '2026-11-16T17:29:50Z',
-            },
             generationId: 'fixture_cash_conservation',
             sourcePosition: 'mysql-bin.42:123',
             cdcWatermark: '2026-11-16T17:29:30Z',
@@ -574,13 +560,6 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         {
           contract: paymentCorrectionPublicationContract,
           kind: 'cash-ledger',
-          cashReturnControl: emptyControl('1'),
-          dataReference: {
-            generationId: 'fixture_generation',
-            sourcePosition: 'mysql-bin.42:123',
-            cdcWatermark: '2026-11-16T17:29:30Z',
-            publishedAt: '2026-11-16T17:29:50Z',
-          },
           generationId: 'fixture_generation',
           sourcePosition: 'mysql-bin.42:123',
           cdcWatermark: '2026-11-16T17:29:30Z',
@@ -635,7 +614,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
     const historical = await service.read(user, ['1'], '2026-11-15', '2026-11-15');
     expect(historical.reader).toBe('bigquery');
     expect(historical.data[0]?.running_total).toBe('118.00');
-    expect(readers).toEqual(['primary', 'writer', 'writer']); // Operational fence only, no MySQL historical amount queries.
+    expect(readers).toEqual(['primary']);
     expect(queries).toHaveLength(6);
     for (const query of queries.filter((value) => !value.includes('GROUP BY generation_id')))
       expect(query).toContain('generation_id=@generation');
@@ -659,7 +638,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         '2026-11-15',
       ),
     ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
-    expect(readers).toEqual(['primary', 'writer']);
+    expect(readers).toEqual(['primary']);
     await admin!.query('DELETE FROM store_cash_opening_balance');
     readers.length = 0;
     await expect(
@@ -670,7 +649,7 @@ describe.skipIf(!connection)('finance transactions on isolated local MySQL', () 
         '2026-11-16',
       ),
     ).rejects.toMatchObject({ code: 'DEPENDENCY_UNAVAILABLE' });
-    expect(readers).toEqual(['primary', 'writer', 'data']);
+    expect(readers).toEqual(['primary', 'data']);
   });
   it('keeps day-close latest-attempt filtering ahead of search and exports safe complete financial rows', async () => {
     const [first] = await resources().get('writer').select().from(StoreDayClose);

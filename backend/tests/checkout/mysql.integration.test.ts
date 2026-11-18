@@ -265,11 +265,6 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       readFileSync('src/modules/checkout/payments/provider-evidence-migration.sql', 'utf8'),
     ))
       await connection.query(statement);
-    // Generic financial writers require the imported-order hold control tables.
-    for (const statement of splitMigration(
-      readFileSync('src/modules/legacy-order-imports/financial-proof-migration.sql', 'utf8'),
-    ))
-      await connection.query(statement);
     for (const statement of splitMigration(
       readFileSync('src/modules/checkout/return-workflow/recovery-claims-migration.sql', 'utf8'),
     ))

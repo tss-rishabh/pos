@@ -19,7 +19,7 @@ application data during uninstall; users must explicitly erase local records
 under the organization's retention process after pending financial work is
 reconciled. Normal upgrades retain the Electron profile and IndexedDB ledger.
 
-Configure the deployed HTTPS `POS_DESKTOP_URL`, exact `POS_SSO_ORIGINS`, optional
+Configure the deployed HTTPS `POS_DESKTOP_URL`, optional
 `POS_OAUTH_ORIGINS`, optional approved `POS_APP_LINK_ORIGINS`, the optional single
 `POS_CUSTOMER_WEBSITE_ORIGIN`, and trusted media origins identically on both OSes. No shell
 command, OS-specific file path, privileged renderer or mobile runtime is needed.
@@ -85,7 +85,7 @@ uses an ad-hoc signature after fuse changes and remains a review artifact.
 
 Before release, retain native evidence for installation, upgrade/profile retention,
 offline restart and receipt reprint, concurrent counters, reconnect/manager
-conflicts, authentication/logout/SSO and permitted redirects, private downloads,
+conflicts, authentication/logout and permitted redirects, private downloads,
 keyboard shortcuts, display scaling and the actual store receipt printers on
 each OS/architecture. Validate Windows path/permission and macOS Gatekeeper
 behavior with the signed installer. Windows code signing and Apple signing plus

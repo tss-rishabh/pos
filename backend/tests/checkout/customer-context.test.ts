@@ -1,5 +1,4 @@
 import { createHmac } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import {
@@ -26,22 +25,6 @@ const config = readConfig({
 const customer = identity('9007199254740993');
 const token = () => issueCustomerToken(customer, environment);
 
-it('verifies the pinned Python middleware candidate and its hostile input/cache bypass cases', () => {
-  const output = execFileSync(
-    'python3',
-    [
-      '-m',
-      'unittest',
-      'discover',
-      '-s',
-      'compatibility/upstream/customer-context',
-      '-p',
-      'test_*.py',
-    ],
-    { encoding: 'utf8', timeout: 15_000, stdio: ['ignore', 'pipe', 'pipe'] },
-  );
-  expect(output).toBe('');
-});
 
 it('requires the explicit context contract and its own correctly formed purpose key', () => {
   expect(() => assertCustomerContextReady(environment)).not.toThrow();

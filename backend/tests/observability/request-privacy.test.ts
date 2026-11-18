@@ -157,39 +157,4 @@ describe('registered application request privacy at trace level', () => {
       await app.close();
     }
   });
-  it('maps a real registered SSO provider failure without logging SDK messages, tokens or causes', async () => {
-    const lines: string[] = [];
-    const fetcher = vi.spyOn(globalThis, 'fetch').mockRejectedValue(
-      Object.assign(new Error(fixtures.provider), {
-        cause: new Error(fixtures.token),
-        response: { data: fixtures.identity },
-      }),
-    );
-    const app = await buildApp(
-      configuration({
-        OIDC_ISSUER: 'https://accounts.google.com',
-        OIDC_CLIENT_ID: 'synthetic-client',
-        OIDC_CLIENT_SECRET: fixtures.token,
-        OIDC_REDIRECT_URI: 'http://localhost:5173/api/v1/auth/sso/callback',
-        OIDC_EMAIL_DOMAINS: 'example.test',
-      }),
-      { logger: logger(lines) },
-    );
-    try {
-      const result = await app.inject({ url: '/api/v1/auth/sso/login' });
-      expect(result.statusCode).toBe(503);
-      expect(fetcher).toHaveBeenCalled();
-      expect(safe(lines)).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            eventId: 'identity.sso-authorization.create.failed',
-            status: 503,
-          }),
-        ]),
-      );
-      for (const value of Object.values(fixtures)) expect(result.body).not.toContain(value);
-    } finally {
-      await app.close();
-    }
-  });
 });

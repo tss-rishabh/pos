@@ -1,9 +1,0 @@
-{
-  "extends": "../../tsconfig.json",
-  "compilerOptions": { "noEmit": true, "rootDir": "../.." },
-  "include": [
-    "../../src/modules/legacy-order-imports/**/*.ts",
-    "../../tests/legacy-order-imports/**/*.ts"
-  ],
-  "exclude": ["../../node_modules", "../../dist"]
-}

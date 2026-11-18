@@ -28,7 +28,6 @@ import {
   type StatusPlatform,
   type StatusReceipt,
 } from './domain.js';
-import type { AssertHandoverAvailable } from './handover.js';
 type Command = typeof wholeOrderStatusCommands.$inferSelect;
 export function publicStatusCommand(row: Command) {
   return {
@@ -63,9 +62,8 @@ export function wholeOrderStatusRepository(
   config: Config,
   db: Databases,
   clock: () => number = Date.now,
-  barrier?: AssertHandoverAvailable,
 ) {
-  const capture = wholeOrderStatusAuthority(config, db, barrier),
+  const capture = wholeOrderStatusAuthority(config, db),
     stamp = () =>
       Temporal.Instant.fromEpochMilliseconds(clock())
         .toZonedDateTimeISO('UTC')

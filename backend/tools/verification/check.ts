@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 export type Check = {
   id: string;
   directory: 'backend' | 'frontend';
-  command?: 'sh' | 'python3';
+  command?: 'sh';
   args: string[];
   environment?: NodeJS.ProcessEnv;
   timeoutMs?: number;

@@ -1,7 +1,5 @@
-import { execFileSync } from 'node:child_process';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { createClient } from 'redis';
 import { ordersService } from '../../src/modules/orders.js';
 import type { Principal } from '../../src/domain/access.js';
 import {
@@ -18,8 +16,7 @@ import { formatSourceOrder } from '../../src/modules/order-history/search/format
 import { orderSearchFixture } from './mysql-fixture.js';
 import { goldenStdout } from '../golden/load.js';
 import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
-const template = process.env.ORDER_SEARCH_MYSQL_TEST_URL,
-  python = process.env.ORDER_SEARCH_ORACLE_PYTHON;
+const template = process.env.ORDER_SEARCH_MYSQL_TEST_URL;
 describe.skipIf(!template)('native midnight source-window supplement', () => {
   let fixture: Awaited<ReturnType<typeof orderSearchFixture>>;
   beforeAll(async () => {
@@ -94,63 +91,6 @@ describe.skipIf(!template)('native midnight source-window supplement', () => {
     await fixture?.close();
   });
   // The Redis-backed default-form oracle was not captured; it still needs the live interpreter.
-  it.skipIf(!process.env.ORDER_DEFAULT_FORM_REDIS_URL || !python)(
-    'runs actual original GET/POST and rendered form with unchanged type-switch placement',
-    async () => {
-      const redis = createClient({ url: process.env.ORDER_DEFAULT_FORM_REDIS_URL! });
-      await redis.connect();
-      try {
-        await redis.set('check_in_9', JSON.stringify([1, 'Synthetic midnight']));
-        const raw: unknown = JSON.parse(
-          execFileSync(python!, ['-B', 'tests/order-search/default-form-source.py'], {
-            input: JSON.stringify({
-              url: fixture.url,
-              redis: process.env.ORDER_DEFAULT_FORM_REDIS_URL,
-              actor: 9,
-            }),
-            encoding: 'utf8',
-            timeout: 30000,
-          }),
-        );
-        const result = z
-          .object({
-            defaultRange: z.string().regex(/^\d\d\/\d\d\/\d{4} /),
-            mro: z.array(z.string()),
-            cases: z
-              .array(
-                z.object({
-                  type: z.string(),
-                  status: z.number(),
-                  range: z.string(),
-                  ajaxRange: z.string(),
-                  selected: z.boolean(),
-                }),
-              )
-              .length(4),
-          })
-          .parse(raw);
-        expect(result.mro).toEqual([
-          'OrdersView',
-          'LoginRequiredMixin',
-          'AccessMixin',
-          'View',
-          'object',
-        ]);
-        expect(result.cases.map((value) => value.type)).toEqual(['N', 'ST', 'HE', 'N']);
-        for (const item of result.cases)
-          expect(item).toEqual({
-            type: item.type,
-            status: 200,
-            range: result.defaultRange,
-            ajaxRange: result.defaultRange,
-            selected: true,
-          });
-      } finally {
-        await redis.del('check_in_9');
-        await redis.quit();
-      }
-    },
-  );
   it('retains the source store-page future endpoint for N without widening its cap or global authority', async () => {
     const now = Date.parse('2026-12-31T18:29:55Z');
     const input = orderSearchInput.parse({

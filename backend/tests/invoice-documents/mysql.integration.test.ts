@@ -1,14 +1,10 @@
 import {
   globalOnlineInvoiceContract,
   globalOnlineInvoiceCapability,
-  issueGlobalOnlineInvoiceProof,
   globalOnlineInvoiceResponseProof,
-  assertGlobalOnlineInvoiceResponse,
 } from '../../src/modules/invoice-documents/global-proof.js';
 import Fastify from 'fastify';
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { z } from 'zod';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,7 +13,6 @@ import { createDatabases, type Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
 import {
   invoiceResponseProof,
-  assertInvoiceResponseProof,
   invoiceSecurityContract,
   feedbackProofContract,
   type InvoiceProofScope,
@@ -29,22 +24,15 @@ import {
   scopedInvoiceContract,
   scopedInvoiceResponseProof,
   selectedInvoiceHash,
-  issueScopedInvoiceProof,
-  assertScopedInvoiceResponse,
 } from '../../src/modules/invoice-documents/scope-proof.js';
 import { onlineInvoiceService } from '../../src/modules/invoice-documents/service.js';
 import {
   invoiceHistoryContract,
   invoiceHistoryResponseProof,
-  issueInvoiceHistoryProof,
-  assertInvoiceHistoryResponse,
 } from '../../src/modules/invoice-documents/history-proof.js';
 import type { InvoiceHistoryReader } from '../../src/modules/invoice-documents/history.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
-import {
-  invoiceDocumentAuthority,
-  invoiceScopeSnapshot,
-} from '../../src/modules/invoice-documents/authority.js';
+import { invoiceDocumentAuthority } from '../../src/modules/invoice-documents/authority.js';
 
 describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
   'native online invoice authority/transport',
@@ -776,129 +764,6 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
       ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
       expect(fetcher).not.toHaveBeenCalled();
     });
-    for (const global of [false, true])
-      it(
-        'matches actual Python/MySQL ' +
-          (global ? 'explicit global N' : 'owned') +
-          ' native scope and intercepts history without any writer binding',
-        async () => {
-          if (global) await genuineOnline();
-          await fixture.insert('order_addons', { order_id: orderId, platform_fee: '7.89' });
-          await fixture.insert('gift_vouchers', {
-            id: 66,
-            order_id: orderId,
-            voucher_initial_value: '12.34',
-          });
-          await connection.query('UPDATE has_products SET gift_voucher_id=66 WHERE id=?', [lineId]);
-          const selectedScope = global ? globalScope : scope;
-          await connection.query('UPDATE order_stores SET order_invoice=?', ['FIXTURE/INV/café']);
-          for (const id of ['2', '10'])
-            await fixture.insert('has_products', {
-              id,
-              order_id: orderId,
-              prod_id: 66,
-              qty: 1,
-              price: 0.125,
-              order_platform_id: 2,
-              gst: 5,
-              pre_gst_amt: 0.12,
-            });
-          await connection.query('UPDATE has_products SET gift_voucher_id=66 WHERE order_id=?', [
-            orderId,
-          ]);
-          const authority = await invoiceDocumentAuthority(db)(user, selectedScope),
-            proofScope: InvoiceProofScope = {
-              kind: 'online',
-              orderId,
-              operatorId: user.id,
-              requestId: 'native-invoice-' + randomUUID(),
-              nonce: 'a'.repeat(32),
-            },
-            evidence = await history(selectedScope, authority),
-            capability = issueInvoiceHistoryProof(
-              proofScope,
-              scope.storeId,
-              authority,
-              evidence,
-              key,
-            );
-          const globalCapability = global
-            ? issueGlobalOnlineInvoiceProof(
-                'online',
-                proofScope,
-                scope.storeId,
-                authority,
-                capability,
-                key,
-              )
-            : undefined;
-          const raw = JSON.parse(
-            execFileSync(
-              'uv',
-              [
-                'run',
-                '--frozen',
-                '--project',
-                resolve('compatibility/upstream/invoice-security/runtime'),
-                'python',
-                resolve('compatibility/upstream/invoice-documents/runtime_probe.py'),
-              ],
-              {
-                input: JSON.stringify({
-                  url: config.MYSQL_WRITER_URL,
-                  orderId,
-                  storeId: scope.storeId,
-                  customerId: authority.customerId,
-                  operatorId: user.id,
-                  nonce: proofScope.nonce,
-                  requestId: proofScope.requestId,
-                  key,
-                  capability,
-                  ...(global ? { globalCapability } : {}),
-                }),
-                encoding: 'utf8',
-                timeout: 20000,
-                maxBuffer: 128 * 1024,
-                env: {
-                  PATH: process.env.PATH,
-                  HOME: process.env.HOME,
-                  PYTHONDONTWRITEBYTECODE: '1',
-                },
-                stdio: ['pipe', 'pipe', 'pipe'],
-              },
-            ),
-          ) as unknown;
-          const result = z
-            .object({
-              snapshot: z.object({ binding: z.string(), customerId: z.string() }),
-              writeRejected: z.literal(true),
-              rows: z.literal(1),
-              sqlModeUnchanged: z.literal(true),
-              isolation: z.literal('REPEATABLE READ'),
-              status: z.literal(200),
-              missingHistoryStatus: z.literal(503),
-              html: z.string(),
-              headers: z.record(z.string(), z.string()),
-              boughtVoucherInitialValues: z.array(z.literal('12.34')).length(3),
-              historyFallbacks: z.literal(0),
-              renderCalls: z.literal(1),
-              writerBindingsAbsent: z.literal(true),
-              redisWriterAbsent: z.literal(true),
-            })
-            .parse(raw);
-          expect(result.snapshot).toEqual({
-            binding: authority.binding,
-            customerId: authority.customerId,
-          });
-          expect(result.html).toContain('Orders: 2');
-          const response = new Response(result.html, { headers: result.headers });
-          if (global)
-            assertGlobalOnlineInvoiceResponse(response, globalCapability!, result.html, key);
-          assertInvoiceResponseProof(response, proofScope, result.html, key);
-          assertInvoiceHistoryResponse(response, capability, result.html, key);
-        },
-        30000,
-      );
     it('executes the exact source SDD shipment-zero request only for a current full mixed shipment', async () => {
       await connection.query('UPDATE orders SET is_split_order=1');
       await connection.query('UPDATE has_products SET order_platform_id=3');
@@ -990,98 +855,6 @@ describe.skipIf(!process.env.MYSQL_INTEGRATION_URL)(
         )(user, selectedScope, 'express'),
       ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
     });
-    it('verifies the selected Express capability against actual isolated Python/MySQL scope without accepting caller HP IDs', async () => {
-      const selectedScope = await expressFixture();
-      await connection.query(
-        'UPDATE has_products SET gift_voucher_id=CASE id WHEN 77 THEN 10 ELSE 20 END',
-      );
-      for (const [id, line, amount] of [
-        [10, 77, 25],
-        [20, 78, 500],
-      ]) {
-        await fixture.insert('gift_vouchers', {
-          id: id!,
-          order_id: 12345,
-          voucher_initial_value: amount!,
-          voucher_value: amount!,
-          voucher_code: 'FIXTURE-' + id,
-        });
-        await fixture.insert('order_point_cashback', {
-          order_id: 12345,
-          has_product_id: line!,
-          hp_point_credited: id === 10 ? 1 : 99,
-        });
-      }
-      const snapshot = await invoiceScopeSnapshot(db)(user, selectedScope),
-        proofScope: InvoiceProofScope = {
-          kind: 'store',
-          orderId: '12345',
-          operatorId: user.id,
-          requestId: 'selected-native-' + randomUUID(),
-          nonce: 'a'.repeat(32),
-        },
-        capability = issueScopedInvoiceProof('express', proofScope, '1', snapshot, ['77'], key);
-      const raw = JSON.parse(
-        execFileSync(
-          'uv',
-          [
-            'run',
-            '--frozen',
-            '--project',
-            resolve('compatibility/upstream/invoice-security/runtime'),
-            'python',
-            resolve('compatibility/upstream/invoice-documents/runtime_probe.py'),
-          ],
-          {
-            input: JSON.stringify({
-              url: config.MYSQL_WRITER_URL,
-              orderId: '12345',
-              storeId: '1',
-              operatorId: user.id,
-              nonce: proofScope.nonce,
-              requestId: proofScope.requestId,
-              key,
-              scopeCapability: capability,
-            }),
-            encoding: 'utf8',
-            timeout: 20000,
-            maxBuffer: 128 * 1024,
-            env: {
-              PATH: process.env.PATH,
-              HOME: process.env.HOME,
-              PYTHONDONTWRITEBYTECODE: '1',
-              UV_CACHE_DIR: process.env.UV_CACHE_DIR,
-              UV_OFFLINE: 'true',
-            },
-            stdio: ['pipe', 'pipe', 'pipe'],
-          },
-        ),
-      ) as unknown;
-      const result = z
-        .object({
-          snapshot: z.object({ binding: z.string(), customerId: z.string() }),
-          writeRejected: z.literal(true),
-          rows: z.literal(1),
-          isolation: z.literal('REPEATABLE READ'),
-          sqlModeUnchanged: z.literal(true),
-          status: z.literal(200),
-          selectedPoints: z.literal(1),
-          selectedGiftIds: z.tuple([z.literal('10')]),
-          missingScopeStatus: z.literal(503),
-          substitutedIdsStatus: z.literal(400),
-          html: z.string(),
-          headers: z.record(z.string(), z.string()),
-          historyFallbacks: z.literal(0),
-          renderCalls: z.literal(1),
-        })
-        .parse(raw);
-      expect(result.snapshot.binding).toBe(snapshot.binding);
-      expect(result.html).toContain('Selected: 77');
-      expect(result.html).not.toContain('78');
-      const response = new Response(result.html, { headers: result.headers });
-      assertInvoiceResponseProof(response, proofScope, result.html, key);
-      assertScopedInvoiceResponse(response, capability, result.html, key);
-    }, 30000);
     it('does not dispatch a legacy unsigned transport or retry an uncertain read outcome', async () => {
       const selectedScope = await expressFixture(),
         fetcher = vi.fn<typeof fetch>(async () => {

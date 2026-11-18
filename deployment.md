@@ -79,16 +79,6 @@ diagnostics under the ignored `backend/evidence/private/` folder. A passing
 verification run does not imply production readiness: the release gate remains
 separate. Add `--release` to require that gate to pass too.
 
-Source oracles also require the reviewed API baseline
-`2960acbea10c4eaf16b6d99e15ff6e03ef7724c5`. When the developer's API checkout
-has moved on, use a separate, clean Git checkout of that commit and set both
-`POS_LEGACY_IMPORT_SOURCE_ROOT` and `SCREENING_SOURCE_ROOT` to its directory
-before starting verification. Do not reset or modify the developer's checkout.
-The alternate location preserves each consumer's original commit/byte checks;
-it does not select another source revision. Fixture launchers forward only
-that source location rather than inherited service credentials. Generated
-exchange metadata records repository/commit identity instead of a local path.
-
 The build toolchain selects an exact local picomatch mitigation in both
 lockfiles. Keep each project's `tools/dependency-security` artifact and verifier
 in its independent build context. Run `npm ci` before using a changed lockfile;
@@ -107,36 +97,10 @@ fresh consolidated run. Platform run `44235902175` passed both Windows and macOS
 on `cd179c5`, including unsigned review packaging and native smoke checks.
 This does not certify signed production distribution or the later metadata port.
 
-The inventory workbook source oracle additionally needs its isolated Python
-environment. Install `backend/tools/inventory-workbooks/requirements-oracle.txt`
-into `backend/tools/inventory-workbooks/.venv` with Python 3.10 before running
-the source comparisons. This is a verification dependency, not a production
-runtime dependency. Source-oracle preflight now checks the pinned local Python
-versions and packages before the full verifier starts compilation: pricing
-requires Python 3.12.15, SQLAlchemy 2.1.8 and PyMySQL 1.2.4; workbooks require
-Python 3.10.22, openpyxl 3.1.2 and et-xmlfile 1.1.0. Run
-`node tools/verify-fixture-environments.mjs` from `backend/`. Fresh worktrees
-need their own oracle environments; the original untracked environments are
-not part of a Git checkout. Provision private copies or use the documented
-locked environment setup, preserving any shared environment.
-
-Frontend verification uses two Vitest workers, matching desktop CI, without
-changing test deadlines. A caller may reuse an existing private native-runner
-compilation cache with `POS_IMPORT_GO_BUILD_CACHE`; the full verifier accepts
-only caller-owned, nonsymlink `/tmp/pos-import-go.<id>/build-cache` directories
-under a private runner directory. The native command retains `-race -count=1`.
-This avoids repeating a cold compiler build; it does not reuse test results or
-convert an earlier timeout into a passing run.
-
-The complete `--mysql` run also requires
-`POS_ORIGIN_PAYMENTS_SOURCE_ROOT`, a clean payments checkout pinned to
-`434f3e438d1cb48c64e5723222c6efda506db571`, and
-`POS_ORIGIN_GO_MODULE_CACHE_SOURCE`, a caller-owned offline Go module cache.
-Its prerequisite verifies those inputs and the locally cached pinned Go/MySQL
-images before running the separate general, head and calendar phases. These
-phases create fresh private assemblies and fixture resources; the public
-screening checks do not replace them. Follow the
-[orchestration prerequisites and evidence boundaries](backend/tools/other-origin-verification/README.md).
+Legacy oracles are no longer executed: the repository has no Python, Go or PHP,
+and source comparisons read committed golden fixtures instead. Frontend
+verification uses two Vitest workers, matching desktop CI, without changing test
+deadlines.
 
 The workbook writer uses the existing durable report queue
 and private bounded spool; review `backend/parity/inventory-workbooks.md`.
@@ -168,9 +132,7 @@ actions before enabling retries. A blanket table drop is not a rollback strategy
 
 ## Identity, reporting and background work
 
-Configure the OIDC issuer/client/redirect and test account provisioning, verified
-email, state, nonce, PKCE, logout and role/store revocation in the actual test
-tenant. Password login requires OTP or TOTP plus a valid store check-in. Configure
+Test logout and role/store revocation in the actual test tenant. Password login requires OTP or TOTP plus a valid store check-in. Configure
 the source-compatible Netcore/Gupshup delivery channels; OTPs are hashed at rest,
 and delivery credentials/phone/code are sent in POST bodies rather than URLs.
 Pending-proof and full-session credential fingerprints invalidate after changes.
@@ -237,28 +199,6 @@ import. The legacy unset-event date correction in
 writer schema review; `OFFLINE_CASH_ORDER_SCHEMA_CONTRACT=pos-offline-cash-order-schema-v1`
 must not be selected before that contract exists on the actual writer.
 
-Membership activation and restoration additionally require the reviewed native
-revision-fence contract in
-[`membership-revision-head-metadata.md`](backend/parity/membership-revision-head-metadata.md).
-Install the exact four source fences under a separate locked owner and configure
-`POS_MEMBERSHIP_REVISION_TRIGGER_DEFINER` for every full metadata reader,
-independent publisher, API, producer adapter and source-capture worker whenever
-these fences are installed, including profiles that are not buying membership.
-An installed but undeclared family cannot qualify. The locked owner needs only the documented table rights
-and column-scoped `UPDATE(id)` on `users` for the original locking read; runtime
-accounts receive no `TRIGGER`, schema-changing or table-wide user-update grant
-for metadata discovery.
-
-The same two fixed readonly functions now return 17 sections and explicit column
-names in privilege rows. Regenerate and verify the source bundles/manifests,
-install the reviewed functions, and independently recapture/requalify before
-activating source profiles. Old function hashes/captures cannot qualify. Keep
-ingress and generation activation fenced during the coordinated upgrade; do not
-permit old root-owned triggers or restore stale captures as a rollback shortcut.
-Ordinary membership retains its actual RR/RC transaction contract; screening
-continues to require actual READ COMMITTED. None of these steps authorize writes
-or grants on the investigation reader supplied for this task.
-
 Run the financial outbox in a supervised process:
 
 ```sh
@@ -311,8 +251,7 @@ provider sandboxes, alert recipients and log retention before production traffic
 ## Desktop distribution and media
 
 Build/package Electron separately on each supported target. Use the deployed
-HTTPS origin in `POS_DESKTOP_URL` and exact trusted SSO origins in
-`POS_SSO_ORIGINS`. Connect once to prepare the offline shell. Verify upgrades,
+HTTPS origin in `POS_DESKTOP_URL`. Connect once to prepare the offline shell. Verify upgrades,
 offline reload/replay, print/download, logout and device storage policies on
 signed Windows and macOS distributions; both are mandatory. Linux remains an
 optional target. Follow [desktop platform checks](desktop-platforms.md), including
@@ -322,7 +261,7 @@ checks on both OSes. An unsigned local package is not a signed production releas
 For the optional confidential Slack incoming-webhook flow, configure its approved
 app credentials, exact same-origin HTTPS callback and workspace IDs in the
 backend. Set desktop `POS_OAUTH_ORIGINS=https://slack.com` to permit same-window
-authorization. This allowlist is separate from SSO and never permits new windows.
+authorization. This allowlist never permits new windows.
 Apply the Slack migration and run the bounded security cleanup worker. The
 provider callback carries a short-lived code/state in its query: ensure any
 external ingress/CDN also omits or redacts callback query strings. Application

@@ -12,9 +12,9 @@ import {
   lockContactCustomer,
 } from './authority.js';
 import { contactChangeContract, type CustomerContactDelivery } from './contracts.js';
-import { matchesContactCode, openContactEffects, openContactOtp } from './crypto.js';
+import { matchesContactCode, openContactOtp } from './crypto.js';
 import type { CustomerContactOptions } from './options.js';
-import { lockCustomerContactKeys, releaseCustomerContactKeys } from './reservations.js';
+import { lockCustomerContactKeys } from './reservations.js';
 import {
   customerContactChallenges as challenges,
   customerContactDeliveries as deliveries,
@@ -149,55 +149,37 @@ export function customerContactOutbox(
           terminal: status === 'CANCELLED' ? ('cancelled' as const) : ('uncertain' as const),
         };
       };
-      if (row.kind === 'otp') {
-        if (row.status === 'SENDING') return terminal('UNCERTAIN');
-        if (
-          !allowed ||
-          !['PENDING_CURRENT', 'PENDING_NEW'].includes(challenge.status) ||
-          challenge.stage !== row.stage ||
-          challenge.expiresAt <= now ||
-          row.expiresAt <= now ||
-          challenge.codeExpiresAt <= now
-        )
-          return terminal('CANCELLED');
-        let valid = false;
-        try {
-          const input = openContactOtp(
+      if (row.status === 'SENDING') return terminal('UNCERTAIN');
+      if (
+        !allowed ||
+        !['PENDING_CURRENT', 'PENDING_NEW'].includes(challenge.status) ||
+        challenge.stage !== row.stage ||
+        challenge.expiresAt <= now ||
+        row.expiresAt <= now ||
+        challenge.codeExpiresAt <= now
+      )
+        return terminal('CANCELLED');
+      let valid = false;
+      try {
+        const input = openContactOtp(
+          options.CUSTOMER_CONTACTS_SECRET!,
+          row.id,
+          row.encryptedPayload,
+        );
+        valid =
+          input.challengeId === challenge.id &&
+          input.stage === challenge.stage &&
+          matchesContactCode(
+            challenge.codeHash,
             options.CUSTOMER_CONTACTS_SECRET!,
-            row.id,
-            row.encryptedPayload,
+            challenge.id,
+            input.stage,
+            input.code,
           );
-          valid =
-            input.challengeId === challenge.id &&
-            input.stage === challenge.stage &&
-            matchesContactCode(
-              challenge.codeHash,
-              options.CUSTOMER_CONTACTS_SECRET!,
-              challenge.id,
-              input.stage,
-              input.code,
-            );
-        } catch {
-          /* Corrupted or superseded OTP is never sent. */
-        }
-        if (!valid) return terminal('CANCELLED');
-      } else {
-        if (challenge.status === 'COMMITTED') {
-          await tx
-            .update(deliveries)
-            .set({ status: 'DELIVERED', leaseToken: null, leaseExpiresAt: null, updatedAt: now })
-            .where(eq(deliveries.id, row.id));
-          return { row, terminal: 'delivered' as const };
-        }
-        if (!['COMMITTING', 'UNCERTAIN'].includes(challenge.status)) return terminal('UNCERTAIN');
-        if (row.attempts >= 5 || !options.CUSTOMER_CONTACT_EFFECTS_REPLAY_SAFE) {
-          await tx
-            .update(challenges)
-            .set({ status: 'UNCERTAIN', updatedAt: now })
-            .where(eq(challenges.id, challenge.id));
-          return terminal('UNCERTAIN');
-        }
+      } catch {
+        /* Corrupted or superseded OTP is never sent. */
       }
+      if (!valid) return terminal('CANCELLED');
       const token = randomUUID(),
         leaseExpiresAt = now + options.CUSTOMER_CONTACTS_WORKER_LEASE_MS;
       await tx
@@ -254,53 +236,26 @@ export function customerContactOutbox(
         current.leaseToken !== row.leaseToken
       )
         return 'uncertain' as const;
-      const retry =
-        row.kind === 'source-effects' &&
-        outcome === 'uncertain' &&
-        row.attempts < 5 &&
-        options.CUSTOMER_CONTACT_EFFECTS_REPLAY_SAFE;
       const status =
         outcome === 'accepted'
           ? ('DELIVERED' as const)
-          : retry
-            ? ('PENDING' as const)
-            : outcome === 'rejected'
-              ? ('REJECTED' as const)
-              : ('UNCERTAIN' as const);
+          : outcome === 'rejected'
+            ? ('REJECTED' as const)
+            : ('UNCERTAIN' as const);
       await tx
         .update(deliveries)
         .set({
           status,
           leaseToken: null,
-          leaseExpiresAt: retry ? now + Math.min(60000, 2000 * 2 ** row.attempts) : null,
+          leaseExpiresAt: null,
           updatedAt: now,
         })
         .where(eq(deliveries.id, row.id));
-      if (row.kind === 'source-effects') {
-        if (outcome === 'accepted') {
-          await tx
-            .update(challenges)
-            .set({
-              status: 'COMMITTED',
-              activeCustomerId: null,
-              version: challenge.version + 1,
-              updatedAt: now,
-            })
-            .where(eq(challenges.id, challenge.id));
-          await releaseCustomerContactKeys(tx, [challenge.targetKey], challenge.id);
-        } else if (!retry)
-          await tx
-            .update(challenges)
-            .set({ status: 'UNCERTAIN', version: challenge.version + 1, updatedAt: now })
-            .where(eq(challenges.id, challenge.id));
-      }
-      return retry
-        ? ('retry' as const)
-        : outcome === 'accepted'
-          ? ('delivered' as const)
-          : outcome === 'rejected'
-            ? ('rejected' as const)
-            : ('uncertain' as const);
+      return outcome === 'accepted'
+        ? ('delivered' as const)
+        : outcome === 'rejected'
+          ? ('rejected' as const)
+          : ('uncertain' as const);
     });
   }
   return {
@@ -315,26 +270,15 @@ export function customerContactOutbox(
         if (!outcome) {
           let result: 'accepted' | 'rejected' | 'uncertain' = 'uncertain';
           try {
-            result =
-              claimed.row.kind === 'otp'
-                ? await adapter.sendOtp(
-                    claimed.row.id,
-                    openContactOtp(
-                      options.CUSTOMER_CONTACTS_SECRET!,
-                      claimed.row.id,
-                      claimed.row.encryptedPayload,
-                    ),
-                    signal,
-                  )
-                : await adapter.sourceEffects(
-                    claimed.row.id,
-                    openContactEffects(
-                      options.CUSTOMER_CONTACTS_SECRET!,
-                      claimed.row.id,
-                      claimed.row.encryptedPayload,
-                    ),
-                    signal,
-                  );
+            result = await adapter.sendOtp(
+              claimed.row.id,
+              openContactOtp(
+                options.CUSTOMER_CONTACTS_SECRET!,
+                claimed.row.id,
+                claimed.row.encryptedPayload,
+              ),
+              signal,
+            );
           } catch {
             /* Network, shutdown and decoder failures never expose payloads or raw errors. */
           }

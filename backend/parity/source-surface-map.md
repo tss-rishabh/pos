@@ -16,8 +16,14 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 
 ## Concrete remaining code, by feature group
 
+- **ecommerce-inventory-sync (partial)**: Replace the deleted Python full-sync bridge with the legacy MAIN_API_V2_URL + "syncproduct" call (core/tasks.py:203). See backend/parity/w2-followups.md.
 - **orders-read (partial)**: Add the source new-exchange Product.prod_type=8 guard/eligibility reason while preserving failed-exchange recovery priority. Authorized detail, per-line eligibility/override, recovery claims and complete restoration-group proof are integrated; full reachable-template and renewed-proof browser acceptance remain pending.
 - **checkout-cart (partial)**: Finish the complete reachable source checkout control inventory before claiming all features. Exact scans, offline aliases, product/troubleshoot links, direct quantity editing, quoted summary and complementary deletion are integrated with scoped checks; full source/native checkout acceptance remains pending.
+- **legacy-paid-reversal (partial)**: Restore the legacy AjaxPaymentStatusView flow (order/views.py:685-775) after the 19 November 2026 removal of cash-return intents; see backend/parity/w2-followups.md.
+- **pending-order-cancellation (partial)**: Remove reliance on the deleted API-v2 membership patches and the non-production voucher-history index. See backend/parity/w2-followups.md.
+- **customer-website-handoff (partial)**: Re-home the handoff to the legacy {WEB_URL}/pos/login/ contract (order/views.py:4515); the receiver candidate under backend/compatibility was deleted. See backend/parity/w2-followups.md.
+- **customer-contacts (partial)**: Reconcile with legacy AjaxUpdateUserMobile/AjaxUpdateUserEmail (order/views.py:3369, :3385); the compatibility effects bridge was deleted. See backend/parity/w2-followups.md.
+- **legacy-vinculum-status (partial)**: Replace the deleted private receiver protocol with the legacy sync-API POST (helpers/helpers.py:1133-1159). See backend/parity/w2-followups.md.
 
 ## Line-bound implementation review
 
@@ -25,7 +31,7 @@ These reviewed code paths bind actual import/manager/table controls and preserve
 
 ### stores
 
-Mapped surfaces: `stores/urls.py:8` (implementation_present), `stores/urls.py:9` (implementation_present), `stores/urls.py:10` (implementation_present), `stores/urls.py:11` (external_acceptance), `stores/urls.py:13` (implementation_present), `stores/urls.py:14` (external_acceptance), `stores/urls.py:15` (implementation_present), `stores/urls.py:16` (implementation_present), `stores/templates/stores/_form.html` (external_acceptance), `stores/templates/stores/create.html` (external_acceptance), `stores/templates/stores/edit.html` (external_acceptance), `stores/templates/stores/index.html` (external_acceptance), `stores/templates/stores/show.html` (external_acceptance), `stores/admin.py:6` (external_acceptance).
+Mapped surfaces: `stores/urls.py:8` (implementation_present), `stores/urls.py:9` (implementation_present), `stores/urls.py:10` (implementation_present), `stores/urls.py:11` (external_acceptance), `stores/urls.py:13` (implementation_present), `stores/urls.py:14` (external_acceptance), `stores/urls.py:15` (implementation_present), `stores/urls.py:16` (implementation_present), `stores/templates/stores/_form.html` (external_acceptance), `stores/templates/stores/create.html` (external_acceptance), `stores/templates/stores/edit.html` (external_acceptance), `stores/templates/stores/index.html` (external_acceptance), `stores/templates/stores/show.html` (external_acceptance), `stores/admin.py:6` (partial).
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
@@ -114,25 +120,9 @@ Mapped surfaces: `order/urls.py:8` (partial), `order/urls.py:9` (partial), `orde
 | `backend/src/modules/order-history/online-detail/service.ts:22` | Authorized N/HL/HE details bind native current authority to complete primary or qualified BigQuery facts, then hydrate explicitly current customer/product dimensions. Source/native/routed-App proof is scoped; complete historical transport and per-line actions remain separate. |
 | `backend/src/modules/order-history/search/default-ranges.ts:8` | Server-authoritative rolling five-day store-page bounds include its extra ending minute and bounded midnight fraction without a future warehouse publication. Active type switching must retain this same window; separate online-prefix arithmetic does not establish rendered online-entry behavior. |
 | `frontend/src/pages/operations.tsx:139` | Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission. |
-| `frontend/src/pages/operations.tsx:334` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
+| `frontend/src/pages/operations.tsx:331` | Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls. |
 | `frontend/src/pages/order-history/SourceOrderList.tsx:211` | Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired. |
 | `frontend/src/pages/order-history/search-client.ts:157` | Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes. |
-
-### checkout-cart
-
-Mapped surfaces: `order/urls.py:22` (partial), `order/urls.py:23` (partial), `order/urls.py:24` (partial), `order/urls.py:25` (partial), `order/urls.py:26` (partial), `order/urls.py:27` (partial), `order/urls.py:28` (partial), `order/urls.py:29` (partial), `order/urls.py:30` (partial), `order/urls.py:31` (partial), `order/urls.py:32` (partial), `order/urls.py:35` (partial), `order/urls.py:36` (partial), `order/urls.py:38` (partial), `order/urls.py:39` (partial), `order/templates/order/create_order.html` (partial), `order/templates/order/tab.html` (partial).
-
-| Code/source reference | Reviewed scope |
-| --- | --- |
-| `backend/src/modules/checkout/cancellations/membership-fence.ts:94` | Actual shared membership fence consumes authenticated fixed-function revision metadata under application authority without TRIGGER privileges, retaining exact bodies, native indexes/collations and revision semantics. Go/Python counterparts and independent-account workflow fixtures are integrated; this is not deployed or full-project certification. |
-
-### pending-order-cancellation
-
-Mapped surfaces: `order/urls.py:37` (external_acceptance), `order/templates/order/index.html` (partial), `order/templates/order/show.html` (partial).
-
-| Code/source reference | Reviewed scope |
-| --- | --- |
-| `backend/src/modules/checkout/cancellations/membership-fence.ts:94` | Actual shared membership fence consumes authenticated fixed-function revision metadata under application authority without TRIGGER privileges, retaining exact bodies, native indexes/collations and revision semantics. Go/Python counterparts and independent-account workflow fixtures are integrated; this is not deployed or full-project certification. |
 
 ### returns-exchanges
 
@@ -143,7 +133,7 @@ Mapped surfaces: `order/urls.py:16` (external_acceptance), `order/urls.py:17` (e
 | `order/views.py:4449` | Active source exact order/product/HP create/update, native administrator provenance, end-of-day date and reactivation; empty date is not a clear operation. |
 | `order/templates/order/show.html:247` | Active source closed-window Extend Date action belongs to roles1-3; the manager action is separate from role1 cash/eligibility override. |
 | `backend/src/modules/checkout/return-workflow/extensions.ts:19` | Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts. |
-| `backend/src/modules/checkout/return-workflow/repository.ts:1378` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
+| `backend/src/modules/checkout/return-workflow/repository.ts:1371` | Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction. |
 | `backend/src/modules/checkout/return-workflow/routes.ts:80` | Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor. |
 | `frontend/src/pages/returns/index.tsx:848` | Actual return and exchange page mounts the bound source-role manager control for the selected verified line. |
 | `frontend/src/pages/returns/client.ts:254` | Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields. |
@@ -223,38 +213,6 @@ Mapped surfaces: `report/urls.py:91` (external_acceptance), `report/urls.py:92` 
 | `frontend/src/pages/operational-reports/exports.tsx:115` | Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job. |
 | `frontend/src/pages/operational-reports/export-metadata.ts:47` | Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded. |
 
-### legacy-order-imports
-
-Mapped surfaces: `core/tasks.py:51` (external_acceptance), `core/tasks.py:62` (external_acceptance), `core/templates/order_punch/index.html` (external_acceptance), `core/templates/shopify_order_punch/index.html` (external_acceptance), `core/templates/upload_logs/index.html` (missing).
-
-| Code/source reference | Reviewed scope |
-| --- | --- |
-| `backend/src/modules/checkout/cancellations/membership-fence.ts:94` | Actual shared membership fence consumes authenticated fixed-function revision metadata under application authority without TRIGGER privileges, retaining exact bodies, native indexes/collations and revision semantics. Go/Python counterparts and independent-account workflow fixtures are integrated; this is not deployed or full-project certification. |
-| `backend/src/app.ts:365` | Actual application registration invokes the production import factory; the profile is not a standalone unused constructor. |
-| `backend/src/modules/legacy-order-imports/worker-main.ts:72` | Standalone production worker uses that same configured import factory and its selected/blocked profile decisions. |
-| `backend/src/modules/legacy-order-imports/runtime.ts:23` | Actual server and worker registration composes preparation, benefits, approvals, corrections and the selected screening profile. |
-| `backend/src/modules/legacy-order-imports/worker.ts:20` | Bounded production worker replaces the offline/Shopify source task entry points; original operation outcomes remain durable. |
-| `frontend/src/pages/administration/order-imports/index.tsx:45` | Actual role-bound offline/Shopify forms and saved job/results recovery implement the requested import workflow; the separate commented upload-log page has its explicit inactive disposition below. |
-| `backend/src/modules/legacy-order-imports/financial-adapter-profiles.ts:129` | Actual financial dispatch hooks compose selected membership/benefit and screening reservation/receipt/completion gates. |
-| `backend/compatibility/upstream/legacy-order-imports/source_runtime.py:270` | Private source installs the real membership writer and PosOrder staging composition, including Shopify pending semantics. |
-| `backend/compatibility/upstream/legacy-order-imports/membership_profile.py:134` | Pinned membership setters run through the existing stage/provenance producer; free membership additions/replacements require source causality. |
-| `backend/src/modules/legacy-order-imports/membership-profile/adapter.ts:242` | Node authenticates staged/current membership descriptors and freezes completion provenance instead of assuming entitlements. |
-| `backend/compatibility/upstream/legacy-order-imports/legacy_import_membership_reference.go:155` | Actual Go confirmation uses imported membership activation/reference checks before original native mutation. |
-| `backend/src/modules/legacy-order-imports/benefit-profile/composition.ts:93` | Server financial hooks reduce only proved membership/coupon/complementary ownership and retain exact source/native hashes. |
-| `backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_runtime.py:48` | Private source composes literal birthday-coupon and POS complementary selection, native receipts and current control/history validation. |
-| `backend/compatibility/upstream/legacy-order-imports/benefit-profile/benefit_profile.py:133` | Allows only declared POS selections and causally proved membership additions; unbound wallet/GV/PG values remain deliberately refused. |
-| `backend/compatibility/upstream/legacy-order-imports/coupon_consumption.go:233` | Go confirmation binds actual coupon consumption to the authenticated source benefit descriptor in the native transaction. |
-| `backend/src/modules/legacy-order-imports/screening-runtime.ts:21` | Actual runtime selection requires the reviewed contracts, complete current counter/head configuration and explicit server-owned 0/1 line mode. |
-| `backend/compatibility/upstream/legacy-order-imports/runtime.py:100` | The real private WSGI factory now wraps its actual SourceRuntime, closing the previous uncalled-profile integration gap. |
-| `backend/compatibility/upstream/legacy-order-imports/screening_runtime.py:49` | Source compares its actual line-item setting before installing the real ScreeningSourceRuntime; no silent enabled default. |
-| `backend/compatibility/upstream/legacy-order-imports/screening_profile.py:231` | Only the verified CSV capability/plan hands its exact historical timestamp to the creation writer; public/default callers have no override authority. |
-| `backend/compatibility/upstream/legacy-order-imports/screening_counter.py:220` | Native after-flush provenance restricts the source replay to this attempt’s actual new order/lines; matching customer IDs alone do not authorize historical reads or updates. |
-| `backend/src/modules/screening-origins/native-head-capacity.ts:8` | Shared generated row/UTF-8-byte/metadata budgets keep the actual native writer privilege catalog representable; capacity never authorizes roles, proxies, unsafe grants or head mutation. |
-| `backend/compatibility/upstream/legacy-order-imports/screening_head_metadata.go:328` | Actual Go financial transactions freshly authenticate full native writer/head metadata with retained locks, closed participant authority, roles/proxies and exact fixed readonly routines. |
-| `backend/src/modules/legacy-order-imports/correction-repository.ts:57` | Approved manager workflow retains immutable original input/no-effect proof and records the corrected successor under current manager authority. |
-| `backend/compatibility/upstream/legacy-order-imports/correction_profile.py:43` | Private source independently authenticates the retained correction/calculation and definite original no-effect boundary before using corrected tender. |
-| `frontend/src/pages/administration/order-imports/ImportCorrectionPanel.tsx:81` | Actual manager review/attestation/recovery UI is integrated; the alternate dual-value review candidate does not execute financial work. |
-
 ### inactive-upload-logs
 
 Mapped surfaces: `core/templates/upload_logs/index.html` (missing).
@@ -291,11 +249,11 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 20 | 0 | 167 |
-| jobs | 0 | 0 | 1 | 31 |
-| templates | 32 | 6 | 3 | 65 |
+| routes | 68 | 28 | 0 | 159 |
+| jobs | 0 | 2 | 3 | 27 |
+| templates | 32 | 7 | 5 | 62 |
 | websockets | 0 | 0 | 0 | 1 |
-| administration | 0 | 0 | 0 | 2 |
+| administration | 0 | 1 | 0 | 1 |
 
 “External acceptance” means code exists and the named real dependency remains unaccepted. It does not turn a missing callback/financial adapter into a deployed feature. Warehouse absence, source collation/generation proofs, shared writer patches, physical printers, real OAuth/SMS/mail and SDD/legal rendering are carried at their specific family boundaries in the JSON; they are not hundreds of invented code tasks.
 
@@ -352,8 +310,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/urls.py:94` | `settings/general/` | support | implementation_present |
 | `core/urls.py:95` | `ajax-threshold-update/` | support | implementation_present |
 | `core/urls.py:96` | `ajax-order-buffer-update/` | support | implementation_present |
-| `core/urls.py:99` | `settings/ecom/` | ecommerce-inventory-sync, support | external_acceptance |
-| `core/urls.py:100` | `ajax-ecom-setting-update/` | ecommerce-inventory-sync, support | external_acceptance |
+| `core/urls.py:99` | `settings/ecom/` | ecommerce-inventory-sync, support | partial |
+| `core/urls.py:100` | `ajax-ecom-setting-update/` | ecommerce-inventory-sync, support | partial |
 | `core/urls.py:103` | `gift-card-management/` | gift-card-batches | external_acceptance |
 | `core/urls.py:104` | `ajax-gift-card-list/` | gift-card-batches | external_acceptance |
 | `core/urls.py:105` | `ajax-generate-gift-card/` | gift-card-batches | external_acceptance |
@@ -425,10 +383,10 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:34` | `ajax-verify-otp/` | customer-verification | external_acceptance |
 | `order/urls.py:35` | `ajax-validate-process-order/` | checkout-cart | partial |
 | `order/urls.py:36` | `ajax-order/` | checkout-cart, order-messages | partial |
-| `order/urls.py:37` | `ajax-order-cancel/` | pending-order-cancellation | external_acceptance |
+| `order/urls.py:37` | `ajax-order-cancel/` | pending-order-cancellation | partial |
 | `order/urls.py:38` | `ajax-add-salesperson/` | checkout-cart | partial |
 | `order/urls.py:39` | `ajax-add-salesperson-per-product/` | checkout-cart | partial |
-| `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | external_acceptance |
+| `order/urls.py:40` | `ajax-payment-status/` | legacy-paid-reversal | partial |
 | `order/urls.py:41` | `ajax-check-save-gc/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:42` | `ajax-save-gc-date/` | purchased-gift-cards | external_acceptance |
 | `order/urls.py:43` | `ajax-extend-return/` | returns-exchanges | external_acceptance |
@@ -440,8 +398,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:51` | `ajax-get-payment-mode-by-order-id/` | payments | external_acceptance |
 | `order/urls.py:54` | `ajax-fast-checkout/` | fast-cash | external_acceptance |
 | `order/urls.py:57` | `key-shortcuts/` | cashier-shortcuts | implementation_present |
-| `order/urls.py:58` | `ajax-m-user-mobile` | customer-contacts | external_acceptance |
-| `order/urls.py:59` | `ajax-m-user-email` | customer-contacts | external_acceptance |
+| `order/urls.py:58` | `ajax-m-user-mobile` | customer-contacts | partial |
+| `order/urls.py:59` | `ajax-m-user-email` | customer-contacts | partial |
 | `order/urls.py:60` | `ajax-add-feedback/` | product-feedback | implementation_present |
 | `order/urls.py:63` | `ajax-hl-order/` | local-deliveries | external_acceptance |
 | `order/urls.py:64` | `auto-hl-order/` | local-deliveries | external_acceptance |
@@ -453,8 +411,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:72` | `webhook-cancelled-order/` | local-deliveries | external_acceptance |
 | `order/urls.py:75` | `ajax-check-order-status/` | local-deliveries | external_acceptance |
 | `order/urls.py:78` | `ajax-fetch-the-products/` | order-to-cart-copy | external_acceptance |
-| `order/urls.py:80` | `ajax-update-status-vinc/` | legacy-vinculum-status | external_acceptance |
-| `order/urls.py:82` | `ajax-online-order/` | customer-website-handoff | external_acceptance |
+| `order/urls.py:80` | `ajax-update-status-vinc/` | legacy-vinculum-status | partial |
+| `order/urls.py:82` | `ajax-online-order/` | customer-website-handoff | partial |
 | `order/urls.py:85` | `ajax-gift-voucher-check/` | global-vouchers | external_acceptance |
 | `order/urls.py:86` | `ajax-gift-voucher-convert/` | global-vouchers | external_acceptance |
 | `order/urls.py:88` | `ajax-pg-disc-otp-send/` | discount-approval | external_acceptance |
@@ -569,16 +527,16 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | --- | --- | --- | --- |
 | `core/tasks.py:29` | `parse_csv_product_store` | parent-store-assignment-csv | external_acceptance |
 | `core/tasks.py:40` | `parse_csv_product_stock` | inventory-imports | external_acceptance |
-| `core/tasks.py:51` | `parse_csv_offline_order_punchin` | legacy-order-imports | external_acceptance |
-| `core/tasks.py:62` | `parse_csv_shopify_order_punchin` | legacy-order-imports | external_acceptance |
+| `core/tasks.py:51` | `parse_csv_offline_order_punchin` | legacy-order-imports | missing |
+| `core/tasks.py:62` | `parse_csv_shopify_order_punchin` | legacy-order-imports | missing |
 | `core/tasks.py:71` | `send_sms` | order-messages | external_acceptance |
 | `core/tasks.py:84` | `send_login_otp` | identity | external_acceptance |
 | `core/tasks.py:147` | `accept_order` | local-deliveries | external_acceptance |
 | `core/tasks.py:159` | `reject_order` | local-deliveries | external_acceptance |
 | `core/tasks.py:171` | `new_order_create_communication` | local-deliveries | external_acceptance |
-| `core/tasks.py:182` | `sync_ecom_inventory` | ecommerce-inventory-sync | external_acceptance |
+| `core/tasks.py:182` | `sync_ecom_inventory` | ecommerce-inventory-sync | partial |
 | `core/tasks.py:209` | `generate_and_upload_gift_card` | gift-card-batches | external_acceptance |
-| `core/tasks.py:226` | `push_vinc_order_for_all` | legacy-vinculum-status | external_acceptance |
+| `core/tasks.py:226` | `push_vinc_order_for_all` | legacy-vinculum-status | partial |
 | `core/tasks.py:232` | `send_pg_disc_otp` | discount-approval | external_acceptance |
 | `core/tasks.py:271` | `pg_disc_otp_applied_email` | discount-approval | external_acceptance |
 | `order/tasks.py:150` | `auto_reject_timed_out_for_store` | express-fulfillment | external_acceptance |
@@ -617,13 +575,13 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/documentation/documentation_lists.html` | `core/templates/documentation/documentation_lists.html` | documentation | external_acceptance |
 | `core/templates/documentation/index.html` | `core/templates/documentation/index.html` | documentation | external_acceptance |
 | `core/templates/documentation/show.html` | `core/templates/documentation/show.html` | documentation | external_acceptance |
-| `core/templates/ecom_delivery/index.html` | `core/templates/ecom_delivery/index.html` | support, ecommerce-inventory-sync | external_acceptance |
+| `core/templates/ecom_delivery/index.html` | `core/templates/ecom_delivery/index.html` | support, ecommerce-inventory-sync | partial |
 | `core/templates/edc_edit/edc_detail_and_edit.html` | `core/templates/edc_edit/edc_detail_and_edit.html` | terminals | implementation_present |
 | `core/templates/gift_card/index.html` | `core/templates/gift_card/index.html` | gift-card-batches | external_acceptance |
 | `core/templates/mpos_download/index.html` | `core/templates/mpos_download/index.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/mpos_download/thank_you.html` | `core/templates/mpos_download/thank_you.html` | staff-installer-handoff | external_acceptance |
 | `core/templates/offline_billing/biller.html` | `core/templates/offline_billing/biller.html` | offline-scratch-invoice | external_acceptance |
-| `core/templates/order_punch/index.html` | `core/templates/order_punch/index.html` | legacy-order-imports | external_acceptance |
+| `core/templates/order_punch/index.html` | `core/templates/order_punch/index.html` | legacy-order-imports | missing |
 | `core/templates/products/hold_stock/hold_inventory_logs.html` | `core/templates/products/hold_stock/hold_inventory_logs.html` | inventory-audit | external_acceptance |
 | `core/templates/products/hold_stock/index.html` | `core/templates/products/hold_stock/index.html` | inventory-audit | external_acceptance |
 | `core/templates/products/index.html` | `core/templates/products/index.html` | catalog-read | external_acceptance |
@@ -640,7 +598,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `core/templates/salespersons/edit.html` | `core/templates/salespersons/edit.html` | salespeople | implementation_present |
 | `core/templates/salespersons/index.html` | `core/templates/salespersons/index.html` | salespeople | implementation_present |
 | `core/templates/settings/index.html` | `core/templates/settings/index.html` | support | implementation_present |
-| `core/templates/shopify_order_punch/index.html` | `core/templates/shopify_order_punch/index.html` | legacy-order-imports | external_acceptance |
+| `core/templates/shopify_order_punch/index.html` | `core/templates/shopify_order_punch/index.html` | legacy-order-imports | missing |
 | `core/templates/special_permission/index.html` | `core/templates/special_permission/index.html` | special-permission-history, wallet-adjustments, global-vouchers, global-barcode-assignment | external_acceptance |
 | `core/templates/upload_logs/index.html` | `core/templates/upload_logs/index.html` | inventory-imports, legacy-order-imports, parent-store-assignment-csv, inactive-upload-logs | missing |
 | `core/templates/user_to_app/index.html` | `core/templates/user_to_app/index.html` | customer-application-handoff | external_acceptance |
@@ -721,11 +679,11 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 
 | Source | Surface | Families | Implementation disposition |
 | --- | --- | --- | --- |
-| `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | external_acceptance |
+| `stores/admin.py:6` | `Store` | stores, store-images, support, ecommerce-inventory-sync, inherited-administration-history, inherited-model-add-forms | partial |
 | `users/admin.py:20` | `User, UserAdmin` | operators, operator-administrative-profile, operator-mfa, model-administration-access, inherited-administration-history, inherited-model-add-forms | external_acceptance |
 
 ## Reproducibility and limits
 
-Regenerate with `python3 tools/parity/build_source_surface_map.py`; validate saved outputs without writing using `--check`. The generator verifies pinned source hashes, exact source ID/count coverage, explicit family membership, evidence-path existence and stable file inputs during generation. It only writes the two new map artifacts. It does not run tests, builds, servers, providers, DDL or source jobs and never modifies application code, source siblings or the release coverage ledger.
+Regenerate with `node --import tsx tools/parity/build-source-surface-map.ts`; validate saved outputs without writing using `--check`. The generator verifies pinned source hashes, exact source ID/count coverage, explicit family membership, evidence-path existence and stable file inputs during generation. It only writes the two new map artifacts. It does not run tests, builds, servers, providers, DDL or source jobs and never modifies application code, source siblings or the release coverage ledger.
 
-Source definitions/rendered templates are resolved from pinned Python AST/imports where possible. Framework/dynamic imports remain labeled explicitly. Test references identify evidence scope; they are not fresh test receipts. Implementation hashes capture this review snapshot while other agents may continue their separately owned work; regenerate after those slices land.
+Source definitions/rendered templates are resolved by static reading of the pinned Python text (statement boundaries, top-level imports and string constants); no legacy code is imported or executed. Framework/dynamic imports remain labeled explicitly. Test references identify evidence scope; they are not fresh test receipts. Family definitions are frozen in `tools/parity/source-surface-families.json`; edit them there and regenerate.

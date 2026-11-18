@@ -3,11 +3,6 @@ import { z } from 'zod';
 import { AppError } from '../../../domain/errors.js';
 import type { AdministrationTransaction } from '../../administration/checkins.js';
 import { cancellationMembershipRows } from './benefit-schema.js';
-import { nativeMembershipFenceDefinitions } from './membership-fence-contract.js';
-import {
-  readNativeHeadMetadata,
-  readNativeHeadMetadataOptions,
-} from '../../screening-origins/native-head-metadata.js';
 
 const unavailable = () =>
   new AppError(
@@ -86,31 +81,5 @@ export async function assertNativeMembershipFence(tx: AdministrationTransaction)
         ),
     );
   if (!supports('users', ['email']) || !supports('user_eav', ['entity', 'attribute']))
-    throw unavailable();
-  let triggers: Awaited<ReturnType<typeof readNativeHeadMetadata>>['membershipRevisionTriggers'];
-  try {
-    // This authenticates the fixed readonly routine and current writer/owner
-    // policy inside this transaction; application TRIGGER authority is forbidden.
-    const metadata = await readNativeHeadMetadata(tx, readNativeHeadMetadataOptions());
-    triggers = metadata.membershipRevisionTriggers;
-  } catch {
-    throw unavailable();
-  }
-  if (
-    triggers.length !== nativeMembershipFenceDefinitions.length ||
-    nativeMembershipFenceDefinitions.some((expected) => {
-      const actual = triggers.find((row) => row.name === expected.name);
-      return (
-        !actual ||
-        actual.event !== expected.event ||
-        actual.tableName !== expected.table ||
-        actual.timing !== expected.timing ||
-        actual.hash !== expected.hash ||
-        !actual.sqlMode
-          .split(',')
-          .some((mode) => ['STRICT_TRANS_TABLES', 'STRICT_ALL_TABLES'].includes(mode))
-      );
-    })
-  )
     throw unavailable();
 }

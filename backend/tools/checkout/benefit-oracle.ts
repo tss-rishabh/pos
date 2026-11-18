@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { z } from 'zod';
 
 export interface BenefitOracleCase {
@@ -41,20 +40,3 @@ const result = z.object({
 });
 /** Result contract shared by the executed oracle and its committed golden capture. */
 export { result as benefitOracleResult };
-/** Controlled source fixture SQL only. Production code never imports this test harness. */
-export function benefitOracle(
-  cases: readonly BenefitOracleCase[],
-  profile: 'legacy' | 'proposed-wallet-v1' = 'legacy',
-) {
-  if (!cases.length || cases.length > 1000) throw new Error('Bounded benefit cases required.');
-  return result.parse(
-    JSON.parse(
-      execFileSync('python3', ['tools/checkout/benefit_oracle.py'], {
-        input: JSON.stringify({ cases, profile }),
-        encoding: 'utf8',
-        maxBuffer: 16 * 1024 * 1024,
-        timeout: 20000,
-      }),
-    ) as unknown,
-  );
-}

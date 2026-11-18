@@ -6,7 +6,6 @@ import { boundedText } from '../domain/http-json.js';
 import { securityAlerts } from './security-schema.js';
 import { loginChallenges, loginSecurity } from './mfa-schema.js';
 import { pruneExpiredSessions } from './sessions.js';
-import { pruneDesktopSsoFlows } from './desktop-sso.js';
 import { retryTransaction } from '../db/retry.js';
 import { pruneOperatorMfaEnrollments } from '../modules/administration/mfa.js';
 import { pruneSlackConnections } from '../modules/administration/slack-connections.js';
@@ -218,7 +217,6 @@ export function securityAlertWorker(
         .where(lt(loginChallenges.expiresAt, before))
         .limit(500);
       await pruneExpiredSessions(db, before);
-      await pruneDesktopSsoFlows(db, now());
       await pruneOperatorMfaEnrollments(db, new Date(now()));
       await pruneSlackConnections(db, now());
       await pruneApplicationLinks(db, now());

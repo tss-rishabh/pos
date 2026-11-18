@@ -10,10 +10,6 @@ import { phoneOtpDelivery } from '../../auth/delivery.js';
 import { registrationEnvironment } from './customers/service.js';
 import { customerRegistrationOutboxDispatcher } from './customers/outbox.js';
 import { localOrderMessageDelivery } from './order-messages/service.js';
-import { checkoutEnvironment } from './gateway.js';
-import { publicScreeningOptions } from './screening-writer/options.js';
-import { configuredPublicScreeningCoordinator } from './screening-writer/runtime.js';
-import { publicScreeningPublicationWorker } from './screening-writer/publication.js';
 
 const runId = crypto.randomUUID(),
   controller = new AbortController();
@@ -74,23 +70,14 @@ try {
       registrationEnvironment(),
       phoneOtpDelivery(),
       observe,
-    ),
-    dispatchScreening = publicScreeningPublicationWorker(
-      configuredPublicScreeningCoordinator(
-        config,
-        db,
-        checkoutEnvironment(),
-        publicScreeningOptions(),
-      ),
     );
   do {
     try {
-      const [payments, returns, discounts, registrations, screening] = await Promise.all([
+      const [payments, returns, discounts, registrations] = await Promise.all([
         dispatchPayment(),
         dispatchReturn(),
         dispatchDiscount(),
         dispatchRegistration(),
-        dispatchScreening.drain(controller.signal),
       ]);
       if (Object.values(payments).some((value) => value > 0))
         process.stdout.write(event('payment-delivery', 'dispatch', payments));
@@ -100,8 +87,6 @@ try {
         process.stdout.write(event('discount-delivery', 'dispatch', discounts));
       if (Object.values(registrations).some((value) => value > 0))
         process.stdout.write(event('customer-registration-delivery', 'dispatch', registrations));
-      if (Object.values(screening).some((value) => value > 0))
-        process.stdout.write(event('screening-publication', 'dispatch', screening));
     } catch {
       process.stderr.write(
         event('financial-delivery', 'failed', { errorCode: 'FINANCIAL_OUTBOX_DISPATCH_FAILED' }),

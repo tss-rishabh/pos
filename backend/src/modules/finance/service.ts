@@ -27,10 +27,6 @@ import {
   paymentCorrectionFinanceOptions,
   type PaymentCorrectionFinanceOptions,
 } from './payment-corrections.js';
-import {
-  assertSameCashReturnHeads,
-  cashReturnPartitionHeads,
-} from '../checkout/payment-reversals/intent-guards.js';
 import { aggregateOfflineCash, matchedImportedOfflineOrder } from './offline-cash.js';
 import {
   canClose,
@@ -183,15 +179,7 @@ export function financeService(
       requireStore(user, storeId);
       await checkins.assertCheckIn(user.id, storeId);
       const selected = date || defaultCloseDate(clock(), config);
-      const db = databases.get('writer'),
-        heads = await cashReturnPartitionHeads(
-          db,
-          [storeId],
-          selected,
-          selected,
-          'daily',
-          corrections.proofKey ?? '',
-        );
+      const db = databases.get('writer');
       const { snapshot, close: observedClose } = await db.transaction(
         async (transaction) => ({
           snapshot: await collectionSnapshot(transaction, storeId, selected, corrections),
@@ -201,17 +189,6 @@ export function financeService(
           isolationLevel: 'repeatable read',
           accessMode: 'read only',
         },
-      );
-      assertSameCashReturnHeads(
-        heads,
-        await cashReturnPartitionHeads(
-          db,
-          [storeId],
-          selected,
-          selected,
-          'daily',
-          corrections.proofKey ?? '',
-        ),
       );
       let close = observedClose;
       if (close?.status === 'CLOSED') {

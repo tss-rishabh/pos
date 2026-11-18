@@ -1,5 +1,0 @@
-{
-  "extends": "../../../tsconfig.json",
-  "compilerOptions": { "types": ["vite/client", "node"] },
-  "include": ["./run.ts", "../../../../backend/src/modules/checkout/payments/paytmchecksum.d.ts"]
-}

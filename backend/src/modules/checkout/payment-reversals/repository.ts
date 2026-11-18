@@ -9,7 +9,6 @@ import {
   Order,
   OrderStore,
   PosTransactionLog,
-  PosUser,
   ReturnOrder,
   Store,
 } from '../../../db/legacy-schema.js';
@@ -25,7 +24,6 @@ import { pendingOrderCancellations } from '../cancellations/schema.js';
 import { offlineCashOrderLinks, offlineCashReceipts } from '../offline-cash/schema.js';
 import { cashRefundAudit } from '../offline-cash/source-ledger.js';
 import { readOrderPaymentEvidence } from '../payments/repository.js';
-import { storedPaymentAttemptSchema } from '../payments/contracts.js';
 import { paymentAttempts, paymentOutbox } from '../payments/schema.js';
 import {
   assertCheckoutProjection,
@@ -62,28 +60,6 @@ import {
   paymentReversals,
   paymentReversalLineAuthority,
 } from './schema.js';
-import {
-  claimReversalInput,
-  lockRetainedClaim,
-  retainedCashEvidence,
-  resolveRetainedClaim,
-  retainedCashReturnService,
-} from './intent-claims.js';
-import { claimHash, verifiedClaim } from './intent-claim-evidence.js';
-import { cashReturnClaims } from './intent-claim-schema.js';
-import { cashReturnIntents } from './intent-schema.js';
-import {
-  publicIntent,
-  verifiedIntent,
-  canonicalInstant,
-  assertIntentSession,
-} from './intent-evidence.js';
-import {
-  cashReturnIntentService,
-  intentReversalInput,
-  lockAttestedIntent,
-  resolveIntent,
-} from './intent-service.js';
 
 type Transaction = AdministrationTransaction;
 export interface PaymentReversalRepositoryOptions extends PaymentReversalOptions {
@@ -96,8 +72,6 @@ export interface PaymentReversalRepositoryOptions extends PaymentReversalOptions
     tx: Transaction,
   ) => Promise<void>;
   clock?: () => Temporal.Instant;
-  /** Required cooperating whole-order/effect fence, called under Store→Order locks. */
-  assertHandoverReady?: (tx: Transaction, orderId: string) => Promise<void>;
 }
 const refused = (code: string) =>
   new AppError(
@@ -117,8 +91,8 @@ export function paymentReversalRepository(
       options.assertCheckIn ??
       ((userId, storeId, counterId, tx) => checks.assertCheckIn(userId, storeId, counterId, tx)),
     corrections = paymentCorrectionEvidence(options.hashSecret),
-    now = (instant = options.clock?.() ?? Temporal.Now.instant()) =>
-      instant
+    now = () =>
+      (options.clock?.() ?? Temporal.Now.instant())
         .toZonedDateTimeISO(config.BUSINESS_TIMEZONE)
         .toPlainDateTime()
         .toString({ smallestUnit: 'second' })
@@ -177,8 +151,6 @@ export function paymentReversalRepository(
     storeId: string,
     orderId: string,
     order: Awaited<ReturnType<typeof scope>>,
-    exceptIntentId?: string,
-    exceptClaimId?: string,
   ) {
     if (
       options.contract !== paymentReversalContract ||
@@ -230,7 +202,7 @@ export function paymentReversalRepository(
     if (returned) throw refused('PAYMENT_REVERSAL_RETURN_REVIEW_REQUIRED');
     await assertCheckoutProjection(tx, { orderId, storeId, counterId: String(order.counterId) });
     const history = await readOrderPaymentEvidence(tx, orderId, options.hashSecret),
-      attempts = await corrections.effective(tx, history.attempts, exceptIntentId, exceptClaimId),
+      attempts = await corrections.effective(tx, history.attempts),
       active = attempts.filter(
         (attempt) => !['failed', 'cancelled', 'reversed'].includes(attempt.status),
       );
@@ -384,102 +356,7 @@ export function paymentReversalRepository(
       );
     return { original, lines: manifest, snapshotHash };
   }
-  async function handoverReady(tx: Transaction, orderId: string) {
-    if (!options.assertHandoverReady)
-      throw new AppError(
-        503,
-        'CASH_RETURN_HANDOVER_GUARD_REQUIRED',
-        'Configure the cooperating handover guard before preparing or resolving a cash return.',
-      );
-    await options.assertHandoverReady(tx, orderId);
-  }
-  const intents = cashReturnIntentService(db, config, options, {
-    scope,
-    async inspect(tx, storeId, orderId, order) {
-      await handoverReady(tx, orderId);
-      const value = await evaluate(tx, storeId, orderId, order);
-      return {
-        counterId: String(order.counterId),
-        snapshotHash: value.snapshotHash,
-        originalPaymentId: value.original.id,
-        originalPaymentHash: originalPaymentHash(value.original, options.hashSecret),
-        returnedCash: amount(minorUnits(value.original.cashAmount)),
-        orderDate: order.createdAt.slice(0, 10),
-        originalFundingAt: value.original.updatedAt,
-      };
-    },
-    async armed(tx, body) {
-      if (!body.armed) throw refused('CASH_RETURN_EVIDENCE_INVALID');
-      const timestamp = now(Temporal.Instant.from(body.armed.at)),
-        date = timestamp.slice(0, 10);
-      await staleCorrectionClose(
-        tx,
-        body.storeId,
-        [body.orderDate, body.originalFundingAt.slice(0, 10), date],
-        body.armed.operationId,
-        timestamp,
-        'CASH_RETURN_PENDING',
-      );
-    },
-  });
-  const claims = retainedCashReturnService(db, config, options, {
-    scope,
-    async funding(tx, storeId, orderId, order, input) {
-      const [row] = await tx
-        .select()
-        .from(paymentAttempts)
-        .where(eq(paymentAttempts.id, input.original.originalPaymentId))
-        .limit(1)
-        .for('update');
-      if (!row) throw refused('PAYMENT_REVERSAL_ORIGINAL_FUNDS_UNPROVED');
-      const original = storedPaymentAttemptSchema.parse(row.state),
-        [handler] = await tx
-          .select({ id: PosUser.id })
-          .from(PosUser)
-          .where(eq(PosUser.id, BigInt(input.returnedBy)))
-          .limit(1)
-          .for('share');
-      if (
-        !handler ||
-        row.status !== original.status ||
-        row.id !== original.id ||
-        row.orderId !== original.orderId ||
-        row.storeId !== original.storeId ||
-        row.operatorId !== original.operatorId ||
-        original.status !== 'paid' ||
-        original.channel !== 'cash' ||
-        original.legacySource ||
-        original.machineId !== null ||
-        original.busyOperationId !== null ||
-        original.providerReference !== original.transactionId ||
-        original.orderId !== orderId ||
-        original.storeId !== storeId ||
-        original.counterId !== String(order.counterId) ||
-        input.original.counterId !== original.counterId ||
-        minorUnits(original.cashAmount) <= 0n ||
-        minorUnits(original.cashAmount) !== minorUnits(input.original.returnedCash) ||
-        minorUnits(original.cashReceived) < minorUnits(original.cashAmount) ||
-        minorUnits(original.onlineAmount) !== 0n
-      )
-        throw refused('PAYMENT_REVERSAL_ORIGINAL_FUNDS_UNPROVED');
-      return {
-        orderDate: order.createdAt.slice(0, 10),
-        originalFundingAt: original.updatedAt,
-        originalPaymentHash: originalPaymentHash(original, options.hashSecret),
-      };
-    },
-    async registered(tx, body) {
-      await staleCorrectionClose(
-        tx,
-        body.storeId,
-        [body.orderDate, body.originalFundingAt.slice(0, 10), body.businessDate],
-        body.id,
-        now(Temporal.Instant.from(body.registeredAt)),
-        'CASH_RETURN_PENDING',
-      );
-    },
-  });
-  const service = {
+  return {
     async context(
       user: Principal,
       storeId: string,
@@ -496,25 +373,7 @@ export function paymentReversalRepository(
             .orderBy(desc(paymentReversals.recordedAt), desc(paymentReversals.id))
             .limit(1),
           latest = prior ? verifiedReversal(prior, options.hashSecret) : null,
-          [active] = await tx
-            .select()
-            .from(cashReturnIntents)
-            .where(
-              and(
-                eq(cashReturnIntents.storeId, storeId),
-                eq(cashReturnIntents.orderId, orderId),
-                inArray(cashReturnIntents.phase, ['PREPARED', 'RETURN_PENDING', 'ATTESTED']),
-              ),
-            )
-            .orderBy(asc(cashReturnIntents.id))
-            .limit(1),
-          base = {
-            orderId,
-            storeId,
-            counterId: String(order.counterId),
-            latest,
-            activeIntent: active ? publicIntent(verifiedIntent(active, options.hashSecret)) : null,
-          };
+          base = { orderId, storeId, counterId: String(order.counterId), latest };
         try {
           const value = await evaluate(tx, storeId, orderId, order);
           return {
@@ -561,49 +420,13 @@ export function paymentReversalRepository(
         return verifiedReversal(row, options.hashSecret);
       });
     },
-    async create(
-      user: Principal,
-      storeId: string,
-      orderId: string,
-      raw: PaymentReversalInput,
-      sessionId?: string,
-    ) {
+    async create(user: Principal, storeId: string, orderId: string, raw: PaymentReversalInput) {
       const input = paymentReversalInputSchema.parse(raw);
       return transact(async (tx) => {
         const order = await scope(tx, user, storeId, orderId),
-          intent = input.intentId
-            ? await lockAttestedIntent(
-                tx,
-                user,
-                storeId,
-                orderId,
-                input,
-                sessionId ?? '',
-                options.hashSecret,
-              )
-            : null,
-          claim = input.claimId
-            ? await lockRetainedClaim(
-                tx,
-                user,
-                storeId,
-                orderId,
-                input,
-                sessionId ?? '',
-                options.hashSecret,
-              )
-            : null,
           hash = operationHash(
-            intent
-              ? 'payment-correction.create-intent.v1'
-              : claim
-                ? 'payment-correction.create-claim.v1'
-                : 'payment-correction.create.v1',
-            intent
-              ? { storeId, orderId, input, preparedHash: intent.body.preparedHash }
-              : claim
-                ? { storeId, orderId, input, claimHash: claimHash(claim.body, options.hashSecret) }
-                : { userId: user.id, storeId, orderId, input },
+            'payment-correction.create.v1',
+            { userId: user.id, storeId, orderId, input },
             options.hashSecret,
           ),
           [prior] = await tx
@@ -614,109 +437,30 @@ export function paymentReversalRepository(
             .for('update');
         if (prior) {
           if (
-            (!claim && prior.requestHash !== hash) ||
-            (!intent && !claim && prior.operatorId !== user.id) ||
+            prior.requestHash !== hash ||
+            prior.operatorId !== user.id ||
             prior.storeId !== storeId ||
             prior.orderId !== orderId
           )
             throw refused('IDEMPOTENCY_CONFLICT');
-          const receipt = verifiedReversal(prior, options.hashSecret);
-          if (
-            intent &&
-            (intent.body.phase !== 'RECORDED' ||
-              receipt.cashReturn?.intentId !== intent.body.id ||
-              intent.body.resolution?.receiptHash !==
-                operationHash('payment-correction.receipt.v1', receipt, options.hashSecret))
-          )
-            throw refused('CASH_RETURN_EVIDENCE_INVALID');
-          if (claim) {
-            const oldHash = operationHash(
-              'payment-correction.create.v1',
-              { userId: receipt.operatorId, storeId, orderId, input: claim.body.input.original },
-              options.hashSecret,
-            );
-            if (prior.requestHash !== hash && prior.requestHash !== oldHash)
-              throw refused('IDEMPOTENCY_CONFLICT');
-            if (
-              receipt.originalPaymentHash !== claim.body.originalPaymentHash ||
-              receipt.originalPaymentId !== input.originalPaymentId ||
-              receipt.cashReturnReceiptId !== input.cashReturnReceiptId ||
-              receipt.returnedCash !== amount(minorUnits(input.returnedCash)) ||
-              receipt.reason !== input.reason ||
-              receipt.counterId !== input.counterId ||
-              receipt.businessDate !== claim.body.businessDate ||
-              (receipt.cashReturn?.returnedBy ?? receipt.operatorId) !== claim.body.input.returnedBy
-            )
-              throw refused('CASH_RETURN_RECORDED_DATE_REVIEW_REQUIRED');
-            const [funding] = await tx
-              .select({ state: paymentAttempts.state })
-              .from(paymentAttempts)
-              .where(eq(paymentAttempts.id, input.originalPaymentId))
-              .limit(1)
-              .for('update');
-            if (!funding) throw refused('CASH_RETURN_EVIDENCE_INVALID');
-            await corrections.effective(
-              tx,
-              [storedPaymentAttemptSchema.parse(funding.state)],
-              undefined,
-              claim.body.id,
-            );
-            if (claim.resolved) {
-              if (claim.resolved.receiptHash !== prior.receiptHash)
-                throw refused('CASH_RETURN_EVIDENCE_INVALID');
-            } else
-              await resolveRetainedClaim(
-                tx,
-                claim.body,
-                receipt,
-                user,
-                claim.sessionHash,
-                options.hashSecret,
-                options.clock?.() ?? Temporal.Now.instant(),
-              );
-            await assertIntentSession(tx, user.id, sessionId ?? '', options.hashSecret);
-          }
-          return receipt;
+          return verifiedReversal(prior, options.hashSecret);
         }
-        if (claim?.resolved) throw refused('CASH_RETURN_EVIDENCE_INVALID');
-        if ((!intent || intent.body.phase !== 'ATTESTED' || !intent.body.attestation) && !claim)
-          throw refused('CASH_RETURN_INTENT_REQUIRED');
-        await handoverReady(tx, orderId);
         const [used] = await tx
           .select({ id: paymentReversals.id })
           .from(paymentReversals)
           .where(eq(paymentReversals.cashReturnReceiptId, input.cashReturnReceiptId))
           .limit(1);
         if (used) throw refused('CASH_RETURN_RECEIPT_ALREADY_USED');
-        const evidence = await evaluate(
-          tx,
-          storeId,
-          orderId,
-          order,
-          intent?.body.id,
-          claim?.body.id,
-        );
+        const evidence = await evaluate(tx, storeId, orderId, order);
         if (
           input.snapshotHash !== evidence.snapshotHash ||
           input.originalPaymentId !== evidence.original.id ||
           input.counterId !== String(order.counterId) ||
-          minorUnits(input.returnedCash) !== minorUnits(evidence.original.cashAmount) ||
-          (intent?.body.originalPaymentHash ?? claim?.body.originalPaymentHash) !==
-            originalPaymentHash(evidence.original, options.hashSecret)
+          minorUnits(input.returnedCash) !== minorUnits(evidence.original.cashAmount)
         )
           throw refused('PAYMENT_REVERSAL_STATE_CHANGED');
-        const recordingInstant = options.clock?.() ?? Temporal.Now.instant();
-        const attestedAt = intent?.body.attestation?.at ?? claim?.body.registeredAt;
-        if (
-          !attestedAt ||
-          Temporal.Instant.compare(recordingInstant, Temporal.Instant.from(attestedAt)) < 0
-        )
-          throw refused('CASH_RETURN_CLOCK_MOVED_BACKWARD');
-        const timestamp = now(recordingInstant),
+        const timestamp = now(),
           original = evidence.original,
-          cashReturn =
-            intent?.body.attestation?.evidence ??
-            (claim ? retainedCashEvidence(claim.body, options.hashSecret) : undefined),
           receipt = paymentReversalReceiptSchema.parse({
             id: input.operationId,
             contract: paymentReversalContract,
@@ -736,9 +480,7 @@ export function paymentReversalRepository(
             cashReturnReceiptId: input.cashReturnReceiptId,
             reason: input.reason,
             recordedAt: timestamp,
-            businessDate: cashReturn?.businessDate,
-            cashReturn,
-            recordedInstant: canonicalInstant(recordingInstant),
+            businessDate: timestamp.slice(0, 10),
             headerHash: order.headerHash,
             lines: evidence.lines,
             stockChanged: false,
@@ -796,12 +538,12 @@ export function paymentReversalRepository(
             orderId,
             storeId,
             counterId: receipt.counterId,
-            operatorId: receipt.cashReturn!.returnedBy,
+            operatorId: user.id,
             direction: 'out',
             amount: receipt.returnedCash,
             businessDate: receipt.businessDate,
             sourceId: receipt.id,
-            recordedAt: receipt.cashReturn!.returnedAt,
+            recordedAt: timestamp,
           },
           options.hashSecret,
         );
@@ -885,93 +627,8 @@ export function paymentReversalRepository(
           originalPaymentHash(originalRow.state, options.hashSecret) !== receipt.originalPaymentHash
         )
           throw refused('PAYMENT_REVERSAL_ORIGINAL_CHANGED');
-        if (intent)
-          await resolveIntent(
-            tx,
-            intent.body,
-            receipt,
-            user,
-            intent.sessionHash,
-            options.hashSecret,
-            config.BUSINESS_TIMEZONE,
-            recordingInstant,
-          );
-        if (claim)
-          await resolveRetainedClaim(
-            tx,
-            claim.body,
-            receipt,
-            user,
-            claim.sessionHash,
-            options.hashSecret,
-            recordingInstant,
-          );
-        await assertIntentSession(tx, user.id, sessionId ?? '', options.hashSecret);
         return receipt;
       });
-    },
-  };
-  return {
-    ...service,
-    intents,
-    claims,
-    async resolveClaim(
-      user: Principal,
-      storeId: string,
-      orderId: string,
-      claimId: string,
-      sessionId: string,
-      operationId: string,
-    ) {
-      if (operationId !== claimId) throw refused('IDEMPOTENCY_CONFLICT');
-      const body = await transact(async (tx) => {
-        await scope(tx, user, storeId, orderId);
-        await assertIntentSession(tx, user.id, sessionId, options.hashSecret);
-        const [row] = await tx
-          .select()
-          .from(cashReturnClaims)
-          .where(
-            and(
-              eq(cashReturnClaims.id, claimId),
-              eq(cashReturnClaims.storeId, storeId),
-              eq(cashReturnClaims.orderId, orderId),
-            ),
-          )
-          .limit(1);
-        if (!row) throw refused('CASH_RETURN_CLAIM_NOT_FOUND');
-        return verifiedClaim(row, options.hashSecret);
-      });
-      return service.create(user, storeId, orderId, claimReversalInput(body), sessionId);
-    },
-    async resolve(
-      user: Principal,
-      storeId: string,
-      orderId: string,
-      intentId: string,
-      sessionId: string,
-      operationId?: string,
-    ) {
-      // The subsequent create transaction rechecks the same sealed state and all
-      // source financial rows; this read never authorizes a money mutation itself.
-      const body = await transact(async (tx) => {
-        await scope(tx, user, storeId, orderId);
-        const [row] = await tx
-          .select()
-          .from(cashReturnIntents)
-          .where(
-            and(
-              eq(cashReturnIntents.id, intentId),
-              eq(cashReturnIntents.storeId, storeId),
-              eq(cashReturnIntents.orderId, orderId),
-            ),
-          )
-          .limit(1);
-        if (!row) throw refused('CASH_RETURN_INTENT_NOT_FOUND');
-        return verifiedIntent(row, options.hashSecret);
-      });
-      if (operationId !== undefined && operationId !== body.prepare.correctionId)
-        throw refused('IDEMPOTENCY_CONFLICT');
-      return service.create(user, storeId, orderId, intentReversalInput(body), sessionId);
     },
   };
 }

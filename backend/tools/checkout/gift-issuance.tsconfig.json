@@ -9,7 +9,6 @@
     "../../src/modules/checkout/gift-card-issuance.ts",
     "../../src/modules/checkout/payments/paytmchecksum.d.ts",
     "../../tests/checkout/gift-cards.test.ts",
-    "../../tests/checkout/gift-issuance.mysql.integration.test.ts",
     "../../tests/checkout/mysql.integration.test.ts",
     "../../src/observability/events.ts"
   ]

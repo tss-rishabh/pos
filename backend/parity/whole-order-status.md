@@ -2,10 +2,11 @@
 
 This implements `AjaxUpdateStatusVincView` and `push_vinc_order_for_all` as a
 separate whole-order feature. Express PACK/SHIP and local-delivery commands are
-not used as evidence for it. The private receiver executes the pinned STORE
-functions, including their PACK → SHIP → DELIVER chain and Netcore callbacks.
-Live receiver/vendor acceptance remains a deployment qualification; no live
-vendor, message, production database write or DDL was performed.
+not used as evidence for it. The private receiver that executed copied sync-API
+STORE functions (`compatibility/upstream/whole-order-status`) was deleted on 19
+November 2026, together with its handover barrier. Sections below that describe
+the receiver are historical. See `w2-followups.md` for the legacy sync-API
+dispatch that must replace it.
 
 ## Source evidence
 

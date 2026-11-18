@@ -1,14 +1,6 @@
 import { execFileSync, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import {
-  existsSync,
-  lstatSync,
-  mkdirSync,
-  readFileSync,
-  readdirSync,
-  statSync,
-  writeFileSync,
-} from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { z } from 'zod';
@@ -34,55 +26,8 @@ const childEnvironment: NodeJS.ProcessEnv = {
 };
 for (const name of ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP', 'SYSTEMROOT', 'COMSPEC'])
   if (process.env[name]) childEnvironment[name] = process.env[name];
-// Only local source roots are forwarded, never arbitrary service environment or
-// credentials. Every source consumer still validates its immutable byte pins.
-for (const name of ['POS_LEGACY_IMPORT_SOURCE_ROOT', 'SCREENING_SOURCE_ROOT']) {
-  const value = process.env[name];
-  if (value) {
-    const path = resolve(value);
-    if (!existsSync(path) || !statSync(path).isDirectory())
-      throw new Error('Pinned source root is unavailable.');
-    childEnvironment[name] = path;
-  }
-}
-if (flags.has('--mysql'))
-  for (const name of ['POS_ORIGIN_PAYMENTS_SOURCE_ROOT', 'POS_ORIGIN_GO_MODULE_CACHE_SOURCE']) {
-    const value = process.env[name];
-    if (!value) continue;
-    const path = resolve(value);
-    if (!existsSync(path) || !statSync(path).isDirectory())
-      throw new Error(
-        'Other-origin verification requires an available local source/cache directory.',
-      );
-    childEnvironment[name] = path;
-  }
-// Reuse only an existing, caller-owned disposable runner cache. Go still runs
-// every test with -count=1; this retains compilation, never successful results.
-if (flags.has('--mysql') && process.env.POS_IMPORT_GO_BUILD_CACHE) {
-  const cache = resolve(process.env.POS_IMPORT_GO_BUILD_CACHE);
-  if (!/^\/tmp\/pos-import-go\.[A-Za-z0-9]{6,12}\/build-cache$/.test(cache))
-    throw new Error('Native Go verification requires an owned disposable build cache.');
-  const parent = lstatSync(dirname(cache)),
-    directory = lstatSync(cache);
-  if (
-    !parent.isDirectory() ||
-    parent.isSymbolicLink() ||
-    !directory.isDirectory() ||
-    directory.isSymbolicLink() ||
-    typeof process.getuid !== 'function' ||
-    parent.uid !== process.getuid() ||
-    directory.uid !== process.getuid() ||
-    (parent.mode & 0o077) !== 0
-  )
-    throw new Error('Native Go verification requires a private caller-owned build cache.');
-  childEnvironment.POS_IMPORT_GO_BUILD_CACHE = cache;
-}
 if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE)
   childEnvironment.PLAYWRIGHT_CHROMIUM_EXECUTABLE = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE;
-childEnvironment.WHOLE_ORDER_STATUS_ORACLE_PYTHON = resolve(
-  backend,
-  'tools/order-search/run-oracle.sh',
-);
 if (flags.has('--mysql')) {
   let url: URL;
   try {
@@ -108,8 +53,6 @@ if (flags.has('--mysql')) {
     ADMINISTRATION_CREATOR_MYSQL_URL: 'pos_rewrite_creator_authority_test',
     STORE_DEFAULT_OPERATORS_MYSQL_URL: 'pos_rewrite_store_defaults_test',
     CHECKOUT_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
-    MEMBERSHIP_HEAD_MYSQL_TEST_URL: 'pos_rewrite_checkout_test',
-    ORIGIN_PREVIEW_MYSQL_TEST_URL: 'pos_rewrite_origin_preview_test',
     MIGRATION_MYSQL_TEST_URL: 'pos_rewrite_migrations_test',
     SPECIAL_PERMISSION_MYSQL_TEST_URL: 'pos_rewrite_activity_history_test',
     APPLICATION_LINK_MYSQL_TEST_URL: 'pos_rewrite_application_links_test',
@@ -118,8 +61,6 @@ if (flags.has('--mysql')) {
     CUSTOMER_OTP_MYSQL_TEST_URL: 'pos_rewrite_customer_otp_test',
     CUSTOMER_WEBSITE_HANDOFF_MYSQL_TEST_URL: 'pos_rewrite_customer_website_handoff_test',
     GLOBAL_VOUCHERS_MYSQL_TEST_URL: 'pos_rewrite_global_vouchers_test',
-    LEGACY_ORDER_IMPORT_MYSQL_TEST_URL: 'pos_rewrite_legacy_order_imports_test',
-    MEMBERSHIP_PUBLICATION_MYSQL_TEST_URL: 'pos_rewrite_membership_publication_test',
     INVENTORY_WORKBOOK_MYSQL_TEST_URL: 'pos_rewrite_inventory_workbooks_test',
     DASHBOARD_MYSQL_TEST_URL: 'pos_rewrite_dashboard_test',
     BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
@@ -144,10 +85,6 @@ if (flags.has('--mysql')) {
     }
     childEnvironment[name] = fixtureUrl.href;
   }
-  childEnvironment.ORDER_SEARCH_ORACLE_PYTHON = resolve(
-    backend,
-    'tools/order-search/run-oracle.sh',
-  );
   childEnvironment.ORDER_SEARCH_SOURCE_ROOT = resolve(workspace, '../backend-pos-web');
 }
 
@@ -158,7 +95,6 @@ const directories = [
   'backend/migrations',
   'backend/resources',
   'backend/parity',
-  'backend/compatibility',
   'frontend/src',
   'frontend/tests',
   'frontend/tools',
@@ -311,29 +247,6 @@ const checks: Check[] = [
     prerequisite: true,
   },
   {
-    id: 'source-oracle-environments',
-    directory: 'backend',
-    args: ['tools/verify-fixture-environments.mjs'],
-    prerequisite: true,
-  },
-  ...(flags.has('--mysql')
-    ? [
-        {
-          id: 'other-origin-go-prerequisites',
-          directory: 'backend' as const,
-          command: 'sh' as const,
-          args: ['tools/other-origin-verification/run.sh', 'preflight'],
-          prerequisite: true,
-        },
-      ]
-    : []),
-  {
-    id: 'payments-base-metadata-packaging-tests',
-    directory: 'backend',
-    command: 'python3',
-    args: ['compatibility/upstream/test_assemble_payments.py'],
-  },
-  {
     id: 'backend-build',
     directory: 'backend',
     args: ['node_modules/typescript/bin/tsc', '-p', 'tsconfig.json'],
@@ -391,16 +304,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tools/checkout/customer-context.tsconfig.json',
-    ],
-  },
-  {
-    id: 'google-sso-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/auth/tsconfig.sso-tests.json',
     ],
   },
   {
@@ -584,16 +487,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'legacy-order-imports-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-order-imports/tsconfig.tests.json',
-    ],
-  },
-  {
     id: 'whole-order-status-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -601,137 +494,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tools/legacy-order-status/backend.tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-financial-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-financial/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-source-boundary-tests',
-    directory: 'backend',
-    command: 'sh',
-    args: ['compatibility/upstream/legacy-order-imports/run-source-tests.sh'],
-  },
-  {
-    id: 'legacy-import-preparation-core-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/legacy-import-preparation/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-preparation-source-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-preparation/tsconfig.json',
-    ],
-  },
-  {
-    id: 'public-screening-writer-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/public-screening-writer/tsconfig.json',
-    ],
-  },
-  {
-    id: 'source-runtime-acceptance-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/source-runtime-acceptance/tsconfig.json',
-    ],
-  },
-  {
-    id: 'coupon-history-publication-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-coupon-history/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-native-esm-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-esm/tsconfig.json',
-    ],
-  },
-  {
-    id: 'coupon-history-bigquery-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-coupon-history/bigquery.tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-native-esm-startup',
-    directory: 'backend',
-    args: ['--import', 'tsx', 'tools/legacy-import-esm/check.ts'],
-  },
-  {
-    id: 'screening-recovery-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/screening-writer/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-coupon-go-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-coupon-go/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-tender-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-tender/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-membership-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-membership/tsconfig.json',
     ],
   },
   {
@@ -745,36 +507,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'legacy-import-benefits-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-import-benefits/tsconfig.json',
-    ],
-  },
-  {
-    id: 'legacy-import-membership-publication-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-order-imports/membership-publication.tsconfig.json',
-    ],
-  },
-  {
-    id: 'import-correction-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/import-corrections/tsconfig.json',
-    ],
-  },
-  {
     id: 'whole-order-status-browser-fixture-typecheck',
     directory: 'frontend',
     args: [
@@ -785,16 +517,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'import-order-holds-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/import-order-holds/backend.tsconfig.json',
-    ],
-  },
-  {
     id: 'inventory-workbooks-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -802,16 +524,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tools/inventory-workbooks/tsconfig.tests.json',
-    ],
-  },
-  {
-    id: 'legacy-order-import-history-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/legacy-order-imports/history.tsconfig.json',
     ],
   },
   {
@@ -995,11 +707,6 @@ const checks: Check[] = [
       '-p',
       'tests/cashier-shortcuts/tsconfig.json',
     ],
-  },
-  {
-    id: 'desktop-sso-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tests/desktop-sso/tsconfig.json'],
   },
   {
     id: 'legacy-delivery-browser-fixture-typecheck',
@@ -1188,16 +895,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'legacy-order-import-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/order-imports/tsconfig.json',
-    ],
-  },
-  {
     id: 'model-accounts-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -1265,201 +962,27 @@ const checks: Check[] = [
 ];
 for (const [id, directory, config] of [
   ['backend-vitest-config-typecheck', 'backend', 'tsconfig.vitest.json'],
-  ['lookup-workflow-backend-typecheck', 'backend', 'tools/lookup-workflow/backend.tsconfig.json'],
-  ['lookup-workflow-browser-typecheck', 'frontend', 'tests/lookup-workflow/tsconfig.json'],
-  [
-    'archival-native-workflow-typecheck',
-    'frontend',
-    'tests/administration/archival-workflow-tsconfig.json',
-  ],
-  [
-    'global-reminders-native-workflow-typecheck',
-    'frontend',
-    'tests/global-reminders/tsconfig.native.json',
-  ],
-  [
-    'release-notes-native-workflow-typecheck',
-    'frontend',
-    'tests/global-reminders/tsconfig.notes.json',
-  ],
-  [
-    'notification-native-workflow-typecheck',
-    'backend',
-    'tools/fulfillment/notification-workflow.tsconfig.json',
-  ],
-  [
-    'notification-native-browser-typecheck',
-    'frontend',
-    'tests/fulfillment/notification-workflow.tsconfig.json',
-  ],
-  [
-    'customer-profile-native-workflow-typecheck',
-    'backend',
-    'tools/customer-profile/native-workflow.tsconfig.json',
-  ],
-  [
-    'customer-profile-native-browser-typecheck',
-    'frontend',
-    'tests/customer-profile/native-workflow.tsconfig.json',
-  ],
-  [
-    'feedback-native-workflow-typecheck',
-    'backend',
-    'tools/product-feedback/native-workflow.tsconfig.json',
-  ],
-  [
-    'shortcut-joined-workflow-typecheck',
-    'frontend',
-    'tools/cashier-shortcuts/tsconfig.joined.json',
-  ],
 ] as const)
   checks.push({
     id,
     directory,
     args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', config],
   });
-if (flags.has('--mysql')) {
-  for (const phase of ['general', 'head', 'calendar'] as const)
-    checks.push({
-      id: `other-origin-go-${phase}-native-tests`,
-      directory: 'backend',
-      command: 'sh',
-      args: ['tools/other-origin-verification/run.sh', phase],
-    });
-  checks.push(
-    {
-      id: 'legacy-import-confirmation-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/legacy-order-imports/run-go-tests.sh'],
-    },
-    {
-      id: 'legacy-import-corrected-source-go-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/legacy-order-imports/run-correction-tests.sh'],
-    },
-    {
-      id: 'legacy-import-benefits-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/legacy-order-imports/benefit-profile/run-native-tests.sh'],
-    },
-    {
-      id: 'legacy-import-benefits-composed-source-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['tools/legacy-import-benefits/run-source-tests.sh'],
-    },
-    {
-      id: 'legacy-import-coupon-consumption-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: [
-        'compatibility/upstream/legacy-order-imports/run-coupon-tests.sh',
-        'tests/legacy-import-benefits/consumed-recovery.mysql.test.ts',
-      ],
-    },
-    {
-      id: 'public-screening-writer-native-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/public-screening-writer/run-native-tests.sh'],
-    },
-    {
-      id: 'membership-native-producer-tests',
-      directory: 'backend',
-      command: 'sh',
-      args: ['compatibility/upstream/pending-cancellation/run-membership-native.sh'],
-    },
-    {
-      id: 'customer-website-receiver-tests',
-      directory: 'backend',
-      args: ['tools/customer-website-handoff/check-receiver.mjs'],
-    },
-  );
-}
 if (flags.has('--browser')) {
   if (flags.has('--mysql')) {
-    const source = resolve(workspace, '../backend-pos-web');
-    checks.push(
-      {
-        id: 'counter-barcode-source-dispatch-tests',
-        directory: 'backend',
-        command: 'sh',
-        args: [
-          'tools/order-search/run-oracle.sh',
-          '-B',
-          '../frontend/tests/counter-catalog/source-barcode.py',
-          source,
-        ],
-      },
-      {
-        id: 'online-order-detail-native-app-browser-tests',
-        directory: 'backend',
-        args: [
-          'node_modules/vitest/vitest.mjs',
-          'run',
-          'tests/order-history/online-detail.mysql.test.ts',
-          '-t',
-          'loads actual routed App with native cookie',
-          '--maxWorkers=1',
-        ],
-        environment: { ORDER_DETAIL_BROWSER_TEST: 'true' },
-      },
-      {
-        id: 'lookup-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/lookup-workflow/run.sh'],
-        environment: { LOOKUP_WORKFLOW_SOURCE_ROOT: source },
-      },
-      {
-        id: 'feedback-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/product-feedback/run-native-workflow.sh'],
-        environment: { PRODUCT_FEEDBACK_SOURCE_ROOT: source },
-      },
-      {
-        id: 'customer-profile-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/customer-profile/native-workflow-run.sh'],
-        environment: { CUSTOMER_PROFILE_SOURCE_ROOT: source },
-      },
-      {
-        id: 'shortcut-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/cashier-shortcuts/run-joined.sh', source, '--native-reference'],
-      },
-      {
-        id: 'archival-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/administration/archival-workflow-run.sh', source],
-      },
-      {
-        id: 'global-reminders-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/global-reminders/run.sh', source],
-      },
-      {
-        id: 'release-notes-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/global-reminders/notes-run.sh', source],
-      },
-      {
-        id: 'notification-native-source-api-browser-workflow',
-        directory: 'backend',
-        command: 'sh',
-        args: ['tools/fulfillment/notification-workflow-run.sh'],
-        environment: { NOTIFICATION_SOURCE_ROOT: source },
-      },
-    );
+    checks.push({
+      id: 'online-order-detail-native-app-browser-tests',
+      directory: 'backend',
+      args: [
+        'node_modules/vitest/vitest.mjs',
+        'run',
+        'tests/order-history/online-detail.mysql.test.ts',
+        '-t',
+        'loads actual routed App with native cookie',
+        '--maxWorkers=1',
+      ],
+      environment: { ORDER_DETAIL_BROWSER_TEST: 'true' },
+    });
   }
   checks.push({
     id: 'daily-reports-browser-tests',
@@ -1497,28 +1020,6 @@ if (flags.has('--browser')) {
       id: 'rejected-return-repair-browser-tests',
       directory: 'frontend',
       args: ['tests/legacy-order-status/repair-browser-check.mjs'],
-    },
-    {
-      id: 'legacy-order-import-browser-tests',
-      directory: 'frontend',
-      args: [
-        'node_modules/vitest/vitest.mjs',
-        'run',
-        '--config',
-        'tests/order-imports/vitest.config.ts',
-      ],
-      environment: { ORDER_IMPORT_BROWSER_TESTS: 'true' },
-    },
-    {
-      id: 'import-correction-browser-tests',
-      directory: 'frontend',
-      args: [
-        'node_modules/vitest/vitest.mjs',
-        'run',
-        'tests/import-corrections/browser.test.ts',
-        '--maxWorkers=1',
-      ],
-      environment: { ORDER_IMPORT_BROWSER_TESTS: 'true' },
     },
     {
       id: 'order-copy-browser-tests',
@@ -1570,27 +1071,10 @@ if (flags.has('--browser')) {
     environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
   });
   checks.push({
-    id: 'screening-recovery-browser-tests',
-    directory: 'frontend',
-    args: [
-      'node_modules/vitest/vitest.mjs',
-      'run',
-      'tests/screening-writer/recovery.browser.test.ts',
-      '--maxWorkers=1',
-    ],
-    environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
-  });
-  checks.push({
     id: 'product-feedback-browser-tests',
     directory: 'frontend',
     args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/product-feedback/browser.test.ts'],
     environment: { PRODUCT_FEEDBACK_BROWSER_TESTS: 'true' },
-  });
-  checks.push({
-    id: 'desktop-sso-browser-tests',
-    directory: 'frontend',
-    args: ['node_modules/vitest/vitest.mjs', 'run', 'tests/desktop-sso/browser.test.ts'],
-    environment: { DESKTOP_SSO_BROWSER_TESTS: 'true' },
   });
   checks.push({
     id: 'customer-profile-browser-tests',
@@ -1791,7 +1275,6 @@ const report = {
   scope: {
     localMySql: flags.has('--mysql'),
     browser: flags.has('--browser'),
-    taskGoBuildCache: Boolean(childEnvironment.POS_IMPORT_GO_BUILD_CACHE),
   },
   productionReady: gate.exitCode === 0 && exitCode === 0,
   interrupted: stopped,

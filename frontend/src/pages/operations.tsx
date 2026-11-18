@@ -30,7 +30,7 @@ import {
   useOrderSearchOptions,
   type OrderDefaultRanges,
 } from './order-history/search-client';
-import { CashReturnPendingQueue, PaymentReversalPanel } from './payment-reversals';
+import { PaymentReversalPanel } from './payment-reversals';
 import type { CorrectionReceipt } from './payment-reversals/client';
 import { WholeOrderStatusActions } from './order-status';
 
@@ -250,9 +250,6 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           <ArrowUpRight size={16} />
         </button>
       </PageTitle>
-      {[1, 2, 3].includes(user.role) && storeId && (
-        <CashReturnPendingQueue key={cashScopeKey} user={user} storeId={storeId} online={online} />
-      )}
       {link.invalid && (
         <p className="inline-error" role="alert">
           The order link contains an invalid reference.
@@ -437,7 +434,6 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
                   <PaymentReversalPanel
                     key={`cash-correction:${cashScopeKey}:${selected}`}
                     deferUntilOpened
-                    showPendingQueue={false}
                     user={user}
                     storeId={storeId}
                     orderId={selected}

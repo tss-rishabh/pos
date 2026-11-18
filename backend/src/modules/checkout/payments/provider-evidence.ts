@@ -98,7 +98,7 @@ export async function readPaymentProviderFact(
   return { id: row.id, value };
 }
 /** Factual retention only. It never settles an Order, touches stock/wallet,
- * advances screening COUNTED, or authorizes a provider request. */
+ * or authorizes a provider request. */
 export async function retainPaymentProviderFact(
   db: Databases,
   frame: PaymentDispatchFrame | undefined,

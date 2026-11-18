@@ -21,8 +21,8 @@ npm run desktop:dist:win
 ```
 
 Keep credentials, access tokens, customer data and OAuth client secrets out of
-this configuration. Backend authentication and browser-based SSO remain server
-concerns. A missing or invalid workspace origin must not select a default public
+this configuration. Backend authentication remains a server
+concern. A missing or invalid workspace origin must not select a default public
 site. Provision production signing/notarization separately and preserve the
 existing ASAR integrity and renderer isolation settings.
 

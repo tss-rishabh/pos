@@ -22,7 +22,6 @@ import {
   statusReconciliation,
   type StatusSnapshot,
 } from './domain.js';
-import { requireHandoverBarrier, type AssertHandoverAvailable } from './handover.js';
 import { wholeOrderStatusLogs } from './schema.js';
 const unavailable = () =>
   new AppError(
@@ -71,11 +70,7 @@ export function legacyWholeRequestCovers(
     })
   );
 }
-export function wholeOrderStatusAuthority(
-  config: Config,
-  db: Databases,
-  barrier?: AssertHandoverAvailable,
-) {
+export function wholeOrderStatusAuthority(config: Config, db: Databases) {
   const checkIns = checkInService(db, config);
   return async function capture(
     tx: AdministrationTransaction,
@@ -121,7 +116,6 @@ export function wholeOrderStatusAuthority(
       .limit(1)
       .for(mutate ? 'update' : 'share');
     if (!order) throw unavailable();
-    if (mutate) await requireHandoverBarrier(barrier)(tx, [orderId]);
     const rows = await tx
       .select()
       .from(OrderStore)

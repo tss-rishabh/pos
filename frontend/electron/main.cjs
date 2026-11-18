@@ -22,8 +22,7 @@ else
         app.quit();
         return;
       }
-      const oauthOrigins = [...workspace.ssoOrigins, ...workspace.oauthOrigins];
-      const allowed = new Set([url.origin, ...oauthOrigins]);
+      const allowed = new Set([url.origin, ...workspace.oauthOrigins]);
       const applicationOrigins = new Set(workspace.applicationOrigins);
       const customerWebsiteOrigin = workspace.customerWebsiteOrigin;
       const partition = 'persist:souled-pos';
@@ -84,38 +83,6 @@ else
           // Never pass arbitrary schemes, credential URLs or raw failures to the OS or logs.
         }
       }
-      function openDesktopSso(destination) {
-        try {
-          const source = new URL(window.webContents.getURL());
-          const target = new URL(destination);
-          if (
-            source.origin !== url.origin ||
-            target.origin !== url.origin ||
-            target.pathname !== '/api/v1/auth/sso/login' ||
-            target.href.length > 2048 ||
-            target.username ||
-            target.password ||
-            target.hash ||
-            [...target.searchParams.keys()].length !== 2 ||
-            target.searchParams.getAll('desktop').length !== 1 ||
-            target.searchParams.getAll('ticket').length !== 1 ||
-            !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-              target.searchParams.get('desktop') || '',
-            ) ||
-            !/^[A-Za-z0-9_-]{43}$/.test(target.searchParams.get('ticket') || '')
-          )
-            return false;
-          void shell.openExternal(target.href, { activate: true, logUsage: false }).catch(() => {
-            dialog.showErrorBox(
-              'Google sign-in',
-              'The sign-in browser could not be opened. Try again.',
-            );
-          });
-          return true;
-        } catch {
-          return false;
-        }
-      }
       function openCustomerWebsite(destination) {
         try {
           const source = new URL(window.webContents.getURL());
@@ -146,8 +113,7 @@ else
         }
       }
       window.webContents.setWindowOpenHandler(({ url: destination }) => {
-        if (!openDesktopSso(destination) && !openCustomerWebsite(destination))
-          openApplicationLink(destination);
+        if (!openCustomerWebsite(destination)) openApplicationLink(destination);
         return { action: 'deny' };
       });
       const restrictNavigation = (event, destination, external = false) => {
@@ -156,14 +122,6 @@ else
           if (customerWebsiteOrigin && target.origin === customerWebsiteOrigin) {
             event.preventDefault();
             if (external) openCustomerWebsite(destination);
-            return;
-          }
-          if (
-            target.origin === 'https://accounts.google.com' ||
-            (target.origin === url.origin && target.pathname === '/api/v1/auth/sso/login')
-          ) {
-            event.preventDefault();
-            if (external) openDesktopSso(destination);
             return;
           }
           if (!allowed.has(target.origin) || target.username || target.password) {

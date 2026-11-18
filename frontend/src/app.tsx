@@ -57,7 +57,6 @@ const DashboardPage = lazy(() => import('./pages/dashboard'));
 const BarcodeAssignmentsPage = lazy(() => import('./pages/administration/barcodes'));
 const ParentStoreImportsPage = lazy(() => import('./pages/administration/parent-store-imports'));
 const OperatorModelAccountsPage = lazy(() => import('./pages/administration/model-accounts'));
-const HistoricalOrderImportsPage = lazy(() => import('./pages/administration/order-imports'));
 const SecondaryCountrySearchPage = lazy(() => import('./pages/administration/secondary-countries'));
 const InventoryPage = lazy(() =>
   import('./pages/operations').then((m) => ({ default: m.InventoryPage })),
@@ -102,9 +101,6 @@ const ApplicationLinkLandingPage = lazy(() =>
   import('./pages/administration/application-links').then((m) => ({
     default: m.ApplicationLinkLandingPage,
   })),
-);
-const DesktopSsoApprovalPage = lazy(() =>
-  import('./pages/desktop-sso').then((module) => ({ default: module.DesktopSsoApprovalPage })),
 );
 const OnlineOrderDetailPage = lazy(() =>
   import('./pages/order-history/OnlineOrderDetail').then((module) => ({
@@ -255,13 +251,6 @@ const links = [
     name: 'Product/store assignments',
     icon: Building2,
   },
-  {
-    to: '/administration/order-imports',
-    name: 'Historical order imports',
-    icon: ReceiptText,
-    roles: [1, 2, 3],
-    internalOnly: true,
-  },
   { to: '/documentation', name: 'Help & documents', icon: BookOpen },
   { to: '/application-links', name: 'Application links', icon: QrCode },
   { to: '/sync', name: 'Sync center', icon: RefreshCw },
@@ -269,7 +258,6 @@ const links = [
 const roleNames = { 1: 'Super admin', 2: 'Admin', 3: 'OPM', 4: 'SM', 5: 'Staff' };
 export function App() {
   const { pathname } = useLocation();
-  const desktopApproval = pathname === '/desktop-sign-in';
   const kind =
     pathname === '/application-links/staff'
       ? 'staff'
@@ -277,13 +265,9 @@ export function App() {
         ? 'customer'
         : null;
   useLayoutEffect(() => {
-    if (kind || desktopApproval) setRequestOperator(null);
-  }, [kind, desktopApproval]);
-  return desktopApproval ? (
-    <Suspense fallback={<Loading />}>
-      <DesktopSsoApprovalPage />
-    </Suspense>
-  ) : kind ? (
+    if (kind) setRequestOperator(null);
+  }, [kind]);
+  return kind ? (
     <Suspense fallback={<Loading />}>
       <ApplicationLinkLandingPage key={kind} kind={kind} />
     </Suspense>
@@ -540,10 +524,6 @@ function Workspace({ user }: { user: Principal }) {
                 <Route
                   path="/administration/parent-store-imports"
                   element={<ParentStoreImportsPage user={user} online={sync.online} />}
-                />
-                <Route
-                  path="/administration/order-imports"
-                  element={<HistoricalOrderImportsPage user={user} online={sync.online} />}
                 />
                 <Route path="/dashboard" element={<DashboardPage key={user.id} user={user} />} />
                 <Route

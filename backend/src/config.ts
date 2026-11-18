@@ -70,32 +70,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       MYSQL_TLS_CA_FILE: z.string().optional(),
       MYSQL_ALLOW_LOCAL_PLAINTEXT: flag(false),
       MYSQL_POOL_SIZE: z.coerce.number().int().min(1).max(64).default(8),
-      OIDC_ISSUER: optionalUrl,
       REDIS_URL: optionalUrl,
-      OIDC_CLIENT_ID: optionalText(z.string().min(1).max(1024)),
-      OIDC_CLIENT_SECRET: optionalText(z.string().min(16).max(4096)),
-      OIDC_REDIRECT_URI: optionalUrl,
-      OIDC_EMAIL_DOMAINS: z
-        .string()
-        .max(2048)
-        .default('thesouledstore.com,thesouledstore.co.in')
-        .transform((value) => [
-          ...new Set(
-            value
-              .split(',')
-              .map((domain) => domain.trim().toLowerCase())
-              .filter(Boolean),
-          ),
-        ])
-        .refine(
-          (domains) =>
-            domains.every((domain) =>
-              /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain),
-            ),
-          'Configure exact SSO email domains.',
-        ),
-      OIDC_REQUIRE_HOSTED_DOMAIN: flag(true),
-      DESKTOP_SSO_ENABLED: flag(false),
       BIGQUERY_PROJECT_ID: z.string().optional(),
       BIGQUERY_DATASET: optionalText(z.string().regex(/^[A-Za-z_]\w*$/)),
       BIGQUERY_DAILY_ROLLUP_TABLE: warehouseTable,
@@ -144,9 +119,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env) {
       throw new Error(
         'Production requires writer, primary-reader and data-reader database configuration.',
       );
-    for (const value of [config.OIDC_ISSUER, config.OIDC_REDIRECT_URI, config.TSS_API_BASE_URL])
-      if (value && new URL(value).protocol !== 'https:')
-        throw new Error('Production identity and application endpoints must use HTTPS.');
+    if (config.TSS_API_BASE_URL && new URL(config.TSS_API_BASE_URL).protocol !== 'https:')
+      throw new Error('Production application endpoints must use HTTPS.');
     if (config.SESSION_SECRET === 'replace-with-at-least-32-random-characters')
       throw new Error('Replace the example session secret before production.');
   }

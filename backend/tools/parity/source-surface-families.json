@@ -1,0 +1,2631 @@
+{
+  "families": [
+    {
+      "id": "gift-card-batches",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/gift-card-batches/index.ts",
+        "backend/src/modules/gift-card-batches/service.ts",
+        "backend/src/modules/gift-card-batches/history.ts",
+        "backend/src/modules/gift-card-batches/generation.ts",
+        "backend/src/modules/gift-card-batches/worker.ts",
+        "backend/src/modules/gift-card-batches/storage.ts",
+        "backend/src/modules/gift-card-batches/delivery.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/gift-card-batches"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Physical-card CSV batch generation, exact source serial/Hashids/PIN/CSV oracles, actual-row locked print/block flags, current-owner recovery, durable frozen AES256 archives and private authenticated password/download. Source no-search list/flag behavior matches pinned Django/MySQL fixtures; corrected broken search and explicit accepted/uncertain mail state are deliberate changes. Today uses bounded joined data-reader pages; all-history/other dates use explicit bound BigQuery collation/view contracts only. Native SDK/fetch and Chromium components, no live storage/mail/funding. Operational provider/issuer/ZIP-client/warehouse/full workflow acceptance remains required; checkout owns financial issuance fencing.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual encrypted ZIP recipient clients, private storage/mail, external issuance fencing and missing historical warehouse publication."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "stores",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/service.ts",
+        "backend/src/modules/administration/index.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/stores.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Store CRUD/status, franchise details, initial counter and configured default operator access; reader/writer role and store checks. Slack incoming-webhook replacement/removal is write-only, safe reads expose only a configured flag, and blank updates preserve credentials. Server-side actor/session/store-bound OAuth connection now has separate evidence; real configured Slack acceptance remains required. Actual collection controls now bind page size, server sort, visible columns and loaded-page CSV; full export is a distinct private queued action.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/stores.tsx",
+          "anchor": "useAdministrationView('stores'",
+          "scope": "Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/collection-table.tsx",
+          "anchor": "export function AdministrationCollectionTable",
+          "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/collection-export.ts",
+          "anchor": "export function administrationCollectionExport(",
+          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/store-detail-routes.ts",
+          "anchor": "export function registerAdministrationStoreDetails(",
+          "scope": "Actual selected-store detail/PNG endpoints recheck current native scope and encode only the exact static public marketing URL, not a login/application capability.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/stores.tsx",
+          "anchor": "<StoreDetailDialog",
+          "scope": "Actual store row opens its selected-store detail/marketing QR action; checked-in application handoff remains separate.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "store-images",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/store-images.ts",
+        "backend/src/modules/administration/store-image-routes.ts",
+        "backend/src/modules/administration/ecommerce-sync/index.ts",
+        "backend/src/modules/administration/image-lifecycle/service.ts",
+        "backend/src/modules/administration/image-lifecycle/cleanup.ts",
+        "backend/src/modules/administration/image-lifecycle/validation.ts",
+        "backend/src/modules/administration/store-image-worker-main.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/store-images.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Private store images with shared profile reservation/decoding/attachment and reference-aware cleanup lifecycle. Actor+store+revision binding, fail-closed private bucket signing, no raw image-path bypass, protected streaming, attach-only browser recovery and bounded supervised worker. Isolated SQL/native decode/Chromium evidence; real S3/CORS and full legacy workflow certification remain required.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept configured private S3/CORS and physical supported files; synthetic storage tests are not live storage acceptance."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "store-slack-oauth",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/slack-provider.ts",
+        "backend/src/modules/administration/slack-connections.ts",
+        "backend/src/modules/administration/slack-routes.ts",
+        "backend/src/modules/administration/slack-schema.ts",
+        "backend/src/modules/administration/slack-url.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/slack-return.ts"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Confidential BFF incoming-webhook authorization with opaque one-use state, current cookie/auth-epoch/store/config binding, exact approved workspace/origin, safe channel receipts and bounded expiry cleanup. Webhook remains write-only; same-window React continuation supports desktop trusted OAuth navigation. Source helper oracle, real MySQL and synthetic Chromium evidence; actual Slack app/grant and desktop provider round-trip remain unaccepted.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual configured Slack workspace/grant and web/Electron OAuth round trips."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "postal-code-location",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/locations.ts",
+        "backend/src/modules/administration/location-schema.ts",
+        "backend/src/modules/administration/location-title.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/locations.ts"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Bound primary-reader deliverable-pincode/zone/country ORM join using verified physical projections; exact coordinate strings and Python city-title behavior. POST body-only lookup and reusable form-field autofill preserve city/address references. Explicit firstPK duplicate tie; native source-SQL result comparison and Chromium coverage, no full deployed fixture certification.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "special-permission-history",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/special-permission-history/index.ts",
+        "backend/src/modules/special-permission-history/service.ts",
+        "backend/src/modules/special-permission-history/domain.ts",
+        "backend/src/modules/special-permission-history/warehouse-sql.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/permission-history.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Read-only global operator activity with current internal role1-3 authorization, source platform/date/literal search, raw operator names, missing-recipient fallback, filtered totals and source paging fallbacks. Exact today uses a bounded joined/count data-reader snapshot; every no-date or other-date request uses parameterized BigQuery only. React visible-column/current-page safe CSV, owner-scoped layout preferences and no contact-bearing URL filters. Pinned Django4.2.5/physical MySQL source oracles, adapter and Chromium evidence; deployed warehouse view/collation-UDF completeness and full workflow parity remain required. Benefit mutations remain checkout-owned.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Publish missing historical tables with exact source collation/provenance/freshness contracts; never historical MySQL fallback."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "inherited-administration-history",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration-history/index.ts",
+        "backend/src/modules/administration-history/service.ts",
+        "backend/src/modules/administration-history/domain.ts",
+        "backend/src/modules/administration-history/messages.ts",
+        "backend/src/modules/administration-history/schema.ts",
+        "backend/src/modules/administration-history/warehouse-sql.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/history"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Read-only inherited Django history for existing operators/stores/imported groups, writer-current reconciled view-or-change grants, source100-row chronological paging and exact en-us actor/message/wall-date formatting. Exact today uses bounded data-reader joins and runtime same-schema actor-FK binding; all-history/other dates use bound BigQuery only with explicit source/collation publication contracts. Actual Django and isolated MySQL/Chromium component evidence; verified operational history provenance, deployed BQ/UDF, future model-admin log publication and destructive collector workflows remain unaccepted.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Reconcile the operational auth/group/actor namespace and complete source import/history publication; visible tss.auth_user and pos_user are not interchangeable.",
+        "Publish missing historical tables with exact source collation/provenance/freshness contracts; never historical MySQL fallback."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "staff-installer-handoff",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/application-links/index.ts",
+        "backend/src/modules/application-links/service.ts",
+        "backend/src/modules/application-links/artifact.ts",
+        "backend/src/modules/application-links/domain.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/application-links"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Self-only internal staff QR and direct installer download, aligned source expiration, one-consumer activation/content with identical-operation retry, current authentication epoch/artifact binding, explicit revocation and bounded proof cleanup. Replaces unsigned/contact-bearing source JWT queries and email-prefix Redis activation with purpose-separated opaque fragments and hashed SQL capabilities. Approved private APK file/checksum/size snapshot is streamed after authorization; no remote artifact download. Source expiry oracle72 vectors, native concurrency/revocation/stream tests and StrictMode Chromium. Actual APK publisher/signature approval and full source/deployed workflow acceptance remain gates.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept approved installer/provider/destination and legacy printed-link rollout; no mobile application build is required."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "customer-application-handoff",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/application-links/index.ts",
+        "backend/src/modules/application-links/service.ts",
+        "backend/src/modules/application-links/customer-cache.ts",
+        "backend/src/modules/application-links/provider.ts",
+        "backend/src/modules/application-links/schema.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/application-links"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Server-checked-in-store printable customer QR, PNG download, explicit public body-only redemption, current active-store checks and one legacy pos_to_app_logs audit per operation. One-hour source-shaped provider/fallback cache with durable provider idempotency and fenced leases. Exact HTTPS destination origins, no cookies/contact queries, physical signed-INT reference bounds and source wall timestamps. Source helper/cache oracle, real MySQL and StrictMode Chromium evidence. Verified replacement for deprecated Firebase dependency, approved provider/fallback, printed legacy URL migration and complete configured web/desktop acceptance remain gates.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept approved installer/provider/destination and legacy printed-link rollout; no mobile application build is required."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "location-codes",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/service.ts",
+        "backend/src/modules/administration/contracts.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/stores.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Uppercase alphanumeric codes, source sorting/deduplication, locked update and capacity validation.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "storage",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/service.ts",
+        "backend/src/modules/administration/policies.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/store-resources.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Active/archived list, source name prefix, detail/edit, empty-storage moves and stock-aware archive. Actual collection controls now bind page size, server sort, visible columns and loaded-page CSV; full export is a distinct private queued action.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/store-resources.tsx",
+          "anchor": "useAdministrationView(kind === 'counters' ? 'counters' : 'storage'",
+          "scope": "Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/collection-table.tsx",
+          "anchor": "export function AdministrationCollectionTable",
+          "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/collection-export.ts",
+          "anchor": "export function administrationCollectionExport(",
+          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "counters",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/service.ts",
+        "backend/src/modules/administration/policies.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/store-resources.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Counter list/create/status; serial naming counts archived counters. Actual collection controls now bind page size, server sort, visible columns and loaded-page CSV; full export is a distinct private queued action.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/store-resources.tsx",
+          "anchor": "useAdministrationView(kind === 'counters' ? 'counters' : 'storage'",
+          "scope": "Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/collection-table.tsx",
+          "anchor": "export function AdministrationCollectionTable",
+          "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/collection-export.ts",
+          "anchor": "export function administrationCollectionExport(",
+          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "salespeople",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/service.ts",
+        "backend/src/modules/administration/contracts.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/people.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "CRUD/status, organization restrictions, batched assignments and scoped assignment replacement. Actual collection controls now bind page size, server sort, visible columns and loaded-page CSV; full export is a distinct private queued action.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/people.tsx",
+          "anchor": "useAdministrationView('salespeople'",
+          "scope": "Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/collection-table.tsx",
+          "anchor": "export function AdministrationCollectionTable",
+          "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/collection-export.ts",
+          "anchor": "export function administrationCollectionExport(",
+          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "operators",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/service.ts",
+        "backend/src/modules/administration/operator-create.ts",
+        "backend/src/modules/administration/policies.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/people.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Safe projection, hashed staff creation with atomic commerce mirror, profile/status/store access; password editing uses a separate identity flow. Actual collection controls now bind page size, server sort, visible columns and loaded-page CSV; full export is a distinct private queued action.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/people.tsx",
+          "anchor": "useAdministrationView('operators'",
+          "scope": "Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/collection-table.tsx",
+          "anchor": "export function AdministrationCollectionTable",
+          "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/collection-export.ts",
+          "anchor": "export function administrationCollectionExport(",
+          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "operator-mfa",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/mfa.ts",
+        "backend/src/modules/administration/mfa-schema.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/mfa.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Safe write-only administrator MFA enrollment, exact SHA1/six-digit/30-second/window-zero TOTP verification and super-administrator replacement/reset. Pending seeds are sealed, expiry/attempt bound, role/store/organization checked on the writer; QR is generated locally and seed is published to the legacy account only after verification. Credential changes permanently revoke sessions/proofs with the shared monotonic epoch. Intentional privacy/atomicity corrections; no full legacy workflow certification.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "operator-administrative-profile",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/operator-admin.ts",
+        "backend/src/modules/administration/operator-admin-domain.ts",
+        "backend/src/modules/administration/operator-admin-routes.ts",
+        "backend/src/modules/administration/image-lifecycle/service.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/operator-administration.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Inherited Django UserAdmin other-operator username, age/gender, complete scalar contacts/role/type/status, naive wall important dates, source-policy password reset and private profile/cover images. Current reconciled model grants, existing-superuser-only password reset, self/superuser target restrictions, optimistic revisions, safe UUID receipts and permanent authentication revocation. Native Django16-case Unicode normalization oracle, real MySQL and Chromium components; read-only history is separately evidenced; active flag/archive/reactivation semantics are preserved per user clarification, with no generic Store/PosUser hard deletion required. Complete deployed workflow parity remains required.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "model-administration-access",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/access-control.ts",
+        "backend/src/modules/administration/access-domain.ts",
+        "backend/src/modules/administration/access-reconciliation.ts",
+        "backend/src/modules/administration/access-routes.ts",
+        "backend/src/modules/administration/access-schema.ts",
+        "backend/src/modules/administration/group-deletions.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/access.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Source Django UserAdmin staff/superuser flags, groups and direct model permissions; inherited GroupAdmin CRUD/search/permission assignment plus selected-group preview/atomic bulk deletion with optimistic scopes, receipts and deduplicated revocation. Rewrite-owned stable-key catalog/grants with complete verified-source import gate, writer-current permission checks, internal role1 superuser-only privilege mutation, monotonic group revisions and UUID receipts. Native pinned Django32-case permission oracle, isolated SQL and Chromium components; operational auth source reconciliation/full workflow parity remain required.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Reconcile the operational auth/group/actor namespace and complete source import/history publication; visible tss.auth_user and pos_user are not interchangeable."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "check-in",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/administration/checkins.ts"],
+      "frontend": ["frontend/src/pages/administration/check-in.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "SQL-authoritative expiring store/counter check-in and notification recipients; optional caller-owned transaction.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "inventory",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/inventory.ts",
+        "backend/src/modules/administration/inventory-synchronization.ts"
+      ],
+      "frontend": ["frontend/src/pages/operations.tsx", "frontend/src/pages/catalog"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Stock list, optimistic stock mutation gate, family visibility and durable sync events; current-day audit only. Full legacy inventory route behavior is incomplete.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept selected shared stock projection/synchronization and source pricing/data contracts before live activation."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "inventory-imports",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/imports.ts",
+        "backend/src/modules/administration/import-domain.ts",
+        "backend/src/modules/administration/import-history.ts",
+        "backend/src/modules/administration/import-schema.ts",
+        "backend/src/modules/administration/stock-procedure.ts",
+        "backend/src/modules/administration/worker.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/imports.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Active six-column stock CSV template/preview/queue, row-atomic hold/unhold and visibility, failure CSV, replay/cancel/resume, durable product synchronization and bounded worker progress. Explicitly fixes unreachable legacy unhold and partial-row mutation defects. Completed history older than 24h uses bound BigQuery snapshot/view contracts with writer-current identity/ownership; deployed mapping and current stock routine remain release gates. No full legacy workflow certification.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept selected shared stock projection/synchronization and source pricing/data contracts before live activation.",
+        "Publish missing historical tables with exact source collation/provenance/freshness contracts; never historical MySQL fallback."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "pos-catalog",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/catalog.ts"],
+      "frontend": ["frontend/src/pages/counter.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "First GS1 by PK, parent prices/exclusive price/ERP/image, sellable archived-stock branches, stock toggle and substring search. DTO differs from DataTables and omits held/storage stock presentation.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept selected shared stock projection/synchronization and source pricing/data contracts before live activation."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "support",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/support.ts",
+        "backend/src/modules/administration/settings.ts",
+        "backend/src/modules/administration/settings-domain.ts",
+        "backend/src/modules/administration/settings-outbox.ts",
+        "backend/src/modules/administration/settings-adapters.ts",
+        "backend/src/modules/administration/settings-worker.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/settings.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Scoped delivery timing create/edit/move and single/all availability, global threshold/duration-buffer edits, optimistic state/replay checks, source-compatible common-cache keys/notices, durable ordered effects, cooldown and e-commerce settings. E-commerce writes now have a concrete threshold-selected system projection/full-catalog bridge and original-operation recovery; configured stock/source-provider acceptance remains required. No complete live-provider or legacy HTTP workflow certification.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "terminals",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/terminals.ts",
+        "backend/src/modules/administration/support.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/terminals.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": [
+        "backend/parity/administration.md",
+        "backend/parity/terminal-directory.md"
+      ],
+      "implemented_scope": "Provider/store-specific serial naming, create/read/update/delete, write-only credentials, safe bigint device serials, scoped moves and credential-free DTOs. Full legacy workflows are not certified.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/index.ts",
+          "anchor": "registerTerminalDirectory(app, db);",
+          "scope": "Actual administration registrar mounts the credential-free EDC directory.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/terminal-directory.ts",
+          "anchor": "export function registerTerminalDirectory(",
+          "scope": "Pine/Paytm union applies fresh role/current assigned-store authority, finite provider/search/sort and bounded primary paging; credential fields are not selected.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/terminal-directory.tsx",
+          "anchor": "export function TerminalDirectory(",
+          "scope": "Actual provider directory offers nonsecret columns, visibility/page choices and page/full CSV while preserving the independent write-only editor.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "documentation",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/documentation.ts",
+        "backend/src/modules/administration/media-domain.ts",
+        "backend/src/modules/administration/media-storage.ts",
+        "backend/src/modules/administration/media-cleanup.ts",
+        "backend/src/modules/administration/media-worker.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/documentation.tsx"],
+      "tests": ["backend/tests/administration", "frontend/tests/administration"],
+      "parity_documents": ["backend/parity/administration.md"],
+      "implemented_scope": "Source descending sort priority with stable cursor, create/edit/version conflict protection, active/archive access, sanitized rich descriptions, private checksum-bound uploads, authenticated range streaming and downloads, reference-aware abandoned/removed media cleanup. React Chromium workflows use mocked HTTP/S3 boundaries; no full legacy or live S3 certification. Actual collection controls now bind page size, server sort, visible columns and loaded-page CSV; full export is a distinct private queued action.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept configured private S3/CORS and physical supported files; synthetic storage tests are not live storage acceptance."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Imported source route membership from administration-feature-map.json; its existing certification status remains unchanged."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/documentation.tsx",
+          "anchor": "useAdministrationView('documentation'",
+          "scope": "Actual active/archived collection page selects its source-specific paged/sorted view and common visible-column/page-CSV controls.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/administration/collection-table.tsx",
+          "anchor": "export function AdministrationCollectionTable",
+          "scope": "Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/administration/collection-export.ts",
+          "anchor": "export function administrationCollectionExport(",
+          "scope": "Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "system-health",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/app.ts"],
+      "frontend": ["frontend/src/components/error-boundary.tsx"],
+      "tests": ["backend/tests/api.test.ts", "backend/tests/logging.test.ts"],
+      "parity_documents": [],
+      "implemented_scope": "Liveness/readiness and safe application error boundary.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "country-search",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/country-search.ts",
+        "backend/src/modules/administration/service.ts"
+      ],
+      "frontend": [
+        "frontend/src/pages/administration/secondary-countries.tsx",
+        "frontend/src/pages/administration/stores.tsx"
+      ],
+      "tests": ["backend/tests/administration/barcodes", "frontend/tests/administration/barcodes"],
+      "parity_documents": ["backend/parity/administration-barcodes-country.md"],
+      "implemented_scope": "Separate source sec_status=1/literal icontains secondary-country POST search, exact blank/whitespace/physical-collation behavior and authenticated lookup UI; standard status=1 directory/postal autofill remains distinct.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Source store-form Select2 country controls are commented; active postal autofill is not silently changed to the secondary predicate."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "catalog-read",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/catalog-details", "backend/src/modules/catalog.ts"],
+      "frontend": ["frontend/src/pages/catalog"],
+      "tests": [
+        "backend/tests/catalog-details",
+        "backend/tests/administration/barcodes/mysql.test.ts",
+        "frontend/tests/catalog"
+      ],
+      "parity_documents": ["backend/parity/catalog-details.md"],
+      "implemented_scope": "Product list/detail/matrix, source field/sort/search profiles and distinct seven-column per-store catalogue snapshot.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual duplicate GS1/ambiguous membership-price data and configured historical collation/publication contracts."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Main store-picker global bypass is internal role1 only; every franchise role receives assigned active FRANCHISE stores, and empty assignments return empty. Native role1–5/type1–2 matrix preserves nullable DTO fields."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "inventory-audit",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/catalog-details/audit.ts"],
+      "frontend": ["frontend/src/pages/catalog"],
+      "tests": ["backend/tests/catalog-details", "frontend/tests/catalog"],
+      "parity_documents": ["backend/parity/catalog-details.md"],
+      "implemented_scope": "Product/hold/storage audit profiles, current-day DATA reads and historical BigQuery adapters.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Publish exact missing audit facts and source-collation views; unrelated inventory logs cannot substitute."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "catalog-maintenance",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/catalog-details/maintenance-routes.ts",
+        "backend/src/modules/catalog-details/maintenance-service.ts"
+      ],
+      "frontend": ["frontend/src/pages/catalog"],
+      "tests": ["backend/tests/catalog-details", "frontend/tests/catalog"],
+      "parity_documents": ["backend/parity/catalog-details.md"],
+      "implemented_scope": "Durable inventory pulls, exact sku sample, reviewed troubleshooting and explicit uncertain-delivery reconciliation.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept upstream replay/idempotency and synchronization outcomes before dispatch activation."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "motivational-quotes",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/motivational-quotes"],
+      "frontend": [
+        "frontend/src/components/motivational-quote.tsx",
+        "frontend/src/pages/counter.tsx"
+      ],
+      "tests": [
+        "backend/tests/motivational-quotes.test.ts",
+        "frontend/e2e/**/motivational-quotes.spec.ts"
+      ],
+      "parity_documents": [],
+      "implemented_scope": "Exact source 83-choice immutable quote pool, authenticated bounded random API and actor-bound asynchronous refresh/offline-safe shared React card. Dashboard rotation uses the same card.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Source-handler differential choices and controlled browser workflows are scoped evidence; no release certification is added. Root integrates the rotating card into the new dashboard."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "global-barcode-assignment",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/barcodes",
+        "backend/src/modules/catalog-details/maintenance-service.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/barcodes"],
+      "tests": [
+        "backend/tests/administration/barcodes",
+        "backend/tests/catalog-details/maintenance.mysql.integration.test.ts",
+        "frontend/tests/administration/barcodes"
+      ],
+      "parity_documents": ["backend/parity/administration-barcodes-country.md"],
+      "implemented_scope": "Source internal-role1–3 missing-barcode assignment with exact normalization/messages/conflict order, current writer authority, atomic special-permission audit/UUID receipts and scanner form with durable GET recovery; shared mutex coordinates existing suffix repair.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept GS1 writer cutover/cooperative locking and duplicate-data handling across remaining legacy/API/ecommerce/import writers. Nonunique physical indexes are retained; scoped rewrite concurrency tests do not certify global uniqueness."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "wallet-adjustments",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/checkout/benefit-adjustments"],
+      "frontend": ["frontend/src/pages/checkout/benefit-adjustments"],
+      "tests": ["backend/tests/checkout", "frontend/tests"],
+      "parity_documents": ["backend/parity/wallet-adjustments.md"],
+      "implemented_scope": "User-approved atomic Money/Points adjustment, FIFO/expiry ledgers, immutable recovery and global activity audits.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept shared external wallet locking/writer cutover and verified legacy allocation history."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "global-vouchers",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/global-vouchers"],
+      "frontend": ["frontend/src/pages/global-vouchers"],
+      "tests": ["backend/tests/global-vouchers", "frontend/tests/global-vouchers"],
+      "parity_documents": ["backend/parity/global-vouchers.md"],
+      "implemented_scope": "User-approved exact-paise non-expiring issuance and verified-checkout conversion with atomic receipts, PIN budgets and quote invalidation.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Apply reviewed ordinary-voucher exact-value/null-date/GV_ADD consumer corrections and shared writer contract; do not fabricate old gift-card funding evidence."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "ecommerce-inventory-sync",
+      "implementation_status": "partial",
+      "backend": [
+        "backend/src/modules/administration/settings.ts",
+        "backend/src/modules/administration/settings-adapters.ts",
+        "backend/src/modules/administration/ecommerce-sync",
+        "backend/src/modules/administration/settings-worker-main.ts"
+      ],
+      "frontend": [
+        "frontend/src/pages/administration/settings.tsx",
+        "frontend/src/pages/administration/ecommerce-sync"
+      ],
+      "tests": [
+        "backend/tests/administration/ecommerce-sync",
+        "backend/tests/administration/settings.test.ts",
+        "frontend/tests/administration/ecommerce-sync"
+      ],
+      "parity_documents": [
+        "backend/parity/administration-settings.md",
+        "backend/parity/ecommerce-inventory-sync.md"
+      ],
+      "implemented_scope": "Exact source stock>threshold association selection, bounded staged current-quantity system projections/audits and authenticated full catalog completion are wired through the existing settings queue/worker. The pinned source builder retains Mongo/Redis/Akamai transformations with guarded writer-current stock reads. Actual settings UI retains original UUIDs, cancellation fences, GET-only recovery and per-row/unknown/full-sync progress; started-only acknowledgments do not certify completion.",
+      "remaining_code": [
+        "Replace the deleted Python full-sync bridge with the legacy MAIN_API_V2_URL + \"syncproduct\" call (core/tasks.py:203). See backend/parity/w2-followups.md."
+      ],
+      "external_acceptance": [
+        "Accept the selected stock/system projection candidate and actual shared writer identity; deploy the qualified private source bridge and catalog-writer cutover/coordination, then accept configured Mongo/Redis/Akamai/Slack outcomes and representative workload. No live source CALL, provider delivery or full workflow certification is inferred from component tests."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "offline-scratch-invoice",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/catalog.ts"],
+      "frontend": ["frontend/src/pages/offline-worksheet"],
+      "tests": ["frontend/tests/offline-worksheet"],
+      "parity_documents": ["backend/parity/offline-invoice-worksheet.md"],
+      "implemented_scope": "Separate non-settling manual-price/customer-label invoice worksheet, exact-paise totals, source-format fourteen-column CSV and sandboxed printing; fourteen unit/oracle cases and two Chromium workflows. No payment, stock or customer write.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept physical Windows/macOS worksheet printer output and the actual downstream CSV consumer; signed collected-cash receipts retain their independent fixed-price contract."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "dashboard-summary",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/dashboard"],
+      "frontend": ["frontend/src/pages/dashboard"],
+      "tests": ["backend/tests/dashboard", "frontend/tests/dashboard"],
+      "parity_documents": ["backend/parity/dashboard.md"],
+      "implemented_scope": "Source global active store/operator counts, exact distinct parent-associated product count, scoped association totals and source current/future-year monthly series; primary/current, DATA/today and immutable-publication BigQuery history.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Publish and accept pos-dashboard-orders-v1 common-checkpoint source/warehouse count+digest generations; independent raw CDC is insufficient. Source ambiguous different-count same-month future-year overwrites fail explicitly."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "shared-shell",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/app.ts"],
+      "frontend": [
+        "frontend/src/app.tsx",
+        "frontend/src/components/common.tsx",
+        "frontend/src/components/error-boundary.tsx",
+        "frontend/src/components/realtime-clock.tsx",
+        "frontend/src/components/workspace-context.tsx",
+        "frontend/src/components/release-notes.tsx"
+      ],
+      "tests": ["backend/tests/api.test.ts", "frontend/tests"],
+      "parity_documents": [],
+      "implemented_scope": "Approved redesigned navigation, shortcut landing, safe errors, online indicator and shared layout. Isolated device clock, global authoritative check-in status/link distinct from workspace selection, and visible In-House/Franchise account type are restored; offline/error/expired check-ins do not claim active authority. Source read-only What's New panel retains the all-role naming notes, role-1 report rename note, always-New badge and 8 Sep 2026 date.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [
+        "Source LiveInternetDataView GET is an acknowledgement stub; POST references commented-out locals and does not implement a working speed-log report. No new internet telemetry is inferred."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/components/workspace-context.tsx",
+          "anchor": "export function WorkspaceContext",
+          "scope": "Existing operator-scoped native check-in query is observed without another background poll; the global display uses that record and its expiry, not workspace selection. Account type comes from the current authenticated principal. Runtime verification remains pending.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/components/realtime-clock.tsx",
+          "anchor": "export const RealtimeClock",
+          "scope": "Local HH:MM:SS clock updates an isolated leaf component and cleans up its timer/listener; no network or parent workspace rerender is needed.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/components/release-notes.tsx",
+          "anchor": "export function ReleaseNotes",
+          "scope": "Explicit global trigger opens the accessible read-only native dialog; Close/Got it/Escape dismiss it, visible dialogs take priority, and source role-1 report-note visibility is preserved without seen tracking. Behavioral verification remains pending.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "identity",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/auth/routes.ts",
+        "backend/src/auth/mfa.ts",
+        "backend/src/auth/delivery.ts",
+        "backend/src/auth/revocation.ts"
+      ],
+      "frontend": ["frontend/src/pages/login.tsx"],
+      "tests": [
+        "backend/tests/auth.mysql.integration.test.ts",
+        "backend/tests/otp-delivery.test.ts"
+      ],
+      "parity_documents": [],
+      "implemented_scope": "Password/MFA/login OTP, source channel/resend budgets, active-account checks, sessions/logout and monotonic revocation.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept configured OTP email/SMS/WhatsApp providers and production identity tenant."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "self-profile",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/auth/profile.ts",
+        "backend/src/auth/profile-media.ts",
+        "backend/src/auth/password-policy.ts"
+      ],
+      "frontend": ["frontend/src/pages/profile"],
+      "tests": [
+        "backend/tests/auth.mysql.integration.test.ts",
+        "backend/tests/profile-image-validation.test.ts",
+        "frontend/tests/administration"
+      ],
+      "parity_documents": [],
+      "implemented_scope": "Current operator profile/password/private image lifecycle and self MFA; source-policy password and current actor fences.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual private image storage and source-account/password policy against deployment."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "device-signin",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/auth/device-handoff.ts",
+        "backend/src/auth/device-handoff-routes.ts",
+        "backend/src/auth/device-handoff-store.ts"
+      ],
+      "frontend": ["frontend/src/pages/profile/device-handoff.tsx"],
+      "tests": [
+        "backend/tests/device-handoff.test.ts",
+        "backend/tests/device-handoff.mysql.integration.test.ts"
+      ],
+      "parity_documents": ["backend/parity/device-handoff.md"],
+      "implemented_scope": "Self QR issue/revoke and atomic trusted-service TOTP consumption under shared Redis/current auth epoch.",
+      "remaining_code": [],
+      "external_acceptance": ["Deploy coordinated device consumer/shared atomic Redis contract."],
+      "code_task_required": true,
+      "notes": [
+        "The source MPosLogin password-only fallback is intentionally not exposed as a public MFA-bypassing authentication oracle; ordinary password login uses the complete MFA/session flow. No mobile app build."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "orders-read",
+      "implementation_status": "partial",
+      "backend": [
+        "backend/src/modules/orders.ts",
+        "backend/src/modules/order-history",
+        "backend/src/modules/checkout/returns.ts"
+      ],
+      "frontend": ["frontend/src/pages/operations.tsx", "frontend/src/pages/order-history"],
+      "tests": [
+        "backend/tests/order-history",
+        "backend/tests/order-search",
+        "frontend/tests/order-history",
+        "frontend/tests/order-search",
+        "backend/tests/checkout"
+      ],
+      "parity_documents": [
+        "backend/parity/order-history.md",
+        "backend/parity/order-search.md",
+        "backend/parity/checkout.md"
+      ],
+      "implemented_scope": "Full ST/HL/HE/N/queue/explicit-ID order list, contact/payment/status filters, source search/sort/page and formatter/actions are integrated with 43 pinned-Django vectors and 12 browser workflows. Existing detail/paid/invoice/cancellation guards remain. PRIMARY interactive/DATA today/BigQuery old or mixed facts, live-only queue discovery, private HMAC comparisons and post-read session revocation are enforced. Demo uses an explicit synthetic adapter without a database port.",
+      "remaining_code": [
+        "Add the source new-exchange Product.prod_type=8 guard/eligibility reason while preserving failed-exchange recovery priority. Authorized detail, per-line eligibility/override, recovery claims and complete restoration-group proof are integrated; full reachable-template and renewed-proof browser acceptance remain pending."
+      ],
+      "external_acceptance": [
+        "Accept both complete common-checkpoint historical order/search publications, private contact-key generation/collation identity, real queue/current-source lifecycle and representative workload performance. Native source vectors and local browser checks are not complete production workflow certification."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "backend/src/modules/order-history/online-detail/service.ts",
+          "anchor": "export function onlineOrderDetailService(",
+          "scope": "Authorized N/HL/HE details bind native current authority to complete primary or qualified BigQuery facts, then hydrate explicitly current customer/product dimensions. Source/native/routed-App proof is scoped; complete historical transport and per-line actions remain separate.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/order-history/search/default-ranges.ts",
+          "anchor": "export function sourceOrderDefaults(",
+          "scope": "Server-authoritative rolling five-day store-page bounds include its extra ending minute and bounded midnight fraction without a future warehouse publication. Active type switching must retain this same window; separate online-prefix arithmetic does not establish rendered online-entry behavior.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/operations.tsx",
+          "anchor": "export function OrdersPage(",
+          "scope": "Initial defaults anchor once per authority scope; opening rows preserves list state, historical detail gets its own row-day context, and explicit date ranges remain authoritative. Source-derived/native/routed-App regressions are separate from complete workflow admission.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/operations.tsx",
+          "anchor": "<SourceOrderList",
+          "scope": "Actual OrdersPage mounts the source-specific search/list alongside independently authorized detail/payment controls.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/order-history/SourceOrderList.tsx",
+          "anchor": "function exportPage()",
+          "scope": "Actual order-list CSV uses only the loaded page and selected visible columns; page choices 5/10/25/50/100 and source sort actions remain wired.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/order-history/search-client.ts",
+          "anchor": "export function sourcePageCsv(",
+          "scope": "Loaded duplicate rows are preserved and spreadsheet formula strings neutralized; this does not certify original full-workflow or identical download bytes.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "checkout-cart",
+      "implementation_status": "partial",
+      "backend": [
+        "backend/src/modules/checkout/routes.ts",
+        "backend/src/modules/checkout/service.ts",
+        "backend/src/modules/checkout/customers"
+      ],
+      "frontend": [
+        "frontend/src/pages/counter.tsx",
+        "frontend/src/pages/checkout/CheckoutReview.tsx",
+        "frontend/src/offline"
+      ],
+      "tests": ["backend/tests/checkout", "frontend/tests", "frontend/e2e/checkout"],
+      "parity_documents": ["backend/parity/checkout.md"],
+      "implemented_scope": "Draft tabs/sessions, connected/walk-in customers, durable cart sync/clear, quote, register, discounts, wallet/coupons/vouchers, salesperson and ordinary submission.",
+      "remaining_code": [
+        "Finish the complete reachable source checkout control inventory before claiming all features. Exact scans, offline aliases, product/troubleshoot links, direct quantity editing, quoted summary and complementary deletion are integrated with scoped checks; full source/native checkout acceptance remains pending."
+      ],
+      "external_acceptance": [
+        "Accept actual source pricing/private projection, shared wallet/stock writers and provider contracts; local receipts do not establish deployed parity."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "customer-verification",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/customer-otp",
+        "backend/src/modules/checkout/customer-verification.ts"
+      ],
+      "frontend": ["frontend/src/pages/checkout/CheckoutReview.tsx", "frontend/src/pages/returns"],
+      "tests": [
+        "backend/tests/customer-otp",
+        "backend/tests/checkout",
+        "frontend/tests/customer-otp"
+      ],
+      "parity_documents": ["backend/parity/checkout-customer-verification.md"],
+      "implemented_scope": "Purpose/actor/store/customer/contact-bound queued OTP, shared budgets, fixed expiry and GET-only original operation recovery.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept approved purpose-specific templates/providers and coordinated consent/contact writers; unsafe source global Redis/GET transport stays refused."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "discount-approval",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/checkout/discounts"],
+      "frontend": ["frontend/src/pages/checkout/CheckoutReview.tsx"],
+      "tests": ["backend/tests/checkout"],
+      "parity_documents": ["backend/parity/checkout.md"],
+      "implemented_scope": "Source manager thresholds/role fallbacks, encrypted delivery, per-approval proof and applied-by/reviewer audit plus used email.",
+      "remaining_code": [],
+      "external_acceptance": ["Accept actual configured manager recipients and email transport."],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "payments",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/checkout/payments",
+        "backend/src/modules/checkout/finalizer.ts"
+      ],
+      "frontend": ["frontend/src/pages/checkout/PaymentPanel.tsx"],
+      "tests": ["backend/tests/checkout", "frontend/tests/order-payments", "frontend/e2e/checkout"],
+      "parity_documents": ["backend/parity/order-payments.md"],
+      "implemented_scope": "Cash/terminal/Paytm modes/init/status, source transaction adoption, received-cash notes and idempotent uncertain recovery; operator/store/order/projection fenced.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual terminal/provider status and cancellation contracts; Paytm void is not invented."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "legacy-paid-reversal",
+      "implementation_status": "partial",
+      "backend": [
+        "backend/src/modules/checkout/payment-reversals",
+        "backend/src/modules/checkout/payments",
+        "backend/src/modules/finance",
+        "backend/src/modules/daily-report-corrections.ts"
+      ],
+      "frontend": [
+        "frontend/src/pages/payment-reversals",
+        "frontend/src/pages/operations.tsx",
+        "frontend/src/pages/reports.tsx"
+      ],
+      "tests": [
+        "backend/tests/checkout-payment-reversals",
+        "backend/tests/finance",
+        "frontend/tests/payment-reversals",
+        "frontend/tests/order-payments"
+      ],
+      "parity_documents": [
+        "backend/parity/payment-reversals.md",
+        "backend/parity/payment-correction-finance.md"
+      ],
+      "implemented_scope": "Durable prepare/arm/attest/record cash-return intents, cross-manager reconciliation and retained device claims are integrated with final-finance guards. The actual Orders page has one actor/store-scoped manager queue and retains a confirmed receipt after detail refresh failure. Retained versioned proof-key reads, immutable original paid/comments history, current collection/ledger/DSR and sealed common-generation historical deltas preserve original money and event dates. Derived reversed status never completes a local sale.",
+      "remaining_code": [
+        "Restore the legacy AjaxPaymentStatusView flow (order/views.py:685-775) after the 19 November 2026 removal of cash-return intents; see backend/parity/w2-followups.md."
+      ],
+      "external_acceptance": [
+        "Accept the actual immutable historical publisher/source barrier, physical net cash-return attestations and supported current source funding/projection contracts before selecting the finance contract. Provider/split/offline/historical-unproved/handed-over cases require separate reconciliation, never an invented refund."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "pending-order-cancellation",
+      "implementation_status": "partial",
+      "backend": ["backend/src/modules/checkout/cancellations"],
+      "frontend": ["frontend/src/pages/checkout"],
+      "tests": ["backend/tests/checkout"],
+      "parity_documents": ["backend/parity/pending-order-cancellation.md"],
+      "implemented_scope": "Atomic pending COC cancellation, grouped stock restoration, approved expiry/wallet/GV correction and immutable receipts; source-pinned Python staging to Go activation to Node cancellation provenance producers have native concurrency/rollback evidence.",
+      "remaining_code": [
+        "Remove reliance on the deleted API-v2 membership patches and the non-production voucher-history index. See backend/parity/w2-followups.md."
+      ],
+      "external_acceptance": [
+        "Deploy and accept coordinated source membership producers/revision fences and shared wallet/stock writer cutover, real provider state and independently proved old funding. Reviewed compatibility patches and local source execution do not establish deployed acceptance; no fabricated historical backfill."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "returns-exchanges",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/checkout/return-workflow",
+        "backend/src/modules/checkout/returns.ts"
+      ],
+      "frontend": ["frontend/src/pages/returns"],
+      "tests": [
+        "backend/tests/checkout",
+        "backend/tests/return-window",
+        "frontend/tests/customer-otp",
+        "frontend/tests/return-window"
+      ],
+      "parity_documents": [
+        "backend/parity/checkout.md",
+        "backend/parity/review-checkout-financial.md"
+      ],
+      "implemented_scope": "Reason/subreason/size/payable choices, order-bound verification, accepted return/exchange saga, stock/hold/refund proof and GET recovery. Actual manager roles1-3 extension is wired in return/exchange UI to a current-authority exact order/product/HP native writer, end-of-day date, source shortening/reactivation semantics and CAS/GET recovery; changing a date never dispatches a refund.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept deployed source refund/atomic exchange/stock/ledger contracts and legal credit-note provider output."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "order/views.py",
+          "anchor": "class AjaxExtendReturnView(",
+          "scope": "Active source exact order/product/HP create/update, native administrator provenance, end-of-day date and reactivation; empty date is not a clear operation.",
+          "source": true
+        },
+        {
+          "$review": true,
+          "path": "order/templates/order/show.html",
+          "anchor": "btn btn-sm btn-danger btn-extend-return-time",
+          "scope": "Active source closed-window Extend Date action belongs to roles1-3; the manager action is separate from role1 cash/eligibility override.",
+          "source": true
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/checkout/return-workflow/extensions.ts",
+          "anchor": "export function returnWindowExtensions(",
+          "scope": "Actual native GET/PUT resource locks the exact tuple, preserves creation provenance, validates business dates and uses desired-state idempotency plus revision conflicts.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/checkout/return-workflow/repository.ts",
+          "anchor": "async extensionScope(",
+          "scope": "Extension uses current native manager/store/check-in authority, exact delivered HP, live customer/contact/OTP proof and unambiguous mapped audit actor inside the writer transaction.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/checkout/return-workflow/routes.ts",
+          "anchor": "const extensions = returnWindowExtensions(",
+          "scope": "Actual registered return registrar constructs and mounts the extension service; it is not an unused constructor.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/returns/index.tsx",
+          "anchor": "<ReturnWindowExtension",
+          "scope": "Actual return and exchange page mounts the bound source-role manager control for the selected verified line.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/returns/client.ts",
+          "anchor": "export async function setReturnWindow(",
+          "scope": "Client binds PUT and returned state to the exact order/line/product and current operator; it sends no refund or guessed manager fields.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/returns/ReturnWindowExtension.tsx",
+          "anchor": "async function refresh()",
+          "scope": "Unknown/conflicting save uses explicit GET-only recorded-date recovery and renewed attestation; Cancel clears local form state only.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "purchased-gift-cards",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/checkout/gift-cards.ts",
+        "backend/src/modules/checkout/payments"
+      ],
+      "frontend": ["frontend/src/pages/checkout/CheckoutReview.tsx"],
+      "tests": ["backend/tests/checkout"],
+      "parity_documents": ["backend/parity/checkout.md"],
+      "implemented_scope": "Saved physical gift-card serials/default/custom values/date fields with exact source Hashids and collection/funding fences.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept corrected API-v2/Go issuance transaction/proof contracts; old paid statuses cannot certify historical funding."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "fast-cash",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/checkout", "backend/src/modules/checkout-performance"],
+      "frontend": [
+        "frontend/src/pages/checkout/FastCashCheckout.tsx",
+        "frontend/src/hooks/use-checkout-performance.ts"
+      ],
+      "tests": [
+        "backend/tests/checkout",
+        "backend/tests/checkout-performance",
+        "frontend/tests/fast-cash",
+        "frontend/tests/performance-runner"
+      ],
+      "parity_documents": ["backend/parity/fast-cash.md", "backend/parity/checkout-performance.md"],
+      "implemented_scope": "Online fast-cash/prepaid sequence, frozen financial intent, receipt recovery and independent postpaid timing metadata.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept real terminals/printers/provider and source private financial projection contracts."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "cashier-shortcuts",
+      "implementation_status": "implementation_present",
+      "backend": [],
+      "frontend": [
+        "frontend/src/app.tsx",
+        "frontend/src/pages/cashier-shortcuts",
+        "frontend/src/pages/counter.tsx",
+        "frontend/src/pages/checkout/CheckoutReview.tsx"
+      ],
+      "tests": [
+        "frontend/tests/cashier-shortcuts/shortcuts.test.ts",
+        "frontend/e2e/checkout/cashier-shortcuts.spec.ts"
+      ],
+      "parity_documents": ["backend/parity/cashier-shortcuts.md"],
+      "implemented_scope": "Source R/P/PP/F/N/E/B/S/T keyboard actions and login-only standalone reference without store/counter selection or assignments; shared operator-scoped preference and guarded counter controls with typing/modifier/IME/modal/actor/financial fences. No shortcut charges or completes cash.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "order-to-cart-copy",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/checkout/order-copy",
+        "backend/src/modules/order-history/copy-adapter.ts"
+      ],
+      "frontend": [
+        "frontend/src/pages/order-copy",
+        "frontend/src/pages/checkout/CheckoutReview.tsx",
+        "frontend/src/pages/counter.tsx",
+        "frontend/src/offline/review-snapshot.ts"
+      ],
+      "tests": [
+        "backend/tests/checkout-order-copy",
+        "frontend/tests/order-copy",
+        "frontend/tests/offline-cash.test.ts"
+      ],
+      "parity_documents": ["backend/parity/order-copy.md"],
+      "implemented_scope": "One unit per original HP row into the current owned cart, immutable original draft, partial/result acknowledgement, native customer OTP/contact/actor authority, qualified historical facts, dedicated GET recovery and durable offline-cash origin fences. Serialized unsent cancellation claims the original command nonce; independently refreshed writer proof permits only explicit terminal clear, with GET-only lost-clear recovery and retained cash/origin markers until validated completion.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual source cart/stock/gift-card contracts and complete historical publications. A dispatched uncertain step requires causal upstream evidence; equal cart quantities are insufficient, and collected cash is retained for manager reconciliation."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "customer-website-handoff",
+      "implementation_status": "partial",
+      "backend": ["backend/src/modules/customer-website-handoff"],
+      "frontend": [
+        "frontend/src/pages/customer-website-handoff",
+        "frontend/src/pages/checkout/CheckoutReview.tsx"
+      ],
+      "tests": [
+        "backend/tests/customer-website-handoff",
+        "frontend/tests/customer-website-handoff.test.ts"
+      ],
+      "parity_documents": ["backend/parity/customer-website-handoff.md"],
+      "implemented_scope": "Captured owner/open-checkout/version, current check-in/store/customer/shadow, original revocable session and OTP/contact consent bound to short-lived single-use opaque fragment; browser-bound original-outcome recovery and explicit handoff consent.",
+      "remaining_code": [
+        "Re-home the handoff to the legacy {WEB_URL}/pos/login/ contract (order/views.py:4515); the receiver candidate under backend/compatibility was deleted. See backend/parity/w2-followups.md."
+      ],
+      "external_acceptance": [
+        "Accept the actual current ecommerce receiver/session/customer writer and order-attribution contract plus exact web/Electron opener deployment. The pinned network-disabled PHP candidate is reviewable, not proof of a deployed modern-login receiver."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Module owner supplied scoped native/receiver/component evidence. General JWT/api_key/contact credentials are not put in URLs, logs or browser storage."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "customer-workspace",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/customer-insights"],
+      "frontend": ["frontend/src/pages/customer-insights"],
+      "tests": [
+        "backend/tests/customer-profile.mysql.integration.test.ts",
+        "backend/tests/customer-benefits.test.ts",
+        "frontend/tests/customer-profile"
+      ],
+      "parity_documents": ["backend/parity/customer-history.md"],
+      "implemented_scope": "Current private customer profile/GST/type/date/gender edits, membership/app-benefit display, bounded external insights card and historical behavior/order drilldown.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept purpose-bound insight receiver, complete historical publications and private source-cache corrections."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "customer-contacts",
+      "implementation_status": "partial",
+      "backend": ["backend/src/modules/customer-contacts"],
+      "frontend": ["frontend/src/pages/customer-contacts"],
+      "tests": ["backend/tests/customer-contacts", "frontend/tests/customer-contacts"],
+      "parity_documents": ["backend/parity/customer-contacts.md"],
+      "implemented_scope": "Add-missing mobile/email two-stage verified durable claims, current checkout/contact revision, reference updates and sealed side-effect bridge.",
+      "remaining_code": [
+        "Reconcile with legacy AjaxUpdateUserMobile/AjaxUpdateUserEmail (order/views.py:3369, :3385); the compatibility effects bridge was deleted. See backend/parity/w2-followups.md."
+      ],
+      "external_acceptance": [
+        "Deploy/accept concrete source-consumer privacy correction, OTP/effect purpose adapters and shared contact/registration writer contract."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "product-feedback",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/product-feedback"],
+      "frontend": ["frontend/src/pages/product-feedback"],
+      "tests": [
+        "backend/tests/product-feedback.test.ts",
+        "backend/tests/product-feedback.mysql.integration.test.ts",
+        "frontend/tests/product-feedback"
+      ],
+      "parity_documents": [],
+      "implemented_scope": "Source order/customer/product options/rating/comment view and idempotent current-authority submission; distinct from NPS reports.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "invoice-documents",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/invoice-documents",
+        "backend/src/modules/checkout/invoices.ts"
+      ],
+      "frontend": [
+        "frontend/src/pages/invoice-documents",
+        "frontend/src/pages/checkout/InvoiceActions.tsx"
+      ],
+      "tests": ["backend/tests/invoice-documents", "frontend/tests/invoice-documents"],
+      "parity_documents": ["backend/parity/invoice-documents.md"],
+      "implemented_scope": "Protected offline/online/SDD documents, typed purpose transports, original order authorization, automatic paid/exchange preview and safe printing.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual SDD/external legal renderer, private consumer corrections and native printer/platform output."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "backend/src/modules/invoice-documents/global-proof.ts",
+          "anchor": "export function issueGlobalOnlineInvoiceProof(",
+          "scope": "Explicit genuine paid N access binds authorized context separately from ownerStoreId:null and source issuer policy, current actor/native financial snapshot and complete history proof. Scoped source/native/UI checks do not establish a deployed SDD renderer or legal approval.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/order-history/OnlineOrderDetail.tsx",
+          "anchor": "access={value.type === 'N' ? 'global-online' : undefined}",
+          "scope": "Paid N detail selects the explicit global access mode; HL/HE retain existing owned-store invoice authority. Absent private consumer/history configuration refuses the document.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "local-deliveries",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/legacy-fulfillment"],
+      "frontend": ["frontend/src/pages/legacy-fulfillment"],
+      "tests": ["backend/tests/legacy-fulfillment", "frontend/tests/legacy-fulfillment"],
+      "parity_documents": [
+        "backend/parity/legacy-fulfillment.md",
+        "backend/parity/local-delivery-lifecycle.md"
+      ],
+      "implemented_scope": "Original Borzo/local create/status/pack/pass/convert/cancel/RTO flows, delayed arrival/transfer/advance tasks and split-safe stock receipts.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept provider/outcome adapters, source monetary/projection/cancellation cooperation and service/scheduler credentials."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "express-fulfillment",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/fulfillment"],
+      "frontend": ["frontend/src/pages/fulfillment"],
+      "tests": ["backend/tests/fulfillment", "frontend/tests/fulfillment"],
+      "parity_documents": ["backend/parity/fulfillment.md"],
+      "implemented_scope": "Express tabs/progress/content/load-more/reasons, bulk accept/reject/pack/ship/RTO/admin edits, global 30/5-minute grouped expiry reminders, scoped persisted deduplication and status banners, and all-store monitoring. The shared query has one configured background poller and explicit business-zone parsing.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual Express courier/concurrency/status/email providers and stock cooperation."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/fulfillment/global-expiry-alerts.tsx",
+          "anchor": "export function GlobalFulfillmentExpiryAlerts",
+          "scope": "Global selected-store/current-check-in eligibility, grouped reminders and status banner are implemented; behavior still needs joined source/native/browser verification.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/fulfillment/expiry-alerts.ts",
+          "anchor": "export function useFulfillmentExpiryAlerts",
+          "scope": "Shared scoped cache with one background poll owner, authority-denial masking and bounded server interval. This is implementation evidence, not a runtime certification.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/hooks/use-check-in-authority.ts",
+          "anchor": "export function useCheckInAuthorityGeneration",
+          "scope": "Successful native check-in reads advance authority even for unchanged records/timestamps. Denied expiry reads revalidate before private data is shown; immutable historical failing proof is retained separately.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "shipping-labels",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/fulfillment/shipping-label"],
+      "frontend": ["frontend/src/pages/fulfillment/shipping-label.tsx"],
+      "tests": ["backend/tests/fulfillment", "frontend/tests/shipping-label"],
+      "parity_documents": ["backend/parity/fulfillment-shipping.md"],
+      "implemented_scope": "Express order/store label, source address/AWB/parcel fields, line quantity and safe barcode/print.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual printer/legal/shipper layout and representative data."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "legacy-vinculum-status",
+      "implementation_status": "partial",
+      "backend": [
+        "backend/src/modules/legacy-order-status",
+        "backend/src/modules/checkout/return-workflow/repository.ts",
+        "backend/src/modules/checkout/return-workflow/service.ts",
+        "backend/src/modules/checkout/routes.ts"
+      ],
+      "frontend": ["frontend/src/pages/order-status", "frontend/src/pages/operations.tsx"],
+      "tests": ["backend/tests/legacy-order-status", "frontend/tests/legacy-order-status"],
+      "parity_documents": [
+        "backend/parity/whole-order-status.md",
+        "backend/parity/rejected-return-repairs.md"
+      ],
+      "implemented_scope": "Current-authority whole-order PACK/SHIP/DELIVER commands, immutable full HP scope, source-pinned private STORE chain, standalone private receiver and deferred Orders recovery UI are integrated separately from Express. Public/private entries compose shared cash-return/import handover fences. Durable rejected-return obligations, bounded dispatch and scoped manager recovery are integrated.",
+      "remaining_code": [
+        "Replace the deleted private receiver protocol with the legacy sync-API POST (helpers/helpers.py:1133-1159). See backend/parity/w2-followups.md."
+      ],
+      "external_acceptance": [
+        "Qualify the independently deployed source receiver, vendor and Netcore outcomes, shared-writer coordination and representative queue workload."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "notifications",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/fulfillment/index.ts",
+        "backend/src/modules/fulfillment/notification-bus.ts",
+        "backend/src/modules/fulfillment/notifications.ts"
+      ],
+      "frontend": [
+        "frontend/src/pages/fulfillment/notifications.tsx",
+        "frontend/src/pages/fulfillment/notification-alerts.tsx",
+        "frontend/src/pages/fulfillment/notification-links.ts",
+        "frontend/src/pages/fulfillment/notification-sound.ts"
+      ],
+      "tests": ["backend/tests/fulfillment"],
+      "parity_documents": ["backend/parity/fulfillment.md"],
+      "implemented_scope": "Persisted notices/read receipts, scoped current-check-in WebSocket with expiry/backpressure, actionable order/queue navigation with NULL url_key, incoming visual alerts/queue indication and scoped gesture-safe sound. Internal URL parsing rejects backslashes/control characters and normalized external origins.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept production Redis/pubsub/websocket gateway and original consumer cutover."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/fulfillment/notification-links.ts",
+          "anchor": "export function notificationDestination",
+          "scope": "Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Exact two-declaration joined proof is retained separately; whole-template and production-provider acceptance remain pending.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/fulfillment/index.ts",
+          "anchor": "'/api/v1/stores/:storeId/notifications'",
+          "scope": "Stored feed rechecks writer-current check-in authority before and after primary-reader queries. Exact notification route/consumer joined proof is reviewed separately; whole templates and production provider acceptance remain pending.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/fulfillment/service.ts",
+          "anchor": "async markNotificationRead",
+          "scope": "Read-receipt mutation locks current native actor/store/check-in authority inside the writer transaction before changing only the current recipient row.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/fulfillment/notification-stream.ts",
+          "anchor": "export function notificationStream",
+          "scope": "Broker readiness and fresh native authority precede upgrade OPEN; bounded early pointers and once-only transport cleanup preserve the protocol. Twelve lifecycle units and seven fresh native/source/App groups pass on the fixed snapshot; original red ordering evidence remains immutable.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "finance-day-close",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/finance"],
+      "frontend": ["frontend/src/pages/finance"],
+      "tests": ["backend/tests/finance", "frontend/tests/finance"],
+      "parity_documents": [
+        "backend/parity/finance.md",
+        "backend/parity/export-history-controls.md"
+      ],
+      "implemented_scope": "Day-close state/revisions/server prompt, foreground global reminder with scoped cross-tab snooze/modal priority and target-date navigation, pending alerts, cash-ledger/history and exact Glassbox feed; pending offline cash retained.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept generation/CDC warehouse financial publication, source timezone/rollout and actual scheduled notices."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/finance/close-review.tsx",
+          "anchor": "export function CloseReview(",
+          "scope": "An in-memory reviewed version/entries snapshot gates one confirmation, supports Cancel/Escape and revision warning, and yields modal priority. Existing command recovery remains separate; controlled-HTTP/source/native evidence does not certify the whole production workflow.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/finance/day-close-reminder.tsx",
+          "anchor": "export function DayCloseReminder",
+          "scope": "Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/hooks/use-check-in-authority.ts",
+          "anchor": "export function useCheckInAuthorityGeneration",
+          "scope": "A fresh successful native authority read releases denied reminders without remounting an already valid open dialog or rewriting its snooze. Manual cache writes do not establish new authority.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/finance/ledger.tsx",
+          "anchor": "[pageSize, setPageSize] = useState(31)",
+          "scope": "Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/finance/history.tsx",
+          "anchor": "const pageCsv = useMutation(",
+          "scope": "Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "daily-store-report",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/reports.ts",
+        "backend/src/modules/daily-report-offline.ts",
+        "backend/src/modules/daily-report-warehouse.ts"
+      ],
+      "frontend": ["frontend/src/pages/reports.tsx"],
+      "tests": ["backend/tests/finance", "backend/tests/mysql.integration.test.ts"],
+      "parity_documents": ["backend/parity/daily-report-offline.md"],
+      "implemented_scope": "Source DSR calculations, current DATA vs historical BigQuery and offline cash/footfall/target integration.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept complete financial publication/lineage and warehouse auxiliary input contracts."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/finance/report-dates.ts",
+          "anchor": "export function dailyReportDates(",
+          "scope": "Actual source GET/widget/AJAX clocks retain the five-day-back start and one-minute ending-date rollover. A complete same-position future partition is required at midnight; no fabricated zero row or hybrid financial snapshot.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/reports.tsx",
+          "anchor": "const totalPages = Math.max(1, Math.ceil(matchingRows.length / pageSize))",
+          "scope": "Actual DSR client table filters/sorts/pages loaded rows; server-calculated totals remain authoritative.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/reports.tsx",
+          "anchor": "function download(visibleOnly = false)",
+          "scope": "Actual visible-column CSV is distinct from the retained complete CSV and preserves the original server totals rather than recalculating financial amounts.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "operational-reports",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/operational-reports"],
+      "frontend": ["frontend/src/pages/operational-reports"],
+      "tests": ["backend/tests/operational-reports", "frontend/tests/operational-reports"],
+      "parity_documents": [
+        "backend/parity/operational-reports.md",
+        "backend/parity/review-report-finance.md"
+      ],
+      "implemented_scope": "NPS, returned orders, transactions, acceptance, staff performance, flash sales and hyperlocal daily profiles with complete source CSV columns. Active performance/acceptance CSV, shared column visibility and immutable submitted column/sort export bindings are wired through the real private queue/builder. Returned/flash and order-transactions retain distinct visible-column and unchanged full CSV actions. The explicitly requested all-matching-row replacement is not a claim of identical source browser-loaded-page export scope.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept exact warehouse views/collations/source dimensions and actual historical data completeness."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/operational-reports/performance.tsx",
+          "anchor": "exportKind=\"salesperson-performance\"",
+          "scope": "Actual performance page selects the queued source-screen CSV kind; cashier has its distinct registered kind.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/operational-reports/acceptance.tsx",
+          "anchor": "exportKind=\"hyperlocal-acceptance\"",
+          "scope": "Actual hyperlocal acceptance page exposes the source CSV action through the common private queue.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/operational-reports/report-view.tsx",
+          "anchor": "mutationFn: (variant: 'visible' | 'full')",
+          "scope": "Actual visible-column export binds the submitted result filters/sort and current finite column selection; complete CSV remains a distinct action.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/operational-reports/export-presentation.ts",
+          "anchor": "export function reportColumnSelection(",
+          "scope": "Finite per-screen presentation allowlists reject arbitrary SQL/unknown/duplicate columns and preserve source column order.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/operational-reports/export-service.ts",
+          "anchor": "export function reportExportBuilder(",
+          "scope": "Actual worker builder dispatches performance/acceptance and selected-screen variants; unmarked full export retains its original query/layout.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "backend/src/modules/operational-reports/screen-report-csv.ts",
+          "anchor": "export function screenReportCsv(",
+          "scope": "Bounded UTF-8 CSV includes all matching rows in selected sort and original visible-column order; no truncated artifact is published.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "inventory-parent-repair",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/operational-reports/inventory.ts"],
+      "frontend": ["frontend/src/pages/operational-reports/inventory.tsx"],
+      "tests": ["backend/tests/operational-reports"],
+      "parity_documents": ["backend/parity/operational-reports.md"],
+      "implemented_scope": "Bounded writer-current missing-parent associations preserving existing stock and source child-selection semantics.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "scheduled-reports",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/operational-reports/scheduled-service.ts",
+        "backend/src/modules/operational-reports/scheduled-worker.ts"
+      ],
+      "frontend": ["frontend/src/pages/operational-reports"],
+      "tests": ["backend/tests/operational-reports"],
+      "parity_documents": ["backend/parity/scheduled-reports.md"],
+      "implemented_scope": "Seven source report groups, bound report building, current CRM refresh and durable ordered per-target delivery/reconciliation.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept approved scheduler service authority, source warehouse datasets and delivery recipients/providers."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "report-exports",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/operational-reports/export-service.ts",
+        "backend/src/modules/operational-reports/export-storage.ts",
+        "backend/src/modules/operational-reports/export-worker.ts"
+      ],
+      "frontend": ["frontend/src/pages/operational-reports/exports.tsx"],
+      "tests": [
+        "backend/tests/operational-reports",
+        "backend/tests/inventory-workbooks",
+        "frontend/tests/operational-reports"
+      ],
+      "parity_documents": [
+        "backend/parity/report-exports.md",
+        "backend/parity/export-history.md",
+        "backend/parity/export-history-controls.md",
+        "backend/parity/administration-collection-exports.md"
+      ],
+      "implemented_scope": "Existing durable queue/HEAD-only unknown upload recovery, current/legacy history and protected CSV/XLSX downloads.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept private bucket and missing historical export metadata publication; safe legacy package subset is not every old file."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "frontend/src/pages/operational-reports/exports.tsx",
+          "anchor": "const metadataCsv = useMutation(",
+          "scope": "Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job.",
+          "source": false
+        },
+        {
+          "$review": true,
+          "path": "frontend/src/pages/operational-reports/export-metadata.ts",
+          "anchor": "export function exportMetadataCsv(",
+          "scope": "Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded.",
+          "source": false
+        }
+      ]
+    },
+    {
+      "id": "inventory-workbooks",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/inventory-workbooks"],
+      "frontend": ["frontend/src/pages/operational-reports/exports.tsx"],
+      "tests": ["backend/tests/inventory-workbooks", "frontend/tests/inventory-workbooks"],
+      "parity_documents": ["backend/parity/inventory-workbooks.md"],
+      "implemented_scope": "Literal nine-column per-selected-store workbook pipeline, bounded DATA snapshot, streaming private spool and queued lifecycle; debug task is inlined pass-through.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept actual reader lag/ambiguity reconciliation and private report storage; no live upload or production timing proof is implied."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "legacy-order-imports",
+      "implementation_status": "missing",
+      "backend": [],
+      "frontend": [],
+      "tests": [],
+      "parity_documents": [],
+      "implemented_scope": "Removed by the 19 November 2026 decision: offline and Shopify CSV order punch-in/import, corrections, tender pause, authority succession and import holds are deleted. Legacy disables these routes (core/urls.py:72-76); the templates and tasks stay inventoried as latent.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": false,
+      "notes": [
+        "Earlier blanket CODE-gap wording for imported membership, birthday coupons/POS complementary allocations, screening and approved tender correction was stale; the line-bound implementation review below records the actual composition paths.",
+        "Arbitrary wallet/GV/PG spending and unrelated extra rows are not admitted: the CSV declares SKU/quantity/price, the private cart starts empty, and selected profiles prove their own additions. Refusing unbound prior cart metadata is retained; this does not claim general wallet/GV import-spending support.",
+        "The alternate dual-value tender helper remains financiallyExecutable:false review code. The selected executable policy is manager pause/correction with a definite original no-effect boundary and equality to the qualified source payable; no variance payment/refund is invented.",
+        "The two original task callers and three import/log templates remain individually inventoried as latent/shared source surfaces. Their current React/worker mappings do not certify original DOM transitions or a full source workflow.",
+        "Deleted by W2; see backend/parity/w2-followups.md."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "parent-store-assignment-csv",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/parent-store-imports",
+        "backend/src/modules/administration/import-profile.ts",
+        "backend/src/modules/administration/imports.ts",
+        "backend/src/modules/administration/worker.ts"
+      ],
+      "frontend": [
+        "frontend/src/pages/administration/parent-store-imports.tsx",
+        "frontend/src/pages/administration/imports.tsx"
+      ],
+      "tests": [
+        "backend/tests/administration/parent-store-imports",
+        "frontend/tests/administration/parent-store-imports"
+      ],
+      "parity_documents": ["backend/parity/parent-store-imports.md"],
+      "implemented_scope": "Active three-column SkuId/StoreId/IsActive parent/store upload and retained task: source global-live family selection, audited row-atomic zero/reset/delete/recreate, strict duplicate-pair correction, durable profiled queue/control/GET recovery and source parent-ID synchronization through existing worker; six-column stock defaults are preserved.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept selected atomic stock projection and replay-safe product synchronization, reconcile old pending source uploads/tasks at cutover and publish missing immutable parent-store historical job/row versions. No historical MySQL fallback."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Actual source upload caller is executable. Pinned source/native/component tests do not establish deployed routine or full provider workflow certification."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "inactive-upload-logs",
+      "implementation_status": "missing",
+      "backend": [],
+      "frontend": [],
+      "tests": [],
+      "parity_documents": ["backend/parity/review-checkout-financial.md"],
+      "implemented_scope": "Inactive pinned upload-log template: both list/AJAX routes and view/datatable classes are commented; the original failed-record download route and handler are also commented. The active CsvUpload model/named import tasks do not render this page.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": false,
+      "notes": [
+        "No additional legacy/modern log-list or arbitrary legacy-file proxy is required by the inactive page. Existing modern exact-UUID recovery and implemented named tasks/forms remain unchanged. Preserve the source template ID and shared import-family associations without claiming a replacement history UI."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Adjacent code inspected; these paths do not implement the missing source behavior.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "core/urls.py",
+          "anchor": "# path(\"upload-logs/\"",
+          "scope": "Both upload-log list/AJAX routes are commented at the source pin; no active source page request reaches the retained template.",
+          "source": true
+        },
+        {
+          "$review": true,
+          "path": "core/views.py",
+          "anchor": "# class UploadLogsView(",
+          "scope": "The source list/render class is commented rather than an executable leaf.",
+          "source": true
+        },
+        {
+          "$review": true,
+          "path": "core/datatables/upload_logs_datatable.py",
+          "anchor": "# class AjaxUploadLogsView(",
+          "scope": "The entire retained source datatable class is commented.",
+          "source": true
+        },
+        {
+          "$review": true,
+          "path": "core/urls.py",
+          "anchor": "# path(\"order-punch/<int:pk>/failed-reocrds/\"",
+          "scope": "Independent failed-record download route is also commented; it is not an active leaf hidden behind an inactive page.",
+          "source": true
+        },
+        {
+          "$review": true,
+          "path": "core/views.py",
+          "anchor": "# class DownloadFailedRecordView(",
+          "scope": "The failed-record download handler is commented; the retained template link does not establish executable download behavior.",
+          "source": true
+        }
+      ]
+    },
+    {
+      "id": "source-diagnostic-task",
+      "implementation_status": "missing",
+      "backend": [],
+      "frontend": [],
+      "tests": [],
+      "parity_documents": [],
+      "implemented_scope": "create_random_user_accounts_new prints random credentials; actual User.objects.create_user is commented out.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": false,
+      "notes": [
+        "No source account is created. A replacement must not print credentials or invent a new bulk-account feature; retain this diagnostic-only disposition explicitly in the job inventory."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Adjacent code inspected; these paths do not implement the missing source behavior.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "stores/tasks.py",
+          "anchor": "def create_random_user_accounts_new(",
+          "scope": "Diagnostic prints generated values; the actual create_user call is commented. No account-writing replacement is required or selected.",
+          "source": true
+        }
+      ]
+    },
+    {
+      "id": "business-metrics-upload",
+      "implementation_status": "missing",
+      "backend": ["backend/src/modules/daily-report-warehouse.ts"],
+      "frontend": ["frontend/src/pages/reports.tsx"],
+      "tests": [
+        "backend/tests/business-metrics-reachability.test.ts",
+        "backend/tools/parity/check-business-metrics-reachability.ts"
+      ],
+      "parity_documents": ["backend/parity/business-metrics-prototype.md"],
+      "implemented_scope": "Inactive source prototype: both view classes, routes and template render calls are commented; the only sidebar link is inside a Django comment block. Both prototype templates remain individually inventoried with their hashes.",
+      "remaining_code": [],
+      "external_acceptance": [],
+      "code_task_required": false,
+      "notes": [
+        "Pinned syntax/reachability audit proves no executable source upload or preview route. This is not a replacement UI or template certification. Preserve the explicit inactive-source disposition; current DSR auxiliary inputs have a separate implemented reader contract."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Adjacent code inspected; these paths do not implement the missing source behavior.",
+      "implementation_review": [
+        {
+          "$review": true,
+          "path": "report/views.py",
+          "anchor": "# class DailyRetailMetricsReport(",
+          "scope": "Upload/render class is commented source text, without an executable view or active route.",
+          "source": true
+        },
+        {
+          "$review": true,
+          "path": "report/datatables/bd_report.py",
+          "anchor": "# class AjaxDailyRetailMetricsReport(",
+          "scope": "Preview/datatable class is commented. Both prototype templates stay missing/inactive inventory exclusions, not a new upload product.",
+          "source": true
+        }
+      ]
+    },
+    {
+      "id": "inherited-model-add-forms",
+      "implementation_status": "implementation_present",
+      "backend": [
+        "backend/src/modules/administration/model-accounts",
+        "backend/src/modules/administration/policies.ts"
+      ],
+      "frontend": ["frontend/src/pages/administration/model-accounts"],
+      "tests": [
+        "backend/tests/administration/model-accounts",
+        "frontend/tests/administration/model-accounts"
+      ],
+      "parity_documents": ["backend/parity/administration-model-accounts.md"],
+      "implemented_scope": "Actual inherited username/password-only UserAdmin creation with exact form-cleaned persisted defaults (including blank email), current reconciled superuser authority, atomic audit/UUID recovery and no fabricated commerce mirror. Pinned actual Store ModelForm/save proves submitted url_key is overwritten by existing generated URL policy; physically invalid nullable Store forms are source failures, not a new supported creation mode.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept operational model grant/actor reconciliation and source business timezone. No full Django administration workflow certification."
+      ],
+      "code_task_required": true,
+      "notes": [
+        "Existing managed-profile blank-email-to-NULL behavior is a separate edit-contract boundary; these exact add-form comparisons do not re-certify it."
+      ],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    },
+    {
+      "id": "order-messages",
+      "implementation_status": "implementation_present",
+      "backend": ["backend/src/modules/checkout/order-messages"],
+      "frontend": ["frontend/src/pages/checkout/CheckoutReview.tsx"],
+      "tests": ["backend/tests/checkout"],
+      "parity_documents": ["backend/parity/order-messages.md"],
+      "implemented_scope": "Durable original order-created SMS/NPS preference, local source text and purpose-only link/transport without legacy customer tokens.",
+      "remaining_code": [],
+      "external_acceptance": [
+        "Accept purpose-specific receiver/provider templates and signed acknowledgement before sending."
+      ],
+      "code_task_required": true,
+      "notes": [],
+      "workflow_certified": false,
+      "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
+      "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
+    }
+  ],
+  "routeGroups": {
+    "core/urls.py:103": ["gift-card-batches"],
+    "core/urls.py:104": ["gift-card-batches"],
+    "core/urls.py:105": ["gift-card-batches"],
+    "core/urls.py:106": ["gift-card-batches"],
+    "core/urls.py:107": ["gift-card-batches"],
+    "stores/urls.py:8": ["stores"],
+    "stores/urls.py:9": ["stores"],
+    "stores/urls.py:10": ["stores"],
+    "stores/urls.py:11": ["stores", "store-images"],
+    "stores/urls.py:13": ["stores"],
+    "stores/urls.py:14": ["stores", "store-images"],
+    "stores/urls.py:15": ["stores"],
+    "stores/urls.py:16": ["stores"],
+    "stores/urls.py:17": ["store-slack-oauth"],
+    "stores/urls.py:18": ["store-slack-oauth"],
+    "core/urls.py:167": ["postal-code-location"],
+    "core/urls.py:62": ["special-permission-history", "global-barcode-assignment"],
+    "core/urls.py:63": ["special-permission-history"],
+    "core/urls.py:148": ["staff-installer-handoff"],
+    "core/urls.py:149": ["staff-installer-handoff"],
+    "core/urls.py:150": ["staff-installer-handoff"],
+    "core/urls.py:151": ["staff-installer-handoff"],
+    "core/urls.py:163": ["customer-application-handoff"],
+    "core/urls.py:164": ["customer-application-handoff"],
+    "stores/urls.py:12": ["location-codes"],
+    "stores/urls.py:21": ["storage"],
+    "stores/urls.py:22": ["storage"],
+    "stores/urls.py:23": ["storage"],
+    "stores/urls.py:24": ["storage"],
+    "stores/urls.py:25": ["storage"],
+    "stores/urls.py:26": ["storage"],
+    "stores/urls.py:27": ["storage"],
+    "stores/urls.py:28": ["storage"],
+    "stores/urls.py:31": ["counters"],
+    "stores/urls.py:32": ["counters"],
+    "stores/urls.py:33": ["counters"],
+    "stores/urls.py:34": ["counters"],
+    "stores/urls.py:35": ["counters"],
+    "stores/urls.py:36": ["counters"],
+    "core/urls.py:53": ["salespeople"],
+    "core/urls.py:54": ["salespeople"],
+    "core/urls.py:55": ["salespeople"],
+    "core/urls.py:56": ["salespeople"],
+    "core/urls.py:57": ["salespeople"],
+    "core/urls.py:58": ["salespeople"],
+    "core/urls.py:59": ["salespeople"],
+    "core/urls.py:60": ["salespeople"],
+    "users/urls.py:14": ["operators"],
+    "users/urls.py:15": ["operators"],
+    "users/urls.py:16": ["operators"],
+    "users/urls.py:17": ["operators"],
+    "users/urls.py:18": ["operators"],
+    "users/urls.py:19": ["operators"],
+    "users/urls.py:20": ["operators"],
+    "users/urls.py:21": ["operators"],
+    "users/urls.py:26": ["operator-mfa"],
+    "users/urls.py:27": ["operator-mfa"],
+    "core/urls.py:119": ["check-in"],
+    "core/urls.py:120": ["check-in"],
+    "core/urls.py:19": ["inventory"],
+    "core/urls.py:37": ["inventory", "inventory-audit"],
+    "core/urls.py:38": ["inventory", "inventory-audit"],
+    "core/urls.py:40": ["inventory"],
+    "core/urls.py:43": ["inventory"],
+    "core/urls.py:47": ["inventory"],
+    "core/urls.py:20": ["inventory-imports"],
+    "core/urls.py:45": ["pos-catalog"],
+    "core/urls.py:99": ["ecommerce-inventory-sync", "support"],
+    "core/urls.py:100": ["ecommerce-inventory-sync", "support"],
+    "core/urls.py:86": ["support"],
+    "core/urls.py:87": ["support"],
+    "core/urls.py:88": ["support"],
+    "core/urls.py:89": ["support"],
+    "core/urls.py:94": ["support"],
+    "core/urls.py:95": ["support"],
+    "core/urls.py:96": ["support"],
+    "core/urls.py:131": ["terminals"],
+    "core/urls.py:132": ["terminals"],
+    "core/urls.py:135": ["terminals"],
+    "core/urls.py:136": ["terminals"],
+    "core/urls.py:137": ["terminals"],
+    "core/urls.py:140": ["terminals"],
+    "core/urls.py:141": ["terminals"],
+    "core/urls.py:144": ["terminals"],
+    "core/urls.py:145": ["terminals"],
+    "core/urls.py:123": ["documentation"],
+    "core/urls.py:124": ["documentation"],
+    "core/urls.py:125": ["documentation"],
+    "core/urls.py:126": ["documentation"],
+    "core/urls.py:127": ["documentation"],
+    "core/urls.py:129": ["documentation"],
+    "core/urls.py:17": ["system-health"],
+    "core/urls.py:31": ["country-search"],
+    "core/urls.py:34": ["catalog-read"],
+    "core/urls.py:35": ["catalog-read"],
+    "core/urls.py:36": ["catalog-read"],
+    "core/urls.py:82": ["catalog-read"],
+    "core/urls.py:83": ["catalog-read"],
+    "core/urls.py:90": ["catalog-read"],
+    "core/urls.py:91": ["catalog-read"],
+    "core/urls.py:26": ["inventory-audit"],
+    "core/urls.py:113": ["inventory-audit"],
+    "core/urls.py:114": ["inventory-audit"],
+    "core/urls.py:79": ["catalog-maintenance"],
+    "core/urls.py:154": ["catalog-maintenance"],
+    "core/urls.py:165": ["catalog-maintenance"],
+    "core/urls.py:66": ["motivational-quotes"],
+    "dashboard/urls.py:8": ["motivational-quotes", "shared-shell"],
+    "order/urls.py:22": ["motivational-quotes", "checkout-cart"],
+    "order/urls.py:23": [
+      "motivational-quotes",
+      "checkout-cart",
+      "cashier-shortcuts",
+      "order-to-cart-copy",
+      "customer-website-handoff"
+    ],
+    "core/urls.py:67": ["global-barcode-assignment"],
+    "core/urls.py:68": ["wallet-adjustments"],
+    "core/urls.py:69": ["wallet-adjustments"],
+    "core/urls.py:70": ["global-vouchers"],
+    "order/urls.py:85": ["global-vouchers"],
+    "order/urls.py:86": ["global-vouchers"],
+    "core/urls.py:92": ["offline-scratch-invoice"],
+    "core/urls.py:93": ["offline-scratch-invoice"],
+    "dashboard/urls.py:7": ["dashboard-summary"],
+    "dashboard/urls.py:9": ["shared-shell"],
+    "dashboard/urls.py:10": ["shared-shell"],
+    "POSAdmin/urls.py:11": ["identity"],
+    "users/urls.py:8": ["identity"],
+    "users/urls.py:9": ["identity"],
+    "users/urls.py:10": ["identity"],
+    "users/urls.py:11": ["identity"],
+    "users/urls.py:12": ["self-profile"],
+    "users/urls.py:13": ["self-profile"],
+    "users/urls.py:30": ["device-signin"],
+    "users/urls.py:33": ["device-signin"],
+    "users/urls.py:34": ["device-signin"],
+    "order/urls.py:8": ["orders-read"],
+    "order/urls.py:9": ["orders-read"],
+    "order/urls.py:10": ["orders-read"],
+    "order/urls.py:11": ["orders-read"],
+    "order/urls.py:12": ["orders-read"],
+    "order/urls.py:24": ["checkout-cart"],
+    "order/urls.py:25": ["checkout-cart"],
+    "order/urls.py:26": ["checkout-cart"],
+    "order/urls.py:27": ["checkout-cart"],
+    "order/urls.py:28": ["checkout-cart"],
+    "order/urls.py:29": ["checkout-cart"],
+    "order/urls.py:30": ["checkout-cart"],
+    "order/urls.py:31": ["checkout-cart"],
+    "order/urls.py:32": ["checkout-cart"],
+    "order/urls.py:35": ["checkout-cart"],
+    "order/urls.py:36": ["checkout-cart", "order-messages"],
+    "order/urls.py:38": ["checkout-cart"],
+    "order/urls.py:39": ["checkout-cart"],
+    "order/urls.py:33": ["customer-verification"],
+    "order/urls.py:34": ["customer-verification"],
+    "order/urls.py:88": ["discount-approval"],
+    "order/urls.py:90": ["discount-approval"],
+    "core/urls.py:157": ["payments"],
+    "core/urls.py:158": ["payments"],
+    "core/urls.py:159": ["payments"],
+    "core/urls.py:160": ["payments"],
+    "order/urls.py:46": ["payments"],
+    "order/urls.py:47": ["payments"],
+    "order/urls.py:48": ["payments"],
+    "order/urls.py:49": ["payments"],
+    "order/urls.py:50": ["payments"],
+    "order/urls.py:51": ["payments"],
+    "order/urls.py:40": ["legacy-paid-reversal"],
+    "order/urls.py:37": ["pending-order-cancellation"],
+    "order/urls.py:16": ["returns-exchanges"],
+    "order/urls.py:17": ["returns-exchanges"],
+    "order/urls.py:18": ["returns-exchanges"],
+    "order/urls.py:19": ["returns-exchanges"],
+    "order/urls.py:20": ["returns-exchanges"],
+    "order/urls.py:21": ["returns-exchanges"],
+    "order/urls.py:43": ["returns-exchanges"],
+    "order/urls.py:41": ["purchased-gift-cards"],
+    "order/urls.py:42": ["purchased-gift-cards"],
+    "order/urls.py:54": ["fast-cash"],
+    "order/urls.py:57": ["cashier-shortcuts"],
+    "order/urls.py:78": ["order-to-cart-copy"],
+    "order/urls.py:82": ["customer-website-handoff"],
+    "users/urls.py:22": ["customer-workspace"],
+    "users/urls.py:23": ["customer-workspace"],
+    "users/urls.py:24": ["customer-workspace"],
+    "users/urls.py:25": ["customer-workspace"],
+    "users/urls.py:28": ["customer-workspace"],
+    "order/urls.py:58": ["customer-contacts"],
+    "order/urls.py:59": ["customer-contacts"],
+    "order/urls.py:60": ["product-feedback"],
+    "users/urls.py:29": ["product-feedback"],
+    "order/urls.py:13": ["invoice-documents"],
+    "order/urls.py:14": ["invoice-documents"],
+    "order/urls.py:15": ["invoice-documents"],
+    "order/urls.py:63": ["local-deliveries"],
+    "order/urls.py:64": ["local-deliveries"],
+    "order/urls.py:65": ["local-deliveries"],
+    "order/urls.py:66": ["local-deliveries"],
+    "order/urls.py:67": ["local-deliveries"],
+    "order/urls.py:69": ["local-deliveries"],
+    "order/urls.py:72": ["local-deliveries"],
+    "order/urls.py:75": ["local-deliveries"],
+    "order/urls.py:93": ["express-fulfillment"],
+    "order/urls.py:96": ["express-fulfillment"],
+    "order/urls.py:97": ["express-fulfillment"],
+    "order/urls.py:98": ["express-fulfillment"],
+    "order/urls.py:99": ["express-fulfillment"],
+    "order/urls.py:100": ["express-fulfillment"],
+    "order/urls.py:101": ["express-fulfillment"],
+    "order/urls.py:102": ["express-fulfillment"],
+    "order/urls.py:103": ["express-fulfillment"],
+    "order/urls.py:104": ["express-fulfillment"],
+    "order/urls.py:105": ["express-fulfillment"],
+    "order/urls.py:107": ["express-fulfillment"],
+    "order/urls.py:110": ["express-fulfillment"],
+    "order/urls.py:111": ["express-fulfillment"],
+    "order/urls.py:112": ["express-fulfillment"],
+    "order/urls.py:113": ["express-fulfillment"],
+    "order/urls.py:68": ["shipping-labels"],
+    "order/urls.py:80": ["legacy-vinculum-status"],
+    "notification/urls.py:7": ["notifications"],
+    "report/urls.py:16": ["finance-day-close"],
+    "report/urls.py:73": ["finance-day-close"],
+    "report/urls.py:74": ["finance-day-close"],
+    "report/urls.py:75": ["finance-day-close"],
+    "report/urls.py:76": ["finance-day-close"],
+    "report/urls.py:77": ["finance-day-close"],
+    "report/urls.py:78": ["finance-day-close"],
+    "report/urls.py:79": ["finance-day-close"],
+    "report/urls.py:80": ["finance-day-close"],
+    "report/urls.py:81": ["finance-day-close"],
+    "report/urls.py:69": ["daily-store-report"],
+    "report/urls.py:70": ["daily-store-report"],
+    "report/urls.py:19": ["operational-reports"],
+    "report/urls.py:20": ["operational-reports"],
+    "report/urls.py:21": ["operational-reports"],
+    "report/urls.py:22": ["operational-reports"],
+    "report/urls.py:31": ["operational-reports"],
+    "report/urls.py:36": ["operational-reports"],
+    "report/urls.py:37": ["operational-reports"],
+    "report/urls.py:51": ["operational-reports"],
+    "report/urls.py:52": ["operational-reports"],
+    "report/urls.py:53": ["operational-reports"],
+    "report/urls.py:54": ["operational-reports"],
+    "report/urls.py:65": ["operational-reports"],
+    "report/urls.py:66": ["operational-reports"],
+    "report/urls.py:87": ["operational-reports"],
+    "report/urls.py:88": ["operational-reports"],
+    "report/urls.py:27": ["inventory-parent-repair"],
+    "report/urls.py:40": ["scheduled-reports"],
+    "report/urls.py:41": ["scheduled-reports"],
+    "report/urls.py:42": ["scheduled-reports"],
+    "report/urls.py:43": ["scheduled-reports"],
+    "report/urls.py:44": ["scheduled-reports"],
+    "report/urls.py:45": ["scheduled-reports"],
+    "report/urls.py:84": ["scheduled-reports"],
+    "report/urls.py:91": ["report-exports"],
+    "report/urls.py:92": ["report-exports"],
+    "POSAdmin/urls.py:10": ["model-administration-access"]
+  },
+  "jobFamilies": {
+    "core/tasks.py:29": ["parent-store-assignment-csv"],
+    "core/tasks.py:40": ["inventory-imports"],
+    "core/tasks.py:51": ["legacy-order-imports"],
+    "core/tasks.py:62": ["legacy-order-imports"],
+    "core/tasks.py:71": ["order-messages"],
+    "core/tasks.py:84": ["identity"],
+    "core/tasks.py:147": ["local-deliveries"],
+    "core/tasks.py:159": ["local-deliveries"],
+    "core/tasks.py:171": ["local-deliveries"],
+    "core/tasks.py:182": ["ecommerce-inventory-sync"],
+    "core/tasks.py:209": ["gift-card-batches"],
+    "core/tasks.py:226": ["legacy-vinculum-status"],
+    "core/tasks.py:232": ["discount-approval"],
+    "core/tasks.py:271": ["discount-approval"],
+    "order/tasks.py:150": ["express-fulfillment"],
+    "order/views.py:3839": ["local-deliveries"],
+    "order/views.py:3845": ["local-deliveries"],
+    "order/views.py:3938": ["local-deliveries"],
+    "order/views.py:4482": ["local-deliveries"],
+    "report/datatables/cash_balance_datatable.py:83": ["finance-day-close", "report-exports"],
+    "report/datatables/day_close_datatable.py:216": ["finance-day-close", "report-exports"],
+    "report/datatables/hyperlocal_daily_datatable.py:40": ["operational-reports", "report-exports"],
+    "report/datatables/inventory_datatable.py:60": ["inventory-workbooks", "report-exports"],
+    "report/datatables/return_orders_datatable.py:63": ["operational-reports", "report-exports"],
+    "report/datatables/return_orders_datatable.py:328": ["operational-reports", "report-exports"],
+    "report/datatables/sales_data.py:66": ["operational-reports", "report-exports"],
+    "report/tasks.py:25": ["inventory-workbooks"],
+    "report/tasks.py:87": ["inventory-workbooks"],
+    "report/tasks.py:134": ["inventory-workbooks"],
+    "report/tasks.py:139": ["inventory-workbooks"],
+    "report/tasks.py:164": ["inventory-workbooks"],
+    "stores/tasks.py:11": ["source-diagnostic-task"]
+  },
+  "expected": {
+    "routes": 255,
+    "jobs": 32,
+    "templates": 106,
+    "websockets": 1,
+    "administration": 2
+  }
+}
