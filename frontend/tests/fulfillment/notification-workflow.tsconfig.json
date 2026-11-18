@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  },
+  "include": [
+    "./notification-workflow*.ts",
+    "../../../backend/src/modules/checkout/payments/paytmchecksum.d.ts",
+    "../../../backend/tools/fulfillment/notification-workflow-ws.d.ts"
+  ]
+}
