@@ -4,7 +4,7 @@ import { requireStore } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
 import type { CatalogService } from '../../catalog.js';
 import type { OrdersService } from '../../orders.js';
-import { orderRange } from '../contracts.js';
+import { sourceOrderDefaults, sourceSearchReadPlan } from './default-ranges.js';
 import type { OrderSearchService } from './index.js';
 import { orderSearchInput, sourceSearchContract, type SourceOrderRow } from './contracts.js';
 
@@ -33,6 +33,7 @@ export function demoOrderSearch(
         ],
         orderTypes: ['ST'],
         checkedInStoreId: storeId,
+        defaults: sourceOrderDefaults(Date.now(), config.BUSINESS_TIMEZONE),
       };
     },
     async search(user, storeId, raw) {
@@ -45,14 +46,7 @@ export function demoOrderSearch(
           'DEMO_ORDER_SELECTION_UNAVAILABLE',
           'Choose store orders in the synthetic workspace.',
         );
-      const range = orderRange(
-        {
-          from: input.from ?? input.placedFrom?.slice(0, 10),
-          to: input.to ?? input.placedTo?.slice(0, 10),
-          intent: input.intent,
-        },
-        config.BUSINESS_TIMEZONE,
-      );
+      const range = sourceSearchReadPlan(input, config.BUSINESS_TIMEZONE, Date.now()).selected;
       const sample: SourceOrderRow[] = [];
       for (const selectedStore of input.storeIds) {
         const page = await orders.list(user, selectedStore);

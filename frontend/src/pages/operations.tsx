@@ -20,6 +20,11 @@ import { orderLink, orderLinkState } from './checkout/order-link';
 import { OrderPaymentActions } from './checkout/OrderPaymentActions';
 import { OrderCancellationActions } from './checkout/cancellations/OrderCancellationActions';
 import { SourceOrderList } from './order-history/SourceOrderList';
+import {
+  orderSearchScope,
+  useOrderSearchOptions,
+  type OrderDefaultRanges,
+} from './order-history/search-client';
 import { CashReturnPendingQueue, PaymentReversalPanel } from './payment-reversals';
 import type { CorrectionReceipt } from './payment-reversals/client';
 import { WholeOrderStatusActions } from './order-status';
@@ -135,9 +140,24 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
     orderId: string;
     receipt: CorrectionReceipt;
   } | null>(null);
+  const orderMetadata = useOrderSearchOptions(user, storeId, online);
+  const authorityScope = orderSearchScope(user, storeId);
+  const [defaultAnchor, setDefaultAnchor] = useState<{
+    scope: string;
+    value: OrderDefaultRanges;
+  } | null>(null);
+  const [initialClock] = useState(() => Date.now());
+  const defaults = defaultAnchor?.scope === authorityScope ? defaultAnchor.value : undefined;
+  useEffect(() => {
+    if (!orderMetadata.isFetchedAfterMount || !orderMetadata.data?.defaults) return;
+    const value = orderMetadata.data.defaults;
+    setDefaultAnchor((old) =>
+      old?.scope === authorityScope ? old : { scope: authorityScope, value },
+    );
+  }, [authorityScope, orderMetadata.data, orderMetadata.isFetchedAfterMount]);
   const [searchParams, setSearchParams] = useSearchParams(),
     location = useLocation(),
-    dates = orderBrowserDates(searchParams),
+    dates = orderBrowserDates(searchParams, initialClock, defaults),
     scope = { operatorId: user.id, storeId },
     link = orderLink(searchParams, location.state as unknown, scope),
     selected = link.needsBinding ? '' : link.id;
@@ -159,13 +179,25 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
     [dates.from, dates.to, user.id, storeId],
   );
   useEffect(() => setAutomaticInvoice(null), [user.id, storeId, selected]);
-  const setSelected = (id: string, selection = { from: dates.from, to: dates.to }) => {
+  const [rowDetail, setRowDetail] = useState<{
+    scope: string;
+    orderId: string;
+    from: string;
+    to: string;
+  } | null>(null);
+  const detailDates =
+    rowDetail?.scope === authorityScope && rowDetail.orderId === selected
+      ? { from: rowDetail.from, to: rowDetail.to }
+      : dates.explicit
+        ? { from: dates.from, to: dates.to }
+        : undefined;
+  const setSelected = (id: string) => {
     const next = new URLSearchParams(searchParams);
-    if (id) {
-      next.set('orderId', id);
-      next.set('from', selection.from);
-      next.set('to', selection.to);
-    } else next.delete('orderId');
+    if (id) next.set('orderId', id);
+    else {
+      next.delete('orderId');
+      setRowDetail(null);
+    }
     setSearchParams(next, {
       replace: true,
       state: orderLinkState(location.state as unknown, id ? scope : null),
@@ -192,14 +224,14 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
       'order',
       storeId,
       selected,
-      dates.explicit ? dates.from : null,
-      dates.explicit ? dates.to : null,
+      detailDates?.from ?? null,
+      detailDates?.to ?? null,
     ],
     enabled: !!selected && online && dates.valid,
     queryFn: ({ signal }) =>
       request(
         `/api/v1/stores/${storeId}/orders/${selected}` +
-          (dates.explicit ? '?' + orderDateQuery({ from: dates.from, to: dates.to }) : ''),
+          (detailDates ? '?' + orderDateQuery(detailDates) : ''),
         { operatorId: user.id, signal },
         orderBrowseDetail,
       ),
@@ -226,6 +258,10 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
         aria-label="Order dates"
         onSubmit={(event) => {
           event.preventDefault();
+          if (!dates.explicit && dateDraft.from === dates.from && dateDraft.to === dates.to) {
+            setRefreshToken((value) => value + 1);
+            return;
+          }
           const next = new URLSearchParams(searchParams);
           next.set('from', dateDraft.from);
           next.set('to', dateDraft.to);
@@ -242,7 +278,8 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
             aria-label="Orders from"
             type="date"
             required
-            value={dateDraft.from}
+            value={dates.explicit || defaults ? dateDraft.from : ''}
+            disabled={!dates.explicit && !defaults}
             onChange={(event) => setDateDraft({ ...dateDraft, from: event.currentTarget.value })}
           />
         </label>
@@ -252,7 +289,8 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
             aria-label="Orders to"
             type="date"
             required
-            value={dateDraft.to}
+            value={dates.explicit || defaults ? dateDraft.to : ''}
+            disabled={!dates.explicit && !defaults}
             onChange={(event) => setDateDraft({ ...dateDraft, to: event.currentTarget.value })}
           />
         </label>
@@ -275,22 +313,36 @@ export function OrdersPage({ user, storeId }: { user: Principal; storeId: string
           action.
         </p>
       )}
-      {dates.valid && (
+      {dates.valid &&
+        !dates.explicit &&
+        !defaults &&
+        (orderMetadata.isError ? (
+          <ErrorState error={orderMetadata.error} />
+        ) : !online ? (
+          <p role="status">Reconnect to load the original order date window.</p>
+        ) : orderMetadata.data ? (
+          <p role="alert">The server did not provide the original order date window.</p>
+        ) : (
+          <Loading />
+        ))}
+      {dates.valid && (dates.explicit || defaults) && (
         <SourceOrderList
           key={`${user.id}:${user.role}:${user.userType}:${user.storeIds.join(',')}:${storeId}`}
           user={user}
           storeId={storeId}
-          dates={{ from: dates.from, to: dates.to }}
+          dates={{ from: dates.from, to: dates.to, explicit: dates.explicit }}
+          defaults={defaults}
+          options={orderMetadata.data}
           online={online}
           refreshToken={refreshToken}
           onOpen={(row) => {
             const day = row.created_at.slice(0, 10);
-            setSelected(
-              row.id,
-              day >= dates.from && day <= dates.to
-                ? { from: dates.from, to: dates.to }
-                : { from: day, to: day },
+            setRowDetail(
+              day < (defaults?.online.placedTo.slice(0, 10) ?? dates.to)
+                ? { scope: authorityScope, orderId: row.id, from: day, to: day }
+                : null,
             );
+            setSelected(row.id);
           }}
         />
       )}

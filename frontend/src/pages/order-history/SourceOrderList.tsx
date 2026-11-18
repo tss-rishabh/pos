@@ -2,12 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink } from 'react-router-dom';
 import type { Principal } from '../../api/types';
-import { request } from '../../api/client';
 import { Empty, ErrorState, Loading } from '../../components/common';
 import { currency } from '../../lib/format';
 import { OrderInvoiceActions } from '../invoice-documents';
 import {
-  orderSearchOptions,
+  useOrderSearchOptions,
+  defaultOrderRange,
+  type OrderDefaultRanges,
+  type OrderSearchMetadata,
   searchOrders,
   sourcePageCsv,
   type OrderSearchBody,
@@ -34,15 +36,23 @@ export function SourceOrderList({
   dates,
   online,
   refreshToken = 0,
+  defaults,
+  options: providedOptions,
   onOpen,
 }: {
   user: Principal;
   storeId: string;
-  dates: { from: string; to: string };
+  dates: { from: string; to: string; explicit?: boolean };
+  defaults?: OrderDefaultRanges;
+  options?: OrderSearchMetadata;
   online: boolean;
   refreshToken?: number;
   onOpen: (row: SourceOrderRow) => void;
 }) {
+  const initialRange =
+    defaults && dates.explicit === false ? defaultOrderRange(defaults, 'ST') : undefined;
+  const placementTouched = useRef(false);
+  const localTime = (value: string) => value.replace(' ', 'T').slice(0, 16);
   const [form, setForm] = useState({
       type: 'ST' as OrderSearchBody['orderType'],
       stores: [storeId],
@@ -56,8 +66,8 @@ export function SourceOrderList({
       search: '',
       notPacked: false,
       inQueue: false,
-      placedFrom: '',
-      placedTo: '',
+      placedFrom: initialRange ? localTime(initialRange.placedFrom) : '',
+      placedTo: initialRange ? localTime(initialRange.placedTo) : '',
     }),
     [visible, setVisible] = useState(() => columns.map(([key]) => key)),
     [error, setError] = useState(''),
@@ -68,7 +78,9 @@ export function SourceOrderList({
         orderType: 'ST',
         storeIds: [storeId],
         orderIds: [],
-        ...dates,
+        from: dates.from,
+        to: dates.to,
+        ...initialRange,
         mobile: '',
         email: '',
         paymentMethodIds: [],
@@ -83,35 +95,34 @@ export function SourceOrderList({
         draw: 1,
       },
     }));
-  const metadata = useQuery({
-    queryKey: [user.id, 'order-search-options', storeId],
-    enabled: online,
-    retry: false,
-    queryFn: ({ signal }) =>
-      request(
-        `/api/v1/stores/${storeId}/order-search-options`,
-        { operatorId: user.id, signal },
-        orderSearchOptions,
-      ),
+  const metadataQuery = useOrderSearchOptions(user, storeId, online && !providedOptions);
+  const metadata = { ...metadataQuery, data: providedOptions ?? metadataQuery.data };
+  const previous = useRef({
+    dates: JSON.stringify([dates.from, dates.to, dates.explicit]),
+    refreshToken,
   });
-  const previous = useRef(JSON.stringify([dates.from, dates.to, refreshToken]));
   useEffect(() => {
-    const current = JSON.stringify([dates.from, dates.to, refreshToken]);
-    if (previous.current === current) return;
-    previous.current = current;
+    const key = JSON.stringify([dates.from, dates.to, dates.explicit]);
+    const calendarChanged = previous.current.dates !== key;
+    if (!calendarChanged && previous.current.refreshToken === refreshToken) return;
+    previous.current = { dates: key, refreshToken };
+    if (calendarChanged) {
+      placementTouched.current = true;
+      setForm((old) => ({ ...old, placedFrom: '', placedTo: '' }));
+    }
     setSelection((old) => ({
       id: crypto.randomUUID(),
       body: {
         ...old.body,
-        ...dates,
-        placedFrom: undefined,
-        placedTo: undefined,
+        from: dates.from,
+        to: dates.to,
+        ...(calendarChanged ? { placedFrom: undefined, placedTo: undefined } : {}),
         page: 1,
         draw: old.body.draw + 1,
       },
     }));
     setSummary(null);
-  }, [dates.from, dates.to, refreshToken]);
+  }, [dates.from, dates.to, dates.explicit, refreshToken]);
   const orders = useQuery({
     queryKey: [user.id, 'order-search', storeId, selection.id],
     enabled: online,
@@ -145,7 +156,7 @@ export function SourceOrderList({
       return;
     }
     const precise =
-      form.placedFrom && form.placedTo
+      !form.notPacked && !form.inQueue && form.placedFrom && form.placedTo
         ? {
             placedFrom: form.placedFrom.replace('T', ' ') + ':00',
             placedTo: form.placedTo.replace('T', ' ') + ':00',
@@ -205,9 +216,25 @@ export function SourceOrderList({
             <select
               aria-label="Order type"
               value={form.type}
-              onChange={(e) =>
-                setForm({ ...form, type: e.currentTarget.value as OrderSearchBody['orderType'] })
-              }
+              onChange={(e) => {
+                const type = e.currentTarget.value as OrderSearchBody['orderType'];
+                setForm((old) => {
+                  const range =
+                    defaults && dates.explicit === false && !placementTouched.current
+                      ? defaultOrderRange(defaults, type)
+                      : undefined;
+                  return {
+                    ...old,
+                    type,
+                    ...(range
+                      ? {
+                          placedFrom: localTime(range.placedFrom),
+                          placedTo: localTime(range.placedTo),
+                        }
+                      : {}),
+                  };
+                });
+              }}
             >
               {(
                 metadata.data?.orderTypes ??
@@ -328,7 +355,10 @@ export function SourceOrderList({
               aria-label="Placed from"
               disabled={queue}
               value={form.placedFrom}
-              onChange={(e) => setForm({ ...form, placedFrom: e.currentTarget.value })}
+              onChange={(e) => {
+                placementTouched.current = true;
+                setForm({ ...form, placedFrom: e.currentTarget.value });
+              }}
             />
           </label>
           <label>
@@ -338,7 +368,10 @@ export function SourceOrderList({
               aria-label="Placed to"
               disabled={queue}
               value={form.placedTo}
-              onChange={(e) => setForm({ ...form, placedTo: e.currentTarget.value })}
+              onChange={(e) => {
+                placementTouched.current = true;
+                setForm({ ...form, placedTo: e.currentTarget.value });
+              }}
             />
           </label>
           <label>
@@ -440,13 +473,15 @@ export function SourceOrderList({
         <>
           <p className="muted">
             {data?.recordsFiltered} result rows ·{' '}
-            {data?.emptySelection?'No stores selected':data?.reader === 'mixed'
-              ? 'Live queue with historical details'
-              : data?.reader === 'bigquery'
-                ? 'Verified historical snapshot; later changes may still be replicating'
-                : data?.reader === 'data'
-                  ? 'Today’s reporting reader'
-                  : 'Current operational reader'}
+            {data?.emptySelection
+              ? 'No stores selected'
+              : data?.reader === 'mixed'
+                ? 'Live queue with historical details'
+                : data?.reader === 'bigquery'
+                  ? 'Verified historical snapshot; later changes may still be replicating'
+                  : data?.reader === 'data'
+                    ? 'Today’s reporting reader'
+                    : 'Current operational reader'}
             {data?.fetchedAt ? ' · Updated ' + new Date(data.fetchedAt).toLocaleTimeString() : ''}
           </p>
           <div className="table-wrap">

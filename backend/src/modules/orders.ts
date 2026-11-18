@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, lt, or } from 'drizzle-orm';
+import { and, desc, eq, gte, lt, lte, or } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../config.js';
 import type { Databases } from '../db/pools.js';
@@ -25,6 +25,7 @@ import { orderCursors } from './order-history/cursor.js';
 import { orderReadAuthority } from './order-history/authority.js';
 import { publicOrderHistory } from './order-history/reader.js';
 import { historyRequired } from './order-history/options.js';
+import { sourceOrderDefaults } from './order-history/search/default-ranges.js';
 export type { OrderReadSelection } from './order-history/contracts.js';
 export interface OrdersService {
   list(
@@ -51,8 +52,8 @@ export function ordersService(
   const authorize = orderReadAuthority(db),
     cursors = orderCursors(config?.SESSION_SECRET, clock),
     warehouse = history ?? (config ? publicOrderHistory(config) : undefined);
-  const range = (selection: OrderReadSelection = {}) =>
-    orderRange(selection, config?.BUSINESS_TIMEZONE ?? 'Asia/Kolkata', clock());
+  const range = (selection: OrderReadSelection = {}, now = clock()) =>
+    orderRange(selection, config?.BUSINESS_TIMEZONE ?? 'Asia/Kolkata', now);
   const metadata = (selection: OrderReadRange) => ({
     reader: selection.reader,
     range: selection,
@@ -170,8 +171,15 @@ export function ordersService(
     async detail(user, storeId, orderId, selection = {}) {
       positiveId.parse(storeId);
       positiveId.parse(orderId);
-      const selected = range(selection),
+      const readTime = clock();
+      const selected = range(selection, readTime),
         version = await authorize(user, storeId);
+      // The source store list includes its minute-ahead midnight endpoint.
+      // Explicit date/report reads retain their ordinary exclusive boundary.
+      const sourceEnd =
+        !selected.explicit && selected.intent === 'interactive'
+          ? sourceOrderDefaults(readTime, selected.timeZone).store.placedTo
+          : undefined;
       if (selected.reader !== 'bigquery') {
         const native = await db.get(selected.reader).transaction(
           async (tx) => {
@@ -192,7 +200,9 @@ export function ordersService(
                   eq(OrderStore.store, BigInt(storeId)),
                   eq(Order.id, BigInt(orderId)),
                   gte(Order.created_at, selected.start),
-                  lt(Order.created_at, selected.end),
+                  sourceEnd && sourceEnd >= selected.end
+                    ? lte(Order.created_at, sourceEnd)
+                    : lt(Order.created_at, selected.end),
                 ),
               )
               .orderBy(OrderStore.id)

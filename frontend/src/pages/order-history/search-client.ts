@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import type { Principal } from '../../api/types';
 import { z } from 'zod';
 import { request } from '../../api/client';
 const id = z.string().regex(/^[1-9]\d{0,18}$/),
@@ -34,7 +36,7 @@ export const sourceOrderRow = z
 export type SourceOrderRow = z.infer<typeof sourceOrderRow>;
 export const orderSearchPage = z
   .object({
-    emptySelection:z.literal(true).optional(),
+    emptySelection: z.literal(true).optional(),
     contract: z.literal('pos-source-order-search-v1'),
     draw: z.number().int(),
     recordsTotal: zero,
@@ -55,6 +57,45 @@ export const orderSearchPage = z
     generationId: z.uuid().nullable(),
   })
   .strict();
+const sourceTimestamp = z
+  .string()
+  .regex(/^\d{4}-\d\d-\d\d \d\d:\d\d:00$/)
+  .refine((value) => {
+    const iso = value.replace(' ', 'T') + 'Z';
+    const parsed = new Date(iso);
+    return (
+      Number.isFinite(parsed.getTime()) &&
+      parsed.toISOString().slice(0, 19) === value.replace(' ', 'T')
+    );
+  });
+const sourceRange = z
+  .object({ placedFrom: sourceTimestamp, placedTo: sourceTimestamp })
+  .strict()
+  .refine((value) => value.placedFrom <= value.placedTo);
+export const orderDefaultRanges = z
+  .object({
+    generatedAt: z.iso.datetime({ offset: true }),
+    timeZone: z
+      .string()
+      .min(1)
+      .max(100)
+      .refine((value) => {
+        try {
+          new Intl.DateTimeFormat('en', { timeZone: value });
+          return true;
+        } catch {
+          return false;
+        }
+      }),
+    store: sourceRange,
+    online: sourceRange,
+  })
+  .strict();
+export type OrderDefaultRanges = z.infer<typeof orderDefaultRanges>;
+export const defaultOrderRange = (
+  defaults: OrderDefaultRanges,
+  type: OrderSearchBody['orderType'],
+) => (type === 'N' ? defaults.online : defaults.store);
 const option = z.object({ id: zero, name: z.string().nullable() }).strict();
 export const orderSearchOptions = z
   .object({
@@ -66,6 +107,7 @@ export const orderSearchOptions = z
     orderStatuses: z.array(option),
     orderTypes: z.array(z.enum(['ST', 'HL', 'HE', 'N'])),
     checkedInStoreId: id.nullable(),
+    defaults: orderDefaultRanges.optional(),
   })
   .strict();
 export type SearchSort =
@@ -136,4 +178,22 @@ export function sourcePageCsv(
     columns.join(','),
     ...rows.map((row) => columns.map((key) => cell(row[key])).join(',')),
   ].join('\r\n');
+}
+
+export type OrderSearchMetadata = z.infer<typeof orderSearchOptions>;
+export const orderSearchScope = (user: Principal, storeId: string) =>
+  JSON.stringify([user.id, user.role, user.userType, [...user.storeIds].sort(), storeId]);
+export function useOrderSearchOptions(user: Principal, storeId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: [user.id, 'order-search-options', storeId, orderSearchScope(user, storeId)],
+    enabled,
+    retry: false,
+    refetchOnMount: 'always',
+    queryFn: ({ signal }) =>
+      request(
+        `/api/v1/stores/${storeId}/order-search-options`,
+        { operatorId: user.id, signal },
+        orderSearchOptions,
+      ),
+  });
 }

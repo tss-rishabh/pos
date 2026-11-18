@@ -20,6 +20,11 @@ import { searchContactKeys, searchContactSelection } from './contacts.js';
 import { sourceIndex, sourceSelect } from './reducer.js';
 import { formatSourceOrder, searchDataInvalid } from './format.js';
 import { readOrderSearchOptions, type OrderSearchOptions } from './options.js';
+import {
+  sourceOrderDefaults,
+  sourceSearchReadPlan,
+  type SourceSearchReadPlan,
+} from './default-ranges.js';
 export function orderSearchService(
   config: Config,
   db: Databases,
@@ -55,17 +60,10 @@ export function orderSearchService(
       const input = orderSearchInput.parse(raw),
         scope = await capture(user, storeId, input),
         queue = input.notPacked || input.inQueue;
-      const selected = orderRange(
-        queue
-          ? {}
-          : {
-              from: input.from ?? input.placedFrom?.slice(0, 10),
-              to: input.to ?? input.placedTo?.slice(0, 10),
-              intent: input.intent,
-            },
-        config.BUSINESS_TIMEZONE,
-        clock(),
-      );
+      const plan: SourceSearchReadPlan = queue
+        ? { selected: orderRange({}, config.BUSINESS_TIMEZONE, clock()) }
+        : sourceSearchReadPlan(input, config.BUSINESS_TIMEZONE, clock());
+      const selected = plan.selected;
       const metadata = {
         contract: sourceSearchContract as typeof sourceSearchContract,
         draw: input.draw,
@@ -126,7 +124,16 @@ export function orderSearchService(
             'ORDER_QUEUE_HISTORY_UNAVAILABLE',
             'Some queued orders need a complete historical publication before this queue can be shown.',
           );
-      } else old = await history.range(scope, selected);
+      } else {
+        if (plan.historical) old = await history.range(scope, plan.historical);
+        if (plan.current)
+          current = await native.currentFacts(
+            scope,
+            input,
+            plan.current,
+            options.ORDER_SEARCH_MAX_INDEX_ROWS,
+          );
+      }
       const currentIndexes = current.map((row) => sourceIndex(row));
       let indexes = [...currentIndexes, ...(old?.indexes ?? [])];
       if (new Set(indexes.map((row) => row.id)).size !== indexes.length) throw searchDataInvalid();
@@ -177,7 +184,7 @@ export function orderSearchService(
       await recheck(user, storeId, input, scope.binding);
       return {
         ...metadata,
-        reader: old ? (live || current.length ? 'mixed' : 'bigquery') : 'primary',
+        reader: old ? (live || plan.current ? 'mixed' : 'bigquery') : 'primary',
         recordsTotal: chosen.count,
         recordsFiltered: chosen.count,
         page: chosen.page,
@@ -190,6 +197,7 @@ export function orderSearchService(
       };
     },
     async options(user: Principal, storeId: string) {
+      const defaults = sourceOrderDefaults(clock(), config.BUSINESS_TIMEZONE);
       const input = orderSearchInput.parse({ storeIds: [storeId] }),
         scope = await capture(user, storeId, input),
         primary = db.get('primary');
@@ -230,6 +238,7 @@ export function orderSearchService(
         orderStatuses,
         orderTypes: scope.globalReader ? ['ST', 'HL', 'HE', 'N'] : ['ST', 'HL', 'HE'],
         checkedInStoreId: scope.checkedInStoreId,
+        defaults,
       };
     },
   };

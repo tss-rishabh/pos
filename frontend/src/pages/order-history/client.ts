@@ -1,3 +1,4 @@
+import type { OrderDefaultRanges } from './search-client';
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { params, request } from '../../api/client';
@@ -18,13 +19,17 @@ export function currentOrderDay(now = Date.now(), timeZone = 'Asia/Kolkata') {
   const get = (kind: string) => parts.find((part) => part.type === kind)!.value;
   return `${get('year')}-${get('month')}-${get('day')}`;
 }
-export function orderBrowserDates(search: URLSearchParams, now = Date.now()) {
+export function orderBrowserDates(
+  search: URLSearchParams,
+  now = Date.now(),
+  defaults?: OrderDefaultRanges,
+) {
   const today = currentOrderDay(now),
     has = search.has('from') || search.has('to'),
     parsed = orderDatesSchema.safeParse({ from: search.get('from'), to: search.get('to') });
   return {
-    from: parsed.success ? parsed.data.from : today,
-    to: parsed.success ? parsed.data.to : today,
+    from: parsed.success ? parsed.data.from : (defaults?.store.placedFrom.slice(0, 10) ?? today),
+    to: parsed.success ? parsed.data.to : (defaults?.store.placedTo.slice(0, 10) ?? today),
     explicit: has,
     valid: !has || parsed.success,
   };

@@ -1,3 +1,4 @@
+import { AppError } from '../../../domain/errors.js';
 import {
   and,
   asc,
@@ -80,8 +81,39 @@ function countHeader(db: Executor, scope: SourceSearchScope) {
       ),
     );
 }
-function joinHeader(db: Executor, scope: SourceSearchScope) {
+function idHeader(db: Executor, scope: SourceSearchScope) {
   const storeMode = scope.effectiveType === 'ST',
+    selected = !scope.explicitIds && storeMode;
+  return db
+    .select({ id: Order.id })
+    .from(Order)
+    .leftJoin(MUser, eq(MUser.id, Order.user))
+    .leftJoin(
+      OrderStatus,
+      and(eq(OrderStatus.id, Order.order_statuses), ne(Order.order_statuses, 0n)),
+    )
+    .leftJoin(
+      PaymentMethod,
+      and(eq(PaymentMethod.id, Order.payment_methods), ne(Order.payment_methods, 0n)),
+    )
+    .leftJoin(
+      PaymentStatus,
+      and(eq(PaymentStatus.id, Order.payment_statuses), ne(Order.payment_statuses, 0n)),
+    )
+    .leftJoin(anyStore, and(eq(anyStore.order, Order.id), sql`${storeMode}`))
+    .leftJoin(
+      matchedStore,
+      and(
+        eq(matchedStore.order, Order.id),
+        sql`${selected}`,
+        scope.selectedStores.length
+          ? inArray(matchedStore.store, scope.selectedStores.map(BigInt))
+          : sql`FALSE`,
+      ),
+    );
+}
+function joinHeader(db: Executor, scope: SourceSearchScope, multiplicity = true) {
+  const storeMode = multiplicity && scope.effectiveType === 'ST',
     selected = !scope.explicitIds && storeMode;
   return db
     .select({
@@ -495,6 +527,40 @@ export function sourceNativeRepository(
     });
   }
   return {
+    async currentFacts(
+      scope: SourceSearchScope,
+      input: OrderSearchInput,
+      range: OrderReadRange,
+      maximum: number,
+    ) {
+      if (range.reader === 'bigquery') throw searchDataInvalid();
+      return db.get('primary').transaction(
+        async (tx) => {
+          const selected = await idHeader(tx, scope)
+            .where(filters(tx, scope, input, range))
+            .groupBy(Order.id)
+            .limit(maximum + 1);
+          if (selected.length > maximum)
+            throw new AppError(
+              422,
+              'ORDER_SEARCH_TOO_LARGE',
+              'Narrow the current order selection.',
+            );
+          if (!selected.length) return [];
+          const rows = await joinHeader(tx, scope, false).where(
+            filters(
+              tx,
+              scope,
+              input,
+              range,
+              selected.map((row) => String(row.id)),
+            ),
+          );
+          return (await enrich(tx, rows)).map((row) => row.fact);
+        },
+        { isolationLevel: 'repeatable read', accessMode: 'read only' },
+      );
+    },
     async facts(scope: SourceSearchScope, range: OrderReadRange, ids: readonly string[]) {
       if (range.reader === 'bigquery') throw searchDataInvalid();
       if (!ids.length) return [];
