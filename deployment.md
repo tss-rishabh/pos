@@ -173,11 +173,12 @@ actual operational log source. Equal numeric user IDs do not establish actor
 identity. Historical/all-date history also requires the explicit matching
 BigQuery view, match function and contract; it has no MySQL fallback.
 
-Daily sales additionally require the generation/hash/CDC publication documented
-in `backend/parity/daily-report-offline.md`. Configure the rollup and publication
-tables together, select `BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT=pos-daily-store-sales-offline-v1`,
-and retain the documented freshness limits. An empty, stale or mismatched
-publication cannot silently omit completed offline cash receipts.
+Daily sales additionally require the generation/hash/CDC publication described
+in `backend/tools/reports/daily-warehouse-contract.json`. Configure the rollup and
+publication tables together, select
+`BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT=pos-daily-store-sales-v2` (source-only
+rollups; the v1 offline-cash projection was removed with offline cash), and retain
+the documented freshness limits.
 
 The user-approved per-line refund correction is an explicit change to the
 duplicate-SKU cases in the source. Review and deploy the two-line upstream patch
@@ -187,17 +188,6 @@ then select `UPSTREAM_POS_REFUND_ALLOCATION_CONTRACT=pos-refund-per-hp-v1` and
 Ordinary checkout also verifies stored per-line refunds against native audit
 records before confirmation or charging. Configuration alone is not evidence
 that the deployed upstream code is corrected.
-
-Offline cash pricing and order templates use the private, pinned-source
-compatibility resources documented in
-`backend/compatibility/upstream/offline-cash-pricing/README.md`. Configure both
-`TSS_OFFLINE_CASH_PRICING_URL` and `TSS_OFFLINE_CASH_TEMPLATE_URL`, their shared
-service key, reviewed pricing/template/import contracts, signing keys and limits.
-The immutable receipt remains unchanged during manager attribution or order
-import. The legacy unset-event date correction in
-`backend/compatibility/upstream/offline-cash-import/improve-query.md` is a separate
-writer schema review; `OFFLINE_CASH_ORDER_SCHEMA_CONTRACT=pos-offline-cash-order-schema-v1`
-must not be selected before that contract exists on the actual writer.
 
 Run the financial outbox in a supervised process:
 

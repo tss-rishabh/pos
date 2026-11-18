@@ -1464,21 +1464,19 @@
     },
     {
       "id": "fast-cash",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": ["backend/src/modules/checkout", "backend/src/modules/checkout-performance"],
-      "frontend": [
-        "frontend/src/pages/checkout/FastCashCheckout.tsx",
-        "frontend/src/hooks/use-checkout-performance.ts"
-      ],
+      "frontend": ["frontend/src/hooks/use-checkout-performance.ts"],
       "tests": [
         "backend/tests/checkout",
         "backend/tests/checkout-performance",
-        "frontend/tests/fast-cash",
         "frontend/tests/performance-runner"
       ],
       "parity_documents": ["backend/parity/fast-cash.md", "backend/parity/checkout-performance.md"],
-      "implemented_scope": "Online fast-cash/prepaid sequence, frozen financial intent, receipt recovery and independent postpaid timing metadata.",
-      "remaining_code": [],
+      "implemented_scope": "Backend fast-checkout settlement note and source complete_transaction vectors, plus independent postpaid timing metadata. The fast-cash checkout UI and its IndexedDB intent store were removed with the retired offline cash flow (W7, 19 November 2026).",
+      "remaining_code": [
+        "Restore a legacy AjaxFastCheckoutView fast-checkout UI (order/views.py, order/urls.py:54, create_order.html fast_checkout_button_press) if it stays in scope; see backend/parity/w7-report.md."
+      ],
       "external_acceptance": [
         "Accept real terminals/printers/provider and source private financial projection contracts."
       ],
@@ -1525,13 +1523,9 @@
         "frontend/src/pages/counter.tsx",
         "frontend/src/offline/review-snapshot.ts"
       ],
-      "tests": [
-        "backend/tests/checkout-order-copy",
-        "frontend/tests/order-copy",
-        "frontend/tests/offline-cash.test.ts"
-      ],
+      "tests": ["backend/tests/checkout-order-copy", "frontend/tests/order-copy"],
       "parity_documents": ["backend/parity/order-copy.md"],
-      "implemented_scope": "One unit per original HP row into the current owned cart, immutable original draft, partial/result acknowledgement, native customer OTP/contact/actor authority, qualified historical facts, dedicated GET recovery and durable offline-cash origin fences. Serialized unsent cancellation claims the original command nonce; independently refreshed writer proof permits only explicit terminal clear, with GET-only lost-clear recovery and retained cash/origin markers until validated completion.",
+      "implemented_scope": "One unit per original HP row into the current owned cart, immutable original draft, partial/result acknowledgement, native customer OTP/contact/actor authority, qualified historical facts, dedicated GET recovery. Serialized unsent cancellation claims the original command nonce; independently refreshed writer proof permits only explicit terminal clear, with GET-only lost-clear recovery and retained origin markers until validated completion.",
       "remaining_code": [],
       "external_acceptance": [
         "Accept actual source cart/stock/gift-card contracts and complete historical publications. A dispatched uncertain step requires causal upstream evidence; equal cart quantities are insufficient, and collected cash is retained for manager reconciliation."
@@ -1900,13 +1894,13 @@
       "implementation_status": "implementation_present",
       "backend": [
         "backend/src/modules/reports.ts",
-        "backend/src/modules/daily-report-offline.ts",
-        "backend/src/modules/daily-report-warehouse.ts"
+        "backend/src/modules/daily-report-warehouse.ts",
+        "backend/src/modules/daily-report-corrections.ts"
       ],
       "frontend": ["frontend/src/pages/reports.tsx"],
       "tests": ["backend/tests/finance", "backend/tests/mysql.integration.test.ts"],
       "parity_documents": ["backend/parity/daily-report-offline.md"],
-      "implemented_scope": "Source DSR calculations, current DATA vs historical BigQuery and offline cash/footfall/target integration.",
+      "implemented_scope": "Source DSR calculations, current DATA vs historical BigQuery and footfall/target integration.",
       "remaining_code": [],
       "external_acceptance": [
         "Accept complete financial publication/lineage and warehouse auxiliary input contracts."

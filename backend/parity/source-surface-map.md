@@ -21,6 +21,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 - **checkout-cart (partial)**: Finish the complete reachable source checkout control inventory before claiming all features. Exact scans, offline aliases, product/troubleshoot links, direct quantity editing, quoted summary and complementary deletion are integrated with scoped checks; full source/native checkout acceptance remains pending.
 - **legacy-paid-reversal (partial)**: Restore the legacy AjaxPaymentStatusView flow (order/views.py:685-775) after the 19 November 2026 removal of cash-return intents; see backend/parity/w2-followups.md.
 - **pending-order-cancellation (partial)**: Remove reliance on the deleted API-v2 membership patches and the non-production voucher-history index. See backend/parity/w2-followups.md.
+- **fast-cash (partial)**: Restore a legacy AjaxFastCheckoutView fast-checkout UI (order/views.py, order/urls.py:54, create_order.html fast_checkout_button_press) if it stays in scope; see backend/parity/w7-report.md.
 - **customer-website-handoff (partial)**: Re-home the handoff to the legacy {WEB_URL}/pos/login/ contract (order/views.py:4515); the receiver candidate under backend/compatibility was deleted. See backend/parity/w2-followups.md.
 - **customer-contacts (partial)**: Reconcile with legacy AjaxUpdateUserMobile/AjaxUpdateUserEmail (order/views.py:3369, :3385); the compatibility effects bridge was deleted. See backend/parity/w2-followups.md.
 - **legacy-vinculum-status (partial)**: Replace the deleted private receiver protocol with the legacy sync-API POST (helpers/helpers.py:1133-1159). See backend/parity/w2-followups.md.
@@ -188,8 +189,8 @@ Mapped surfaces: `report/urls.py:69` (external_acceptance), `report/urls.py:70` 
 | Code/source reference | Reviewed scope |
 | --- | --- |
 | `frontend/src/pages/finance/report-dates.ts:10` | Actual source GET/widget/AJAX clocks retain the five-day-back start and one-minute ending-date rollover. A complete same-position future partition is required at midnight; no fabricated zero row or hybrid financial snapshot. |
-| `frontend/src/pages/reports.tsx:187` | Actual DSR client table filters/sorts/pages loaded rows; server-calculated totals remain authoritative. |
-| `frontend/src/pages/reports.tsx:197` | Actual visible-column CSV is distinct from the retained complete CSV and preserves the original server totals rather than recalculating financial amounts. |
+| `frontend/src/pages/reports.tsx:185` | Actual DSR client table filters/sorts/pages loaded rows; server-calculated totals remain authoritative. |
+| `frontend/src/pages/reports.tsx:195` | Actual visible-column CSV is distinct from the retained complete CSV and preserves the original server totals rather than recalculating financial amounts. |
 
 ### operational-reports
 
@@ -249,7 +250,7 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 28 | 0 | 159 |
+| routes | 68 | 29 | 0 | 158 |
 | jobs | 0 | 2 | 3 | 27 |
 | templates | 32 | 7 | 5 | 62 |
 | websockets | 0 | 0 | 0 | 1 |
@@ -396,7 +397,7 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:49` | `paytm-ajax-transaction-cancel/` | payments | external_acceptance |
 | `order/urls.py:50` | `ajax-transaction-status-check-paytm/` | payments | external_acceptance |
 | `order/urls.py:51` | `ajax-get-payment-mode-by-order-id/` | payments | external_acceptance |
-| `order/urls.py:54` | `ajax-fast-checkout/` | fast-cash | external_acceptance |
+| `order/urls.py:54` | `ajax-fast-checkout/` | fast-cash | partial |
 | `order/urls.py:57` | `key-shortcuts/` | cashier-shortcuts | implementation_present |
 | `order/urls.py:58` | `ajax-m-user-mobile` | customer-contacts | partial |
 | `order/urls.py:59` | `ajax-m-user-email` | customer-contacts | partial |

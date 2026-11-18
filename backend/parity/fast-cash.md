@@ -1,5 +1,7 @@
 # Fast cash checkout
 
+> **Removed 19 November 2026 (W7).** The frontend fast-cash checkout (`FastCashCheckout.tsx`, `frontend/src/offline/fast-cash/**`, IndexedDB V7 tables) and its browser/e2e tests were deleted with the retired offline cash flow. The backend settlement-note resource and `tests/checkout/fast-cash-source.test.ts` remain. This file is historical; see `w7-report.md`.
+
 This is a bounded fast-cash orchestration slice, not certification of every original fast-checkout form field or deployed provider. It uses the existing checkout submission and cash payment resources. No extra financial endpoint, order reprice, fabricated receipt or automatic retry is introduced.
 
 ## Source evidence
