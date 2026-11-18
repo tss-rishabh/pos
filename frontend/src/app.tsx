@@ -42,6 +42,7 @@ import { useOfflineCashSync } from './offline/cash/use-sync';
 import { Login } from './pages/login';
 import { Empty, ErrorState, Loading } from './components/common';
 import { RealtimeClock } from './components/realtime-clock';
+import { WorkspaceContext } from './components/workspace-context';
 import type { Principal } from './api/types';
 import { NotificationsPanel } from './pages/fulfillment/notifications';
 import { GlobalFulfillmentExpiryAlerts } from './pages/fulfillment/global-expiry-alerts';
@@ -480,17 +481,32 @@ function Workspace({ user }: { user: Principal }) {
             </button>
           </div>
         </header>
+        <WorkspaceContext
+          key={user.id}
+          user={user}
+          stores={stores.isError ? [] : stores.data || []}
+          online={sync.online}
+          native={capabilities.data?.demo === false}
+        />
         <GlobalFulfillmentExpiryAlerts
           operatorId={user.id}
           storeId={state.storeId}
-          enabled={sync.online && capabilities.data?.demo === false &&
-            !stores.isError && Boolean(currentStore?.active)}
+          enabled={
+            sync.online &&
+            capabilities.data?.demo === false &&
+            !stores.isError &&
+            Boolean(currentStore?.active)
+          }
         />
         <DayCloseReminder
           user={user}
           storeId={state.storeId}
-          enabled={sync.online && capabilities.data?.demo === false &&
-            !stores.isError && Boolean(currentStore?.active)}
+          enabled={
+            sync.online &&
+            capabilities.data?.demo === false &&
+            !stores.isError &&
+            Boolean(currentStore?.active)
+          }
         />
         {!sync.online && (
           <div className="offline-banner" role="status">
