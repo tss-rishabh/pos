@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
+import { goldenStdout } from '../golden/load.js';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
 import { sql } from 'drizzle-orm';
@@ -19,6 +19,14 @@ import {
   preparedOrderRecords,
 } from '../../src/modules/operational-reports/order-report-domain.js';
 import { combinedOrderQueries } from '../../src/modules/operational-reports/order-report-query.js';
+
+/** Replays the pinned CPython 3.10 source oracles captured for this test (tests/golden). */
+function executePosSourceOracle(args: readonly string[], options: { input?: string }): string {
+  return goldenStdout('operational-reports', 'order-report-mysql-integration', options.input, [
+    '-B',
+    ...args,
+  ]);
+}
 const connection = process.env.MYSQL_INTEGRATION_URL;
 const columnSchema = z.object({
   name: z.string().regex(/^[a-zA-Z_]\w*$/),

@@ -1,0 +1,85 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/catalog-details/detail-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:07:36Z",
+  "test": "tests/catalog-details/mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "250225fd8f6320fc9342d900ac6cf32b92eae9223dd40acb4c38f8c94c32c4c5",
+      "args": ["tools/catalog-details/detail-oracle.py"],
+      "status": 0,
+      "output": {
+        "variants": [
+          {
+            "id": "11",
+            "name": "Blue S",
+            "barcode": "9007199254740993"
+          },
+          {
+            "id": "12",
+            "name": "Blue M",
+            "barcode": null
+          }
+        ],
+        "stores": ["2", "1", "4", "5"],
+        "stock": [
+          {
+            "productId": "11",
+            "storeId": "2",
+            "stock": 0
+          },
+          {
+            "productId": "11",
+            "storeId": "1",
+            "stock": 3
+          },
+          {
+            "productId": "11",
+            "storeId": "4",
+            "stock": 0
+          },
+          {
+            "productId": "11",
+            "storeId": "5",
+            "stock": 0
+          },
+          {
+            "productId": "12",
+            "storeId": "2",
+            "stock": 4
+          },
+          {
+            "productId": "12",
+            "storeId": "1",
+            "stock": 0
+          },
+          {
+            "productId": "12",
+            "storeId": "4",
+            "stock": 0
+          },
+          {
+            "productId": "12",
+            "storeId": "5",
+            "stock": 0
+          }
+        ],
+        "exclusivePrice": 8.25,
+        "description": {
+          "name": "Fixture description",
+          "description": "<b>Fixture long</b>",
+          "material": "Cotton"
+        },
+        "male": [
+          "https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/one.jpg"
+        ],
+        "female": [
+          "https://prod-img.thesouledstore.com/public/theSoul/uploads/catalog/product/two.jpg"
+        ],
+        "checkInRequired": false
+      }
+    }
+  ]
+}

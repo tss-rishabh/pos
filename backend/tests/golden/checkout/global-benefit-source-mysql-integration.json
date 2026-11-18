@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/checkout/benefit_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:08:53Z",
+  "test": "tests/checkout/global-benefit-source.mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "6f3fb000082e2ff3a38f6977db91a5c58406b129d38f9ff4b2a8b1fa7ce0a165",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "legacy",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "insert into reward_point_history (user_id, order_id, product_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '25.5', '100.0', '125.5', 'ORDER_REFUND', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "insert into tss_money_history (user_id, order_id, product_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '25.5', '100.0', '125.5', 'ORDER_REFUND', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "update users set cashback = '125.5', tss_money = '125.5', updated_at = '2026-11-16 10:00:00' where id = '9007199254740993'"
+            ],
+            "histories": [],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Tss Money"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "d2541b28bee2ad45364747d5e749125716ae5e981e879e8b88f24e489579ee3b",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "legacy",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "insert into reward_point_history (user_id, order_id, product_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '25.5', '100.0', '125.5', 'ORDER_MONEY', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "insert into tss_money_history (user_id, order_id, product_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '25.5', '100.0', '125.5', 'ORDER_MONEY', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "update users set cashback = '125.5', tss_money = '125.5', updated_at = '2026-11-16 10:00:00' where id = '9007199254740993'"
+            ],
+            "histories": [],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Tss Money"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "2753857a65c4fd02d3261987ae1bc0bc12e5d3276e24285befb40a6576490181",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "proposed-wallet-v1",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "insert into tss_money_history (user_id, order_id, product_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '25.5', '100.0', '125.5', 'ORDER_MONEY', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "update users set tss_money = '125.5', updated_at = '2026-11-16 10:00:00' where id = '9007199254740993'"
+            ],
+            "histories": [],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Tss Money"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "045b16240a05b5a7d57c43ad0f5645a12c1a9aef0b61cf6b02af9bba99faf724",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "legacy",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "insert into tss_point_history (user_id, order_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', 'ORDER_REFUND', '25.5', '100.0', '125.5', '9007199254740994', '9007199254740995', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "update users set tss_points = '125.5', updated_at = '2026-11-16 10:00:00' where id = '9007199254740993'"
+            ],
+            "histories": [],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Tss Points"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "712e9738bb77ae7f30fee327d0be13a886776ee78f766af462a9b60f35740531",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "proposed-wallet-v1",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "insert into tss_point_history (user_id, order_id, prod_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '25.5', '100.0', '125.5', 'ORDER_REFUND', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "update users set tss_points = '125.5', updated_at = '2026-11-16 10:00:00' where id = '9007199254740993'"
+            ],
+            "histories": [],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Tss Points"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "a37ac359cc7a0790e3b94384ab0c81f86fd23deb11da872cee4fce6428928574",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "proposed-wallet-v1",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "insert into tss_point_history (user_id, order_id, prod_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '25.5', '100.0', '125.5', 'DONATION_POINTS', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "update users set tss_points = '125.5', updated_at = '2026-11-16 10:00:00' where id = '9007199254740993'"
+            ],
+            "histories": [],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Tss Points"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "38eb1df2a70b732a528e46d1efa38016f1065beb050bbc01c2796050b3e45904",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "proposed-wallet-v1",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "insert into tss_money_history (user_id, order_id, product_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '25.5', '100.0', '125.5', 'ORDER_REFUND', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '')",
+              "update users set tss_money = '125.5', updated_at = '2026-11-16 10:00:00' where id = '9007199254740993'"
+            ],
+            "histories": [],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Tss Money"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "86cde19b98644037745c9c8fbdaba5ff12ef96aa1153183369f5e8861ca12782",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "legacy",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "Insert into coupons (voucher_code, voucher_name, from_id, to_id, from_name, to_name, user_id, voucher_type, coupon_cat, voucher_val, initial_val, start_date, updated_at, created_at)\n             values ('GFV1611261000007','GFV1611261000007','connect@thesouledstore.com', 'fixture@example.test', 'The Souled Store', 'FixtureCustomer', '9007199254740993', '3', '3', '100', '100', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-11-16 10:00:00')",
+              "SELECT id FROM tss.coupons where voucher_code = 'GFV1611261000007'",
+              "INSERT INTO gift_vouchers (from_id, to_id, voucher_code, theme, to_name, to_phone, voucher_value, voucher_initial_value, status, order_id,coupon_id, created_at, updated_at)\n                    SELECT c.user_id, c.to_id, c.voucher_code, c.theme, c.to_name, 0, c.voucher_val, c.initial_val, (CASE c.is_deleted WHEN 1 THEN 0 ELSE 1 END), 0,c.id, c.created_at, c.updated_at\n                    FROM coupons c\n                    WHERE c.id = '101' AND c.voucher_type=3\n                    GROUP BY c.voucher_code",
+              "select id from gift_vouchers where coupon_id = '101'",
+              "insert into gift_voucher_history (user_id, order_id, added_amt, amt_before_update, amt_after_update, comment, platform, added_user, gv_id, is_bulk_upload, updated_at, created_at)\n                        values ('9007199254740993', '0', '100', '0', '100', 'GV ADD: Gift Voucher Amount Added', 'GV_ADD', '0', '201', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00')"
+            ],
+            "histories": [],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Gift Voucher"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "d16e19e50c0197f68cb0942373234c1a9c984b82b0be402234b4f602f2ff9933",
+      "args": ["tools/checkout/benefit_oracle.py"],
+      "status": 0,
+      "output": {
+        "sourceSha256": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349",
+        "profile": "proposed-wallet-v1",
+        "cases": [
+          {
+            "status": "success",
+            "queries": [
+              "insert into tss_money_history (user_id, order_id, product_id,\n            added_amt, amt_before_update, amt_after_update, platform,\n            comment, added_user, created_at, updated_at, expiry)\n            values ('9007199254740993', '9007199254740994', '9007199254740995', '-10.21', '100.0', '89.78999999999999', 'ORDER_REFUND', 'Compensation', '0', '2026-11-16 10:00:00', '2026-11-16 10:00:00', '2026-12-31 00:00:00')",
+              "update users set tss_money = '89.78999999999999', updated_at = '2026-11-16 10:00:00' where id = '9007199254740993'",
+              "Select * from tss_money_history where user_id = 9007199254740993 and is_expired = 0 and added_amt > 0 order by created_at asc",
+              "update tss_money_history set used_amt = '0.14500000000000002' where id = 9007199254740996",
+              "update tss_money_history set used_amt = '10.07' where id = 9007199254740997"
+            ],
+            "histories": [
+              {
+                "id": "9007199254740996",
+                "added_amt": 0.145,
+                "used_amt": 0.14500000000000002,
+                "created_at": "2026-01-01 00:00:00"
+              },
+              {
+                "id": "9007199254740997",
+                "added_amt": 200,
+                "used_amt": 10.07,
+                "created_at": "2026-01-02 00:00:00"
+              }
+            ],
+            "activities": [
+              {
+                "operatorId": 44,
+                "platform": "Tss Money"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

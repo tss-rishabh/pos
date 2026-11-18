@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
@@ -22,6 +21,7 @@ import {
   inventoryMatrixService,
   inventoryMatrixInput,
 } from '../../src/modules/catalog-details/matrix.js';
+import { goldenStdout } from '../golden/load.js';
 
 const integration = process.env.MYSQL_INTEGRATION_URL;
 const oracleResponse = z.object({
@@ -381,15 +381,17 @@ describe.skipIf(!integration)(
       };
     }
     function oracleBatch(values: unknown[]) {
-      return z.array(oracleResponse).parse(
-        JSON.parse(
-          execFileSync('python3', ['tools/catalog-details/source-oracle.py'], {
-            input: JSON.stringify(values),
-            encoding: 'utf8',
-            timeout: 10000,
-          }),
-        ) as unknown,
-      );
+      return z
+        .array(oracleResponse)
+        .parse(
+          JSON.parse(
+            goldenStdout(
+              'catalog-details',
+              'mysql-integration.source-oracle',
+              JSON.stringify(values),
+            ),
+          ) as unknown,
+        );
     }
     async function prepareSourceTables(vectors: SourceVector[]) {
       sourceOutputs.clear();
@@ -580,16 +582,17 @@ describe.skipIf(!integration)(
         })
         .parse(
           JSON.parse(
-            execFileSync('python3', ['tools/catalog-details/detail-oracle.py'], {
-              input: JSON.stringify({
+            goldenStdout(
+              'catalog-details',
+              'mysql-integration.detail-oracle',
+              JSON.stringify({
                 productId: '10',
                 user: principal,
                 checkedInStoreId: '2',
                 tables: sourceTables,
                 liveVariantIds: liveVariants.map((row) => String(row.id)),
               }),
-              encoding: 'utf8',
-            }),
+            ),
           ) as unknown,
         );
       expect(result.variants).toEqual(expected.variants);
@@ -714,15 +717,15 @@ describe.skipIf(!integration)(
         )
         .parse(
           JSON.parse(
-            execFileSync('python3', ['tools/catalog-details/matrix-oracle.py'], {
-              input: JSON.stringify({
+            goldenStdout(
+              'catalog-details',
+              'mysql-integration.matrix-oracle',
+              JSON.stringify({
                 products,
                 stock,
                 parameterCases: vectors.map((input) => sourceParameters('matrix', input)),
               }),
-              encoding: 'utf8',
-              timeout: 10000,
-            }),
+            ),
           ) as unknown,
         );
       expect(vectors).toHaveLength(18);

@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/operational-reports/scheduled-query-oracle.py",
+  "runtime": "CPython 3.10.22 (tools/inventory-workbooks/.venv: openpyxl 3.1.2, et-xmlfile 1.1.0)",
+  "capturedAt": "2026-11-18T19:11:08Z",
+  "test": "tests/operational-reports/scheduled-data.mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/scheduled-query-oracle.py",
+        "timing",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59"
+      ],
+      "status": 0,
+      "stdout": "\n            SELECT\n                o.id AS OrderId,\n                o.created_at AS CreatedAt,\n                s.id AS StoreID,\n                s.store_name AS StoreName,\n                hol.action as HyperlocalAction,\n                hol.updated_at as AcceptedAt\n            FROM\n                hyperlocal_order_log hol\n\t\t\t\t\tLEFT JOIN\n\t\t\t\torders o ON o.id = hol.order_id\n\t\t\t\t\tLEFT JOIN\n                stores s ON s.id = o.location_id\n            WHERE\n                hol.action = 'ACCEPTED'\n                AND hol.updated_at >= '2026-11-16 00:00:00'\n                AND hol.updated_at <= '2026-11-16 23:59:59'\n            GROUP BY o.id\n        "
+    },
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/scheduled-query-oracle.py",
+        "delays",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59"
+      ],
+      "status": 0,
+      "stdout": "\n            SELECT \n                o.id AS OrderId,\n                o.start_timeslot AS StartTimeslot,\n                o.end_timeslot AS EndTimeslot,\n                c.created_at AS DeliveredAt,\n                CAST((TIMEDIFF(c.created_at, o.end_timeslot)) AS CHAR) AS TotalDelay\n            FROM\n                orders o\n                    LEFT JOIN\n                comments c ON c.order_id = o.id\n            WHERE\n                c.hl_status = 'finished'\n                    AND c.created_at > o.end_timeslot\n                    AND o.created_at >= '2026-11-16 00:00:00'\n                    AND o.created_at <= '2026-11-16 23:59:59'\n            group by o.id\n        "
+    },
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/scheduled-query-oracle.py",
+        "cancellations",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59"
+      ],
+      "status": 0,
+      "stdout": "\n            SELECT\n                s.store_name AS StoreName,\n                hlol.order_id AS OrderID,\n                hlol.reason AS Reason,\n                hlol.remark AS Comment,\n\t\t\t\thlol.created_at AS ConvertedAt,\n\t\t\t\thlol.new_order_id AS ConvertedOrderID\n            FROM\n                hyperlocal_to_online_order_logs hlol\n                    LEFT JOIN\n                stores s ON hlol.location_id = s.id\n            WHERE\n                hlol.created_at >= '2026-11-16 00:00:00'\n                    AND hlol.created_at <= '2026-11-16 23:59:59'\n                    AND hlol.platform = 'CONVERT_ONLINE';\n        "
+    },
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/scheduled-query-oracle.py",
+        "tickets",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59"
+      ],
+      "status": 0,
+      "stdout": "\n                SELECT order_id, fd_ticket_id, created_at FROM hyperlocal_fd_logs \n                WHERE fd_ticket_status NOT IN ('CLOSED')\n                AND created_at >= '2026-11-16 00:00:00'\n                AND created_at <= '2026-11-16 23:59:59';\n            "
+    }
+  ]
+}

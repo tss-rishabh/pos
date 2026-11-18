@@ -2,7 +2,7 @@ import mysql from 'mysql2/promise';
 import { getTableConfig, type MySqlTable } from 'drizzle-orm/mysql-core';
 import { and, eq, inArray } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
-import { executePosSourceOracle } from '../../tools/operational-reports/source-python.js';
+import { goldenStdout } from '../golden/load.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import * as models from '../../src/db/legacy-schema.js';
@@ -34,6 +34,11 @@ import {
   returnedOrdersOptions,
   returnedOrdersCsv,
 } from '../../src/modules/operational-reports/returned-orders.js';
+
+/** Replays the pinned CPython 3.10 source oracles captured for this test (tests/golden). */
+function executePosSourceOracle(args: readonly string[], options: { input?: string }): string {
+  return goldenStdout('operational-reports', 'mysql-integration', options.input, ['-B', ...args]);
+}
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!connection)('operational reports on isolated local MySQL', () => {

@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/operational-reports/hyperlocal-daily-oracle.py",
+  "runtime": "CPython 3.10.22 (tools/inventory-workbooks/.venv: openpyxl 3.1.2, et-xmlfile 1.1.0)",
+  "capturedAt": "2026-11-18T19:11:08Z",
+  "test": "tests/operational-reports/hyperlocal-daily.mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/hyperlocal-daily-oracle.py",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59",
+        "1"
+      ],
+      "status": 0,
+      "stdout": "\n    SELECT\n        o.id AS order_id,\n        o.user_id AS user_id,\n        hp.id as line_item_id,\n        hp.prod_id as sku_id,\n        CONCAT(o.first_name, ' ', o.last_name) AS customer_name,\n        SUM(hp.qty) AS qty,\n        ROUND(SUM(COALESCE(hp.pre_gst_amt, 0) * (1 + COALESCE(hp.gst, 0) / 100)), 2) AS amount,\n        os.display_name AS order_status,\n        hp.status AS line_item_status,\n        eli.status AS express_line_item_status,\n        o.created_at AS order_date,\n        s.location_code AS location_code,\n        s.store_name AS store_name,\n        eosl.allocation_date,\n        eosl.pack_date,\n        eosl.pickup_date,\n        eosl.delivery_date\n    FROM express_line_item eli\n    JOIN orders o        ON o.id  = eli.order_id\n    JOIN has_products hp ON hp.id = eli.has_product_id\n    JOIN stores s        ON s.id  = eli.store_id\n    LEFT JOIN order_status os ON os.id = o.order_status\n    LEFT JOIN (\n        SELECT\n            order_id,\n            store_id,\n            MIN(CASE WHEN new_status = 'ACCEPTED'         THEN changed_at END) AS allocation_date,\n            MIN(CASE WHEN new_status = 'PACKED'           THEN changed_at END) AS pack_date,\n            MIN(CASE WHEN new_status = 'OUT_FOR_DELIVERY' THEN changed_at END) AS pickup_date,\n            MIN(CASE WHEN new_status = 'DELIVERED'        THEN changed_at END) AS delivery_date\n        FROM express_order_status_log\n        GROUP BY order_id, store_id\n    ) eosl ON eosl.order_id = eli.order_id AND eosl.store_id = eli.store_id\n    WHERE 1=1\n AND eli.store_id IN (1) AND eli.pending_expires_at BETWEEN '2026-11-16 00:00:00' AND '2026-11-16 23:59:59' GROUP BY o.id,o.user_id,hp.id,o.first_name,o.last_name,o.created_at,o.order_status,hp.status,eli.status,s.id,s.location_code,s.store_name ORDER BY o.created_at DESC"
+    },
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "-B",
+        "tools/operational-reports/hyperlocal-daily-oracle.py",
+        "2026-11-16 00:00:00",
+        "2026-11-16 23:59:59",
+        "1,2"
+      ],
+      "status": 0,
+      "stdout": "\n    SELECT\n        o.id AS order_id,\n        o.user_id AS user_id,\n        hp.id as line_item_id,\n        hp.prod_id as sku_id,\n        CONCAT(o.first_name, ' ', o.last_name) AS customer_name,\n        SUM(hp.qty) AS qty,\n        ROUND(SUM(COALESCE(hp.pre_gst_amt, 0) * (1 + COALESCE(hp.gst, 0) / 100)), 2) AS amount,\n        os.display_name AS order_status,\n        hp.status AS line_item_status,\n        eli.status AS express_line_item_status,\n        o.created_at AS order_date,\n        s.location_code AS location_code,\n        s.store_name AS store_name,\n        eosl.allocation_date,\n        eosl.pack_date,\n        eosl.pickup_date,\n        eosl.delivery_date\n    FROM express_line_item eli\n    JOIN orders o        ON o.id  = eli.order_id\n    JOIN has_products hp ON hp.id = eli.has_product_id\n    JOIN stores s        ON s.id  = eli.store_id\n    LEFT JOIN order_status os ON os.id = o.order_status\n    LEFT JOIN (\n        SELECT\n            order_id,\n            store_id,\n            MIN(CASE WHEN new_status = 'ACCEPTED'         THEN changed_at END) AS allocation_date,\n            MIN(CASE WHEN new_status = 'PACKED'           THEN changed_at END) AS pack_date,\n            MIN(CASE WHEN new_status = 'OUT_FOR_DELIVERY' THEN changed_at END) AS pickup_date,\n            MIN(CASE WHEN new_status = 'DELIVERED'        THEN changed_at END) AS delivery_date\n        FROM express_order_status_log\n        GROUP BY order_id, store_id\n    ) eosl ON eosl.order_id = eli.order_id AND eosl.store_id = eli.store_id\n    WHERE 1=1\n AND eli.store_id IN (1,2) AND eli.pending_expires_at BETWEEN '2026-11-16 00:00:00' AND '2026-11-16 23:59:59' GROUP BY o.id,o.user_id,hp.id,o.first_name,o.last_name,o.created_at,o.order_status,hp.status,eli.status,s.id,s.location_code,s.store_name ORDER BY o.created_at DESC"
+    }
+  ]
+}

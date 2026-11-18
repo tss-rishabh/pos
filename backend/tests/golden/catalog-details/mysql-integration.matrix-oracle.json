@@ -1,0 +1,449 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/catalog-details/matrix-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:07:36Z",
+  "test": "tests/catalog-details/mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "324e0b6271e840bdc030084ecf8368a0f924c62ebf13dada4efc5a533cca8f3c",
+      "args": ["tools/catalog-details/matrix-oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 12,
+              "product": "Blue M",
+              "erp_product": "ERP blue",
+              "DT_RowId": 12,
+              "ParentProductId": 10,
+              "stores": [2],
+              "product_store_stock": {
+                "2": 4
+              },
+              "product_store_stock_is_avail": {
+                "2": true
+              },
+              "product_store_stock_is_del": {
+                "2": false
+              }
+            }
+          ]
+        },
+        {
+          "draw": 0,
+          "recordsTotal": 2,
+          "recordsFiltered": 2,
+          "data": [
+            {
+              "id": 11,
+              "product": "Blue S",
+              "erp_product": "ERP blue",
+              "DT_RowId": 11,
+              "ParentProductId": 10,
+              "stores": [1],
+              "product_store_stock": {
+                "1": 3
+              },
+              "product_store_stock_is_avail": {
+                "1": true
+              },
+              "product_store_stock_is_del": {
+                "1": false
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

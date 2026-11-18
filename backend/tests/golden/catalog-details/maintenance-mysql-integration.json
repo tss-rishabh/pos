@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/catalog-details/maintenance-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:07:36Z",
+  "test": "tests/catalog-details/maintenance.mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "107f834ed88fd8ec6df73fd77dbf4b70299de0b38af8a0225f58e5be42fec75e",
+      "args": ["tools/catalog-details/maintenance-oracle.py"],
+      "status": 0,
+      "output": {
+        "products": [
+          {
+            "id": "10",
+            "images_new": "{\"unisex\":[],\"male\":[],\"female\":[]}"
+          },
+          {
+            "id": "11",
+            "images_new": "own-image"
+          },
+          {
+            "id": "20",
+            "images_new": "other-image"
+          },
+          {
+            "id": "30",
+            "images_new": "other-image"
+          }
+        ],
+        "stock": [
+          {
+            "id": "1",
+            "stock": 19,
+            "is_avail": 1,
+            "is_del": 0
+          },
+          {
+            "id": "2",
+            "stock": 7,
+            "is_avail": 1,
+            "is_del": 0
+          },
+          {
+            "id": "3",
+            "stock": 5,
+            "is_avail": 1,
+            "is_del": 0
+          }
+        ],
+        "barcodes": [
+          {
+            "id": "2",
+            "gtin": "770123"
+          },
+          {
+            "id": "3",
+            "gtin": "88"
+          },
+          {
+            "id": "9007199254740993",
+            "gtin": "77"
+          }
+        ],
+        "calls": [
+          {
+            "ids": ["11"],
+            "troubleshoot": true
+          }
+        ]
+      }
+    }
+  ]
+}
