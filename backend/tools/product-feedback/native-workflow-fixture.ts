@@ -103,7 +103,7 @@ const nativeRows = z.array(
     .strict(),
 );
 
-export async function nativeFeedbackFixture(output: string) {
+export async function nativeFeedbackFixture(output: string, productionOutput: string) {
   const base = new URL(process.env.PRODUCT_FEEDBACK_WORKFLOW_MYSQL_URL ?? '');
   if (
     base.protocol !== 'mysql:' ||
@@ -154,10 +154,17 @@ export async function nativeFeedbackFixture(output: string) {
       is_active: 1,
       is_staff: 1,
     });
-    await physical.insert('stores', { id: store, type: 'STORE', is_active: 1 });
+    await physical.insert('stores', {
+      id: store,
+      store_name: `Synthetic store ${store}`,
+      location_code: `SYN${store}`,
+      type: 'STORE',
+      is_active: 1,
+    });
     await physical.insert('store_counters', { id: store + 1, store_id: store, is_active: 1 });
     await physical.insert('user_stores', { django_user_id: id, store_id: store });
   }
+  await physical.insert('user_stores', { django_user_id: 7, store_id: 2 });
   for (const id of [777, 778])
     await physical.insert('users', {
       id,
@@ -174,18 +181,21 @@ export async function nativeFeedbackFixture(output: string) {
     user_id: 777,
     order_amt: 125.5,
     order_status: 3,
+    created_at: '2020-01-01 12:00:00',
   });
   await physical.insert('orders', {
     id: '9007199254740994',
     user_id: 778,
     order_amt: 50,
     order_status: 3,
+    created_at: '2020-01-01 12:00:00',
   });
   await physical.insert('orders', {
     id: feedbackSafeOrder,
     user_id: 777,
     order_amt: 125.5,
     order_status: 3,
+    created_at: '2020-01-01 12:00:00',
   });
   await physical.insert('products', { id: 10, product: '<Synthetic feedback product>' });
   await physical.insert('products', { id: 11, product: 'Another product' });
@@ -204,6 +214,7 @@ export async function nativeFeedbackFixture(output: string) {
   for (const migration of migrationPlan())
     for (const statement of migration.statements) await connection.query(statement);
 
+  let fullApp = false;
   let backendOrigin = '',
     dropNextPost = false;
   let qualityFault = false,
@@ -333,10 +344,14 @@ export async function nativeFeedbackFixture(output: string) {
     }
     try {
       const pathname = new URL(path, 'http://127.0.0.1').pathname;
+      const directory = fullApp ? productionOutput : output;
       const file = pathname.startsWith('/assets/')
-        ? resolve(output, '.' + pathname)
-        : resolve(output, 'tests/product-feedback/native-workflow.html');
-      if (!file.startsWith(resolve(output) + sep)) throw new Error('Invalid fixture path');
+        ? resolve(directory, '.' + pathname)
+        : resolve(
+            directory,
+            fullApp ? 'index.html' : 'tests/product-feedback/native-workflow.html',
+          );
+      if (!file.startsWith(resolve(directory) + sep)) throw new Error('Invalid fixture path');
       response.writeHead(200, {
         'content-type': file.endsWith('.js')
           ? 'text/javascript'
@@ -444,6 +459,16 @@ export async function nativeFeedbackFixture(output: string) {
     api: feedbackApi,
     traffic,
     sourceTraffic,
+    useProductionApp() {
+      fullApp = true;
+    },
+    async attachCustomer(customerId: string, version: number) {
+      await db
+        .get('writer')
+        .update(checkoutSessions)
+        .set({ version, state: { ...state, customerId, version } })
+        .where(eq(checkoutSessions.id, feedbackCheckout));
+    },
     sourcePath(orderId = feedbackSafeOrder) {
       return `/users/order-feedback-form/777/${orderId}`;
     },
@@ -474,6 +499,12 @@ export async function nativeFeedbackFixture(output: string) {
       await allowQuality();
       await connection.query('DELETE FROM product_rating_user');
       await connection.query('DELETE FROM pos_rewrite_product_feedback_receipts');
+      fullApp = false;
+      await db
+        .get('writer')
+        .update(checkoutSessions)
+        .set({ version: 1, state })
+        .where(eq(checkoutSessions.id, feedbackCheckout));
       traffic.length = 0;
       sourceTraffic.length = 0;
       sourceNavigations = 0;

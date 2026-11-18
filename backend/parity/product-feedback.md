@@ -171,3 +171,40 @@ NPS, financial checkout, other rating writers, production deployment or complete
 project parity. The scoped checksum-bound receipt is
 `evidence/product-feedback-native-workflow.json`; no release ledger entry is
 promoted automatically.
+
+
+### Production App native-session entry extension
+
+The scoped runner additionally builds the actual production `index.html` and
+`src/main.tsx` with `vite.config.ts`, then serves that artifact for one workflow.
+A fresh browser receives only the fixture's real database-backed session cookie;
+there is no injected Principal, IndexedDB session seed, or API response
+interception. Actual App identity bootstrap, allowed stores, counters, persisted
+workspace selection, lazy route and feedback requests execute against buildApp.
+The fixture order's native `created_at` is 2020-01-01: direct feedback entry does
+not depend on recent-five history or an order age limit.
+
+This case checks that selecting allowed store 2 while the URL names store 1
+removes feedback controls without another feedback request or native write,
+including after a production App reload with persisted store 2;
+returning to store 1 restores them. Changing the native checkout's attached
+customer/version makes the stale URL return 404 without writes. Restoring the
+binding permits a real UI POST and exactly four native rating rows.
+
+This extends entry/gate evidence only. Customer-history discovery and clicking
+its feedback anchor remain unexecuted here: the actual history endpoint requires
+an accepted BigQuery projection fixture, absent from this disposable MySQL-only
+runner. No warehouse response is fabricated. Shared notifications, identity
+provider, source global ASGI middleware, service-worker lifecycle, and complete
+checkout/provider flows remain outside certification. Production graph hashes
+cover all backend/frontend source files (a conservative superset of the files
+used by the full-App build and actual server), plus build/dependency inputs.
+
+
+During fixture completion, an independent catalog contract concern was observed:
+verified legacy `stores.location_code` permits NULL, catalog currently returns
+that NULL, while the frontend store list schema requires a string. Native GET
+returned 200 but App store bootstrap showed a validation error for the synthetic
+NULL rows. This runner uses explicit valid synthetic location codes; the concern
+was reported to the parent for separate triage rather than changing production
+catalog behavior in this feature proof.

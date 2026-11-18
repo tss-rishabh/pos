@@ -43,7 +43,17 @@ describe.skipIf(!process.env.PRODUCT_FEEDBACK_WORKFLOW_MYSQL_URL)(
           rollupOptions: { input: join(frontend, 'tests/product-feedback/native-workflow.html') },
         },
       });
-      fixture = await nativeFeedbackFixture(join(temporary, 'dist'));
+      await build({
+        root: frontend,
+        configFile: join(frontend, 'vite.config.ts'),
+        cacheDir: join(temporary, 'production-vite-cache'),
+        logLevel: 'silent',
+        build: { outDir: join(temporary, 'production-dist'), emptyOutDir: true },
+      });
+      fixture = await nativeFeedbackFixture(
+        join(temporary, 'dist'),
+        join(temporary, 'production-dist'),
+      );
       const mac = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
       const executablePath =
         process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE ||
@@ -121,6 +131,66 @@ describe.skipIf(!process.env.PRODUCT_FEEDBACK_WORKFLOW_MYSQL_URL)(
       browser: () => browser,
       contexts,
       candidate: workspace,
+    });
+
+    it('enters the actual production App with a native session and enforces selected-store and current-customer gates for an older order', async () => {
+      fixture.useProductionApp();
+      const { page } = await workspace();
+      await browserExpect(page.getByLabel('Current store')).toHaveValue('1');
+      await browserExpect(
+        page.getByRole('button', { name: 'Save feedback', exact: true }),
+      ).toHaveCount(2);
+      for (const path of [
+        '/api/v1/auth/sessions/current',
+        '/api/v1/stores',
+        '/api/v1/stores/1/counters',
+      ]) {
+        await browserExpect
+          .poll(() => fixture.traffic.some((row) => row.path === path && row.status === 200))
+          .toBe(true);
+      }
+      const feedbackCalls = () => fixture.traffic.filter((row) => row.path.startsWith(fixture.api));
+      const beforeSwitch = feedbackCalls().length;
+      await page.getByLabel('Current store').selectOption('2');
+      await browserExpect(
+        page.getByText('Open product feedback from the customer history in your current store.', {
+          exact: true,
+        }),
+      ).toBeVisible();
+      await browserExpect(
+        page.getByRole('button', { name: 'Save feedback', exact: true }),
+      ).toHaveCount(0);
+      await page.reload();
+      await browserExpect(page.getByLabel('Current store')).toHaveValue('2');
+      await browserExpect(
+        page.getByText('Open product feedback from the customer history in your current store.', {
+          exact: true,
+        }),
+      ).toBeVisible();
+      expect(feedbackCalls()).toHaveLength(beforeSwitch);
+      expect(await fixture.rows()).toEqual([]);
+      await page.getByLabel('Current store').selectOption('1');
+      await browserExpect(
+        page.getByRole('button', { name: 'Save feedback', exact: true }),
+      ).toHaveCount(2);
+      await fixture.attachCustomer('778', 2);
+      await page.reload();
+      await browserExpect(
+        page.getByRole('button', { name: 'Save feedback', exact: true }),
+      ).toHaveCount(0);
+      await browserExpect.poll(() => feedbackCalls().some((row) => row.status === 404)).toBe(true);
+      expect(await fixture.rows()).toEqual([]);
+      await fixture.attachCustomer('777', 1);
+      await page.reload();
+      await browserExpect(
+        page.getByRole('button', { name: 'Save feedback', exact: true }),
+      ).toHaveCount(2);
+      await fill(page);
+      await browserExpect(page.getByText('Product feedback saved.', { exact: true })).toBeVisible();
+      expect(await fixture.rows()).toHaveLength(4);
+      expect(
+        feedbackCalls().filter((row) => row.method === 'POST' && row.status === 200),
+      ).toHaveLength(1);
     });
 
     it('renders exact duplicate source occurrences and all four constrained controls through the real API', async () => {
