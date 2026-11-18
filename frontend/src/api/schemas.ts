@@ -52,7 +52,8 @@ export const productSchema = z.object({
 });
 export const orderSchema = z.object({
   id,
-  reference: z.string(),
+  // orders.order_ref_no is nullable in production.
+  reference: z.string().nullable(),
   storeId: id,
   customer: z.string(),
   amount: money,
@@ -86,7 +87,7 @@ export const productPageSchema = z.object({
 });
 export const orderPageSchema = z.object({ data: z.array(orderSchema), nextCursor: id.nullable() });
 export const orderDetailSchema = z.object({
-  reference: z.string(),
+  reference: z.string().nullable(),
   amount: z.number(),
   isPaid: z.boolean(),
   status: z.string().nullable(),
@@ -99,7 +100,8 @@ export const orderDetailSchema = z.object({
       quantity: id,
       amount: z.number(),
       gst: z.number(),
-      status: z.string(),
+      // has_products.status is nullable in production.
+      status: z.string().nullable(),
     }),
   ),
 });

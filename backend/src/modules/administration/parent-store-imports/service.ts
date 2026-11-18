@@ -81,7 +81,7 @@ export function parentStoreImportService(
       commands = rows.flatMap((row) =>
         row.command ? [parentStoreCommand.parse(row.command)] : [],
       ),
-      stores = new Map<string, { active: boolean; category: string }>(),
+      stores = new Map<string, { active: boolean; category: string | null }>(),
       parents = new Map<string, { parentId: bigint; type: bigint }>(),
       variants = new Map<string, number>();
     for (const ids of batches([...new Set(commands.map((row) => row.storeId))], 500)) {

@@ -27,7 +27,7 @@ export interface PasswordIdentity {
   totpSecret: string | null;
   phone: string | null;
   contactEmail: string | null;
-  firstName: string;
+  firstName: string | null;
   otpMethod: 'sms' | 'email';
 }
 export function identityService(config: Config, databases: Databases): IdentityService {

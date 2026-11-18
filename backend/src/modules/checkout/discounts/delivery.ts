@@ -141,7 +141,8 @@ export function discountOutboxDispatcher(
           z.email().safeParse(recipient.email).success &&
           store
         ) {
-          const name = escapeHtml(recipient.name),
+          // Legacy core/tasks.py:254,261 formats first_name in an f-string: NULL -> 'None'.
+          const name = escapeHtml(recipient.name ?? 'None'),
             storeName = escapeHtml(store.name || ''),
             requestedBy = escapeHtml(requestor?.name || '');
           if (job.kind === 'approval-code' && job.encryptedCode) {

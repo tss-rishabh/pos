@@ -13,7 +13,12 @@ export function sourceTransactionId(fact: SourceOrder) {
     (fact.terminal.inactiveCreated ? fact.terminal.inactiveCreated + 1 : 0) +
     (fact.paytm.inactiveCreated ? fact.paytm.inactiveCreated + 1 : 0);
   let reference = fact.reference;
-  if (fact.paytm.activeCreated) reference = reference.replaceAll('-', '');
+  if (fact.paytm.activeCreated) {
+    // Legacy Helpers.get_transaction_id (helpers.py:730) calls order_ref_no.replace()
+    // here, which raises for NULL and fails the datatable request.
+    if (reference === null) throw searchDataInvalid();
+    reference = reference.replaceAll('-', '');
+  }
   if (count) {
     const suffix = fact.paytm.activeCreated ? String(count) : '-' + count;
     return (reference || fact.id) + suffix;

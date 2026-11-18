@@ -181,7 +181,7 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
         qty: 1,
         pre_gst_amt: 100,
         gst: 5,
-        status: 'CONFIRMED',
+        status: 'PLACED',
         shipment_id: 'SAMPLE-SHIPMENT',
         awb: 'SAMPLE-AWB',
       });
@@ -630,7 +630,7 @@ describe.skipIf(!connection)('fulfillment lifecycle on isolated local MySQL', ()
     expect(
       (await db().get('writer').select().from(HasProduct).where(eq(HasProduct.id, 501n)))[0]
         ?.status,
-    ).toBe('CONFIRMED');
+    ).toBe('PLACED');
     const commandId = crypto.randomUUID(),
       receipt = await service.shipFromCourier(commandId, '1001', 'SAMPLE-AWB');
     expect(receipt.updatedCount).toBe(2);

@@ -28,6 +28,7 @@ import {
   localTimestamp,
   planEffects,
   tabStatuses,
+  type ExpressStatus,
   type FulfillmentAction,
   type FulfillmentLine,
   type FulfillmentTab,
@@ -103,7 +104,7 @@ export interface FulfillmentCommand {
   sourceReference?: string;
 }
 export interface AdminFulfillmentEdit {
-  status?: string;
+  status?: ExpressStatus;
   pendingExpiresAt?: string;
   acceptedExpiresAt?: string;
 }

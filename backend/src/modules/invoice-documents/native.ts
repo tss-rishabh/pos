@@ -13,7 +13,8 @@ export type InvoiceNativeParts = [
   string,
   string | null,
   boolean,
-  string[][],
+  // order_stores.order_invoice is nullable in production.
+  (string | null)[][],
   string[][],
   (string | null)[][],
 ];

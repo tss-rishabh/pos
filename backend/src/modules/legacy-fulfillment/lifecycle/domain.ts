@@ -17,8 +17,10 @@ export function eventId(namespace: string, ...parts: string[]) {
   const hex = hash([namespace, ...parts]);
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-5${hex.slice(13, 16)}-a${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
-export function backupStores(raw: string): string[] {
-  if (!raw.trim()) return [];
+export function backupStores(raw: string | null): string[] {
+  // Nullable orders.next_location_ids; legacy guards with `if order.next_location_ids:`
+  // before json.loads (order/views.py:579,3777), so NULL means no backup stores.
+  if (!raw?.trim()) return [];
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw) as unknown;

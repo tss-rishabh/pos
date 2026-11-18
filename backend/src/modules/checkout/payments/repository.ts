@@ -18,6 +18,8 @@ import {
   StoreDayClose,
   Store,
 } from '../../../db/legacy-schema.js';
+import { hasProductStatuses } from '../../../db/legacy-enums.js';
+import { storedEnumValue } from '../../../db/legacy-columns.js';
 import type { Principal } from '../../../domain/access.js';
 import { requireStore } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
@@ -277,12 +279,7 @@ export function paymentRepository(
   const assertCheckIn =
     options.assertCheckIn ||
     ((userId, storeId, counterId, tx) => checkIns.assertCheckIn(userId, storeId, counterId, tx));
-  async function order(
-    tx: PaymentTransaction,
-    user: Principal,
-    storeId: string,
-    orderId: string,
-  ) {
+  async function order(tx: PaymentTransaction, user: Principal, storeId: string, orderId: string) {
     requireStore(user, storeId);
     // Check-in/current actor/store precede financial order locks, matching cancellation/day-close.
     // A nonlocking counter preflight here would establish an old REPEATABLE READ
@@ -582,7 +579,7 @@ export function paymentRepository(
       .where(eq(OrderStore.id, mapping.mappingId));
     await tx
       .update(HasProduct)
-      .set({ status: status.name })
+      .set({ status: storedEnumValue(hasProductStatuses, status.name) })
       .where(eq(HasProduct.order, BigInt(attempt.orderId)));
     await tx
       .update(GiftVoucher)

@@ -188,7 +188,7 @@ export async function beginLifecycle(
     const date = sourceDateTime(start).toPlainDate(),
       current = now.toPlainDate(),
       target = Temporal.PlainDate.compare(date, current) > 0 ? date : current,
-      weekday = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'][target.dayOfWeek - 1]!,
+      weekday = (['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'] as const)[target.dayOfWeek - 1]!,
       [slot] = await tx
         .select({ start: PosHyperlocalSlot.start_timeslot })
         .from(PosHyperlocalSlot)

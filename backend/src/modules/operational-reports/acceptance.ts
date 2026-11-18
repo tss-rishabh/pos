@@ -117,7 +117,7 @@ export function acceptanceReportService(
       } else {
         const reader = db.get('data'),
           where = and(
-            eq(HyperlocalOrderLog.action, 'accepted'),
+            eq(HyperlocalOrderLog.action, 'ACCEPTED'),
             gte(HyperlocalOrderLog.created_at, bounds.from),
             lte(HyperlocalOrderLog.created_at, bounds.to),
             ids.length

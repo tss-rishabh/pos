@@ -13,6 +13,8 @@ import {
   Store,
   StoreDayClose,
 } from '../../../db/legacy-schema.js';
+import { hasProductStatuses } from '../../../db/legacy-enums.js';
+import { storedEnumValue } from '../../../db/legacy-columns.js';
 import { aggregateStock } from '../../../db/stock-projection/schema.js';
 import { requireStore, type Principal } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
@@ -519,7 +521,10 @@ export function pendingCancellationRepository(
           .where(eq(Order.id, BigInt(orderId)));
         await tx
           .update(HasProduct)
-          .set({ status: cancelled.name, cashback_refunded: 1 })
+          .set({
+            status: storedEnumValue(hasProductStatuses, cancelled.name),
+            cashback_refunded: 1,
+          })
           .where(eq(HasProduct.order, BigInt(orderId)));
         for (const audit of evidence.audits)
           await tx

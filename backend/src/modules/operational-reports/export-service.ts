@@ -777,10 +777,11 @@ export function reportExportService(
           typeof selection === 'string' ? { origin: selection, page, pageSize } : selection,
         ),
         current = await transaction((tx) => currentOperator(tx, user.id));
-      const legacyFileAllowed = (row: { complete: boolean; format: string; file: string }) =>
+      // report_exports.is_completed is nullable; NULL is not complete.
+      const legacyFileAllowed = (row: { complete: boolean | null; format: string; file: string }) =>
         current.role === 1 &&
         current.userType === 1 &&
-        row.complete &&
+        row.complete === true &&
         parsedReportFileFormat(row.format) !== null &&
         row.file
           .toLowerCase()
@@ -996,7 +997,7 @@ export function reportExportService(
       const data: ReportExportListRow[] = rows.map((row) => {
         const status = row.complete
           ? ('COMPLETED' as const)
-          : ['FAILED', 'ERROR'].includes(row.status.toUpperCase())
+          : ['FAILED', 'ERROR'].includes((row.status ?? '').toUpperCase())
             ? ('FAILED' as const)
             : ('QUEUED' as const);
         return {

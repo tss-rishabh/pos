@@ -79,8 +79,11 @@ export function profileService(
   const revision = (row: Account) => profileRevision(config, row);
   function view(row: Account) {
     return {
-      firstName: row.first_name,
-      lastName: row.last_name,
+      // Nullable pos_user names: the legacy edit form renders value="{{ user.first_name }}"
+      // and value="{{ user.last_name }}" (users/templates/auth/profile.html:86,99), so
+      // Django prints NULL as 'None'.
+      firstName: row.first_name ?? 'None',
+      lastName: row.last_name ?? 'None',
       gender: row.gender,
       age: row.age,
       email: row.email,

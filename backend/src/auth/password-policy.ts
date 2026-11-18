@@ -10,8 +10,9 @@ const commonPasswords = new Set(
 );
 export type PasswordAccount = {
   username: string;
-  first_name: string;
-  last_name: string;
+  // Nullable in production; Django's similarity validator skips empty/None values.
+  first_name: string | null;
+  last_name: string | null;
   email: string | null;
 };
 export type PasswordProblem =

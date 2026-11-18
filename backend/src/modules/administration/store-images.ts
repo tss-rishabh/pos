@@ -45,7 +45,7 @@ export const storeImageReferences: Pick<
       .select({ key: Store.store_image })
       .from(Store)
       .where(inArray(Store.store_image, keys));
-    return new Set(rows.map((row) => row.key));
+    return new Set(rows.flatMap((row) => (row.key === null ? [] : [row.key])));
   },
   allowsCleanupKey: (key) =>
     /^uploads\/stores\/stores_image\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|jpeg|png|gif|webp)$/i.test(
@@ -109,7 +109,7 @@ function storeImageOwner(config: Config): ImageOwnerAdapter {
           ),
         )
         .digest('hex');
-      return { revision, keys: { image: row.store_image } };
+      return { revision, keys: { image: row.store_image ?? undefined } };
     },
     async write(tx, context, _kind, key) {
       await tx

@@ -78,8 +78,9 @@ export function administrationActorName(username: string, firstName: string, las
   const fullName=sourceAdministrationFullName(firstName,lastName);
   return fullName ? `${username} (${fullName})` : username;
 }
-export function sourceAdministrationFullName(firstName:string,lastName:string) {
-  const points = [...(firstName + ' ' + lastName)];
+export function sourceAdministrationFullName(firstName: string | null, lastName: string | null) {
+  // Django get_full_name() formats '%s %s'; nullable pos_user names print as 'None'.
+  const points = [...((firstName ?? 'None') + ' ' + (lastName ?? 'None'))];
   let from = 0,
     to = points.length;
   while (from < to && pythonWhitespace(points[from]!)) from++;
