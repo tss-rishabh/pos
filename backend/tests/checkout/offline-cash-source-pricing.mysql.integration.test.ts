@@ -2,8 +2,6 @@ import { execFileSync, spawn } from 'node:child_process';
 import { pinnedSourceEnvironment } from '../../tools/pinned-source-env.js';
 import { randomUUID } from 'node:crypto';
 import { createInterface } from 'node:readline';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -11,6 +9,7 @@ import { z } from 'zod';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 import { cashPriceSnapshotSchema } from '../../src/modules/checkout/offline-cash/contracts.js';
 import { nativeSourceCashTemplate } from '../../tools/checkout/offline-source-template-fixture.js';
+import { goldenStdout } from '../golden/load.js';
 
 const integration = process.env.MYSQL_INTEGRATION_URL;
 describe.skipIf(!integration)('source offline cash tax projection on native MySQL', () => {
@@ -310,30 +309,12 @@ describe.skipIf(!integration)('source offline cash tax projection on native MySQ
         })
         .parse(
           JSON.parse(
-            execFileSync(
-              'uv',
-              [
-                'run',
-                '--project',
-                dirname(script),
-                '--frozen',
-                'python',
-                script,
-                '--native-driver-snapshot',
-              ],
-              {
-                input: JSON.stringify({ url: url.href }) + '\n',
-                encoding: 'utf8',
-                timeout: 30_000,
-                env: {
-                  ...pinnedSourceEnvironment(),
-                  PATH: process.env.PATH,
-                  HOME: process.env.HOME,
-                  UV_PROJECT_ENVIRONMENT: join(tmpdir(), 'pos-offline-pricing-runtime'),
-                  PYTHONDONTWRITEBYTECODE: '1',
-                },
-                stdio: ['pipe', 'pipe', 'pipe'],
-              },
+            goldenStdout(
+              'checkout',
+              'offline-cash-source-pricing-mysql-integration.native-driver-snapshot',
+              JSON.stringify({ url: url.href }) + '\n',
+              undefined,
+              { placeholders: { '<fixture-database-url>': url.href } },
             ),
           ),
         );

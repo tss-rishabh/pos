@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+  "oracle": "compatibility/upstream/offline-cash-pricing/test_source_pricing.py",
+  "runtime": "CPython 3.12.15 via uv --frozen --project compatibility/upstream/offline-cash-pricing",
+  "capturedAt": "2026-11-18T19:11:53Z",
+  "test": "tests/checkout/offline-cash-source-pricing.mysql.integration.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "05c73e90a139f8ede7fc00e37192c1ac69ae92e52232fa6d5940fa93ef16ca1b",
+      "args": [
+        "run",
+        "--project",
+        "compatibility/upstream/offline-cash-pricing",
+        "--frozen",
+        "python",
+        "compatibility/upstream/offline-cash-pricing/test_source_pricing.py",
+        "--native-driver-snapshot"
+      ],
+      "status": 0,
+      "output": {
+        "kind": "driver-snapshot",
+        "value": {
+          "version": 1,
+          "id": "8500d488-979e-4e73-9024-57cc2b90c117",
+          "storeId": "1",
+          "counterId": "2",
+          "businessDate": "2026-11-16",
+          "issuedAt": 1794801600000,
+          "expiresAt": 1794805200000,
+          "sourceContract": "pos-offline-cash-prices-v1",
+          "sourceCommit": "2960acbea10c4eaf16b6d99e15ff6e03ef7724c5",
+          "sourceSettingsHash": "28db4585edde43166fdb8900ff6d5f733317930ae3b22bc8c840af7ed0e3c42e",
+          "locationSettingsHash": "682ddcebc8cd124e558ad154ea787d9f5c537ff891068005ccbfee7bb9b2b522",
+          "lineItemsEnabled": true,
+          "excludedProductIds": [],
+          "products": [
+            {
+              "productId": "101",
+              "name": "Fixture parent",
+              "barcode": "8900000000101",
+              "hsn": "99999999",
+              "cachedStock": 50,
+              "quantities": [
+                {
+                  "quantity": 1,
+                  "unitPrice": "79.13",
+                  "mainSubtotalCents": 7913,
+                  "taxableCents": 6706,
+                  "taxCents": 1207,
+                  "invoiceGst": "18"
+                },
+                {
+                  "quantity": 2,
+                  "unitPrice": "79.13",
+                  "mainSubtotalCents": 15826,
+                  "taxableCents": 13412,
+                  "taxCents": 2414,
+                  "invoiceGst": "18"
+                },
+                {
+                  "quantity": 3,
+                  "unitPrice": "79.13",
+                  "mainSubtotalCents": 23739,
+                  "taxableCents": 20118,
+                  "taxCents": 3621,
+                  "invoiceGst": "18"
+                },
+                {
+                  "quantity": 5,
+                  "unitPrice": "79.13",
+                  "mainSubtotalCents": 39565,
+                  "taxableCents": 33530,
+                  "taxCents": 6035,
+                  "invoiceGst": "18"
+                },
+                {
+                  "quantity": 20,
+                  "unitPrice": "79.13",
+                  "mainSubtotalCents": 158260,
+                  "taxableCents": 134119,
+                  "taxCents": 24141,
+                  "invoiceGst": "18"
+                }
+              ]
+            },
+            {
+              "productId": "102",
+              "name": "Fixture standalone",
+              "barcode": "8900000000102",
+              "hsn": "61091000",
+              "cachedStock": 50,
+              "quantities": [
+                {
+                  "quantity": 1,
+                  "unitPrice": "300.0",
+                  "mainSubtotalCents": 30000,
+                  "taxableCents": 25424,
+                  "taxCents": 4576,
+                  "invoiceGst": "18"
+                },
+                {
+                  "quantity": 2,
+                  "unitPrice": "300.0",
+                  "mainSubtotalCents": 60000,
+                  "taxableCents": 50847,
+                  "taxCents": 9152,
+                  "invoiceGst": "18"
+                },
+                {
+                  "quantity": 3,
+                  "unitPrice": "300.0",
+                  "mainSubtotalCents": 90000,
+                  "taxableCents": 76271,
+                  "taxCents": 13729,
+                  "invoiceGst": "18"
+                },
+                {
+                  "quantity": 5,
+                  "unitPrice": "300.0",
+                  "mainSubtotalCents": 150000,
+                  "taxableCents": 127119,
+                  "taxCents": 22881,
+                  "invoiceGst": "18"
+                },
+                {
+                  "quantity": 20,
+                  "unitPrice": "300.0",
+                  "mainSubtotalCents": 600000,
+                  "taxableCents": 508475,
+                  "taxCents": 91525,
+                  "invoiceGst": "18"
+                }
+              ]
+            }
+          ]
+        },
+        "readOnly": 1
+      }
+    }
+  ]
+}
