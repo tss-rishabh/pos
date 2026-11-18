@@ -1,6 +1,8 @@
 # Native catalogue workflow benchmark
 
-Implementation draft based on rewrite `6cbae5f`. **Not executed or validated yet.**
+Implementation draft based on rewrite `6cbae5f`. Node 24 syntax checks, Python
+AST parsing, shell syntax, scoped ESLint and Prettier checks pass. **Native
+correctness/calibration and performance execution have not run.**
 No latency, query-count improvement, parity success or production readiness is
 claimed by these files. Run only after the complete verification run and other
 local test/build/database workloads have stopped. The existing three-sample SQL
@@ -116,7 +118,7 @@ no credentials, cookies, request payloads or raw SQL. Source hashes, all candida
 production input hashes, locks, schema facts, runner code and host/container
 metadata identify the executed graph. Inputs must remain unchanged.
 
-The next action is scoped syntax/format review and one native validation-mode
-run when Root confirms full verification has ended. Any schema/response/counter
+The next action is one native validation-mode run when Root confirms all other
+heavy local workloads have ended. Any schema/response/counter
 defect must be reported and corrected before measurements. No release ledger
 promotion is owned by this benchmark.
