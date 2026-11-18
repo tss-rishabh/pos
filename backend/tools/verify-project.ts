@@ -148,6 +148,7 @@ if (flags.has('--mysql')) {
     backend,
     'tools/order-search/run-oracle.sh',
   );
+  childEnvironment.ORDER_SEARCH_SOURCE_ROOT = resolve(workspace, '../backend-pos-web');
 }
 
 const directories = [
@@ -1382,6 +1383,19 @@ if (flags.has('--browser')) {
   if (flags.has('--mysql')) {
     const source = resolve(workspace, '../backend-pos-web');
     checks.push(
+      {
+        id: 'online-order-detail-native-app-browser-tests',
+        directory: 'backend',
+        args: [
+          'node_modules/vitest/vitest.mjs',
+          'run',
+          'tests/order-history/online-detail.mysql.test.ts',
+          '-t',
+          'loads actual routed App with native cookie',
+          '--maxWorkers=1',
+        ],
+        environment: { ORDER_DETAIL_BROWSER_TEST: 'true' },
+      },
       {
         id: 'lookup-native-source-api-browser-workflow',
         directory: 'backend',
