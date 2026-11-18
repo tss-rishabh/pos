@@ -1,12 +1,15 @@
 # POS rewrite checkpoint
 
-## Current state — 18 November 2026, global alert implementation closed
+## Current state — 18 November 2026, shell completion and reminder recovery
 
 The three identified global UI gaps are implemented on `7fb0a96`: notification
 links/audio/visual alerts, global fulfillment expiry reminders/banner and the
 foreground day-close reminder/date navigation. Source-map references bind their
-actual code; no known variant in the assigned scope remains unimplemented.
-This is implementation closure, not full feature parity or production acceptance.
+actual code. Native proof then found a same-record authority recovery gap in both
+reminders. The integrated fix passes its joined native/source/App proof on the
+9716048 production graph. Historical failure evidence remains immutable. The
+implementation inventory now records no known code groups left; this is not
+complete parity or production readiness.
 
 Root backend timing metadata preserves the source defaults: expiry 60 s, day-close
 snooze 10 min. Selected-store expiry requires a current native check-in before and
@@ -23,13 +26,64 @@ hashes and bounded results: `backend/evidence/global-alerts-implementation-7fb0a
 No whole-template, new global workflow, Redis/provider or release certification is
 inferred from those counts. Original shared installs/environments are unchanged.
 
-Current global reminder proof candidate e773f70 is executing in an owned native
-fixture on base `7fb0a96`. Early failures are harness seed/source assumptions only:
-physical has_products.status uses PLACED, not model-generated CONFIRMED; expiry
-script exists in both source layouts but the day-close nag exists only in base.html.
-Native/source/App behavior verdict remains pending. Notification joined proof is
-being authored separately; no in-memory fake bus or candidate response fulfillment.
-Benchmark validation/measurement stays held until competing jobs and fixes finish.
+Global reminder proof e773f70 +97d84dc is integrated as736f378/27b8c9b.
+The baseline source/native/App checks pass, including hidden-page suppression
+(after correcting the visibility fixture), thresholds/dedup/modal/date/navigation.
+On 7fb0a96 the added native role4 recovery case FAILS: assignment removed causes403/hide;
+assignment restored and actual check-in page fetch200 returns exactly the same
+record, but neither reminder resumes at the unchanged5000ms expectations.
+Evidence: backend/tools/global-reminders/implementation-gap.json. Preserve it;
+the baseline excludes this case and does not make the complete target pass.
+
+The authority recovery implementation is integrated as `6d4e124`: successful
+native check-in reads advance an authority generation even when their record and
+clock timestamp are unchanged. Denied reminders revalidate before showing data;
+benign reads retain visible dialogs and snooze state. The complete canonical
+strict/build/native/source/App command passes on the 9716048 production graph.
+Receipt is integrated as005d782. Root independently verified all112 executed
+harness/migration hashes, seven pinned sources, the1213-file971 production graph
+and canonical log digest: `backend/evidence/global-reminder-recovery-reviewed-9716048.json`.
+The source device clock is restored in isolated leaf component `da8f9bc`.
+Bounded source shell/account audit then found actual-check-in context and account
+type absent globally. `9716048` restores both through an isolated shared-query
+observer and visible In-House/Franchise label. Workspace selection is distinct
+from native check-in; offline/error/expired states do not claim active authority.
+The first frozen green attempt failed because its new test used a focus-refresh
+trigger despite actual refetchOnWindowFocus:false. The corrected harness uses real
+Back navigation to mount the stale Store check-in query; original deadlines and
+assertions remain unchanged. The successful command includes the clock/context
+production changes and proves both reminder request streams resume after restored
+same-record authority, with valid visible dialogs and snooze state preserved.
+
+A final bounded audit found the active source What's New panel and five visible
+Staff performance labels missing. `4c8cb5e` restores the read-only explicit modal,
+all-role naming notes, role-1 report note, always-New badge and source update date;
+API/DTO identifiers and report data are unchanged. Main backend/frontend strict
+checks and changed-module lint pass on that exact snapshot. Receipt:
+`backend/evidence/shell-completion-static-4c8cb5e.json`. The 971 reminder proof is
+not re-labeled as execution of the later release-note/label changes. New modal
+behavior and final affected workflows remain to verify.
+
+Archival proof files are integrated as04da31f/9561fb9. `25a73ec` registers archival
+and reminder strict/joined checks in the complete verifier. Their runners can own
+nonce-labeled pinned loopback MySQL containers with ownership-checked container
+and volume cleanup; explicitly supplied owned endpoints are never removed.
+Verifier strict/lint, archival fixture strict/lint and shell syntax pass on25a.
+Notification candidatee5d84ee has scoped strict/lint/syntax checks passing.
+Owned native execution has started after verified reminder-fixture cleanup;
+initial setup attempts exposed synthetic seed enum/ID assumptions, now corrected
+without production/DDL changes. Failed attempts are retained; no workflow pass
+is claimed yet. New runner cleanup removes its exact created container/volume.
+One earlier attempt used the old cleanup without-v; any orphan volume requires
+conclusive ownership before deletion, never a broad prune. Benchmark remains
+static-only and held until
+these affected code/workflow checks finish and the host is quiescent.
+
+Desktop CI `44284340523` is terminal SUCCESS on both Windows and macOS at
+`5c06f1f`, including unsigned packaging, native restart, sandbox and offline
+checks. Receipt: `backend/evidence/desktop-ci-5c06f1f.json`. This older snapshot
+excludes the subsequent clock and recovery changes; signing, physical devices
+and final release acceptance remain pending.
 
 Profile proof `8383911` + `397c432` is integrated as `bfa9ae0` / `fdbc2c0`: 7/7 pass in 28.11 s,
 strict/lint/syntax pass, 1,233 matched inputs and canonical log digest. Exactly two
@@ -45,8 +99,12 @@ Last complete r8 remains failed: 144 pass, one backend check failed, one generic
 browser check unexecuted of 146 expected; inputs unchanged. `851f620` bounded corrections
 pass 15 native cases and exact 344→342 discovery. Both Windows/macOS CI `44268539314`
 pass `851f620` including unsigned native/offline/recovery. These are older snapshots,
-not certification of the new `7fb0a96` graph. Current desktop CI is next after this code
-integration. No benchmark/native production-p95 claim exists.
+not certification of the current `4c8cb5e` graph. Final desktop CI follows stable
+code integration. No benchmark/native production-p95 claim exists.
+
+Payment-failure Go wallet date-order correction remains inactive pending the
+explicit user choice requested asynchronously. Original evidence and default-vet
+failure remain visible; another cancellation-expiry approval is not substituted.
 
 Complete source parity, live SSO/warehouse/providers/inventory/background-worker
 acceptance, representative performance/security review, signed desktop/physical

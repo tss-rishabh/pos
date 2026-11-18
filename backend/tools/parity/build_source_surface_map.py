@@ -250,9 +250,14 @@ def define_families():
            ['parity/dashboard.md'], scope='Source global active store/operator counts, exact distinct parent-associated product count, scoped association totals and source current/future-year monthly series; primary/current, DATA/today and immutable-publication BigQuery history.',
            external=['Publish and accept pos-dashboard-orders-v1 common-checkpoint source/warehouse count+digest generations; independent raw CDC is insufficient. Source ambiguous different-count same-month future-year overwrites fail explicitly.'])
     bind('dashboard-summary', ['DashboardView'])
-    family('shared-shell', ['src/app.ts'], ['src/app.tsx', 'src/components/common.tsx', 'src/components/error-boundary.tsx'],
-           ['tests/api.test.ts', 'frontend/tests'], scope='Approved redesigned navigation, shortcut landing, safe errors, online indicator and shared layout.',
+    family('shared-shell', ['src/app.ts'], ['src/app.tsx', 'src/components/common.tsx', 'src/components/error-boundary.tsx', 'src/components/realtime-clock.tsx', 'src/components/workspace-context.tsx', 'src/components/release-notes.tsx'],
+           ['tests/api.test.ts', 'frontend/tests'], scope='Approved redesigned navigation, shortcut landing, safe errors, online indicator and shared layout. Isolated device clock, global authoritative check-in status/link distinct from workspace selection, and visible In-House/Franchise account type are restored; offline/error/expired check-ins do not claim active authority. Source read-only What\'s New panel retains the all-role naming notes, role-1 report rename note, always-New badge and 8 Sep 2026 date.',
            notes=['Source LiveInternetDataView GET is an acknowledgement stub; POST references commented-out locals and does not implement a working speed-log report. No new internet telemetry is inferred.'])
+    families['shared-shell']['implementation_review'] = [
+        review_reference('frontend/src/components/workspace-context.tsx', 'export function WorkspaceContext', 'Existing operator-scoped native check-in query is observed without another background poll; the global display uses that record and its expiry, not workspace selection. Account type comes from the current authenticated principal. Runtime verification remains pending.'),
+        review_reference('frontend/src/components/realtime-clock.tsx', 'export const RealtimeClock', 'Local HH:MM:SS clock updates an isolated leaf component and cleans up its timer/listener; no network or parent workspace rerender is needed.'),
+        review_reference('frontend/src/components/release-notes.tsx', 'export function ReleaseNotes', 'Explicit global trigger opens the accessible read-only native dialog; Close/Got it/Escape dismiss it, visible dialogs take priority, and source role-1 report-note visibility is preserved without seen tracking. Behavioral verification remains pending.'),
+    ]
     bind('shared-shell', ['ShortcutDashboardView', 'LiveInternetDataView'])
     family('identity', ['src/auth/routes.ts', 'src/auth/mfa.ts', 'src/auth/delivery.ts', 'src/auth/revocation.ts'],
            ['src/pages/login.tsx'], ['tests/auth.mysql.integration.test.ts', 'tests/otp-delivery.test.ts', 'tests/otp-delivery.test.ts'],
@@ -376,6 +381,7 @@ def define_families():
     families['express-fulfillment']['implementation_review'] = [
         review_reference('frontend/src/pages/fulfillment/global-expiry-alerts.tsx', 'export function GlobalFulfillmentExpiryAlerts', 'Global selected-store/current-check-in eligibility, grouped reminders and status banner are implemented; behavior still needs joined source/native/browser verification.'),
         review_reference('frontend/src/pages/fulfillment/expiry-alerts.ts', 'export function useFulfillmentExpiryAlerts', 'Shared scoped cache with one background poll owner, authority-denial masking and bounded server interval. This is implementation evidence, not a runtime certification.'),
+        review_reference('frontend/src/hooks/use-check-in-authority.ts', 'export function useCheckInAuthorityGeneration', 'Successful native check-in reads advance authority even for unchanged records/timestamps. Denied expiry reads revalidate before private data is shown; immutable historical failing proof is retained separately.'),
     ]
     bind('express-fulfillment', ['AjaxExpressLineItemPackView', 'HyperlocalProgressView', 'AjaxHyperlocalProgressDataView', 'AjaxHyperlocalProgressContentView', 'AjaxHyperlocalRejectionReasonsView', 'AjaxExpressLineItemsBulkActionView', 'AjaxExpressOrderPackAllView', 'AjaxExpressOrderMarkShippedView', 'AjaxExpressOrderNotifyView', 'AjaxHyperlocalLoadMoreView', 'AjaxExpressOrderMarkRTOView', 'AjaxHyperlocalExpiryAlertsView', 'HyperlocalAllStoresDashboardView', 'AjaxHyperlocalAllStoresDataView', 'AjaxHyperlocalAdminEditView', 'ExpressOrderMarkShippedApiView'])
     family('shipping-labels', ['src/modules/fulfillment/shipping-label'], ['src/pages/fulfillment/shipping-label.tsx'],
@@ -403,6 +409,7 @@ def define_families():
            external=['Accept generation/CDC warehouse financial publication, source timezone/rollout and actual scheduled notices.'])
     families['finance-day-close']['implementation_review'] = [
         review_reference('frontend/src/pages/finance/day-close-reminder.tsx', 'export function DayCloseReminder', 'Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending.'),
+        review_reference('frontend/src/hooks/use-check-in-authority.ts', 'export function useCheckInAuthorityGeneration', 'A fresh successful native authority read releases denied reminders without remounting an already valid open dialog or rewriting its snooze. Manual cache writes do not establish new authority.'),
         review_reference('frontend/src/pages/finance/ledger.tsx', '[pageSize, setPageSize] = useState(31)', 'Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations.'),
         review_reference('frontend/src/pages/finance/history.tsx', 'const pageCsv = useMutation(', 'Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page.'),
     ]

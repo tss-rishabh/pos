@@ -1,0 +1,31 @@
+{
+  "recordedAt": "2026-11-18T10:52:34.400807Z",
+  "scope": "Independent review of exact9716048 scoped reminder recovery execution, not admission on later source graphs.",
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "productionCommit": "97160483159c419b79ba1a70badb44ac4b53aef4",
+  "rawReceipt": "backend/tools/global-reminders/recovery-receipt.json",
+  "rawReceiptSha256": "bf9499eaf3af7212c9ce7e0b737b4bb2339ff721d4ead41662d6204ea62fc636",
+  "verified": {
+    "productionArchiveFiles": 1213,
+    "productionArchiveDigest": "6ba84671b8c2950d2cf1715ce3205281702a67733428e8ab181db79cdc659305",
+    "executedHarnessAndMigrationHashes": 112,
+    "pinnedSourceHashes": 7,
+    "canonicalLogDigest": "026c1287b2272beb824c1216b5880d014eee16c51cd53614f6cf9ddec3dc9313",
+    "canonicalExitCode": 0,
+    "nativeCheckGroups": 11,
+    "sourceScriptChecks": 4
+  },
+  "laterChangedExistingProductionInputs": [
+    "backend/src/modules/operational-reports/export-service.ts",
+    "frontend/src/components/report-navigation.tsx",
+    "frontend/src/components/workspace-context.tsx",
+    "frontend/src/pages/operational-reports/exports.tsx",
+    "frontend/src/pages/operational-reports/performance.tsx"
+  ],
+  "limitations": [
+    "Root4c8cb5e release-note additions and report labels were not executed by this proof; no current graph certification.",
+    "Root25a automatic owned-fixture wrapper was not executed.",
+    "No whole-template, whole-financial-workflow or production release acceptance."
+  ],
+  "productionReady": false
+}

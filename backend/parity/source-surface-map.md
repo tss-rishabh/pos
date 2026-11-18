@@ -94,6 +94,16 @@ Mapped surfaces: `core/urls.py:123` (external_acceptance), `core/urls.py:124` (e
 | `frontend/src/pages/administration/collection-table.tsx:81` | Shared control renders source page-size/sort/column choices and loaded-page CSV; full current collection export uses the existing protected queue. |
 | `backend/src/modules/administration/collection-export.ts:170` | Actual source-authorized renderer uses finite resource/column/sort input, bounded primary current rows and the existing queue artifact lifecycle. |
 
+### shared-shell
+
+Mapped surfaces: `dashboard/urls.py:8` (implementation_present), `dashboard/urls.py:9` (implementation_present), `dashboard/urls.py:10` (implementation_present), `dashboard/templates/dashboard/main_dashboard.html` (implementation_present), `users/templates/admin/includes/footer.html` (implementation_present), `users/templates/admin/includes/header.html` (implementation_present), `users/templates/admin/includes/navbar.html` (implementation_present), `users/templates/admin/includes/sidebar.html` (implementation_present), `users/templates/admin/includes/whatsnew.html` (implementation_present), `users/templates/admin/layouts/base.html` (implementation_present), `users/templates/admin/layouts/base_create_order.html` (implementation_present), `users/templates/admin/layouts/base_no_sidebar_navbar.html` (implementation_present).
+
+| Code/source reference | Reviewed scope |
+| --- | --- |
+| `frontend/src/components/workspace-context.tsx:12` | Existing operator-scoped native check-in query is observed without another background poll; the global display uses that record and its expiry, not workspace selection. Account type comes from the current authenticated principal. Runtime verification remains pending. |
+| `frontend/src/components/realtime-clock.tsx:4` | Local HH:MM:SS clock updates an isolated leaf component and cleans up its timer/listener; no network or parent workspace rerender is needed. |
+| `frontend/src/components/release-notes.tsx:12` | Explicit global trigger opens the accessible read-only native dialog; Close/Got it/Escape dismiss it, visible dialogs take priority, and source role-1 report-note visibility is preserved without seen tracking. Behavioral verification remains pending. |
+
 ### orders-read
 
 Mapped surfaces: `order/urls.py:8` (external_acceptance), `order/urls.py:9` (external_acceptance), `order/urls.py:10` (external_acceptance), `order/urls.py:11` (external_acceptance), `order/urls.py:12` (external_acceptance), `order/templates/order/index.html` (external_acceptance), `order/templates/order/online/_return_exchange_cells.html` (external_acceptance), `order/templates/order/online/show.html` (external_acceptance), `order/templates/order/show.html` (external_acceptance).
@@ -141,8 +151,9 @@ Mapped surfaces: `order/urls.py:93` (external_acceptance), `order/urls.py:96` (e
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/fulfillment/global-expiry-alerts.tsx:53` | Global selected-store/current-check-in eligibility, grouped reminders and status banner are implemented; behavior still needs joined source/native/browser verification. |
+| `frontend/src/pages/fulfillment/global-expiry-alerts.tsx:54` | Global selected-store/current-check-in eligibility, grouped reminders and status banner are implemented; behavior still needs joined source/native/browser verification. |
 | `frontend/src/pages/fulfillment/expiry-alerts.ts:31` | Shared scoped cache with one background poll owner, authority-denial masking and bounded server interval. This is implementation evidence, not a runtime certification. |
+| `frontend/src/hooks/use-check-in-authority.ts:10` | Successful native check-in reads advance authority even for unchanged records/timestamps. Denied expiry reads revalidate before private data is shown; immutable historical failing proof is retained separately. |
 
 ### notifications
 
@@ -158,7 +169,8 @@ Mapped surfaces: `report/urls.py:16` (external_acceptance), `report/urls.py:73` 
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/finance/day-close-reminder.tsx:43` | Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending. |
+| `frontend/src/pages/finance/day-close-reminder.tsx:44` | Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending. |
+| `frontend/src/hooks/use-check-in-authority.ts:10` | A fresh successful native authority read releases denied reminders without remounting an already valid open dialog or rewriting its snooze. Manual cache writes do not establish new authority. |
 | `frontend/src/pages/finance/ledger.tsx:33` | Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations. |
 | `frontend/src/pages/finance/history.tsx:148` | Actual close-history loaded-page CSV is separate from its retained complete filtered CSV; it uses only the current authenticated bounded page. |
 

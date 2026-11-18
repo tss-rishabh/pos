@@ -967,7 +967,7 @@
     "backend/src/modules/operational-reports/export-presentation.ts": "7019fc3409e6ffda785d96f08d4d6b88657a9ec5baf01f649aa1092346c37224",
     "backend/src/modules/operational-reports/export-routes.ts": "452042a7c94ea744c544a0be2b2c7fc6963eb42d85720108fe8a57be9bde85d6",
     "backend/src/modules/operational-reports/export-schema.ts": "3cedf2bd1f1516aa3f384a064e63aa6749d3fe7225a4337fb7cbdd6d6f1f1232",
-    "backend/src/modules/operational-reports/export-service.ts": "443e0343d92af935f281ab91d2498448f3a1d3cea771f737d7e4c410599b32df",
+    "backend/src/modules/operational-reports/export-service.ts": "99344c0c7f97a1cf319594c82e5a0d4d1dd619f3b5a2f15134714422e21cc075",
     "backend/src/modules/operational-reports/export-storage.ts": "119c7874f2f8b7d930f2886374f9be6a7cd628d5f31140cbd0d1bad4dccb975e",
     "backend/src/modules/operational-reports/export-worker.ts": "044429770e1437e7b94c637db356467372c220d8f6c4a5e6fde8cb02bc5b44b4",
     "backend/src/modules/operational-reports/feedback-dimensions.ts": "de95c1c11b724997024b82791f783587aa90920d1b26f1e0df6ff18113015622",
@@ -1348,10 +1348,14 @@
     "frontend/e2e/checkout/product-feedback.spec.ts": "ea4472b0f05ada86a836e7772dbedc9a59a9634b999cc3366deb66e723b3c963",
     "frontend/e2e/checkout/wallet-adjustments.spec.ts": "4316c31ee98c66ed3c6f293f6827d5f67a0f4e17055114078f40938e5ac4312d",
     "frontend/e2e/motivational-quotes.spec.ts": "4451358d1f5915a1368ee58940fb9a6ea2f3510a34fb56e6e72dbd99643f7bf3",
-    "frontend/src/app.tsx": "89f5e74d3390c25d182b2800e84b4bb8f15963c0376c265cd49ba203bf84838f",
+    "frontend/src/app.tsx": "2db5184cf0d74d13e0d43783c07363b5dd8d6bf726171a54e1cdc487ae19c375",
     "frontend/src/components/common.tsx": "91b559434cf73ef433e191ed9157c8a381b49acbfa55cc5528314a609c7f11f4",
     "frontend/src/components/error-boundary.tsx": "068a7926f94588d641584e72e1589902be6134394b7aab971ca8866dfef7a13c",
     "frontend/src/components/motivational-quote.tsx": "c5ae3992a5beb1ff2b3e1ba3a4060159220811961158d8f2613d1ed3c7e02d50",
+    "frontend/src/components/realtime-clock.tsx": "26cf525ca73128a7e9fe6e6cad5de3fc865fbd8aea31ea2368a617765c88c7c9",
+    "frontend/src/components/release-notes.tsx": "c53ccab6bcf9118715da4aaaf19e7ab2fdd99d2d10a9c405e033f033610c14ab",
+    "frontend/src/components/workspace-context.tsx": "6de08bfbf948e26bde47f5b718f70aa22472cd2e9d15c49080ea10c95682fa1f",
+    "frontend/src/hooks/use-check-in-authority.ts": "ce9f1d3943c16406905e4c988d088e59bf4308d9244aa47187d1980dd7157073",
     "frontend/src/hooks/use-checkout-performance.ts": "4ad71de5810ebc5b7354411172b21230dca38f1e903d84062da1db05257c860d",
     "frontend/src/offline/benefits/client.ts": "c03bff3cce7e036c8804832d57d323ae8504c85992828e613253bd60a1c3e385",
     "frontend/src/offline/benefits/commands.ts": "1a58acaac27169088a4171db6e2067180959797aac8433d5646e09ea49d9829d",
@@ -1511,7 +1515,7 @@
     "frontend/src/pages/dashboard/styles.css": "f1046220b2ff0fe57bdcfcdc5f4e4aaeef9f6f6ca051a825fce7d970cdb9cd0f",
     "frontend/src/pages/finance/commands.ts": "abb9979d909e4a169c6070b7dfa288b5c4e7761d9a504572d8cd3c10fbacf44b",
     "frontend/src/pages/finance/day-close-reminder.css": "42afcf9d697996e6d795083d539e778e6cf1ef761534afeec9ca73533a3727e8",
-    "frontend/src/pages/finance/day-close-reminder.tsx": "ecc7aa56af4320ff60cc025ffa1a3980b9ed2c70da40a3c165d3716a1899d16e",
+    "frontend/src/pages/finance/day-close-reminder.tsx": "38a823425301afc4cce94f47191be5bc751b759c2e136a5dd13f35e50c69cac0",
     "frontend/src/pages/finance/download.ts": "a1e728fa2041b7d9482d97028e6f0cf18faf278eed9c98d4e16f72adc897b175",
     "frontend/src/pages/finance/history.tsx": "1cd356ac13963434d3e908bce41f0e2edbeafd5130a9152212bcf1d04ed0ac23",
     "frontend/src/pages/finance/index.tsx": "e07a1490cdf5e9281a3e2026eaa45aba4b06ccee25c322163dcde8d61fe9a627",
@@ -1520,9 +1524,9 @@
     "frontend/src/pages/finance/model.ts": "7aa66eee74c78d3c659975cebbecfb2166e9330861499abf8b5d9f485e794ca1",
     "frontend/src/pages/finance/style.css": "e7c87e032ec393bb432dd04525a14e1987dab012a70f67dcf8c5842809911ac6",
     "frontend/src/pages/fulfillment/commands.ts": "5423996b12446f526333473dd61f6b906df8b5a1c8d1d90731e1f432c397d924",
-    "frontend/src/pages/fulfillment/expiry-alerts.ts": "ede6c4f4d2a0a1d3d27b5ad773f5d79533b45f182705b4d1c66b14720e422dc4",
+    "frontend/src/pages/fulfillment/expiry-alerts.ts": "9d7ab2dc03c7447f910c8b2d4cca608637d028876a5b362420bdce03d0463185",
     "frontend/src/pages/fulfillment/global-expiry-alerts.css": "14080651aff660519f79b63d5fdc1ccf83d0cdf09d79309b1cc63c7c2f7213a5",
-    "frontend/src/pages/fulfillment/global-expiry-alerts.tsx": "46863a060f7eaedaa784770c44d7bc57e5066f24da271f13216d9e949cfd77ed",
+    "frontend/src/pages/fulfillment/global-expiry-alerts.tsx": "17401d396c629b159c154c0b95bd6759d9792605e678c81b8b3e095293a477b9",
     "frontend/src/pages/fulfillment/index.tsx": "0b27f57d43b0ddc7057d25ed18ba2313e7d15bbe5d5e510ce3238b5cd86e193a",
     "frontend/src/pages/fulfillment/monitoring.tsx": "0796c2f6e65ce28137cf79b98619fd3716e4b5cca0002cbc0f37275d3b7ffff8",
     "frontend/src/pages/fulfillment/notification-alerts.tsx": "7f120175428aa416a245f42f20a1eb530b85c43919e70e389d10a42da3d8791f",
@@ -1559,14 +1563,14 @@
     "frontend/src/pages/operational-reports/acceptance.tsx": "097e0be685d3b58edd9496052dd14bfb314b7571d49f226b2044e159fd680c91",
     "frontend/src/pages/operational-reports/export-commands.ts": "491223cce31aa7aa127897e2ea431379682eaef34ce8aa1e21fdf62c946d4a00",
     "frontend/src/pages/operational-reports/export-metadata.ts": "d27540f377338bcc91967701b3c1e7f734e34edd3981dfc3961b1e0464418c7a",
-    "frontend/src/pages/operational-reports/exports.tsx": "9182b1a6aba3b3e84207a52838824f64c2c94fc3e5dc30d5ca81899d27eccdce",
+    "frontend/src/pages/operational-reports/exports.tsx": "b941083f3a7f08785aa8ff9828620a14a78dd8f8dd573edcc9a9e14b16507bf1",
     "frontend/src/pages/operational-reports/feedback.tsx": "d765a504cb85069177ba5b4d1c73cd8d80ee91761fde94210027a4e048512765",
     "frontend/src/pages/operational-reports/flash-sales.tsx": "9213320420e0a9715cf11fcc20f6511e739ef3da210a0a880867a38495632ca8",
     "frontend/src/pages/operational-reports/hyperlocal-daily.tsx": "3dee68511232460b8b9ad6c754bec06110001d625853fa6eef1e11a9d67339ae",
     "frontend/src/pages/operational-reports/inventory.tsx": "59731a2b3bfacae4210be0a119c641a52901d56c8bda66227a9db67bd16a185d",
     "frontend/src/pages/operational-reports/order-report-columns.ts": "d610cc09065dc1c16fae4d095ed844dd252ab8f5ad78ac35a6537966c2fe74d5",
     "frontend/src/pages/operational-reports/order-transactions.tsx": "bc5f17ec369a59251bae0b3641ee33fbf19aaf718d16788dd3328ba59c1ec28b",
-    "frontend/src/pages/operational-reports/performance.tsx": "4c24f2e7dde01a6d4f3a2d84a65ee50d2dd88674585d75752cbf69537c3a750e",
+    "frontend/src/pages/operational-reports/performance.tsx": "6f5b20031e7ef7e9c5781fb1294edaf0f3ec28f81fe4c6621dd3829e01d9f9a5",
     "frontend/src/pages/operational-reports/report-view.tsx": "fd026007a306626fae2c78b2a019fc164fccd574ad9566cf8bfd2ce72eb001ba",
     "frontend/src/pages/operational-reports/returned-orders.tsx": "19b2025409ff7c8ab70c66fbba6f3f0effcf7b76fb9277374b1bcf9dc0c8cb5a",
     "frontend/src/pages/operational-reports/style.css": "06e72842b38bbba36ffd0cd5d1be74efa91a6eae634f773bbd6255a72f28f8a8",
@@ -1604,6 +1608,8 @@
     "frontend/src/pages/returns/client.ts": "345045dbbb7948a086a0a5dee52580bd5ad27c2df7e9ddf85f460b165f486c33",
     "frontend/src/pages/returns/index.tsx": "8cd2afdd59f491e95a8531cd0e2490d78abbc8d7b1b79a6207eb715788210c03",
     "frontend/src/pages/returns/style.css": "450e48e772a3ba5c1f08dc30c446b4ac7120492e7f54a9efe95bffe3eefd5e79",
+    "frontend/tests/administration/archival-workflow-tsconfig.json": "882f8cccaf84ae864d78d2f2f21d3f6fecaa80b8495c5720a63f23fde4406210",
+    "frontend/tests/administration/archival-workflow.ts": "1c238ba1b06a4beddde9eaaf0548fc45f982341011302b217167976dfdcce5d4",
     "frontend/tests/administration/barcodes/browser.test.ts": "163d0480cf21279464930a2eb1455313fef5e230507bced4453ef3b110683c9b",
     "frontend/tests/administration/barcodes/harness.tsx": "b28c0b9a674eba4faaae07aa87de2eb54fdb4552d0957ba94028a2da66c1572b",
     "frontend/tests/administration/barcodes/pending.test.ts": "7e3ca0ee930c86dcadde1bdba1e01e2ff2ffd28bbe432a26dc61c229f44782c1",
@@ -1671,6 +1677,8 @@
     "frontend/tests/finance/download.test.ts": "6359d9100321c13090d46f00348b8ddd5fb32d67f84a592ea954286a4a3c0718",
     "frontend/tests/finance/ledger-rows.test.ts": "c5578043744d50648db09141a33b2551db3d649461f9c71f6c47549c1e0536d0",
     "frontend/tests/fulfillment/commands.test.ts": "fdf0acf602672a5237aaf2df84a893f56500de63d95f9b25b6ed1b509a0aeb1e",
+    "frontend/tests/global-reminders/native-app.ts": "8a7bdd43c280e82c4a2a2c7d937138acfa41f5d4b6139005ee2bc914c66c4b2f",
+    "frontend/tests/global-reminders/tsconfig.native.json": "c64d054f31f43236a02003ec0ab46d7f1c00d29f47e2ad592655a9b6424b0469",
     "frontend/tests/global-vouchers/fixtures.ts": "315ba12a4f75fca32c41bfea3a131bf40c44b67e48d4a7985d9fc0334d98f98e",
     "frontend/tests/global-vouchers/harness.tsx": "0ec48888ae452483f988fee40dde11e4480f4bd68d39eed368c8fe55f00d66a3",
     "frontend/tests/global-vouchers/tsconfig.json": "abebca6f830a906822f7f57f56e9e11eedd79a64d4b6fb9545e02fdcbfb85e9c",
@@ -4675,14 +4683,17 @@
       "frontend": [
         "frontend/src/app.tsx",
         "frontend/src/components/common.tsx",
-        "frontend/src/components/error-boundary.tsx"
+        "frontend/src/components/error-boundary.tsx",
+        "frontend/src/components/realtime-clock.tsx",
+        "frontend/src/components/workspace-context.tsx",
+        "frontend/src/components/release-notes.tsx"
       ],
       "tests": [
         "backend/tests/api.test.ts",
         "frontend/tests"
       ],
       "parity_documents": [],
-      "implemented_scope": "Approved redesigned navigation, shortcut landing, safe errors, online indicator and shared layout.",
+      "implemented_scope": "Approved redesigned navigation, shortcut landing, safe errors, online indicator and shared layout. Isolated device clock, global authoritative check-in status/link distinct from workspace selection, and visible In-House/Franchise account type are restored; offline/error/expired check-ins do not claim active authority. Source read-only What's New panel retains the all-role naming notes, role-1 report rename note, always-New badge and 8 Sep 2026 date.",
       "remaining_code": [],
       "external_acceptance": [],
       "code_task_required": true,
@@ -4692,6 +4703,88 @@
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented.",
+      "implementation_review": [
+        {
+          "path": "frontend/src/components/workspace-context.tsx",
+          "line": 12,
+          "anchor": "export function WorkspaceContext",
+          "scope": "Existing operator-scoped native check-in query is observed without another background poll; the global display uses that record and its expiry, not workspace selection. Account type comes from the current authenticated principal. Runtime verification remains pending."
+        },
+        {
+          "path": "frontend/src/components/realtime-clock.tsx",
+          "line": 4,
+          "anchor": "export const RealtimeClock",
+          "scope": "Local HH:MM:SS clock updates an isolated leaf component and cleans up its timer/listener; no network or parent workspace rerender is needed."
+        },
+        {
+          "path": "frontend/src/components/release-notes.tsx",
+          "line": 12,
+          "anchor": "export function ReleaseNotes",
+          "scope": "Explicit global trigger opens the accessible read-only native dialog; Close/Got it/Escape dismiss it, visible dialogs take priority, and source role-1 report-note visibility is preserved without seen tracking. Behavioral verification remains pending."
+        }
+      ],
+      "reviewed_source_surfaces": [
+        {
+          "kind": "routes",
+          "id": "dashboard/urls.py:8",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "routes",
+          "id": "dashboard/urls.py:9",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "routes",
+          "id": "dashboard/urls.py:10",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "dashboard/templates/dashboard/main_dashboard.html",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "users/templates/admin/includes/footer.html",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "users/templates/admin/includes/header.html",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "users/templates/admin/includes/navbar.html",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "users/templates/admin/includes/sidebar.html",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "users/templates/admin/includes/whatsnew.html",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "users/templates/admin/layouts/base.html",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "users/templates/admin/layouts/base_create_order.html",
+          "disposition": "implementation_present"
+        },
+        {
+          "kind": "templates",
+          "id": "users/templates/admin/layouts/base_no_sidebar_navbar.html",
+          "disposition": "implementation_present"
+        }
+      ],
       "test_files": [
         "backend/tests/api.test.ts",
         "frontend/tests/administration/barcodes/browser.test.ts",
@@ -6321,7 +6414,7 @@
       "implementation_review": [
         {
           "path": "frontend/src/pages/fulfillment/global-expiry-alerts.tsx",
-          "line": 53,
+          "line": 54,
           "anchor": "export function GlobalFulfillmentExpiryAlerts",
           "scope": "Global selected-store/current-check-in eligibility, grouped reminders and status banner are implemented; behavior still needs joined source/native/browser verification."
         },
@@ -6330,6 +6423,12 @@
           "line": 31,
           "anchor": "export function useFulfillmentExpiryAlerts",
           "scope": "Shared scoped cache with one background poll owner, authority-denial masking and bounded server interval. This is implementation evidence, not a runtime certification."
+        },
+        {
+          "path": "frontend/src/hooks/use-check-in-authority.ts",
+          "line": 10,
+          "anchor": "export function useCheckInAuthorityGeneration",
+          "scope": "Successful native check-in reads advance authority even for unchanged records/timestamps. Denied expiry reads revalidate before private data is shown; immutable historical failing proof is retained separately."
         }
       ],
       "reviewed_source_surfaces": [
@@ -6666,9 +6765,15 @@
       "implementation_review": [
         {
           "path": "frontend/src/pages/finance/day-close-reminder.tsx",
-          "line": 43,
+          "line": 44,
           "anchor": "export function DayCloseReminder",
           "scope": "Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending."
+        },
+        {
+          "path": "frontend/src/hooks/use-check-in-authority.ts",
+          "line": 10,
+          "anchor": "export function useCheckInAuthorityGeneration",
+          "scope": "A fresh successful native authority read releases denied reminders without remounting an already valid open dialog or rewriting its snooze. Manual cache writes do not establish new authority."
         },
         {
           "path": "frontend/src/pages/finance/ledger.tsx",

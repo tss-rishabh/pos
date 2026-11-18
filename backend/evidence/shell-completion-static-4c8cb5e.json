@@ -1,0 +1,48 @@
+{
+  "recordedAt": "2026-11-18T10:50:11.580830Z",
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "rewriteCommit": "4c8cb5e315fb7ef39e35b60f3fecbaf56c51a957",
+  "scope": "Main strict compilation and scoped changed-module lint after restoring source shell release notes and Staff performance labels.",
+  "executionCheckout": "owned clean isolated checkout with mitigated dependencies; original shared installs untouched",
+  "checks": [
+    {
+      "id": "backend-main-strict",
+      "exitCode": 0
+    },
+    {
+      "id": "frontend-main-strict",
+      "exitCode": 0
+    },
+    {
+      "id": "frontend-changed-module-lint",
+      "exitCode": 0
+    },
+    {
+      "id": "backend-export-service-lint",
+      "exitCode": 0
+    }
+  ],
+  "inputHashes": {
+    "backend/src/modules/operational-reports/export-service.ts": "99344c0c7f97a1cf319594c82e5a0d4d1dd619f3b5a2f15134714422e21cc075",
+    "frontend/src/components/release-notes.tsx": "c53ccab6bcf9118715da4aaaf19e7ab2fdd99d2d10a9c405e033f033610c14ab",
+    "frontend/src/components/release-notes.css": "bc52f8f5e52f1565b094763751fa9c6f908b4bd2223feae3312812ad5444eb00",
+    "frontend/src/components/workspace-context.tsx": "6de08bfbf948e26bde47f5b718f70aa22472cd2e9d15c49080ea10c95682fa1f",
+    "frontend/src/components/workspace-context.css": "6f45dc0e6d6cc50dd79175541bbde6c8510a3e99e09f6e06f51cb8a0a71ce83f",
+    "frontend/src/components/report-navigation.tsx": "7218ce41ae02cbb108cf1dad596a69378b7f5eb71bf28898640ace473372099c",
+    "frontend/src/pages/operational-reports/performance.tsx": "6f5b20031e7ef7e9c5781fb1294edaf0f3ec28f81fe4c6621dd3829e01d9f9a5",
+    "frontend/src/pages/operational-reports/exports.tsx": "b941083f3a7f08785aa8ff9828620a14a78dd8f8dd573edcc9a9e14b16507bf1",
+    "frontend/src/components/realtime-clock.tsx": "26cf525ca73128a7e9fe6e6cad5de3fc865fbd8aea31ea2368a617765c88c7c9",
+    "frontend/src/hooks/use-check-in-authority.ts": "ce9f1d3943c16406905e4c988d088e59bf4308d9244aa47187d1980dd7157073",
+    "frontend/src/app.tsx": "2db5184cf0d74d13e0d43783c07363b5dd8d6bf726171a54e1cdc487ae19c375",
+    "backend/package-lock.json": "02b3e906ece30377231ea67891ef8b125708c188db343979588826c76db3c1d6",
+    "frontend/package-lock.json": "2a25d21fe5fdfde27792a1a38b3956c8820239c53ff83405c1c660b99c4a2713",
+    "backend/tsconfig.json": "74657d92747b7de5175128ebeb1f9b44c88ce109d634c0871c8a15508bc6364b",
+    "frontend/tsconfig.json": "b0ce9ceacabff6ef1f2d6f45ea20e091485b3f8f54cd726b9b7e533cc7e96c70"
+  },
+  "limitations": [
+    "No fresh production builds, native/source/browser workflow execution or release certification is inferred from these checks.",
+    "Reminder native green execution on9716048 is separate and excludes subsequent release-note and report-label changes.",
+    "No live databases, providers, writes or sends were used."
+  ],
+  "productionReady": false
+}
