@@ -1,19 +1,24 @@
 # POS rewrite checkpoint
 
-Integrated implementation review closed again at `fdbc650`: the authenticated
-CSV date admission is on `e29b602` (45 native profile cases passed), full writer
-capacity on `68d4924`/`efc4bb5` with native Node/Python/Go boundaries, and flat
-runtime packaging/manifests on `ab712eb`. Source-map reconciliation on `fdbc650`
-keeps all 396 IDs: 100 implementation-present, 293 external-acceptance, zero
-partial and three explicitly nonrequired inactive/diagnostic missing surfaces.
-It adds no certifications and preserves every external release gate.
+Implementation is active again. The earlier closure at `fdbc650` was disproved
+by review of active source controls. The source map now retains explicit gaps
+for manager return-window extensions, report presentation/export variants,
+selected-store static QR/details and administration list controls. Preserve all
+396 source IDs and external release gates; code presence is not certification.
 
-No additional required code gap is currently established by the implementation
-owners. Resume the user's next phase: consolidated source/native/browser,
-security/performance and desktop validation; fix any real gap it exposes.
-Run Node 24.22.3 and serialize native MySQL files. The prior failed report is
-retained, not relabeled. The source payment assembly is 114 files/19 review SQL
-inputs; no source service, provider, live DDL or deployment was executed.
+Report controls are integrated on `e6f4a09`: performance and acceptance exports,
+source column visibility, and separate visible-column/full transaction exports.
+The administration list/shared export hookup and store QR controls are still
+being completed in parallel with return-window extensions. Reconcile the map
+after those commits are integrated, then resume consolidated validation. Do not
+restart the broad gate while known implementation gaps remain.
+
+The `fde67f5` verifier was intentionally interrupted after two completed checks
+when the active return-window gap was confirmed. Its partial report is retained
+with exit code 1 and production readiness false; it is not a successful full
+run. Run the next consolidated gate with Node 24.22.3 and serialized native
+MySQL files. The source payment assembly is 114 files/19 review SQL inputs; no
+source service, provider, live DDL or deployment was executed.
 Privacy canaries passed 4 focused tests with no reachable leak found in the
 inspected logging paths. Windows approval navigation/probe synchronization is
 fixed on `ab1aad3` (13 browser tests passed), pending a fresh platform run.
