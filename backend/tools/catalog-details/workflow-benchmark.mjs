@@ -15,6 +15,7 @@ import {
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { availableParallelism, cpus, loadavg, totalmem } from 'node:os';
+import { setTimeout as pause } from 'node:timers/promises';
 import { z } from 'zod';
 import { readConfig } from '../../src/config.ts';
 import { createDatabases } from '../../src/db/pools.ts';
@@ -40,7 +41,7 @@ const configSchema = z
     python: z.string().min(1),
     sourceRoot: z.string().min(1),
     output: z.string().min(1),
-    mode: z.enum(['validate', 'measure']),
+    mode: z.enum(['validate', 'measure', 'quota-diagnostic']),
     quiescentConfirmed: z.boolean(),
     samples: z.number().int().min(216).max(648).multipleOf(6).default(216),
     warmups: z.number().int().min(12).max(24).multipleOf(6).default(12),
@@ -500,6 +501,45 @@ async function runProfile(config, profile, report, budget) {
       scenarios: [],
     };
     report.profiles.push(entry);
+    if (config.mode === 'quota-diagnostic') {
+      report.stage = profile + '.authenticated-quota-diagnostic';
+      entry.quotaDiagnostic = {
+        requests: [],
+        limiterOverridden: false,
+        expectedMax: 240,
+        windowMilliseconds: 60000,
+      };
+      const input = productSearchInput.parse(workloads(profile)[0].input);
+      const allowedCodes = new Set([
+        'FST_ERR_RATE_LIMIT',
+        'RATE_LIMIT_EXCEEDED',
+        'TOO_MANY_REQUESTS',
+        'HTTP_429',
+      ]);
+      for (let ordinal = 1; ordinal <= 242; ordinal++) {
+        budget();
+        const response = await fetch(api.origin + '/api/v1/catalog/products/search', {
+          method: 'POST',
+          headers: {
+            Origin: webOrigin,
+            'X-Operator-ID': actorId,
+            Cookie: 'pos_session=' + cookie,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(input),
+          signal: AbortSignal.timeout(15000),
+        });
+        const raw = await response.json();
+        const code =
+          [raw?.code, raw?.error?.code].find(
+            (value) => typeof value === 'string' && allowedCodes.has(value),
+          ) ?? null;
+        entry.quotaDiagnostic.requests.push({ ordinal, status: response.status, code });
+        if (response.status !== (ordinal <= 240 ? 200 : 429))
+          throw new Error('ACTUAL_QUOTA_RESPONSE_CONTRACT_MISMATCH');
+      }
+      return;
+    }
     for (const workload of workloads(profile)) {
       report.stage = profile + '.' + workload.name;
       budget();
@@ -556,8 +596,11 @@ async function runProfile(config, profile, report, budget) {
         );
         const bytes = Buffer.from(await response.arrayBuffer());
         const milliseconds = performance.now() - started;
-        if (response.status !== 200 || bytes.length > 2_000_000)
-          throw new Error('AUTHENTICATED_API_RESPONSE_FAILED');
+        if (response.status !== 200 || bytes.length > 2_000_000) {
+          const failure = new Error('AUTHENTICATED_API_RESPONSE_FAILED');
+          failure.httpStatus = response.status;
+          throw failure;
+        }
         return {
           milliseconds,
           responseBytes: bytes.length,
@@ -624,6 +667,9 @@ async function runProfile(config, profile, report, budget) {
         continue;
       }
       for (let index = 0; index < config.warmups + config.samples; index++) {
+        // Equal arrival pacing for every order/case/warmup; never included in
+        // a boundary timer or a native statement-counter observation interval.
+        await pause(350);
         const order = orders[index % orders.length],
           trial = {};
         for (const boundary of order) {
@@ -717,6 +763,8 @@ async function main() {
     sourceRequestConstructionExcluded: true,
     httpRequestSerializationIncluded: true,
     concurrency: 1,
+    interTriplePacingMilliseconds: config.mode === 'measure' ? 350 : 0,
+    pacingExcludedFromAllBoundaryTimersAndCounterIntervals: true,
     orderPolicy: 'all six permutations balanced in each six-triple block',
     requestedSamplesPerScenario: config.mode === 'measure' ? config.samples : 0,
     percentileMethod:
@@ -736,7 +784,8 @@ async function main() {
     changedInputs: [],
   };
   try {
-    for (const profile of ['mixed', 'dense']) await runProfile(config, profile, report, budget);
+    for (const profile of config.mode === 'quota-diagnostic' ? ['mixed'] : ['mixed', 'dense'])
+      await runProfile(config, profile, report, budget);
     const after = inputChecksums();
     report.changedInputs = [...new Set([...Object.keys(before), ...Object.keys(after)])].filter(
       (name) => before[name] !== after[name],
@@ -751,6 +800,8 @@ async function main() {
         ? error.message
         : 'CATALOG_WORKFLOW_BENCHMARK_FAILED';
     report.errorKind = error instanceof Error ? error.name : 'UnknownError';
+    if (error instanceof Error && Number.isInteger(error.httpStatus))
+      report.httpStatus = error.httpStatus;
     if (error instanceof Error && error.sourceDiagnostic)
       report.sourceDiagnostic = error.sourceDiagnostic;
     if (error instanceof z.ZodError)

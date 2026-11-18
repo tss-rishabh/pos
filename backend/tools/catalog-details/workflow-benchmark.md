@@ -81,7 +81,11 @@ affected rows, warnings and errors without SQL text or parameter values.
 
 Measurement mode runs 12 warmup triples then 216 retained paired triples per
 scenario, concurrency one. All six source/service/HTTP execution permutations
-repeat equally. Counter snapshots and response comparison stay outside timers.
+repeat equally. Every triple, including warmups in every scenario/order, starts
+after a fixed350ms pause outside all three timers and counter observation
+intervals. This holds the arrival rate below the unchanged actual application's
+240-request/minute limit (about171triples/minute maximum). Counter snapshots and
+response comparison stay outside timers.
 No outliers are discarded. Artifacts contain each raw observation, order,
 response hash/bytes and query counts, plus per-case/per-boundary p50 and empirical
 nearest-rank p95. There is no pooled percentile across unlike requests or claim
@@ -125,3 +129,22 @@ The next action is a fresh measurement-mode run only after Root explicitly
 releases that phase and confirms other heavy workloads remain idle. Any schema/response/counter
 defect must be reported and corrected before measurements. No release ledger
 promotion is owned by this benchmark.
+
+## Arrival-rate correction
+
+The first unpaced measurement stopped during the second case's warmups after
+retaining216 first-case samples. Its generic HTTP failure did not record status;
+that immutable partial result is not retrospectively labelled429 or combined
+with the paced run. No complete measurement claim follows from that artifact.
+
+A dedicated bounded diagnostic then used the actual authenticated native API
+with no limiter override: first240 requests returned200, requests241–242
+returned429. Only ordinal/status and allowlisted error codes were retained;
+there was no matching public error-code field, recorded as null. See
+`backend/parity/evidence/catalog-details/workflow-quota-diagnostic.json`.
+The production global max240/1minute setting applies to both catalogue routes
+without a route override. The new fixed inter-triple pacing preserves all
+vectors,216 samples/case, warmups, balanced orders, full equality checks and the
+30-minute total/20-second source/15-second HTTP limits. It adds638.4seconds of
+intentional untimed spacing over8×228triples. The paced arrival method differs
+from the partial unpaced run and does not prove throughput or productionp95.

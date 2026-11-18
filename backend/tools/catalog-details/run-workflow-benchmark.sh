@@ -6,7 +6,7 @@ catalog_backend=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
 catalog_repository=$(CDPATH= cd -- "$catalog_backend/.." && pwd)
 catalog_source=${CATALOG_WORKFLOW_SOURCE_ROOT:-"$catalog_repository/../backend-pos-web"}
 catalog_mode=${CATALOG_WORKFLOW_MODE:-validate}
-case "$catalog_mode" in validate|measure) ;; *) echo 'Invalid workflow mode.' >&2; exit 1;; esac
+case "$catalog_mode" in validate|measure|quota-diagnostic) ;; *) echo 'Invalid workflow mode.' >&2; exit 1;; esac
 test "${CATALOG_WORKFLOW_QUIESCENT:-}" = yes || {
   echo 'Run only after full verification and other workloads stop; set CATALOG_WORKFLOW_QUIESCENT=yes.' >&2; exit 1;
 }
