@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
@@ -14,13 +13,11 @@ import {
   settingsNotice,
 } from '../../src/modules/administration/settings-adapters.js';
 import { readSettingsWorkerOptions } from '../../src/modules/administration/settings-options.js';
+import { goldenStdout } from '../golden/load.js';
 
 const oracle = <T>(operation: string, cases: unknown[]): T[] =>
   JSON.parse(
-    execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-      input: JSON.stringify({ operation, cases }),
-      encoding: 'utf8',
-    }),
+    goldenStdout('administration', 'settings', JSON.stringify({ operation, cases })),
   ) as T[];
 describe('delivery settings source contracts', () => {
   it('preserves source hours:minutes arithmetic, including durations beyond one day', () => {

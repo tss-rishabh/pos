@@ -1,0 +1,258 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/legacy_oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:03:34Z",
+  "test": "tests/administration/policies.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "85c60a335a57525d7ca69c8f690c94002dbd91d125703dae2c058378aa13a933",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "name": "Machine 1",
+          "taken": false
+        },
+        {
+          "name": "Machine 10",
+          "taken": true
+        },
+        {
+          "name": "Machine 9007199254740994",
+          "taken": false
+        },
+        {
+          "name": "Machine 3",
+          "taken": true
+        }
+      ]
+    },
+    {
+      "inputSha256": "39bb0304fdde5f655ea05798942f27e7dbfbf47c0614669604916bc654acfdeb",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": [
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": [],
+          "message": "Store has been assigned to selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": ["1"],
+          "message": "Store assignment has been updated for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": [],
+          "message": "Store has been assigned to selected user."
+        },
+        {
+          "add": ["4"],
+          "remove": ["1"],
+          "message": "Store assignment has been updated for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": [],
+          "message": "Store has been assigned to selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": ["1"],
+          "message": "Store assignment has been updated for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": [],
+          "message": "Store has been assigned to selected user."
+        },
+        {
+          "add": ["4"],
+          "remove": ["1"],
+          "message": "Store assignment has been updated for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": [],
+          "message": "Store has been assigned to selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": ["1"],
+          "message": "Store assignment has been updated for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": [],
+          "message": "Store has been assigned to selected user."
+        },
+        {
+          "add": ["4"],
+          "remove": ["1"],
+          "message": "Store assignment has been updated for the selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        },
+        {
+          "add": [],
+          "remove": [],
+          "message": "No changes were made to store assignment."
+        },
+        {
+          "add": ["4"],
+          "remove": [],
+          "message": "Store has been assigned to selected user."
+        },
+        {
+          "add": [],
+          "remove": ["1"],
+          "message": "Store has been deleted for the selected user."
+        }
+      ]
+    },
+    {
+      "inputSha256": "ccf8d6e719ff0c8347b8d76765976cb6f4f9f689e3af05a15ab60e9323ca482b",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": ["BANDRA-STRG-MAIN", "INDIRANAGAR-STRG-BACK ROOM", "TWO-STRG-A-2"]
+    },
+    {
+      "inputSha256": "72a4fad4e06126147a90e4c81b48d4ca734033d01bc22d3b2cb2afb905e096c0",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": ["C1", "C2", "C3", "C18", "C100"]
+    },
+    {
+      "inputSha256": "7c60fb65fb70aa95a2dd68055a34b7248bd8b9529b33fbfaccf671b1dc26b9a9",
+      "args": ["tools/administration/legacy_oracle.py"],
+      "status": 0,
+      "output": ["2026-11-16T23:59:59.000", "2026-11-16T23:59:59.123", "2026-11-16T23:59:59.999"]
+    }
+  ]
+}

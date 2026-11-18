@@ -1,12 +1,10 @@
-import { spawnSync } from 'node:child_process';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
+import { goldenSpawnResult } from './golden/load.js';
 
 it('keeps both BD prototype templates inventoried and proves their views/routes/navigation are inactive at the pinned source', () => {
-  const result = spawnSync('python3', ['tools/parity/check_business_metrics_reachability.py'], {
-    encoding: 'utf8',
-    timeout: 15000,
-  });
+  const result: { error?: Error; status: number | null; stdout: string; stderr: string } =
+    goldenSpawnResult('core', 'business-metrics-reachability');
   expect(result.error).toBeUndefined();
   expect(result.status).toBe(0);
   expect(result.stderr).toBe('');

@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it, vi } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import {
@@ -11,6 +10,7 @@ import {
   createCatalogMaintenanceTransports,
   MaintenanceDeliveryError,
 } from '../../src/modules/catalog-details/maintenance-transports.js';
+import { goldenStdout } from '../golden/load.js';
 describe('catalog maintenance source profiles and bounded transports', () => {
   it('preserves source manual/CSV payload differences, deduplication and simple-SKU filtering', () => {
     const products = [
@@ -23,11 +23,11 @@ describe('catalog maintenance source profiles and bounded transports', () => {
       { mode: 'csv' as const, filename: 'fixture.csv', csv: 'sku\n3\n1\n1\n2\n999\n' },
     ]) {
       const expected = JSON.parse(
-        execFileSync('python3', ['tools/catalog-details/maintenance-oracle.py'], {
-          input: JSON.stringify({ kind: 'inventory-pull', products, ...input }),
-          encoding: 'utf8',
-          timeout: 10000,
-        }),
+        goldenStdout(
+          'catalog-details',
+          'maintenance-domain',
+          JSON.stringify({ kind: 'inventory-pull', products, ...input }),
+        ),
       ) as { payloads: unknown[] };
       const selection = inventoryPullSelection(input),
         ids = selection.ids.filter((id) => ['1', '3'].includes(id)),

@@ -1,0 +1,275 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/customer-insights/source-benefits.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:34Z",
+  "test": "tests/customer-benefits.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/customer-insights/source-benefits.py"],
+      "status": 0,
+      "output": {
+        "helperSha256": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+        "viewSha256": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0",
+        "membershipCases": [
+          {
+            "input": null,
+            "expected": {
+              "active": false,
+              "expiry": null,
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": "2060-01-02T03:04:05.123400",
+              "active": 1
+            },
+            "expected": {
+              "active": true,
+              "expiry": "2060-01-02T03:04:05.1234",
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": "2060-01-02 03:04:05",
+              "active": 0
+            },
+            "expected": {
+              "active": false,
+              "expiry": "2060-01-02T03:04:05",
+              "message": "User's Membership is deactivated."
+            }
+          },
+          {
+            "input": {
+              "value": "2020-01-02T03:04:05",
+              "active": 1
+            },
+            "expected": {
+              "active": true,
+              "expiry": "2020-01-02T03:04:05",
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": "2020-01-02T03:04:05",
+              "active": 0
+            },
+            "expected": {
+              "active": false,
+              "expiry": "2020-01-02T03:04:05",
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": "2060-1-2T3:4:5.1",
+              "active": 1
+            },
+            "expected": {
+              "active": true,
+              "expiry": "2060-01-02T03:04:05.1",
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": "2060-01-02 03:04:05.1",
+              "active": 1
+            },
+            "expected": {
+              "active": true,
+              "expiry": null,
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": "2000-02-29T00:00:00",
+              "active": -1
+            },
+            "expected": {
+              "active": true,
+              "expiry": "2000-02-29T00:00:00",
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": "2026-02-29T00:00:00",
+              "active": 1
+            },
+            "expected": {
+              "active": true,
+              "expiry": null,
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": null,
+              "active": 1
+            },
+            "expected": {
+              "active": true,
+              "expiry": null,
+              "message": ""
+            }
+          },
+          {
+            "input": {
+              "value": "0000-01-01T00:00:00",
+              "active": 0
+            },
+            "expected": {
+              "active": false,
+              "expiry": null,
+              "message": ""
+            }
+          }
+        ],
+        "walletCases": [
+          {
+            "input": -100.129,
+            "expected": "0.00"
+          },
+          {
+            "input": -0.1,
+            "expected": "0.00"
+          },
+          {
+            "input": 0,
+            "expected": "0.00"
+          },
+          {
+            "input": 0.999,
+            "expected": "0.00"
+          },
+          {
+            "input": 1,
+            "expected": "1.00"
+          },
+          {
+            "input": 1.009,
+            "expected": "1.00"
+          },
+          {
+            "input": 1.999,
+            "expected": "1.99"
+          },
+          {
+            "input": 25.509,
+            "expected": "25.50"
+          },
+          {
+            "input": 999999.999,
+            "expected": "999999.99"
+          },
+          {
+            "input": 10000000.125,
+            "expected": "10000000.12"
+          }
+        ],
+        "eligibilityCases": [
+          {
+            "switch": false,
+            "storefront": false,
+            "campaigns": [],
+            "appUser": 0,
+            "expectedEligible": false,
+            "expectedApp": false,
+            "providerCalls": 0
+          },
+          {
+            "switch": true,
+            "storefront": false,
+            "campaigns": [
+              {
+                "is_app": true,
+                "status": true
+              }
+            ],
+            "appUser": 1,
+            "expectedEligible": true,
+            "expectedApp": true,
+            "providerCalls": 1
+          },
+          {
+            "switch": true,
+            "storefront": true,
+            "campaigns": [
+              {
+                "is_app": true,
+                "status": true
+              }
+            ],
+            "appUser": 1,
+            "expectedEligible": false,
+            "expectedApp": true,
+            "providerCalls": 1
+          },
+          {
+            "switch": true,
+            "storefront": false,
+            "campaigns": [
+              {
+                "is_app": true,
+                "status": true
+              },
+              {
+                "is_app": true,
+                "status": false
+              }
+            ],
+            "appUser": 0,
+            "expectedEligible": false,
+            "expectedApp": false,
+            "providerCalls": 1
+          },
+          {
+            "switch": true,
+            "storefront": false,
+            "campaigns": [
+              {
+                "is_app": false,
+                "status": true
+              }
+            ],
+            "appUser": 0,
+            "expectedEligible": false,
+            "expectedApp": false,
+            "providerCalls": 1
+          },
+          {
+            "switch": true,
+            "storefront": false,
+            "campaigns": [
+              {
+                "is_app": 1,
+                "status": 1
+              }
+            ],
+            "appUser": 2,
+            "expectedEligible": true,
+            "expectedApp": true,
+            "providerCalls": 1
+          },
+          {
+            "switch": true,
+            "storefront": false,
+            "campaigns": [],
+            "appUser": 0,
+            "expectedEligible": false,
+            "expectedApp": false,
+            "providerCalls": 1
+          }
+        ]
+      }
+    }
+  ]
+}

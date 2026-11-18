@@ -1,6 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
 import {
   administrationActorName,
   administrationChangeMessage,
@@ -45,25 +45,15 @@ describe('pinned Django administration history messages', () => {
       .object({ djangoVersion: z.literal('4.2.5'), cases: z.array(z.unknown()) })
       .parse(
         JSON.parse(
-          execFileSync(
-            'uv',
-            [
-              'run',
-              '--no-project',
-              '--with',
-              'django==4.2.5',
-              'python',
-              'tools/administration-history/source-oracle.py',
-            ],
-            {
-              encoding: 'utf8',
-              input: JSON.stringify({
-                cases: [
-                  ...raw.map((value) => ({ operation: 'message', raw: value })),
-                  ...actors.map((value) => ({ operation: 'actor', ...value })),
-                ],
-              }),
-            },
+          goldenStdout(
+            'administration-history',
+            'messages',
+            JSON.stringify({
+              cases: [
+                ...raw.map((value) => ({ operation: 'message', raw: value })),
+                ...actors.map((value) => ({ operation: 'actor', ...value })),
+              ],
+            }),
           ),
         ) as unknown,
       );

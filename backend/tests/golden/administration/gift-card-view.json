@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration/gift-card-view-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5, pymysql==1.1.2",
+  "capturedAt": "2026-11-18T19:03:34Z",
+  "test": "tests/administration/gift-card-view.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "b9a99222641dfa5a17949c014da6519cbb0526e04efb7cad64962200513cf33f",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.2",
+        "python",
+        "tools/administration/gift-card-view-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceHashes": {
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+          "core/datatables/gift_card_datatable.py": "b0329532280c88881b5a313a0eb32a1b5f1a877f6fe28e16dc3f29c3cfadf52a",
+          "core/views.py": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349"
+        },
+        "cases": [
+          {
+            "response": {
+              "status": "success",
+              "message": "Marked as printed"
+            },
+            "rows": [
+              {
+                "id": 7,
+                "is_completed": 1,
+                "is_printed": 1,
+                "is_block": 0,
+                "size": 2,
+                "message": "Fixture",
+                "filename": "fixture.zip"
+              }
+            ],
+            "generationCalls": []
+          },
+          {
+            "response": {
+              "status": "success",
+              "message": "Marked as block"
+            },
+            "rows": [
+              {
+                "id": 7,
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 1,
+                "size": 2,
+                "message": "Fixture",
+                "filename": "fixture.zip"
+              }
+            ],
+            "generationCalls": []
+          },
+          {
+            "response": {
+              "status": "success",
+              "message": "Marked as active"
+            },
+            "rows": [
+              {
+                "id": 7,
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "size": 2,
+                "message": "Fixture",
+                "filename": "fixture.zip"
+              }
+            ],
+            "generationCalls": []
+          },
+          {
+            "response": {
+              "status": "failed",
+              "message": "Please provide valid data"
+            },
+            "rows": [
+              {
+                "id": 7,
+                "is_completed": 1,
+                "is_printed": 0,
+                "is_block": 0,
+                "size": 2,
+                "message": "Fixture",
+                "filename": "fixture.zip"
+              }
+            ],
+            "generationCalls": []
+          }
+        ]
+      }
+    },
+    {
+      "inputSha256": "2764d9a38e8397d4e9194f6c26f2b2ab05d3c103fc61a72320ef189a57a054e8",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "--with",
+        "pymysql==1.1.2",
+        "python",
+        "tools/administration/gift-card-view-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceHashes": {
+          "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+          "core/datatables/gift_card_datatable.py": "b0329532280c88881b5a313a0eb32a1b5f1a877f6fe28e16dc3f29c3cfadf52a",
+          "core/views.py": "20f9910156aa3c427df759bdd26f4d19992a91f0a1ea1df915fa98eb3b2de349"
+        },
+        "cases": [
+          {
+            "response": {
+              "status": "success",
+              "message": "Gift Cards Generated, Please check your mail box."
+            },
+            "rows": [
+              {
+                "id": 77,
+                "size": 2,
+                "message": "Fixture",
+                "created_by": 1
+              }
+            ],
+            "generationCalls": [[77, 2, "9999999999", "fixture@example.test"]]
+          },
+          {
+            "response": {
+              "status": "failed",
+              "message": "Not Eligible to generate the GCs."
+            },
+            "rows": [
+              {
+                "id": 77,
+                "size": 2,
+                "message": "Fixture",
+                "created_by": 1
+              }
+            ],
+            "generationCalls": []
+          },
+          {
+            "response": {
+              "status": "success",
+              "message": "Gift Cards Generated, Please check your mail box."
+            },
+            "rows": [
+              {
+                "id": 77,
+                "size": -1,
+                "message": "Fixture",
+                "created_by": 1
+              }
+            ],
+            "generationCalls": [[77, -1, "9999999999", "fixture@example.test"]]
+          }
+        ]
+      }
+    }
+  ]
+}

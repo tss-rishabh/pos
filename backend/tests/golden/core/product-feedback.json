@@ -1,0 +1,63 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/product-feedback/source-feedback.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:34Z",
+  "test": "tests/product-feedback.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": ["tools/product-feedback/source-feedback.py"],
+      "status": 0,
+      "output": {
+        "usersSha256": "23e3ff32bc197de469f072da53a86eb1ff1bccc669d6f060e8c7c4852ff2f9e0",
+        "orderSha256": "3a91805d0f0006a90c6cebb744dc3cc742a384f449f60344469d2941875f1eea",
+        "rotations": [[], [0], [1], [0, 1, 2, 3, 0], [0, 7, null]],
+        "created": [
+          {
+            "user_id": "777",
+            "order_id": "9007199254740993",
+            "prod_id": "10",
+            "product_rating_option_id": 0,
+            "rating": 4.5,
+            "platform": "WEB",
+            "comment": "café € <script>",
+            "is_default": 1
+          },
+          {
+            "user_id": "777",
+            "order_id": "9007199254740993",
+            "prod_id": "10",
+            "product_rating_option_id": 1,
+            "rating": 0.0,
+            "platform": "WEB",
+            "comment": "",
+            "is_default": 0
+          },
+          {
+            "user_id": "777",
+            "order_id": "9007199254740993",
+            "prod_id": "10",
+            "product_rating_option_id": 2,
+            "rating": 3.2,
+            "platform": "WEB",
+            "comment": "",
+            "is_default": 0
+          },
+          {
+            "user_id": "777",
+            "order_id": "9007199254740993",
+            "prod_id": "10",
+            "product_rating_option_id": 3,
+            "rating": 0.0,
+            "platform": "WEB",
+            "comment": "",
+            "is_default": 0
+          }
+        ],
+        "scopeVectors": 2
+      }
+    }
+  ]
+}

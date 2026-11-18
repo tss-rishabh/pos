@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
@@ -8,6 +7,7 @@ import {
   productFeedbackScope,
   sourceFeedbackOrder,
 } from '../src/modules/product-feedback/contracts.js';
+import { goldenStdout } from './golden/load.js';
 
 describe('staff product feedback source contract', () => {
   it('executes source read rotation and all four source writes, preserving duplicate SKU occurrences', () => {
@@ -30,14 +30,7 @@ describe('staff product feedback source contract', () => {
         ),
         scopeVectors: z.number(),
       })
-      .parse(
-        JSON.parse(
-          execFileSync('python3', ['tools/product-feedback/source-feedback.py'], {
-            encoding: 'utf8',
-            timeout: 10000,
-          }),
-        ),
-      );
+      .parse(JSON.parse(goldenStdout('core', 'product-feedback')));
     expect(result.rotations).toEqual([[], [0], [1], [0, 1, 2, 3, 0], [0, 7, null]]);
     for (const [i, rows] of [[], [0], [1], [0, 0, 1, 2, 3], [null, 0, 7]].entries())
       expect(sourceFeedbackOrder(rows)).toEqual(result.rotations[i]);

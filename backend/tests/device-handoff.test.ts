@@ -1,5 +1,4 @@
-import { execFileSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import { Secret } from 'otpauth';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
@@ -13,12 +12,19 @@ import {
 } from '../src/auth/device-handoff.js';
 import { redisDeviceHandoffStore } from '../src/auth/device-handoff-store.js';
 import { demoUser } from '../src/modules/demo.js';
+import { goldenStdout } from './golden/load.js';
 
 it('matches the actual source QR TOTP verifier, rotation and TTL across secret and interval boundaries', () => {
   const cases: { secret: string; period: number; timestamp: number; code?: string }[] = [];
   for (const period of [30, 60, 120, 300])
     for (const timestamp of [1794787199999, 1794787200000, 1794787200001]) {
-      const secret = Secret.fromHex(randomBytes(20).toString('hex')).base32;
+      // Fixed per-vector secrets keep the captured source-oracle input stable.
+      const secret = Secret.fromHex(
+        createHash('sha256')
+          .update(`handoff-golden-${period}-${timestamp}`)
+          .digest('hex')
+          .slice(0, 40),
+      ).base32;
       cases.push({ secret, period, timestamp });
       cases.push({
         secret,
@@ -36,14 +42,7 @@ it('matches the actual source QR TOTP verifier, rotation and TTL across secret a
         ttl: z.number().nullable(),
       }),
     )
-    .parse(
-      JSON.parse(
-        execFileSync('python3', ['tools/identity/handoff_oracle.py'], {
-          input: JSON.stringify(cases),
-          encoding: 'utf8',
-        }),
-      ) as unknown,
-    );
+    .parse(JSON.parse(goldenStdout('core', 'device-handoff', JSON.stringify(cases))) as unknown);
   expect(oracle).toHaveLength(cases.length);
   for (const [index, entry] of cases.entries()) {
     expect(handoffTotp(entry.secret, entry.period, entry.timestamp)).toBe(oracle[index]!.code);

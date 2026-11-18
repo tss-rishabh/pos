@@ -1,10 +1,10 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   createProductSyncAdapter,
   productSynchronizationBody,
 } from '../../src/modules/administration/product-sync.js';
 import { readAdministrationWorkerOptions } from '../../src/modules/administration/worker-options.js';
+import { goldenStdout } from '../golden/load.js';
 
 const config = {
   NODE_ENV: 'test' as const,
@@ -39,10 +39,11 @@ describe('inventory synchronization HTTP boundary', () => {
       })),
     );
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/administration/legacy_oracle.py'], {
-        input: JSON.stringify({ operation: 'product-sync', cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout(
+        'administration',
+        'worker',
+        JSON.stringify({ operation: 'product-sync', cases }),
+      ),
     ) as unknown;
     const actual: { url: string; body: string; headers: Record<string, string> }[] = [];
     for (const value of cases) {

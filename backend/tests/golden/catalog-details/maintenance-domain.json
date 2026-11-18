@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/catalog-details/maintenance-oracle.py",
+  "runtime": "CPython 3.10.22",
+  "capturedAt": "2026-11-18T19:04:34Z",
+  "test": "tests/catalog-details/maintenance-domain.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "7fb113b581bcb4cfcd581ba7eefc27ab70527c89e234ae7cea5385c9c73f61a9",
+      "args": ["tools/catalog-details/maintenance-oracle.py"],
+      "status": 0,
+      "output": {
+        "payloads": [
+          {
+            "productIds": [1, 3],
+            "priority": 1
+          }
+        ],
+        "warnings": []
+      }
+    },
+    {
+      "inputSha256": "9c0792d29be80667a089a75f084988612ee6466d97444fc0d74eb02995f40a6b",
+      "args": ["tools/catalog-details/maintenance-oracle.py"],
+      "status": 0,
+      "output": {
+        "payloads": [
+          {
+            "productIds": [1, 3]
+          }
+        ],
+        "warnings": []
+      }
+    }
+  ]
+}

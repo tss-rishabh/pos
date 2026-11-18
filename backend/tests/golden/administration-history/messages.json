@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration-history/source-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5",
+  "capturedAt": "2026-11-18T19:02:54Z",
+  "test": "tests/administration-history/messages.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "4664a8c98aac51b7eb15b7c8845f44386330f9e2d3547d4c28524f02cdebfbd8",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "python",
+        "tools/administration-history/source-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "djangoVersion": "4.2.5",
+        "modelsSha256": "cbedaccad27557e2a784aa94cfc29f421a3fc33c4d6cd857437f151b8d4a6f4f",
+        "cases": [
+          {
+            "text": "",
+            "state": "available"
+          },
+          {
+            "text": "Password changed successfully.",
+            "state": "available"
+          },
+          {
+            "text": "[",
+            "state": "available"
+          },
+          {
+            "text": " []",
+            "state": "available"
+          },
+          {
+            "text": "No fields changed.",
+            "state": "available"
+          },
+          {
+            "text": "No fields changed.",
+            "state": "available"
+          },
+          {
+            "text": "Added.",
+            "state": "available"
+          },
+          {
+            "text": "Added.",
+            "state": "available"
+          },
+          {
+            "text": "Added.",
+            "state": "available"
+          },
+          {
+            "text": "Added.",
+            "state": "available"
+          },
+          {
+            "text": "Added group “Fixture”.",
+            "state": "available"
+          },
+          {
+            "text": "Changed .",
+            "state": "available"
+          },
+          {
+            "text": "Changed email.",
+            "state": "available"
+          },
+          {
+            "text": "Changed email and phone.",
+            "state": "available"
+          },
+          {
+            "text": "Changed email, phone and role for operator “Fixture”.",
+            "state": "available"
+          },
+          {
+            "text": "Deleted group “Fixture”.",
+            "state": "available"
+          },
+          {
+            "text": "Added. Changed email. Deleted group “Fixture”.",
+            "state": "available"
+          },
+          {
+            "text": "Added.",
+            "state": "available"
+          },
+          {
+            "text": "No fields changed.",
+            "state": "available"
+          },
+          {
+            "text": "This history message is unavailable.",
+            "state": "invalid"
+          },
+          {
+            "text": "This history message is unavailable.",
+            "state": "invalid"
+          },
+          {
+            "text": "This history message is unavailable.",
+            "state": "invalid"
+          },
+          {
+            "text": "This history message is unavailable.",
+            "state": "invalid"
+          },
+          {
+            "text": "Changed <script>.",
+            "state": "available"
+          },
+          "fixture",
+          "fixture (First Last)",
+          "fixture (First Last)",
+          "fixture (﻿)",
+          "fixture"
+        ]
+      }
+    }
+  ]
+}

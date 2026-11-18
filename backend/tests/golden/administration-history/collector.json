@@ -1,0 +1,1040 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "oracle": "tools/administration-history/collector-oracle.py",
+  "runtime": "CPython 3.10.22 via uv --no-project with django==4.2.5",
+  "capturedAt": "2026-11-18T19:02:54Z",
+  "test": "tests/administration-history/collector.test.ts",
+  "invocations": [
+    {
+      "inputSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "args": [
+        "run",
+        "--no-project",
+        "--with",
+        "django==4.2.5",
+        "python",
+        "tools/administration-history/collector-oracle.py"
+      ],
+      "status": 0,
+      "output": {
+        "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+        "sourceHashes": {
+          "core/models.py": "427ff370420b5483255159aff3618d8598c175539fc5ff586141453d8f9b7512",
+          "dashboard/models.py": "58a04477af91c40a7a21bd1003f4b4a8144c45433eaa9068040ab810caeeee02",
+          "notification/models.py": "8af57f5008c42031f8709ca32736729848bd99f41e59683a0448c19ea19262bc",
+          "order/models.py": "e406410ae79dd2383a70f6a63a6fd29a4bac392e56e4cf1e66659d7dcc7bb05d",
+          "report/models.py": "b2c3072895bbe9ea285afbb7bc06c921e585ea7e47ceb8a5dbf7bfccb482fe22",
+          "stores/models.py": "f47e80368fafa5e432af96eba63a16ad031dcb8ac563cc2a73a8c9eca3493d9e",
+          "users/models.py": "c086c2b3a1de60f27dc4f3151e968b005b629d9f709f7edc700791e1d4483357",
+          "stores/admin.py": "ae5cd836b7ad168fc5d242e41bffbaf76d510b25fd782dd8fa6e441b9231080b",
+          "users/admin.py": "b122d35abc3556090bb07eff70c6919097644a6442951bdce79d9e08d30c97e8",
+          "POSAdmin/settings.py": "fc9dfcd408ddd9744b87a3d4408e32114502b993a1a16d2bcb2bc4b8f505694b"
+        },
+        "registeredModels": [
+          {
+            "key": "users.PosUser",
+            "registration": "users/admin.py:20",
+            "administration": "UserAdmin"
+          },
+          {
+            "key": "stores.Store",
+            "registration": "stores/admin.py:6",
+            "administration": "ModelAdmin"
+          },
+          {
+            "key": "auth.Group",
+            "registration": "Django4.2.5 auth.admin autodiscovery",
+            "administration": "GroupAdmin"
+          }
+        ],
+        "registeredTargetRelations": [
+          {
+            "file": "core/models.py",
+            "line": 135,
+            "model": "ProductStore",
+            "table": "product_store",
+            "field": "store",
+            "type": "ForeignKey",
+            "target": "Store",
+            "onDelete": "models.DO_NOTHING"
+          },
+          {
+            "file": "core/models.py",
+            "line": 304,
+            "model": "HoldStockStore",
+            "table": "hold_stock_store",
+            "field": "store",
+            "type": "ForeignKey",
+            "target": "Store",
+            "onDelete": "models.DO_NOTHING"
+          },
+          {
+            "file": "core/models.py",
+            "line": 449,
+            "model": "StoreSalesPerson",
+            "table": "store_salesperson",
+            "field": "store",
+            "type": "ForeignKey",
+            "target": "Store",
+            "onDelete": "models.DO_NOTHING"
+          },
+          {
+            "file": "core/models.py",
+            "line": 616,
+            "model": "StockStorage",
+            "table": "stock_storages",
+            "field": "store",
+            "type": "ForeignKey",
+            "target": "Store",
+            "onDelete": "models.DO_NOTHING"
+          },
+          {
+            "file": "core/models.py",
+            "line": 631,
+            "model": "StorageStockLog",
+            "table": "stock_storage_logs",
+            "field": "store",
+            "type": "ForeignKey",
+            "target": "Store",
+            "onDelete": "models.DO_NOTHING"
+          },
+          {
+            "file": "order/models.py",
+            "line": 357,
+            "model": "OrderStore",
+            "table": "order_stores",
+            "field": "store",
+            "type": "ForeignKey",
+            "target": "Store",
+            "onDelete": "models.DO_NOTHING"
+          },
+          {
+            "file": "stores/models.py",
+            "line": 172,
+            "model": "StoreStorage",
+            "table": "store_storages",
+            "field": "store",
+            "type": "ForeignKey",
+            "target": "Store",
+            "onDelete": "models.DO_NOTHING"
+          },
+          {
+            "file": "stores/models.py",
+            "line": 198,
+            "model": "StoreCounter",
+            "table": "store_counters",
+            "field": "store",
+            "type": "ForeignKey",
+            "target": "Store",
+            "onDelete": "models.DO_NOTHING"
+          }
+        ],
+        "scalarStoreReferences": [
+          {
+            "file": "core/models.py",
+            "line": 279,
+            "model": "ProductInventoryLog",
+            "table": "pos_product_inventory_logs",
+            "field": "store_id",
+            "type": "BigIntegerField"
+          },
+          {
+            "file": "core/models.py",
+            "line": 318,
+            "model": "PosHoldStockLog",
+            "table": "pos_hold_stock_logs",
+            "field": "store_id",
+            "type": "BigIntegerField"
+          },
+          {
+            "file": "core/models.py",
+            "line": 339,
+            "model": "PosTransactionLog",
+            "table": "pos_transaction_logs",
+            "field": "store_id",
+            "type": "BigIntegerField"
+          },
+          {
+            "file": "core/models.py",
+            "line": 361,
+            "model": "PosTerminalTransaction",
+            "table": "pos_terminal_transactions",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "core/models.py",
+            "line": 389,
+            "model": "PosMachine",
+            "table": "pos_machines",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "core/models.py",
+            "line": 594,
+            "model": "PosHyperlocalSlot",
+            "table": "pos_hyperlocal_slots",
+            "field": "store_id",
+            "type": "BigIntegerField"
+          },
+          {
+            "file": "core/models.py",
+            "line": 652,
+            "model": "PosPaytmMachine",
+            "table": "pos_paytm_machines",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "core/models.py",
+            "line": 680,
+            "model": "PosPaytmTransaction",
+            "table": "pos_paytm_transactions",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "dashboard/models.py",
+            "line": 8,
+            "model": "PosInternetSpeedLog",
+            "table": "pos_internet_speed_logs",
+            "field": "store_id",
+            "type": "BigIntegerField"
+          },
+          {
+            "file": "notification/models.py",
+            "line": 10,
+            "model": "Notification",
+            "table": "pos_notifications",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "order/models.py",
+            "line": 445,
+            "model": "ReturnOrder",
+            "table": "return_orders",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "order/models.py",
+            "line": 637,
+            "model": "PosExchangeLog",
+            "table": "pos_exchange_log",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "order/models.py",
+            "line": 712,
+            "model": "PosOnlineOrder",
+            "table": "pos_online_orders",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "order/models.py",
+            "line": 752,
+            "model": "ExpressLineItem",
+            "table": "express_line_item",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "order/models.py",
+            "line": 791,
+            "model": "ExpressOrderStatusLog",
+            "table": "express_order_status_log",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "report/models.py",
+            "line": 44,
+            "model": "StoreDayClose",
+            "table": "store_day_close",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "report/models.py",
+            "line": 98,
+            "model": "StoreDayBanking",
+            "table": "store_day_banking",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "report/models.py",
+            "line": 117,
+            "model": "StoreCashOpeningBalance",
+            "table": "store_cash_opening_balance",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "stores/models.py",
+            "line": 150,
+            "model": "HyperlocalLocation",
+            "table": "hyperlocal_locations",
+            "field": "store_id",
+            "type": "IntegerField"
+          },
+          {
+            "file": "users/models.py",
+            "line": 142,
+            "model": "UserStore",
+            "table": "user_stores",
+            "field": "store_id",
+            "type": "IntegerField"
+          }
+        ],
+        "scalarOperatorCandidates": [
+          {
+            "file": "core/models.py",
+            "line": 42,
+            "model": "Product",
+            "table": "products",
+            "field": "added_by",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 43,
+            "model": "Product",
+            "table": "products",
+            "field": "updated_by",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 285,
+            "model": "ProductInventoryLog",
+            "table": "pos_product_inventory_logs",
+            "field": "pos_user_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 322,
+            "model": "PosHoldStockLog",
+            "table": "pos_hold_stock_logs",
+            "field": "pos_user_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 343,
+            "model": "PosTransactionLog",
+            "table": "pos_transaction_logs",
+            "field": "pos_user_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 370,
+            "model": "PosTerminalTransaction",
+            "table": "pos_terminal_transactions",
+            "field": "pos_admin_id",
+            "type": "IntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 460,
+            "model": "PosSpecialPermissionActivityLog",
+            "table": "pos_special_permission_activity_log",
+            "field": "pos_user_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 599,
+            "model": "PosHyperlocalSlot",
+            "table": "pos_hyperlocal_slots",
+            "field": "pos_admin_id",
+            "type": "IntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 636,
+            "model": "StorageStockLog",
+            "table": "stock_storage_logs",
+            "field": "pos_user_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 690,
+            "model": "PosPaytmTransaction",
+            "table": "pos_paytm_transactions",
+            "field": "pos_admin_id",
+            "type": "IntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 750,
+            "model": "GiftCardCollection",
+            "table": "gift_card_collection",
+            "field": "created_by",
+            "type": "IntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "core/models.py",
+            "line": 771,
+            "model": "PosTutorial",
+            "table": "pos_tutorial",
+            "field": "created_by",
+            "type": "IntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "dashboard/models.py",
+            "line": 9,
+            "model": "PosInternetSpeedLog",
+            "table": "pos_internet_speed_logs",
+            "field": "pos_admin_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "notification/models.py",
+            "line": 24,
+            "model": "UsersNotification",
+            "table": "pos_user_notifications",
+            "field": "pos_admin_id",
+            "type": "IntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "order/models.py",
+            "line": 60,
+            "model": "MUser",
+            "table": "users",
+            "field": "pos_admin_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "order/models.py",
+            "line": 564,
+            "model": "HyperlocalOrderLog",
+            "table": "hyperlocal_order_log",
+            "field": "pos_admin_id",
+            "type": "IntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "order/models.py",
+            "line": 685,
+            "model": "ExtendApplicabilityForReturnExchange",
+            "table": "extend_applicability_for_return_exchange",
+            "field": "created_by",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "order/models.py",
+            "line": 686,
+            "model": "ExtendApplicabilityForReturnExchange",
+            "table": "extend_applicability_for_return_exchange",
+            "field": "updated_by",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "order/models.py",
+            "line": 713,
+            "model": "PosOnlineOrder",
+            "table": "pos_online_orders",
+            "field": "created_by",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "report/models.py",
+            "line": 13,
+            "model": "ReportExport",
+            "table": "report_exports",
+            "field": "export_requested_by",
+            "type": "IntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "report/models.py",
+            "line": 49,
+            "model": "StoreDayClose",
+            "table": "store_day_close",
+            "field": "closed_by_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "report/models.py",
+            "line": 101,
+            "model": "StoreDayBanking",
+            "table": "store_day_banking",
+            "field": "updated_by_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          },
+          {
+            "file": "users/models.py",
+            "line": 141,
+            "model": "UserStore",
+            "table": "user_stores",
+            "field": "django_user_id",
+            "type": "BigIntegerField",
+            "semanticStatus": "unclassified-until-domain-proof"
+          }
+        ],
+        "djangoVersion": "4.2.5",
+        "database": "SQLite :memory: only",
+        "frameworkHashes": {
+          "collector": "4a486c648cdbd28ac68593aec59a82fd1884110443549de767546b37e8945aa3",
+          "model-admin": "6ec6f17f63b5d59e6c98091e2d0459d75234d12ee3adfa8343a7c48e5ec090f9",
+          "delete-selected": "be3c006463067f8ae3949488686397fbb49f3f45e69094ffd3ae6c1a1603c83f",
+          "nested-objects": "36ececcc1c00c0e457e0cac92f0427cdd7c4db3b95892631e758c4d0af00e466",
+          "log-entry": "cbedaccad27557e2a784aa94cfc29f421a3fc33c4d6cd857437f151b8d4a6f4f",
+          "user": "ec32a1649744813926d63dfc5bf0527cc437aa1d72f8086a984950f241ca8406",
+          "model": "24fa9de51f41179ca166bf6fc7d3ade969804fde870450e5c6e76e15ffc76b9a",
+          "auth-admin": "9160a8e50274bba60806b2bc46bdab8b2df9e1b42f08c0fdb71cd69715b6bab4",
+          "admin-site": "e66217c4fda5294b946ba6dbaeebbe156d7aa636266cd24ebb68af838f170b47"
+        },
+        "inheritedDeleteMethods": {
+          "UserAdmin": true,
+          "GroupAdmin": true
+        },
+        "deletePermissionCases": [
+          {
+            "account": {
+              "active": false,
+              "staff": false,
+              "superuser": false,
+              "directDelete": false,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": false,
+              "superuser": false,
+              "directDelete": false,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": false,
+              "superuser": false,
+              "directDelete": true,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": false,
+              "superuser": false,
+              "directDelete": true,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": false,
+              "superuser": true,
+              "directDelete": false,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": false,
+              "superuser": true,
+              "directDelete": false,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": false,
+              "superuser": true,
+              "directDelete": true,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": false,
+              "superuser": true,
+              "directDelete": true,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": true,
+              "superuser": false,
+              "directDelete": false,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": true,
+              "superuser": false,
+              "directDelete": false,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": true,
+              "superuser": false,
+              "directDelete": true,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": true,
+              "superuser": false,
+              "directDelete": true,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": true,
+              "superuser": true,
+              "directDelete": false,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": true,
+              "superuser": true,
+              "directDelete": false,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": true,
+              "superuser": true,
+              "directDelete": true,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": false,
+              "staff": true,
+              "superuser": true,
+              "directDelete": true,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": false,
+              "superuser": false,
+              "directDelete": false,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": false,
+              "superuser": false,
+              "directDelete": false,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": false,
+              "superuser": false,
+              "directDelete": true,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": false,
+              "superuser": false,
+              "directDelete": true,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": false,
+              "superuser": true,
+              "directDelete": false,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": false,
+              "superuser": true,
+              "directDelete": false,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": false,
+              "superuser": true,
+              "directDelete": true,
+              "groupDelete": false
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": false,
+              "superuser": true,
+              "directDelete": true,
+              "groupDelete": true
+            },
+            "siteAllowed": false,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": true,
+              "superuser": false,
+              "directDelete": false,
+              "groupDelete": false
+            },
+            "siteAllowed": true,
+            "modelDeleteAllowed": false,
+            "combinedAllowed": false
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": true,
+              "superuser": false,
+              "directDelete": false,
+              "groupDelete": true
+            },
+            "siteAllowed": true,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": true
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": true,
+              "superuser": false,
+              "directDelete": true,
+              "groupDelete": false
+            },
+            "siteAllowed": true,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": true
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": true,
+              "superuser": false,
+              "directDelete": true,
+              "groupDelete": true
+            },
+            "siteAllowed": true,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": true
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": true,
+              "superuser": true,
+              "directDelete": false,
+              "groupDelete": false
+            },
+            "siteAllowed": true,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": true
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": true,
+              "superuser": true,
+              "directDelete": false,
+              "groupDelete": true
+            },
+            "siteAllowed": true,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": true
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": true,
+              "superuser": true,
+              "directDelete": true,
+              "groupDelete": false
+            },
+            "siteAllowed": true,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": true
+          },
+          {
+            "account": {
+              "active": true,
+              "staff": true,
+              "superuser": true,
+              "directDelete": true,
+              "groupDelete": true
+            },
+            "siteAllowed": true,
+            "modelDeleteAllowed": true,
+            "combinedAllowed": true
+          }
+        ],
+        "physicalInboundMetadata": {
+          "path": "evidence/mysql-administration-inbound-schema.json",
+          "sha256": "f1738bcacc0056092783de00b311681572d1c9342ce6397827baba4e3d3115bd",
+          "inboundForeignKeys": [
+            {
+              "schema_name": "tss",
+              "table_name": "django_admin_log",
+              "name": "django_admin_log_user_id_c564eba6_fk_auth_user_id",
+              "column_name": "user_id",
+              "position": 1,
+              "referenced_schema": "tss",
+              "referenced_table": "auth_user",
+              "referenced_column": "id",
+              "update_rule": "RESTRICT",
+              "delete_rule": "RESTRICT"
+            }
+          ],
+          "errors": [
+            {
+              "table": "auth_group",
+              "code": "ER_NO_SUCH_TABLE"
+            }
+          ]
+        },
+        "collectorCases": [
+          {
+            "kind": "Empty",
+            "previewModels": ["parent"],
+            "protected": 0,
+            "error": null,
+            "parentExists": false,
+            "child": null
+          },
+          {
+            "kind": "Cascading",
+            "previewModels": ["cascading", "parent"],
+            "protected": 0,
+            "error": null,
+            "parentExists": false,
+            "child": {
+              "exists": false,
+              "reference": null
+            }
+          },
+          {
+            "kind": "Restricted",
+            "previewModels": ["parent"],
+            "protected": 0,
+            "error": "IntegrityError",
+            "parentExists": true,
+            "child": {
+              "exists": true,
+              "reference": 3
+            }
+          },
+          {
+            "kind": "Unconstrained",
+            "previewModels": ["parent"],
+            "protected": 0,
+            "error": null,
+            "parentExists": false,
+            "child": {
+              "exists": true,
+              "reference": 4
+            }
+          },
+          {
+            "kind": "Protected",
+            "previewModels": ["parent"],
+            "protected": 1,
+            "error": "ProtectedError",
+            "parentExists": true,
+            "child": {
+              "exists": true,
+              "reference": 5
+            }
+          },
+          {
+            "kind": "Nullable",
+            "previewModels": ["parent"],
+            "protected": 0,
+            "error": null,
+            "parentExists": false,
+            "child": {
+              "exists": true,
+              "reference": null
+            }
+          },
+          {
+            "kind": "ScalarReference",
+            "previewModels": ["parent"],
+            "protected": 0,
+            "error": null,
+            "parentExists": false,
+            "child": {
+              "exists": true,
+              "reference": 7
+            }
+          },
+          {
+            "kind": "AuthoredLogCascade",
+            "authoredLogsRemaining": 0
+          },
+          {
+            "kind": "GroupMembershipCascade",
+            "memberExists": true,
+            "membershipsRemaining": 0
+          },
+          {
+            "kind": "SingleDelete",
+            "error": "IntegrityError",
+            "parentExists": true,
+            "committedDeletionLogDelta": 0
+          },
+          {
+            "kind": "BulkDelete",
+            "error": "IntegrityError",
+            "parentExists": true,
+            "committedDeletionLogDelta": 1
+          },
+          {
+            "kind": "SelfLastSuperuserDelete",
+            "authorized": true,
+            "superusersBefore": 1,
+            "error": null,
+            "operatorExists": false,
+            "remainingAuthoredLogs": 0
+          }
+        ],
+        "destructiveEndpointsImplemented": false
+      }
+    }
+  ]
+}

@@ -1,26 +1,13 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
 
 function oracle(cases: unknown[]) {
   return z
     .object({ cases: z.array(z.unknown()) })
     .parse(
       JSON.parse(
-        execFileSync(
-          'uv',
-          [
-            'run',
-            '--no-project',
-            '--with',
-            'django==4.2.5',
-            '--with',
-            'pymysql==1.1.2',
-            'python',
-            'tools/administration/gift-card-view-oracle.py',
-          ],
-          { input: JSON.stringify({ cases }), encoding: 'utf8', timeout: 25000 },
-        ),
+        goldenStdout('administration', 'gift-card-view', JSON.stringify({ cases })),
       ) as unknown,
     ).cases;
 }

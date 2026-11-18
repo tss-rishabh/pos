@@ -1,4 +1,3 @@
-import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
 import {
   sourcePageStart,
@@ -10,6 +9,7 @@ import {
   auditSearchInput,
   productSearchInput,
 } from '../../src/modules/catalog-details/contracts.js';
+import { goldenStdout } from '../golden/load.js';
 describe('source inventory/catalog reducers', () => {
   it('matches the actual Python stock delta helper, including dictionary insertion order and mixed roots', () => {
     const cases = [
@@ -28,10 +28,11 @@ describe('source inventory/catalog reducers', () => {
       ['{"2":1,"a":0,"2":9}', '{"1":3,"a":{"2":99},"1":10}'],
     ];
     const expected: unknown = JSON.parse(
-      execFileSync('python3', ['tools/catalog-details/source-oracle.py'], {
-        input: JSON.stringify({ kind: 'product', mode: 'delta', cases }),
-        encoding: 'utf8',
-      }),
+      goldenStdout(
+        'catalog-details',
+        'domain',
+        JSON.stringify({ kind: 'product', mode: 'delta', cases }),
+      ),
     );
     expect(cases.map(([a, b]) => sourceStockDelta(a!, b!))).toEqual(expected);
     expect(sourceStockDelta('9007199254740993', '9007199254740995')).toBe(2);

@@ -1,10 +1,10 @@
-import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { getTableConfig } from 'drizzle-orm/mysql-core';
 import { format, resolveConfig } from 'prettier';
 import { expect, it } from 'vitest';
 import { z } from 'zod';
 import * as legacy from '../src/db/legacy-schema.js';
+import { goldenStdout } from './golden/load.js';
 
 it('keeps verified BIGINT identifiers lossless and preserves fractional/string physical values', () => {
   const metadata = z
@@ -57,9 +57,7 @@ it('keeps verified BIGINT identifiers lossless and preserves fractional/string p
 });
 it('reproduces the checked ORM mappings from pinned source and physical metadata without rewriting inputs', async () => {
   const path = 'src/db/legacy-schema.ts',
-    generated = execFileSync('python3', ['tools/generate_orm.py', '--stdout'], {
-      encoding: 'utf8',
-    }),
+    generated = goldenStdout('core', 'orm-metadata'),
     formatted = await format(generated, { ...(await resolveConfig(path)), parser: 'typescript' });
   expect(formatted).toBe(readFileSync(path, 'utf8'));
 });
