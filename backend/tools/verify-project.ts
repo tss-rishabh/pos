@@ -227,7 +227,13 @@ type Check = {
   environment?: NodeJS.ProcessEnv;
   timeoutMs?: number;
 };
-type CheckResult = { id: string; exitCode: number; durationMs: number; log: string };
+type CheckResult = {
+  id: string;
+  exitCode: number;
+  durationMs: number;
+  log: string;
+  terminationSignal: NodeJS.Signals | null;
+};
 const checks: Check[] = [
   {
     id: 'payments-base-metadata-packaging-tests',
@@ -1481,9 +1487,13 @@ async function run(check: Check): Promise<CheckResult> {
     () => stopProcess(child, 'SIGKILL'),
     check.timeoutMs ?? 10 * 60 * 1000,
   );
+  let terminationSignal: NodeJS.Signals | null = null;
   const code = await new Promise<number>((done) => {
     child.once('error', () => done(1));
-    child.once('close', (exitCode) => done(exitCode ?? 1));
+    child.once('close', (exitCode, signal) => {
+      terminationSignal = signal;
+      done(exitCode ?? 1);
+    });
   });
   clearTimeout(timeout);
   activeProcesses.delete(child);
@@ -1494,6 +1504,7 @@ async function run(check: Check): Promise<CheckResult> {
     exitCode: exceeded ? 1 : code,
     durationMs: Math.round(performance.now() - started),
     log,
+    terminationSignal,
   };
   process.stdout.write(JSON.stringify(result) + '\n');
   return result;
@@ -1531,6 +1542,14 @@ for (const check of checks) {
     if (!result) throw new Error('A required compiler check was not recorded.');
     results.push(result);
   } else results.push(await run(check));
+}
+// Compiler preparation can finish many checks before the sequential loop
+// consumes them. Retain those actual results even if a signal interrupts the
+// preparation; they must not be reported as unexecuted or silently discarded.
+const recordedIds = new Set(results.map((result) => result.id));
+for (const check of checks) {
+  const prepared = typecheckResults.get(check.id);
+  if (prepared && !recordedIds.has(check.id)) results.push(prepared);
 }
 const gate = await run({
   id: 'release-gate',

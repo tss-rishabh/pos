@@ -1,5 +1,26 @@
 # POS rewrite checkpoint
 
+Implementation-first resumed after the dependency-security audit confirmed that
+the reviewed picomatch mitigation was never integrated: both locks still ship
+the vulnerable development package. An isolated worker owns manifests/locks,
+self-contained artifacts, install integrity, Docker contexts and desktop CI.
+No advisory suppression or false audit-zero claim is permitted. Root's shared
+node_modules remain untouched. Complete that integration before the next full
+validation pass.
+
+The `5f9c757` r6 local verifier was deliberately stopped with SIGTERM for this
+newly confirmed implementation gap, not a timeout. Its original failed report
+is retained as `backend/evidence/verification-5f9c757-r6-interrupted.json`, with
+unchanged source/rewrite inputs and productionReady false. It exposed a verifier
+accounting defect: completed parallel compiler results were absent from the
+partial JSON and labeled unexecuted. Its private stdout actually records 50
+project results (48 zero exits and two compiler processes stopped during the
+signal), plus the failing release gate. The original JSON records only the
+three already consumed sequential results and must not be used to infer that
+all other compiler checks were never run. The verifier now retains prepared
+results on interruption and records child termination signals; strict/lint pass.
+Desktop run `44242069782` is the pre-mitigation `5f9c757` snapshot only.
+
 Current implementation closure supersedes the historical membership gap below.
 The Node, Python and Go membership consumers now use the authenticated shared
 metadata contract under independent application authority; the seventeenth
