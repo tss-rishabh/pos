@@ -14,7 +14,6 @@ import { mysqlSessions } from '../../src/auth/sessions.js';
 import { seal } from '../../src/auth/crypto.js';
 import { buildApp } from '../../src/app.js';
 import { readNativeOnlineDetail } from '../../src/modules/order-history/online-detail/native.js';
-import { orderRange } from '../../src/modules/order-history/contracts.js';
 import { goldenStdout } from '../golden/load.js';
 import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
@@ -254,7 +253,16 @@ describe.skipIf(!connection)('native source-family order details', () => {
       type: 'N',
       storeId: '1',
       reader: 'primary',
-      publication: null,
+      context: {
+        showMarkPaymentPopUp: false,
+        isTargetUser: true,
+        hlCancelReasons: [
+          { id: 1, reason: 'Delivery Not possible' },
+          { id: 2, reason: 'Stock not availble' },
+          { id: 3, reason: 'Testing order' },
+          { id: 4, reason: 'Courier partner unavailable' },
+        ],
+      },
       fact: {
         orderId: '501',
         customerId: '7',
@@ -338,16 +346,14 @@ describe.skipIf(!connection)('native source-family order details', () => {
       })),
     ).toEqual(result.timeline);
   });
-  it('reads current product names/parent SKU separately from qualified historical and HP financial values', async () => {
-    const range = orderRange({ from: yesterday, to: yesterday }, 'Asia/Kolkata', now);
-    // Owned publication snapshot preparation, not an application historical fallback.
+  it('reads current product names/parent SKU separately from HP financial values', async () => {
     const archived = await native.db
       .get('primary')
-      .transaction((tx) => readNativeOnlineDetail(tx, '504', { ...range, reader: 'primary' }), {
+      .transaction((tx) => readNativeOnlineDetail(tx, '504', 'Asia/Kolkata'), {
         isolationLevel: 'repeatable read',
         accessMode: 'read only',
       });
-    if (!archived) throw new Error('Owned historical snapshot unavailable');
+    if (!archived) throw new Error('Order 504 unavailable');
     expect(archived.lines[0]).not.toHaveProperty('name');
     expect(archived.lines[0]).not.toHaveProperty('parentProductId');
     await native.fixture.insert('products', {
@@ -369,32 +375,16 @@ describe.skipIf(!connection)('native source-family order details', () => {
         items: [{ id: '101', parentId: '102', name: 'Renamed current product' }],
       });
       expect(current.fact.lines[0]).toMatchObject({ amount: '59.745', gst: '5' });
-      const at = new Date(now).toISOString();
-      const historical = await onlineOrderDetailService(native.config, native.db, {
+      // An older order reads the same native snapshot; HP prices stay as stored.
+      const older = await onlineOrderDetailService(native.config, native.db, {
         clock: () => now,
-        history: {
-          read: async () => ({
-            fact: archived,
-            publication: {
-              generationId: '4918d168-c62e-4ed7-b8ae-89b0a5e70019',
-              sourceSnapshotId: 'owned-dimension-contract-boundary',
-              sourceSnapshotAt: at,
-              sourceCdcWatermark: at,
-              publishedAt: at,
-            },
-          }),
-        },
-      }).read(user, '1', '504', { type: 'N', from: yesterday, to: yesterday });
-      expect(historical.reader).toBe('bigquery');
-      expect(historical.products.items[0]).toMatchObject({
+      }).read(user, '1', '504', { type: 'N' });
+      expect(older.reader).toBe('primary');
+      expect(older.products.items[0]).toMatchObject({
         name: 'Renamed current product',
         parentId: '102',
       });
-      expect(historical.fact).toMatchObject({
-        amount: '120.49',
-        payAmount: '119.49',
-        lines: [{ amount: '59.745', gst: '5' }],
-      });
+      expect(older.fact).toMatchObject({ amount: '777', payAmount: '888' });
       const source = z
         .object({
           lines: z.array(
@@ -436,56 +426,7 @@ describe.skipIf(!connection)('native source-family order details', () => {
       await native.connection.query('DELETE FROM products WHERE id=102');
     }
   });
-  it('rechecks current customer and actor authority after an external historical-read boundary', async () => {
-    const range = orderRange({ from: yesterday, to: yesterday }, 'Asia/Kolkata', now);
-    const fact = await native.db
-      .get('primary')
-      .transaction((tx) => readNativeOnlineDetail(tx, '504', { ...range, reader: 'primary' }), {
-        isolationLevel: 'repeatable read',
-        accessMode: 'read only',
-      });
-    if (!fact) throw new Error('Owned historical snapshot unavailable');
-    const at = new Date(now).toISOString(),
-      publication = {
-        generationId: '4918d168-c62e-4ed7-b8ae-89b0a5e70019',
-        sourceSnapshotId: 'owned-authority-contract-boundary',
-        sourceSnapshotAt: at,
-        sourceCdcWatermark: at,
-        publishedAt: at,
-      };
-    try {
-      const rebound = onlineOrderDetailService(native.config, native.db, {
-        clock: () => now,
-        history: {
-          read: async () => {
-            await native.connection.query('UPDATE orders SET user_id=8 WHERE id=504');
-            return { fact, publication };
-          },
-        },
-      });
-      await expect(rebound.read(user, '1', '504', { type: 'N' })).rejects.toMatchObject({
-        status: 403,
-        code: 'ORDER_DETAIL_SCOPE_CHANGED',
-      });
-      await native.connection.query('UPDATE orders SET user_id=7 WHERE id=504');
-      const revoked = onlineOrderDetailService(native.config, native.db, {
-        clock: () => now,
-        history: {
-          read: async () => {
-            await native.connection.query('UPDATE pos_user SET is_active=0 WHERE id=9');
-            return { fact, publication };
-          },
-        },
-      });
-      await expect(revoked.read(user, '1', '504', { type: 'N' })).rejects.toMatchObject({
-        status: 401,
-      });
-    } finally {
-      await native.connection.query('UPDATE orders SET user_id=7 WHERE id=504');
-      await native.connection.query('UPDATE pos_user SET is_active=1 WHERE id=9');
-    }
-  });
-  it('includes only the active store-page N midnight endpoint, preserving explicit calendar validation', async () => {
+  it('reads an order of any date by id, as legacy does, and still validates paired dates', async () => {
     const tomorrow = Temporal.PlainDate.from(today).add({ days: 1 }).toString();
     await native.fixture.insert('orders', {
       id: 505,
@@ -515,12 +456,12 @@ describe.skipIf(!connection)('native source-family order details', () => {
     await native.connection.query('UPDATE orders SET created_at=? WHERE id=505', [
       tomorrow + ' 00:00:01',
     ]);
-    await expect(service.read(user, '1', '505', { type: 'N' })).rejects.toMatchObject({
-      code: 'ORDER_DETAIL_PUBLICATION_REQUIRED',
-    });
+    expect((await service.read(user, '1', '505', { type: 'N' })).fact.createdAt).toBe(
+      tomorrow + ' 00:00:01',
+    );
     await expect(
-      service.read(user, '1', '505', { type: 'N', from: today, to: tomorrow }),
-    ).rejects.toMatchObject({ status: 400 });
+      service.read(user, '1', '505', { type: 'N', from: today } as never),
+    ).rejects.toMatchObject({ name: 'ZodError' });
     await native.connection.query('DELETE FROM orders WHERE id=505');
   });
   it('uses actual native sessions and HTTP route validation without an injected principal/service', async () => {
@@ -575,18 +516,13 @@ describe.skipIf(!connection)('native source-family order details', () => {
     });
     await checkInService(native.db, native.config).set(user, '1', '1');
   });
-  it('refuses unavailable historical details rather than reading their order amounts or lines from MySQL', async () => {
+  it('reads older order details from MySQL and still fails for an inactive operator', async () => {
     const service = onlineOrderDetailService(native.config, native.db, { clock: () => now });
-    await expect(service.read(user, '1', '504', { type: 'N' })).rejects.toMatchObject({
-      status: 503,
-      code: 'ORDER_DETAIL_PUBLICATION_REQUIRED',
-    });
-    await expect(
-      service.read(user, '1', '504', { type: 'N', from: yesterday, to: yesterday }),
-    ).rejects.toMatchObject({ status: 503, code: 'ORDER_DETAIL_PUBLICATION_REQUIRED' });
-    await expect(
-      service.read(user, '1', '504', { type: 'N', from: today, to: today }),
-    ).rejects.toMatchObject({ status: 404 });
+    expect((await service.read(user, '1', '504', { type: 'N' })).fact.orderId).toBe('504');
+    // Older links may still carry dates; they no longer narrow the read.
+    expect(
+      (await service.read(user, '1', '504', { type: 'N', from: today, to: today })).fact.orderId,
+    ).toBe('504');
     await native.connection.query('UPDATE pos_user SET is_active=0 WHERE id=9');
     await expect(service.read(user, '1', '501', { type: 'N' })).rejects.toMatchObject({
       status: 401,

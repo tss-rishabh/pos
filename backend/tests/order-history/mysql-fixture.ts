@@ -39,12 +39,26 @@ export async function orderHistoryFixture(template: string) {
       'payment_status',
       'has_products',
       'products',
+      'users',
+      'payment_method',
+      'store_counters',
+      'pos_terminal_transactions',
+      'pos_paytm_transactions',
+      'gift_vouchers',
+      'vinculum_auto_delivered_logs',
+      'reverse_pickup_reason',
+      'pos_transaction_logs',
+      'user_eav',
     ]);
-    for (const statement of readFileSync('migrations/0006_operator_auth_epochs.sql', 'utf8')
-      .replace(/^--.*$/gm, '')
-      .split(';')
-      .filter((s) => s.trim()))
-      await connection.query(statement);
+    for (const path of [
+      'migrations/0006_operator_auth_epochs.sql',
+      'src/modules/administration/migration.sql',
+    ])
+      for (const statement of readFileSync(path, 'utf8')
+        .replace(/^--.*$/gm, '')
+        .split(';')
+        .filter((s) => s.trim()))
+        await connection.query(statement);
     url.pathname = '/' + schema;
     const config = readConfig({
         NODE_ENV: 'test',

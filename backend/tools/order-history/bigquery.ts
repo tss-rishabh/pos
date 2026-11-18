@@ -43,13 +43,6 @@ async function main() {
       'Provide the authorized read-only BigQuery key filename to run synthetic fixtures.',
     );
   const client = new BigQuery({ projectId: 'tssgcp2025', location: 'asia-south1', keyFilename });
-  if (process.env.ORDER_HISTORY_VALIDATION_GROUP === 'source-order-search') {
-    const { validateSourceOrderSearch } = await import('../order-search/bigquery-fixtures.js');
-    await validateSourceOrderSearch(client, (value) => {
-      stage = value;
-    });
-    return;
-  }
   const quote = (value: string) => "'" + value.replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
   function cte(
     name: string,

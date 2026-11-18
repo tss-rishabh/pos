@@ -1,7 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { orderRange } from '../../src/modules/order-history/contracts.js';
 import {
   orderSearchInput,
   sourceRowSchema,
@@ -10,22 +9,16 @@ import {
 } from '../../src/modules/order-history/search/contracts.js';
 import { formatSourceOrder } from '../../src/modules/order-history/search/format.js';
 import { sourceNativeRepository } from '../../src/modules/order-history/search/native.js';
-import { sourceIndex, sourceSelect } from '../../src/modules/order-history/search/reducer.js';
 import { sourceQueueRepository } from '../../src/modules/order-history/search/queue.js';
-import { orderSearchService } from '../../src/modules/order-history/search/service.js';
+import {
+  orderSearchService,
+  searchWindow,
+} from '../../src/modules/order-history/search/service.js';
 import { sourceSearchAuthority } from '../../src/modules/order-history/search/scope.js';
 import type { Principal } from '../../src/domain/access.js';
-import type { SourceHistorySearchPort } from '../../src/modules/order-history/search/warehouse.js';
-import { readOrderSearchOptions } from '../../src/modules/order-history/search/options.js';
-import {
-  searchContactKeys,
-  searchContactSelection,
-} from '../../src/modules/order-history/search/contacts.js';
-import { options as warehouseOptions, fact as warehouseFact } from './fixtures.js';
 import { orderSearchFixture } from './mysql-fixture.js';
 const template = process.env.ORDER_SEARCH_MYSQL_TEST_URL;
-const now = Date.parse('2026-11-17T06:00:00Z'),
-  range = orderRange({}, 'Asia/Kolkata', now);
+const now = Date.parse('2026-11-17T06:00:00Z');
 const scope = (raw: OrderSearchRequest): SourceSearchScope => {
   const input = orderSearchInput.parse(raw);
   return {
@@ -33,7 +26,7 @@ const scope = (raw: OrderSearchRequest): SourceSearchScope => {
     checkedInStoreId: '1',
     allowedStores: ['1', '2', '11'],
     internal: true,
-    globalReader: true,
+    franchiseViewer: false,
     binding: 'synthetic',
     effectiveType: input.inQueue || input.notPacked ? 'HL' : input.orderType,
     selectedStores: input.storeIds,
@@ -289,8 +282,8 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
             : undefined,
         result = await reader.search(
           selection,
-          input,
-          range,
+          queue ? { ...input, orderIds: [] } : input,
+          queue ? null : searchWindow(input),
           queue?.orders.map((row) => row.id),
         );
       const data = result.rows.map((row) => {
@@ -309,79 +302,11 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
   }, 30000);
   it('preserves the original reverse-join multiplication and raw-case HasProduct revert rule', async () => {
     const input = orderSearchInput.parse({ orderType: 'ST', storeIds: ['1'] }),
-      result = await sourceNativeRepository(native.db).search(scope(input), input, range);
+      result = await sourceNativeRepository(native.db).search(scope(input), input, null);
     expect(result.rows.filter((row) => row.fact.id === '101')).toHaveLength(2);
     expect(result.rows.filter((row) => row.fact.id === '102')).toHaveLength(6);
     expect(result.rows.find((row) => row.fact.id === '102')!.fact.isRevert).toBe(false);
     expect(result.rows.find((row) => row.fact.id === '104')!.fact.isRevert).toBe(true);
-  });
-  it('historical reducer matches native collation ordering, multiplicity and page fallback on the same facts', async () => {
-    const reader = sourceNativeRepository(native.db),
-      all = await reader.facts(scope({ orderType: 'ST', orderIds: ['101'] }), range, [
-        '101',
-        '102',
-        '103',
-        '104',
-        '106',
-        '9007199254740993',
-        '201',
-        '202',
-        '301',
-      ]);
-    for (const raw of vectors.filter(
-      (value) => value.orderType === 'ST' && !value.mobile && !value.email,
-    )) {
-      const input = orderSearchInput.parse(raw),
-        selection = scope(raw),
-        queue =
-          input.inQueue || input.notPacked
-            ? await sourceQueueRepository(native.db)(selection, input)
-            : undefined,
-        expected = await reader.search(
-          selection,
-          input,
-          range,
-          queue?.orders.map((row) => row.id),
-        ),
-        actual = sourceSelect(
-          all.map((value) => sourceIndex(value)),
-          selection,
-          input,
-          { orderPhone: '', userPhone: '', email: '' },
-          queue ? new Set(queue.orders.map((row) => row.id)) : undefined,
-        );
-      expect(actual.count).toBe(expected.count);
-      expect(actual.rows.map((row) => row.rowKey)).toEqual(expected.rows.map((row) => row.rowKey));
-    }
-  }, 15000);
-  it('uses actual Latin1/utf8mb3 weights for historical phone/email equality instead of LOWER substitutions', async () => {
-    const reader = sourceNativeRepository(native.db, searchContactKeys(warehouseOptions)),
-      all = await reader.facts(scope({ orderType: 'ST', orderIds: ['101'] }), range, [
-        '101',
-        '102',
-        '103',
-        '104',
-        '106',
-        '9007199254740993',
-      ]),
-      weights = searchContactSelection(native.db, warehouseOptions);
-    for (const raw of [
-      ...vectors.filter((value) => value.mobile || value.email),
-      { orderType: 'ST' as const, storeIds: ['1'], mobile: '555001 ' },
-      { orderType: 'ST' as const, storeIds: ['1'], email: 'SYNTHETIC7@EXAMPLE.INVALID   ' },
-    ]) {
-      const input = orderSearchInput.parse(raw),
-        selection = scope(raw),
-        expected = await reader.search(selection, input, range),
-        actual = sourceSelect(
-          all.map((value) => sourceIndex(value)),
-          selection,
-          input,
-          await weights(input),
-        );
-      expect(actual.count).toBe(expected.count);
-      expect(actual.rows.map((row) => row.rowKey)).toEqual(expected.rows.map((row) => row.rowKey));
-    }
   });
   it('checks candidate association/provider/queue indexes with representative local EXPLAINs', async () => {
     const proposals = [
@@ -446,7 +371,7 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
       "INSERT INTO pos_rewrite_operator_checkins(operator_id,store_id,counter_id,expires_at,checked_in_at) VALUES('1',1,NULL,'2099-01-01 00:00:00','2026-11-17 00:00:00')",
     );
   }
-  it('uses writer-current store/type authority even with IDs and denies franchise online bypass', async () => {
+  it('uses writer-current store authority for selected stores and keeps the legacy N-type ID rule', async () => {
     await currentActor();
     const capture = sourceSearchAuthority(native.config, native.db);
     await expect(
@@ -454,17 +379,18 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
     ).rejects.toMatchObject({ code: 'ORDER_SEARCH_SCOPE_DENIED' });
     await native.connection.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=1');
     await native.connection.query("UPDATE stores SET category='FRANCHISE' WHERE id=1");
+    // Legacy `order_type == "N" and (user_type != 2 or order_id_list)`: IDs bypass the rule.
     await expect(
       capture(
         { ...actor, role: 1, userType: 2 },
         '1',
         orderSearchInput.parse({ orderType: 'N', orderIds: ['107'] }),
       ),
-    ).rejects.toMatchObject({ code: 'ORDER_SEARCH_SCOPE_DENIED' });
+    ).resolves.toMatchObject({ franchiseViewer: true, explicitIds: true });
     await native.connection.query("UPDATE stores SET category='IN_HOUSE' WHERE id=1");
     await currentActor();
   });
-  it('retains concrete source bypass evidence while requiring store/Express ownership for explicit IDs', async () => {
+  it('lets explicit order IDs reach any store, as legacy does for cross-store lookups', async () => {
     await currentActor();
     const cases: OrderSearchRequest[] = [
       { orderType: 'ST', orderIds: ['103'] },
@@ -475,10 +401,10 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
     for (const raw of cases) {
       const input = orderSearchInput.parse(raw),
         selection = await capture(actor, '1', input);
-      expect((await reader.search(selection, input, range)).count).toBe('0');
+      expect((await reader.search(selection, input, null)).count).not.toBe('0');
     }
   });
-  it('documents and corrects a split order substituting another store counter/payment flags', async () => {
+  it('shows the first order_stores association for a split order, as legacy does', async () => {
     await currentActor();
     await native.connection.query(
       'UPDATE order_stores SET store_id=IF(id=1,2,1),counter_id=IF(id=1,2,1) WHERE id IN(1,2)',
@@ -487,12 +413,11 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
       const raw: OrderSearchRequest = { orderType: 'ST', storeIds: ['1'], orderIds: ['101'] },
         input = orderSearchInput.parse(raw);
       const selection = await sourceSearchAuthority(native.config, native.db)(actor, '1', input),
-        result = await sourceNativeRepository(native.db).search(selection, input, range);
+        result = await sourceNativeRepository(native.db).search(selection, input, null);
       for (const row of result.rows) {
         const value = formatSourceOrder(row.fact, selection, row.rowKey);
-        expect(value.store_name).toBe('Synthetic 1 (Counter 1)');
-        expect(value.is_offline_order).toBe(false);
-        expect(value.actionStoreId).toBe('1');
+        expect(value.store_name).toBe('Synthetic 2 (Counter 2)');
+        expect(value.actionStoreId).toBe('2');
       }
     } finally {
       await native.connection.query(
@@ -524,143 +449,28 @@ describe.skipIf(!template)('pinned Django datatable and optimized native search'
       'UPDATE orders SET is_transfer=0,next_location_ids=NULL WHERE id=202',
     );
   });
-  it('routes every old live-queue fact through BigQuery and fails the full queue on missing evidence', async () => {
+  it('returns the source contradictory empty store selection', async () => {
     await currentActor();
-    await native.connection.query(
-      "UPDATE orders SET created_at='2026-11-16 10:00:00' WHERE id=201",
-    );
-    const calls: string[] = [];
-    const missing: SourceHistorySearchPort = {
-      async range() {
-        throw new Error('Unexpected range');
-      },
-      async ids(_scope, ids, cutoff) {
-        calls.push(...ids);
-        expect(cutoff).toBe('2026-11-17 00:00:00');
-        return {
-          indexes: [],
-          generationId: '4918d168-c62e-4ed7-b8ae-89b0a5e70019',
-          async facts() {
-            return [];
-          },
-        };
-      },
-    };
-    const service = orderSearchService(native.config, native.db, readOrderSearchOptions({}), {
-      history: missing,
-      clock: () => now,
-    });
-    await expect(
-      service.search(actor, '1', {
-        inQueue: true,
-        orderIds: ['101'],
-        from: '2026-11-01',
-        to: '2026-11-01',
-      }),
-    ).rejects.toMatchObject({ code: 'ORDER_QUEUE_HISTORY_UNAVAILABLE' });
-    expect(calls).toEqual(['201']);
-    await native.connection.query(
-      "UPDATE orders SET created_at='2026-11-17 10:08:00' WHERE id=201",
-    );
-  });
-  it('combines immutable old header facts with revalidated live queue status and location dimensions', async () => {
-    await currentActor();
-    await native.connection.query(
-      "UPDATE orders SET created_at='2026-11-16 10:00:00' WHERE id=201",
-    );
-    try {
-      const fact = {
-        ...warehouseFact,
-        id: '201',
-        stores: [],
-        locationId: '2',
-        locationType: 'SW',
-        locationStoreId: '2',
-        locationLabel: 'L2 (Synthetic 2)',
-      };
-      const history: SourceHistorySearchPort = {
-        async range() {
-          throw new Error('Unexpected range');
-        },
-        async ids() {
-          return {
-            indexes: [sourceIndex(fact)],
-            generationId: '4918d168-c62e-4ed7-b8ae-89b0a5e70019',
-            async facts() {
-              return [fact];
-            },
-          };
-        },
-      };
-      const response = await orderSearchService(
-        native.config,
-        native.db,
-        readOrderSearchOptions({}),
-        { history, clock: () => now },
-      ).search(actor, '1', { inQueue: true, orderStatusIds: ['1'] });
-      expect(response.reader).toBe('mixed');
-      expect(response.data[0]).toMatchObject({
-        id: '201',
-        location_code: 'L1 (Synthetic 1)',
-        order_statuses: 'Order Placed',
-        order_amt: warehouseFact.orderAmount,
-        pay_amount: warehouseFact.payAmount,
-      });
-    } finally {
-      await native.connection.query(
-        "UPDATE orders SET created_at='2026-11-17 10:08:00' WHERE id=201",
-      );
-    }
-  });
-  it('returns the source contradictory empty store selection without fabricating a warehouse result', async () => {
-    await currentActor();
-    let calls = 0;
-    const history: SourceHistorySearchPort = {
-      async range() {
-        calls++;
-        throw new Error('No selected store must not query facts.');
-      },
-      async ids() {
-        calls++;
-        throw new Error('No selected store must not query facts.');
-      },
-    };
-    const result = await orderSearchService(native.config, native.db, readOrderSearchOptions({}), {
-      history,
+    const result = await orderSearchService(native.config, native.db, {
       clock: () => now,
     }).search(actor, '1', { orderType: 'ST', storeIds: [], from: '2026-11-16', to: '2026-11-16' });
-    expect(result).toMatchObject({
-      emptySelection: true,
-      recordsTotal: '0',
-      data: [],
-      generationId: null,
-    });
-    expect(calls).toBe(0);
+    expect(result).toMatchObject({ emptySelection: true, recordsTotal: '0', data: [] });
   });
-  it('rechecks assignments after asynchronous history and never returns stale-scope facts', async () => {
+  it('reads any order date from MySQL, including dates before today, as legacy does', async () => {
     await currentActor();
-    const history: SourceHistorySearchPort = {
-      async ids() {
-        throw new Error('Unexpected point');
-      },
-      async range() {
-        await native.connection.query('DELETE FROM user_stores WHERE django_user_id=1');
-        return {
-          indexes: [],
-          generationId: '4918d168-c62e-4ed7-b8ae-89b0a5e70019',
-          async facts() {
-            return [];
-          },
-        };
-      },
-    };
-    const service = orderSearchService(native.config, native.db, readOrderSearchOptions({}), {
-      history,
-      clock: () => now,
-    });
-    await expect(
-      service.search(actor, '1', { storeIds: ['1'], from: '2026-11-16', to: '2026-11-16' }),
-    ).rejects.toMatchObject({ status: 403 });
-    await currentActor();
+    await native.connection.query(
+      "UPDATE orders SET created_at='2025-01-02 10:00:00' WHERE id=101",
+    );
+    try {
+      const result = await orderSearchService(native.config, native.db, {
+        clock: () => now,
+      }).search(actor, '1', { storeIds: ['1'], from: '2025-01-01', to: '2025-01-03' });
+      expect(result.reader).toBe('primary');
+      expect(result.data.map((row) => row.id)).toContain('101');
+    } finally {
+      await native.connection.query(
+        "UPDATE orders SET created_at='2026-11-17 10:01:00' WHERE id=101",
+      );
+    }
   });
 });

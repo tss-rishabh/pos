@@ -73,17 +73,23 @@ describe('public order HTTP integration', () => {
       intent: 'report',
     });
   });
-  it('keeps order, product and association IDs exact in selected historical detail', async () => {
+  it('keeps order, product and association IDs exact and forwards the legacy cr flag', async () => {
     const { app, orders } = await fixture();
     const response = await app.inject({
       url: '/api/v1/stores/2/orders/9007199254740993?from=2026-11-01&to=2026-11-01',
     });
     expect(response.statusCode).toBe(200);
     expect(orders.detail).toHaveBeenCalledWith(user, '2', '9007199254740993', {
-      from: '2026-11-01',
-      to: '2026-11-01',
-      intent: 'interactive',
+      crossAccess: false,
     });
+    for (const [cr, expected] of [
+      ['1', true],
+      ['0', false],
+      ['x', false],
+    ] as const) {
+      await app.inject({ url: '/api/v1/stores/2/orders/1?cr=' + cr });
+      expect(orders.detail).toHaveBeenLastCalledWith(user, '2', '1', { crossAccess: expected });
+    }
     expect(response.json()).toMatchObject({
       id: '9007199254740993',
       lines: [{ id: '9007199254740994', productId: '9007199254740995', quantity: '2' }],

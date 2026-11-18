@@ -9,9 +9,8 @@ import * as access from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import type { Databases } from '../../src/db/pools.js';
 import { ordersService, type OrdersService } from '../../src/modules/orders.js';
-import type { OrderHistoryPort } from '../../src/modules/order-history/contracts.js';
 import { orderHistoryFixture } from './mysql-fixture.js';
-import { now, header, stores, lines, generation } from './fixtures.js';
+import { now } from './fixtures.js';
 const template = process.env.ORDER_HISTORY_MYSQL_TEST_URL;
 const actor: access.Principal = {
   id: '1',
@@ -20,13 +19,6 @@ const actor: access.Principal = {
   storeIds: ['1'],
   name: 'Synthetic operator',
   email: '',
-};
-const evidence = {
-  generationId: generation,
-  sourceSnapshotId: 'synthetic-checkpoint-001',
-  sourceSnapshotAt: new Date(now - 60000).toISOString(),
-  sourceCdcWatermark: new Date(now - 50000).toISOString(),
-  publishedAt: new Date(now - 40000).toISOString(),
 };
 const priorSource = execFileSync('git', ['show', 'b90b4be:backend/src/modules/orders.ts'], {
   encoding: 'utf8',
@@ -61,30 +53,13 @@ describe.skipIf(!template)(
     let native: Awaited<ReturnType<typeof orderHistoryFixture>>,
       db: Databases,
       service: OrdersService;
-    let called: string[], historyCalls: string[], onWarehouse: (() => Promise<void>) | undefined;
-    const historical: OrderHistoryPort = {
-      async list() {
-        historyCalls.push('list');
-        await onWarehouse?.();
-        return { rows: [{ header, store: stores[0]! }], evidence };
-      },
-      async order() {
-        historyCalls.push('order');
-        await onWarehouse?.();
-        return { header, stores, lines, evidence };
-      },
-      async copyFacts() {
-        throw new Error('Not used by browsing.');
-      },
-    };
+    let called: string[];
     beforeAll(async () => {
       native = await orderHistoryFixture(template!);
     });
     beforeEach(async () => {
       await native.reset();
       called = [];
-      historyCalls = [];
-      onWarehouse = undefined;
       db = {
         get(role) {
           called.push(role);
@@ -158,7 +133,7 @@ describe.skipIf(!template)(
           gst: 5,
           status: 'DELIVERED',
         });
-      service = ordersService(db, native.config, historical, () => now);
+      service = ordersService(db, native.config, () => now);
     });
     afterAll(async () => {
       await native?.close();
@@ -170,17 +145,94 @@ describe.skipIf(!template)(
         baseline.data.filter((row) => row.createdAt >= '2026-11-17 00:00:00'),
       );
       expect(current.reader).toBe('primary');
-      expect(historyCalls).toEqual([]);
       const old = await pinned(native.db).detail(actor, '1', '9007199254740993'),
         fresh = await service.detail(actor, '1', '9007199254740993');
       const normalize = (value: unknown) =>
         JSON.parse(
           JSON.stringify(value, (_key, v: unknown) => (typeof v === 'bigint' ? v.toString() : v)),
-        ) as unknown;
-      const { reader: _reader, range: _range, fetchedAt: _fetched, ...plain } = fresh;
-      expect(normalize(plain)).toEqual(normalize(old));
+        ) as Record<string, unknown>;
+      const prior = normalize(old);
+      expect(normalize(fresh)).toMatchObject({
+        id: prior.id,
+        reference: prior.reference,
+        amount: prior.amount,
+        createdAt: prior.createdAt,
+        status: prior.status,
+        isPaid: prior.isPaid,
+      });
+      expect(
+        fresh.lines.map(({ id, productId, name, quantity, amount, gst, status }) => ({
+          id: String(id),
+          productId: String(productId),
+          name,
+          quantity: String(quantity),
+          amount,
+          gst,
+          status,
+        })),
+      ).toEqual(normalize(old.lines) as unknown as unknown[]);
       expect(fresh.lines).toHaveLength(3);
       expect(fresh.lines[2]?.name).toBeNull();
+    });
+    it('returns the legacy ShowOrderDetailsView context and enforces store assignment unless cr=1', async () => {
+      await native.fixture.insert('users', {
+        id: '7',
+        firstname: 'Synthetic',
+        lastname: 'Customer',
+        email: 'synthetic7@example.invalid',
+        telephone: '5550007',
+        tss_money: 1.005,
+        tss_points: 25.5,
+      });
+      await native.fixture.insert('user_eav', {
+        entity: 'synthetic7@example.invalid',
+        attribute: 'EXCLUSIVE_EXPIRY',
+        value: '2099-01-02 00:00:00',
+        is_active: 1,
+      });
+      await native.fixture.insert('vinculum_auto_delivered_logs', {
+        id: '1',
+        order_id: '9007199254740993',
+        product_id: '101',
+        platform: 'PACK',
+        retries: 0,
+        status: 'SUCCESS',
+        created_at: '2026-11-17 10:05:00',
+        updated_at: '2026-11-17 10:06:00',
+      });
+      await native.fixture.insert('order_status', { id: '1', order_status: 'Order Placed' });
+      const detail = await service.detail(actor, '1', '9007199254740993');
+      expect(detail.legacy).toMatchObject({
+        crossAccess: false,
+        customer: { id: '7', tssMoney: '1.01', tssPoints: '25.50' },
+        exclusive: { member: true, expiry: '02/01/2099', message: '' },
+        totalItems: 5,
+        isUploaded: false,
+        transactionId: 'SYNTHETIC-9007199254740993',
+        vincStatus: {
+          CREATE: { status: 'SUCCESS', date: '' },
+          PACK: { status: 'SUCCESS', date: '2026-11-17 10:06:00' },
+          SHIP: { status: '-', date: '' },
+        },
+        cashback: null,
+      });
+      await native.fixture.insert('stores', {
+        id: '2',
+        store_name: 'Other store',
+        is_active: 1,
+        type: 'STORE',
+        category: 'IN_HOUSE',
+      });
+      await native.connection.query("UPDATE order_stores SET store_id='2',counter_id='0' WHERE order_id='7'");
+      await expect(service.detail(actor, '1', '7')).rejects.toMatchObject({
+        status: 403,
+        code: 'ORDER_STORE_FORBIDDEN',
+      });
+      expect((await service.detail(actor, '1', '7', { crossAccess: true })).legacy).toMatchObject({
+        crossAccess: true,
+        storeName: 'Other store',
+      });
+      await expect(service.detail(actor, '1', '123')).rejects.toMatchObject({ status: 404 });
     });
     it('paginates duplicate store associations without skipping a row or converting BIGINT to Number', async () => {
       const pages = [];
@@ -198,55 +250,15 @@ describe.skipIf(!template)(
         '9007199254740992',
       ]);
     });
-    it('uses DATA only for a current-day background report and never reads old native facts for historical/mixed dates', async () => {
-      await service.list(actor, '1', undefined, 30, { intent: 'report' });
-      expect(called).toContain('data');
-      expect(called).not.toContain('primary');
-      called = [];
+    it('reads older store orders from MySQL for any date, as legacy does', async () => {
       const result = await service.list(actor, '1', undefined, 30, {
         from: '2026-11-16',
-        to: '2026-11-17',
+        to: '2026-11-16',
       });
-      expect(result.reader).toBe('bigquery');
-      expect(called.every((role) => role === 'writer')).toBe(true);
-      expect(historyCalls).toEqual(['list']);
-      await service.detail(actor, '1', '7', { from: '2026-11-16', to: '2026-11-16' });
-      expect(historyCalls).toEqual(['list', 'order']);
-    });
-    it('classifies unknown-age links using a today-bounded query then BQ only, with no unrestricted native fallback', async () => {
-      const result = await service.detail(actor, '1', '7');
-      expect(result.reference).toBe('SYNTHETIC');
-      expect(result.reader).toBe('bigquery');
-      expect(historyCalls).toEqual(['order']);
-      historyCalls = [];
-      await expect(
-        service.detail(actor, '1', '7', { from: '2026-11-17', to: '2026-11-17' }),
-      ).rejects.toMatchObject({ status: 404 });
-      expect(historyCalls).toEqual([]);
-    });
-    it('fails closed on missing history and rechecks native assignment after warehouse work without holding its SQL locks', async () => {
-      const unavailable = ordersService(
-        db,
-        native.config,
-        {
-          ...historical,
-          async list() {
-            throw new AppError(
-              503,
-              'ORDER_HISTORY_PUBLICATION_REQUIRED',
-              'Synthetic missing publication',
-            );
-          },
-        },
-        () => now,
-      );
-      await expect(
-        unavailable.list(actor, '1', undefined, 30, { from: '2026-11-16', to: '2026-11-16' }),
-      ).rejects.toMatchObject({ status: 503 });
-      expect(called.every((role) => role === 'writer')).toBe(true);
-      onWarehouse = async () => {
-        await native.connection.query('DELETE FROM user_stores WHERE django_user_id=1');
-      };
+      expect(result.reader).toBe('primary');
+      expect(result.data.map((row) => row.id)).toEqual(['7']);
+      expect((await service.detail(actor, '1', '7')).reference).toBe('SYNTHETIC-7');
+      await native.connection.query('DELETE FROM user_stores WHERE django_user_id=1');
       await expect(
         service.list(actor, '1', undefined, 30, { from: '2026-11-16', to: '2026-11-16' }),
       ).rejects.toMatchObject({ status: 403 });
