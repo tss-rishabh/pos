@@ -18,7 +18,7 @@ endpoint is removed from the rewrite.
   `ajax_daily_retail_metrics_report` name. The source exposes no callable
   upload/preview workflow through these templates.
 
-`tools/parity/check_business_metrics_reachability.py` reads the pinned files
+`tools/parity/check-business-metrics-reachability.ts` reads the pinned files
 through `git show`, checks syntax without importing source settings/application,
 verifies inactive routes and navigation, and retains both template hashes. Its
 regression fails if a class, route, render reference or sidebar entry becomes
