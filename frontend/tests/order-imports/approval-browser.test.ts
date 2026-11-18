@@ -138,7 +138,6 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
               .strict()
               .parse(request.postDataJSON() as unknown),
             value = approvalResponse(body.commandId, true, body.reason, operationId);
-          state.posts.push({ ...body, operationId });
           const storage = await page.evaluate(() =>
             Object.fromEntries(
               Object.entries(localStorage).filter(([key]) =>
@@ -156,6 +155,9 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
           expect(JSON.stringify(storage)).not.toMatch(
             /price|amount|lineValue|csv|email|customer|productId/,
           );
+          // Tests may navigate as soon as this request is observed. Finish the
+          // durability/privacy probe before publishing that synchronization point.
+          state.posts.push({ ...body, operationId });
           if (!state.drop || state.commitBeforeDrop) state.receipts.set(body.commandId, value);
           if (state.hold)
             await new Promise<void>((resolve) => {
@@ -262,6 +264,7 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
         await browserExpect(
           panel.getByText('Saved approval request:', { exact: false }),
         ).toBeVisible();
+        await browserExpect.poll(() => state.posts.length).toBe(1);
         expect(await markers(page)).toHaveLength(1);
         const command = state.posts[0]!.commandId;
         await page.reload();
@@ -294,6 +297,7 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
         await browserExpect(
           panel.getByText('Saved approval request:', { exact: false }),
         ).toBeVisible();
+        await browserExpect.poll(() => state.posts.length).toBe(1);
         const original = state.posts[0]!;
         state.latest = approvalResponse(null, true, 'historical-correction');
         const latestReads = state.gets.filter((path) => path.endsWith('/approvals')).length;
@@ -378,6 +382,7 @@ describe.skipIf(process.env.ORDER_IMPORT_BROWSER_TESTS !== 'true')(
         await browserExpect(
           page.getByText('Saved approval request:', { exact: false }),
         ).toBeVisible();
+        await browserExpect.poll(() => state.posts.length).toBe(1);
         state.deny = true;
         await page.reload();
         const saved = page.getByRole('region', {
