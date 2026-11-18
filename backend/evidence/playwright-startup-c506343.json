@@ -1,0 +1,33 @@
+{
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "testedRewriteCommit": "c506343",
+  "recordedAt": "2026-11-18T05:47:33.931249+00:00",
+  "scope": "installed-runtime-playwright-server-startup-and-existing-native-browser-regression",
+  "command": "npm run test:e2e -- --reporter=json",
+  "exitCode": 0,
+  "nodeVersion": "24.22.3",
+  "platform": "darwin/arm64",
+  "stats": {
+    "startTime": "2026-11-18T05:40:42.842Z",
+    "duration": 189754.009,
+    "expected": 53,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  },
+  "errors": 0,
+  "rawReportSha256": "247026ae471c3b9343459d028d7cdec84bf273fdcef3209e2121673e0ed34f41",
+  "checksums": {
+    "frontend/playwright.config.ts": "3de4afa9e226dd6e98ff78dd4ab16177048d615486b89d6775688994b9c6a02e",
+    "frontend/package-lock.json": "2a25d21fe5fdfde27792a1a38b3956c8820239c53ff83405c1c660b99c4a2713",
+    "backend/package-lock.json": "02b3e906ece30377231ea67891ef8b125708c188db343979588826c76db3c1d6",
+    "frontend/vite.config.ts": "dd6591cb7d5c12224d373317fedbcac9b059b6db68a5977484bdf97e297d69ad",
+    "backend/src/server.ts": "f24beb3cd06ab86f0ed8c3a0e942869612a86ccf9e07168a1e9ed408219d84d7"
+  },
+  "windowsVerification": "pending-new-CI-head",
+  "limitations": [
+    "The prior Windows failure was a webServer startup timeout before UI cases executed; removing npx avoids the redundant download path, but Windows acceptance requires a fresh native job.",
+    "No complete source feature, signing, printer or production release certification."
+  ],
+  "productionReady": false
+}

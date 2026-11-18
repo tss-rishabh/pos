@@ -1,5 +1,19 @@
 # POS rewrite checkpoint
 
+Current platform follow-up: `44244240172` passed macOS fully on `2848c69`.
+Windows passed mitigation integrity/regression, compilation and frontend unit
+checks, then failed before UI cases: Playwright's webServer did not start in
+60 seconds. Both launch commands unnecessarily invoked `npx node@24.22.3`.
+The reviewed fixture fix uses the installed Node24 runtime via its PATH,
+probes the explicit loopback bind address and includes server startup output.
+Isolated Darwin regression passed all53 native/browser cases, zero skips,
+failures or retries, plus strict/lint. Receipt:
+`backend/evidence/playwright-startup-c506343.json`. Windows needs a fresh job;
+do not relabel the old failed run. Full r7 remains on frozen `2848c69` in the
+dedicated validation worktree, live session16991/private r7 log, unchanged.
+New country/postal, feedback and shortcut source-to-API/UI proof work remains
+in isolated worktrees; merge only coherent bounded evidence after review.
+
 The dependency-security implementation gap is now closed with isolated worker
 commits `446e26f`/`4af1806`, integrated together with Root's verifier guards.
 Both locks select the reviewed exact parser artifact; independent Docker
