@@ -212,7 +212,9 @@ def cleanup(docker, nonce, ledger):
 
 
 def run_phase(phase, source, modules_source, docker, before_source, before_producer):
-    work = Path(tempfile.mkdtemp(prefix='pos-origin-verification.'))
+    # macOS /tmp resolves to /private/tmp. Compare canonical owned roots with
+    # the canonical AST argument paths without widening the ancestry guard.
+    work = Path(tempfile.mkdtemp(prefix='pos-origin-verification.')).resolve()
     work.chmod(0o700)
     nonce = work.name.split('.')[-1]
     ledger = work / 'resources.jsonl'
