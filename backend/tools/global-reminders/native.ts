@@ -281,12 +281,19 @@ export async function remindersFixture(connection: string, origin: string, sourc
       async assignment(id: string, storeId: string, allowed: boolean) {
         const key = JSON.stringify([id, storeId]);
         if (allowed) {
-          const previous = removedAssignments.get(key); assert(previous);
+          const previous = removedAssignments.get(key);
+          assert(previous);
           await native.seed('user_stores', { id: previous, django_user_id: id, store_id: storeId });
           return;
         }
-        const [rows] = await native.admin.query('SELECT id FROM user_stores WHERE django_user_id=? AND store_id=?', [id, storeId]);
-        const row = z.array(z.object({ id: z.union([z.string(), z.number().int()]).transform(String) })).length(1).parse(rows)[0]!;
+        const [rows] = await native.admin.query(
+          'SELECT id FROM user_stores WHERE django_user_id=? AND store_id=?',
+          [id, storeId],
+        );
+        const row = z
+          .array(z.object({ id: z.union([z.string(), z.number().int()]).transform(String) }))
+          .length(1)
+          .parse(rows)[0]!;
         removedAssignments.set(key, row.id);
         await native.admin.query('DELETE FROM user_stores WHERE id=?', [row.id]);
       },
