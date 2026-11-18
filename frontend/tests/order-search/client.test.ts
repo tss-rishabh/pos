@@ -26,12 +26,11 @@ describe('portable source-pinned order list contract', () => {
         reader: 'primary',
         fetchedAt: '2026-11-17T06:00:00Z',
         range: {
-          from: '2026-11-17',
-          to: '2026-11-17',
+          placedFrom: '2026-11-17 00:00:00',
+          placedTo: '2026-11-18 00:00:00',
           timeZone: 'Asia/Kolkata',
           ignoredForQueue: false,
         },
-        generationId: null,
       }).success,
     ).toBe(true);
   });

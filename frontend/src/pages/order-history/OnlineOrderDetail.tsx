@@ -155,7 +155,39 @@ function OnlineOrderDetailContent({
             <dt>Placed ({fact.timeZone})</dt>
             <dd>{fact.createdAt}</dd>
           </div>
+          {value.context.hyperlocalAction && (
+            <div className="receipt-line">
+              <dt>Local delivery action</dt>
+              <dd>
+                {value.context.hyperlocalAction}
+                {value.context.hyperlocalPacked ? ' · Packed' : ''}
+              </dd>
+            </div>
+          )}
+          {value.context.isTransferred && (
+            <div className="receipt-line">
+              <dt>Transferred</dt>
+              <dd>{value.context.isMoreNextIds ? 'Transferred to more stores' : 'Transferred'}</dd>
+            </div>
+          )}
+          {value.context.eligibleStores.length > 0 && (
+            <div className="receipt-line">
+              <dt>Eligible stores</dt>
+              <dd>
+                {value.context.eligibleStores.map((store) => store.name ?? store.id).join(', ')}
+              </dd>
+            </div>
+          )}
         </dl>
+        {value.context.isTargetUser && value.context.showMarkPaymentPopUp && (
+          <p role="status">This order is waiting for the store to accept it.</p>
+        )}
+        {value.context.hasPendingExpressItems && (
+          <p role="status">Some Express items are waiting for acceptance.</p>
+        )}
+        {value.context.sddInvoice && (
+          <p className="muted">This split order ships in more than one shipment.</p>
+        )}
         {fact.delivery.parentOrderId && (
           <NavLink
             className="button secondary"

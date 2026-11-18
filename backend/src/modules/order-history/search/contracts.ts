@@ -86,12 +86,7 @@ export const orderSearchInput = z
       ctx.addIssue({ code: 'custom', path: ['from'], message: 'Supply both calendar dates.' });
     if (value.from && value.to && value.from > value.to)
       ctx.addIssue({ code: 'custom', path: ['to'], message: 'The end date precedes the start.' });
-    if (value.from && value.placedFrom)
-      ctx.addIssue({
-        code: 'custom',
-        path: ['placedFrom'],
-        message: 'Use either calendar dates or placement timestamps.',
-      });
+
     if (Boolean(value.placedFrom) !== Boolean(value.placedTo))
       ctx.addIssue({
         code: 'custom',

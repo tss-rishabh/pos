@@ -206,21 +206,33 @@ export const onlineOrderDetail = z
   .object({
     type: detailType,
     storeId: positiveId,
-    reader: z.enum(['primary', 'bigquery']),
+    reader: z.literal('primary'),
     fetchedAt: z.iso.datetime({ offset: true }),
     fact: onlineDetailFact,
     customer: currentOrderCustomer,
     products: currentOrderProducts,
-    publication: z
+    /** Remaining legacy `ShowOnlineOrderDetailsView` context. */
+    context: z
       .object({
-        generationId: z.uuid(),
-        sourceSnapshotId: z.string().min(16).max(128),
-        sourceSnapshotAt: z.iso.datetime({ offset: true }),
-        sourceCdcWatermark: z.iso.datetime({ offset: true }),
-        publishedAt: z.iso.datetime({ offset: true }),
+        showMarkPaymentPopUp: z.boolean(),
+        sddInvoice: z.boolean(),
+        isTransferred: z.boolean(),
+        isNextIds: z.boolean(),
+        isMoreNextIds: z.boolean(),
+        isTargetUser: z.boolean(),
+        eligibleStores: z
+          .array(z.object({ id: positiveId, name: z.string().max(255).nullable() }).strict())
+          .max(1000),
+        hyperlocalAction: z.string().max(64).nullable(),
+        hyperlocalPacked: z.boolean(),
+        hasPendingExpressItems: z.boolean(),
+        isExpressOrder: z.boolean(),
+        isSuperAdmin: z.boolean(),
+        hlCancelReasons: z
+          .array(z.object({ id: z.number().int(), reason: z.string() }).strict())
+          .max(10),
       })
-      .strict()
-      .nullable(),
+      .strict(),
   })
   .strict()
   .refine((value) => value.fact.customerId === value.customer.id, 'The order customer changed.')
