@@ -18,25 +18,26 @@
     },
     "total": 396,
     "by_status": {
-      "external_acceptance": 281,
+      "external_acceptance": 252,
       "implementation_present": 100,
-      "partial": 12,
+      "partial": 41,
       "missing": 3
     },
     "by_kind": {
       "routes": {
-        "external_acceptance": 180,
+        "external_acceptance": 165,
         "implementation_present": 68,
-        "partial": 7
+        "partial": 22
       },
       "jobs": {
-        "external_acceptance": 31,
+        "external_acceptance": 27,
+        "partial": 4,
         "missing": 1
       },
       "templates": {
         "implementation_present": 32,
-        "external_acceptance": 67,
-        "partial": 5,
+        "external_acceptance": 57,
+        "partial": 15,
         "missing": 2
       },
       "websockets": {
@@ -47,7 +48,7 @@
       }
     },
     "families": 75,
-    "code_task_groups": 1,
+    "code_task_groups": 2,
     "workflow_certifications_added": 0,
     "unmapped": 0
   },
@@ -5531,7 +5532,7 @@
     },
     {
       "id": "operational-reports",
-      "implementation_status": "implementation_present",
+      "implementation_status": "partial",
       "backend": [
         "backend/src/modules/operational-reports"
       ],
@@ -5546,7 +5547,9 @@
         "backend/parity/operational-reports.md"
       ],
       "implemented_scope": "NPS, returned orders, transactions, acceptance, staff performance, flash sales and hyperlocal daily profiles with complete source CSV columns.",
-      "remaining_code": [],
+      "remaining_code": [
+        "Active performance and hyperlocal acceptance CSV actions and source visible-column controls remain under implementation. Returned-order/flash visible-column CSV and export binding to current selected columns/sort need their end-to-end UI/worker path; existing full export does not substitute for these source actions."
+      ],
       "external_acceptance": [
         "Accept exact warehouse views/collations/source dimensions and actual historical data completeness."
       ],
@@ -6309,6 +6312,13 @@
       "state": "partial",
       "tasks": [
         "Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control."
+      ]
+    },
+    {
+      "family": "operational-reports",
+      "state": "partial",
+      "tasks": [
+        "Active performance and hyperlocal acceptance CSV actions and source visible-column controls remain under implementation. Returned-order/flash visible-column CSV and export binding to current selected columns/sort need their end-to-end UI/worker path; existing full export does not substitute for these source actions."
       ]
     }
   ],
@@ -11587,7 +11597,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11619,7 +11629,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11649,7 +11659,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11681,7 +11691,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11741,7 +11751,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11771,7 +11781,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -11803,7 +11813,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12013,7 +12023,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12045,7 +12055,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12075,7 +12085,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12107,7 +12117,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12137,7 +12147,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12169,7 +12179,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12567,7 +12577,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -12599,7 +12609,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14712,7 +14722,7 @@
         "operational-reports",
         "report-exports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14760,7 +14770,7 @@
         "operational-reports",
         "report-exports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14784,7 +14794,7 @@
         "operational-reports",
         "report-exports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -14808,7 +14818,7 @@
         "operational-reports",
         "report-exports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "source_definition": {
@@ -16267,7 +16277,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -16285,7 +16295,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16303,7 +16313,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -16321,7 +16331,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16339,7 +16349,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "shared-include-or-latent-template",
@@ -16357,7 +16367,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16375,7 +16385,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16393,7 +16403,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16411,7 +16421,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",
@@ -16448,7 +16458,7 @@
       "families": [
         "operational-reports"
       ],
-      "status": "external_acceptance",
+      "status": "partial",
       "workflow_certified": false,
       "inventory_status_unchanged": "unverified",
       "reachability": "referenced-by-active-view",

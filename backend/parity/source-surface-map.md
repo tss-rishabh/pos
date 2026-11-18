@@ -17,6 +17,7 @@ The 263 route declarations contain eight include mounts; all 255 leaves remain i
 ## Concrete remaining code, by feature group
 
 - **returns-exchanges (partial)**: Required active manager return-window extension is being implemented: current code only reads the native exact order/product/HP extension; the original roles1-3 date action still needs its writer, route and return/exchange UI control.
+- **operational-reports (partial)**: Active performance and hyperlocal acceptance CSV actions and source visible-column controls remain under implementation. Returned-order/flash visible-column CSV and export binding to current selected columns/sort need their end-to-end UI/worker path; existing full export does not substitute for these source actions.
 
 ## Line-bound implementation review
 
@@ -77,9 +78,9 @@ Any remaining code gaps are distinct from configured provider acceptance. Parent
 
 | Kind | Present | Partial | Missing | External acceptance |
 | --- | ---: | ---: | ---: | ---: |
-| routes | 68 | 7 | 0 | 180 |
-| jobs | 0 | 0 | 1 | 31 |
-| templates | 32 | 5 | 2 | 67 |
+| routes | 68 | 22 | 0 | 165 |
+| jobs | 0 | 4 | 1 | 27 |
+| templates | 32 | 15 | 2 | 57 |
 | websockets | 0 | 0 | 0 | 1 |
 | administration | 0 | 0 | 0 | 2 |
 
@@ -262,26 +263,26 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/urls.py:112` | `ajax-hl-admin-edit/` | express-fulfillment | external_acceptance |
 | `order/urls.py:113` | `ship-express-order/` | express-fulfillment | external_acceptance |
 | `report/urls.py:16` | `api/v1/reconciliation/<str:feed_type>/` | finance-day-close | external_acceptance |
-| `report/urls.py:19` | `return-orders/` | operational-reports | external_acceptance |
-| `report/urls.py:20` | `ajax-return-order-list/` | operational-reports | external_acceptance |
-| `report/urls.py:21` | `orders-data/` | operational-reports | external_acceptance |
-| `report/urls.py:22` | `ajax-orders-data-list/` | operational-reports | external_acceptance |
+| `report/urls.py:19` | `return-orders/` | operational-reports | partial |
+| `report/urls.py:20` | `ajax-return-order-list/` | operational-reports | partial |
+| `report/urls.py:21` | `orders-data/` | operational-reports | partial |
+| `report/urls.py:22` | `ajax-orders-data-list/` | operational-reports | partial |
 | `report/urls.py:27` | `ajax-troubleshoot-inventory/` | inventory-parent-repair | implementation_present |
-| `report/urls.py:31` | `ajax-nps-data-list/` | operational-reports | external_acceptance |
-| `report/urls.py:36` | `order-hyperlocal-accept-report/` | operational-reports | external_acceptance |
-| `report/urls.py:37` | `ajax-hyperlocal-order-accept-report/` | operational-reports | external_acceptance |
+| `report/urls.py:31` | `ajax-nps-data-list/` | operational-reports | partial |
+| `report/urls.py:36` | `order-hyperlocal-accept-report/` | operational-reports | partial |
+| `report/urls.py:37` | `ajax-hyperlocal-order-accept-report/` | operational-reports | partial |
 | `report/urls.py:40` | `hyperlocal-slack-report/` | scheduled-reports | external_acceptance |
 | `report/urls.py:41` | `hyperlocal-availability-report/` | scheduled-reports | external_acceptance |
 | `report/urls.py:42` | `hyperlocal-store-status-report/` | scheduled-reports | external_acceptance |
 | `report/urls.py:43` | `hyperlocal-delivery-report` | scheduled-reports | external_acceptance |
 | `report/urls.py:44` | `hyperlocal-cancellation-report/` | scheduled-reports | external_acceptance |
 | `report/urls.py:45` | `crm-ticket-status/` | scheduled-reports | external_acceptance |
-| `report/urls.py:51` | `salesperson-performance-report/` | operational-reports | external_acceptance |
-| `report/urls.py:52` | `ajax-salesperson-performance-report/` | operational-reports | external_acceptance |
-| `report/urls.py:53` | `cashier-performance-report/` | operational-reports | external_acceptance |
-| `report/urls.py:54` | `ajax-cashier-performance-report/` | operational-reports | external_acceptance |
-| `report/urls.py:65` | `sales-data/` | operational-reports | external_acceptance |
-| `report/urls.py:66` | `ajax-sales-data/` | operational-reports | external_acceptance |
+| `report/urls.py:51` | `salesperson-performance-report/` | operational-reports | partial |
+| `report/urls.py:52` | `ajax-salesperson-performance-report/` | operational-reports | partial |
+| `report/urls.py:53` | `cashier-performance-report/` | operational-reports | partial |
+| `report/urls.py:54` | `ajax-cashier-performance-report/` | operational-reports | partial |
+| `report/urls.py:65` | `sales-data/` | operational-reports | partial |
+| `report/urls.py:66` | `ajax-sales-data/` | operational-reports | partial |
 | `report/urls.py:69` | `daily-store-report/` | daily-store-report | external_acceptance |
 | `report/urls.py:70` | `ajax-daily-store-report/` | daily-store-report | external_acceptance |
 | `report/urls.py:73` | `day-close/` | finance-day-close | external_acceptance |
@@ -294,8 +295,8 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/urls.py:80` | `day-close-cash-balance/` | finance-day-close | external_acceptance |
 | `report/urls.py:81` | `ajax-day-close-cash-balance/` | finance-day-close | external_acceptance |
 | `report/urls.py:84` | `store-hyperlocal-record/` | scheduled-reports | external_acceptance |
-| `report/urls.py:87` | `hyperlocal-reports/daily-report/` | operational-reports | external_acceptance |
-| `report/urls.py:88` | `ajax-hyperlocal-daily-export/` | operational-reports | external_acceptance |
+| `report/urls.py:87` | `hyperlocal-reports/daily-report/` | operational-reports | partial |
+| `report/urls.py:88` | `ajax-hyperlocal-daily-export/` | operational-reports | partial |
 | `report/urls.py:91` | `export-logs/` | report-exports | external_acceptance |
 | `report/urls.py:92` | `ajax-export-logs/` | report-exports | external_acceptance |
 | `stores/urls.py:8` | `stores` | stores | implementation_present |
@@ -374,11 +375,11 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `order/views.py:4482` | `advance_order_notification` | local-deliveries | external_acceptance |
 | `report/datatables/cash_balance_datatable.py:83` | `do_cash_balance_export` | finance-day-close, report-exports | external_acceptance |
 | `report/datatables/day_close_datatable.py:216` | `do_day_close_export` | finance-day-close, report-exports | external_acceptance |
-| `report/datatables/hyperlocal_daily_datatable.py:40` | `do_hyperlocal_daily_export` | operational-reports, report-exports | external_acceptance |
+| `report/datatables/hyperlocal_daily_datatable.py:40` | `do_hyperlocal_daily_export` | operational-reports, report-exports | partial |
 | `report/datatables/inventory_datatable.py:60` | `do_return_export` | inventory-workbooks, report-exports | external_acceptance |
-| `report/datatables/return_orders_datatable.py:63` | `do_return_export` | operational-reports, report-exports | external_acceptance |
-| `report/datatables/return_orders_datatable.py:328` | `do_order_export` | operational-reports, report-exports | external_acceptance |
-| `report/datatables/sales_data.py:66` | `do_sales_export` | operational-reports, report-exports | external_acceptance |
+| `report/datatables/return_orders_datatable.py:63` | `do_return_export` | operational-reports, report-exports | partial |
+| `report/datatables/return_orders_datatable.py:328` | `do_order_export` | operational-reports, report-exports | partial |
+| `report/datatables/sales_data.py:66` | `do_sales_export` | operational-reports, report-exports | partial |
 | `report/tasks.py:25` | `process_export_master` | inventory-workbooks | external_acceptance |
 | `report/tasks.py:87` | `generate_store_excel_chunk` | inventory-workbooks | external_acceptance |
 | `report/tasks.py:134` | `debug_print_result` | inventory-workbooks | external_acceptance |
@@ -460,17 +461,17 @@ Each row below links to family IDs in `source-surface-map.json`; those families 
 | `report/templates/day_close/index.html` | `report/templates/day_close/index.html` | finance-day-close | external_acceptance |
 | `report/templates/day_close/logs.html` | `report/templates/day_close/logs.html` | finance-day-close | external_acceptance |
 | `report/templates/export/index.html` | `report/templates/export/index.html` | report-exports | external_acceptance |
-| `report/templates/orders/daily_tracker.html` | `report/templates/orders/daily_tracker.html` | operational-reports | external_acceptance |
-| `report/templates/orders/hyperlocal_daily_report.html` | `report/templates/orders/hyperlocal_daily_report.html` | operational-reports | external_acceptance |
-| `report/templates/orders/hyperlocal_data.html` | `report/templates/orders/hyperlocal_data.html` | operational-reports | external_acceptance |
-| `report/templates/orders/hyperlocal_order_accept_report.html` | `report/templates/orders/hyperlocal_order_accept_report.html` | operational-reports | external_acceptance |
-| `report/templates/orders/nps_data.html` | `report/templates/orders/nps_data.html` | operational-reports | external_acceptance |
-| `report/templates/orders/orders_data.html` | `report/templates/orders/orders_data.html` | operational-reports | external_acceptance |
-| `report/templates/orders/return_orders.html` | `report/templates/orders/return_orders.html` | operational-reports | external_acceptance |
-| `report/templates/performance_report/cashier_performance.html` | `report/templates/performance_report/cashier_performance.html` | operational-reports | external_acceptance |
-| `report/templates/performance_report/salesperson_performance.html` | `report/templates/performance_report/salesperson_performance.html` | operational-reports | external_acceptance |
+| `report/templates/orders/daily_tracker.html` | `report/templates/orders/daily_tracker.html` | operational-reports | partial |
+| `report/templates/orders/hyperlocal_daily_report.html` | `report/templates/orders/hyperlocal_daily_report.html` | operational-reports | partial |
+| `report/templates/orders/hyperlocal_data.html` | `report/templates/orders/hyperlocal_data.html` | operational-reports | partial |
+| `report/templates/orders/hyperlocal_order_accept_report.html` | `report/templates/orders/hyperlocal_order_accept_report.html` | operational-reports | partial |
+| `report/templates/orders/nps_data.html` | `report/templates/orders/nps_data.html` | operational-reports | partial |
+| `report/templates/orders/orders_data.html` | `report/templates/orders/orders_data.html` | operational-reports | partial |
+| `report/templates/orders/return_orders.html` | `report/templates/orders/return_orders.html` | operational-reports | partial |
+| `report/templates/performance_report/cashier_performance.html` | `report/templates/performance_report/cashier_performance.html` | operational-reports | partial |
+| `report/templates/performance_report/salesperson_performance.html` | `report/templates/performance_report/salesperson_performance.html` | operational-reports | partial |
 | `report/templates/product/product_inventory.html` | `report/templates/product/product_inventory.html` | inventory-workbooks, catalog-read | external_acceptance |
-| `report/templates/sales/index.html` | `report/templates/sales/index.html` | operational-reports | external_acceptance |
+| `report/templates/sales/index.html` | `report/templates/sales/index.html` | operational-reports | partial |
 | `stores/templates/counters/index.html` | `stores/templates/counters/index.html` | counters | implementation_present |
 | `stores/templates/stores/_form.html` | `stores/templates/stores/_form.html` | stores, store-images, location-codes, country-search | external_acceptance |
 | `stores/templates/stores/create.html` | `stores/templates/stores/create.html` | stores, store-images, location-codes, country-search | external_acceptance |

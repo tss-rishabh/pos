@@ -364,7 +364,8 @@ def define_families():
            external=['Accept complete financial publication/lineage and warehouse auxiliary input contracts.'])
     bind('daily-store-report', ['DailyStoreReportView', 'AjaxDailyStoreReportView'])
     family('operational-reports', ['src/modules/operational-reports'], ['src/pages/operational-reports'], ['tests/operational-reports', 'frontend/tests/operational-reports'],
-           ['parity/operational-reports.md'], scope='NPS, returned orders, transactions, acceptance, staff performance, flash sales and hyperlocal daily profiles with complete source CSV columns.',
+           ['parity/operational-reports.md'], state='partial', scope='NPS, returned orders, transactions, acceptance, staff performance, flash sales and hyperlocal daily profiles with complete source CSV columns.',
+           gaps=['Active performance and hyperlocal acceptance CSV actions and source visible-column controls remain under implementation. Returned-order/flash visible-column CSV and export binding to current selected columns/sort need their end-to-end UI/worker path; existing full export does not substitute for these source actions.'],
            external=['Accept exact warehouse views/collations/source dimensions and actual historical data completeness.'])
     bind('operational-reports', ['ReturnOrderView', 'AjaxReturnOrderListView', 'OrdersDataView', 'AjaxOrdersDataListView', 'AjaxNpsDataListView', 'HyperlocalOrderAcceptReport', 'AjaxHyperlocalOrderAcceptReport', 'SalespersonPerformanceReport', 'AjaxSalespersonPerformanceReport', 'CashierPerformanceReport', 'AjaxCashierPerformanceReport', 'SalesDataView', 'AjaxSalesDataView', 'HyperlocalDailyReportView', 'AjaxHyperlocalDailyExportView'])
     family('inventory-parent-repair', ['src/modules/operational-reports/inventory.ts'], ['src/pages/operational-reports/inventory.tsx'],
