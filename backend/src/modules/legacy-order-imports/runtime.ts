@@ -17,6 +17,7 @@ import { configuredFinancialImportProfiles } from './membership-profile/options.
 import { configuredSourceOrderPreparation } from './source-order-preparation-runtime.js';
 import type { sourceOrderPreparation } from './source-order-preparation.js';
 import { configuredCsvImportBenefits } from './benefit-profile/options.js';
+import { configuredCsvImportScreening } from './screening-runtime.js';
 
 /** Configuration inspection is pure: disabled/demo startup performs no I/O. */
 export function configuredLegacyOrderImports(
@@ -51,6 +52,7 @@ export function configuredLegacyOrderImports(
       { db },
     ),
     benefits = configuredCsvImportBenefits(financial, environment),
+    screening = configuredCsvImportScreening(config, db, financial, environment),
     approvals = legacyOrderImportFinancialApprovals(config, db, financial),
     corrections = legacyOrderImportCorrections(db, config, {
       secret: key,
@@ -68,7 +70,7 @@ export function configuredLegacyOrderImports(
       corrections,
       correctionForOperation: corrections.correctionForOperation,
     };
-  let canStart = preparation.ready && benefits.ready;
+  let canStart = preparation.ready && benefits.ready && screening.ready;
   try {
     transport.assertReady();
   } catch (error: unknown) {
@@ -87,9 +89,11 @@ export function configuredLegacyOrderImports(
       transport,
       configuredFinancialImportProfiles(financial, environment, {
         benefits: benefits.options,
+        screening: screening.screening,
         extensions: [
           ...(preparation.guard ? [preparation.guard] : []),
           ...(benefits.guard ? [benefits.guard] : []),
+          ...(screening.guard ? [screening.guard] : []),
         ],
       }),
       preparation.port,

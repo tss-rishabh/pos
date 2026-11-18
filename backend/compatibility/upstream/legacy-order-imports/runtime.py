@@ -58,6 +58,8 @@ def _create_application():
     proof=os.environ.get('POS_LEGACY_IMPORT_PROOF_KEY','')
     if not re.fullmatch(r'[!-~]{32,4096}',key) or not re.fullmatch(r'[!-~]{32,4096}',proof) or key==proof:
         raise ImportReview('ORDER_IMPORT_KEY_UNAVAILABLE')
+    from screening_runtime import options as screening_options,install as install_screening
+    screening=screening_options(os.environ,key,proof)
     # This optional resource has a separate confidential caller key. Validate
     # selection before source imports or any writer connection is opened.
     sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'public-screening-writer'))
@@ -94,6 +96,8 @@ def _create_application():
     from benefit_history_heads import NativeCouponHistoryHeads
     pipeline=SourceRuntime(os.environ['POS_LEGACY_IMPORT_SOURCE_ROOT'],os.environ['POS_LEGACY_IMPORT_RUNTIME_ROOT'],
                            benefit_heads=NativeCouponHistoryHeads(proof))
+    import time
+    pipeline=install_screening(pipeline,screening,key,proof,lambda:int(time.time()*1000))
     event.listen(Session,'before_flush',normalize_source_sentinels)
     event.listen(engine,'commit',guard_private_commit)
     event.listen(engine,'before_cursor_execute',guard_private_statement)

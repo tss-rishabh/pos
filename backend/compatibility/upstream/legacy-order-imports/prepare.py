@@ -105,7 +105,7 @@ def outputs():
         'privateRuntime':{'contract':'pos-import-owned-celery-v1','activated':False,
             'files':{name:hashlib.sha256((HERE/name).read_bytes()).hexdigest() for name in (
                 'private_celery.py','private_cache.py','cart_tracking.py','source_runtime.py',
-                'runtime.py','receiver.py','effects.py','transaction.py','model_compat.py')}},
+                'runtime.py','screening_runtime.py','receiver.py','effects.py','transaction.py','model_compat.py')}},
         'benefits':{'automaticCoupon':'pos-csv-automatic-coupon-v1',
             'complementary':'pos-csv-pos-complementary-v1','activated':False,
             'history':'authenticated preload; no native historical fallback',

@@ -646,6 +646,7 @@ export function screeningImportProfile(
         receipt.storeId !== scope.storeId ||
         receipt.counterId !== scope.counterId ||
         receipt.requestHash !== value.requestHash ||
+        receipt.lineItemsEnabled !== value.lineItemsEnabled ||
         value.planHash !== bound.state.planHash
       )
         throw importFinancialError('ORDER_IMPORT_SCREENING_ORDER_UNCONFIRMED');
