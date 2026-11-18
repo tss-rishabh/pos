@@ -1384,6 +1384,17 @@ if (flags.has('--browser')) {
     const source = resolve(workspace, '../backend-pos-web');
     checks.push(
       {
+        id: 'counter-barcode-source-dispatch-tests',
+        directory: 'backend',
+        command: 'sh',
+        args: [
+          'tools/order-search/run-oracle.sh',
+          '-B',
+          '../frontend/tests/counter-catalog/source-barcode.py',
+          source,
+        ],
+      },
+      {
         id: 'online-order-detail-native-app-browser-tests',
         directory: 'backend',
         args: [
@@ -1521,6 +1532,17 @@ if (flags.has('--browser')) {
       args: ['tests/order-history/browser-check.mjs'],
     },
   );
+  checks.push({
+    id: 'counter-barcode-browser-tests',
+    directory: 'frontend',
+    args: [
+      'node_modules/vitest/vitest.mjs',
+      'run',
+      'tests/counter-catalog/browser.test.ts',
+      '--maxWorkers=1',
+    ],
+    environment: { COUNTER_BARCODE_BROWSER_TESTS: 'true' },
+  });
   checks.push({
     id: 'offline-worksheet-browser-tests',
     directory: 'frontend',
