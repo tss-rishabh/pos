@@ -38,6 +38,61 @@ describe.skipIf(!template)('actual isolated v3 counter publisher account boundar
       vi.unstubAllEnvs();
     }
   });
+  it('proves actual isolation across pooled reuse and rejects a session setting spoof', async () => {
+    for (let round = 0; round < 8; round++) {
+      await base.connection.query('SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ');
+      await base.connection.query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+      await base.connection.beginTransaction();
+      try {
+        const [actual] = await base.connection.query<mysql.RowDataPacket[]>(
+          'SELECT pos_rewrite_origin_transaction_metadata() document',
+        );
+        expect(actual[0]!.document).toEqual([{ state: 'ACTIVE', isolation: 'READ COMMITTED' }]);
+        await base.connection.query('CALL pos_screening_sync_marker(0,0,NULL,NULL,NULL)');
+      } finally {
+        await base.connection.rollback();
+      }
+      await base.connection.beginTransaction();
+      try {
+        await base.connection.query('SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED');
+        const [actual] = await base.connection.query<mysql.RowDataPacket[]>(
+          'SELECT pos_rewrite_origin_transaction_metadata() document',
+        );
+        expect(actual[0]!.document).toEqual([{ state: 'ACTIVE', isolation: 'REPEATABLE READ' }]);
+        await expect(
+          base.connection.query('CALL pos_screening_sync_marker(0,0,NULL,NULL,NULL)'),
+        ).rejects.toThrow('requires current reads');
+      } finally {
+        await base.connection.rollback();
+      }
+    }
+  });
+  it('fails closed when transaction instrumentation is disabled', async () => {
+    const controlUrl = new URL(template!);
+    controlUrl.pathname = '/' + heads.schema;
+    const control = await mysql.createConnection(controlUrl.href);
+    await base.connection.query('SET TRANSACTION ISOLATION LEVEL READ COMMITTED');
+    await base.connection.beginTransaction();
+    try {
+      await base.connection.query('SELECT pos_rewrite_origin_transaction_metadata()');
+      await control.query(
+        "UPDATE performance_schema.setup_consumers SET ENABLED='NO' WHERE NAME='events_transactions_current'",
+      );
+      const [actual] = await base.connection.query<mysql.RowDataPacket[]>(
+        'SELECT pos_rewrite_origin_transaction_metadata() document',
+      );
+      expect(actual[0]!.document).toEqual([]);
+      await expect(
+        base.connection.query('CALL pos_screening_sync_marker(0,0,NULL,NULL,NULL)'),
+      ).rejects.toThrow('requires current reads');
+    } finally {
+      await control.query(
+        "UPDATE performance_schema.setup_consumers SET ENABLED='YES' WHERE NAME='events_transactions_current'",
+      );
+      await base.connection.rollback();
+      await control.end();
+    }
+  });
   it('qualifies the literal readonly function and complete counter definitions under separate source account', async () => {
     const result = await heads.sourceDb
       .get('writer')

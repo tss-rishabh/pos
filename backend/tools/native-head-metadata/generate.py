@@ -25,6 +25,9 @@ source = read(BASE+'screening-origins/history-security.review.sql').decode()
 body = re.search(r'\nRETURN (.*?)\n\$\$', source, re.S)
 if body is None:
     raise ValueError('Missing fixed metadata RETURN body')
+transaction_source = read(BASE+'screening-origins/transaction-security.review.sql').decode()
+transaction_body = re.search(r'\nRETURN (.*?)\n\$\$', transaction_source, re.S)
+if transaction_body is None: raise ValueError('Missing transaction metadata body')
 origin = read(BASE+'screening-origins/history-heads.review.sql').decode()
 triggers = [{'name': name, 'action': action, 'table': table, 'hash': sha(normalized(body+'END'))}
             for name, action, table, body in re.findall(
@@ -58,6 +61,7 @@ registry=next(node.value for node in ast.parse(qualifier).body if isinstance(nod
 platform_triggers=ast.literal_eval(registry)
 if len(platform_triggers)!=2:raise ValueError('Expected closed platform trigger registry')
 descriptor = {'metadataHash': sha(normalized('RETURN '+body.group(1))),
+    'transactionMetadataHash': sha(normalized('RETURN '+transaction_body.group(1))),
     'qualifierHash': sha(qualifier),
     'participantQualifierHash': sha(read(BASE+'screening-origins/head_participants.py')),
     'originTriggers': triggers, 'families': families, 'platformTriggers': platform_triggers}

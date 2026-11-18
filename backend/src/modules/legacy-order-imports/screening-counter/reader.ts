@@ -187,7 +187,7 @@ export async function readCurrentScreeningCounter(
     throw counterError('PROJECTION_INVALID');
   await assertCounterRuntimePrivileges(tx, baseline.writersOwner);
   const [rawTotal] = await tx.execute(sql`SELECT CAST(COALESCE(SUM(included),0) AS CHAR) AS count,
-    CAST(COUNT(*) AS CHAR) AS rows FROM (SELECT included FROM pos_rewrite_screening_contributions WHERE customer_id=${BigInt(customerId)} LIMIT 10001) current_rows`);
+    CAST(COUNT(*) AS CHAR) AS \`rows\` FROM (SELECT included FROM pos_rewrite_screening_contributions WHERE customer_id=${BigInt(customerId)} LIMIT 10001) current_rows`);
   const totals = z
     .array(z.object({ count: counterCount, rows: counterCount }))
     .length(1)

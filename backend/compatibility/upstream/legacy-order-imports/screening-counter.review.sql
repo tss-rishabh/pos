@@ -20,7 +20,11 @@ DECLARE available BIGINT UNSIGNED;
 DECLARE found_previous TINYINT DEFAULT 1;
 DECLARE found_current TINYINT DEFAULT 1;
 DECLARE ready_count INT;
-IF @@transaction_isolation<>'READ-COMMITTED' THEN
+DECLARE transaction_metadata JSON;
+SET transaction_metadata=pos_rewrite_origin_transaction_metadata();
+IF JSON_LENGTH(transaction_metadata)<>1
+ OR NOT(JSON_UNQUOTE(JSON_EXTRACT(transaction_metadata,'$[0].state')) <=> 'ACTIVE')
+ OR NOT(JSON_UNQUOTE(JSON_EXTRACT(transaction_metadata,'$[0].isolation')) <=> 'READ COMMITTED') THEN
  SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Screening counter writer requires current reads';
 END IF;
 BEGIN

@@ -51,7 +51,7 @@ export async function assertCounterRuntimePrivileges(tx: AdministrationTransacti
   const metadataGrant = new RegExp(
     '^GRANT EXECUTE ON FUNCTION `?' +
       schema.data[0]!.name +
-      '`?\\.`?pos_rewrite_origin_history_metadata`? TO .+$',
+      '`?\\.`?pos_rewrite_origin_(?:history|transaction)_metadata`? TO .+$',
     'i',
   );
   const [rawGrants] = await tx.execute(sql.raw('SHOW GRANTS FOR CURRENT_USER'));

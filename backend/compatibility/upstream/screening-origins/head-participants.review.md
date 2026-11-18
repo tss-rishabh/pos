@@ -11,7 +11,15 @@ application and capture accounts EXECUTE on this one function, SELECT on the
 required head tables, and SHOW_ROUTINE so they can compare its exact body.
 After function creation, grant its locked audit definer EXECUTE on that exact
 function too; MySQL requires this self-execution right. The qualifier permits
-no other executable object or blanket EXECUTE privilege for the audit account.
+only these two executable objects and no blanket EXECUTE privilege for the audit account.
+Install `transaction-security.review.sql` under the same locked audit owner. Its
+small readonly function `pos_rewrite_origin_transaction_metadata()` returns at
+most two current-connection state/isolation records and returns an empty array
+when transaction instrumentation or its consumers are disabled. Grant exact
+EXECUTE on this function to its audit owner, application/source/publisher
+accounts, and the locked counter owner. The counter owner receives no direct
+performance_schema read or PROCESS grant. The audit owner already has its
+reviewed global SELECT dictionary visibility.
 Remove their old TRIGGER grants. Neither a global/schema EXECUTE grant nor a
 role-based substitute qualifies.
 

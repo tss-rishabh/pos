@@ -14,6 +14,7 @@ from origin_contracts import fail
 from head_participants import FAMILIES, participants, publication_owner, policy_hash
 
 INFO='pos_rewrite_origin_history_metadata'
+TRANSACTION_INFO='pos_rewrite_origin_transaction_metadata'
 HEADS={'pos_rewrite_screening_origin_history_heads','pos_rewrite_screening_origin_history_changes'}
 WATCHED={'orders','users','has_products','order_coupon_log','coupons','spiderman_screening_orders'}
 ALL_HEADS=HEADS|set().union(*(set(spec['heads']) for spec in FAMILIES.values()))
@@ -98,7 +99,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             if counter_publication:
                 if not target.startswith(schema+'.') or writes-publication_rights.get(target[len(schema)+1:],set()):refused()
             elif target=='*.*' or target.endswith('.*') or target.split('.')[-1] in ALL_HEADS:refused()
-        if 'EXECUTE' in privileges and target!=f'FUNCTION {schema}.{INFO}':refused()
+        if 'EXECUTE' in privileges and target not in {f'FUNCTION {schema}.{name}' for name in (INFO,TRANSACTION_INFO)}:refused()
     # Pin actual base tables before reading their trigger metadata. Optional
     # families are explicit deployment declarations; no historical rows are read.
     declared=HEADS|WATCHED
@@ -120,6 +121,14 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
     routine=one(session,"SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_history_metadata' AND ROUTINE_TYPE='FUNCTION'")
     if (routine['owner']!=audit or routine['security']!='DEFINER' or routine['accessMode']!='READS SQL DATA'
             or normal(routine['body'])!=normal(body)):refused()
+    transaction_source=Path(__file__).with_name('transaction-security.review.sql').read_text()
+    transaction_match=re.search(r'\nRETURN (.*?)\n\$\$',transaction_source,re.S)
+    if transaction_match is None:refused()
+    transaction_body='RETURN '+transaction_match.group(1)
+    transaction_routine=one(session,"SELECT DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM INFORMATION_SCHEMA.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_transaction_metadata' AND ROUTINE_TYPE='FUNCTION'")
+    if (transaction_routine['owner']!=audit or transaction_routine['security']!='DEFINER' or transaction_routine['accessMode']!='READS SQL DATA'
+            or normal(transaction_routine['body'])!=normal(transaction_body)):refused()
+    one(session,'SELECT pos_rewrite_origin_transaction_metadata() AS document')
     result=one(session,'SELECT /*+ MAX_EXECUTION_TIME(3000) */ pos_rewrite_origin_history_metadata() AS document')
     if len(str(result['document']).encode())>500000:refused()
     data=json_value(result['document'])
@@ -227,12 +236,12 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
         privileges={part.strip().upper() for part in item['privileges'].split(',')}
         if owner in administrators:continue
         if owner in owner_specs:
-            if (owner_specs[owner].get('publisher') and item['schema']==schema and item['routine']==INFO
+            if ((owner_specs[owner].get('publisher') or owner_specs[owner]['family']=='counter' and item['routine']==TRANSACTION_INFO) and item['schema']==schema and item['routine'] in (INFO,TRANSACTION_INFO)
                     and item['kind']=='FUNCTION' and privileges=={'EXECUTE'}):continue
             if (item['schema']!=schema or item['routine'] not in owner_specs[owner]['procedures']
                     or item['kind']!=owner_specs[owner]['procedures'][item['routine']] or privileges!={'EXECUTE'}):refused()
             continue
-        if (item['schema']!=schema or item['routine']!=INFO
+        if (item['schema']!=schema or item['routine'] not in (INFO,TRANSACTION_INFO)
                 or item['kind']!='FUNCTION' or privileges!={'EXECUTE'}):refused()
 
     objects=set()
@@ -245,7 +254,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
                 or identity in objects):refused()
         objects.add(identity)
         if owner==audit:
-            if identity!=(schema,INFO,'FUNCTION') or item['security']!='DEFINER':refused()
+            if identity not in {(schema,name,'FUNCTION') for name in (INFO,TRANSACTION_INFO)} or item['security']!='DEFINER':refused()
         elif owner in owner_specs:
             spec=owner_specs[owner]
             if (item['schema']!=schema or not (item['kind']=='TRIGGER' and item['name'] in spec['names']
@@ -256,7 +265,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
             # functions would provide another route into those DBA routines.
             if item['kind'] in ('TRIGGER','EVENT') and not (identity in platform_objects and owner=='mysql.sys@localhost' and item['security']=='DEFINER'):refused()
             if item['kind']=='VIEW' and item['security']=='DEFINER' and item['usesRoutines']==1:refused()
-    required={(schema,INFO,'FUNCTION')}|platform_objects
+    required={(schema,name,'FUNCTION') for name in (INFO,TRANSACTION_INFO)}|platform_objects
     for spec in owner_specs.values():
         required|={(schema,name,'TRIGGER') for name in spec['names']}
         required|={(schema,name,kind) for name,kind in spec['procedures'].items()}
@@ -290,6 +299,7 @@ def _qualified(session,expected,trigger_owner,*,counter_publication=False):
         # change these literal predicates without a revision.
         if item['update'] not in {'RESTRICT','NO ACTION'} or item['delete'] not in {'RESTRICT','NO ACTION'}:refused()
     policy={'policy':POLICY,'auditDefiner':audit,'metadataHash':hashlib.sha256(normal(body).encode()).hexdigest(),
+            'transactionMetadataHash':hashlib.sha256(normal(transaction_body).encode()).hexdigest(),
             'qualifierHash':hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),'administrators':sorted(administrators),
             'participantsHash':policy_hash(families),
             'participantQualifierHash':hashlib.sha256(Path(__file__).with_name('head_participants.py').read_bytes()).hexdigest()}

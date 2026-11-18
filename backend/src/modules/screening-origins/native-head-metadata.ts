@@ -18,6 +18,7 @@ export interface NativeHeadPolicy {
   policy: 'pos-screening-origin-history-head-integrity-v3';
   auditDefiner: string;
   metadataHash: string;
+  transactionMetadataHash: string;
   qualifierHash: string;
   administrators: string[];
   participantsHash: string;
@@ -248,6 +249,7 @@ export interface NativeHeadMetadata {
   policy: NativeHeadPolicy;
 }
 const INFO = 'pos_rewrite_origin_history_metadata';
+const TRANSACTION_INFO = 'pos_rewrite_origin_transaction_metadata';
 const HEADS = [
   'pos_rewrite_screening_origin_history_heads',
   'pos_rewrite_screening_origin_history_changes',
@@ -415,7 +417,11 @@ export async function readNativeHeadMetadata(
       )
         return refuse();
     }
-    if (rights.includes('EXECUTE') && target !== `FUNCTION ${schema}.${INFO}`) return refuse();
+    if (
+      rights.includes('EXECUTE') &&
+      ![INFO, TRANSACTION_INFO].some((name) => target === `FUNCTION ${schema}.${name}`)
+    )
+      return refuse();
   }
   const declared = new Set([...HEADS, ...WATCHED]);
   for (const family of ['membership', 'coupon', 'counter'] as const) {
@@ -441,19 +447,26 @@ export async function readNativeHeadMetadata(
     // Pin the known platform base table before reading attached trigger hashes.
     await tx.execute(sql.raw('SELECT 1 FROM `sys`.`sys_config` WHERE FALSE'));
   }
-  const routine = await one(
-    tx,
-    "SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='pos_rewrite_origin_history_metadata' AND ROUTINE_TYPE='FUNCTION'",
-  );
-  if (
-    routine.owner !== audit ||
-    routine.security !== 'DEFINER' ||
-    routine.accessMode !== 'READS SQL DATA' ||
-    typeof routine.body !== 'string' ||
-    Buffer.byteLength(routine.body) > 60000 ||
-    digest(normal(routine.body)) !== descriptor.metadataHash
-  )
-    return refuse();
+  for (const [name, expectedHash] of [
+    [INFO, descriptor.metadataHash],
+    [TRANSACTION_INFO, descriptor.transactionMetadataHash],
+  ]) {
+    const routine = await one(
+      tx,
+      `SELECT /*+ MAX_EXECUTION_TIME(3000) */ DEFINER AS owner,SECURITY_TYPE AS security,SQL_DATA_ACCESS AS accessMode,ROUTINE_DEFINITION AS body FROM information_schema.ROUTINES WHERE ROUTINE_SCHEMA=DATABASE() AND ROUTINE_NAME='${name}' AND ROUTINE_TYPE='FUNCTION'`,
+    );
+    if (
+      routine.owner !== audit ||
+      routine.security !== 'DEFINER' ||
+      routine.accessMode !== 'READS SQL DATA' ||
+      typeof routine.body !== 'string' ||
+      Buffer.byteLength(routine.body) > 60000 ||
+      digest(normal(routine.body)) !== expectedHash
+    )
+      return refuse();
+  }
+  // Execute the fixed function to retain its native routine MDL for this transaction.
+  await one(tx, 'SELECT pos_rewrite_origin_transaction_metadata() AS document');
   const result = await one(
     tx,
     'SELECT /*+ MAX_EXECUTION_TIME(3000) */ pos_rewrite_origin_history_metadata() AS document',
@@ -707,12 +720,17 @@ export async function readNativeHeadMetadata(
     const spec = owners.get(item.name);
     const metadata =
       item.schema === schema &&
-      item.routine === INFO &&
+      [INFO, TRANSACTION_INFO].includes(item.routine) &&
       item.kind === 'FUNCTION' &&
       rights.size === 1 &&
       rights.has('EXECUTE');
     if (spec) {
-      if (spec.publisher && metadata) continue;
+      if (
+        metadata &&
+        (spec.publisher ||
+          (item.routine === TRANSACTION_INFO && item.name === options.counterDefiner))
+      )
+        continue;
       if (
         item.schema !== schema ||
         spec.procedures[item.routine] !== item.kind ||
@@ -731,7 +749,11 @@ export async function readNativeHeadMetadata(
     objects.add(id);
     const spec = owners.get(item.owner);
     if (item.owner === audit) {
-      if (id !== identity(schema, INFO, 'FUNCTION') || item.security !== 'DEFINER') return refuse();
+      if (
+        ![INFO, TRANSACTION_INFO].some((name) => id === identity(schema, name, 'FUNCTION')) ||
+        item.security !== 'DEFINER'
+      )
+        return refuse();
     } else if (spec) {
       if (
         item.schema !== schema ||
@@ -756,7 +778,7 @@ export async function readNativeHeadMetadata(
     }
   }
   if (
-    !objects.has(identity(schema, INFO, 'FUNCTION')) ||
+    [INFO, TRANSACTION_INFO].some((name) => !objects.has(identity(schema, name, 'FUNCTION'))) ||
     [...platformObjects].some((id) => !objects.has(id))
   )
     return refuse();
@@ -802,6 +824,7 @@ export async function readNativeHeadMetadata(
     policy: 'pos-screening-origin-history-head-integrity-v3',
     auditDefiner: audit,
     metadataHash: descriptor.metadataHash,
+    transactionMetadataHash: descriptor.transactionMetadataHash,
     qualifierHash: descriptor.qualifierHash,
     administrators: [...administrators].sort(),
     participantsHash: digest(canonicalNativeHeadJson(families)),

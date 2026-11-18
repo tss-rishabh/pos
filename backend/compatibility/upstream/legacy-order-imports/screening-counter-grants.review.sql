@@ -16,3 +16,12 @@ GRANT SHOW_ROUTINE ON *.* TO 'APPLICATION'@'HOST';
 -- Only the trigger definer receives EXECUTE on pos_screening_sync_marker and
 -- projection/head DML. Only the independent publisher may initialize/reconcile
 -- projection tables from an authenticated complete BigQuery generation.
+-- Install screening-origins/transaction-security.review.sql under the same locked
+-- audit owner. It must own only the two reviewed fixed readonly metadata functions.
+GRANT EXECUTE ON FUNCTION `SOURCE_SCHEMA`.pos_rewrite_origin_transaction_metadata TO 'APPLICATION'@'HOST';
+GRANT EXECUTE ON FUNCTION `SOURCE_SCHEMA`.pos_rewrite_origin_transaction_metadata TO 'SOURCE_READER'@'HOST';
+GRANT EXECUTE ON FUNCTION `SOURCE_SCHEMA`.pos_rewrite_origin_transaction_metadata TO 'PROJECTION_PUBLISHER'@'HOST';
+GRANT EXECUTE ON FUNCTION `SOURCE_SCHEMA`.pos_rewrite_origin_transaction_metadata TO 'AUDIT_DEFINER'@'HOST';
+GRANT EXECUTE ON FUNCTION `SOURCE_SCHEMA`.pos_rewrite_origin_transaction_metadata TO 'COUNTER_DEFINER'@'HOST';
+-- No direct performance_schema SELECT, PROCESS or other routine EXECUTE for the
+-- counter definer. The audited readonly audit definer has its existing SELECT.

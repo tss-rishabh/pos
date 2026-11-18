@@ -121,6 +121,9 @@ export async function installNativeHeadFixture(
       await admin.query(
         'DROP FUNCTION IF EXISTS ' + scope + '.pos_rewrite_origin_history_metadata',
       );
+      await admin.query(
+        'DROP FUNCTION IF EXISTS ' + scope + '.pos_rewrite_origin_transaction_metadata',
+      );
       for (const name of accounts.reverse())
         await admin.query('DROP USER IF EXISTS ' + grantee(name));
     } finally {
@@ -307,6 +310,27 @@ export async function installNativeHeadFixture(
       'FUNCTION ' + scope + '.pos_rewrite_origin_history_metadata',
       names.audit,
     );
+    await admin.query('DROP FUNCTION IF EXISTS pos_rewrite_origin_transaction_metadata');
+    await install(
+      nativeHeadReviewStatements(
+        readFileSync(
+          'compatibility/upstream/screening-origins/transaction-security.review.sql',
+          'utf8',
+        ),
+      ),
+      names.audit,
+    );
+    await grant(
+      'EXECUTE',
+      'FUNCTION ' + scope + '.pos_rewrite_origin_transaction_metadata',
+      names.audit,
+    );
+    if (families.has('counter'))
+      await grant(
+        'EXECUTE',
+        'FUNCTION ' + scope + '.pos_rewrite_origin_transaction_metadata',
+        names.counter,
+      );
     for (const name of [
       names.source,
       names.app,
@@ -319,6 +343,11 @@ export async function installNativeHeadFixture(
       if (platform.length) await grant('SELECT', '`sys`.`sys_config`', name);
       await grant('SHOW_ROUTINE', '*.*', name);
       await grant('EXECUTE', 'FUNCTION ' + scope + '.pos_rewrite_origin_history_metadata', name);
+      await grant(
+        'EXECUTE',
+        'FUNCTION ' + scope + '.pos_rewrite_origin_transaction_metadata',
+        name,
+      );
     }
     for (const table of [
       'users',
