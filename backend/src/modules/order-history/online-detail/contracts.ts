@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { positiveId, nonnegativeId, sourceDate } from '../contracts.js';
+import { onlineDetailContext } from './context.js';
 export { positiveId as detailIdentifier } from '../contracts.js';
 
 export const onlineOrderDetailContract = 'pos-source-online-order-detail-v1';
@@ -12,6 +13,10 @@ const decimal = z
 const nullableReference = z
   .object({ id: nonnegativeId.nullable(), label: z.string().max(255).nullable() })
   .strict();
+/**
+ * `type` selects the source family. `from`/`to` are accepted from older links and ignored:
+ * legacy `ShowOnlineOrderDetailsView` reads the order by id with no date window.
+ */
 export const onlineDetailSelection = z
   .object({
     type: detailType,
@@ -197,21 +202,12 @@ export const onlineOrderDetail = z
   .object({
     type: detailType,
     storeId: positiveId,
-    reader: z.enum(['primary', 'bigquery']),
+    reader: z.literal('primary'),
     fetchedAt: z.iso.datetime({ offset: true }),
     fact: onlineDetailFact,
     customer: currentOrderCustomer,
     products: currentOrderProducts,
-    publication: z
-      .object({
-        generationId: z.uuid(),
-        sourceSnapshotId: z.string().min(16).max(128),
-        sourceSnapshotAt: z.iso.datetime({ offset: true }),
-        sourceCdcWatermark: z.iso.datetime({ offset: true }),
-        publishedAt: z.iso.datetime({ offset: true }),
-      })
-      .strict()
-      .nullable(),
+    context: onlineDetailContext,
   })
   .strict()
   .refine((value) => value.fact.customerId === value.customer.id, 'The order customer changed.')

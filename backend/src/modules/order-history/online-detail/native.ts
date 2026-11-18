@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, lt, lte, sql, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, sql, inArray } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import { AppError } from '../../../domain/errors.js';
 import type { Databases } from '../../../db/pools.js';
@@ -20,7 +20,6 @@ import {
 } from '../../../db/legacy-schema.js';
 import { benefitMemberships } from '../../customer-insights/benefits-schema.js';
 import { customerMembership } from '../../customer-insights/benefits-values.js';
-import type { OrderReadRange } from '../contracts.js';
 import {
   onlineDetailFact,
   currentOrderCustomer,
@@ -35,12 +34,11 @@ type Transaction = Parameters<Parameters<ReturnType<Databases['get']>['transacti
 const optionalId = (value: bigint | number | null) =>
   value === null || value === 0n || value === 0 ? null : String(value);
 const optionalTime = (value: string | null) => (!value || value.startsWith('0000-') ? null : value);
-/** One bounded, repeatable, read-only native snapshot; historical paths never call it. */
+/** One bounded, repeatable, read-only native snapshot of the order, as legacy reads it. */
 export async function readNativeOnlineDetail(
   tx: Transaction,
   orderId: string,
-  range: OrderReadRange,
-  inclusiveEnd?: string,
+  timeZone: string,
 ): Promise<OnlineDetailFact | null> {
   const [header] = await tx
     .select({
@@ -74,13 +72,7 @@ export async function readNativeOnlineDetail(
     .leftJoin(OrderStatus, eq(OrderStatus.id, Order.order_statuses))
     .leftJoin(PaymentStatus, eq(PaymentStatus.id, Order.payment_statuses))
     .leftJoin(PaymentMethod, eq(PaymentMethod.id, Order.payment_methods))
-    .where(
-      and(
-        eq(Order.id, BigInt(orderId)),
-        gte(Order.created_at, range.start),
-        inclusiveEnd ? lte(Order.created_at, inclusiveEnd) : lt(Order.created_at, range.end),
-      ),
-    )
+    .where(eq(Order.id, BigInt(orderId)))
     .limit(1);
   if (!header) return null;
   const [logSize] = await tx
@@ -217,7 +209,7 @@ export async function readNativeOnlineDetail(
     orderId: String(header.id),
     customerId: String(header.customerId),
     createdAt: header.createdAt,
-    timeZone: range.timeZone,
+    timeZone,
     reference: header.reference,
     amount: detailDecimal(header.amount),
     payAmount: detailDecimal(header.payAmount),

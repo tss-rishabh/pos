@@ -4,7 +4,8 @@ import { requireStore } from '../../../domain/access.js';
 import { AppError } from '../../../domain/errors.js';
 import type { CatalogService } from '../../catalog.js';
 import type { OrdersService } from '../../orders.js';
-import { sourceOrderDefaults, sourceSearchReadPlan } from './default-ranges.js';
+import { sourceOrderDefaults } from './default-ranges.js';
+import { searchWindow } from './service.js';
 import type { OrderSearchService } from './index.js';
 import { orderSearchInput, sourceSearchContract, type SourceOrderRow } from './contracts.js';
 
@@ -31,9 +32,10 @@ export function demoOrderSearch(
           { id: '1', name: 'Processing' },
           { id: '3', name: 'Delivered' },
         ],
-        orderTypes: ['ST'],
+        orderTypes: ['ST'] as ('ST' | 'HL' | 'HE' | 'N')[],
         checkedInStoreId: storeId,
         defaults: sourceOrderDefaults(Date.now(), config.BUSINESS_TIMEZONE),
+        hyperlocalTabs: { inQueue: 0, notPacked: 0, packed: 0, shipped: 0 },
       };
     },
     async search(user, storeId, raw) {
@@ -46,7 +48,7 @@ export function demoOrderSearch(
           'DEMO_ORDER_SELECTION_UNAVAILABLE',
           'Choose store orders in the synthetic workspace.',
         );
-      const range = sourceSearchReadPlan(input, config.BUSINESS_TIMEZONE, Date.now()).selected;
+      const window = searchWindow(input);
       const sample: SourceOrderRow[] = [];
       for (const selectedStore of input.storeIds) {
         const page = await orders.list(user, selectedStore);
@@ -86,15 +88,16 @@ export function demoOrderSearch(
           });
       }
       const rows = sample.filter((row) => {
-        const day = row.created_at.slice(0, 10),
-          status = row.order_statuses === 'Processing' ? '1' : '3';
+        const status = row.order_statuses === 'Processing' ? '1' : '3';
         return (
           (!input.orderIds.length || input.orderIds.includes(row.id)) &&
           !input.mobile &&
           !input.email &&
-          (input.inQueue || input.notPacked || (day >= range.from && day <= range.to)) &&
-          (!input.placedFrom || row.created_at >= input.placedFrom) &&
-          (!input.placedTo || row.created_at <= input.placedTo) &&
+          (input.inQueue ||
+            input.notPacked ||
+            !window ||
+            (row.created_at >= window.start &&
+              (window.inclusive ? row.created_at <= window.end : row.created_at < window.end))) &&
           (!input.paymentMethodIds.length || input.paymentMethodIds.includes('14')) &&
           (!input.paymentStatusIds.length || input.paymentStatusIds.includes('4')) &&
           (!input.orderStatusIds.length || input.orderStatusIds.includes(status)) &&
@@ -126,14 +129,13 @@ export function demoOrderSearch(
         recordsFiltered: String(rows.length),
         page,
         pageSize: input.pageSize,
-        reader: range.reader,
+        reader: 'primary' as const,
         data: rows.slice((page - 1) * input.pageSize, page * input.pageSize),
         fetchedAt: new Date().toISOString(),
-        generationId: null,
         range: {
-          from: range.from,
-          to: range.to,
-          timeZone: range.timeZone,
+          placedFrom: window?.start ?? null,
+          placedTo: window?.end ?? null,
+          timeZone: config.BUSINESS_TIMEZONE,
           ignoredForQueue: input.inQueue || input.notPacked,
         },
         ...(!input.storeIds.length ? { emptySelection: true as const } : {}),

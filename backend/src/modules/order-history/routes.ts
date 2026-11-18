@@ -4,7 +4,17 @@ import { authenticated } from '../../auth/routes.js';
 import { AppError } from '../../domain/errors.js';
 import { identifier } from '../../domain/validation.js';
 import type { OrdersService } from '../orders.js';
-import { orderListQuery, orderReadSelection } from './contracts.js';
+import { orderListQuery } from './contracts.js';
+
+/** `cr` is the legacy cross-store flag; `from`/`to` from older links are accepted and ignored. */
+const detailQuery = z
+  .object({
+    cr: z.string().max(20).optional(),
+    from: z.iso.date().optional(),
+    to: z.iso.date().optional(),
+    intent: z.enum(['interactive', 'report']).optional(),
+  })
+  .strict();
 
 async function assertSessionCurrent(request: FastifyRequest) {
   if (!request.authSessionValid || !(await request.authSessionValid())) {
@@ -36,8 +46,12 @@ export function registerPublicOrders(app: FastifyInstance, orders: OrdersService
     async (request) => {
       const user = authenticated(request),
         params = scope.extend({ orderId: identifier }).parse(request.params),
-        selection = orderReadSelection.parse(request.query);
-      const result = await orders.detail(user, params.storeId, params.orderId, selection);
+        query = detailQuery.parse(request.query);
+      // Legacy `int(request.GET.get('cr', 0))`, with a non-integer treated as 0.
+      const crossAccess = Boolean(
+        query.cr && /^\s*[+-]?\d+\s*$/.test(query.cr) && Number(query.cr) !== 0,
+      );
+      const result = await orders.detail(user, params.storeId, params.orderId, { crossAccess });
       await assertSessionCurrent(request);
       // Preserve driver IDs exactly in both live and synthetic review responses.
       return JSON.parse(

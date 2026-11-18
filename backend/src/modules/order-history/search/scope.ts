@@ -37,7 +37,7 @@ export function sourceSearchAuthority(config: Config, db: Databases) {
       if (!actor?.is_active || actor.role !== user.role || actor.user_type !== user.userType)
         throw denied();
       const internal = actor.role === 1 && actor.user_type === 1,
-        globalReader = actor.user_type === 1;
+        franchiseViewer = actor.user_type === 2;
       const allowed = (
         internal
           ? await tx.select({ id: Store.id }).from(Store).for('share')
@@ -61,7 +61,6 @@ export function sourceSearchAuthority(config: Config, db: Databases) {
         throw denied();
       const effectiveType = queue ? 'HL' : input.orderType,
         explicitIds = !queue && Boolean(input.orderIds.length);
-      if (effectiveType === 'N' && !globalReader) throw denied();
       if ((queue || (effectiveType === 'HL' && !explicitIds)) && !checkedInStoreId)
         throw new AppError(
           409,
@@ -84,7 +83,7 @@ export function sourceSearchAuthority(config: Config, db: Databases) {
         checkedInStoreId,
         allowedStores,
         internal,
-        globalReader,
+        franchiseViewer,
         effectiveType,
         selectedStores: input.storeIds,
         explicitIds,

@@ -1,4 +1,3 @@
-import { AppError } from '../../../domain/errors.js';
 import {
   and,
   asc,
@@ -19,7 +18,6 @@ import {
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/mysql-core';
 import type { Databases } from '../../../db/pools.js';
-import type { OrderReadRange } from '../contracts.js';
 import {
   Order,
   OrderStore,
@@ -38,6 +36,7 @@ import {
 import { searchDataInvalid } from './format.js';
 import type {
   OrderSearchInput,
+  SearchWindow,
   SourceSearchScope,
   SourceOrder,
   SourceStore,
@@ -55,37 +54,6 @@ function countHeader(db: Executor, scope: SourceSearchScope) {
     selected = !scope.explicitIds && storeMode;
   return db
     .select({ count: sql<string>`CAST(COUNT(*) AS CHAR)` })
-    .from(Order)
-    .leftJoin(MUser, eq(MUser.id, Order.user))
-    .leftJoin(
-      OrderStatus,
-      and(eq(OrderStatus.id, Order.order_statuses), ne(Order.order_statuses, 0n)),
-    )
-    .leftJoin(
-      PaymentMethod,
-      and(eq(PaymentMethod.id, Order.payment_methods), ne(Order.payment_methods, 0n)),
-    )
-    .leftJoin(
-      PaymentStatus,
-      and(eq(PaymentStatus.id, Order.payment_statuses), ne(Order.payment_statuses, 0n)),
-    )
-    .leftJoin(anyStore, and(eq(anyStore.order, Order.id), sql`${storeMode}`))
-    .leftJoin(
-      matchedStore,
-      and(
-        eq(matchedStore.order, Order.id),
-        sql`${selected}`,
-        scope.selectedStores.length
-          ? inArray(matchedStore.store, scope.selectedStores.map(BigInt))
-          : sql`FALSE`,
-      ),
-    );
-}
-function idHeader(db: Executor, scope: SourceSearchScope) {
-  const storeMode = scope.effectiveType === 'ST',
-    selected = !scope.explicitIds && storeMode;
-  return db
-    .select({ id: Order.id })
     .from(Order)
     .leftJoin(MUser, eq(MUser.id, Order.user))
     .leftJoin(
@@ -179,22 +147,21 @@ function joinHeader(db: Executor, scope: SourceSearchScope, multiplicity = true)
       ),
     );
 }
+/**
+ * Stores whose orders a non-explicit search covers (legacy `orders_datatable.py:93-121`).
+ * Explicit order-ID searches are not store-scoped in legacy ("Allow to see all stores order if
+ * search by order id"), so they return no store list here.
+ */
 export function sourceStoreSelection(scope: SourceSearchScope): string[] {
-  if (scope.effectiveType === 'ST')
-    return scope.explicitIds ? scope.allowedStores : scope.selectedStores;
+  if (scope.explicitIds) return [];
+  if (scope.effectiveType === 'ST') return scope.selectedStores;
   if (scope.effectiveType === 'HE')
     return scope.selectedStores.length
       ? [scope.selectedStores[0]!]
-      : scope.explicitIds
-        ? scope.allowedStores
-        : scope.checkedInStoreId
-          ? [scope.checkedInStoreId]
-          : [];
-  return scope.explicitIds
-    ? scope.allowedStores
-    : scope.checkedInStoreId
-      ? [scope.checkedInStoreId]
-      : [];
+      : scope.checkedInStoreId
+        ? [scope.checkedInStoreId]
+        : [];
+  return scope.checkedInStoreId ? [scope.checkedInStoreId] : [];
 }
 function nativeScope(
   db: Executor,
@@ -209,7 +176,33 @@ function nativeScope(
     noStore = notExists(
       db.select({ id: OrderStore.id }).from(OrderStore).where(eq(OrderStore.order, Order.id)),
     );
-  const storeMatch = ids.length ? inArray(OrderStore.store, ids.map(BigInt)) : sql`FALSE`;
+  if (scope.effectiveType === 'ST')
+    // `order_store__isnull=False` then, without IDs, `order_store__store_id__in=selected`.
+    return and(isNotNull(anyStore.id), scope.explicitIds ? undefined : isNotNull(matchedStore.id));
+  if (scope.effectiveType === 'N')
+    // `order_type == "N" and (user_type != 2 or order_id_list)`, else `Order.objects.none()`.
+    return scope.franchiseViewer && !scope.explicitIds
+      ? sql`FALSE`
+      : and(noStore, isNull(Order.location_id));
+  if (scope.effectiveType === 'HE')
+    return scope.explicitIds
+      ? undefined
+      : exists(
+          db
+            .select({ id: ExpressLineItem.id })
+            .from(ExpressLineItem)
+            .where(
+              and(
+                eq(ExpressLineItem.order, Order.id),
+                ids.length
+                  ? inArray(sql<string>`CAST(${ExpressLineItem.store_id} AS CHAR)`, ids)
+                  : sql`FALSE`,
+              ),
+            ),
+        );
+  // HL: `order_store__isnull=True, location_id__isnull=False`, plus the check-in location
+  // without IDs. A warehouse location (NW) only matches when it belongs to the checked-in
+  // store: a numerically equal warehouse id is not that store (security decision).
   const owning = or(
     and(
       eq(Order.location_type, 'SW'),
@@ -232,38 +225,10 @@ function nativeScope(
       ),
     ),
   );
-  if (scope.effectiveType === 'ST')
-    return and(
-      isNotNull(anyStore.id),
-      scope.explicitIds
-        ? exists(
-            db
-              .select({ id: OrderStore.id })
-              .from(OrderStore)
-              .where(and(eq(OrderStore.order, Order.id), storeMatch)),
-          )
-        : isNotNull(matchedStore.id),
-    );
-  if (scope.effectiveType === 'N')
-    return and(noStore, isNull(Order.location_id), scope.globalReader ? sql`TRUE` : sql`FALSE`);
-  if (scope.effectiveType === 'HE')
-    return exists(
-      db
-        .select({ id: ExpressLineItem.id })
-        .from(ExpressLineItem)
-        .where(
-          and(
-            eq(ExpressLineItem.order, Order.id),
-            ids.length
-              ? inArray(sql<string>`CAST(${ExpressLineItem.store_id} AS CHAR)`, ids)
-              : sql`FALSE`,
-          ),
-        ),
-    );
   return and(
     noStore,
     isNotNull(Order.location_id),
-    scope.internal && scope.explicitIds ? sql`TRUE` : owning,
+    scope.explicitIds ? undefined : owning,
     scope.explicitIds
       ? undefined
       : eq(sql<string>`CAST(${Order.location_id} AS CHAR)`, scope.checkedInStoreId ?? '0'),
@@ -281,17 +246,20 @@ function filters(
     | 'paymentStatusIds'
     | 'orderStatusIds'
   >,
-  range: OrderReadRange,
+  window: SearchWindow | null,
   queueIds?: readonly string[],
 ) {
   return and(
     or(isNull(Order.order_statuses), ne(Order.order_statuses, 0n)),
     nativeScope(db, scope, queueIds),
     input.orderIds.length ? inArray(Order.id, input.orderIds.map(BigInt)) : undefined,
-    gte(Order.created_at, range.start),
-    lt(Order.created_at, range.end),
-    input.placedFrom ? gte(Order.created_at, input.placedFrom) : undefined,
-    input.placedTo ? lte(Order.created_at, input.placedTo) : undefined,
+    // Legacy `created_at__gte` / `created_at__lte` on the submitted range; no range, no filter.
+    window ? gte(Order.created_at, window.start) : undefined,
+    window
+      ? window.inclusive
+        ? lte(Order.created_at, window.end)
+        : lt(Order.created_at, window.end)
+      : undefined,
     input.paymentMethodIds.length
       ? inArray(Order.payment_methods, input.paymentMethodIds.map(BigInt))
       : undefined,
@@ -527,73 +495,16 @@ export function sourceNativeRepository(
     });
   }
   return {
-    async currentFacts(
-      scope: SourceSearchScope,
-      input: OrderSearchInput,
-      range: OrderReadRange,
-      maximum: number,
-    ) {
-      if (range.reader === 'bigquery') throw searchDataInvalid();
-      return db.get('primary').transaction(
-        async (tx) => {
-          const selected = await idHeader(tx, scope)
-            .where(filters(tx, scope, input, range))
-            .groupBy(Order.id)
-            .limit(maximum + 1);
-          if (selected.length > maximum)
-            throw new AppError(
-              422,
-              'ORDER_SEARCH_TOO_LARGE',
-              'Narrow the current order selection.',
-            );
-          if (!selected.length) return [];
-          const rows = await joinHeader(tx, scope, false).where(
-            filters(
-              tx,
-              scope,
-              input,
-              range,
-              selected.map((row) => String(row.id)),
-            ),
-          );
-          return (await enrich(tx, rows)).map((row) => row.fact);
-        },
-        { isolationLevel: 'repeatable read', accessMode: 'read only' },
-      );
-    },
-    async facts(scope: SourceSearchScope, range: OrderReadRange, ids: readonly string[]) {
-      if (range.reader === 'bigquery') throw searchDataInvalid();
-      if (!ids.length) return [];
-      if (ids.length > 10000) throw searchDataInvalid();
-      return db.get(range.reader === 'data' ? 'data' : 'primary').transaction(
-        async (tx) => {
-          const empty = {
-            orderIds: [],
-            paymentMethodIds: [],
-            paymentStatusIds: [],
-            orderStatusIds: [],
-          };
-          const rows = await joinHeader(tx, scope)
-            .where(filters(tx, scope, empty, range, ids))
-            .limit(10001);
-          if (rows.length > 10000) throw searchDataInvalid();
-          const values = await enrich(tx, rows);
-          return [...new Map(values.map((value) => [value.fact.id, value.fact])).values()];
-        },
-        { isolationLevel: 'repeatable read', accessMode: 'read only' },
-      );
-    },
     async search(
       scope: SourceSearchScope,
       input: OrderSearchInput,
-      range: OrderReadRange,
+      window: SearchWindow | null,
       queueIds?: readonly string[],
     ) {
-      if (range.reader === 'bigquery') throw searchDataInvalid();
-      const reader = range.reader === 'data' ? 'data' : 'primary';
-      return db.get(reader).transaction(
+      // Legacy AjaxOrderListView reads the default database (primary reader).
+      return db.get('primary').transaction(
         async (tx) => {
-          const base = filters(tx, scope, input, range, queueIds);
+          const base = filters(tx, scope, input, window, queueIds);
           let direct = false;
           if (input.mobile) {
             const probe = joinHeader(tx, scope)

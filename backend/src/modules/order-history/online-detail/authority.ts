@@ -126,7 +126,7 @@ export function onlineDetailAuthority(config: Config, db: Databases) {
         transferable = Boolean(order.transfer) && next.includes(storeId);
       const allowed =
         selection.type === 'N'
-          ? scope.globalReader && !mappings.length && order.locationId === null
+          ? !mappings.length && order.locationId === null
           : selection.type === 'HL'
             ? !mappings.length &&
               order.locationId !== null &&

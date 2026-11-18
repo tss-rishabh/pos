@@ -61,11 +61,8 @@ export function formatSourceOrder(
   rowKey: string,
 ): SourceOrderRow {
   const stores = [...fact.stores].sort((a, b) => numeric(a.id, b.id));
-  // The source takes the first global association. Scope it for non-global
-  // viewers so a split order cannot substitute another store's counter/action.
-  const first = stores.find(
-    (store) => scope.internal || scope.allowedStores.includes(store.storeId),
-  );
+  // Legacy reads `order.order_store.first()` (lowest id) for every viewer.
+  const first = stores[0];
   if (first && (!first.storeExists || (first.counterId !== '0' && !first.counterExists)))
     throw searchDataInvalid();
   let storeName = first ? first.storeName : '';
