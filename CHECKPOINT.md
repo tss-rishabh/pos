@@ -3,7 +3,11 @@
 ## Current state — 18 November 2026, completed fixes and expanded verification
 
 User work order remains implementation first, then parity/full verification.
-The identified application code gaps are integrated. Newly discovered runtime
+The order-discovery review found a new application gap: plain /orders selects
+today instead of the original rolling five-day minute-precision window. The
+feedback worker owns its server-authoritative correction before full r9 starts.
+The implementation map records that family as partial until the fix is integrated.
+Previously identified application gaps are integrated. Newly discovered runtime
 and verification-wrapper faults are fixed before broader execution. This is not
 complete parity or production readiness. No live service writes, charges,
 provider sends or deployment occurred; the user's4273 server remains closed.
@@ -116,9 +120,15 @@ asserted. A separate bounded actual-API diagnostic proves the unchanged default
 quota: requests1–240 return200;241–242 return429. `424c043` adds fixed350ms
 inter-triple pacing outside all three timing/counter boundaries, equally for
 all orders/cases/warmups. It retains216 samples per case, all dimensions and
-the30min budget. Fresh paced measurement is live as exec89458 in the lookup
-agent, output `/tmp/pos-catalog-workflow-measurement-20261118-paced-r2.json`.
-Expected20–25min; no performance conclusion yet. Earlier partial runs remain.
+the30min budget. Fresh paced measurement89458 completed:8 scenarios ×216
+retained triples (5184 boundary observations), balanced execution orders,
+unchanged922 inputs and zero observed warnings. Full raw samples and cleanup
+are committed under backend/parity/evidence/catalog-details/. Matrix100 reads
+are108/4/7 for source/service/authenticated HTTP. Dense p95 is1222.93/17.41/
+21.44ms; selective price sorting shows no improvement (70.29/70.86/71.94ms).
+Boundaries differ; no universal speedup, production p95 or whole-application
+acceptance is claimed. The exact container is absent; tmpfs created no anonymous
+volume. Earlier partial runs remain. Measurements precede the order-default fix.
 
 Before r9, focused CLI strict checking found the conditional Go prerequisite's
 `command` widened to string. `42ade0b` retains its literal type. Exact strict,
@@ -132,8 +142,12 @@ Desktop CI44284340523 succeeds on Windows/macOS at5c06f1f. Later CI44289877978
 at7efedf7 succeeds on macOS but fails1/53 Windows cases: synchronous lookup
 counter inspected before async response. `702d899` adds an actual response/ready-UI
 barrier and keeps exact-one request checks, including a final lifecycle recheck.
-Fresh browser/Windows execution is running remotely on8b912f7. Old OTP failure6c remains
-unattributed; no timeout or retry workaround was added.
+CI44314698088 passes both Windows and macOS on exact8b912f7, including native/
+offline/browser recovery, unsigned packaging and retained artifact integrity.
+Metadata-only evidence is backend/evidence/desktop-ci-8b912f7.json. Root verified
+all four production/client/electron/e2e trees match before the pending order
+default fix. This is not signing or physical-printer acceptance. Old OTP failure6c
+remains unattributed; no timeout or retry workaround was added.
 
 Last complete r8 remains FAILED:144 checks passed,1 backend check failed,
 1 generic browser check unexecuted of146 expected. Bounded851f620 corrections
