@@ -118,7 +118,9 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             ? `legacy-report-${job.id}.${job.format.toUpperCase() === 'XLSX' ? 'xlsx' : 'csv'}`
             : job.kind === 'current-inventory-workbook'
               ? `inventory-${job.id}.xlsx`
-              : `${job.kind}-${job.from}-${job.to}.csv`,
+              : job.kind === 'administration-list'
+                ? `administration-${job.id}.csv`
+                : `${job.kind}-${job.from}-${job.to}.csv`,
           user.id,
           job.format.toUpperCase() === 'XLSX' ? 'XLSX' : 'CSV',
         ),

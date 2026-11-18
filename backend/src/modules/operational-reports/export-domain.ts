@@ -5,6 +5,7 @@ import { AppError } from '../../domain/errors.js';
 import type { CashLedgerRow } from '../finance/ledger.js';
 import { businessTimestamp } from './report-inputs.js';
 import { reportColumnSelection } from './export-presentation.js';
+import { administrationCollectionExportInputSchema } from '../administration/collection-export-contracts.js';
 
 const date = z
   .string()
@@ -34,6 +35,7 @@ const common = {
 };
 export const exportInputSchema = z
   .discriminatedUnion('kind', [
+    administrationCollectionExportInputSchema,
     z
       .object({
         kind: z.literal('current-inventory-workbook'),
@@ -158,7 +160,7 @@ export const exportInputSchema = z
       .strict(),
   ])
   .superRefine((input, ctx) => {
-    if (input.kind === 'current-inventory-workbook') return;
+    if (input.kind === 'current-inventory-workbook' || input.kind === 'administration-list') return;
     if (timestampExportKind(input.kind)) {
       try {
         const start = Temporal.PlainDateTime.from(input.from),
@@ -214,7 +216,8 @@ export const exportStatus = z.enum(['QUEUED', 'BUILDING', 'STORING', 'COMPLETED'
 export type ExportStatus = z.infer<typeof exportStatus>;
 export function normalizedExportInput(value: unknown): ReportExportInput {
   const input = exportInputSchema.parse(value);
-  if (input.kind === 'current-inventory-workbook') return input;
+  if (input.kind === 'current-inventory-workbook' || input.kind === 'administration-list')
+    return input;
   return {
     ...input,
     ...(timestampExportKind(input.kind)

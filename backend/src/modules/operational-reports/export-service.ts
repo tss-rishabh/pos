@@ -20,6 +20,11 @@ import {
 } from './export-domain.js';
 import { inventoryWorkbookBuilder } from '../inventory-workbooks/index.js';
 import {
+  administrationCollectionExport,
+  assertAdministrationCollectionExport,
+  collectionExportScope,
+} from '../administration/collection-export.js';
+import {
   readInventoryWorkbookOptions,
   type InventoryWorkbookOptions,
 } from '../inventory-workbooks/options.js';
@@ -88,6 +93,7 @@ interface ExportReportServices {
   performance?: Pick<ReturnType<typeof staffPerformanceService>, 'salespeople' | 'cashiers'>;
   acceptance?: Pick<ReturnType<typeof acceptanceReportService>, 'read'>;
   inventoryWorkbook?: ExportBuilder;
+  administration?: ReturnType<typeof administrationCollectionExport>;
 }
 export function reportExportBuilder(
   config: Config,
@@ -102,9 +108,11 @@ export function reportExportBuilder(
     flash = services.flashSales || flashSalesReportService(config, db),
     performance = services.performance || staffPerformanceService(config, db),
     acceptance = services.acceptance || acceptanceReportService(config, db),
-    inventory = services.inventoryWorkbook || inventoryWorkbookBuilder(config, db);
+    inventory = services.inventoryWorkbook || inventoryWorkbookBuilder(config, db),
+    administration = services.administration || administrationCollectionExport(config, db);
   return async (user, input, context) => {
     if (input.kind === 'current-inventory-workbook') return inventory(user, input, context);
+    if (input.kind === 'administration-list') return administration(user, input, context);
     if (
       input.kind === 'salesperson-performance' ||
       input.kind === 'cashier-performance' ||
@@ -303,11 +311,22 @@ function allowed(user: Principal, job: ReportExportJob): boolean {
 function assertAllowed(user: Principal, job: ReportExportJob) {
   if (!allowed(user, job)) throw noAccess();
 }
-async function assertWorkbookStoreScope(
+async function assertExportKindAuthority(
   tx: AdministrationTransaction,
   user: Principal,
   input: ReportExportInput,
+  frozenStoreIds?: readonly string[],
 ) {
+  if (input.kind === 'administration-list') {
+    await assertAdministrationCollectionExport(
+      tx,
+      input.resource === 'stores' && frozenStoreIds
+        ? { ...user, storeIds: [...frozenStoreIds] }
+        : user,
+      input,
+    );
+    return;
+  }
   if (input.kind !== 'current-inventory-workbook' || user.userType !== 2) return;
   const stores = await tx
     .select({ id: Store.id, category: Store.category })
@@ -327,18 +346,20 @@ function dto(job: ReportExportJob, user: Principal) {
     kind: job.input.kind,
     reportName:
       job.input.label ||
-      {
-        'cash-balance': 'Store cash balances',
-        'day-close-history': 'Day-close history',
-        'returned-orders': 'Returned orders',
-        'order-transactions': 'Order transactions',
-        'hyperlocal-daily': 'Hyperlocal daily report',
-        'flash-sales': 'Flash sales',
-        'salesperson-performance': 'Salesperson performance',
-        'cashier-performance': 'Cashier performance',
-        'hyperlocal-acceptance': 'Hyperlocal acceptance',
-        'current-inventory-workbook': 'Current inventory workbook',
-      }[job.input.kind],
+      (job.input.kind === 'administration-list'
+        ? `${job.input.resource} export`
+        : {
+            'cash-balance': 'Store cash balances',
+            'day-close-history': 'Day-close history',
+            'returned-orders': 'Returned orders',
+            'order-transactions': 'Order transactions',
+            'hyperlocal-daily': 'Hyperlocal daily report',
+            'flash-sales': 'Flash sales',
+            'salesperson-performance': 'Salesperson performance',
+            'cashier-performance': 'Cashier performance',
+            'hyperlocal-acceptance': 'Hyperlocal acceptance',
+            'current-inventory-workbook': 'Current inventory workbook',
+          }[job.input.kind]),
     note: job.input.note || null,
     from: 'from' in job.input ? job.input.from : null,
     to: 'to' in job.input ? job.input.to : null,
@@ -387,6 +408,37 @@ export function reportExportService(
       );
     return store;
   };
+  async function metadataAccess(user: Principal, jobs: readonly ReportExportJob[]) {
+    const access = new Map(jobs.map((job) => [job.id, allowed(user, job)]));
+    const dimensions = jobs.filter((job) => job.input.kind === 'administration-list');
+    if (!dimensions.length) return access;
+    await transaction(async (tx) => {
+      const current = await currentOperator(tx, user.id),
+        decisions = new Map<string, boolean>();
+      for (const job of dimensions) {
+        if (!allowed(current, job)) {
+          access.set(job.id, false);
+          continue;
+        }
+        const input = job.input;
+        if (input.kind !== 'administration-list') continue;
+        const key = JSON.stringify([input.resource, input.active, input.storeIds, job.storeIds]);
+        let permitted = decisions.get(key);
+        if (permitted === undefined) {
+          try {
+            await assertExportKindAuthority(tx, current, input, job.storeIds);
+            permitted = true;
+          } catch (error: unknown) {
+            if (!(error instanceof AppError) || ![401, 403].includes(error.status)) throw error;
+            permitted = false;
+          }
+          decisions.set(key, permitted);
+        }
+        access.set(job.id, permitted);
+      }
+    });
+    return access;
+  }
   async function jobFor(tx: AdministrationTransaction, id: string) {
     const [job] = await tx
       .select()
@@ -425,7 +477,7 @@ export function reportExportService(
     return transaction(async (tx) => {
       const user = await currentOperator(tx, job.operatorId);
       assertAllowed(user, job);
-      await assertWorkbookStoreScope(tx, user, job.input);
+      await assertExportKindAuthority(tx, user, job.input, job.storeIds);
       return { ...user, storeIds: job.storeIds };
     });
   }
@@ -456,7 +508,7 @@ export function reportExportService(
       renewing = transaction(async (tx) => {
         const current = await currentOperator(tx, job.operatorId);
         assertAllowed(current, job);
-        await assertWorkbookStoreScope(tx, current, job.input);
+        await assertExportKindAuthority(tx, current, job.input, job.storeIds);
         const [lease] = await tx
           .select({ token: reportExportJobs.claimToken, status: reportExportJobs.status })
           .from(reportExportJobs)
@@ -529,7 +581,7 @@ export function reportExportService(
       const reserved = await transaction(async (tx) => {
         const current = await currentOperator(tx, job.operatorId);
         assertAllowed(current, job);
-        await assertWorkbookStoreScope(tx, current, job.input);
+        await assertExportKindAuthority(tx, current, job.input, job.storeIds);
         const result = await tx
           .update(reportExportJobs)
           .set({
@@ -604,7 +656,7 @@ export function reportExportService(
       return transaction(async (tx) => {
         const current = await currentOperator(tx, user.id, 'update');
         if (managerReportExport(input.kind) && current.role !== 1) throw noAccess();
-        await assertWorkbookStoreScope(tx, current, input);
+        await assertExportKindAuthority(tx, current, input);
         if (
           requiresSelectedExportStores(input.kind) ||
           ((input.kind === 'hyperlocal-daily' || managerReportExport(input.kind)) &&
@@ -647,6 +699,8 @@ export function reportExportService(
             'EXPORT_QUEUE_LIMIT',
             'Wait for an existing export to finish before requesting another.',
           );
+        const dimensionScope =
+          input.kind === 'administration-list' ? collectionExportScope(current, input) : null;
         const now = instant(clock()),
           job: ReportExportJob = {
             id: randomUUID(),
@@ -655,8 +709,9 @@ export function reportExportService(
             requestId,
             requestHash,
             input,
-            storeIds:
-              input.kind === 'flash-sales' && current.userType === 2
+            storeIds: dimensionScope
+              ? dimensionScope.storeIds
+              : input.kind === 'flash-sales' && current.userType === 2
                 ? current.storeIds
                 : requiresSelectedExportStores(input.kind) ||
                     (managerReportExport(input.kind) && current.userType === 2)
@@ -670,14 +725,15 @@ export function reportExportService(
                         )
                       ? []
                       : current.storeIds,
-            requiresGlobal:
-              !requiresSelectedExportStores(input.kind) &&
-              current.role === 1 &&
-              !(
-                (input.kind === 'hyperlocal-daily' || managerReportExport(input.kind)) &&
-                current.userType === 2
-              ) &&
-              !input.storeIds.length,
+            requiresGlobal: dimensionScope
+              ? dimensionScope.requiresGlobal
+              : !requiresSelectedExportStores(input.kind) &&
+                current.role === 1 &&
+                !(
+                  (input.kind === 'hyperlocal-daily' || managerReportExport(input.kind)) &&
+                  current.userType === 2
+                ) &&
+                !input.storeIds.length,
             requesterUserType: current.userType,
             status: 'QUEUED',
             claimToken: null,
@@ -701,7 +757,7 @@ export function reportExportService(
         const current = await currentOperator(tx, user.id),
           job = await jobFor(tx, id);
         assertAllowed(current, job);
-        await assertWorkbookStoreScope(tx, current, job.input);
+        await assertExportKindAuthority(tx, current, job.input, job.storeIds);
         return dto(job, current);
       });
     },
@@ -764,8 +820,9 @@ export function reportExportService(
                   .from(reportExportJobs)
                   .where(inArray(reportExportJobs.id, ids))
               : [],
+            permitted = await metadataAccess(current, jobs),
             eligible = new Map(
-              jobs.map((job) => [job.id, job.status === 'COMPLETED' && allowed(current, job)]),
+              jobs.map((job) => [job.id, job.status === 'COMPLETED' && permitted.get(job.id)]),
             );
           return {
             ...result,
@@ -802,7 +859,7 @@ export function reportExportService(
         pattern = '%' + input.search.replace(/[\\%_]/g, (value) => '\\' + value) + '%';
       if (input.origin === 'current') {
         const kind = sql<string>`json_unquote(json_extract(${reportExportJobs.input},'$.kind'))`,
-          name = sql<string>`coalesce(nullif(json_unquote(json_extract(${reportExportJobs.input},'$.label')),''),case ${kind} when 'day-close-history' then 'Day-close history' when 'cash-balance' then 'Store cash balances' when 'returned-orders' then 'Returned orders' when 'order-transactions' then 'Order transactions' when 'hyperlocal-daily' then 'Hyperlocal daily report' when 'flash-sales' then 'Flash sales' else ${kind} end)`,
+          name = sql<string>`coalesce(nullif(json_unquote(json_extract(${reportExportJobs.input},'$.label')),''),case ${kind} when 'day-close-history' then 'Day-close history' when 'cash-balance' then 'Store cash balances' when 'returned-orders' then 'Returned orders' when 'order-transactions' then 'Order transactions' when 'hyperlocal-daily' then 'Hyperlocal daily report' when 'flash-sales' then 'Flash sales' when 'salesperson-performance' then 'Salesperson performance' when 'cashier-performance' then 'Cashier performance' when 'hyperlocal-acceptance' then 'Hyperlocal acceptance' when 'administration-list' then concat(json_unquote(json_extract(${reportExportJobs.input},'$.resource')),' export') else ${kind} end)`,
           note = sql<string>`json_unquote(json_extract(${reportExportJobs.input},'$.note'))`,
           recent = or(
             inArray(reportExportJobs.status, ['QUEUED', 'BUILDING', 'STORING']),
@@ -843,8 +900,14 @@ export function reportExportService(
             .limit(input.pageSize)
             .offset(offset),
         ]);
+        const permitted = await metadataAccess(current, rows);
         return {
-          data: await withNames(rows.map((job) => dto(job, current))),
+          data: await withNames(
+            rows.map((job) => ({
+              ...dto(job, current),
+              canDownload: job.status === 'COMPLETED' && !!permitted.get(job.id),
+            })),
+          ),
           total: totals[0]?.total || 0,
           page: input.page,
           pageSize: input.pageSize,
@@ -953,7 +1016,7 @@ export function reportExportService(
         const current = await currentOperator(tx, user.id),
           job = await jobFor(tx, id);
         assertAllowed(current, job);
-        await assertWorkbookStoreScope(tx, current, job.input);
+        await assertExportKindAuthority(tx, current, job.input, job.storeIds);
         if (
           job.status !== 'COMPLETED' ||
           !job.artifactKey ||
@@ -973,7 +1036,9 @@ export function reportExportService(
         ...file,
         filename: (job.input.kind === 'current-inventory-workbook'
           ? `inventory-${job.id}.xlsx`
-          : `${job.input.kind}-${job.input.from}-${job.input.to}.csv`
+          : job.input.kind === 'administration-list'
+            ? `administration-${job.id}.csv`
+            : `${job.input.kind}-${job.input.from}-${job.input.to}.csv`
         ).replaceAll(':', '-'),
         contentType: reportFileContentType(reportFileFormat(job.input.kind)),
       };

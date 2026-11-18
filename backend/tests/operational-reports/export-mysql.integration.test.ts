@@ -307,6 +307,73 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
       exports.create({ ...user, role: 1 }, randomUUID(), selected),
     ).rejects.toMatchObject({ code: 'EXPORT_ACCESS_DENIED' });
   });
+  it('queues date-free administration exports and checks source role authority on dispatch, metadata and download', async () => {
+    await admin!.query('UPDATE pos_user SET role=3 WHERE id=900001');
+    let renders = 0;
+    const selected = {
+        kind: 'administration-list',
+        resource: 'operators',
+        storeIds: [],
+        search: 'private admin filter',
+        active: 'all',
+        sort: 'name',
+        direction: 'asc',
+        columns: ['name', 'role'],
+      },
+      exports = reportExportService(
+        config,
+        db(),
+        options,
+        store,
+        reportExportBuilder(config, db(), {
+          administration: async (actor, value) => {
+            renders++;
+            expect(actor.role).toBe(3);
+            expect(value).toEqual(selected);
+            return {
+              bytes: Buffer.from('"Name","Role"\r\n"Fixture","3"'),
+              rowCount: 1,
+              format: 'CSV',
+            };
+          },
+        }),
+        () => now,
+      ),
+      command = randomUUID(),
+      job = await exports.create(user, command, selected);
+    expect(job).toMatchObject({
+      from: null,
+      to: null,
+      reportName: 'operators export',
+      status: 'QUEUED',
+    });
+    expect((await exports.create(user, command, selected)).id).toBe(job.id);
+    await expect(
+      exports.create(user, command, { ...selected, columns: ['name'] }),
+    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
+    expect(await exports.runOne()).toMatchObject({ jobId: job.id, status: 'COMPLETED' });
+    expect(renders).toBe(1);
+    expect((await exports.list(user)).data.find((row) => row.id === job.id)?.canDownload).toBe(
+      true,
+    );
+    const file = await exports.download(user, job.id);
+    for await (const _chunk of file.body) {
+      /* consume protected fixture stream */
+    }
+    await admin!.query('UPDATE pos_user SET role=4 WHERE id=900001');
+    expect((await exports.list(user)).data.find((row) => row.id === job.id)?.canDownload).toBe(
+      false,
+    );
+    await expect(exports.read(user, job.id)).rejects.toMatchObject({ code: 'ROLE_ACCESS_DENIED' });
+    await expect(exports.download(user, job.id)).rejects.toMatchObject({
+      code: 'ROLE_ACCESS_DENIED',
+    });
+    await expect(
+      exports.create({ ...user, role: 3 }, randomUUID(), selected),
+    ).rejects.toMatchObject({ code: 'ROLE_ACCESS_DENIED' });
+    expect(streamCount).toBe(1);
+    expect(renders).toBe(1);
+  });
   it('refuses manager export dispatch after role/assignment revocation and does not broaden empty franchise scope', async () => {
     await admin!.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=900001');
     const exports = service(),
