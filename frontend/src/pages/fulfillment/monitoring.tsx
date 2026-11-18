@@ -48,7 +48,6 @@ const order = z.object({
 });
 type Order = z.infer<typeof order>;
 const result = z.object({
-  reader: z.enum(['primary', 'data', 'bigquery']),
   tabCounts: z.record(z.string(), z.number()),
   data: z.array(order),
   page: z.number(),
@@ -74,7 +73,7 @@ export function FulfillmentMonitoringPage({ user, storeId }: { user: Principal; 
   const client = useQueryClient(),
     [from, setFrom] = useState(today),
     [to, setTo] = useState(today),
-    [selectedStores, setStores] = useState<string[]>(storeId ? [storeId] : []),
+    [selectedStores, setStores] = useState<string[]>([]),
     [orderIds, setOrderIds] = useState(''),
     [tab, setTab] = useState<Tab>('in_queue'),
     [subStatuses, setSubStatuses] = useState<string[]>([]),
@@ -87,6 +86,24 @@ export function FulfillmentMonitoringPage({ user, storeId }: { user: Principal; 
     setPage(1);
     setExpanded([]);
   }, [from, to, selectedStores, orderIds, tab, subStatuses, pageSize]);
+  // Opening the dashboard resets to today and the checked-in store, as the legacy first GET
+  // does (`HLGlobalFilters.initial_for_user`); later filter changes stay for this visit.
+  const defaults = useQuery({
+    queryKey: [user.id, 'fulfillment-monitor-defaults', storeId],
+    queryFn: () =>
+      request(
+        '/api/v1/fulfillment/store-monitoring/defaults',
+        {},
+        z.object({ from: z.string(), to: z.string(), storeIds: z.array(z.string()) }),
+      ),
+    staleTime: Infinity,
+  });
+  useEffect(() => {
+    if (!defaults.data) return;
+    setFrom(defaults.data.from);
+    setTo(defaults.data.to);
+    setStores(defaults.data.storeIds);
+  }, [defaults.data]);
   const stores = useQuery({
     queryKey: [user.id, 'fulfillment-monitor-stores'],
     queryFn: () =>
@@ -118,6 +135,7 @@ export function FulfillmentMonitoringPage({ user, storeId }: { user: Principal; 
       page,
       pageSize,
     ],
+    enabled: !defaults.isPending,
     queryFn: () =>
       request(
         `/api/v1/fulfillment/store-monitoring?${params({ from, to, storeIds: selectedStores.join(','), orderIds: orderIds.replace(/\s/g, ''), tab, subStatuses: subStatuses.join(','), page: String(page), pageSize: String(pageSize) })}`,
