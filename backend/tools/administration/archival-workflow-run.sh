@@ -13,10 +13,11 @@ cd "$task_root"
 node -e 'if (process.versions.node.split(".")[0] !== "24") throw new Error("Node 24 is required")'
 node backend/tools/dependency-security/verify.mjs
 node frontend/tools/dependency-security/verify.mjs
-task_python=$(UV_CACHE_DIR="$task_temporary/uv-cache" uv run --no-python-downloads --no-project \
-  --python "${ARCHIVAL_WORKFLOW_PYTHON_VERSION:-3.12}" \
-  --with django==4.2.5 --with asgiref==3.7.2 --with sqlparse==0.4.4 --with pymysql==1.1.1 \
-  python -c 'import sys; print(sys.executable)')
+UV_CACHE_DIR="$task_temporary/uv-cache" uv venv --no-python-downloads \
+  --python "${ARCHIVAL_WORKFLOW_PYTHON_VERSION:-3.12}" "$task_temporary/oracle-venv" >&2
+task_python="$task_temporary/oracle-venv/bin/python"
+UV_CACHE_DIR="$task_temporary/uv-cache" uv pip install --python "$task_python" \
+  django==4.2.5 asgiref==3.7.2 sqlparse==0.4.4 pymysql==1.1.1 >&2
 node frontend/node_modules/typescript/bin/tsc -p frontend/tests/administration/archival-workflow-tsconfig.json
 npm --prefix frontend run build >&2
 cd "$task_root/backend"

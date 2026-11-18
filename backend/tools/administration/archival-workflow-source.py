@@ -11,6 +11,8 @@ import logging
 import re
 import subprocess
 import sys
+import threading
+import traceback
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from types import ModuleType, SimpleNamespace
@@ -117,6 +119,13 @@ def main():
                        path('users/', lambda request: HttpResponse('Synthetic users'), name='users_list_view'),
                        path('dashboard/', lambda request: HttpResponse('Synthetic dashboard'), name='shortcut_dashboard')]
         results = []
+        dispatch_exceptions = []
+        def trace_dispatch(frame, event, argument):
+            if event == 'exception' and frame.f_code.co_filename in ['stores/views.py', 'users/views.py']:
+                dispatch_exceptions.append({'kind': argument[0].__name__, 'line': frame.f_lineno})
+            return trace_dispatch
+        threading.settrace(trace_dispatch)
+        sys.settrace(trace_dispatch)
         for resource, target, actor, action in [
             ('stores', 2, 1, 'delete'), ('stores', 2, 1, 'activate'),
             ('stores', 2, 2, 'delete'), ('stores', 2, 4, 'delete'),
@@ -133,14 +142,29 @@ def main():
                 client.force_login(PosUser.objects.get(pk=actor))
             csrf = _get_new_csrf_string()
             client.cookies['csrftoken'] = csrf
+            dispatch_exceptions.clear()
             response = client.post('/' + resource + '/' + str(target) + '/' + action + '/', {}, HTTP_X_CSRFTOKEN=csrf)
             row = model.objects.filter(pk=target).values('id', 'is_active').get()
             body = json.loads(response.content) if response.headers.get('Content-Type', '').startswith('application/json') else {}
+            failure_category = None
+            if body.get('status') == 'fail':
+                message = body.get('message', '')
+                undefined = re.search(r"name '([A-Za-z_][A-Za-z0-9_]*)' is not defined", message)
+                unknown_column = re.search(r"Unknown column '([A-Za-z_.]+)'", message)
+                sql_code = re.match(r'\((\d+),', message)
+                failure_category = ('undefined-global:' + undefined[1] if undefined else
+                                    'unknown-column:' + unknown_column[1] if unknown_column else
+                                    'sql-error:' + sql_code[1] if sql_code else 'unclassified-source-error')
+                if dispatch_exceptions:
+                    failure_category += ':' + dispatch_exceptions[-1]['kind'] + ':' + str(dispatch_exceptions[-1]['line'])
             results.append({'resource': resource, 'actorRole': actor, 'targetRole': 2 if target == 2 and resource == 'users' else 4,
                             'self': actor == target, 'action': action, 'httpStatus': response.status_code,
                             'sourceStatus': body.get('status'), 'permissionDenied': 'Permission denied' in body.get('message', ''),
+                            'failureCategory': failure_category,
                             'initialActive': initial, 'active': row['is_active'], 'retainedId': row['id'] == target})
             model.objects.filter(pk=target).update(is_active=True)
+        threading.settrace(None)
+        sys.settrace(None)
         connection.close()
         json.dump({'sourceCommit': PIN, 'routeIds': route_ids, 'hashes': hashes, 'cases': results}, sys.stdout)
 
@@ -149,5 +173,7 @@ if __name__ == '__main__':
     try:
         main()
     except Exception as failure:
-        json.dump({'error': 'ARCHIVAL_WORKFLOW_SOURCE_FAILED', 'kind': type(failure).__name__}, sys.stdout)
+        frames = [{'file': Path(frame.filename).name if re.fullmatch(r'[A-Za-z0-9_.-]+', Path(frame.filename).name) else 'internal', 'line': frame.lineno}
+                  for frame in traceback.extract_tb(failure.__traceback__)]
+        json.dump({'error': 'ARCHIVAL_WORKFLOW_SOURCE_FAILED', 'kind': type(failure).__name__, 'frames': frames}, sys.stdout)
         sys.exit(1)

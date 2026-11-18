@@ -15,8 +15,14 @@ anonymous operator denial. Native financial rows and assignment rows must surviv
 The replacement runs DEMO_MODE=false buildApp with real MySQL identities and signed
 sessions. Playwright opens the built production App and uses its navigation, tabs,
 filters and Archive/Activate controls. HTTP is forwarded to the real backend without
-response substitution. A proxy discards exactly one already-committed operator
-archive reply to check authoritative reload recovery without a second mutation.
+response substitution. A proxy forwards the committed operator archive response's
+genuine headers and first body byte, then truncates its remaining body. This exact
+fault boundary checks authoritative reload recovery without a second PATCH and with
+exactly one authentication-epoch increment. It does not claim one HTTP request for
+every possible network fault. An earlier experiment destroyed the socket before
+headers; Chromium then replayed the explicit-status PATCH (two HTTP responses were
+observed). That failed fixture was torn down before epoch/audit counts were captured;
+no historical assertion of zero extra effects is made for that earlier boundary.
 The original cookie must remain revoked after reactivation. Separate native cases
 exercise stale actor demotion and archived store check-in rejection. Store 1 stays
 active while store 2 is archived so administrative navigation remains available.
@@ -47,8 +53,14 @@ ARCHIVAL_WORKFLOW_MYSQL_URL="$PRIVATE_ARCHIVAL_MYSQL_URL" \
   sh tools/administration/archival-workflow-run.sh /absolute/backend-pos-web
 ```
 
-The runner uses a private temporary Python dependency cache, checks strict types and
+The runner uses a private temporary Python venv/dependency cache, checks strict types and
 builds the frontend before executing. Output contains source hashes, exact route IDs
 and named checks only. No credentials, cookies, source/native row contents, contacts,
 request payloads or opaque identifiers are printed. This file is an authored proof
 plan until execution passes; no release ledger or certification is advanced by it.
+
+The final scoped workflow passed against the unchanged 851f620 production graph and
+the retained built App, after correcting fixture/setup defects. The wrapper's final
+complete build-plus-workflow command was not repeated after those corrections,
+because new notification implementation then took priority. The independent receipt
+distinguishes the successful scoped execution from that unrefreshed wrapper command.
