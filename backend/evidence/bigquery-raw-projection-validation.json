@@ -1,5 +1,5 @@
 {
-  "checkedAt": "2026-11-16T15:47:57.608Z",
+  "checkedAt": "2026-11-18T03:55:52.269Z",
   "scope": {
     "project": "tssgcp2025",
     "dataset": "tss_mysql_raw_layer",
@@ -7,8 +7,8 @@
   },
   "source": "tssgcp2025.tss_mysql_raw_layer.tss_report_exports",
   "dryRun": {
-    "statementSha256": "41bbc7915671ac7adbd4d68df2a39df22bb050c235730d71538ead96acf3b902",
-    "estimatedBytes": "586106",
+    "statementSha256": "19f17e01c7f7e9ec8a46b95a2e494262e734bf5e03f2f72883e171dfd75254a9",
+    "estimatedBytes": "857776",
     "fields": [
       {
         "name": "id",
@@ -32,6 +32,10 @@
       },
       {
         "name": "period_end",
+        "type": "STRING"
+      },
+      {
+        "name": "time_period",
         "type": "STRING"
       },
       {
@@ -66,19 +70,30 @@
         "name": "row_count",
         "type": "INTEGER"
       }
-    ]
+    ],
+    "maximumBytesBilled": "10485760",
+    "timeoutMs": 10000,
+    "executed": false
   },
   "syntheticFixture": {
     "cases": 3,
     "verified": true,
-    "statementSha256": "1aa0681fcd8ee7031e050df11ce932fed06ac51d074b2f546bc2f91629151d1a",
+    "statementSha256": "b6b8ee3250d875254ebd0ae4ba52fe684e6a663066c57eee43361eec8579fedd",
+    "maximumBytesBilled": "1048576",
+    "timeoutMs": 10000,
+    "jobId": "724633ca-4150-4de4-a487-998770c3e74a",
+    "location": "asia-south1",
+    "bytesProcessed": "0",
+    "bytesBilled": "0",
+    "cacheHit": true,
     "properties": [
       "64bit string identities",
       "completion flag precedence",
       "error normalization",
       "empty-name fallback",
       "KiB-to-byte arithmetic",
-      "DATETIME terminal fallback"
+      "DATETIME terminal fallback",
+      "original source period NULL/empty/literal values"
     ]
   },
   "errors": [],

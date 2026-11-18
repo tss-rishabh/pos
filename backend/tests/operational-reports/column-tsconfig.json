@@ -7,6 +7,7 @@
     "administration-queue.test.ts",
     "export-history.test.ts",
     "raw-export-projection.test.ts",
+    "raw-export-private-output.test.ts",
     "../../tools/operational-reports/validate-bigquery-raw.ts",
     "../../tools/operational-reports/build-bigquery-deployment-plan.ts"
   ]
