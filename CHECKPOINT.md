@@ -104,8 +104,27 @@ Following the user's request to speed up, the lookup worker has the exclusive
 local measurement slot. In parallel, the feedback worker follows remote
 Windows/macOS CI44314698088 on8b912f7, and the shortcut worker prepares the
 consolidated r9 checkout/prerequisites without competing heavy local work.
-Remote full-verifier feasibility is being checked. Full r9 has not started;
-measurement starts only after static checks and a quiescence check.
+The existing remote workflow covers desktop checks, not the full verifier;
+moving the complete suite needs pinned source/oracle/offline-cache provisioning.
+Private r9 dependencies and both copied Python oracles now pass preflight, as
+do the origin source/cache/image prerequisites. API overrides use the exact
+clean2960 baseline. Full r9 has not started.
+
+The unpaced benchmark completed216 first-case samples, then failed during the
+next warmups. Its HTTP status was not recorded, so the cause is not retroactively
+asserted. A separate bounded actual-API diagnostic proves the unchanged default
+quota: requests1–240 return200;241–242 return429. `424c043` adds fixed350ms
+inter-triple pacing outside all three timing/counter boundaries, equally for
+all orders/cases/warmups. It retains216 samples per case, all dimensions and
+the30min budget. Fresh paced measurement is live as exec89458 in the lookup
+agent, output `/tmp/pos-catalog-workflow-measurement-20261118-paced-r2.json`.
+Expected20–25min; no performance conclusion yet. Earlier partial runs remain.
+
+Before r9, focused CLI strict checking found the conditional Go prerequisite's
+`command` widened to string. `42ade0b` retains its literal type. Exact strict,
+ESLint and formatting checks pass after the fix; the101 cascading original
+diagnostics remain in the private r9 preparation directory. No application
+behavior, assertion, timeout or query changed for this compiler correction.
 
 ### Platform and remaining acceptance
 
