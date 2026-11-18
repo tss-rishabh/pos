@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.json",
+  "include": ["review-main.tsx", "source-controls.test.ts"],
+  "compilerOptions": {
+    "types": ["vite/client", "node"]
+  }
+}

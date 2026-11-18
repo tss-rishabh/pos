@@ -1,0 +1,39 @@
+{
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "sha256": {
+    "report/views.py": "689e10fc3822040d880b74f1d6e7a6e2a588606fce3b5c496d13e9f35a48a39d",
+    "helpers/helpers.py": "7a5010baca25487e2020950ea0e129c2a72e0ab664dc6cf3207c7d6bb12f88c0",
+    "report/templates/daily_store_report/index.html": "f204a90b54cf0a6adba865d957f903eb01cfd136761581f14fe72d12a6795a69",
+    "report/templates/day_close/index.html": "2557a8668eeb4dbbaeaccc0183ea1b1f9cc5e0262f5b814bde3759e4cac4ca57",
+    "static/adminlte/plugins/jquery/jquery.min.js": "f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d",
+    "static/adminlte/plugins/moment/moment.min.js": "73de4254959530e4d1d9bec586379184f96b4953dacf9cd5e5e2bdd7bfeceef7",
+    "static/adminlte/plugins/daterangepicker/daterangepicker.js": "88e56cd45cad3db88fdc772786d14cce8d0cc1879bc03e4e56be919dfd9ad229"
+  },
+  "cases": [
+    {
+      "at": "2026-11-18T12:00:00+05:30",
+      "range": "11/13/2026 - 11/18/2026",
+      "selected": [1]
+    },
+    {
+      "at": "2026-11-18T23:58:59+05:30",
+      "range": "11/13/2026 - 11/18/2026",
+      "selected": [1]
+    },
+    {
+      "at": "2026-11-18T23:59:00+05:30",
+      "range": "11/13/2026 - 11/19/2026",
+      "selected": [1]
+    },
+    {
+      "at": "2026-12-31T23:59:59+05:30",
+      "range": "12/26/2026 - 01/01/2027",
+      "selected": [1]
+    },
+    {
+      "at": "2026-03-01T00:00:00+05:30",
+      "range": "02/24/2026 - 03/01/2026",
+      "selected": [1]
+    }
+  ]
+}

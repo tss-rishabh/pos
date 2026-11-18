@@ -16,12 +16,14 @@ import {
   type LedgerSort,
 } from './ledger-rows';
 import './style.css';
+import { cashLedgerDates } from './report-dates';
 const resultSchema = z.object({
   reader: z.enum(['data', 'bigquery']),
   range: z.object({ from: z.string(), to: z.string(), today: z.string() }),
   data: z.array(rowSchema),
 });
 export function CashLedgerPage({ user, storeId }: { user: Principal; storeId: string }) {
+  const [defaults] = useState(cashLedgerDates);
   const client = useQueryClient(),
     [exportName, setExportName] = useState(''),
     [exportNote, setExportNote] = useState(''),
@@ -31,8 +33,8 @@ export function CashLedgerPage({ user, storeId }: { user: Principal; storeId: st
     [direction, setDirection] = useState<'asc' | 'desc'>('asc'),
     [page, setPage] = useState(1),
     [pageSize, setPageSize] = useState(31),
-    [from, setFrom] = useState(''),
-    [to, setTo] = useState(''),
+    [from, setFrom] = useState(defaults.from),
+    [to, setTo] = useState(defaults.to),
     [selected, setSelected] = useState<string[]>(storeId ? [storeId] : []),
     [submitted, setSubmitted] = useState<{ from: string; to: string; stores: string[] } | null>(
       null,

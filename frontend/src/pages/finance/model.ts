@@ -44,6 +44,7 @@ export const closeSchema = z.object({
   closed_at: z.string(),
   closed_by_id: z.string(),
   stale_reason: z.string().nullable(),
+  stale_trigger_ref: z.string().nullish(),
   cash: split.extend({ refund: z.string() }),
   card: split,
   banking_amount: z.string(),
@@ -102,11 +103,11 @@ export function differences(state: CloseState, entries: Entries) {
 export function initialEntries(state: CloseState): Entries {
   return {
     cash_actual: state.close?.cash.actual || '',
-    cash_manual_punched: state.close?.cash.manual_punched || '0',
-    cash_manual_created: state.close?.cash.manual_created || '0',
+    cash_manual_punched: state.close?.cash.manual_punched ?? '',
+    cash_manual_created: state.close?.cash.manual_created ?? '',
     card_actual: state.close?.card.actual || '',
-    card_manual_punched: state.close?.card.manual_punched || '0',
-    card_manual_created: state.close?.card.manual_created || '0',
+    card_manual_punched: state.close?.card.manual_punched ?? '',
+    card_manual_created: state.close?.card.manual_created ?? '',
     banking_amount: state.close?.banking_amount || '',
     cash_reason: state.close?.cash.reason || '',
     card_reason: state.close?.card.reason || '',

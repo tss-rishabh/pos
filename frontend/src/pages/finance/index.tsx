@@ -20,6 +20,7 @@ import {
   type Entries,
 } from './model';
 import './style.css';
+import { CloseReview, type ReviewedClose } from './close-review';
 
 const labels: Record<(typeof reasons)[number], string> = {
   '': 'Choose a reason',
@@ -106,7 +107,9 @@ function CloseForm({
   const client = useQueryClient(),
     [entries, setEntries] = useState<Entries>(() => initialEntries(state)),
     [notice, setNotice] = useState(''),
-    [history, setHistory] = useState(false);
+    [history, setHistory] = useState(false),
+    [review, setReview] = useState<ReviewedClose | null>(null),
+    [entryError, setEntryError] = useState<string | null>(null);
   const hasPending = () => {
     try {
       return Boolean(pendingClose(user.id, storeId, state.close_date));
@@ -124,31 +127,18 @@ function CloseForm({
   const refresh = () =>
     client.invalidateQueries({ queryKey: [user.id, 'finance-day-close', storeId] });
   const submit = useMutation({
-    mutationFn: async () => {
-      const validated = entriesSchema.safeParse(entries);
-      if (!validated.success)
-        throw new Error(validated.error.issues[0]?.message || 'Check the entered amounts.');
-      if (
-        (cashReason && (!entries.cash_reason || !entries.cash_comment.trim())) ||
-        (cardReason && (!entries.card_reason || !entries.card_comment.trim()))
-      )
-        throw new Error(
-          'Add a reason and comment for each difference outside the allowed tolerance.',
-        );
-      return submitClose(
-        user.id,
-        storeId,
-        state.close_date,
-        state.close?.version || 0,
-        validated.data,
-      );
-    },
+    mutationFn: (reviewed: ReviewedClose) =>
+      submitClose(user.id, storeId, reviewed.date, reviewed.expectedVersion, reviewed.entries),
     onSuccess: async (result) => {
       setPending(false);
+      setReview(null);
       setNotice(`Day closed. Version ${result.version} is recorded.`);
       await refresh();
     },
-    onError: () => setPending(hasPending()),
+    onError: () => {
+      setReview(null);
+      setPending(hasPending());
+    },
   });
   const confirm = useMutation({
     mutationFn: () => confirmClose(user.id, storeId, state.close_date),
@@ -172,6 +162,7 @@ function CloseForm({
     <label key={key}>
       {label}
       <input
+        required
         inputMode="decimal"
         autoComplete="off"
         value={entries[key]}
@@ -191,9 +182,9 @@ function CloseForm({
           note={`Cash refunds ₹${state.system.cash_refund}`}
         />
         <Metric
-          label="Card / UPI collection"
+          label="Total online collection"
           value={`₹${state.system.total_online}`}
-          note={`District ₹${state.system.district}`}
+          note={`Card / UPI ₹${state.system.card_upi} · Other online ₹${state.system.online_other} · District ₹${state.system.district}`}
         />
         <Metric label="Total collection" value={`₹${state.system.total_collection}`} />
       </div>
@@ -211,6 +202,27 @@ function CloseForm({
             {state.window.message ||
               `Open ${state.window.opens_at} · closes ${state.window.closes_at}`}
           </span>
+          {state.close && (
+            <span>
+              Signed at {state.close.closed_at} · attempt {state.close.version}
+              {state.close.status === 'STALE' && (
+                <>
+                  {' '}
+                  ·{' '}
+                  {(
+                    {
+                      PAYMENT: 'a payment was confirmed',
+                      MANUAL_PAID: 'a bill was marked paid',
+                      REFUND: 'a cash refund was paid out',
+                      DRIFT: 'the day’s figures changed',
+                    } as Record<string, string>
+                  )[state.close.stale_reason || ''] || 'the day’s figures changed'}
+                  {state.close.stale_trigger_ref ? ` (order ${state.close.stale_trigger_ref})` : ''}
+                  . Please count again and close the day once more.
+                </>
+              )}
+            </span>
+          )}
           {state.window.override && (
             <span>An elevated access override will be recorded for this submission.</span>
           )}
@@ -232,12 +244,42 @@ function CloseForm({
         </div>
       )}
       {notice && <p role="status">{notice}</p>}
+      {entryError && <ErrorState error={new Error(entryError)} />}
       {submit.isError && <ErrorState error={submit.error} />}{' '}
       {confirm.isError && <ErrorState error={confirm.error} />}{' '}
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          submit.mutate();
+          if (submit.isPending || confirm.isPending || !state.window.allowed) return;
+          const validated = entriesSchema.safeParse(entries);
+          if (!validated.success) {
+            setEntryError(
+              validated.error.issues[0]?.message ||
+                'Enter every amount, including 0 when there were none.',
+            );
+            return;
+          }
+          if (
+            (cashReason && (!entries.cash_reason || !entries.cash_comment.trim())) ||
+            (cardReason && (!entries.card_reason || !entries.card_comment.trim()))
+          ) {
+            setEntryError(
+              'Add a reason and comment for each difference outside the allowed tolerance.',
+            );
+            return;
+          }
+          setEntryError(null);
+          setReview({
+            date: state.close_date,
+            expectedVersion: state.close?.version || 0,
+            revising: state.close?.status === 'CLOSED',
+            entries: { ...validated.data },
+            cashSystem: state.system.cash,
+            onlineSystem: state.system.total_online,
+            cashDifference: diff.cash,
+            onlineDifference: diff.card,
+            tolerance: allowed,
+          });
         }}
       >
         <div className="finance-grid">
@@ -296,6 +338,14 @@ function CloseForm({
           </button>
         </section>
       </form>
+      {review && (
+        <CloseReview
+          reviewed={review}
+          submitting={submit.isPending}
+          onCancel={() => setReview(null)}
+          onConfirm={() => submit.mutate(review)}
+        />
+      )}
       <button className="button secondary" onClick={() => setHistory((value) => !value)}>
         <History size={16} />
         Version history

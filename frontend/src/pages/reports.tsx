@@ -6,7 +6,8 @@ import { captureOperatorScope, request, params } from '../api/client';
 import type { Principal } from '../api/types';
 import { Empty, ErrorState, Loading, Metric, PageTitle } from '../components/common';
 import { currency } from '../lib/format';
-import { useOnline, useStores } from '../hooks/use-pos';
+import { useOnline } from '../hooks/use-pos';
+import { dailyReportDates } from './finance/report-dates';
 import { ReportNavigation } from '../components/report-navigation';
 
 const metric = z.union([z.string(), z.number().finite(), z.null()]);
@@ -113,17 +114,22 @@ export function csvCell(value: unknown): string {
   return '"' + safe.replaceAll('"', '""') + '"';
 }
 export function ReportsPage({ user, storeId }: { user: Principal; storeId: string }) {
-  const format = new Intl.DateTimeFormat('en-CA', {
-      timeZone: 'Asia/Kolkata',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }),
-    today = format.format(new Date()),
-    online = useOnline(),
-    stores = useStores(user.id);
-  const [from, setFrom] = useState(format.format(new Date(Date.now() - 4 * 86400000))),
-    [to, setTo] = useState(today),
+  const online = useOnline(),
+    stores = useQuery({
+      queryKey: [user.id, 'finance-cash-ledger-stores'],
+      queryFn: async ({ signal }) =>
+        await request(
+          '/api/v1/reports/store-cash-balances/stores',
+          { operatorId: user.id, signal },
+          z.object({ data: z.array(z.object({ id: z.string(), name: z.string() })) }),
+        ),
+    });
+  const availableStores = (stores.data?.data || []).filter(
+    (store) => user.userType !== 2 || user.storeIds.includes(store.id),
+  );
+  const [defaults] = useState(dailyReportDates);
+  const [from, setFrom] = useState(defaults.from),
+    [to, setTo] = useState(defaults.to),
     [storeIds, setStoreIds] = useState<string[]>(storeId ? [storeId] : []),
     [submitted, setSubmitted] = useState<Filters | null>(null),
     [columns, setColumns] = useState<Field[]>(() => savedColumns(user.id)),
@@ -242,7 +248,14 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
           className="daily-report-filters"
           onSubmit={(event) => {
             event.preventDefault();
-            if (!online || !storeIds.length) return;
+            if (
+              !online ||
+              !storeIds.length ||
+              stores.isError ||
+              stores.isPending ||
+              storeIds.some((id) => !availableStores.some((store) => store.id === id))
+            )
+              return;
             const next = { from, to, storeIds: [...new Set(storeIds)].sort() };
             setPage(1);
             if (JSON.stringify(next) === JSON.stringify(submitted)) void report.refetch();
@@ -260,12 +273,30 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
                 setStoreIds(Array.from(event.target.selectedOptions, (option) => option.value))
               }
             >
-              {(stores.data || []).map((store) => (
+              {availableStores.map((store) => (
                 <option key={store.id} value={store.id}>
                   {store.name}
                 </option>
               ))}
             </select>
+            <span>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={!availableStores.length}
+                onClick={() => setStoreIds(availableStores.map((store) => store.id))}
+              >
+                Select all stores
+              </button>
+              <button
+                type="button"
+                className="button secondary"
+                disabled={!storeIds.length}
+                onClick={() => setStoreIds([])}
+              >
+                Clear all stores
+              </button>
+            </span>
           </label>
           <label>
             From{' '}
@@ -290,7 +321,14 @@ export function ReportsPage({ user, storeId }: { user: Principal; storeId: strin
           </label>
           <button
             className="button primary"
-            disabled={!storeIds.length || !online || report.isFetching}
+            disabled={
+              !storeIds.length ||
+              !online ||
+              stores.isError ||
+              stores.isPending ||
+              report.isFetching ||
+              storeIds.some((id) => !availableStores.some((store) => store.id === id))
+            }
           >
             View report
             <ArrowRight size={16} />

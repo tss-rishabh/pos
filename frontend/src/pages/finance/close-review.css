@@ -1,0 +1,29 @@
+.finance-close-review {
+  width: min(640px, calc(100vw - 32px));
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 24px;
+  color: var(--ink);
+  background: #fff;
+}
+.finance-close-review::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+.finance-close-review table {
+  width: 100%;
+  margin: 20px 0;
+  border-collapse: collapse;
+}
+.finance-close-review th,
+.finance-close-review td {
+  padding: 10px 6px;
+  text-align: right;
+}
+.finance-close-review th:first-child {
+  text-align: left;
+}
+.finance-close-review-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
