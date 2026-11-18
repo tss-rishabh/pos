@@ -19,11 +19,11 @@ import {
   verifyCouponSourceCapture,
   type CouponSourceCapture,
 } from './history-publication.js';
-import { assertCouponHistoryWriterMetadata } from './history-writers.js';
 import {
-  readNativeHeadMetadata,
-  type NativeHeadMetadataOptions,
-} from '../../screening-origins/native-head-metadata.js';
+  assertCouponHistoryWriterMetadata,
+  readCouponNativeHeadMetadata,
+} from './history-writers.js';
+import { type NativeHeadMetadataOptions } from '../../screening-origins/native-head-metadata.js';
 
 export interface CouponSourceCapturePort {
   capture(scope: CouponHistoryScope): Promise<CouponSourceCapture>;
@@ -168,7 +168,7 @@ export function couponHistorySourceCapture(
               });
             // All source tables have now been read under the snapshot, holding
             // their metadata locks. Verify the installed mutation coverage too.
-            const headMetadata = await readNativeHeadMetadata(tx, options.headMetadata!);
+            const headMetadata = await readCouponNativeHeadMetadata(tx, options.headMetadata!);
             const writersDefinitionHash = assertCouponHistoryWriterMetadata(
                 headMetadata.couponTriggers,
               ),

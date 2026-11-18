@@ -4,9 +4,9 @@ import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { z } from 'zod';
-import { splitMigration } from '../../src/db/migrations.js';
+import mysql from 'mysql2/promise';
+import { installNativeHeadFixture } from '../native-head-metadata/fixture.js';
 import {
-  couponHistoryWriterDefinitions,
   couponHistoryWritersReviewManifest,
   couponHistoryWritersReviewSql,
 } from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
@@ -21,21 +21,25 @@ const template = process.env.CHECKOUT_MYSQL_TEST_URL,
   key = 'isolated-head-fence-proof-key-'.repeat(3);
 describe.skipIf(!template)('late source coupon history head fence on owned native MySQL', () => {
   let f: Awaited<ReturnType<typeof importFinancialFixture>>,
+    heads: Awaited<ReturnType<typeof installNativeHeadFixture>>,
     native: ReturnType<typeof verifiedMysqlFixture>;
   beforeAll(async () => {
     f = await importFinancialFixture(template!);
     native = verifiedMysqlFixture(f.connection, [
       'evidence/mysql-import-benefit-profile-schema.json',
     ]);
-    await native.create(['coupons', 'order_coupon_log']);
-    for (const statement of splitMigration(
-      couponHistoryWritersReviewSql().split('DELIMITER $$')[0]!,
-    ))
-      await f.connection.query(statement);
-    for (const row of couponHistoryWriterDefinitions)
-      await f.connection.query(
-        `CREATE TRIGGER ${row.name} AFTER ${row.event} ON ${row.table} FOR EACH ROW ${row.statement}`,
-      );
+    heads = await installNativeHeadFixture(f.connection, template!, {
+      families: ['membership', 'coupon'],
+    });
+    // The real owned financial prefix takes an exclusive current-store lock.
+    // MySQL requires UPDATE for FOR UPDATE; no head-table writes are granted.
+    await f.connection.query(
+      'GRANT UPDATE ON ' +
+        mysql.escapeId(heads.schema) +
+        '.stores TO ' +
+        mysql.escape(heads.names.app) +
+        "@'%'",
+    );
     expect(
       JSON.parse(readFileSync(folder + '/coupon-history-writers.review.json', 'utf8')) as unknown,
     ).toEqual(couponHistoryWritersReviewManifest());
@@ -44,6 +48,7 @@ describe.skipIf(!template)('late source coupon history head fence on owned nativ
     );
   }, 30000);
   afterAll(async () => {
+    await heads?.cleanup();
     await f?.close();
   });
   beforeEach(async () => {
@@ -118,7 +123,15 @@ describe.skipIf(!template)('late source coupon history head fence on owned nativ
         resolve('compatibility/upstream/offline-cash-pricing/.venv/bin/python'),
         ['-B', resolve(folder + '/history_heads_driver.py')],
         {
-          input: JSON.stringify({ url: f.config.MYSQL_WRITER_URL, key, scope, case: testCase }),
+          input: JSON.stringify({ url: heads.appUrl, key, scope, case: testCase }),
+          env: {
+            ...Object.fromEntries(
+              ['PATH', 'HOME', 'TMPDIR'].flatMap((name) =>
+                process.env[name] ? [[name, process.env[name]!]] : [],
+              ),
+            ),
+            ...heads.environment,
+          },
           encoding: 'utf8',
           timeout: 25000,
           maxBuffer: 100000,

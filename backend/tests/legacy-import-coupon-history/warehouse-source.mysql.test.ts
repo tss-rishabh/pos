@@ -1,38 +1,40 @@
 import { randomUUID } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { splitMigration } from '../../src/db/migrations.js';
+import { z } from 'zod';
+import { installNativeHeadFixture } from '../native-head-metadata/fixture.js';
 import { couponHistorySourceCapture } from '../../src/modules/legacy-order-imports/benefit-profile/history-source.js';
 import { couponWarehouseSourceControls } from '../../src/modules/legacy-order-imports/benefit-profile/history-warehouse-source.js';
-import {
-  couponHistoryWriterDefinitions,
-  couponHistoryWritersReviewSql,
-} from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
+import { couponHistoryWriterDefinitions } from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
 import {
   couponComparisonFingerprint,
+  couponComparisonSchema,
   verifyCouponWarehouseControls,
 } from '../../src/modules/legacy-order-imports/benefit-profile/history-warehouse-contracts.js';
 import type { CouponHistoryScope } from '../../src/modules/legacy-order-imports/benefit-profile/history.js';
 import { importFinancialFixture } from '../legacy-import-financial/fixture.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
-import { comparison, literalCouponFacts } from './warehouse-fixtures.js';
+import { literalCouponFacts } from './warehouse-fixtures.js';
 const template = process.env.CHECKOUT_MYSQL_TEST_URL,
   key = 'native-coupon-controls-fixture-key-'.repeat(3);
 describe.skipIf(!template)('qualification-only native coupon control projection', () => {
   let f: Awaited<ReturnType<typeof importFinancialFixture>>,
+    heads: Awaited<ReturnType<typeof installNativeHeadFixture>>,
+    comparison: ReturnType<typeof couponComparisonSchema.parse>,
     native: ReturnType<typeof verifiedMysqlFixture>,
     scope: CouponHistoryScope;
   const capture = () =>
-    couponHistorySourceCapture(f.db, {
+    couponHistorySourceCapture(heads.sourceDb, {
+      headMetadata: heads.headMetadata,
       contract: 'pos-csv-coupon-source-capture-v1',
       sourceKey: key,
       sourceTimeZone: 'Asia/Kolkata',
     }).capture(scope);
   const controls = (maxControls = 10000) =>
     couponWarehouseSourceControls(
-      f.db,
+      heads.sourceDb,
       { sourceKey: key, comparisonFingerprint: couponComparisonFingerprint(comparison) },
-      { maxControls },
+      { maxControls, headMetadata: heads.headMetadata },
     );
   beforeAll(async () => {
     f = await importFinancialFixture(template!);
@@ -42,23 +44,23 @@ describe.skipIf(!template)('qualification-only native coupon control projection'
       'evidence/mysql-global-benefits-schema.json',
     ]);
     await native.create(['coupons', 'order_coupon_log']);
-    for (const statement of splitMigration(
-      couponHistoryWritersReviewSql().split('DELIMITER $$')[0]!,
-    ))
-      await f.connection.query(statement);
-    for (const row of couponHistoryWriterDefinitions)
-      await f.connection.query(
-        'CREATE TRIGGER ' +
-          row.name +
-          ' AFTER ' +
-          row.event +
-          ' ON ' +
-          row.table +
-          ' FOR EACH ROW ' +
-          row.statement,
-      );
+    heads = await installNativeHeadFixture(f.connection, template!, {
+      families: ['membership', 'coupon'],
+    });
+    const [raw] = await f.connection.query(
+      "SELECT c.COLUMN_NAME AS `column`,c.DATA_TYPE AS dataType,c.CHARACTER_SET_NAME AS characterSet,c.COLLATION_NAME AS collation,k.PAD_ATTRIBUTE AS padAttribute FROM information_schema.COLUMNS c JOIN information_schema.COLLATIONS k ON k.COLLATION_NAME=c.COLLATION_NAME WHERE c.TABLE_SCHEMA=DATABASE() AND c.TABLE_NAME='coupons' AND c.COLUMN_NAME IN('coupon_lot_no','voucher_code')",
+    );
+    const columns = z.array(z.record(z.string(), z.unknown())).parse(raw);
+    comparison = couponComparisonSchema.parse({
+      contract: 'pos-native-coupon-comparisons-v1',
+      lot: columns.find((row) => row.column === 'coupon_lot_no'),
+      code: columns.find((row) => row.column === 'voucher_code'),
+      lotComparison: 'native-column-equality-and-nonempty',
+      codeComparison: 'python-decoded-exact-utf8',
+    });
   }, 30000);
   afterAll(async () => {
+    await heads?.cleanup();
     await f?.close();
   });
   beforeEach(async () => {
@@ -251,38 +253,38 @@ describe.skipIf(!template)('qualification-only native coupon control projection'
     await log('101', '223');
     const source = await capture();
     await expect(
-      couponWarehouseSourceControls(f.db, {
-        sourceKey: key,
-        comparisonFingerprint: '0'.repeat(64),
-      }).capture(source),
+      couponWarehouseSourceControls(
+        heads.sourceDb,
+        {
+          sourceKey: key,
+          comparisonFingerprint: '0'.repeat(64),
+        },
+        { headMetadata: heads.headMetadata },
+      ).capture(source),
     ).rejects.toMatchObject({ code: 'ORDER_IMPORT_COUPON_PUBLICATION_COMPARISON_UNQUALIFIED' });
     await expect(controls(1).capture(source)).rejects.toMatchObject({
       code: 'ORDER_IMPORT_COUPON_PUBLICATION_CONTROLS_TOO_LARGE',
     });
   });
   it('checks actual participating writer bodies before signing, with no constructor reads or row writes', async () => {
-    const get = vi.spyOn(f.db, 'get');
+    const get = vi.spyOn(heads.sourceDb, 'get');
     controls();
     expect(get).not.toHaveBeenCalled();
     get.mockRestore();
     const source = await capture(),
       row = couponHistoryWriterDefinitions[0]!;
+    const [definition] = await f.connection.query('SHOW CREATE TRIGGER ' + row.name);
+    const original = z
+      .array(z.object({ 'SQL Original Statement': z.string() }))
+      .length(1)
+      .parse(definition)[0]!['SQL Original Statement'];
     await f.connection.query('DROP TRIGGER ' + row.name);
     try {
       await expect(controls().capture(source)).rejects.toMatchObject({
         code: 'ORDER_IMPORT_COUPON_PUBLICATION_WRITERS_UNQUALIFIED',
       });
     } finally {
-      await f.connection.query(
-        'CREATE TRIGGER ' +
-          row.name +
-          ' AFTER ' +
-          row.event +
-          ' ON ' +
-          row.table +
-          ' FOR EACH ROW ' +
-          row.statement,
-      );
+      await f.connection.query(original);
     }
   });
 });

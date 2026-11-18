@@ -2,12 +2,9 @@ import { randomUUID } from 'node:crypto';
 import { Temporal } from '@js-temporal/polyfill';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { splitMigration } from '../../src/db/migrations.js';
+import { installNativeHeadFixture } from '../native-head-metadata/fixture.js';
 import { couponHistorySourceCapture } from '../../src/modules/legacy-order-imports/benefit-profile/history-source.js';
-import {
-  couponHistoryWriterDefinitions,
-  couponHistoryWritersReviewSql,
-} from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
+import { couponHistoryWriterDefinitions } from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
 import {
   couponControlHeadHash,
   couponSourceCaptureContract,
@@ -23,10 +20,12 @@ describe.skipIf(!template)(
   'independent coupon source publisher on owned native MySQL fixture',
   () => {
     let f: Awaited<ReturnType<typeof importFinancialFixture>>,
+      heads: Awaited<ReturnType<typeof installNativeHeadFixture>>,
       native: ReturnType<typeof verifiedMysqlFixture>,
       scope: CouponHistoryScope;
     const producer = () =>
-      couponHistorySourceCapture(f.db, {
+      couponHistorySourceCapture(heads.sourceDb, {
+        headMetadata: heads.headMetadata,
         contract: couponSourceCaptureContract,
         sourceKey: key,
         sourceTimeZone: 'Asia/Kolkata',
@@ -39,14 +38,12 @@ describe.skipIf(!template)(
         'evidence/mysql-global-benefits-schema.json',
       ]);
       await native.create(['coupons', 'order_coupon_log']);
-      const prefix = couponHistoryWritersReviewSql().split('DELIMITER $$')[0]!;
-      for (const statement of splitMigration(prefix)) await f.connection.query(statement);
-      for (const row of couponHistoryWriterDefinitions)
-        await f.connection.query(
-          `CREATE TRIGGER ${row.name} AFTER ${row.event} ON ${row.table} FOR EACH ROW ${row.statement}`,
-        );
+      heads = await installNativeHeadFixture(f.connection, template!, {
+        families: ['membership', 'coupon'],
+      });
     }, 30000);
     afterAll(async () => {
+      await heads?.cleanup();
       await f?.close();
     });
     beforeEach(async () => {
@@ -260,20 +257,23 @@ describe.skipIf(!template)(
       expect(couponControlHeadHash(changed, key)).toBe(changed.controlHeadHash);
     });
     it('does no constructor I/O and refuses a missing participating-writer trigger before signing', async () => {
-      const get = vi.spyOn(f.db, 'get');
+      const get = vi.spyOn(heads.sourceDb, 'get');
       producer();
       expect(get).not.toHaveBeenCalled();
       get.mockRestore();
       const row = couponHistoryWriterDefinitions[0]!;
+      const [definition] = await f.connection.query('SHOW CREATE TRIGGER ' + row.name);
+      const original = z
+        .array(z.object({ 'SQL Original Statement': z.string() }))
+        .length(1)
+        .parse(definition)[0]!['SQL Original Statement'];
       await f.connection.query('DROP TRIGGER ' + row.name);
       try {
         await expect(producer().capture(scope)).rejects.toMatchObject({
           code: 'ORDER_IMPORT_COUPON_PUBLICATION_WRITERS_UNQUALIFIED',
         });
       } finally {
-        await f.connection.query(
-          `CREATE TRIGGER ${row.name} AFTER ${row.event} ON ${row.table} FOR EACH ROW ${row.statement}`,
-        );
+        await f.connection.query(original);
       }
     });
   },

@@ -3,11 +3,11 @@ import { z } from 'zod';
 import type { Databases } from '../../../db/pools.js';
 import { couponControlHashSql } from './native.js';
 import { benefitHash } from './contracts.js';
-import { assertCouponHistoryWriterMetadata } from './history-writers.js';
 import {
-  readNativeHeadMetadata,
-  type NativeHeadMetadataOptions,
-} from '../../screening-origins/native-head-metadata.js';
+  assertCouponHistoryWriterMetadata,
+  readCouponNativeHeadMetadata,
+} from './history-writers.js';
+import { type NativeHeadMetadataOptions } from '../../screening-origins/native-head-metadata.js';
 import {
   couponHeadSchema,
   verifyCouponSourceCapture,
@@ -130,7 +130,7 @@ WHERE r.coupon_id IS NOT NULL ORDER BY r.coupon_id LIMIT ${maxControls + 1}`);
               );
             // The exact native equality/PAD SPACE semantics are resolved here; no raw
             // voucher/lot string crosses this source boundary or enters BQ parameters.
-            const headMetadata = await readNativeHeadMetadata(tx, options.headMetadata!);
+            const headMetadata = await readCouponNativeHeadMetadata(tx, options.headMetadata!);
             if (
               assertCouponHistoryWriterMetadata(headMetadata.couponTriggers) !==
               capture.writersDefinitionHash

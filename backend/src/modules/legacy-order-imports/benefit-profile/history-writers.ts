@@ -1,6 +1,21 @@
 import { createHash } from 'node:crypto';
 import { z } from 'zod';
 import { couponPublicationError } from './history-publication.js';
+import { readNativeHeadMetadata } from '../../screening-origins/native-head-metadata.js';
+
+/** Preserve the publisher's stable integrity refusal while leaving native
+ * connection/query failures available to its separate unavailable boundary. */
+export async function readCouponNativeHeadMetadata(
+  ...parameters: Parameters<typeof readNativeHeadMetadata>
+) {
+  try {
+    return await readNativeHeadMetadata(...parameters);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'SCREENING_ORIGIN_HISTORY_UNQUALIFIED')
+      throw couponPublicationError('WRITERS_UNQUALIFIED', 503);
+    throw error;
+  }
+}
 
 /** Review-only legacy trigger installation. The application migration runner
  * must never install these triggers or seed legacy data automatically. */

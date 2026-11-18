@@ -10,7 +10,8 @@ from sqlalchemy.engine import make_url
 from sqlalchemy.orm import sessionmaker
 
 HERE = Path(__file__).resolve().parent
-sys.path[:0] = [str(HERE), str(HERE.parent)]
+sys.path[:0] = [str(HERE), str(HERE.parent), str(HERE.parent.parent / 'screening-origins'),
+               str(HERE.parent.parent / 'public-screening-writer')]
 from benefit_history_heads import NativeCouponHistoryHeads
 from protocol import ImportReview
 from screening_transaction import owned, mark_customer
@@ -70,7 +71,9 @@ try:
     port.assert_ready()
     assert captured_sql == [], 'Construction/assert_ready opened a native connection'
     frozen = snapshot()
-    assert all(statement.startswith('SELECT ') for statement in captured_sql), 'Preview mutated native state'
+    readonly = ('SELECT ', 'SHOW GRANTS', 'SHOW CREATE TABLE ', 'SHOW CREATE VIEW ',
+                'SHOW CREATE TRIGGER ', 'SHOW CREATE PROCEDURE ', 'SHOW CREATE FUNCTION ')
+    assert all(statement.startswith(readonly) for statement in captured_sql), 'Preview mutated native state'
     event.remove(engine, 'before_cursor_execute', observe)
     original = status()
 
