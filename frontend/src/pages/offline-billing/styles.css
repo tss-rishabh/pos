@@ -1,0 +1,111 @@
+.offline-status h2 {
+  margin-bottom: 6px;
+}
+.offline-status p {
+  margin: 4px 0;
+}
+.offline-limit-blocked {
+  color: #b47460;
+  font-weight: 600;
+}
+.offline-queue {
+  font-size: 12px;
+  color: #8d9781;
+}
+.offline-composer {
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+}
+.offline-search {
+  display: flex;
+  gap: 10px;
+  padding: 0 20px;
+}
+.offline-search input,
+.offline-field input,
+.offline-field select {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid #d9ddd5;
+  background: white;
+  border-radius: 8px;
+  padding: 10px;
+  color: inherit;
+  font: inherit;
+}
+.offline-results {
+  list-style: none;
+  margin: 12px 20px;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+.offline-results li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+}
+.offline-results small {
+  display: block;
+  color: #8d9781;
+}
+.offline-lines {
+  margin: 12px 20px;
+  width: calc(100% - 40px);
+}
+.offline-quantity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.offline-totals {
+  display: flex;
+  justify-content: flex-end;
+  gap: 18px;
+  padding: 12px 20px;
+}
+.offline-tender {
+  display: flex;
+  gap: 8px;
+  padding: 0 20px 12px;
+}
+.offline-field {
+  display: grid;
+  gap: 6px;
+  margin: 0 20px 12px;
+}
+.offline-composer > .button.full {
+  margin: 0 20px;
+  width: calc(100% - 40px);
+}
+.offline-actions {
+  display: flex;
+  gap: 6px;
+}
+.offline-conflict {
+  display: block;
+  margin-top: 4px;
+  color: #b47460;
+}
+.offline-provisional {
+  font-weight: 700;
+  border: 1px dashed currentColor;
+  padding: 6px 8px;
+}
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .offline-receipt,
+  .offline-receipt * {
+    visibility: visible;
+  }
+  .offline-receipt {
+    position: absolute;
+    inset: 0;
+  }
+  .offline-receipt button {
+    display: none;
+  }
+}
