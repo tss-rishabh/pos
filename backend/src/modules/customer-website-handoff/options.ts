@@ -1,37 +1,25 @@
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
-import { sameToken } from '../application-links/domain.js';
-import { customerWebsiteHandoffContract } from './contracts.js';
-const flag = z
-  .preprocess(
-    (value) => (value === undefined || value === '' ? 'false' : value),
-    z.enum(['true', 'false']),
-  )
-  .transform((value) => value === 'true');
+const text = (schema: z.ZodString) =>
+  z.preprocess((value) => (value === '' ? undefined : value), schema.optional());
+/**
+ * Legacy settings (`POSAdmin/settings.py:438-446`): `SECRET_KEY` / `SECRET_KEY_512` sign the
+ * customer JWT (the rewrite names them `TSS_JWT_HS256_KEY` / `TSS_JWT_HS512_KEY`, as checkout
+ * does), `JWT_CUSTOM_EXPIRY_MIN` default 10, `WEB_URL` default the public website,
+ * `WEB_LOGIN_API_KEY` default ''.
+ */
 export function readCustomerWebsiteHandoffOptions(env: NodeJS.ProcessEnv = process.env) {
   return z
     .object({
-      CUSTOMER_WEBSITE_HANDOFF_ENABLED: flag,
-      CUSTOMER_WEBSITE_HANDOFF_CONTRACT: z.string().optional(),
-      CUSTOMER_WEBSITE_HANDOFF_RECEIVER_URL: z.preprocess(
-        (value) => (value === '' ? undefined : value),
-        z.url().optional(),
+      TSS_JWT_HS256_KEY: text(z.string().min(32)),
+      TSS_JWT_HS512_KEY: text(z.string().min(32)),
+      JWT_CUSTOM_EXPIRY_MIN: z.coerce.number().int().min(1).max(1440).default(10),
+      WEB_URL: z.preprocess(
+        (value) => (value === '' || value === undefined ? 'https://www.thesouledstore.com' : value),
+        z.url(),
       ),
-      CUSTOMER_WEBSITE_HANDOFF_SERVICE_KEY: z.preprocess(
-        (value) => (value === '' ? undefined : value),
-        z
-          .string()
-          .regex(/^[!-~]{32,4096}$/)
-          .optional(),
-      ),
-      CUSTOMER_WEBSITE_HANDOFF_TTL_SECONDS: z.coerce.number().int().min(15).max(120).default(60),
-      CUSTOMER_WEBSITE_HANDOFF_SESSION_SECONDS: z.coerce
-        .number()
-        .int()
-        .min(60)
-        .max(900)
-        .default(300),
+      WEB_LOGIN_API_KEY: z.string().max(1024).default(''),
     })
     .parse(env);
 }
@@ -40,31 +28,17 @@ export function handoffUnavailable() {
   return new AppError(
     503,
     'CUSTOMER_WEBSITE_HANDOFF_UNAVAILABLE',
-    'Customer website sign-in is not available.',
+    'Customer website sign-in is not configured.',
   );
 }
-export function configuredWebsiteHandoff(
-  config: Pick<Config, 'DEMO_MODE' | 'SESSION_SECRET'>,
+/** Security (W5): the URL carries a login token, so it is built only over HTTPS. */
+export function websiteBase(
+  config: Pick<Config, 'DEMO_MODE'>,
   options: CustomerWebsiteHandoffOptions,
 ) {
-  if (
-    config.DEMO_MODE ||
-    !options.CUSTOMER_WEBSITE_HANDOFF_ENABLED ||
-    options.CUSTOMER_WEBSITE_HANDOFF_CONTRACT !== customerWebsiteHandoffContract ||
-    !options.CUSTOMER_WEBSITE_HANDOFF_RECEIVER_URL ||
-    !options.CUSTOMER_WEBSITE_HANDOFF_SERVICE_KEY ||
-    sameToken(options.CUSTOMER_WEBSITE_HANDOFF_SERVICE_KEY, config.SESSION_SECRET)
-  )
+  if (config.DEMO_MODE) throw handoffUnavailable();
+  const url = new URL(options.WEB_URL);
+  if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash)
     throw handoffUnavailable();
-  const url = new URL(options.CUSTOMER_WEBSITE_HANDOFF_RECEIVER_URL);
-  if (
-    url.protocol !== 'https:' ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
-    url.pathname !== '/pos/secure-login'
-  )
-    throw handoffUnavailable();
-  return { url, key: options.CUSTOMER_WEBSITE_HANDOFF_SERVICE_KEY };
+  return options.WEB_URL;
 }
