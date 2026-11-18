@@ -10,8 +10,8 @@ const commonPasswords = new Set(
 );
 export type PasswordAccount = {
   username: string;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   email: string | null;
 };
 export type PasswordProblem =

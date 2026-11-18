@@ -619,3 +619,37 @@ No solution is proposed for these; each needs a product/security call before W3 
 - Production values of `REDIS_TAB_USER_OBJECT_EXPIRY`, `REDIS_VERIFIED_USER_OBJECT_EXPIRY`, `LOGIN_OTP_EXPIRY`, `LOGIN_FIXED_OTP_*`, `MPOS_QR_TAKE_PASSWORD`.
 - Whether any `pos_user` has `is_mfa=1` with `mfa_hash` NULL (would make legacy TOTP verify raise).
 - Whether production Redis has an eviction policy that could drop `login_otp_*` / `check_in_*` keys.
+
+---
+
+## Message map (W3, implemented)
+
+Legacy statuses and messages from `users/views.py` / `users/login_otp.py` at `78d5b63`; rewrite statuses follow S4.
+Rewrite errors are JSON `{"error":{"code","message","requestId"}}`.
+
+| Case | Legacy HTTP / body | Legacy message | Rewrite HTTP / code | Rewrite message |
+|---|---|---|---|---|
+| Password step, bad credentials | 200 page, form error | `Please enter a correct username and password. Note that both fields may be case-sensitive.` | 401 `INVALID_CREDENTIALS` | `The username or email and password do not match an active account. Both fields may be case-sensitive.` |
+| Password step, inactive account (multi-match branch only) | 200 page, form error | `This account is inactive.` | 401 `INVALID_CREDENTIALS` (S1: inactive never authenticates) | as above |
+| Password step, empty field | 200 page, form error | `This field is required.` | 400 `INVALID_REQUEST` (field list) | `Enter your username or email.` / `Enter your password.` |
+| Password step, role/user_type outside 1–5 / 1–2 | (no check) | — | 403 `ACCOUNT_ROLE_UNSUPPORTED` | `This account has a role or user type the POS cannot use. Ask an administrator to correct it.` |
+| Password step OK, non-MFA SMS user | 200 page | `One Time Password (OTP) has been sent on your registered mobile number` | 202 challenge, `message` | same text |
+| Password step OK, non-MFA email user | 200 page | `One Time Password (OTP) has been sent on your registered email address` | 202 challenge, `message` | same text |
+| Password step OK, MFA user | 200 page | `Open your Authenticator app on your mobile device. Enter the OTP displayed on your Authenticator app, then click on Login` | 202 challenge, `message` | same text |
+| Password step OK, OTP step locked | 200 page | `Too many wrong OTP attempts. Please try again after 3 hours.` | 202 challenge, `locked: true`, `message` | same text |
+| Pending login missing/expired (send or verify) | 401 | `Your login session has expired. Please sign in again.` | 401 `LOGIN_SESSION_EXPIRED` | `Your sign-in step has expired. Enter your password again.` |
+| OTP step locked | 429 | `Too many wrong OTP attempts. Please try again after 3 hours.` | 423 `LOGIN_LOCKED` | same text |
+| Resend inside cooldown | 429 | `Please wait a few seconds before requesting another OTP.` | 429 `LOGIN_RESEND_WAIT` | same text |
+| Resend OK | 200 `{"status":200,"message":"OTP has been sent.","otp_method_message":…}` | `One Time Password (OTP) has been sent on your registered mobile number.` / `… email address` | 200 challenge, `message` = otp_method_message | same texts |
+| `check_in_store` missing / not an integer | 400 | `Please select a store to check in to.` | 400 `CHECK_IN_STORE_REQUIRED` | same text |
+| Empty code or invalid `platform` (incl. TOTP for non-MFA user) | **200**, body `status: 400` | `Please Provide Valid OTP.` | 400 `OTP_INPUT_INVALID` | `Enter the OTP you received, then try again.` |
+| Second attempt inside retry interval | 429 | `Please wait 30 seconds before trying again.` | 429 `LOGIN_RETRY_WAIT` | same text |
+| Wrong OTP/TOTP, attempts left | **200**, body `status: 401` | `Wrong OTP. {n} attempt{s} left. Please wait 30 seconds before trying again.` | 401 `OTP_INVALID` | same text |
+| Wrong OTP/TOTP, last attempt | 429 | `Too many wrong OTP attempts. Please try again after 3 hours.` | 423 `LOGIN_LOCKED` | same text |
+| TOTP user with NULL/invalid `mfa_hash` | 500 (pyotp raises) | — | 409 `TOTP_NOT_CONFIGURED` | `Authenticator sign-in is not set up correctly for this account. Request an OTP instead, or ask an administrator to reset MFA.` |
+| Correct code, store not allowed | 403 | `You are not assigned to this store.` | 403 `CHECK_IN_STORE_DENIED` | same text |
+| Correct code, signed in | 200 `{"status":200,"message":"verified"}` | `verified` | 200 `{user, sessionExpiresAt, checkInStoreId}` | — |
+| Request without a live session | 302 to `/users/login/` | — | 401 `AUTH_REQUIRED` | `Sign in to continue.` |
+| Redis unavailable / not configured | (500) | — | 503 `AUTH_STORE_UNAVAILABLE` | `Sign-in is temporarily unavailable. Try again in a moment.` |
+| Logout | 302 to login | — | 204 | — |
+| Profile contact already used | (form error, unique key) | Django unique error | 409 `PROFILE_CONTACT_UNAVAILABLE` | `That email or phone number is already used by another account.` |
