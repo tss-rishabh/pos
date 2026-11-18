@@ -33,10 +33,12 @@ report component passed seven Chromium checks on Node 24.22.3, and six report
 component-to-builder CSV workflows passed. Both are local synthetic workflows,
 not source/production certification. Both browser groups now join the full
 verifier, with owned temporary Vite caches and automatic cleanup. Terminal
-native tests found a genuine mixed-collation union failure; its owner is fixing
-it before the full gate. Reporting validation is correcting legacy NULL/empty
-period preservation. Root is not running the consolidated gate while these
-known corrections are still being integrated. All release gates remain open.
+native tests found a genuine mixed-collation union failure, fixed on `13bab5e`
+with six native terminal cases passing. Reporting validation corrected exact
+legacy NULL/empty period preservation on `4b2ab6d` (19 backend, including 13
+native, plus eight frontend checks passed). All release gates remain open.
+The next action is a consolidated frozen-input Node 24.22.3/MySQL/browser run;
+agents may continue only in isolated worktrees while Root's snapshot runs.
 
 The `fde67f5` verifier was intentionally interrupted after two completed checks
 when the active return-window gap was confirmed. Its partial report is retained

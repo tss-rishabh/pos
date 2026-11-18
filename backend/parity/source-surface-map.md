@@ -157,7 +157,7 @@ Mapped surfaces: `report/urls.py:91` (external_acceptance), `report/urls.py:92` 
 | Code/source reference | Reviewed scope |
 | --- | --- |
 | `frontend/src/pages/operational-reports/exports.tsx:115` | Actual export-history screen exports only selected metadata columns from its loaded authorized page, with no file-key/URL fetch or recursive export-of-exports job. |
-| `frontend/src/pages/operational-reports/export-metadata.ts:48` | Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded. |
+| `frontend/src/pages/operational-reports/export-metadata.ts:47` | Finite bounded metadata CSV preserves static safe messages and formula/UTF-8 guards; raw legacy error messages and file keys stay excluded. |
 
 ### legacy-order-imports
 
