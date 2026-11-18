@@ -3231,6 +3231,202 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       path === 'pos/exchange' ? handler(payload) : undefined;
     return gateway;
   }
+  it('discovers and explicitly claims an existing exchange at a new authority counter without repeating inbound', async () => {
+    const fixture = await returnFixture(9220),
+      request = exchangeRequest(fixture.input);
+    let calls = 0;
+    const before = returnCalls.inbound;
+    const service = exchangeWorkflow(
+      exchangeGateway(async (payload) => {
+        calls++;
+        expect(payload.counter_id).toBe(3);
+        return calls === 1
+          ? { status: 'FAIL' }
+          : { status: 'SUCCESS', new_order_id: await childOrder(9220) };
+      }),
+    );
+    await expect(
+      service.start(operator, '1', fixture.orderId, fixture.lineId, request),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_REPLACEMENT_REJECTED' });
+    const config = readConfig({
+      NODE_ENV: 'test',
+      DEMO_MODE: 'true',
+      SESSION_SECRET: 'recovery-fixture-secret-'.repeat(3),
+    });
+    const checked: string[] = [];
+    const repo = returnRepository(db, config, {
+      hashSecret: signingEnvironment.hs256,
+      returnPeriodDays: 30,
+      assertCheckIn: async (_user, _store, counter) => {
+        checked.push(counter);
+      },
+    });
+    await connection.execute(
+      'DELETE FROM pos_rewrite_return_verification_limits WHERE customer_id=1001',
+    );
+    const verification = returnVerificationService(db, config, repository, approvedReturn, {
+      secret: signingEnvironment.hs256,
+      assertCheckIn: async () => {},
+    });
+    const proof = await verification.create(
+      operator,
+      '1',
+      fixture.orderId,
+      crypto.randomUUID(),
+      '4',
+    );
+    await verification.verify(operator, '1', proof.id, crypto.randomUUID(), '123456');
+    const selection = { counterId: '4', verificationId: proof.id };
+    await expect(
+      repo.exchangeRecovery(operator, '1', fixture.orderId, fixture.lineId, {
+        ...selection,
+        verificationId: crypto.randomUUID(),
+      }),
+    ).rejects.toMatchObject({ code: 'RETURN_CUSTOMER_VERIFICATION_REQUIRED' });
+    const snapshot = await repo.exchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      selection,
+    );
+    expect(snapshot.state).toBe('operation');
+    const claim = {
+      ...selection,
+      operationId: crypto.randomUUID(),
+      expectedRevision: snapshot.revision,
+    };
+    await expect(
+      repo.claimExchangeRecovery(operator, '1', fixture.orderId, fixture.lineId, {
+        ...claim,
+        expectedRevision: '0'.repeat(64),
+      }),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_RECOVERY_CHANGED' });
+    expect(
+      (await repo.read(operator, '1', request.operationId)).authorityCounterId,
+    ).toBeUndefined();
+    const claimed = await repo.claimExchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      claim,
+    );
+    expect(claimed.id).toBe(request.operationId);
+    expect(
+      (await repo.claimExchangeRecovery(operator, '1', fixture.orderId, fixture.lineId, claim)).id,
+    ).toBe(claimed.id);
+    expect((await repo.read(operator, '1', claimed.id)).input.counterId).toBe('3');
+    expect((await repo.read(operator, '1', claimed.id)).authorityCounterId).toBe('4');
+    expect(checked.slice(-2)).toEqual(['4','4']);
+    expect(returnCalls.inbound - before).toBe(1);
+    expect((await service.retry(operator, '1', claimed.id, '5')).phase).toBe('completed');
+    expect(returnCalls.inbound - before).toBe(1);
+    expect(calls).toBe(2);
+  });
+  it('adopts an exact native failed source exchange preserving financial counter zero and all earlier return effects', async () => {
+    const fixture = await returnFixture(9221),
+      request = exchangeRequest(fixture.input);
+    let calls = 0;
+    const before = returnCalls.inbound;
+    const service = exchangeWorkflow(
+      exchangeGateway(async (payload) => {
+        calls++;
+        if (calls === 1) return { status: 'FAIL' };
+        expect(payload.counter_id).toBe(0);
+        const id = await childOrder(9221);
+        await connection.execute('UPDATE order_stores SET counter_id=0 WHERE order_id=?', [id]);
+        await connection.execute(
+          'UPDATE pos_rewrite_exchange_stock_confirmations SET counter_id=0 WHERE order_id=?',
+          [id],
+        );
+        return { status: 'SUCCESS', new_order_id: id };
+      }),
+    );
+    await expect(
+      service.start(operator, '1', fixture.orderId, fixture.lineId, request),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_REPLACEMENT_REJECTED' });
+    await connection.execute('DELETE FROM pos_rewrite_return_operations WHERE id=?', [
+      request.operationId,
+    ]);
+    await connection.execute('UPDATE pos_exchange_log SET counter_id=0 WHERE order_id=9221');
+    const config = readConfig({
+      NODE_ENV: 'test',
+      DEMO_MODE: 'true',
+      SESSION_SECRET: 'recovery-fixture-secret-'.repeat(3),
+    });
+    const repo = returnRepository(db, config, {
+      hashSecret: signingEnvironment.hs256,
+      returnPeriodDays: 30,
+      assertCheckIn: async () => {},
+    });
+    const selection = { counterId: '3', verificationId: fixture.input.verificationId };
+    await connection.execute(
+      "UPDATE pos_hold_stock_logs SET comment='Synthetic unrelated event' WHERE comment LIKE '%[Order ID:9221]'",
+    );
+    const unconfirmed = await repo.exchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      selection,
+    );
+    expect(unconfirmed.state).toBe('restoration-unconfirmed');
+    await expect(
+      repo.claimExchangeRecovery(operator, '1', fixture.orderId, fixture.lineId, {
+        ...selection,
+        operationId: crypto.randomUUID(),
+        expectedRevision: unconfirmed.revision,
+        salespersonId: '5',
+      }),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_RECOVERY_UNCONFIRMED' });
+    const [empty] = await connection.query<mysql.RowDataPacket[]>(
+      'SELECT id FROM pos_rewrite_return_operations WHERE line_id=?',
+      [fixture.lineId],
+    );
+    expect(empty).toHaveLength(0);
+    await connection.execute(
+      "UPDATE pos_hold_stock_logs SET comment='Hold Stock inventory added from admin panel on order return, [Order ID:9221]' WHERE comment='Synthetic unrelated event'",
+    );
+    const snapshot = await repo.exchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      selection,
+    );
+    expect(snapshot.state).toBe('legacy');
+    const claim = {
+      ...selection,
+      operationId: crypto.randomUUID(),
+      expectedRevision: snapshot.revision,
+      salespersonId: '5',
+    };
+    const recovered = await repo.claimExchangeRecovery(
+      operator,
+      '1',
+      fixture.orderId,
+      fixture.lineId,
+      claim,
+    );
+    expect(recovered.phase).toBe('replacement-rejected');
+    await expect(
+      repo.claimExchangeRecovery(operator, '1', fixture.orderId, fixture.lineId, {
+        ...claim,
+        salespersonId: '6',
+      }),
+    ).rejects.toMatchObject({ code: 'EXCHANGE_RECOVERY_CHANGED' });
+    expect((await repo.read(operator, '1', recovered.id)).exchange?.sourceCounterId).toBe('0');
+    expect(calls).toBe(1);
+    expect(returnCalls.inbound - before).toBe(1);
+    expect((await service.retry(operator, '1', recovered.id, '5')).phase).toBe('completed');
+    expect(calls).toBe(2);
+    expect(returnCalls.inbound - before).toBe(1);
+    const [rows] = await connection.query<mysql.RowDataPacket[]>(
+      'SELECT id FROM return_orders WHERE order_id=9221',
+    );
+    expect(rows).toHaveLength(1);
+  });
   it('completes one cross-store exchange with zero new cash and correct source credit-note/child markers', async () => {
     const fixture = await returnFixture(9201),
       request = exchangeRequest(fixture.input);

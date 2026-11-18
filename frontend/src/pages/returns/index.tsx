@@ -15,6 +15,8 @@ import {
 import { InvoiceActions } from '../checkout';
 import {
   canContinue,
+  readExchangeRecovery,
+  readReturnEligibility,
   continueReverse,
   lineSchema,
   loadRecovery,
@@ -134,7 +136,16 @@ export function ReturnsPage({
   useEffect(() => {
     if (!verified || busy || recovery?.returnId || linkedLineApplied.current) return;
     const selected = matchingReturnEntryLine(
-      linkedLine.current,
+      recovery?.pendingRecoveryClaim
+        ? {
+            operatorId: user.id,
+            storeId,
+            counterId,
+            orderId: recovery.orderId,
+            lineId: recovery.pendingRecoveryClaim.lineId,
+            kind: 'exchange',
+          }
+        : linkedLine.current,
       proof.data?.orderId,
       mode,
       lines.data?.pages.flatMap((page) => page.data) || [],
@@ -143,7 +154,19 @@ export function ReturnsPage({
       linkedLineApplied.current = true;
       setLine(selected);
     }
-  }, [verified, busy, recovery?.returnId, proof.data?.orderId, mode, lines.data]);
+  }, [
+    verified,
+    busy,
+    recovery?.returnId,
+    recovery?.pendingRecoveryClaim,
+    recovery?.orderId,
+    proof.data?.orderId,
+    mode,
+    lines.data,
+    user.id,
+    storeId,
+    counterId,
+  ]);
   const operationKind = recovery?.kind || mode;
   const operationKey = (id: string, kind: ReverseKind) =>
     [user.id, 'reverse-operation', storeId, kind, id] as const;
@@ -226,6 +249,74 @@ export function ReturnsPage({
       (size) => size.prod_id === replacementId && BigInt(size.stock) >= BigInt(line.quantity),
     ),
   );
+  const exchangeRecovery = useQuery({
+    queryKey: [
+      user.id,
+      'exchange-recovery',
+      storeId,
+      counterId,
+      recovery?.verificationId,
+      recovery?.orderId,
+      line?.id,
+    ],
+    enabled: online && verified && mode === 'exchange' && !!line && !recovery?.returnId,
+    retry: false,
+    queryFn: ({ signal }) =>
+      readExchangeRecovery(
+        storeId,
+        recovery!.orderId,
+        line!.id,
+        counterId,
+        recovery!.verificationId!,
+        user.id,
+        signal,
+      ),
+  });
+  const newExchangeBlocked =
+    mode === 'exchange' &&
+    ((!!line && (line.status !== 'DELIVERED' || line.returnStatus !== 0)) ||
+      exchangeRecovery.isPending ||
+      exchangeRecovery.isError ||
+      exchangeRecovery.data?.state !== 'none' ||
+      !!recovery?.pendingRecoveryClaim);
+  const eligibility = useQuery({
+    queryKey: [
+      user.id,
+      'return-eligibility',
+      storeId,
+      counterId,
+      recovery?.verificationId,
+      recovery?.orderId,
+      line?.id,
+      mode,
+    ],
+    enabled:
+      online &&
+      verified &&
+      !!line &&
+      !recovery?.returnId &&
+      (mode === 'return' || exchangeRecovery.data?.state === 'none'),
+    retry: false,
+    queryFn: ({ signal }) =>
+      readReturnEligibility(
+        storeId,
+        recovery!.orderId,
+        line!.id,
+        counterId,
+        recovery!.verificationId!,
+        mode,
+        user.id,
+        signal,
+      ),
+  });
+  const currentEligibility = eligibility.isError ? undefined : eligibility.data;
+  const eligible =
+    !!currentEligibility &&
+    (currentEligibility.allowed ||
+      (mode === 'return' &&
+        user.role === 1 &&
+        currentEligibility.overrideAvailable &&
+        overrideEligibility));
   const selectedSalesperson = salespersonId || result.data?.replacement?.salespersonId || '';
   const salespersonAvailable = people.some((person) => person.id === selectedSalesperson);
   function remember(value: ReturnRecovery | null) {
@@ -284,7 +375,15 @@ export function ReturnsPage({
     }
   }
   async function processReturn() {
-    if (!line || !recovery?.verificationId || !quality || !tag) return;
+    if (
+      !eligible ||
+      (mode === 'exchange' && newExchangeBlocked) ||
+      !line ||
+      !recovery?.verificationId ||
+      !quality ||
+      !tag
+    )
+      return;
     const operationId = crypto.randomUUID();
     remember({ ...recovery, returnId: operationId });
     try {
@@ -331,6 +430,43 @@ export function ReturnsPage({
       throw error;
     }
   }
+  async function claimRecovery() {
+    if (!recovery?.verificationId || !line || !exchangeRecovery.data) return;
+    const pending = recovery.pendingRecoveryClaim || {
+      operationId: crypto.randomUUID(),
+      revision: exchangeRecovery.data.revision,
+      lineId: line.id,
+      ...(salespersonId ? { salespersonId } : {}),
+    };
+    if (pending.lineId !== line.id)
+      throw new Error('Read the original selected recovery line before continuing.');
+    remember({ ...recovery, pendingRecoveryClaim: pending });
+    let value: ReturnReceipt;
+    try {
+      value = await post(
+        `${returnBase(storeId)}/orders/${recovery.orderId}/line-items/${line.id}/exchange-recoveries`,
+        {
+          operationId: pending.operationId,
+          expectedRevision: pending.revision,
+          counterId,
+          verificationId: recovery.verificationId,
+          ...(pending.salespersonId ? { salespersonId: pending.salespersonId } : {}),
+        },
+        returnSchema,
+        user.id,
+      );
+    } catch (error) {
+      if (error instanceof ApiError && [400, 404, 409, 422].includes(error.status)) {
+        const { pendingRecoveryClaim: _claim, ...retained } = recovery;
+        remember(retained);
+        await exchangeRecovery.refetch();
+      }
+      throw error;
+    }
+    client.setQueryData(operationKey(value.id, 'exchange'), value);
+    const { pendingRecoveryClaim: _pending, ...retained } = recovery;
+    remember({ ...retained, returnId: value.id, kind: 'exchange' });
+  }
   async function resume(retry = false) {
     if (!recovery?.returnId) return;
     try {
@@ -370,7 +506,7 @@ export function ReturnsPage({
           <button
             key={value}
             className={`button ${mode === value ? 'primary' : 'secondary'}`}
-            disabled={busy || !!recovery?.returnId}
+            disabled={busy || !!recovery?.returnId || !!recovery?.pendingRecoveryClaim}
             aria-pressed={mode === value}
             onClick={() => {
               setMode(value);
@@ -515,7 +651,7 @@ export function ReturnsPage({
             )}
             <button
               className="text-button"
-              disabled={busy || proof.data?.pending}
+              disabled={busy || proof.data?.pending || !!recovery?.pendingRecoveryClaim}
               onClick={() => {
                 remember(null);
                 setOtp('');
@@ -544,8 +680,10 @@ export function ReturnsPage({
                     className={`button secondary ${line?.id === item.id ? 'selected' : ''}`}
                     disabled={
                       busy ||
-                      item.returnStatus !== 0 ||
-                      item.status !== 'DELIVERED' ||
+                      !!recovery?.pendingRecoveryClaim ||
+                      (mode === 'exchange'
+                        ? !['DELIVERED', 'EXCHANGE_INITIATED'].includes(item.status || '')
+                        : item.returnStatus !== 0 || item.status !== 'DELIVERED') ||
                       (mode === 'exchange' && item.parentId === '0')
                     }
                     onClick={() => {
@@ -582,7 +720,70 @@ export function ReturnsPage({
               Load more items
             </button>
           )}
-          {line && (
+          {line && mode === 'exchange' && (
+            <section aria-label="Earlier exchange recovery">
+              <h3>Earlier exchange</h3>
+              {exchangeRecovery.isPending ? (
+                <Loading />
+              ) : exchangeRecovery.isError ? (
+                <ErrorState error={exchangeRecovery.error} />
+              ) : exchangeRecovery.data?.state === 'none' ? (
+                <p>No earlier exchange requires recovery.</p>
+              ) : (
+                <>
+                  <p>
+                    {exchangeRecovery.data?.state === 'wrong-store'
+                      ? 'This exchange must be completed at the store where it was started.'
+                      : exchangeRecovery.data?.state === 'restoration-unconfirmed'
+                        ? 'The original stock-restoration evidence needs reconciliation. No return or stock update will be repeated.'
+                        : `Stored replacement size: ${exchangeRecovery.data?.newSize || 'Unavailable'}. Recover the earlier operation before creating anything new.`}
+                  </p>
+                  {exchangeRecovery.data?.state === 'legacy' && (
+                    <SalespersonSelect
+                      people={people}
+                      value={salespersonId}
+                      onChange={setSalesperson}
+                      disabled={busy || !!recovery?.pendingRecoveryClaim}
+                    />
+                  )}
+                  {(['operation', 'legacy'].includes(exchangeRecovery.data?.state || '') ||
+                    recovery?.pendingRecoveryClaim) && (
+                    <button
+                      type="button"
+                      className="button secondary"
+                      disabled={
+                        !online ||
+                        busy ||
+                        (!recovery?.pendingRecoveryClaim &&
+                          exchangeRecovery.data?.state === 'legacy' &&
+                          !salespersonId)
+                      }
+                      onClick={() => void act(claimRecovery)}
+                    >
+                      {recovery?.pendingRecoveryClaim
+                        ? 'Check original recovery claim'
+                        : 'Recover earlier exchange'}
+                    </button>
+                  )}
+                </>
+              )}
+              <button
+                type="button"
+                className="text-button"
+                disabled={!online || busy}
+                onClick={() => void exchangeRecovery.refetch()}
+              >
+                Refresh earlier exchange status
+              </button>
+              {recovery?.pendingRecoveryClaim && (
+                <p role="status">
+                  A recovery claim is retained. Read or confirm that original claim before choosing
+                  another operation.
+                </p>
+              )}
+            </section>
+          )}
+          {line && !newExchangeBlocked && (
             <form
               className="return-form"
               onSubmit={(event) => {
@@ -696,6 +897,31 @@ export function ReturnsPage({
                 </select>
               </label>
               {mode === 'return' && subReasons.isError && <ErrorState error={subReasons.error} />}
+              <section aria-label="Current item eligibility">
+                <h4>Current eligibility</h4>
+                {eligibility.isPending ? (
+                  <Loading />
+                ) : eligibility.isError ? (
+                  <ErrorState error={eligibility.error} />
+                ) : (
+                  currentEligibility && (
+                    <p>
+                      {currentEligibility.allowed
+                        ? `Available for ${mode}${currentEligibility.until ? ` through ${currentEligibility.until}` : ''}.`
+                        : currentEligibility.reason ||
+                          `This item is not currently eligible for ${mode}.`}
+                    </p>
+                  )
+                )}
+                <button
+                  type="button"
+                  className="text-button"
+                  disabled={!online || busy || eligibility.isFetching}
+                  onClick={() => void eligibility.refetch()}
+                >
+                  Refresh item eligibility
+                </button>
+              </section>
               <label>
                 Comment
                 <textarea
@@ -704,7 +930,7 @@ export function ReturnsPage({
                   onChange={(event) => setComment(event.target.value)}
                 />
               </label>
-              {mode === 'return' && user.role === 1 && (
+              {mode === 'return' && user.role === 1 && currentEligibility?.overrideAvailable && (
                 <label className="return-check">
                   <input
                     type="checkbox"
@@ -767,6 +993,7 @@ export function ReturnsPage({
                 disabled={
                   !online ||
                   busy ||
+                  !eligible ||
                   !quality ||
                   !tag ||
                   !reasonId ||

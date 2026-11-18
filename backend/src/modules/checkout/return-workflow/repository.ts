@@ -34,6 +34,7 @@ import {
   PosTransactionLog,
   Product,
   ProductStore,
+  ProductInventoryLog,
   ReturnOrder,
   ReversePickupReason,
   Store,
@@ -58,6 +59,10 @@ import { wireId } from '../payloads.js';
 import { currentRequestTrace } from '../../../observability/context.js';
 import {
   returnOperationSchema,
+  exchangeFinancialCounter,
+  publicReturn,
+  type ExchangeRecoveryScope,
+  type ExchangeRecoveryClaim,
   type ReturnInput,
   type ReturnOperation,
   type InboundReturn,
@@ -208,6 +213,131 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       );
     }
   }
+  function sourceExchangeHash(log: typeof PosExchangeLog.$inferSelect) {
+    const {
+      id,
+      order_id,
+      has_prod_id,
+      old_prod_id,
+      old_size,
+      new_prod_id,
+      new_size,
+      exchange_parent_prod_id,
+      store_id,
+      counter_id,
+      reason_id,
+      sub_reason_id,
+      comment,
+      saleable,
+      created_at,
+    } = log;
+    return operationHash(
+      'exchange.original-source',
+      JSON.stringify(
+        {
+          id,
+          order_id,
+          has_prod_id,
+          old_prod_id,
+          old_size,
+          new_prod_id,
+          new_size,
+          exchange_parent_prod_id,
+          store_id,
+          counter_id,
+          reason_id,
+          sub_reason_id,
+          comment,
+          saleable,
+          created_at,
+        },
+        (_key, value: unknown) => (typeof value === 'bigint' ? String(value) : value),
+      ),
+      options.hashSecret,
+    );
+  }
+  async function assertAdoptionEvidence(tx: AdministrationTransaction, operation: ReturnOperation) {
+    const proof = operation.exchange?.adoptionEvidence;
+    if (!proof || !operation.exchange) return;
+    const [log] = await tx
+      .select()
+      .from(PosExchangeLog)
+      .where(eq(PosExchangeLog.id, BigInt(operation.exchange.logId)))
+      .limit(1)
+      .for('update');
+    const [credit] = await tx
+      .select()
+      .from(ReturnOrder)
+      .where(
+        and(
+          eq(ReturnOrder.id, BigInt(proof.creditId)),
+          eq(ReturnOrder.order_id, BigInt(operation.orderId)),
+          eq(ReturnOrder.has_product_id, BigInt(operation.lineId)),
+          eq(ReturnOrder.prod_id, BigInt(operation.productId)),
+          eq(ReturnOrder.store_id, Number(operation.storeId)),
+        ),
+      )
+      .limit(1)
+      .for('update');
+    const receipt =
+      proof.stockLogKind === 'saleable'
+        ? (
+            await tx
+              .select({
+                before: ProductInventoryLog.stock_before,
+                after: ProductInventoryLog.stock_after,
+                at: ProductInventoryLog.created_at,
+              })
+              .from(ProductInventoryLog)
+              .where(
+                and(
+                  eq(ProductInventoryLog.id, BigInt(proof.stockLogId)),
+                  eq(ProductInventoryLog.store_id, BigInt(operation.storeId)),
+                  eq(ProductInventoryLog.product_id, BigInt(operation.productId)),
+                ),
+              )
+              .limit(1)
+              .for('update')
+          )[0]
+        : (
+            await tx
+              .select({
+                before: PosHoldStockLog.stock_before,
+                after: PosHoldStockLog.stock_after,
+                at: PosHoldStockLog.created_at,
+              })
+              .from(PosHoldStockLog)
+              .where(
+                and(
+                  eq(PosHoldStockLog.id, BigInt(proof.stockLogId)),
+                  eq(PosHoldStockLog.store_id, BigInt(operation.storeId)),
+                  eq(PosHoldStockLog.product_id, BigInt(operation.productId)),
+                ),
+              )
+              .limit(1)
+              .for('update')
+          )[0];
+    if (
+      !log ||
+      sourceExchangeHash(log) !== proof.sourceHash ||
+      !credit ||
+      credit.credit_note_no !== operation.creditNote ||
+      credit.created_at < operation.createdAt ||
+      credit.qty !== operation.quantity ||
+      !receipt ||
+      !receipt.before ||
+      !receipt.after ||
+      !/^-?\d{1,20}$/.test(receipt.before) ||
+      !/^-?\d{1,20}$/.test(receipt.after) ||
+      BigInt(receipt.after) - BigInt(receipt.before) !== BigInt(operation.quantity) ||
+      receipt.at < credit.created_at
+    )
+      throw new AppError(
+        409,
+        'EXCHANGE_ADOPTION_EVIDENCE_CHANGED',
+        'The original exchange evidence changed. Reconcile it before continuing.',
+      );
+  }
   async function owned(
     tx: AdministrationTransaction,
     user: Principal,
@@ -222,17 +352,23 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       .limit(1);
     if (!first)
       throw new AppError(404, 'RETURN_OPERATION_NOT_FOUND', 'Return operation was not found.');
-    const initial = returnOperationSchema.parse(first.state),
-      scope = await context(
-        tx,
-        user,
-        storeId,
-        initial.orderId,
-        initial.lineId,
-        initial.input.counterId,
-        purpose,
-        initial.exchange?.childOrderId ? [initial.exchange.childOrderId] : [],
+    const initial = returnOperationSchema.parse(first.state);
+    if (initial.recoveryClaim && initial.recoveryClaim.operatorId !== user.id)
+      throw new AppError(
+        403,
+        'EXCHANGE_RECOVERY_CLAIM_REQUIRED',
+        'Claim this exchange with current customer verification before continuing.',
       );
+    const scope = await context(
+      tx,
+      user,
+      storeId,
+      initial.orderId,
+      initial.lineId,
+      initial.authorityCounterId ?? initial.input.counterId,
+      purpose,
+      initial.exchange?.childOrderId ? [initial.exchange.childOrderId] : [],
+    );
     const [locked] = await tx
       .select({ state: returnOperations.state })
       .from(returnOperations)
@@ -245,6 +381,8 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       operation.orderId !== initial.orderId ||
       operation.lineId !== initial.lineId ||
       operation.input.counterId !== initial.input.counterId ||
+      operation.authorityCounterId !== initial.authorityCounterId ||
+      operation.recoveryClaim?.id !== initial.recoveryClaim?.id ||
       operation.exchange?.childOrderId !== initial.exchange?.childOrderId
     )
       throw new AppError(
@@ -252,6 +390,19 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         'RETURN_OPERATION_CHANGED',
         'The return operation changed while its orders were being locked. Read its original status before continuing.',
       );
+    if (operation.recoveryClaim && purpose === 'authority')
+      await verifiedCustomer(
+        tx,
+        user,
+        storeId,
+        operation.orderId,
+        operation.authorityCounterId!,
+        operation.recoveryClaim.verificationId,
+        String(scope.order.customerId),
+      );
+    if (operation.recoveryClaim && String(scope.order.customerId) !== operation.customerId)
+      throw new AppError(409, 'EXCHANGE_CUSTOMER_CHANGED', 'The original order customer changed.');
+    await assertAdoptionEvidence(tx, operation);
     return { operation, ...scope };
   }
   async function save(tx: AdministrationTransaction, operation: ReturnOperation) {
@@ -569,7 +720,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           eq(exchangeStockConfirmations.parentLineId, BigInt(operation.lineId)),
           eq(exchangeStockConfirmations.lineId, lineId),
           eq(exchangeStockConfirmations.storeId, BigInt(operation.storeId)),
-          eq(exchangeStockConfirmations.counterId, BigInt(operation.input.counterId)),
+          eq(exchangeStockConfirmations.counterId, BigInt(exchangeFinancialCounter(operation))),
           eq(exchangeStockConfirmations.productId, BigInt(operation.exchange!.newProductId)),
           eq(exchangeStockConfirmations.quantity, BigInt(operation.quantity)),
           eq(exchangeStockConfirmations.contractVersion, exchangeStockContract),
@@ -615,7 +766,427 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       .limit(1);
     return Boolean(link && ledger);
   }
+  async function recoverySnapshot(
+    tx: AdministrationTransaction,
+    user: Principal,
+    storeId: string,
+    orderId: string,
+    lineId: string,
+    input: ExchangeRecoveryScope,
+  ) {
+    const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
+    await verifiedCustomer(
+      tx,
+      user,
+      storeId,
+      orderId,
+      input.counterId,
+      input.verificationId,
+      String(scope.order.customerId),
+    );
+    const states = await tx
+      .select({ state: returnOperations.state })
+      .from(returnOperations)
+      .where(and(eq(returnOperations.lineId, lineId), ne(returnOperations.phase, 'rejected')))
+      .limit(2)
+      .for('update');
+    if (states.length > 1)
+      throw new AppError(
+        409,
+        'EXCHANGE_RECOVERY_AMBIGUOUS',
+        'Multiple earlier operations require reconciliation.',
+      );
+    const operation = states[0] ? returnOperationSchema.parse(states[0].state) : null;
+    if (
+      operation &&
+      (operation.orderId !== orderId ||
+        operation.storeId !== storeId ||
+        operation.customerId !== String(scope.order.customerId) ||
+        operation.productId !== String(scope.line.product) ||
+        operation.kind !== 'exchange')
+    )
+      throw new AppError(
+        409,
+        'EXCHANGE_RECOVERY_SCOPE_CHANGED',
+        'An earlier operation belongs to another return context.',
+      );
+    const logs =
+      BigInt(orderId) <= 2147483647n && BigInt(lineId) <= 2147483647n
+        ? await tx
+            .select()
+            .from(PosExchangeLog)
+            .where(
+              and(
+                eq(PosExchangeLog.order_id, Number(orderId)),
+                eq(PosExchangeLog.has_prod_id, Number(lineId)),
+              ),
+            )
+            .limit(2)
+            .for('update')
+        : [];
+    if (logs.length > 1)
+      throw new AppError(
+        409,
+        'EXCHANGE_RECOVERY_AMBIGUOUS',
+        'Multiple original exchange records require reconciliation.',
+      );
+    const log = logs[0] ?? null;
+    const credits = log
+      ? await tx
+          .select()
+          .from(ReturnOrder)
+          .where(
+            and(
+              eq(ReturnOrder.order_id, BigInt(orderId)),
+              eq(ReturnOrder.has_product_id, BigInt(lineId)),
+              eq(ReturnOrder.prod_id, BigInt(log.old_prod_id)),
+              eq(ReturnOrder.store_id, log.store_id),
+              gte(ReturnOrder.created_at, log.created_at),
+              ne(ReturnOrder.credit_note_no, ''),
+            ),
+          )
+          .limit(2)
+          .for('update')
+      : [];
+    const credit = credits.length === 1 ? credits[0] : null;
+    const messages = [
+      `Product inventory added from admin panel on order return, [Order ID:${orderId}]`,
+      `Product inventory added from admin panel on store order return, [Order ID:${orderId}]`,
+      `Product inventory added from admin panel on online order return, [Order ID:${orderId}]`,
+    ];
+    const stock =
+      log && credit && !operation
+        ? log.saleable
+          ? await tx
+              .select({
+                id: ProductInventoryLog.id,
+                before: ProductInventoryLog.stock_before,
+                after: ProductInventoryLog.stock_after,
+                at: ProductInventoryLog.created_at,
+              })
+              .from(ProductInventoryLog)
+              .where(
+                and(
+                  eq(ProductInventoryLog.store_id, BigInt(log.store_id)),
+                  eq(ProductInventoryLog.product_id, BigInt(log.old_prod_id)),
+                  inArray(ProductInventoryLog.comment, messages),
+                  gte(ProductInventoryLog.created_at, credit.created_at),
+                ),
+              )
+              .limit(2)
+              .for('update')
+          : await tx
+              .select({
+                id: PosHoldStockLog.id,
+                before: PosHoldStockLog.stock_before,
+                after: PosHoldStockLog.stock_after,
+                at: PosHoldStockLog.created_at,
+              })
+              .from(PosHoldStockLog)
+              .where(
+                and(
+                  eq(PosHoldStockLog.store_id, BigInt(log.store_id)),
+                  eq(PosHoldStockLog.product_id, BigInt(log.old_prod_id)),
+                  eq(
+                    PosHoldStockLog.comment,
+                    `Hold Stock inventory added from admin panel on order return, [Order ID:${orderId}]`,
+                  ),
+                  gte(PosHoldStockLog.created_at, credit.created_at),
+                ),
+              )
+              .limit(2)
+              .for('update')
+        : [];
+    const stockProof =
+      stock.length === 1 &&
+      stock[0] &&
+      stock[0].before !== null &&
+      stock[0].after !== null &&
+      /^-?\d{1,20}$/.test(stock[0].before) &&
+      /^-?\d{1,20}$/.test(stock[0].after) &&
+      BigInt(stock[0].after) - BigInt(stock[0].before) === scope.line.qty
+        ? stock[0]
+        : null;
+    const revision = operationHash(
+      'exchange.recovery',
+      JSON.stringify(
+        {
+          actor: user.id,
+          storeId,
+          orderId,
+          lineId,
+          input,
+          customer: scope.order.customerId,
+          line: scope.line,
+          operation,
+          log,
+          credits,
+          stock,
+        },
+        (_key, value: unknown) => (typeof value === 'bigint' ? String(value) : value),
+      ),
+      options.hashSecret,
+    );
+    return { scope, operation, log, credit, stockProof, revision };
+  }
+  function recoveryView(value: Awaited<ReturnType<typeof recoverySnapshot>>, storeId: string) {
+    const { operation, log, credit, stockProof, scope, revision } = value;
+    if (operation)
+      return {
+        revision,
+        state: 'operation' as const,
+        operation: publicReturn(operation),
+        newSize: operation.exchange?.newSize ?? null,
+      };
+    if (
+      !log ||
+      log.status !== 'FAILED_NEEDS_MANUAL_FIX' ||
+      !exchangeRetryable(scope.line.status, Boolean(credit))
+    )
+      return { revision, state: 'none' as const, operation: null, newSize: null };
+    if (String(log.store_id) !== storeId)
+      return { revision, state: 'wrong-store' as const, operation: null, newSize: null };
+    if (!stockProof)
+      return {
+        revision,
+        state: 'restoration-unconfirmed' as const,
+        operation: null,
+        newSize: log.new_size,
+      };
+    return { revision, state: 'legacy' as const, operation: null, newSize: log.new_size };
+  }
   return {
+    async eligibilityScope(
+      user: Principal,
+      storeId: string,
+      orderId: string,
+      lineId: string,
+      input: ExchangeRecoveryScope,
+    ) {
+      return db.get('writer').transaction(async (tx) => {
+        const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
+        await verifiedCustomer(
+          tx,
+          user,
+          storeId,
+          orderId,
+          input.counterId,
+          input.verificationId,
+          String(scope.order.customerId),
+        );
+        return {
+          customerId: String(scope.order.customerId),
+          lineStatus: scope.line.status,
+          returnStatus: scope.line.return_status,
+          binding: operationHash(
+            'return.eligibility-scope',
+            JSON.stringify(
+              {
+                user,
+                storeId,
+                orderId,
+                lineId,
+                input,
+                customerId: scope.order.customerId,
+                line: scope.line,
+              },
+              (_key, value: unknown) => (typeof value === 'bigint' ? String(value) : value),
+            ),
+            options.hashSecret,
+          ),
+        };
+      });
+    },
+    async exchangeRecovery(
+      user: Principal,
+      storeId: string,
+      orderId: string,
+      lineId: string,
+      input: ExchangeRecoveryScope,
+    ) {
+      return db
+        .get('writer')
+        .transaction(async (tx) =>
+          recoveryView(await recoverySnapshot(tx, user, storeId, orderId, lineId, input), storeId),
+        );
+    },
+    async claimExchangeRecovery(
+      user: Principal,
+      storeId: string,
+      orderId: string,
+      lineId: string,
+      input: ExchangeRecoveryClaim,
+    ) {
+      return db.get('writer').transaction(async (tx) => {
+        const proof = { counterId: input.counterId, verificationId: input.verificationId };
+        const requestHash = operationHash(
+          'exchange.recovery-claim',
+          { userId: user.id, storeId, orderId, lineId, input },
+          options.hashSecret,
+        );
+        const snapshot = await recoverySnapshot(tx, user, storeId, orderId, lineId, proof);
+        const { scope, log, credit, stockProof } = snapshot;
+        if (
+          snapshot.operation?.recoveryClaim?.id === input.operationId &&
+          snapshot.operation.recoveryClaim.revision === input.expectedRevision &&
+          snapshot.operation.recoveryClaim.operatorId === user.id &&
+          snapshot.operation.recoveryClaim.counterId === input.counterId &&
+          snapshot.operation.recoveryClaim.verificationId === input.verificationId &&
+          snapshot.operation.recoveryClaim.requestHash === requestHash
+        )
+          return publicReturn(snapshot.operation);
+        if (snapshot.revision !== input.expectedRevision)
+          throw new AppError(
+            409,
+            'EXCHANGE_RECOVERY_CHANGED',
+            'The exchange changed. Read its current recovery status.',
+          );
+        const claim = {
+          id: input.operationId,
+          revision: input.expectedRevision,
+          operatorId: user.id,
+          counterId: input.counterId,
+          verificationId: input.verificationId,
+          claimedAt: timestamp(),
+          requestHash,
+        };
+        if (snapshot.operation) {
+          const operation = snapshot.operation;
+          if (
+            ![
+              'replacement-rejected',
+              'uncertain',
+              'old-item-restored',
+              'inbound-accepted',
+              'replacement-confirmed',
+              'completed',
+            ].includes(operation.phase)
+          )
+            throw new AppError(
+              409,
+              'EXCHANGE_RECOVERY_BUSY',
+              'An exchange request is still in progress. Read its outcome before claiming it.',
+            );
+          await phaseOneProof(tx, operation, scope.line.status, operation.phase === 'completed');
+          return publicReturn(
+            await save(tx, {
+              ...operation,
+              authorityCounterId: input.counterId,
+              recoveryClaim: claim,
+            }),
+          );
+        }
+        if (
+          recoveryView(snapshot, storeId).state !== 'legacy' ||
+          !log ||
+          !credit ||
+          !stockProof ||
+          log.new_order_id ||
+          log.old_prod_id !== Number(scope.line.product) ||
+          credit.qty !== Number(scope.line.qty)
+        )
+          throw new AppError(
+            409,
+            'EXCHANGE_RECOVERY_UNCONFIRMED',
+            'The original return, stock restoration or replacement state needs reconciliation before recovery.',
+          );
+        await assertNoReplacementChild(tx, { orderId, lineId, createdAt: log.created_at }, true);
+        if (!input.salespersonId)
+          throw new AppError(
+            422,
+            'EXCHANGE_SALESPERSON_REQUIRED',
+            'Select a current salesperson to recover this exchange.',
+          );
+        const selected = await exchangeSelection(tx, scope, {
+          replacementProductId: String(log.new_prod_id),
+          salespersonId: input.salespersonId,
+        });
+        // A fresh salesperson is selected explicitly at retry; adoption preserves stored size.
+        if (
+          selected.newSize !== log.new_size ||
+          selected.parentProductId !== String(log.exchange_parent_prod_id)
+        )
+          throw new AppError(
+            409,
+            'EXCHANGE_PRODUCT_CHANGED',
+            'The stored replacement size changed.',
+          );
+        const [existingId] = await tx
+          .select({ id: returnOperations.id })
+          .from(returnOperations)
+          .where(eq(returnOperations.id, input.operationId))
+          .limit(1)
+          .for('update');
+        if (existingId)
+          throw new AppError(409, 'IDEMPOTENCY_CONFLICT', 'This recovery key is already in use.');
+        const date = timestamp();
+        const operation = returnOperationSchema.parse({
+          id: input.operationId,
+          kind: 'exchange',
+          operatorId: user.id,
+          storeId,
+          orderId,
+          lineId,
+          productId: String(scope.line.product),
+          customerId: String(scope.order.customerId),
+          quantity: Number(scope.line.qty),
+          authorityCounterId: input.counterId,
+          recoveryClaim: claim,
+          exchange: {
+            newProductId: String(log.new_prod_id),
+            parentProductId: String(log.exchange_parent_prod_id),
+            newSize: log.new_size,
+            oldSize: log.old_size,
+            salespersonId: selected.salespersonId,
+            logId: String(log.id),
+            childOrderId: null,
+            sourceCounterId: String(log.counter_id || 0),
+            adoptionEvidence: {
+              revision: input.expectedRevision,
+              sourceHash: sourceExchangeHash(log),
+              creditId: String(credit.id),
+              stockLogId: String(stockProof.id),
+              stockLogKind: log.saleable ? 'saleable' : 'held',
+            },
+          },
+          input: {
+            operationId: input.operationId,
+            counterId: input.counterId,
+            verificationId: input.verificationId,
+            reasonId: String(log.reason_id),
+            ...(log.sub_reason_id ? { subReasonId: String(log.sub_reason_id) } : {}),
+            comment: log.comment || '',
+            qualityConfirmed: true,
+            tagConfirmed: true,
+            saleable: Boolean(log.saleable),
+            refundMode: 'tss-money',
+            overrideEligibility: false,
+          },
+          requestHash: operationHash(
+            'exchange.legacy-adoption',
+            { orderId, lineId, claim },
+            options.hashSecret,
+          ),
+          phase: 'replacement-rejected',
+          uncertainStage: null,
+          creditNote: credit.credit_note_no,
+          returnAmount: null,
+          errorCode: 'LEGACY_EXCHANGE_ADOPTED',
+          createdAt: log.created_at,
+          updatedAt: date,
+        });
+        await tx.insert(returnOperations).values({
+          id: operation.id,
+          lineId,
+          storeId,
+          phase: operation.phase,
+          state: operation,
+          createdAt: operation.createdAt,
+          updatedAt: date,
+        });
+        return publicReturn(operation);
+      });
+    },
     async extensionScope(
       tx: AdministrationTransaction,
       user: Principal,
@@ -1410,7 +1981,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           child.parentId !== BigInt(operation.orderId) ||
           String(child.customerId) !== operation.customerId ||
           child.storeId !== BigInt(storeId) ||
-          child.counterId !== BigInt(operation.input.counterId) ||
+          child.counterId !== BigInt(exchangeFinancialCounter(operation)) ||
           String(child.productId) !== operation.exchange.newProductId ||
           child.quantity !== BigInt(operation.quantity) ||
           child.childCreatedAt < operation.createdAt
@@ -1557,7 +2128,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               and(
                 eq(OrderStore.order, BigInt(childId)),
                 eq(OrderStore.store, BigInt(storeId)),
-                eq(OrderStore.counter, BigInt(operation.input.counterId)),
+                eq(OrderStore.counter, BigInt(exchangeFinancialCounter(operation))),
               ),
             )
             .limit(1)

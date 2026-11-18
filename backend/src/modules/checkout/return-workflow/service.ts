@@ -7,6 +7,7 @@ import { CheckoutGatewayError } from '../gateway.js';
 import type { CheckoutEnvironment } from '../gateway.js';
 import {
   publicReturn,
+  type ExchangeRecoveryScope,
   type ReturnGateway,
   type ReturnInput,
   type ReturnOperation,
@@ -146,6 +147,66 @@ export function returnService(
     }
   }
   return {
+    async eligibility(
+      user: Principal,
+      storeId: string,
+      orderId: string,
+      lineId: string,
+      input: ExchangeRecoveryScope,
+      kind: 'return' | 'exchange',
+    ) {
+      const original = await repository.eligibilityScope(user, storeId, orderId, lineId, input);
+      const customer = await customers.customer(original.customerId);
+      if (!customer)
+        throw new AppError(
+          409,
+          'RETURN_CUSTOMER_UNAVAILABLE',
+          'The order customer could not be confirmed.',
+        );
+      const result = await gateway.eligibility(
+        orderId,
+        storeId,
+        lineId,
+        issueCustomerToken(customer, signing),
+        kind,
+      );
+      const current = await repository.eligibilityScope(user, storeId, orderId, lineId, input);
+      if (current.binding !== original.binding)
+        throw new AppError(
+          409,
+          'RETURN_ELIGIBILITY_CHANGED',
+          'The line changed while checking eligibility.',
+        );
+      const today = Temporal.Now.zonedDateTimeISO(timeZone).toPlainDate();
+      let validDate = false;
+      try {
+        validDate =
+          !!result.until &&
+          Temporal.PlainDate.compare(Temporal.PlainDate.from(result.until.slice(0, 10)), today) >=
+            0;
+      } catch {
+        throw new AppError(
+          502,
+          'RETURN_ELIGIBILITY_UNAVAILABLE',
+          'The order service returned an invalid eligibility date.',
+        );
+      }
+      return {
+        orderId,
+        lineId,
+        kind,
+        allowed: result.allowed,
+        until: result.until,
+        reason: result.reason || '',
+        overrideAvailable:
+          kind === 'return' &&
+          user.role === 1 &&
+          !result.allowed &&
+          validDate &&
+          current.lineStatus === 'DELIVERED' &&
+          current.returnStatus === 0,
+      };
+    },
     async start(
       user: Principal,
       storeId: string,

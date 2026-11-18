@@ -14,6 +14,9 @@ import { returnVerificationService } from './verification.js';
 import { exchangeService } from './exchanges.js';
 import { returnWindowExtensions } from './extensions.js';
 import {
+  exchangeRecoveryScope,
+  exchangeRecoveryPath,
+  exchangeRecoveryClaim,
   returnWindowScopeSchema,
   returnWindowInputSchema,
   returnWindowPathSchema,
@@ -78,6 +81,59 @@ export function registerReturns(
     repository,
     hashSecret: options.signing.hs256 || options.signing.hs512 || '',
   });
+  app.get(
+    '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-eligibility',
+    { config: { trace: { module: 'checkout', resource: 'return-eligibility', action: 'read' } } },
+    async (request, reply) => {
+      reply.header('Cache-Control', 'no-store');
+      const p = exchangeRecoveryPath.parse(request.params),
+        q = exchangeRecoveryScope
+          .extend({ kind: z.enum(['return', 'exchange']) })
+          .parse(request.query);
+      return service.eligibility(
+        authenticated(request),
+        p.storeId,
+        p.orderId,
+        p.lineId,
+        { counterId: q.counterId, verificationId: q.verificationId },
+        q.kind,
+      );
+    },
+  );
+  app.get(
+    '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/exchange-recovery',
+    {
+      config: { trace: { module: 'checkout', resource: 'exchange-recovery', action: 'read' } },
+    },
+    async (request, reply) => {
+      reply.header('Cache-Control', 'no-store');
+      const p = exchangeRecoveryPath.parse(request.params);
+      return repository.exchangeRecovery(
+        authenticated(request),
+        p.storeId,
+        p.orderId,
+        p.lineId,
+        exchangeRecoveryScope.parse(request.query),
+      );
+    },
+  );
+  app.post(
+    '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/exchange-recoveries',
+    {
+      config: { trace: { module: 'checkout', resource: 'exchange-recovery', action: 'claim' } },
+    },
+    async (request, reply) => {
+      reply.header('Cache-Control', 'no-store');
+      const p = exchangeRecoveryPath.parse(request.params);
+      return repository.claimExchangeRecovery(
+        authenticated(request),
+        p.storeId,
+        p.orderId,
+        p.lineId,
+        exchangeRecoveryClaim.parse(request.body),
+      );
+    },
+  );
   app.get(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window',
     {

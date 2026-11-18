@@ -1,0 +1,36 @@
+{
+  "scope": "Focused current eligibility/exchange recovery implementation; not full template/provider acceptance",
+  "base": "eb8047f0542a4c19134558d079263addd1265476",
+  "source": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "native": {
+    "selected": 2,
+    "unrelatedSkipped": 68,
+    "seconds": 2.34,
+    "boundary": "existing native MySQL fixture with explicit check-in/provider carriers; no full App/native-session claim"
+  },
+  "checks": {
+    "backendStrict": true,
+    "frontendStrict": true,
+    "changedLint": true,
+    "entrySelection": 20,
+    "productionBuild": true
+  },
+  "inputs": {
+    "backend/src/modules/checkout/return-workflow/contracts.ts": "5d2c2c64786c0ef58da704a60af0c8e1abf1ea2cd01b27e59c959f39da270900",
+    "backend/src/modules/checkout/return-workflow/exchanges.ts": "3fc582906d486cc9a62a551856de4dfd54fd8418ed14691a3721fed61906f625",
+    "backend/src/modules/checkout/return-workflow/gateway.ts": "3dd84798846a70f298688dcf202383cb95339036060979bbed9e7e5855b04682",
+    "backend/src/modules/checkout/return-workflow/repository.ts": "a96f74cc8cf1c8cd771fc76f6cd8aecab1361b93dec32ab42516bdcc3cd27cba",
+    "backend/src/modules/checkout/return-workflow/routes.ts": "7238c0f3f9af1d4d37cdb3c26fa0048586bedff25f2a941c0796a771e86ee374",
+    "backend/src/modules/checkout/return-workflow/service.ts": "aeda27fa405f835a31ebf9a777cdacc3ebdaabdd988fa5fbebbf03e0fbe155ac",
+    "backend/tests/checkout/mysql.integration.test.ts": "7a7ca27e617ac449cccf7518a8aa671e3f58a25f3ad1af179bed975ec9a65bc1",
+    "frontend/src/pages/returns/client.ts": "b90857efed4796a57a6459099a0c3e6d6530f7923c284235ac01e74b05128005",
+    "frontend/src/pages/returns/index.tsx": "500e2e16102bfd7d7061023339f388fa1b0b5235be98c0d06563aa60d72a1828",
+    "frontend/src/pages/returns/order-entry.ts": "9d69d1792d45a58f8f26d3e49c6c75d091e9b8aa68d1722730fb41cdefebfeee",
+    "frontend/tests/returns/order-entry.test.ts": "b77a3a64ae4a11f5c978e1741fb0cc321ffb23921363d2ac45b65b84e76b93d7"
+  },
+  "logs": {
+    "/tmp/pos-exchange-recovery-native-20261118.log": "7a04ac6623cc32128323c35f46cca2bf6a536eb7878c0791bbdae12c0ff15e9f",
+    "/tmp/pos-exchange-recovery-build-final-20261118.log": "511525302d24bbdd4ebde39531abd1bf2e3b8a5e90487b3ae1dcef2545f936f7"
+  },
+  "fixtureCleanup": "Exact nonce-label/ID verified; docker rm -fv completed; exact ID absent; no active fixture"
+}

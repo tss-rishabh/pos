@@ -16,6 +16,7 @@ import { issueCustomerToken } from '../crypto.js';
 import { exchangePayload } from '../payloads.js';
 import { orderFinalizer } from '../finalizer.js';
 import {
+  exchangeFinancialCounter,
   returnInputSchema,
   publicReturn,
   type ExchangeInput,
@@ -101,7 +102,7 @@ export function exchangeService(
     await finalize(
       {
         storeId: operation.storeId,
-        counterId: operation.input.counterId,
+        counterId: exchangeFinancialCounter(operation),
         customerId: operation.customerId,
         operatorCustomerId: operator.id,
         salespersonId: exchange.salespersonId,
@@ -116,6 +117,12 @@ export function exchangeService(
     initial: ReturnOperation,
     retrySalespersonId?: string,
   ) {
+    if (signing.exchangeStockContract !== exchangeStockContract)
+      throw new AppError(
+        503,
+        'EXCHANGE_STOCK_CONTRACT_UNVERIFIED',
+        'Replacement inventory confirmation must be verified before recovering an exchange.',
+      );
     let operation = initial,
       dispatched = false;
     try {
@@ -153,7 +160,7 @@ export function exchangeService(
               parentId: exchange.parentProductId,
               size: exchange.newSize,
               storeId: operation.storeId,
-              counterId: operation.input.counterId,
+              counterId: exchangeFinancialCounter(operation),
               saleable: operation.input.saleable,
               reasonId: operation.input.reasonId,
               subReasonId: operation.input.subReasonId || null,

@@ -68,10 +68,16 @@ describe('verified line selection hints', () => {
     expect(matchingReturnEntryLine(linked, entry.orderId, 'exchange', [])).toBeNull();
     expect(matchingReturnEntryLine(linked, entry.orderId, 'exchange', [line, line])).toBeNull();
   });
+  it('allows review of source retryable exchange lines without authorizing a new exchange', () => {
+    expect(
+      matchingReturnEntryLine(linked, entry.orderId, 'exchange', [
+        { ...line, status: 'EXCHANGE_INITIATED', returnStatus: 1 },
+      ])?.id,
+    ).toBe(line.id);
+  });
   it('refuses returned or unbound replacement lines', () => {
     for (const invalid of [
       { ...line, status: 'PRODUCT_RETURNED' },
-      { ...line, returnStatus: 1 },
       { ...line, parentId: '0' },
     ])
       expect(matchingReturnEntryLine(linked, entry.orderId, 'exchange', [invalid])).toBeNull();

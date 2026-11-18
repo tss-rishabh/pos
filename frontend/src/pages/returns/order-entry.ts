@@ -64,9 +64,9 @@ export function matchingReturnEntryLine(
   const matches = lines.filter((line) => line.id === entry.lineId);
   const line = matches.length === 1 ? matches[0] : undefined;
   return line &&
-    line.status === 'DELIVERED' &&
-    line.returnStatus === 0 &&
-    (mode !== 'exchange' || line.parentId !== '0')
+    (mode === 'exchange'
+      ? ['DELIVERED', 'EXCHANGE_INITIATED'].includes(line.status || '') && line.parentId !== '0'
+      : line.status === 'DELIVERED' && line.returnStatus === 0)
     ? line
     : null;
 }

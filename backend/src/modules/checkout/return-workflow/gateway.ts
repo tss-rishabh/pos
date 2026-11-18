@@ -171,10 +171,18 @@ export function returnGateway(
         );
     },
     async sendOtp(_customerId) {
-      throw new AppError(503,'CUSTOMER_VERIFICATION_SERVICE_UNAVAILABLE','Customer verification requires the local purpose-bound delivery service.');
+      throw new AppError(
+        503,
+        'CUSTOMER_VERIFICATION_SERVICE_UNAVAILABLE',
+        'Customer verification requires the local purpose-bound delivery service.',
+      );
     },
     async verifyOtp(_customerId, _otp) {
-      throw new AppError(503,'CUSTOMER_VERIFICATION_SERVICE_UNAVAILABLE','Customer verification requires the local purpose-bound delivery service.');
+      throw new AppError(
+        503,
+        'CUSTOMER_VERIFICATION_SERVICE_UNAVAILABLE',
+        'Customer verification requires the local purpose-bound delivery service.',
+      );
     },
     async eligibility(orderId, storeId, lineId, token, kind = 'return') {
       const result = z
@@ -188,6 +196,8 @@ export function returnGateway(
                       has_product_id: z.union([z.string(), z.number()]),
                       is_applicable_for_return: z.number().optional(),
                       is_applicable_for_exchange: z.number().optional(),
+                      applicable_for_return_message: z.string().max(4096).nullish(),
+                      applicable_for_exchange_message: z.string().max(4096).nullish(),
                       estimate_return_date: z.string().nullish(),
                       estimate_exchange_date: z.string().nullish(),
                     })
@@ -220,6 +230,14 @@ export function returnGateway(
           'Return eligibility was not provided for this line.',
         );
       return {
+        reason:
+          (kind === 'exchange'
+            ? line.is_applicable_for_exchange === 2
+              ? line.applicable_for_exchange_message
+              : ''
+            : line.is_applicable_for_return === 2
+              ? line.applicable_for_return_message
+              : '') || '',
         allowed:
           (kind === 'exchange'
             ? line.is_applicable_for_exchange

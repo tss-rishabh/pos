@@ -70,6 +70,15 @@ export const recoverySchema = z
     verificationId: z.uuid().nullable(),
     returnId: z.uuid().nullable(),
     kind: z.enum(['return', 'exchange']).optional(),
+    pendingRecoveryClaim: z
+      .object({
+        operationId: z.uuid(),
+        revision: z.string().regex(/^[a-f0-9]{64}$/),
+        lineId: id,
+        salespersonId: id.optional(),
+      })
+      .strict()
+      .optional(),
   })
   .strict();
 export type ReturnRecovery = z.infer<typeof recoverySchema>;
@@ -275,4 +284,56 @@ function boundReturnWindow(scope: ReturnWindowScope, value: ReturnWindow): Retur
       'The recorded return date did not match the selected item. Read it again before continuing.',
     );
   return value;
+}
+
+export const exchangeRecoverySchema = z
+  .object({
+    revision: z.string().regex(/^[a-f0-9]{64}$/),
+    state: z.enum(['none', 'operation', 'legacy', 'wrong-store', 'restoration-unconfirmed']),
+    operation: returnSchema.nullable(),
+    newSize: z.string().nullable(),
+  })
+  .strict();
+export function readExchangeRecovery(
+  storeId: string,
+  orderId: string,
+  lineId: string,
+  counterId: string,
+  verificationId: string,
+  operatorId: string,
+  signal?: AbortSignal,
+) {
+  return request(
+    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/exchange-recovery?${new URLSearchParams({ counterId, verificationId })}`,
+    { operatorId, signal },
+    exchangeRecoverySchema,
+  );
+}
+
+export const returnEligibilitySchema = z
+  .object({
+    orderId: id,
+    lineId: id,
+    kind: z.enum(['return', 'exchange']),
+    allowed: z.boolean(),
+    until: z.string().nullable(),
+    reason: z.string().max(4096),
+    overrideAvailable: z.boolean(),
+  })
+  .strict();
+export function readReturnEligibility(
+  storeId: string,
+  orderId: string,
+  lineId: string,
+  counterId: string,
+  verificationId: string,
+  kind: ReverseKind,
+  operatorId: string,
+  signal?: AbortSignal,
+) {
+  return request(
+    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/return-eligibility?${new URLSearchParams({ counterId, verificationId, kind })}`,
+    { operatorId, signal },
+    returnEligibilitySchema,
+  );
 }
