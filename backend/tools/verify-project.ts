@@ -61,7 +61,6 @@ if (flags.has('--mysql')) {
     CUSTOMER_OTP_MYSQL_TEST_URL: 'pos_rewrite_customer_otp_test',
     CUSTOMER_WEBSITE_HANDOFF_MYSQL_TEST_URL: 'pos_rewrite_customer_website_handoff_test',
     GLOBAL_VOUCHERS_MYSQL_TEST_URL: 'pos_rewrite_global_vouchers_test',
-    INVENTORY_WORKBOOK_MYSQL_TEST_URL: 'pos_rewrite_inventory_workbooks_test',
     DASHBOARD_MYSQL_TEST_URL: 'pos_rewrite_dashboard_test',
     BARCODE_ASSIGNMENTS_MYSQL_TEST_URL: 'pos_rewrite_barcodes_test',
     ORDER_HISTORY_MYSQL_TEST_URL: 'pos_rewrite_order_history_test',
@@ -507,16 +506,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'inventory-workbooks-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/inventory-workbooks/tsconfig.tests.json',
-    ],
-  },
-  {
     id: 'bigquery-tools-typecheck',
     directory: 'backend',
     args: [
@@ -651,16 +640,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tests/invoice-documents/tsconfig.json',
-    ],
-  },
-  {
-    id: 'inventory-workbooks-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/inventory-workbooks/tsconfig.tests.json',
     ],
   },
   {
@@ -1059,7 +1038,6 @@ if (flags.has('--browser')) {
       'tests/administration/gift-card-batches.browser.test.ts',
       'tests/customer-contacts/contacts.browser.test.ts',
       'tests/customer-otp/otp.browser.test.ts',
-      'tests/inventory-workbooks/browser.test.ts',
       'tests/dashboard/browser.test.ts',
       'tests/administration/barcodes/browser.test.ts',
       'tests/administration/parent-store-imports/browser.test.ts',

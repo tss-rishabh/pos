@@ -1,5 +1,4 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 import { Readable } from 'node:stream';
 import mysql from 'mysql2/promise';
 import { Temporal } from '@js-temporal/polyfill';
@@ -7,26 +6,18 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import { createDatabases, type Databases } from '../../src/db/pools.js';
 import type { Principal } from '../../src/domain/access.js';
+import { recordingJobProducer } from '../../src/jobs/module-runtime.js';
 import {
   reportExportService,
-  reportExportBuilder,
   type ExportBuilder,
 } from '../../src/modules/operational-reports/export-service.js';
 import {
   reportExportOptions,
   type ReportExportStore,
 } from '../../src/modules/operational-reports/export-storage.js';
-import {
-  exportHistoryInputSchema,
-  type ReportExportListRow,
-} from '../../src/modules/operational-reports/export-history.js';
-import {
-  performanceOptions,
-  staffPerformanceService,
-} from '../../src/modules/operational-reports/performance.js';
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
-describe.skipIf(!connection)('durable report exports on isolated local MySQL', () => {
+describe.skipIf(!connection)('legacy report export jobs E1-E6 on isolated local MySQL', () => {
   const schema = `pos_rewrite_exports_test_${randomUUID().replaceAll('-', '').slice(0, 12)}`,
     user: Principal = {
       id: '900001',
@@ -36,74 +27,61 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
       userType: 1,
       storeIds: ['1'],
     },
-    options = reportExportOptions({ REPORT_EXPORT_MAX_PENDING_PER_USER: '3' }),
-    input = {
-      kind: 'day-close-history',
-      from: '2026-11-16',
-      to: '2026-11-16',
-      storeIds: ['1'],
-      attempts: 'all',
-      search: '',
-    } as const;
+    admin1: Principal = { ...user, id: '900003', role: 1, storeIds: [] },
+    options = reportExportOptions({});
   let admin: mysql.Connection | undefined,
     database: Databases | undefined,
     created = false,
-    now = Temporal.Instant.from('2026-11-16T12:00:00Z'),
-    buildCount = 0,
-    putCount = 0,
-    headCount = 0,
-    streamCount = 0,
+    builds: { actor: Principal; kind: string; storeIds: string[] }[] = [],
+    uploads = new Map<string, Buffer>(),
+    buildFailure = false,
     uploadFailure = false,
-    buildFailure = false;
-  let artifacts = new Map<string, { bytes: Buffer; checksum: string }>();
+    jobs = recordingJobProducer();
   const config = readConfig({
     NODE_ENV: 'test',
     DEMO_MODE: 'true',
     SESSION_SECRET: 'export-integration-fixture-'.repeat(3),
   });
+  let sequence = 0;
   const store: ReportExportStore = {
-    keyFor: (id) => `uploads/reports/pos-rewrite/${id}.csv`,
-    async put(id, bytes, checksum) {
-      putCount++;
-      artifacts.set(this.keyFor(id), { bytes, checksum });
+    keyFor: (folder) =>
+      `uploads/reports/${folder}/orders_${String(++sequence).padStart(32, '0')}.csv`,
+    async put(key, bytes) {
       if (uploadFailure) throw new Error('fixture transport failure with secret details');
+      uploads.set(key, bytes);
     },
     async head(key) {
-      headCount++;
-      const item = artifacts.get(key);
-      return item ? { size: item.bytes.length, checksum: item.checksum } : null;
+      const item = uploads.get(key);
+      return item ? { size: item.length, checksum: null } : null;
     },
-    async stream(key, expected) {
-      streamCount++;
-      const item = artifacts.get(key);
-      if (
-        !item ||
-        (expected && (expected.size !== item.bytes.length || expected.checksum !== item.checksum))
-      )
-        throw new Error('fixture artifact mismatch');
-      return { body: Readable.from(item.bytes), size: item.bytes.length };
+    async stream(key) {
+      const item = uploads.get(key);
+      if (!item) throw new Error('fixture artifact missing');
+      return { body: Readable.from(item), size: item.length };
     },
     close() {},
   };
   const builder: ExportBuilder = async (actor, value) => {
-    buildCount++;
+    builds.push({ actor, kind: value.kind, storeIds: value.storeIds });
     if (buildFailure) throw new Error('fixture database error with private query values');
-    expect(actor.name).toBe('');
-    expect(value.storeIds).toEqual(['1']);
-    return { bytes: Buffer.from('"Store","Difference"\r\n"Fixture","-5.00"'), rowCount: 1 };
+    // 2 data rows, 2050 bytes -> export_size 2 (KB, truncated) as Django's IntegerField stores it.
+    return { bytes: Buffer.alloc(2050, 'a'), rowCount: 2 };
   };
+  const clock = () => Temporal.Instant.from('2026-11-16T12:00:00Z');
   function db() {
     if (!database) throw new Error('Fixture not initialized');
     return database;
   }
-  function service() {
-    return reportExportService(config, db(), options, store, builder, () => now);
+  function service(storage: ReportExportStore | null = store) {
+    return reportExportService(config, db(), options, storage ?? undefined, jobs, builder, clock, {
+      stores: async (actor) => ({
+        data: (actor.role === 1 ? ['1', '2'] : actor.storeIds).map((id) => ({ id, name: id })),
+      }),
+    });
   }
-  async function resetAccess() {
-    await admin!.query('UPDATE pos_user SET role=4,user_type=1,is_active=1 WHERE id=900001');
-    await admin!.query('DELETE FROM user_stores');
-    await admin!.query('INSERT INTO user_stores VALUES(1,900001,1),(2,900002,2)');
-    await admin!.query('UPDATE pos_user SET role=1,user_type=1,is_active=1 WHERE id=900003');
+  async function rows() {
+    const [result] = await admin!.query('SELECT * FROM report_exports ORDER BY id');
+    return result as Record<string, unknown>[];
   }
   beforeAll(async () => {
     const url = new URL(connection!);
@@ -114,6 +92,7 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
       port: Number(url.port || 3306),
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
+      dateStrings: true,
     });
     await admin.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     created = true;
@@ -122,21 +101,12 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
       'CREATE TABLE pos_user(id BIGINT PRIMARY KEY,username VARCHAR(150),role SMALLINT,is_active BOOLEAN,user_type SMALLINT)',
     );
     await admin.query(
-      "INSERT INTO pos_user VALUES(900001,'fixture-one',4,1,1),(900002,'fixture-two',4,1,1),(900003,'fixture-admin',1,1,1)",
-    );
-    await admin.query(
       'CREATE TABLE user_stores(id BIGINT PRIMARY KEY,django_user_id BIGINT,store_id BIGINT)',
     );
+    // Production DDL (tests/golden/schema/production-schema.json, report_exports).
     await admin.query(
-      'CREATE TABLE report_exports(id BIGINT PRIMARY KEY,report_name VARCHAR(255),report_type VARCHAR(255),time_period VARCHAR(55),is_completed BOOLEAN,export_status VARCHAR(55),message VARCHAR(255),export_requested_by INT,export_requested_at DATETIME,export_completed_at DATETIME,export_file_url VARCHAR(255),export_format VARCHAR(10),export_size INT,export_rows_count INT,created_at DATETIME,updated_at DATETIME)',
+      "CREATE TABLE report_exports(id bigint NOT NULL AUTO_INCREMENT PRIMARY KEY,report_name varchar(255) NOT NULL,report_type varchar(255) NOT NULL DEFAULT '',time_period varchar(55) DEFAULT NULL,is_completed tinyint DEFAULT '0',export_status varchar(55) DEFAULT 'PENDING',message varchar(255) NOT NULL DEFAULT '',export_requested_by int NOT NULL DEFAULT '0',export_requested_at datetime DEFAULT CURRENT_TIMESTAMP,export_completed_at datetime DEFAULT NULL,export_file_url varchar(255) NOT NULL DEFAULT '',export_format varchar(10) NOT NULL DEFAULT 'CSV',export_size int NOT NULL DEFAULT '0',export_rows_count int NOT NULL DEFAULT '0',created_at datetime DEFAULT CURRENT_TIMESTAMP,updated_at datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP)",
     );
-    await admin.query(
-      "INSERT INTO report_exports VALUES(1,'Fixture legacy report','report',NULL,1,'COMPLETED','private raw error must never be returned',900001,'2026-11-16 12:00:00','2026-11-16 12:01:00','uploads/reports/history/file.csv','CSV',1,3,'2026-11-16 12:00:00','2026-11-16 12:01:00'),(2,'Another report','report',NULL,0,'FAILED','secret query',900002,'2026-11-16 11:00:00',NULL,'','CSV',0,0,'2026-11-16 11:00:00','2026-11-16 11:00:00')",
-    );
-    for (const statement of readFileSync('src/modules/operational-reports/migration.sql', 'utf8')
-      .split(';')
-      .filter((value) => value.trim()))
-      await admin.query(statement);
     url.pathname = '/' + schema;
     database = createDatabases(
       readConfig({
@@ -150,15 +120,17 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
     );
   });
   beforeEach(async () => {
-    now = Temporal.Instant.from('2026-11-16T12:00:00Z');
-    buildCount = putCount = headCount = streamCount = 0;
-    uploadFailure = buildFailure = false;
-    artifacts = new Map();
-    await admin!.query('DELETE FROM pos_rewrite_report_exports');
-    await resetAccess();
+    builds = [];
+    uploads = new Map();
+    buildFailure = uploadFailure = false;
+    jobs = recordingJobProducer();
+    await admin!.query('DELETE FROM report_exports');
+    await admin!.query('DELETE FROM pos_user');
     await admin!.query(
-      "UPDATE report_exports SET time_period=NULL,export_requested_at='2026-11-16 12:00:00',updated_at='2026-11-16 12:00:00',export_completed_at=CASE WHEN is_completed=1 THEN '2026-11-16 12:01:00' ELSE NULL END",
+      "INSERT INTO pos_user VALUES(900001,'fixture-one',4,1,1),(900002,'fixture-two',4,1,1),(900003,'fixture-admin',1,1,1)",
     );
+    await admin!.query('DELETE FROM user_stores');
+    await admin!.query('INSERT INTO user_stores VALUES(1,900001,1),(2,900002,2)');
   });
   afterAll(async () => {
     await database?.close();
@@ -168,452 +140,214 @@ describe.skipIf(!connection)('durable report exports on isolated local MySQL', (
     }
     await admin?.end();
   });
-  it('freezes store scope, deduplicates concurrent retries and builds an immutable verified file once', async () => {
-    const exports = service(),
-      command = randomUUID(),
-      [first, retry] = await Promise.all([
-        exports.create(user, command, input, 'fixture-request'),
-        exports.create(user, command, { ...input, storeIds: ['1', '1'] }, 'retry-request'),
-      ]);
-    expect(first.id).toBe(retry.id);
-    expect(first.status).toBe('QUEUED');
-    await expect(
-      exports.create(user, command, { ...input, attempts: 'latest' }),
-    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
-    const results = await Promise.all([exports.runOne(), exports.runOne()]);
-    expect(results.filter(Boolean)).toHaveLength(1);
-    expect(results.find(Boolean)).toMatchObject({
-      jobId: first.id,
-      status: 'COMPLETED',
-      userId: user.id,
-    });
-    expect(['fixture-request', 'retry-request']).toContain(results.find(Boolean)?.requestId);
-    expect(buildCount).toBe(1);
-    expect(putCount).toBe(1);
-    const receipt = await exports.read(user, first.id);
-    expect(receipt).toMatchObject({ canDownload: true, rowCount: 1, format: 'CSV' });
-    const download = await exports.download(user, first.id),
-      chunks: Buffer[] = [];
-    for await (const chunk of download.body)
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk)));
-    expect(Buffer.concat(chunks).toString()).toContain('"-5.00"');
-    expect(JSON.stringify(receipt)).not.toContain('uploads/');
-    expect((await exports.list(user, 'legacy')).total).toBe(1);
-  });
-  it('preserves original legacy time_period NULL, empty and literal values in recent metadata', async () => {
+  it('the HTTP side only validates and enqueues the legacy task with its filters (no row yet)', async () => {
     const exports = service();
-    for (const period of [null, '', '11/01/2026 - 11/02/2026']) {
-      await admin!.query('UPDATE report_exports SET time_period=? WHERE id=1', [period]);
-      const result = await exports.list(
-        user,
-        exportHistoryInputSchema.parse({
-          origin: 'legacy',
-          period: 'recent',
-          pageSize: 500,
-          sort: 'period',
-        }),
-      );
-      expect(result.data).toHaveLength(1);
-      expect(result.data[0]?.period).toBe(period);
-      expect(result.pageSize).toBe(500);
-      expect(result.data[0]?.message).not.toContain('private raw error');
-    }
-  });
-  it('freezes assigned stores for restricted superadmin daily and flash exports without global scope', async () => {
-    await admin!.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=900001');
-    const exports = service(),
-      actor = { ...user, role: 1 as const, userType: 2 as const };
-    for (const kind of ['hyperlocal-daily', 'flash-sales'] as const) {
-      const value = {
-          kind,
-          from: kind === 'hyperlocal-daily' ? '2026-11-16T00:00:00' : '2026-11-16',
-          to: kind === 'hyperlocal-daily' ? '2026-11-16T23:59:59' : '2026-11-16',
-          storeIds: [],
-        },
-        job = await exports.create(actor, randomUUID(), value);
-      expect(await exports.runOne()).toMatchObject({ jobId: job.id, status: 'COMPLETED' });
-      await admin!.query('DELETE FROM user_stores WHERE django_user_id=900001');
-      await expect(exports.download(actor, job.id)).rejects.toMatchObject({
-        code: 'EXPORT_ACCESS_DENIED',
-      });
-      await admin!.query('INSERT INTO user_stores VALUES(1,900001,1)');
-    }
-  });
-  it('reconciles a lost upload response using the saved checksum without rebuilding or retrying PUT', async () => {
-    uploadFailure = true;
-    const exports = service(),
-      job = await exports.create(user, randomUUID(), input);
-    expect(await exports.runOne()).toMatchObject({
-      status: 'STORING',
-      errorCode: 'UPLOAD_OUTCOME_UNKNOWN',
-    });
-    expect(await exports.runOne()).toBeNull();
-    now = now.add({ seconds: 16 });
-    expect(await exports.runOne()).toMatchObject({ status: 'COMPLETED' });
-    expect(buildCount).toBe(1);
-    expect(putCount).toBe(1);
-    expect(headCount).toBe(1);
-    expect((await exports.read(user, job.id)).canDownload).toBe(true);
-  });
-  it('builds a full manager column export once, recovers lost upload and rechecks current manager authority', async () => {
-    await admin!.query('UPDATE pos_user SET role=1 WHERE id=900001');
-    let factReads = 0;
-    const performance = staffPerformanceService(
-        config,
-        db(),
-        performanceOptions({
-          BQ_SALESPERSON_PERFORMANCE_VIEW: 'fixture-project.reports.salespeople',
-        }),
-        {
-          async queryReport() {
-            factReads++;
-            return Array.from({ length: 61 }, (_, i) => ({
-              employeeId: String(i + 1),
-              storeName: 'not exported',
-              salespersonName: i === 60 ? '=private formula' : `Staff ${i}`,
-              totalSales: 610 - 10 * i,
-            }));
-          },
-        },
-        () => now,
-      ),
-      exports = reportExportService(
-        config,
-        db(),
-        options,
-        store,
-        reportExportBuilder(config, db(), { performance }),
-        () => now,
-      ),
-      command = randomUUID(),
-      selected = {
-        kind: 'salesperson-performance',
-        from: '2026-11-15T00:00:00',
-        to: '2026-11-15T23:59:59',
-        storeIds: ['1'],
-        columns: ['salesperson_name', 'rating'],
-        sort: 'total_sales',
-        direction: 'desc',
-      },
-      job = await exports.create(user, command, selected);
-    expect((await exports.create(user, command, selected)).id).toBe(job.id);
     await expect(
-      exports.create(user, command, { ...selected, columns: ['rating'] }),
-    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
-    uploadFailure = true;
-    expect(await exports.runOne()).toMatchObject({ status: 'STORING' });
-    expect(factReads).toBe(1);
-    now = now.add({ seconds: 16 });
-    expect(await exports.runOne()).toMatchObject({ status: 'COMPLETED' });
-    const file = await exports.download(user, job.id),
-      chunks: Buffer[] = [];
-    for await (const chunk of file.body) chunks.push(Buffer.from(chunk));
-    const csv = Buffer.concat(chunks).toString();
-    expect(csv.split('\r\n')).toHaveLength(62);
-    expect(csv).toContain('"\'=private formula","0.2"');
-    expect(csv).not.toContain('not exported');
-    expect(factReads).toBe(1);
-    expect(putCount).toBe(1);
-    expect(headCount).toBe(1);
-    await admin!.query('UPDATE pos_user SET role=4 WHERE id=900001');
-    await expect(exports.read(user, job.id)).rejects.toMatchObject({
-      code: 'EXPORT_ACCESS_DENIED',
-    });
-    await expect(exports.download(user, job.id)).rejects.toMatchObject({
-      code: 'EXPORT_ACCESS_DENIED',
-    });
-    await expect(
-      exports.create({ ...user, role: 1 }, randomUUID(), selected),
-    ).rejects.toMatchObject({ code: 'EXPORT_ACCESS_DENIED' });
-  });
-  it('queues date-free administration exports and checks source role authority on dispatch, metadata and download', async () => {
-    await admin!.query('UPDATE pos_user SET role=3 WHERE id=900001');
-    let renders = 0;
-    const selected = {
-        kind: 'administration-list',
-        resource: 'operators',
-        storeIds: [],
-        search: 'private admin filter',
-        active: 'all',
-        sort: 'name',
-        direction: 'asc',
-        columns: ['name', 'role'],
-      },
-      exports = reportExportService(
-        config,
-        db(),
-        options,
-        store,
-        reportExportBuilder(config, db(), {
-          administration: async (actor, value) => {
-            renders++;
-            expect(actor.role).toBe(3);
-            expect(value).toEqual(selected);
-            return {
-              bytes: Buffer.from('"Name","Role"\r\n"Fixture","3"'),
-              rowCount: 1,
-              format: 'CSV',
-            };
-          },
-        }),
-        () => now,
-      ),
-      command = randomUUID(),
-      job = await exports.create(user, command, selected);
-    expect(job).toMatchObject({
-      from: null,
-      to: null,
-      reportName: 'operators export',
-      status: 'QUEUED',
-    });
-    expect((await exports.create(user, command, selected)).id).toBe(job.id);
-    await expect(
-      exports.create(user, command, { ...selected, columns: ['name'] }),
-    ).rejects.toMatchObject({ code: 'IDEMPOTENCY_CONFLICT' });
-    expect(await exports.runOne()).toMatchObject({ jobId: job.id, status: 'COMPLETED' });
-    expect(renders).toBe(1);
-    expect((await exports.list(user)).data.find((row) => row.id === job.id)?.canDownload).toBe(
-      true,
-    );
-    const file = await exports.download(user, job.id);
-    for await (const _chunk of file.body) {
-      /* consume protected fixture stream */
-    }
-    await admin!.query('UPDATE pos_user SET role=4 WHERE id=900001');
-    expect((await exports.list(user)).data.find((row) => row.id === job.id)?.canDownload).toBe(
-      false,
-    );
-    await expect(exports.read(user, job.id)).rejects.toMatchObject({ code: 'ROLE_ACCESS_DENIED' });
-    await expect(exports.download(user, job.id)).rejects.toMatchObject({
-      code: 'ROLE_ACCESS_DENIED',
-    });
-    await expect(
-      exports.create({ ...user, role: 3 }, randomUUID(), selected),
-    ).rejects.toMatchObject({ code: 'ROLE_ACCESS_DENIED' });
-    expect(streamCount).toBe(1);
-    expect(renders).toBe(1);
-  });
-  it('refuses manager export dispatch after role/assignment revocation and does not broaden empty franchise scope', async () => {
-    await admin!.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=900001');
-    const exports = service(),
-      actor = { ...user, role: 1 as const, userType: 2 as const };
-    for (const kind of [
-      'salesperson-performance',
-      'cashier-performance',
-      'hyperlocal-acceptance',
-    ] as const) {
-      const selected = {
-        kind,
-        from: '2026-11-15T00:00:00',
-        to: '2026-11-15T23:59:59',
-        storeIds: ['1'],
-      };
-      await expect(
-        exports.create(actor, randomUUID(), { ...selected, storeIds: ['2'] }),
-      ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
-      const job = await exports.create(actor, randomUUID(), selected);
-      await admin!.query('UPDATE pos_user SET role=4 WHERE id=900001');
-      expect(await exports.runOne()).toMatchObject({
-        jobId: job.id,
-        status: 'FAILED',
-        errorCode: 'EXPORT_ACCESS_DENIED',
-      });
-      await admin!.query('UPDATE pos_user SET role=1 WHERE id=900001');
-    }
-    expect(buildCount).toBe(0);
-    const job = await exports.create(actor, randomUUID(), {
-      kind: 'salesperson-performance',
-      from: '2026-11-15T00:00:00',
-      to: '2026-11-15T23:59:59',
-      storeIds: [],
-    });
-    const [rows] = await admin!.query<mysql.RowDataPacket[]>(
-      'SELECT store_ids,requires_global FROM pos_rewrite_report_exports WHERE id=?',
-      [job.id],
-    );
-    expect(rows[0]?.store_ids).toEqual([]);
-    expect(rows[0]?.requires_global).toBe(0);
-  });
-  it('fails unavailable or interrupted artifacts safely without exposing query errors', async () => {
-    const exports = service();
-    buildFailure = true;
-    const failed = await exports.create(user, randomUUID(), input);
-    expect(await exports.runOne()).toMatchObject({
-      status: 'FAILED',
-      errorCode: 'EXPORT_BUILD_FAILED',
-    });
-    expect(JSON.stringify(await exports.read(user, failed.id))).not.toContain('private');
-    expect(putCount).toBe(0);
-    buildFailure = false;
-    uploadFailure = true;
-    const missing = await exports.create(user, randomUUID(), input);
-    await exports.runOne();
-    artifacts.clear();
-    now = now.add({ seconds: 16 });
-    expect(await exports.runOne()).toMatchObject({
-      status: 'FAILED',
-      errorCode: 'EXPORT_ARTIFACT_MISSING',
-    });
-    expect(buildCount).toBe(2);
-    expect((await exports.read(user, missing.id)).canDownload).toBe(false);
-    const stale = await exports.create(user, randomUUID(), input);
-    await admin!.query(
-      "UPDATE pos_rewrite_report_exports SET status='BUILDING',claim_token=?,lease_until='2026-11-16 11:59:00.000' WHERE id=?",
-      [randomUUID(), stale.id],
-    );
-    expect(await exports.runOne()).toBeNull();
-    expect((await exports.read(user, stale.id)).status).toBe('FAILED');
-  });
-  it('checks writer-current store, role, user type and account access before file operations', async () => {
-    const exports = service(),
-      job = await exports.create(user, randomUUID(), input);
-    await exports.runOne();
-    await admin!.query('DELETE FROM user_stores WHERE django_user_id=900001');
-    await expect(exports.download(user, job.id)).rejects.toMatchObject({
-      code: 'EXPORT_ACCESS_DENIED',
-    });
-    expect(streamCount).toBe(0);
-    await resetAccess();
-    await admin!.query('UPDATE pos_user SET user_type=2 WHERE id=900001');
-    await expect(exports.download(user, job.id)).rejects.toMatchObject({
-      code: 'EXPORT_ACCESS_DENIED',
-    });
-    expect(streamCount).toBe(0);
-    await resetAccess();
-    await admin!.query('UPDATE pos_user SET is_active=0 WHERE id=900001');
-    await expect(exports.read(user, job.id)).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
-    await resetAccess();
-    await admin!.query('UPDATE pos_user SET role=1 WHERE id=900001');
-    const global = await exports.create({ ...user, role: 1 }, randomUUID(), {
-      ...input,
-      storeIds: [],
-    });
-    await admin!.query('UPDATE pos_user SET role=4 WHERE id=900001');
-    expect(await exports.runOne()).toMatchObject({
-      jobId: global.id,
-      status: 'FAILED',
-      errorCode: 'EXPORT_ACCESS_DENIED',
-    });
-    await expect(
-      exports.read({ ...user, id: '900002', storeIds: ['2'] }, job.id),
-    ).rejects.toMatchObject({ code: 'EXPORT_ACCESS_DENIED' });
-  });
-  it('preserves explicit empty selection for return exports and checks restricted role1 assignments', async () => {
-    const selected: string[][] = [],
-      exports = reportExportService(
-        config,
-        db(),
-        options,
-        store,
-        async (_user, value) => {
-          selected.push(value.storeIds);
-          return { bytes: Buffer.from('"Store Name"'), rowCount: 0 };
-        },
-        () => now,
-      ),
-      value = {
+      exports.create(user, {
         kind: 'returned-orders',
-        from: '2026-11-16T00:00:00',
-        to: '2026-11-16T23:59:59',
-        storeIds: [],
-      };
-    const job = await exports.create(user, randomUUID(), value);
-    await exports.runOne();
-    expect(selected).toEqual([[]]);
-    expect((await exports.read(user, job.id)).status).toBe('COMPLETED');
-    await admin!.query('UPDATE pos_user SET role=1,user_type=2 WHERE id=900001');
+        from: '2026-11-16T10:00',
+        to: '2026-11-16T11:30',
+        storeIds: ['1'],
+        label: 'Returns',
+        note: 'For audit',
+      }),
+    ).resolves.toEqual({
+      message:
+        'Records are being exported to CSV. The file will be available in the Export tab shortly. Click here to open the Export tab.',
+    });
+    await exports.create(user, {
+      kind: 'flash-sales',
+      from: '2026-11-01',
+      to: '2026-11-16',
+      storeIds: ['1'],
+    });
     await expect(
-      exports.create({ ...user, role: 1, userType: 2 }, randomUUID(), {
-        ...value,
+      exports.create(user, { kind: 'cash-balance', from: '2026-11-01', to: '2026-11-30' }),
+    ).resolves.toMatchObject({ message: expect.stringMatching(/^Cash balance is being exported/) });
+    expect(jobs.enqueued.map(({ name, options: queued }) => [name, queued.queue])).toEqual([
+      ['report.datatables.return_orders_datatable.do_return_export', 'export_queue'],
+      ['report.datatables.sales_data.do_sales_export', 'sales_queue'],
+      ['report.datatables.cash_balance_datatable.do_cash_balance_export', 'export_queue'],
+    ]);
+    expect(jobs.enqueued[0]?.args).toEqual({
+      user_id: '900001',
+      report_name: 'Returns',
+      report_message: 'For audit',
+      date_from: '2026-11-16T10:00:00',
+      date_to: '2026-11-16T11:30:00',
+      store_ids: ['1'],
+    });
+    // cash_balance_datatable.py:44-66: visible stores, end date clamped to today.
+    expect(jobs.enqueued[2]?.args).toMatchObject({
+      store_ids: ['1'],
+      date_from: '2026-11-01',
+      date_to: '2026-11-16',
+    });
+    expect(await rows()).toEqual([]);
+    await expect(
+      exports.create(user, {
+        kind: 'cash-balance',
+        from: '2026-11-01',
+        to: '2026-11-16',
         storeIds: ['2'],
       }),
-    ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
-  });
-  it('limits pending work per operator and rechecks scope before creating a queue row', async () => {
-    const exports = service();
-    for (let index = 0; index < 3; index++) await exports.create(user, randomUUID(), input);
-    await expect(exports.create(user, randomUUID(), input)).rejects.toMatchObject({
-      code: 'EXPORT_QUEUE_LIMIT',
-    });
+    ).rejects.toMatchObject({ status: 403 });
+    await admin!.query('DELETE FROM user_stores WHERE django_user_id=900001');
     await expect(
-      exports.create(user, randomUUID(), { ...input, storeIds: ['2'] }),
-    ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
-    await admin!.query('DELETE FROM user_stores WHERE django_user_id=900001');
-    await expect(exports.create(user, randomUUID(), input)).rejects.toMatchObject({
-      code: 'STORE_ACCESS_DENIED',
-    });
-  });
-  it('keeps old pending state on primary and uses warehouse history with writer-only file eligibility', async () => {
-    const initial = service(),
-      completed = await initial.create(user, randomUUID(), input);
-    await initial.runOne();
-    const receipt = await initial.read(user, completed.id),
-      pending = await initial.create(user, randomUUID(), input);
-    await admin!.query(
-      "UPDATE pos_rewrite_report_exports SET requested_at='2026-11-14 12:00:00',updated_at='2026-11-14 12:00:00',completed_at=CASE WHEN status='COMPLETED' THEN '2026-11-14 12:01:00' ELSE NULL END",
-    );
-    const recent = await initial.list(user, 'current');
-    expect(recent.reader).toBe('primary');
-    expect(recent.data.map((row) => row.id)).toEqual([pending.id]);
-    const archived: ReportExportListRow = {
-        ...receipt,
-        requestedAt: '2026-11-14T12:00:00Z',
-        completedAt: '2026-11-14T12:01:00Z',
-      },
-      roles: number[] = [],
-      exports = reportExportService(config, db(), options, store, builder, () => now, {
-        async list(current, value) {
-          roles.push(current.role);
-          return { data: [archived], total: 1, page: 1, pageSize: value.pageSize };
-        },
-      }),
-      selection = exportHistoryInputSchema.parse({
-        period: 'archive',
+      exports.create(user, { kind: 'cash-balance', from: '2026-11-01', to: '2026-11-16' }),
+    ).rejects.toMatchObject({ status: 400, code: 'EXPORT_STORES_REQUIRED' });
+    await expect(
+      service(null).create(user, {
+        kind: 'cash-balance',
         from: '2026-11-01',
-        to: '2026-11-15',
+        to: '2026-11-16',
       }),
-      history = await exports.list(user, selection);
-    expect(history.reader).toBe('bigquery');
-    expect(history.data[0]).toMatchObject({ canDownload: true, requestedByName: 'fixture-one' });
-    await admin!.query('DELETE FROM user_stores WHERE django_user_id=900001');
-    expect((await exports.list({ ...user, role: 1 }, selection)).data[0]?.canDownload).toBe(false);
-    expect(roles).toEqual([4, 4]);
-    expect(streamCount).toBe(0);
+    ).rejects.toMatchObject({ status: 503 });
+    expect(jobs.enqueued).toHaveLength(3);
   });
-  it('keeps legacy history owner-scoped, suppresses raw messages and requires current internal role1 for unscoped files', async () => {
-    const exports = service(),
-      own = await exports.list(user, 'legacy');
-    expect(own.total).toBe(1);
-    expect(own.data[0]).toMatchObject({ canDownload: false, status: 'COMPLETED' });
-    expect(JSON.stringify(own)).not.toContain('raw error');
-    await expect(exports.downloadLegacy(user, '1')).rejects.toMatchObject({
-      code: 'EXPORT_ACCESS_DENIED',
+  it('E5 creates the row, uploads the CSV and writes the legacy Completed casing, KB size and data-row count', async () => {
+    const exports = service();
+    await exports.create(user, {
+      kind: 'day-close-history',
+      from: '2026-11-10',
+      to: '2026-11-16',
+      storeIds: ['1'],
     });
-    expect(streamCount).toBe(0);
-    const superuser = { ...user, id: '900003', role: 1 as const, storeIds: [] },
-      all = await exports.list(superuser, 'legacy');
-    expect(all.total).toBe(2);
-    expect(all.data.some((job) => job.status === 'FAILED')).toBe(true);
-    const bytes = Buffer.from('legacy fixture');
-    artifacts.set('uploads/reports/history/file.csv', {
-      bytes,
-      checksum: createHash('sha256').update(bytes).digest('hex'),
+    const [job] = jobs.enqueued;
+    const id = await exports.run('day-close-history', job!.args);
+    expect(builds).toEqual([
+      {
+        actor: expect.objectContaining({ id: '900001', role: 4 }),
+        kind: 'day-close-history',
+        storeIds: ['1'],
+      },
+    ]);
+    const [row] = await rows();
+    expect(String(row!.id)).toBe(id);
+    expect(row).toMatchObject({
+      report_name: 'Close history',
+      report_type: 'DAY_CLOSE',
+      time_period: '2026-11-10 - 2026-11-16',
+      is_completed: 1,
+      export_status: 'Completed',
+      message: '',
+      export_requested_by: 900001,
+      export_requested_at: '2026-11-16 17:30:00',
+      export_completed_at: '2026-11-16 17:30:00',
+      export_format: 'CSV',
+      export_size: 2,
+      export_rows_count: 2,
     });
-    expect((await exports.downloadLegacy(superuser, '1')).size).toBe(bytes.length);
-    await admin!.query('UPDATE pos_user SET user_type=2 WHERE id=900003');
-    expect((await exports.list(superuser, 'legacy')).data.every((row) => !row.canDownload)).toBe(
-      true,
+    expect(row!.export_file_url).toMatch(/^uploads\/reports\/day_close\/orders_\d{32}\.csv$/);
+    expect(uploads.get(String(row!.export_file_url))).toHaveLength(2050);
+  });
+  it('E3/E5/E6 record FAILED on error; E1/E2/E4 leave the row Processing as legacy does', async () => {
+    const exports = service();
+    buildFailure = true;
+    await expect(
+      exports.run('hyperlocal-daily', {
+        user_id: '900001',
+        report_name: '',
+        report_message: '',
+        date_from: '2026-11-16T00:00',
+        date_to: '2026-11-16T23:59',
+        store_ids: ['1'],
+      }),
+    ).rejects.toThrow();
+    buildFailure = false;
+    uploadFailure = true;
+    await expect(
+      exports.run('returned-orders', {
+        user_id: '900001',
+        report_name: 'Returns',
+        report_message: 'note',
+        date_from: '2026-11-16T00:00',
+        date_to: '2026-11-16T23:59',
+        store_ids: ['1'],
+      }),
+    ).rejects.toThrow();
+    await expect(
+      exports.run('flash-sales', {
+        user_id: '900001',
+        report_name: '',
+        report_message: '',
+        date_from: '2026-11-01',
+        date_to: '2026-11-16',
+        store_ids: ['1'],
+      }),
+    ).rejects.toThrow();
+    const [daily, returns, sales] = await rows();
+    expect(daily).toMatchObject({
+      report_type: 'HYPERLOCAL_DAILY',
+      time_period: '2026-11-16 00:00:00 - 2026-11-16 23:59:00',
+      export_status: 'FAILED',
+      is_completed: 0,
+      export_completed_at: '2026-11-16 17:30:00',
+    });
+    expect(returns).toMatchObject({
+      report_name: 'Returns',
+      message: 'note',
+      report_type: 'RETURN',
+      export_status: 'Processing',
+      is_completed: 0,
+      export_completed_at: null,
+    });
+    // sales_data.py:84 labels the flash/sales export RETURN.
+    expect(sales).toMatchObject({
+      report_type: 'RETURN',
+      time_period: '2026-11-01 00:00:00 - 2026-11-16 00:00:00',
+      export_status: 'Processing',
+    });
+  });
+  it('lists own rows (superadmin: all), and streams only completed files the caller may download', async () => {
+    const exports = service();
+    const args = {
+      user_id: '900001',
+      report_name: 'Mine',
+      report_message: '',
+      date_from: '2026-11-16T00:00',
+      date_to: '2026-11-16T23:59',
+      store_ids: ['1'],
+    };
+    const mine = await exports.run('order-transactions', args);
+    await exports.run('returned-orders', {
+      ...args,
+      user_id: '900002',
+      report_name: 'Theirs',
+      store_ids: ['2'],
+    });
+    await admin!.query(
+      "INSERT INTO report_exports(report_name,report_type,is_completed,export_status,message,export_requested_by,export_file_url,export_format,export_size,export_rows_count) VALUES('Old','ORDER',1,'COMPLETED','',900001,'https://old-minio.example/file.csv','CSV',1,1)",
     );
-    await expect(exports.downloadLegacy(superuser, '1')).rejects.toMatchObject({
-      code: 'EXPORT_ACCESS_DENIED',
+    const own = await exports.list(user, {});
+    expect(own.total).toBe(2);
+    expect(own.data.map((row) => [row.reportName, row.canDownload])).toEqual([
+      ['Old', false],
+      ['Mine', true],
+    ]);
+    expect(own.data[1]).toMatchObject({
+      kind: 'ORDER',
+      status: 'COMPLETED',
+      exportStatus: 'COMPLETED',
+      requestedByName: 'fixture-one',
+      sizeKb: 2,
+      rowCount: 2,
     });
-    await admin!.query('UPDATE pos_user SET user_type=1,role=4 WHERE id=900003');
-    await expect(exports.downloadLegacy(superuser, '1')).rejects.toMatchObject({
-      code: 'EXPORT_ACCESS_DENIED',
-    });
-    const [rows] = await admin!.query<mysql.RowDataPacket[]>(
-      'SELECT COUNT(*) AS total FROM report_exports',
-    );
-    expect(rows[0]?.total).toBe(2);
+    expect(JSON.stringify(own)).not.toContain('uploads/');
+    expect((await exports.list(admin1, { search: 'Theirs' })).data).toHaveLength(1);
+    expect((await exports.list(admin1, {})).total).toBe(3);
+    const file = await exports.download(user, mine),
+      chunks: Buffer[] = [];
+    for await (const chunk of file.body) chunks.push(Buffer.from(chunk as Buffer));
+    expect(Buffer.concat(chunks)).toHaveLength(2050);
+    expect(file.filename).toBe(`report-${mine}.csv`);
+    const theirs = String((await rows()).find((row) => row.report_name === 'Theirs')!.id);
+    await expect(exports.download(user, theirs)).rejects.toMatchObject({ status: 403 });
+    await expect(exports.download(admin1, theirs)).resolves.toMatchObject({ size: 2050 });
+    const old = String((await rows()).find((row) => row.report_name === 'Old')!.id);
+    await expect(exports.download(user, old)).rejects.toMatchObject({ status: 409 });
+    await expect(exports.download(user, '999999')).rejects.toMatchObject({ status: 404 });
+    await admin!.query('UPDATE pos_user SET is_active=0 WHERE id=900001');
+    await expect(exports.download(user, mine)).rejects.toMatchObject({ status: 401 });
   });
 });

@@ -1,51 +1,124 @@
+import { randomUUID } from 'node:crypto';
+import { Temporal } from '@js-temporal/polyfill';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
+import type { Config } from '../../config.js';
 import { AppError } from '../../domain/errors.js';
 import { secretMatches } from '../fulfillment/options.js';
-import { scheduleInput } from './scheduled-domain.js';
-import type { scheduledReportService } from './scheduled-service.js';
+import { scheduleInput, type ScheduleInput, type ScheduledArtifact } from './scheduled-domain.js';
 import type { ScheduledReportOptions } from './scheduled-options.js';
+import { postSlackText, type SlackPoster } from './slack.js';
+
+export type ScheduledBuilder = (
+  input: ScheduleInput & { date: string },
+) => Promise<ScheduledArtifact>;
+export type ScheduledLogger = (
+  level: 'info' | 'warn',
+  event: Readonly<Record<string, string | number | boolean | null>>,
+  message: string,
+) => void;
+/**
+ * The seven legacy scheduler-called report views (report/views.py:810-1876, URLs
+ * report/urls.py:40-45,84) run synchronously in the request: build the Slack text, post it
+ * inline (main channel and/or demo channel), then answer `{"status":"success","message":...}`.
+ */
+export function scheduledReportRunner(
+  config: Config,
+  options: ScheduledReportOptions,
+  builder: ScheduledBuilder,
+  post: SlackPoster = postSlackText,
+  clock = () => Temporal.Now.instant(),
+) {
+  return async (value: unknown, log?: ScheduledLogger, requestId: string | null = null) => {
+    const input = scheduleInput.parse(value),
+      today = clock().toZonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDate(),
+      selected = Temporal.PlainDate.from(
+        input.date ||
+          (input.kind === 'hyperlocal-store-status'
+            ? today.toString()
+            : today
+                .subtract({
+                  days:
+                    input.kind === 'hyperlocal-performance' ? options.DAYS_BEFORE_FOR_MIN_MAX : 1,
+                })
+                .toString()),
+      ),
+      span = today.since(selected, { largestUnit: 'days' }).days;
+    if (span > 62 || (input.kind === 'hyperlocal-store-status' ? span !== 0 : span < 1))
+      throw new AppError(
+        400,
+        'INVALID_DATE_RANGE',
+        'Choose a completed report day from the preceding 62 days; store availability uses today.',
+      );
+    if (
+      input.kind !== 'crm-tickets' &&
+      (input.previousDays !== 1 || !input.sendToSlack || input.includeCompleted)
+    )
+      throw new AppError(
+        400,
+        'INVALID_REPORT_OPTIONS',
+        'Ticket refresh options apply only to CRM reports.',
+      );
+    const artifact = await builder({ ...input, date: selected.toString() });
+    for (const message of artifact.messages) {
+      const delivered = await post(
+        message.target === 'main' ? options.SLACK_URL : options.SLACK_DEMO_URL,
+        message.text,
+      );
+      log?.(
+        delivered ? 'info' : 'warn',
+        {
+          module: 'operational-reports',
+          resource: 'scheduled-report-delivery',
+          eventId: `operational-reports.scheduled-report-delivery.${delivered ? 'sent' : 'not-sent'}`,
+          eventInstanceId: randomUUID(),
+          requestId,
+          userId: 'service-reports',
+          kind: input.kind,
+          target: message.target,
+        },
+        delivered ? 'Scheduled report posted' : 'Scheduled report post failed',
+      );
+    }
+    return {
+      status: 'success' as const,
+      message: artifact.messages.length
+        ? 'Data Sent'
+        : input.kind === 'crm-tickets' && !input.sendToSlack
+          ? 'Data Updated In DB'
+          : 'Data Not Found',
+      recordCount: artifact.recordCount,
+    };
+  };
+}
+/** Legacy `Helpers.check_report_api_key` reads the `apikey` header (helpers/helpers.py:1713-1717). */
+export function reportApiKeyGuard(apiKey: string | undefined) {
+  return async (request: FastifyRequest) => {
+    if (!secretMatches(apiKey, request.headers.apikey))
+      throw new AppError(401, 'SERVICE_AUTHENTICATION_REQUIRED', 'Invalid or missing API key');
+  };
+}
 export async function registerScheduledReportRoutes(
   app: FastifyInstance,
-  service: ReturnType<typeof scheduledReportService>,
+  run: ReturnType<typeof scheduledReportRunner>,
   options: ScheduledReportOptions,
 ) {
-  const auth = {
-    config: {
-      authentication: 'service' as const,
-      trace: {
-        module: 'operational-reports',
-        resource: 'scheduled-report-delivery',
-        action: 'create',
-      },
-    },
-    preValidation: async (request: FastifyRequest) => {
-      if (!secretMatches(options.REPORTS_API_KEY, request.headers['x-api-key']))
-        throw new AppError(401, 'SERVICE_AUTHENTICATION_REQUIRED', 'Invalid or missing API key');
-    },
-  };
-  app.post('/api/v1/report-deliveries', auth, async (request, reply) => {
-    const body = z
-      .object({ commandId: z.uuid(), input: scheduleInput })
-      .strict()
-      .parse(request.body);
-    return reply.code(202).send(await service.create(body.commandId, body.input, request.id));
-  });
-  app.get(
-    '/api/v1/report-deliveries/:jobId',
-    { ...auth, config: { ...auth.config, trace: { ...auth.config.trace, action: 'read' } } },
-    async (request) => service.read(z.object({ jobId: z.uuid() }).parse(request.params).jobId),
-  );
   app.post(
-    '/api/v1/report-deliveries/:jobId/targets/:targetId/reconciliation',
-    { ...auth, config: { ...auth.config, trace: { ...auth.config.trace, action: 'reconcile' } } },
+    '/api/v1/report-deliveries',
+    {
+      config: {
+        authentication: 'service' as const,
+        trace: {
+          module: 'operational-reports',
+          resource: 'scheduled-report-delivery',
+          action: 'create',
+        },
+      },
+      preValidation: reportApiKeyGuard(options.REPORTS_API_KEY),
+    },
     async (request) => {
-      const params = z.object({ jobId: z.uuid(), targetId: z.uuid() }).parse(request.params),
-        body = z
-          .object({ commandId: z.uuid(), outcome: z.enum(['delivered', 'not-delivered']) })
-          .strict()
-          .parse(request.body);
-      return service.reconcile(params.jobId, params.targetId, body.commandId, body.outcome);
+      const body = z.object({ input: scheduleInput }).strict().parse(request.body);
+      return run(body.input, (level, event, message) => app.log[level](event, message), request.id);
     },
   );
 }
