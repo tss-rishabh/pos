@@ -1,0 +1,44 @@
+{
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "recordedAt": "2026-11-18T11:13:40.738032Z",
+  "rewriteCommit": "e3f9996f4a24572002baf311693b5aa64f671dc7",
+  "scope": "Backend main strict compilation, changed fulfillment module/native-test lint, and scoped fulfillment regressions with no live credentials.",
+  "mainStrictExitCode": 0,
+  "changedLintExitCode": 0,
+  "unitCommand": "env -i PATH=<Node24>:/opt/homebrew/bin:/usr/bin:/bin HOME=<local-home> TMPDIR=/tmp NODE_ENV=test node node_modules/vitest/vitest.mjs run tests/fulfillment --maxWorkers=1 --reporter=json --outputFile=<private-file>",
+  "unitExitCode": 0,
+  "unitResult": {
+    "numTotalTests": 39,
+    "numPassedTests": 23,
+    "numPendingTests": 16,
+    "numFailedTests": 0,
+    "numFailedTestSuites": 0,
+    "success": true
+  },
+  "unitReportSha256": "89e0bcb33082c5710efeaf41fdfad9f2ec3595f9c3bc7051290d43c3b6f7b7f0",
+  "firstAttempt": {
+    "exitCode": 1,
+    "result": {
+      "numTotalTests": 39,
+      "numPassedTests": 21,
+      "numPendingTests": 18,
+      "numFailedTests": 0,
+      "numFailedTestSuites": 2,
+      "success": false
+    },
+    "reportSha256": "3933b8e4d7bf9dac95bd7043ff52f63c619a2ecb4dab684cc6dd7e0ebb2b5b09",
+    "failure": "Redis fixture could not start; same-environment redis-server spawn preflight returned ENOENT because the minimal PATH omitted /opt/homebrew/bin. PATH corrected, no test or production edit."
+  },
+  "inputHashes": {
+    "backend/src/modules/fulfillment/index.ts": "65d76afcb9297c3db9530360dced3e2d31859ce520b1c69223cefbd3662df1c3",
+    "backend/src/modules/fulfillment/service.ts": "65b0e5efa73a84f46e5e3fa1e9440f3b7849509678f928420cd8355ca509bc94",
+    "backend/tests/fulfillment/mysql.integration.test.ts": "472d5ecb633ccab20dd5efacbde80c9c1dd5ad9e5e696e4e00c4da4f59867948",
+    "backend/package-lock.json": "02b3e906ece30377231ea67891ef8b125708c188db343979588826c76db3c1d6"
+  },
+  "limitations": [
+    "Sixteen MySQL-native cases skipped without MYSQL_INTEGRATION_URL; not a native full-suite pass.",
+    "Separate notification joined native proof and its exact scope are retained independently.",
+    "No full project, performance, live service or release certification."
+  ],
+  "productionReady": false
+}

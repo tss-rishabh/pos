@@ -204,6 +204,62 @@
         "backend/evidence/shortcut-help-reviewed-r8.json"
       ],
       "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+    },
+    {
+      "kind": "websocket",
+      "id": "notification/routing.py:6",
+      "status": "verified",
+      "implementation": [
+        "backend/src/modules/fulfillment/index.ts",
+        "backend/src/modules/fulfillment/service.ts",
+        "backend/src/modules/fulfillment/notification-bus.ts",
+        "backend/src/modules/fulfillment/notifications.ts",
+        "backend/src/modules/administration/checkins.ts",
+        "frontend/src/pages/fulfillment/notifications.tsx",
+        "frontend/src/pages/fulfillment/notification-contracts.ts",
+        "frontend/src/pages/fulfillment/notification-links.ts",
+        "frontend/src/pages/fulfillment/notification-alerts.tsx",
+        "frontend/src/pages/fulfillment/notification-sound.ts"
+      ],
+      "tests": [
+        "backend/tools/fulfillment/notification-workflow-fixture.ts",
+        "backend/tools/fulfillment/notification-workflow-source.py",
+        "backend/tools/fulfillment/notification-workflow-run.sh",
+        "frontend/tests/fulfillment/notification-workflow.test.ts",
+        "frontend/tests/fulfillment/notification-workflow.config.ts"
+      ],
+      "evidence": [
+        "backend/evidence/notification-workflow-reviewed-e3f9996.json"
+      ],
+      "notes": "Exact declaration only: pinned producer/real Redis/Channels/header controls and native MySQL/session/App workflow; seven groups pass on unchanged runtime inputs. Authenticated current-check-in recipient filtering, exact IDs, safe text/internal links and atomic receipt authorization are explicit security corrections. No whole-template, financial producer, physical audio, generic deployment or release certification."
+    },
+    {
+      "kind": "route",
+      "id": "notification/urls.py:7",
+      "status": "verified",
+      "implementation": [
+        "backend/src/modules/fulfillment/index.ts",
+        "backend/src/modules/fulfillment/service.ts",
+        "backend/src/modules/fulfillment/notification-bus.ts",
+        "backend/src/modules/fulfillment/notifications.ts",
+        "backend/src/modules/administration/checkins.ts",
+        "frontend/src/pages/fulfillment/notifications.tsx",
+        "frontend/src/pages/fulfillment/notification-contracts.ts",
+        "frontend/src/pages/fulfillment/notification-links.ts",
+        "frontend/src/pages/fulfillment/notification-alerts.tsx",
+        "frontend/src/pages/fulfillment/notification-sound.ts"
+      ],
+      "tests": [
+        "backend/tools/fulfillment/notification-workflow-fixture.ts",
+        "backend/tools/fulfillment/notification-workflow-source.py",
+        "backend/tools/fulfillment/notification-workflow-run.sh",
+        "frontend/tests/fulfillment/notification-workflow.test.ts",
+        "frontend/tests/fulfillment/notification-workflow.config.ts"
+      ],
+      "evidence": [
+        "backend/evidence/notification-workflow-reviewed-e3f9996.json"
+      ],
+      "notes": "Exact declaration only: pinned producer/real Redis/Channels/header controls and native MySQL/session/App workflow; seven groups pass on unchanged runtime inputs. Authenticated current-check-in recipient filtering, exact IDs, safe text/internal links and atomic receipt authorization are explicit security corrections. No whole-template, financial producer, physical audio, generic deployment or release certification."
     }
   ],
   "requirements": [

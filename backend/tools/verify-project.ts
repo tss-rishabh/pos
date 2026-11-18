@@ -1245,6 +1245,21 @@ for (const [id, directory, config] of [
     'tests/global-reminders/tsconfig.native.json',
   ],
   [
+    'release-notes-native-workflow-typecheck',
+    'frontend',
+    'tests/global-reminders/tsconfig.notes.json',
+  ],
+  [
+    'notification-native-workflow-typecheck',
+    'backend',
+    'tools/fulfillment/notification-workflow.tsconfig.json',
+  ],
+  [
+    'notification-native-browser-typecheck',
+    'frontend',
+    'tests/fulfillment/notification-workflow.tsconfig.json',
+  ],
+  [
     'customer-profile-native-workflow-typecheck',
     'backend',
     'tools/customer-profile/native-workflow.tsconfig.json',
@@ -1366,6 +1381,19 @@ if (flags.has('--browser')) {
         directory: 'backend',
         command: 'sh',
         args: ['tools/global-reminders/run.sh', source],
+      },
+      {
+        id: 'release-notes-native-source-api-browser-workflow',
+        directory: 'backend',
+        command: 'sh',
+        args: ['tools/global-reminders/notes-run.sh', source],
+      },
+      {
+        id: 'notification-native-source-api-browser-workflow',
+        directory: 'backend',
+        command: 'sh',
+        args: ['tools/fulfillment/notification-workflow-run.sh'],
+        environment: { NOTIFICATION_SOURCE_ROOT: source },
       },
     );
   }
