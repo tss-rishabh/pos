@@ -74,6 +74,10 @@ for (const scenario of [
     context,
   }) => {
     const { interrupted, clean, loss } = scenario;
+    // Keep the committed result unavailable until after the uncertain record
+    // has survived a reload. An immediate background GET can otherwise recover
+    // the result before the polling assertion observes the intermediate state.
+    let committedImportReadAvailable = loss !== 'committed';
     const signer = offlineCashSigner(
       generateKeyPairSync('ed25519').privateKey.export({ format: 'pem', type: 'pkcs8' }).toString(),
     );
@@ -271,6 +275,8 @@ for (const scenario of [
         raw = server.get(id);
       if (!accepted || !raw)
         return route.fulfill({ status: 404, json: { error: { code: 'FIXTURE_NOT_FOUND' } } });
+      if (accepted.status === 'imported' && !committedImportReadAvailable)
+        return route.abort('failed');
       const envelope = signedCashReceiptSchema.parse(JSON.parse(raw) as unknown);
       return route.fulfill({
         status: 200,
@@ -437,6 +443,12 @@ for (const scenario of [
         await page.reload();
         await page.getByText('Saved cash receipts', { exact: false }).click();
         await page.getByRole('button', { name: /100\.00/ }).click();
+        if (loss === 'committed') {
+          expect((await savedCash(page)).jobs[0]?.orderImport?.state).toBe('uncertain');
+          committedImportReadAvailable = true;
+          await page.getByRole('button', { name: 'Check cash order status', exact: true }).click();
+          expect(imports).toHaveLength(1);
+        }
         if (loss === 'uncommitted') {
           await expect(
             page.getByRole('button', { name: 'Retry saved order synchronization', exact: true }),
