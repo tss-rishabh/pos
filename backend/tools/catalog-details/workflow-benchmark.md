@@ -1,10 +1,11 @@
 # Native catalogue workflow benchmark
 
-Implementation draft based on rewrite `6cbae5f`. Node 24 syntax checks, Python
+Implementation aligned onto rewrite `bfd2a64`. Node 24 syntax checks, Python
 AST parsing, shell syntax, scoped ESLint and Prettier checks pass. **Native
-correctness/calibration and performance execution have not run.**
-No latency, query-count improvement, parity success or production readiness is
-claimed by these files. Run only after the complete verification run and other
+validation passed eight three-boundary response gates and calibrated per-thread
+counters across both profiles. Performance measurement has not run.**
+The scoped validation is recorded in `native-validation.md`; no latency or
+production-readiness claim follows. Run only after the complete verification run and other
 local test/build/database workloads have stopped. The existing three-sample SQL
 benchmark remains historical evidence; this workflow does not relabel it as an
 application benchmark.
@@ -93,8 +94,10 @@ joined rows; gains must follow actual evidence, not an assumed query reduction.
 Prerequisites: exact Node 24.22.3 used by the rewrite, existing isolated backend
 dependencies with security mitigations verified, Docker with the pinned image
 already available, `uv`, and a clean pinned source checkout. The runner creates
-its own Python 3.12.15 environment and private uv/toolchain caches, installs the
-existing pinned lookup requirements, and removes its own container/environment.
+its own Python 3.12.15 environment and private uv/toolchain caches, installs its
+hash-locked `workflow-requirements.txt`, and removes its own container/environment.
+This retains pinned Django/PyMySQL versions and adds RSA support for MySQL's
+default account authentication; no auth-plugin downgrade is used.
 It never installs into shared node_modules or the original Python environment.
 No production MySQL, BigQuery, AWS or provider credentials are accepted.
 
@@ -118,7 +121,7 @@ no credentials, cookies, request payloads or raw SQL. Source hashes, all candida
 production input hashes, locks, schema facts, runner code and host/container
 metadata identify the executed graph. Inputs must remain unchanged.
 
-The next action is one native validation-mode run when Root confirms all other
-heavy local workloads have ended. Any schema/response/counter
+The next action is a fresh measurement-mode run only after Root explicitly
+releases that phase and confirms other heavy workloads remain idle. Any schema/response/counter
 defect must be reported and corrected before measurements. No release ledger
 promotion is owned by this benchmark.
