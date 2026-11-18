@@ -1,0 +1,5 @@
+# Isolated source oracle only; never part of the production service image.
+asgiref==3.13.0
+Django==4.2.5
+PyMySQL==1.1.1
+sqlparse==0.6.1

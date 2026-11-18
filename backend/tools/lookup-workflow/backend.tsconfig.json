@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": { "noEmit": true, "rootDir": "../..", "types": ["node", "@fastify/cookie"] },
+  "include": [
+    "./server.ts",
+    "./contracts.ts",
+    "../../src/modules/checkout/payments/paytmchecksum.d.ts"
+  ]
+}
