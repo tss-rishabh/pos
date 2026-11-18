@@ -3,6 +3,8 @@ import { NavLink, useParams, useSearchParams } from 'react-router-dom';
 import type { Principal } from '../../api/types';
 import { ErrorState, Loading, PageTitle } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
+import { useWorkspace } from '../../state/workspace';
+import { returnOrderLink } from '../returns/order-entry';
 import { OrderInvoiceActions } from '../invoice-documents';
 import { ShippingLabelAction } from '../fulfillment/shipping-label';
 import { LegacyFulfillmentPanel } from '../legacy-fulfillment';
@@ -114,6 +116,13 @@ function OnlineOrderDetailContent({
   online: boolean;
 }) {
   const { fact, customer } = value;
+  const workspace = useWorkspace();
+  const counterId =
+    workspace.storeId === value.storeId &&
+    /^[1-9]\d{0,18}$/.test(workspace.counterId) &&
+    BigInt(workspace.counterId) <= 9223372036854775807n
+      ? workspace.counterId
+      : undefined;
   const products = new Map(value.products.items.map((product) => [product.id, product]));
   return (
     <>
@@ -163,6 +172,22 @@ function OnlineOrderDetailContent({
             Related online order
           </NavLink>
         )}
+        {counterId &&
+          (['return', 'exchange'] as const).map((kind) => (
+            <NavLink
+              key={kind}
+              className="button secondary"
+              to={returnOrderLink({
+                operatorId: user.id,
+                storeId: value.storeId,
+                counterId,
+                orderId: fact.orderId,
+                kind,
+              })}
+            >
+              {kind === 'return' ? 'Start return' : 'Start exchange'}
+            </NavLink>
+          ))}
         {value.type !== 'N' && (
           <OrderInvoiceActions
             user={user}
