@@ -48,3 +48,22 @@ node node_modules/typescript/bin/tsc -p tools/order-search/backend.tsconfig.json
 The frontend commands use `tests/order-search/vitest.config.ts`, `tests/order-search/tsconfig.json` and `tests/order-search/browser-check.mjs`; the retained browser check is `tests/order-history/browser-check.mjs`. Lint explicit owned files; fixture caches are ignored artifacts, not source.
 
 An ST request with no selected stores and no explicit IDs is an input-level empty set, matching the original empty IN predicate. It returns `emptySelection:true` and the UI says “No stores selected”; it makes no warehouse-result/publication claim. Nonempty scopes, including scopes with zero matching data, still require complete manifests.
+
+## W5 Phase D update (19 November 2026)
+
+- Reads: primary reader for every date (legacy `AjaxOrderListView` uses the default database). The
+  BigQuery index/facts publication path, HMAC contact keys and the in-memory reducer were removed.
+- Windows: `placedFrom`/`placedTo` (legacy `__gte`/`__lte`), calendar `from`/`to`, or none (legacy Online
+  page). The 62-day span and future-date refusals were removed; legacy has neither.
+- Explicit order IDs reach any store, as legacy ("Allow to see all stores order if search by order id").
+  N type: `user_type != 2 or order IDs`; otherwise an empty list, as legacy `Order.objects.none()`.
+- Queue tabs (`in_queue`, `not_packed`): no row bound (the rewrite's 10 000 "safety bound" was removed).
+- `order_store.first()` is used for store name/counter/flags for every viewer, as legacy.
+- Page size: 1..100, the legacy DataTables `lengthMenu` (`order/templates/order/index.html:456`).
+- Options add `hyperlocalTabs` (`_hl_get_tab_counts`, `order/views.py:4696`, READ_DB_ALIAS → data reader).
+
+| Case | Legacy | Rewrite |
+|---|---|---|
+| Selected store outside the operator's stores | accepted | 403 `ORDER_SEARCH_SCOPE_DENIED` "This order selection is outside your current store permissions." |
+| HL/queue search without check-in | `location_id=0` → empty list | 409 `ORDER_QUEUE_CHECK_IN_REQUIRED` "Check in to a store before opening its local-delivery queue." |
+| No store selected (ST, no IDs) | client alert "Please select atleast one store" | `emptySelection: true`, UI shows the same text |
