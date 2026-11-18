@@ -1,17 +1,15 @@
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { eq } from 'drizzle-orm';
 import { readConfig } from '../src/config.js';
 import { createDatabases } from '../src/db/pools.js';
 import { draftService, type DraftMutation } from '../src/modules/drafts.js';
-import { drafts, mutations } from '../src/db/rewrite-schema.js';
+import { memoryStateStore } from '../src/modules/checkout/state-store.js';
 import type { Principal } from '../src/domain/access.js';
 
 const connection = process.env.MYSQL_INTEGRATION_URL;
-describe.skipIf(!connection)('real MySQL atomic draft persistence', () => {
+describe.skipIf(!connection)('draft persistence (Redis state, MySQL counter check)', () => {
   const user: Principal = {
-    userType:1,
+    userType: 1,
     id: String(Math.floor(Math.random() * 1_000_000) + 9_000_000),
     name: 'Fixture',
     email: 'fixture@example.test',
@@ -28,8 +26,8 @@ describe.skipIf(!connection)('real MySQL atomic draft persistence', () => {
       SESSION_SECRET: 'integration-fixture-'.repeat(3),
     }),
   );
-  const service = draftService(db);
-  let setupComplete=false;
+  const service = draftService(db, memoryStateStore());
+  let setupComplete = false;
   beforeAll(async () => {
     const url = new URL(connection!);
     if (
@@ -48,26 +46,22 @@ describe.skipIf(!connection)('real MySQL atomic draft persistence', () => {
     try {
       await admin.query('CREATE DATABASE IF NOT EXISTS pos_rewrite_integration');
       await admin.changeUser({ database: 'pos_rewrite_integration' });
-      for (const statement of readFileSync('migrations/0001_rewrite_state.sql', 'utf8')
-        .replace(/^--.*$/gm, '')
-        .split(';')
-        .filter((s) => s.trim()))
-        await admin.query(statement.replace('CREATE TABLE ', 'CREATE TABLE IF NOT EXISTS '));
       await admin.query(
         'CREATE TABLE IF NOT EXISTS store_counters (id BIGINT PRIMARY KEY,store_id BIGINT NOT NULL,is_active BOOLEAN NOT NULL)',
       );
       await admin.query(
         'INSERT IGNORE INTO store_counters(id,store_id,is_active) VALUES (999991,999991,1)',
       );
-      setupComplete=true;
+      setupComplete = true;
     } finally {
       await admin.end();
     }
   });
   afterAll(async () => {
-    if(!setupComplete){await db.close();return;}
-    await db.get('writer').delete(drafts).where(eq(drafts.operatorId, user.id));
-    await db.get('writer').delete(mutations).where(eq(mutations.operatorId, user.id));
+    if (!setupComplete) {
+      await db.close();
+      return;
+    }
     await db.close();
   });
   const input = (): DraftMutation => ({
@@ -90,7 +84,7 @@ describe.skipIf(!connection)('real MySQL atomic draft persistence', () => {
     );
     expect(results.every((r) => r.version === 1)).toBe(true);
     expect(await service.save(user, payload)).toEqual(results[0]);
-    const rows = await db.get('writer').select().from(drafts).where(eq(drafts.operatorId, user.id));
+    const rows = await service.list(user, '999991');
     expect(rows.filter((r) => r.id === payload.draft.id)).toHaveLength(1);
   });
   it('serializes competing versions and preserves exactly one winner', async () => {

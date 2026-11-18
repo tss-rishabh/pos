@@ -2,12 +2,16 @@ import { createHash } from 'node:crypto';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Databases } from '../db/pools.js';
-import { drafts, mutations } from '../db/rewrite-schema.js';
 import { StoreCounter } from '../db/legacy-schema.js';
 import { AppError } from '../domain/errors.js';
 import { requireStore, type Principal } from '../domain/access.js';
 import type { Draft } from '../domain/contracts.js';
-import { retryTransaction } from '../db/retry.js';
+import {
+  idempotencyKey,
+  readJson,
+  withStateLock,
+  type PosStateStore,
+} from './checkout/state-store.js';
 import { identifier } from '../domain/validation.js';
 
 const id = identifier;
@@ -46,98 +50,106 @@ export interface DraftService {
   save(user: Principal, input: DraftMutation): Promise<Draft>;
   list(user: Principal, storeId: string): Promise<Draft[]>;
 }
-export function draftService(db: Databases): DraftService {
+/**
+ * Server copy of a counter cart draft, re-homed from `pos_rewrite_drafts`/`pos_rewrite_mutations`
+ * to Redis (table-disposition.md "checkout/drafts"). Legacy keeps tab state in Redis plus the
+ * API-v2 cart (order/views.py:1657-1680, 2004); drafts hold no stock or money.
+ * - `pos:draft:{operatorId}:{storeId}:{draftId}` → Draft JSON, EX 2 days (legacy
+ *   REDIS_TAB_USER_OBJECT_EXPIRY has no default; the rewrite uses its open-sale TTL).
+ * - `pos:drafts:{operatorId}:{storeId}` → JSON array of draft IDs (same EX), at most 100.
+ * - `pos:idem:draft:{operatorId}:{mutationId}` → `{requestHash, result}`, EX 24 h.
+ * - `pos:draft_lock:{operatorId}` → lock token while saving.
+ */
+export const DRAFT_TTL_SECONDS = 2 * 24 * 3600;
+const draftSchema = draftMutationSchema.shape.draft.extend({ version: z.number().int().min(1) });
+const receiptSchema = z.object({ requestHash: z.string(), result: draftSchema }).strict();
+const draftKeys = {
+  draft: (operatorId: string, storeId: string, draftId: string) =>
+    `pos:draft:${operatorId}:${storeId}:${draftId}`,
+  index: (operatorId: string, storeId: string) => `pos:drafts:${operatorId}:${storeId}`,
+  lock: (operatorId: string) => `pos:draft_lock:${operatorId}`,
+};
+export function draftService(db: Databases, store: PosStateStore): DraftService {
+  async function counterActive(storeId: string, counterId: string) {
+    const [counter] = await db
+      .get('writer')
+      .select({ id: StoreCounter.id })
+      .from(StoreCounter)
+      .where(
+        and(
+          eq(StoreCounter.id, BigInt(counterId)),
+          eq(StoreCounter.store, BigInt(storeId)),
+          eq(StoreCounter.is_active, true),
+        ),
+      )
+      .limit(1);
+    return Boolean(counter);
+  }
   return {
     async save(user, input) {
       requireStore(user, input.draft.storeId);
       const hash = createHash('sha256').update(JSON.stringify(input)).digest('hex');
-      return retryTransaction(() =>
-        db.get('writer').transaction(async (tx) => {
-          const [counter] = await tx
-            .select({ id: StoreCounter.id })
-            .from(StoreCounter)
-            .where(
-              and(
-                eq(StoreCounter.id, BigInt(input.draft.counterId)),
-                eq(StoreCounter.store, BigInt(input.draft.storeId)),
-                eq(StoreCounter.is_active, true),
-              ),
-            )
-            .limit(1);
-          if (!counter)
-            throw new AppError(
-              409,
-              'COUNTER_UNAVAILABLE',
-              'Select an active counter for this store.',
-            );
-          // A unique reservation serializes retries across processes and commits
-          // the cached result in the same transaction as the draft update.
-          await tx
-            .insert(mutations)
-            .values({ operatorId: user.id, id: input.mutationId, requestHash: hash })
-            .onDuplicateKeyUpdate({ set: { id: input.mutationId } });
-          const [reservation] = await tx
-            .select()
-            .from(mutations)
-            .where(and(eq(mutations.operatorId, user.id), eq(mutations.id, input.mutationId)))
-            .for('update');
-          if (reservation!.requestHash !== hash)
+      if (!(await counterActive(input.draft.storeId, input.draft.counterId)))
+        throw new AppError(409, 'COUNTER_UNAVAILABLE', 'Select an active counter for this store.');
+      return withStateLock(store, draftKeys.lock(user.id), async () => {
+        const receiptKey = idempotencyKey('draft', user.id, input.mutationId);
+        const receipt = await readJson(store, receiptKey, receiptSchema);
+        if (receipt) {
+          if (receipt.requestHash !== hash)
             throw new AppError(
               409,
               'IDEMPOTENCY_CONFLICT',
               'This operation key was used with different data.',
             );
-          if (reservation!.result) return reservation!.result;
-          const [old] = await tx
-            .select()
-            .from(drafts)
-            .where(and(eq(drafts.operatorId, user.id), eq(drafts.id, input.draft.id)))
-            .for('update');
-          if ((old?.version || 0) !== input.expectedVersion)
-            throw new AppError(
-              409,
-              'DRAFT_CONFLICT',
-              'This cart changed on another device. Review it before syncing.',
-            );
-          if (
-            old &&
-            (old.storeId !== input.draft.storeId || old.counterId !== input.draft.counterId)
-          )
-            throw new AppError(
-              409,
-              'DRAFT_SCOPE_CONFLICT',
-              'A cart cannot move between stores or counters.',
-            );
-          const result: Draft = { ...input.draft, version: input.expectedVersion + 1 };
-          await tx
-            .insert(drafts)
-            .values({
-              operatorId: user.id,
-              id: result.id,
-              storeId: result.storeId,
-              counterId: result.counterId,
-              version: result.version,
-              payload: result,
-            })
-            .onDuplicateKeyUpdate({ set: { version: result.version, payload: result } });
-          await tx
-            .update(mutations)
-            .set({ result })
-            .where(and(eq(mutations.operatorId, user.id), eq(mutations.id, input.mutationId)));
-          return result;
-        }),
-      );
+          return receipt.result;
+        }
+        const key = draftKeys.draft(user.id, input.draft.storeId, input.draft.id);
+        const old = await readJson(store, key, draftSchema);
+        if ((old?.version || 0) !== input.expectedVersion)
+          throw new AppError(
+            409,
+            'DRAFT_CONFLICT',
+            'This cart changed on another device. Review it before syncing.',
+          );
+        if (old && (old.storeId !== input.draft.storeId || old.counterId !== input.draft.counterId))
+          throw new AppError(
+            409,
+            'DRAFT_SCOPE_CONFLICT',
+            'A cart cannot move between stores or counters.',
+          );
+        const result: Draft = { ...input.draft, version: input.expectedVersion + 1 };
+        const indexKey = draftKeys.index(user.id, input.draft.storeId);
+        const index = (await readJson(store, indexKey, z.array(z.uuid()))) ?? [];
+        if (!index.includes(result.id) && index.length >= 100)
+          throw new AppError(
+            409,
+            'DRAFT_LIMIT_REACHED',
+            'Too many saved carts at this store. Finish or clear one before saving another.',
+          );
+        await store.set(key, JSON.stringify(result), DRAFT_TTL_SECONDS);
+        await store.set(
+          indexKey,
+          JSON.stringify(index.includes(result.id) ? index : [...index, result.id]),
+          DRAFT_TTL_SECONDS,
+        );
+        await store.set(receiptKey, JSON.stringify({ requestHash: hash, result }), 24 * 3600);
+        return result;
+      });
     },
     async list(user, storeId) {
       requireStore(user, storeId);
-      return (
-        await db
-          .get('writer')
-          .select({ payload: drafts.payload })
-          .from(drafts)
-          .where(and(eq(drafts.operatorId, user.id), eq(drafts.storeId, storeId)))
-          .limit(100)
-      ).map((r) => r.payload);
+      const index =
+        (await readJson(store, draftKeys.index(user.id, storeId), z.array(z.uuid()))) ?? [];
+      const result: Draft[] = [];
+      for (const draftId of index) {
+        const draft = await readJson(
+          store,
+          draftKeys.draft(user.id, storeId, draftId),
+          draftSchema,
+        );
+        if (draft) result.push(draft);
+      }
+      return result;
     },
   };
 }

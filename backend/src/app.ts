@@ -62,7 +62,7 @@ import {
   readSlackOAuthOptions,
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
-import { configuredStateStore } from './modules/checkout/state-store.js';
+import { configuredStateStore, memoryStateStore } from './modules/checkout/state-store.js';
 import { checkoutSessionStore } from './modules/checkout/session-store.js';
 import { registerOfflineSync } from './modules/offline-sync/index.js';
 import {
@@ -168,6 +168,15 @@ export async function buildApp(
   await app.register(rateLimit, { max: 240, timeWindow: '1 minute' });
   const db = createDatabases(config),
     identity = identityService(config, db);
+  // W4: one Redis-backed store for checkout, returns and payments state. The job producer is
+  // wired by W8 (jobs workstream); until then producers receive `undefined`.
+  const posState = config.DEMO_MODE ? undefined : configuredStateStore(config),
+    checkoutShared = posState
+      ? { stateStore: posState, sessions: checkoutSessionStore(posState), jobs: undefined }
+      : {};
+  app.addHook('onClose', async () => {
+    await posState?.close();
+  });
   const paymentCorrections = paymentCorrectionFinanceOptions(),
     checkoutRuntime = checkoutEnvironment(),
     reports = reportService(config, db, { paymentCorrections }),
@@ -177,7 +186,7 @@ export async function buildApp(
     : {
         catalog: catalogService(db),
         orders: ordersService(db, config, orderHistory),
-        drafts: draftService(db),
+        drafts: draftService(db, posState ?? memoryStateStore()),
       };
   app.addHook('onClose', async () => {
     await identity.close();
@@ -340,15 +349,6 @@ export async function buildApp(
     ecommerceCooldownSeconds: settingsOptions?.ECOM_DELIVERY_CHANGES_TIME,
   });
   registerEcommerceInventorySynchronization(app, ecommerceSync);
-  // W4: one Redis-backed store for checkout, returns and payments state. The job producer is
-  // wired by W8 (jobs workstream); until then producers receive `undefined`.
-  const posState = config.DEMO_MODE ? undefined : configuredStateStore(config),
-    checkoutShared = posState
-      ? { stateStore: posState, sessions: checkoutSessionStore(posState), jobs: undefined }
-      : {};
-  app.addHook('onClose', async () => {
-    await posState?.close();
-  });
   const customerOtpOptions = readCustomerOtpOptions(),
     customerOtp = customerOtpService(config, db, customerOtpOptions, checkoutShared);
   registerBarcodeAssignments(app, config, db);
@@ -392,7 +392,7 @@ export async function buildApp(
   registerCustomerWorkspace(app, config, db);
   registerCustomerHistory(app, config, db);
   registerProductFeedback(app, config, db);
-  registerCheckoutPerformance(app, config, db);
+  registerCheckoutPerformance(app, config, db, checkoutShared);
   registerInvoiceDocuments(app, config, db);
   registerCustomerContacts(app, config, db, readCustomerContactOptions());
   await registerFinance(app, config, db, {
