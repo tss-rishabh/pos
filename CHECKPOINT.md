@@ -39,7 +39,13 @@ Live provider/SSO/warehouse/inventory acceptance, full source parity,
 representative performance/security review, signed desktop/physical printing,
 background workers and deployment/rollback acceptance remain incomplete.
 Both platforms also pass the shortcut-access snapshot `4de9f3c` in run
-44261638997. Exact r8 snapshot `6cbae5f` is running in CI44264574673. Do not claim production readiness.
+44261638997. CI44264574673 on exact r8 snapshot `6cbae5f` is terminal failed:
+macOS success, Windows OTP browser recovery failure at
+`tests/customer-otp/otp.browser.test.ts:736` after lost-success reload. Other105
+cases in that step passed. Cause not yet established; isolated worker owns
+diagnosis, without increased deadlines or weakened assertions. Retained receipt:
+`backend/evidence/desktop-ci-6cbae5f.json`. Local r8 is still live, unchanged;
+do not substitute platform failure for its result or restart it. Do not claim production readiness.
 
 ## Historical checkpoint entries (superseded where noted above)
 
