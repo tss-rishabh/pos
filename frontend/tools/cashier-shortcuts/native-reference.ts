@@ -169,8 +169,11 @@ try {
   checks.push('reference-page-registers-no-counter-letter-bindings');
 
   await context.addCookies([first.cookie]);
-  await page.goto(origin + '/shortcut-reference');
+  await page.goto(origin + '/shortcut-reference/');
+  await expect(page.getByRole('heading', { name: 'Shortcut reference.' })).toBeVisible();
+  await expect(page.locator('.counter-workspace')).toHaveCount(0);
   await expect(page.getByRole('checkbox', { name: 'Enable letter shortcuts' })).not.toBeChecked();
+  checks.push('trailing-slash-deep-link-keeps-authenticated-unassigned-reference-access');
   const secondPage = await context.newPage();
   await secondPage.goto(origin + '/shortcut-reference');
   await expect(

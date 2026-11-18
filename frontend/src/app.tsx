@@ -1,7 +1,15 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import {
+  NavLink,
+  Route,
+  Routes,
+  useLocation,
+  useMatch,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import {
   Building2,
   ChevronDown,
@@ -286,7 +294,7 @@ function OperatorWorkspace() {
   );
 }
 function Workspace({ user }: { user: Principal }) {
-  const shortcutReference = useLocation().pathname === '/shortcut-reference';
+  const shortcutReference = Boolean(useMatch('/shortcut-reference'));
   const client = useQueryClient(),
     navigate = useNavigate();
   useEffect(() => {

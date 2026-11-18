@@ -76,7 +76,9 @@ not be used to certify standalone access.
 
 `/shortcut-reference` and the all-role **Shortcut reference** navigation entry
 now expose the shared table after operator authentication, independently of
-store loading, assignments, selected counters or check-in. The counter keeps
+store loading, assignments, selected counters or check-in.
+Normal React Router matching also accepts the optional trailing slash on this
+reference URL without falling back to operational selection guards. The counter keeps
 its existing **Keyboard shortcuts** details. The standalone page does not
 attach counter letter bindings. No financial or R controller behavior changes.
 
