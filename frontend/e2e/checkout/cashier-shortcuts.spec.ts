@@ -12,7 +12,7 @@ async function bodyKeys(page: Page, key: string) {
   });
   await page.keyboard.press(key);
 }
-async function fixture(page: Page) {
+async function fixture(page: Page, beforeCreateResponse?: () => Promise<void>) {
   const id = crypto.randomUUID();
   let ownerId = '900001',
     draftId = '',
@@ -112,6 +112,7 @@ async function fixture(page: Page) {
       draftVersion = input.draftVersion;
       manifest = input.lineItems;
       creates++;
+      await beforeCreateResponse?.();
       return route.fulfill({ status: 201, json: state() });
     }
     const input = z.object({ operationId: z.uuid(), expectedVersion: z.number() }).parse(raw);
@@ -168,12 +169,20 @@ test('counter shortcuts respect typing, input methods, other dialogs and the per
 test('P/PP never bypass pricing or duplicate an order; F only prepares and focuses cash review', async ({
   page,
 }) => {
-  const api = await fixture(page);
+  let releaseCreate = () => {};
+  const createResponse = new Promise<void>((resolve) => {
+    releaseCreate = resolve;
+  });
+  const api = await fixture(page, () => createResponse);
   await counter(page);
   await page.getByRole('button', { name: 'Add Classic: Oversized T-shirt to sale' }).click();
   await expect(page.getByRole('button', { name: 'Review sale', exact: true })).toBeEnabled();
   await bodyKeys(page, 'p');
+  // Assert the second press while checkout creation is actually pending;
+  // separate keyboard round trips can otherwise arrive after pricing is ready.
+  await expect.poll(() => api.stats().creates).toBe(1);
   await page.keyboard.press('p');
+  releaseCreate();
   const dialog = page.getByRole('dialog', { name: 'Confirm the sale' });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole('button', { name: 'Get final quote' })).toBeEnabled();
