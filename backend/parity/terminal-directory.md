@@ -38,3 +38,19 @@ backend and frontend strict programs compile. Native MySQL union/collation,
 pagination and revocation scenarios, actual browser CSV/control workflows,
 performance and the consolidated project gate remain for the validation phase.
 No live database, terminal, payment provider or production deployment was used.
+
+Validation found and fixed a native union defect: provider text columns using
+different utf8mb4 collations produced `ER_CANT_AGGREGATE_NCOLLATIONS`. Directory
+projections now explicitly convert their non-secret strings to utf8mb4 with
+`utf8mb4_unicode_ci` before union/search/sort. This preserves the Unicode text
+and exact serial-number strings; it neither projects nor converts credentials.
+Base terminal metadata does not record deployment column collations, so the
+mixed-collation fixture is compatibility evidence, not a claim that those are
+the deployed collations.
+
+Six focused native MySQL8.0.39 cases pass: actual two-provider SQL, duplicate IDs
+and provider paging, escaped search/strict inputs, current role/type/assignment
+revocation, mixed collations/Unicode, and native terminal mutation refusal with
+retained credentials. They use source-verified physical table types in a new
+disposable local schema. No payment provider is called. Focused strict typing
+and lint pass; actual UI CSV checks and consolidated verification remain separate.

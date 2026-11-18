@@ -5,6 +5,9 @@ import react from '@vitejs/plugin-react';
 import { z } from 'zod';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
 import type { Guide } from '../../src/pages/administration/documentation-api';
 import type { DeliverySlot, GeneralSetting } from '../../src/pages/administration/settings-api';
 import type { ImportJob } from '../../src/pages/administration/import-api';
@@ -12,12 +15,13 @@ import type { ImportJob } from '../../src/pages/administration/import-api';
 describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
   'administration browser workflows with isolated API fixtures',
   () => {
-    let server: ViteDevServer, browser: Browser, origin: string;
+    let server: ViteDevServer, browser: Browser, origin: string,cacheDir:string;
     const imageBytes = readFileSync(new URL('./fixtures/private-image.png', import.meta.url));
     beforeAll(async () => {
+      cacheDir=await mkdtemp(join(tmpdir(),'pos-administration-browser-'));
       server = await createServer({
         configFile: false,
-        cacheDir: 'node_modules/.vite-administration-tests',
+        cacheDir,
         plugins: [react()],
         appType: 'custom',
         server: { host: '127.0.0.1', port: 0 },
@@ -58,6 +62,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
     afterAll(async () => {
       await browser?.close();
       await server?.close();
+      if(cacheDir)await rm(cacheDir,{recursive:true,force:true});
     });
 
     async function fixture(
@@ -221,6 +226,9 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           },
         ] as DeliverySlot[],
         mutations: [] as { path: string; method: string; body: unknown }[],
+        collectionMode:false,
+        collectionSearches:[] as {path:string;after:string;limit:number;active?:string;sort?:string;direction?:'asc'|'desc';search:string}[],
+        exportInputs:[] as {commandId:string;input:unknown}[],
         personSearches: [] as { path: string; search: string; url: string }[],
         activitySearches: [] as {
           url: string;
@@ -256,12 +264,13 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
           url = new URL(request.url()),
           privateSearch =
             request.method() === 'POST' &&
-            /^\/api\/v1\/admin\/(?:(?:operators|salespeople)|access\/(?:groups|permissions))\/search$/.test(
+            /^\/api\/v1\/(?:admin\/(?:(?:operators|salespeople|stores)|stores\/\d+\/(?:counters|storages)|access\/(?:groups|permissions))|documentation)\/search$/.test(
               url.pathname,
             ),
           path = privateSearch ? url.pathname.replace(/\/search$/, '') : url.pathname,
           method = privateSearch ? 'GET' : request.method();
         let filterSearch = url.searchParams.get('search') || '';
+        let pageInput:{after:string;limit:number;active?:string;sort?:string;direction?:'asc'|'desc';search:string}|null=null;
         if (privateSearch) {
           const input = z
             .object({
@@ -269,10 +278,14 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
               limit: z.number(),
               active: z.string().optional(),
               search: z.string(),
+              sort: z.string().optional(),
+              direction: z.enum(['asc', 'desc']).optional(),
             })
             .strict()
             .parse(request.postDataJSON() as unknown);
           filterSearch = input.search;
+          pageInput=input;
+          state.collectionSearches.push({path:url.pathname,...input});
           state.personSearches.push({
             path: url.pathname,
             search: input.search,
@@ -1277,6 +1290,17 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
             path === '/api/v1/admin/stores/1' ? store : { data: [store], nextCursor: null },
           );
         }
+        if(path==='/api/v1/report-exports'&&method==='POST'){
+          const input=z.object({commandId:z.uuid(),input:z.unknown()}).strict().parse(request.postDataJSON() as unknown);state.exportInputs.push(input);
+          return json({id:input.commandId,origin:'current',kind:'administration-list',reportName:'Synthetic collection',from:null,to:null,status:'QUEUED',message:'Queued',requestedBy:'1',requestedAt:'2026-11-18T00:00:00Z',completedAt:null,format:'CSV',byteCount:null,rowCount:null,canDownload:false},202);
+        }
+        if(path==='/api/v1/admin/stores/1/detail')return json({id:'1',name:'Fixture Store One',locationCode:'ONE',phone:'9876543210',email:'fixture@example.test',address:'Fixture address',alternateAddress:'',city:'Fixture city',state:'Fixture state',pincode:'123456',type:'STORE',category:'IN_HOUSE',active:true,latitude:'19.00',longitude:'72.00',gstin:'',shortName:'Fixture',franchise:null,publicUrl:'https://thesouledstore.com/?store_id=1'});
+        if(path==='/api/v1/admin/stores/1/qr')return route.fulfill({status:200,contentType:'image/png',body:imageBytes});
+        if(path==='/api/v1/admin/operators'&&state.collectionMode&&pageInput){
+          const values=Array.from({length:27},(_,index)=>({id:String(index+4),firstName:'Synthetic',lastName:'Staff '+String(index).padStart(2,'0'),email:'=synthetic'+index+'@example.test',phone:'9876543210',contactEmail:'otp@example.test',role:5,userType:1,otpMethod:1,mfa:false,active:pageInput!.active!=='false',storeIds:['1'],storeNames:['Fixture Store One']}));
+          if(pageInput.direction==='desc')values.reverse();const start=pageInput.after==='0'?0:z.object({offset:z.number().int()}).parse(JSON.parse(Buffer.from(pageInput.after.slice(3),'base64url').toString('utf8')) as unknown).offset,end=start+pageInput.limit;
+          return json({data:values.slice(start,end),nextCursor:end<values.length?'c1.'+Buffer.from(JSON.stringify({offset:end})).toString('base64url'):null});
+        }
         if (path === '/api/v1/admin/operators')
           return json({
             data: [
@@ -1359,6 +1383,28 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
       return state;
     }
 
+    it('restores active and archived collection paging, server sort, column visibility and safe exact-column CSV commands',async()=>{
+      const context=await browser.newContext(),page=await context.newPage();const state=await fixture(page);state.collectionMode=true;
+      try{
+        await page.getByRole('tab',{name:'Operators',exact:true}).click();await browserExpect(page.getByRole('cell',{name:'Synthetic Staff 00',exact:true})).toBeVisible();
+        await page.getByLabel('Page size',{exact:true}).selectOption('10');await browserExpect(page.getByRole('row')).toHaveCount(11);
+        await page.getByRole('button',{name:'Next page',exact:true}).click();await browserExpect(page.getByRole('cell',{name:'Synthetic Staff 10',exact:true})).toBeVisible();
+        await page.getByRole('button',{name:'Previous page',exact:true}).click();await browserExpect(page.getByRole('cell',{name:'Synthetic Staff 00',exact:true})).toBeVisible();
+        await page.getByLabel('Sort by',{exact:true}).selectOption('name');await page.getByLabel('Sort direction',{exact:true}).selectOption('desc');await browserExpect(page.getByRole('cell',{name:'Synthetic Staff 26',exact:true})).toBeVisible();
+        await page.getByLabel('Operators status',{exact:true}).selectOption('false');await browserExpect(page.getByRole('row').nth(1)).toContainText('Archived');
+        await page.getByText('Columns',{exact:true}).click();await page.getByLabel('Phone',{exact:true}).uncheck();await browserExpect(page.getByRole('columnheader',{name:'Phone',exact:true})).toHaveCount(0);
+        const downloadEvent=page.waitForEvent('download');await page.getByRole('button',{name:'Export visible page CSV',exact:true}).click();const file=await downloadEvent,path=await file.path();if(!path)throw new Error('Synthetic CSV missing');const csv=readFileSync(path,'utf8');expect(csv).not.toContain('"Phone"');expect(csv).toContain("'=synthetic26@example.test");
+        await page.getByRole('button',{name:'Queue all matching CSV',exact:true}).click();await browserExpect(page.getByText('CSV export queued.',{exact:false})).toBeVisible();
+        expect(state.exportInputs.at(-1)?.input).toMatchObject({kind:'administration-list',resource:'operators',storeIds:[],active:'false',sort:'name',direction:'desc'});const exported=z.object({columns:z.array(z.string())}).parse(state.exportInputs.at(-1)?.input);expect(exported.columns).not.toContain('phone');expect(exported.columns).toContain('email');expect(state.exportInputs.at(-1)?.input).not.toHaveProperty('from');
+        expect(state.collectionSearches.some(value=>value.after.startsWith('c1.'))).toBe(true);expect(state.collectionSearches.at(-1)).toMatchObject({path:'/api/v1/admin/operators/search',limit:10,sort:'name',direction:'desc',active:'false'});expect(state.console.filter(value=>/synthetic\d+@/.test(value))).toEqual([]);
+      }finally{await context.close();}
+    },30000);
+    it('opens a selected store read-only detail and downloads its static marketing QR without issuing an application capability',async()=>{
+      const context=await browser.newContext(),page=await context.newPage();const state=await fixture(page);
+      try{await page.getByRole('button',{name:'Details and QR',exact:true}).click();const dialog=page.getByRole('dialog',{name:'Store details',exact:true});await browserExpect(dialog.getByText('https://thesouledstore.com/?store_id=1',{exact:true})).toBeVisible();await browserExpect(dialog.getByText('Fixture address',{exact:true})).toBeVisible();
+        const pending=page.waitForEvent('download');await dialog.getByRole('button',{name:'Download store QR PNG',exact:true}).click();const file=await pending,path=await file.path();expect(file.suggestedFilename()).toBe('store-1-qr.png');if(!path)throw new Error('Synthetic PNG missing');expect(readFileSync(path)).toEqual(imageBytes);expect(state.applicationRequests).toEqual([]);await dialog.getByRole('button',{name:'Close store details',exact:true}).click();await browserExpect(dialog).toHaveCount(0);
+      }finally{await context.close();}
+    });
     it('edits scoped operator store access through the actual dialog and validated API client', async () => {
       const page = await browser.newPage();
       try {
@@ -1531,7 +1577,7 @@ describe.skipIf(process.env.ADMINISTRATION_BROWSER_TESTS !== 'true')(
         expect(state.guideUploads[0]?.checksum).toBe(
           createHash('sha256').update('%PDF-fixture').digest('base64'),
         );
-        const article = page.getByRole('article').filter({ hasText: 'Uploaded fixture guide' });
+        const article = page.getByRole('row').filter({ hasText: 'Uploaded fixture guide' });
         await article.getByRole('button', { name: 'Read guide', exact: true }).click();
         dialog = page.getByRole('dialog');
         await browserExpect(dialog.locator('iframe')).toHaveAttribute('sandbox', '');

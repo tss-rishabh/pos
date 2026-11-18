@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, inArray, like, or, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, like, or, sql, type SQLWrapper } from 'drizzle-orm';
 import { unionAll } from 'drizzle-orm/mysql-core';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
@@ -25,6 +25,10 @@ export const terminalDirectoryInput = z
 
 /** Credential-free source EDC directory. Authorization locks span the primary read. */
 export function registerTerminalDirectory(app: FastifyInstance, db: Databases) {
+  // Provider tables can retain different physical charsets/collations. Normalize
+  // only the projected non-secret strings; preserve their Unicode content.
+  const text = (value: SQLWrapper, alias: string) =>
+    sql<string>`CONVERT(${value} USING utf8mb4) COLLATE utf8mb4_unicode_ci`.as(alias);
   app.post(
     '/api/v1/admin/payment-terminals/search',
     {
@@ -85,17 +89,17 @@ export function registerTerminalDirectory(app: FastifyInstance, db: Databases) {
         const pine = primary
           .select({
             id: PosMachine.id,
-            provider: sql<string>`'pine-labs'`.as('provider'),
-            name: PosMachine.machine_name,
-            merchantName: PosMachine.merchant_name,
-            channelId: PosMachine.client_id,
-            hardwareId: PosMachine.hardware_id,
-            imei: PosMachine.imei_no,
-            deviceSerialNumber: sql<string>`'-'`.as('device_serial_number'),
-            terminalId: PosMachine.tid,
-            merchantId: PosMachine.merchant_id,
-            storeCode: PosMachine.merchant_store_pos_code,
-            storeName: sql<string>`COALESCE(${Store.store_name}, '')`.as('current_store_name'),
+            provider: text(sql`'pine-labs'`, 'provider'),
+            name: text(PosMachine.machine_name, 'machine_name'),
+            merchantName: text(PosMachine.merchant_name, 'merchant_name'),
+            channelId: text(PosMachine.client_id, 'channel_id'),
+            hardwareId: text(PosMachine.hardware_id, 'hardware_id'),
+            imei: text(PosMachine.imei_no, 'imei_no'),
+            deviceSerialNumber: text(sql`'-'`, 'device_serial_number'),
+            terminalId: text(PosMachine.tid, 'tid'),
+            merchantId: text(PosMachine.merchant_id, 'merchant_id'),
+            storeCode: text(PosMachine.merchant_store_pos_code, 'merchant_store_pos_code'),
+            storeName: text(sql`COALESCE(${Store.store_name}, '')`, 'current_store_name'),
             storeId: PosMachine.store_id,
             active: PosMachine.is_active,
           })
@@ -113,20 +117,21 @@ export function registerTerminalDirectory(app: FastifyInstance, db: Databases) {
         const paytm = primary
           .select({
             id: PosPaytmMachine.id,
-            provider: sql<string>`'paytm'`.as('provider'),
-            name: PosPaytmMachine.machine_name,
-            merchantName: PosPaytmMachine.merchant_name,
-            channelId: PosPaytmMachine.channel_id,
-            hardwareId: PosPaytmMachine.paytm_mid,
-            imei: sql<string>`'-'`.as('imei_no'),
-            deviceSerialNumber: sql<string>`CAST(${PosPaytmMachine.device_serial_no} AS CHAR)`.as(
+            provider: text(sql`'paytm'`, 'provider'),
+            name: text(PosPaytmMachine.machine_name, 'machine_name'),
+            merchantName: text(PosPaytmMachine.merchant_name, 'merchant_name'),
+            channelId: text(PosPaytmMachine.channel_id, 'channel_id'),
+            hardwareId: text(PosPaytmMachine.paytm_mid, 'hardware_id'),
+            imei: text(sql`'-'`, 'imei_no'),
+            deviceSerialNumber: text(
+              sql`CAST(${PosPaytmMachine.device_serial_no} AS CHAR)`,
               'device_serial_number',
             ),
-            terminalId: PosPaytmMachine.paytm_tid,
+            terminalId: text(PosPaytmMachine.paytm_tid, 'tid'),
             // The original placed merchant_key here. Credentials are never a directory field.
-            merchantId: PosPaytmMachine.paytm_mid,
-            storeCode: sql<string>`'-'`.as('merchant_store_pos_code'),
-            storeName: sql<string>`COALESCE(${Store.store_name}, '')`.as('current_store_name'),
+            merchantId: text(PosPaytmMachine.paytm_mid, 'merchant_id'),
+            storeCode: text(sql`'-'`, 'merchant_store_pos_code'),
+            storeName: text(sql`COALESCE(${Store.store_name}, '')`, 'current_store_name'),
             storeId: PosPaytmMachine.store_id,
             active: PosPaytmMachine.is_active,
           })
