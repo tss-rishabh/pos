@@ -1,0 +1,29 @@
+{
+  "recordedAt": "2026-11-18T12:37:28.270826Z",
+  "scope": "Independent review of actual original/generated wallet calendar/cashback/nullable-history execution; not whole upstream provider/controller or POS certification.",
+  "upstreamSourceCommit": "434f3e438d1cb48c64e5723222c6efda506db571",
+  "rawReceipt": "backend/compatibility/upstream/other-writer-origins/go/expiry-review/active-calendar-native.json",
+  "rawReceiptSha256": "2ca745d847e991ef632a59d86c457ba5576b4a583c716ea5669166079c4173ad",
+  "verified": {
+    "producerAndFixtureInputs": 6,
+    "assemblyFiles": 115,
+    "assemblyManifestSha256": "14ef21d7808117167de15f27ebd149fef9f0a29caf269a31e746028254463ba8",
+    "originalExpiryCases": 10,
+    "generatedExpiryCases": 10,
+    "tlsGatewayCases": 2,
+    "namedPassEvents": 24,
+    "defaultVet": true,
+    "race": true,
+    "unchangedNativeTimeout": "5m",
+    "canonicalRawEventsDigest": "a880fd74b50b16a40c83a50169fef64ee8ec85ec56ee24661d1181fe97dc0838",
+    "compiledTypedHelperMatchesOwnedPayload": true,
+    "resourceChecksDigest": "ea6f6212cb37f26c84dfe7eeadbc3b41bfd747225f761413d52ff85f63655633"
+  },
+  "currentPolicyApproval": "backend/compatibility/upstream/other-writer-origins/go/expiry-review/source-history-retention-approval.json",
+  "limitations": [
+    "Original source extra history is explicitly retained by user approval; generated Money keeps its separate existing behavior.",
+    "Go/GORM/GoJSON expiry representation only, not complete Django/frontend/history-provider qualification.",
+    "No source writes, SQL-mode relaxation, schema changes, real provider sends or full release admission."
+  ],
+  "productionReady": false
+}

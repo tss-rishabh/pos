@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "source_commit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
-  "meaning": "Implementation map only. Existing release-coverage statuses remain unchanged. Test file presence/component checks never imply source workflow or production certification. Known defects and inactive policy candidates retain their separate decision records, including the pending wallet calendar-date decision; zero feature gap groups does not activate those candidates or pass their gates.",
+  "meaning": "Implementation map only. Existing release-coverage statuses remain unchanged. Test file presence/component checks never imply source workflow or production certification. Known defects and policy corrections retain separate decision records. The user-approved payment-failure calendar-date correction is active in the owned Go producers; native acceptance remains separate. Zero feature gap groups does not select unrelated policies or pass their gates.",
   "status_definitions": {
     "implementation_present": "Mapped behavior is implemented at component/code level; no full source workflow certification.",
     "partial": "An identified source behavior or binding is incomplete; see family remaining_code.",
@@ -685,18 +685,19 @@
     "backend/src/modules/finance/schema.ts": "efe5411a988a5909ba959f0542140ae3e02eda1c185ca513bd349fac4bd0c192",
     "backend/src/modules/finance/service.ts": "df0e5391e310ecc271dd1eda0ca202605b6c46f80ea8cb0a5389e7d7236de899",
     "backend/src/modules/fulfillment/domain.ts": "1addb1100798d36704d85cecd158483dc06d4914dfb22b02f25780078f204bba",
-    "backend/src/modules/fulfillment/index.ts": "63f238e55763793bbf68250717a62d5faf80dcaed9b6bfcd9c4d36ac39525bea",
+    "backend/src/modules/fulfillment/index.ts": "0e1ad56ebf6185eeb8416ee704064993b847bf506aad778154bfa00932461274",
     "backend/src/modules/fulfillment/integrations.ts": "c04edf09466e10931f203b7ee3a2e16bb1678bef2b17f4d969b932a7a66dd52e",
     "backend/src/modules/fulfillment/maintenance.ts": "4c434a4b1522f3c6ae4b84c1ccad18414729832b7238e07bfe31ba8d73602f83",
     "backend/src/modules/fulfillment/migration.sql": "386060f0a67a145f53d58bab280a571de3ea2b20ef49c461922befc9ea9ffb38",
     "backend/src/modules/fulfillment/monitoring-options.ts": "1341299be08fa59c8b1d3febefb422e05f1eab61b0747d42ff8dec7d19e12a21",
     "backend/src/modules/fulfillment/monitoring.ts": "f7d24f6d8037cfaf6fa32b7509f44d26811f9c8a5958306fc3798c38c8798480",
     "backend/src/modules/fulfillment/notification-bus.ts": "cfb943621814feb833b2fa0aa117e51ff6e6abc1685bc0309e1fe35e516784c5",
+    "backend/src/modules/fulfillment/notification-stream.ts": "3a44a90771fdb164998a5ace6d66a5f709ca3b99d036ab7b6131a3867f1ba31f",
     "backend/src/modules/fulfillment/notifications.ts": "242ebc5438b9c84260ee8a76f0aa20474c38f676ec92d603144dc7cef87237c9",
     "backend/src/modules/fulfillment/options.ts": "620472d123da5fcbc4a6d91a156c3b531c77e20a2ee4d2faab8d3db92fa79809",
     "backend/src/modules/fulfillment/outbox.ts": "6ea3cd1c16eb1283f88567a2dad3670cc86af767801463f307cbdc39855550d0",
     "backend/src/modules/fulfillment/schema.ts": "4d1d25199cd0fccd6bfbc5d852ff0b9b02bdafcbffe3178313fe99b97b9ffde0",
-    "backend/src/modules/fulfillment/service.ts": "e0fb7a9a80f79a19d10bc0bb53781bcfe742c43c95144faa102b77693b98b51e",
+    "backend/src/modules/fulfillment/service.ts": "65b0e5efa73a84f46e5e3fa1e9440f3b7849509678f928420cd8355ca509bc94",
     "backend/src/modules/fulfillment/shipping-label/code128-patterns.ts": "6d1fc02e6072c370ba005757bcde4ef84bc204cc31e66601c44f3828ad454d91",
     "backend/src/modules/fulfillment/shipping-label/code128.ts": "a5bceaf22cd0af3395c42c68a8ca308ebb64b2e3e3d85c84161acb9e186371c9",
     "backend/src/modules/fulfillment/shipping-label/contracts.ts": "ad5e1775044f9f2ef37b188d70e272fe302d1b003fd674cc879600f95c09d30c",
@@ -1166,9 +1167,9 @@
     "backend/tests/fulfillment/domain.test.ts": "6c267307b435cd95ae5dfe8cf9b506b29a3a5a2110d38d69f68eb16e46d63f61",
     "backend/tests/fulfillment/integrations.test.ts": "1bdc2e1ca187b7837fd5b48c6dcf3818f6c84f13e4e7794fd9a38e586297326b",
     "backend/tests/fulfillment/monitoring.test.ts": "3075ed1cb4798bea5b6b7a350a6fbdef4e2753a9dc7bc99ed741278111ca6aa0",
-    "backend/tests/fulfillment/mysql.integration.test.ts": "87d5d836656e9ab1fae0bb01aacbebffe9c221bd0dfc71d159f8dd6246d50fbc",
+    "backend/tests/fulfillment/mysql.integration.test.ts": "472d5ecb633ccab20dd5efacbde80c9c1dd5ad9e5e696e4e00c4da4f59867948",
     "backend/tests/fulfillment/notification-bus.test.ts": "28dbf0011eb34940be66da136773555fcc35548d5d6a86a1ed5e3e5d508145aa",
-    "backend/tests/fulfillment/security.test.ts": "fce2568df1e48a783c1b57f120bce7b2baba3634b032a5e9777bcde39944b809",
+    "backend/tests/fulfillment/security.test.ts": "fd232d3fb420e460eaf7fee2e9a8ec7f094af32f5d1f28491530490f5f208cfb",
     "backend/tests/fulfillment/shipping-label-address.test.ts": "05642f2f6d8c2fbb5c80346f04d91594b477d4198bb597f1a1e8492fa6c7a590",
     "backend/tests/fulfillment/shipping-label-barcode.test.ts": "214b3daa09d1b223458663c34c6690b52dd55886a39ad1743c7dd32e0304ffd6",
     "backend/tests/fulfillment/shipping-label-document.test.ts": "4a00b7be92d0778988b7467e261ee96a041c940cd28dfbe1f4a70ed12b8e74c2",
@@ -1334,7 +1335,7 @@
     "frontend/e2e/checkout/cashier-shortcuts.spec.ts": "2b3e0b10e6d98868009aeef6f1dc80a00d33caea892a55eb58aac9618db3bfdd",
     "frontend/e2e/checkout/checkout-performance.spec.ts": "7b97900410df31a4b0951f7add8eb4da140752027410bc576803bc7d589fd515",
     "frontend/e2e/checkout/clearance.spec.ts": "e6aab53a65c18590750215df7f3879ef1a34c77ab4cbb0e8975ae1c35a0b4f84",
-    "frontend/e2e/checkout/customers.spec.ts": "d4434bda041f6bd040c7ee8060b4e41911f79492578e2bf3a69e089457f66991",
+    "frontend/e2e/checkout/customers.spec.ts": "b9bc138fd99470eb0e40e928706ea575b9f5c9ec6acb0daad6889ec308a8f938",
     "frontend/e2e/checkout/discount-approval.spec.ts": "b98b76bcf3f97fd08729a966e11a44f9a2bc6de44cae773c1e552c7a9667ecf6",
     "frontend/e2e/checkout/exchange.spec.ts": "f9c7c4caf136c70b108cbbc2f21633bf28c5983bcba139bc87f8e1f7607ae35d",
     "frontend/e2e/checkout/fast-cash.spec.ts": "5ddf3f64dad4a857d194cd5843ce49f4139c77b556b92fde93652530d98d85ff",
@@ -1677,8 +1678,13 @@
     "frontend/tests/finance/download.test.ts": "6359d9100321c13090d46f00348b8ddd5fb32d67f84a592ea954286a4a3c0718",
     "frontend/tests/finance/ledger-rows.test.ts": "c5578043744d50648db09141a33b2551db3d649461f9c71f6c47549c1e0536d0",
     "frontend/tests/fulfillment/commands.test.ts": "fdf0acf602672a5237aaf2df84a893f56500de63d95f9b25b6ed1b509a0aeb1e",
+    "frontend/tests/fulfillment/notification-workflow.config.ts": "cdf99f6b08b6a93ff624de8e60b8c0fecb5d1db774c46c1aaf11d90dca8c03dd",
+    "frontend/tests/fulfillment/notification-workflow.test.ts": "853acb5d6e508a737b21307cd364bd159b48b2afab70545d6ebff75f083e6ce8",
+    "frontend/tests/fulfillment/notification-workflow.tsconfig.json": "e206ff36fbef59997f46971653c6c89d5a5ed3d568087341a74403dc7f377e8f",
     "frontend/tests/global-reminders/native-app.ts": "8a7bdd43c280e82c4a2a2c7d937138acfa41f5d4b6139005ee2bc914c66c4b2f",
+    "frontend/tests/global-reminders/release-notes.ts": "87104d28e1609d256eaf75a557ab22c86b0fdeb52cacada4c50523990c7e173b",
     "frontend/tests/global-reminders/tsconfig.native.json": "c64d054f31f43236a02003ec0ab46d7f1c00d29f47e2ad592655a9b6424b0469",
+    "frontend/tests/global-reminders/tsconfig.notes.json": "ea642efe55d561e2184c1658590547719e355b5dfbb5797f355bcc5ac335bc2a",
     "frontend/tests/global-vouchers/fixtures.ts": "315ba12a4f75fca32c41bfea3a131bf40c44b67e48d4a7985d9fc0334d98f98e",
     "frontend/tests/global-vouchers/harness.tsx": "0ec48888ae452483f988fee40dde11e4480f4bd68d39eed368c8fe55f00d66a3",
     "frontend/tests/global-vouchers/tsconfig.json": "abebca6f830a906822f7f57f56e9e11eedd79a64d4b6fb9545e02fdcbfb85e9c",
@@ -4487,6 +4493,7 @@
         "frontend/tests/finance/download.test.ts",
         "frontend/tests/finance/ledger-rows.test.ts",
         "frontend/tests/fulfillment/commands.test.ts",
+        "frontend/tests/fulfillment/notification-workflow.test.ts",
         "frontend/tests/global-vouchers/vouchers.browser.test.ts",
         "frontend/tests/import-corrections/browser.test.ts",
         "frontend/tests/inventory-workbooks/browser.test.ts",
@@ -4819,6 +4826,7 @@
         "frontend/tests/finance/download.test.ts",
         "frontend/tests/finance/ledger-rows.test.ts",
         "frontend/tests/fulfillment/commands.test.ts",
+        "frontend/tests/fulfillment/notification-workflow.test.ts",
         "frontend/tests/global-vouchers/vouchers.browser.test.ts",
         "frontend/tests/import-corrections/browser.test.ts",
         "frontend/tests/inventory-workbooks/browser.test.ts",
@@ -5345,6 +5353,7 @@
         "frontend/tests/finance/download.test.ts",
         "frontend/tests/finance/ledger-rows.test.ts",
         "frontend/tests/fulfillment/commands.test.ts",
+        "frontend/tests/fulfillment/notification-workflow.test.ts",
         "frontend/tests/global-vouchers/vouchers.browser.test.ts",
         "frontend/tests/import-corrections/browser.test.ts",
         "frontend/tests/inventory-workbooks/browser.test.ts",
@@ -6575,7 +6584,8 @@
         "backend/tests/fulfillment/shipping-label-document.test.ts",
         "backend/tests/fulfillment/shipping-label-http.test.ts",
         "backend/tests/fulfillment/shipping-label-mysql.integration.test.ts",
-        "frontend/tests/fulfillment/commands.test.ts"
+        "frontend/tests/fulfillment/commands.test.ts",
+        "frontend/tests/fulfillment/notification-workflow.test.ts"
       ]
     },
     {
@@ -6701,7 +6711,25 @@
           "path": "frontend/src/pages/fulfillment/notification-links.ts",
           "line": 29,
           "anchor": "export function notificationDestination",
-          "scope": "Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Joined notification/provider acceptance remains unproven."
+          "scope": "Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Exact two-declaration joined proof is retained separately; whole-template and production-provider acceptance remain pending."
+        },
+        {
+          "path": "backend/src/modules/fulfillment/index.ts",
+          "line": 304,
+          "anchor": "'/api/v1/stores/:storeId/notifications'",
+          "scope": "Stored feed rechecks writer-current check-in authority before and after primary-reader queries. Exact notification route/consumer joined proof is reviewed separately; whole templates and production provider acceptance remain pending."
+        },
+        {
+          "path": "backend/src/modules/fulfillment/service.ts",
+          "line": 696,
+          "anchor": "async markNotificationRead",
+          "scope": "Read-receipt mutation locks current native actor/store/check-in authority inside the writer transaction before changing only the current recipient row."
+        },
+        {
+          "path": "backend/src/modules/fulfillment/notification-stream.ts",
+          "line": 19,
+          "anchor": "export function notificationStream",
+          "scope": "Broker readiness and fresh native authority precede upgrade OPEN; bounded early pointers and once-only transport cleanup preserve the protocol. Twelve lifecycle units and seven fresh native/source/App groups pass on the fixed snapshot; original red ordering evidence remains immutable."
         }
       ],
       "reviewed_source_surfaces": [

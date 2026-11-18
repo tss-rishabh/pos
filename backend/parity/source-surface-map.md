@@ -161,7 +161,10 @@ Mapped surfaces: `notification/urls.py:7` (external_acceptance), `order/template
 
 | Code/source reference | Reviewed scope |
 | --- | --- |
-| `frontend/src/pages/fulfillment/notification-links.ts:29` | Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Joined notification/provider acceptance remains unproven. |
+| `frontend/src/pages/fulfillment/notification-links.ts:29` | Retains source stored-title routing and explicit live new-order flag; derives bound order/queue links without trusting a stored URL. Exact two-declaration joined proof is retained separately; whole-template and production-provider acceptance remain pending. |
+| `backend/src/modules/fulfillment/index.ts:304` | Stored feed rechecks writer-current check-in authority before and after primary-reader queries. Exact notification route/consumer joined proof is reviewed separately; whole templates and production provider acceptance remain pending. |
+| `backend/src/modules/fulfillment/service.ts:696` | Read-receipt mutation locks current native actor/store/check-in authority inside the writer transaction before changing only the current recipient row. |
+| `backend/src/modules/fulfillment/notification-stream.ts:19` | Broker readiness and fresh native authority precede upgrade OPEN; bounded early pointers and once-only transport cleanup preserve the protocol. Twelve lifecycle units and seven fresh native/source/App groups pass on the fixed snapshot; original red ordering evidence remains immutable. |
 
 ### finance-day-close
 

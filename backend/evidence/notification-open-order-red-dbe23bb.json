@@ -1,0 +1,31 @@
+{
+  "recordedAt": "2026-11-18T11:23:33.299600Z",
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "productionSnapshot": "dbe23bb",
+  "testCommit": "49d55ca",
+  "scope": "Deterministic connection-order unit using actual injectWS handshake and a controlled delayed broker-readiness promise. Not a native Redis/source full-workflow proof.",
+  "result": {
+    "exitCode": 1,
+    "failedCases": 1,
+    "otherCasesIntentionallySkipped": 4,
+    "observedOpenedBeforeBrokerReady": true,
+    "expectedOpenedBeforeBrokerReady": false,
+    "durationMilliseconds": 56
+  },
+  "sourceContract": {
+    "path": "notification/consumers.py",
+    "lines": "10\u201314",
+    "contract": "await group_add before accept"
+  },
+  "candidateContract": {
+    "path": "backend/src/modules/fulfillment/index.ts",
+    "contract": "bus.subscribe starts inside the already-upgraded handler"
+  },
+  "privateLogSha256": "ad5fe90609bff8ba93fbb775b6b7b4df38fdd207d0465ffe38b2a3db938ac8bb",
+  "limitations": [
+    "Does not establish the cause of the earlier auxiliary zero-frame timeout.",
+    "Does not relabel prior seven passing groups or weaken their assertions/deadlines.",
+    "Notification parity reopened pending implementation and affected verification."
+  ],
+  "productionReady": false
+}

@@ -570,3 +570,34 @@ proofs are read in bounded batches. Details and scoped evidence are in
 `backend/compatibility/payment-reversals/improve-query.md`. No live DDL or
 production latency measurement was performed; the correction finance contract
 remains unselected until its collection/ledger/DSR/publication integration passes.
+
+## Payment-failure history expiry under strict MySQL
+
+The actual nullable `expiry` columns on `tss_money_history`, `tss_point_history`
+and `reward_point_history` accept `NULL`. The retained Go models use `time.Time`,
+so an unset value was serialized by bare GORM `Create` as a zero date. Native
+verification captured MySQL error **1292** under unchanged `STRICT_TRANS_TABLES`,
+`NO_ZERO_IN_DATE` and `NO_ZERO_DATE`: wallet updates completed but the intended
+history rows were missing. No production rows or SQL-mode settings were changed.
+
+The fix is scoped to the original payment-failure history calls:
+
+```go
+if row.Expiry.IsZero() {
+    return db.Omit("expiry").Create(row)
+}
+return db.Create(row)
+```
+
+This uses the existing nullable default for an unset expiry; actual earning
+expiry values, amounts, platforms and mappings remain unchanged. It requires
+no DDL, new index or relaxed SQL mode. The existing extra history entry from
+original Money restoration is retained per explicit user instruction.
+
+This is an ORM correctness/compatibility correction, not a response-identical
+performance optimization: previously failed history inserts now persist their
+intended rows. Native evidence covers ten original and ten generated expiry
+cases plus two TLS cases, with default vet and race checks. SQL NULL reads back
+as the original Go/GORM zero-time value with the same Go JSON expiry encoding;
+no complete Django/frontend-history equivalence is inferred. Evidence and exact
+scope: `backend/compatibility/upstream/other-writer-origins/go/expiry-review/active-calendar-native.json`.
