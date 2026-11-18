@@ -278,7 +278,7 @@ export function ProductTroubleshooting({
   if (!allowed) return null;
   return (
     <>
-      <section className="surface catalog-detail-block">
+      <section id="product-troubleshooting" className="surface catalog-detail-block">
         <div className="catalog-table-toolbar">
           <h2>Product troubleshooting</h2>
           <button

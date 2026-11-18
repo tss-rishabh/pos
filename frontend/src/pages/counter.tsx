@@ -34,6 +34,9 @@ import { CashTools } from './checkout/offline-cash/cash-tools';
 import type { LocalCashReceipt } from '../offline/cash/storage-types';
 import { recordPerformancePhase } from '../offline/performance/storage';
 import { captureOperatorScope } from '../api/client';
+import { addProduct, commitScannedProduct, resolveBarcode } from './counter-catalog/barcode';
+import './counter-catalog/style.css';
+import { productDetailPath, useCartProductLinks } from './counter-catalog/detail-links';
 import {
   AutomaticInvoicePreview,
   createAutomaticInvoiceRequest,
@@ -56,44 +59,68 @@ export function ProductTile({
   product,
   index,
   onAdd,
+  troubleshooting = false,
 }: {
   product: Product;
   index: number;
   onAdd: () => void;
+  troubleshooting?: boolean;
 }) {
   return (
-    <button
-      className="product-tile"
-      onClick={onAdd}
-      disabled={product.stock <= 0}
-      aria-label={`Add ${product.name} to sale`}
-    >
-      <div className={`product-art ${tones[index % tones.length]}`}>
-        {product.image ? (
-          <img loading="lazy" src={product.image} alt="" />
-        ) : (
-          <ShoppingBag size={54} strokeWidth={1} />
-        )}
-        <span className={`stock-label ${product.stock < 5 ? 'stock-low' : ''}`}>
-          {product.stock === 0
-            ? 'Out of stock'
-            : product.stock < 5
-              ? `Only ${product.stock} left`
-              : `${product.stock} in stock`}
-        </span>
-        <span className="add-product">
-          <Plus size={17} />
-        </span>
-      </div>
-      <div className="product-copy">
-        <small>{product.erpName || `SKU ${product.id}`}</small>
-        <h3>{product.name}</h3>
-        <div>
-          <strong>{currency(product.price)}</strong>
-          <span>GST {product.gst}%</span>
+    <article className="counter-product-card">
+      <button
+        className="product-tile"
+        onClick={onAdd}
+        disabled={product.stock <= 0}
+        aria-label={`Add ${product.name} to sale`}
+      >
+        <div className={`product-art ${tones[index % tones.length]}`}>
+          {product.image ? (
+            <img loading="lazy" src={product.image} alt="" />
+          ) : (
+            <ShoppingBag size={54} strokeWidth={1} />
+          )}
+          <span className={`stock-label ${product.stock < 5 ? 'stock-low' : ''}`}>
+            {product.stock === 0
+              ? 'Out of stock'
+              : product.stock < 5
+                ? `Only ${product.stock} left`
+                : `${product.stock} in stock`}
+          </span>
+          <span className="add-product">
+            <Plus size={17} />
+          </span>
         </div>
-      </div>
-    </button>
+        <div className="product-copy">
+          <small>{product.erpName || `SKU ${product.id}`}</small>
+          <h3>{product.name}</h3>
+          <div>
+            <strong>{currency(product.price)}</strong>
+            <span>GST {product.gst}%</span>
+          </div>
+        </div>
+      </button>
+      <nav className="counter-product-actions" aria-label={`Actions for ${product.name}`}>
+        <a
+          href={productDetailPath(product)}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`View details for ${product.name}`}
+        >
+          Product details
+        </a>
+        {troubleshooting && product.stock > 0 && product.barcode !== null && (
+          <a
+            href={`/catalog/products/${product.id}#product-troubleshooting`}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Troubleshoot ${product.name}`}
+          >
+            Troubleshoot product
+          </a>
+        )}
+      </nav>
+    </article>
   );
 }
 export function CounterPage({
@@ -139,6 +166,11 @@ export function CounterPage({
     openingReview = useRef(false),
     shortcutAction = useRef<(action: CashierShortcut) => boolean>(() => false);
   const cart = drafts.find((c) => c.id === activeId) || drafts[0];
+  const cartProductLinks = useCartProductLinks(
+    user.id,
+    storeId,
+    cart?.lines.map((line) => line.productId) || [],
+  );
   const recoveredCheckoutId = cart ? recoveryFor(user.id, cart.id)?.checkoutId : undefined;
   const copiedOriginNeedsOnline = Boolean(
     recoveredCheckoutId && orderCopyRequiresOnlineReview(user.id, storeId, recoveredCheckoutId),
@@ -304,27 +336,52 @@ export function CounterPage({
       setProblem(e);
     }
   }
-  const add = (product: Product) =>
-    void update((draft) => {
-      const found = draft.lines.find((l) => l.productId === product.id);
-      return {
-        ...draft,
-        lines: found
-          ? draft.lines.map((l) =>
-              l.productId === product.id ? { ...l, quantity: Math.min(999, l.quantity + 1) } : l,
-            )
-          : [
-              ...draft.lines,
-              {
-                productId: product.id,
-                name: product.name,
-                barcode: product.barcode,
-                unitPrice: product.price,
-                quantity: 1,
-              },
-            ],
-      };
-    }, true);
+  const add = (product: Product) => void update((draft) => addProduct(draft, product), true);
+  const scanIdentity = JSON.stringify([user.id, storeId, counterId, draftId]);
+  const currentScanIdentity = useRef(scanIdentity);
+  currentScanIdentity.current = scanIdentity;
+  const scanController = useRef<AbortController | null>(null);
+  const [scanning, setScanning] = useState(false);
+  useEffect(() => {
+    setScanning(false);
+    return () => {
+      scanController.current?.abort();
+      scanController.current = null;
+    };
+  }, [scanIdentity]);
+  async function scanBarcode(input: string) {
+    if (scanController.current || !draftId || !storeId || !counterId) return;
+    const controller = new AbortController();
+    scanController.current = controller;
+    setScanning(true);
+    const identity = scanIdentity;
+    const isCurrent = () => currentScanIdentity.current === identity && !controller.signal.aborted;
+    try {
+      const signal = AbortSignal.any([
+        controller.signal,
+        captureOperatorScope(user.id),
+        AbortSignal.timeout(12000),
+      ]);
+      const startedAt = performance.now();
+      const product = await resolveBarcode(user.id, storeId, input, signal);
+      const scope = { ownerId: user.id, storeId, counterId, draftId };
+      await commitScannedProduct(scope, product, signal, isCurrent, input);
+      if (!isCurrent()) return;
+      void recordPerformancePhase(scope, 'add_to_cart', performance.now() - startedAt).catch(
+        () => {},
+      );
+      setSearch('');
+      setProblem(null);
+      setMessage('');
+    } catch (error) {
+      if (isCurrent()) setProblem(error);
+    } finally {
+      if (scanController.current === controller) {
+        scanController.current = null;
+        setScanning(false);
+      }
+    }
+  }
   async function save() {
     if (!cart) return;
     setBusy(true);
@@ -511,8 +568,21 @@ export function CounterPage({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products or scan a barcode"
+                disabled={scanning}
+                aria-busy={scanning}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && allProducts.length === 1) {
+                  if (e.key !== 'Enter' || e.nativeEvent.isComposing) return;
+                  e.preventDefault();
+                  if (e.repeat || scanController.current) return;
+                  const entered = e.currentTarget.value;
+                  if (/^[\d_]+$/.test(entered.trim())) {
+                    void scanBarcode(entered);
+                  } else if (
+                    entered === deferred &&
+                    !products.isFetching &&
+                    !products.isError &&
+                    allProducts.length === 1
+                  ) {
                     add(allProducts[0]!);
                     setSearch('');
                   }
@@ -550,7 +620,13 @@ export function CounterPage({
           ) : (
             <div className="product-grid">
               {allProducts.map((p, i) => (
-                <ProductTile key={p.id} product={p} index={i} onAdd={() => add(p)} />
+                <ProductTile
+                  key={p.id}
+                  product={p}
+                  index={i}
+                  onAdd={() => add(p)}
+                  troubleshooting={user.role === 1 && user.userType === 1}
+                />
               ))}
             </div>
           )}
@@ -618,7 +694,18 @@ export function CounterPage({
                     <ShoppingBag size={22} />
                   </div>
                   <div className="line-copy">
-                    <strong>{line.name}</strong>
+                    <strong>
+                      <a
+                        href={
+                          cartProductLinks?.get(line.productId) ||
+                          `/catalog/products/${line.productId}`
+                        }
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        {line.name}
+                      </a>
+                    </strong>
                     <small>{line.barcode || `SKU ${line.productId}`}</small>
                     <div className="quantity">
                       <button

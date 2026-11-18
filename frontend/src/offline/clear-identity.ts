@@ -21,11 +21,19 @@ export async function clearLocalIdentity(
     fromOperatorQuery ? { predicate: (query) => query.queryKey[0] !== 'operator' } : undefined,
   );
   try {
-    await db.transaction('rw', db.sessions, db.catalog, db.lookups, async () => {
-      await db.sessions.clear();
-      await db.catalog.where('ownerId').equals(ownerId).delete();
-      await db.lookups.delete(ownerId);
-    });
+    await db.transaction(
+      'rw',
+      db.sessions,
+      db.catalog,
+      db.catalogBarcodes,
+      db.lookups,
+      async () => {
+        await db.sessions.clear();
+        await db.catalog.where('ownerId').equals(ownerId).delete();
+        await db.catalogBarcodes.where('ownerId').equals(ownerId).delete();
+        await db.lookups.delete(ownerId);
+      },
+    );
     await (await import('../pages/catalog/snapshot-cache')).clearCatalogSnapshots(ownerId);
   } finally {
     useWorkspace.getState().reset();

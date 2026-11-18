@@ -73,10 +73,18 @@ interface Lookup {
   stores: Store[];
   counters: Counter[];
 }
+export interface CachedBarcode {
+  ownerId: string;
+  storeId: string;
+  barcode: string;
+  productId: string;
+  observedAt: number;
+}
 export class PosDatabase extends Dexie {
   drafts!: Table<LocalDraft, [string, string]>;
   operations!: EntityTable<Operation, 'id'>;
   catalog!: Table<CachedProduct, [string, string, string]>;
+  catalogBarcodes!: Table<CachedBarcode, [string, string, string, string]>;
   sessions!: EntityTable<Session, 'id'>;
   lookups!: EntityTable<Lookup, 'ownerId'>;
   completedSales!: Table<CompletedSale, [string, string]>;
@@ -147,6 +155,9 @@ export class PosDatabase extends Dexie {
             await jobs.update(id, { counterId: receipt.counterId });
         }
       });
+    this.version(10).stores({
+      catalogBarcodes: '[ownerId+storeId+barcode+productId],[ownerId+storeId+barcode],ownerId',
+    });
   }
 }
 export const db = new PosDatabase();
@@ -157,6 +168,7 @@ export async function eraseOperator(ownerId: string) {
       db.drafts,
       db.operations,
       db.catalog,
+      db.catalogBarcodes,
       db.sessions,
       db.lookups,
       db.completedSales,
@@ -170,6 +182,7 @@ export async function eraseOperator(ownerId: string) {
         db.drafts.where('ownerId').equals(ownerId).delete(),
         db.operations.where('ownerId').equals(ownerId).delete(),
         db.catalog.where('ownerId').equals(ownerId).delete(),
+        db.catalogBarcodes.where('ownerId').equals(ownerId).delete(),
         db.sessions.clear(),
         db.lookups.delete(ownerId),
         db.completedSales.where('ownerId').equals(ownerId).delete(),

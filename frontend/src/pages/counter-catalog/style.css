@@ -1,0 +1,16 @@
+.counter-product-card {
+  min-width: 0;
+}
+.counter-product-card > .product-tile {
+  width: 100%;
+}
+.counter-product-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.6rem 0.2rem;
+  font-size: 0.75rem;
+}
+.counter-product-actions a {
+  text-underline-offset: 0.2em;
+}
