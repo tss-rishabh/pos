@@ -192,6 +192,8 @@ class Fixture:
                     'categories':[],'images':[],'prod_type':1,'is_mystery_product':False,'parent_prod_id':0,'is_printable':False}
         class MetaInitializer(Initializer):
             def initialize(self,context,item):
+                native=getattr(fixture,'native_coupon_initializer',None)
+                if native is not None and item.get('name')=='coupon':return native.initialize(context,copy.deepcopy(item))
                 if fixture.meta_callback:fixture.meta_callback(context,item)
                 return super().initialize(context,item)
         class Validator:

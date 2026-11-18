@@ -1,7 +1,8 @@
 # Genuine source previews and final membership qualification
 
 `source.test.ts` runs the closed current-coupon WSGI/disabled worker checks. With
-`ORIGIN_PREVIEW_MYSQL_TEST_URL` selected it also runs `test_preview.py`. The URL
+`ORIGIN_PREVIEW_MYSQL_TEST_URL` selected it also runs `test_preview.py` and
+`test_coupon_preview.py`. The URL
 must name `pos_rewrite_origin_preview_test` on localhost; each case creates and
 drops a separate random schema. It cannot target an application database.
 
@@ -22,6 +23,14 @@ prices or calculated values produce the existing `QUOTE_CHANGED` no-order
 closure and preserve the original cart. Source bookkeeping timestamps are
 excluded from that comparison. Unchanged eligible carts reach each original
 responder's real checkout-validation call.
+
+The coupon cases run the original `MetaInitializer` and pinned coupon helper
+bodies on a real source Cart. Existing A hydrates first; an incoming B is
+selected lazily at the same preview time. A current-only B needs no history;
+a historical B unwinds SQL, receives a signed generated document, and replays
+the same preview. A forged document preserves native A and commits no preview
+receipt. A missing incoming code takes the original invalid-coupon removal
+branch. No old Orders/coupon-log table exists in this fixture.
 
 The CSK test executes the original strict-prepaid/cart prefix and the native
 same-command recovery journal, then intentionally stops before the original

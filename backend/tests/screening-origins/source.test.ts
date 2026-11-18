@@ -46,6 +46,12 @@ describe('genuine source cart and final-order qualification', () => {
   it.skipIf(!process.env.ORIGIN_PREVIEW_MYSQL_TEST_URL)(
     'executes pinned Cart/Order/PosOrder/auth/CSK paths against disposable native fixtures',
     () => run('test_preview.py'),
-    60000, // One Python invocation owns nineteen separate disposable schemas.
+    60000, // One Python invocation owns nineteen separate native cases.
+  );
+
+  it.skipIf(!process.env.ORIGIN_PREVIEW_MYSQL_TEST_URL)(
+    'executes genuine coupon A-to-B preview/replay and forged-document rollback',
+    () => run('test_coupon_preview.py'),
+    30000,
   );
 });
