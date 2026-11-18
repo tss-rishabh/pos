@@ -49,7 +49,11 @@ import type { SalespersonInput, StoreInput, OperatorInput } from './contracts.js
 import { defaultStoreImage } from './contracts.js';
 import type { AdministrationTransaction } from './checkins.js';
 import { lockAdministrationRegistry } from './locks.js';
-import { assertCurrentOperatorRole, assertCurrentStoreAccess } from './authorization.js';
+import {
+  assertCurrentOperatorIdentity,
+  assertCurrentOperatorRole,
+  assertCurrentStoreAccess,
+} from './authorization.js';
 
 const { slack_group_url: slackWebhookColumn, ...storeColumns } = getTableColumns(Store);
 const storeReadFields = {
@@ -603,7 +607,13 @@ export function administrationService(
       return retryTransaction(() =>
         db.get('writer').transaction(async (transaction) => {
           await lockAdministrationRegistry(transaction, 'stores');
-          await assertCurrentOperatorRole(transaction, user.id, [1, 3]);
+          const identity = await assertCurrentOperatorIdentity(transaction, user.id, [1, 3]);
+          if (identity.userType === 2 && value.category !== 'FRANCHISE')
+            throw new AppError(
+              403,
+              'STORE_ACCESS_DENIED',
+              'This store is outside your organization.',
+            );
           await storeUniqueness(transaction, value);
           const franchiseId = await franchise(transaction, value, user);
           const inserted = await transaction.insert(Store).values({

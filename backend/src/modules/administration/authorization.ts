@@ -5,11 +5,11 @@ import type { Role } from '../../domain/access.js';
 import type { AdministrationTransaction } from './checkins.js';
 
 /** Call inside the writer transaction; shared locks prevent revocation during the mutation. */
-async function currentOperator(
+export async function assertCurrentOperatorIdentity(
   transaction: AdministrationTransaction,
   userId: string,
   allowedRoles: readonly Role[],
-) {
+): Promise<{ role: Role; userType: 1 | 2 }> {
   const [identity] = await transaction
     .select({ role: PosUser.role, active: PosUser.is_active, userType: PosUser.user_type })
     .from(PosUser)
@@ -28,14 +28,14 @@ async function currentOperator(
       'ROLE_ACCESS_DENIED',
       'This action requires a permitted operator role.',
     );
-  return { role: identity.role as Role, userType: identity.userType };
+  return { role: identity.role as Role, userType: identity.userType === 1 ? 1 : 2 };
 }
 export async function assertCurrentOperatorRole(
   transaction: AdministrationTransaction,
   userId: string,
   allowedRoles: readonly Role[],
 ): Promise<Role> {
-  return (await currentOperator(transaction, userId, allowedRoles)).role;
+  return (await assertCurrentOperatorIdentity(transaction, userId, allowedRoles)).role;
 }
 export async function assertCurrentStoreAccess(
   transaction: AdministrationTransaction,
@@ -44,7 +44,7 @@ export async function assertCurrentStoreAccess(
   allowedRoles: readonly Role[] = [1, 2, 3, 4, 5],
   storeLock: 'share' | 'update' = 'update',
 ): Promise<void> {
-  const identity = await currentOperator(transaction, userId, allowedRoles);
+  const identity = await assertCurrentOperatorIdentity(transaction, userId, allowedRoles);
   // Writer callers subsequently mutate this Store or its financial children.
   // Take their final lock mode before assignment/check-in/Order locks: a shared
   // lock followed by an upgrade can deadlock two otherwise independent actors.

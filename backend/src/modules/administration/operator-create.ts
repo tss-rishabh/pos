@@ -12,6 +12,7 @@ import { lockAdministrationRegistry } from './locks.js';
 import { retryTransaction } from '../../db/retry.js';
 import { djangoPasswordHash } from '../../auth/crypto.js';
 import { assertPasswordPolicy } from '../../auth/password-policy.js';
+import { assertCurrentOperatorIdentity } from './authorization.js';
 
 export { djangoPasswordHash };
 /** Values preserve Helpers.create_muser plus the Django model field defaults. */
@@ -113,6 +114,16 @@ export function operatorCreator(config: Config, db: Databases) {
     return retryTransaction(() =>
       db.get('writer').transaction(async (transaction) => {
         await lockAdministrationRegistry(transaction, 'operators');
+        // Hashing precedes the transaction. Hold current actor authority through
+        // both identity inserts so a revocation during hashing cannot admit them.
+        const identity = await assertCurrentOperatorIdentity(transaction, user.id, [1, 2, 3]);
+        manageableOperator({ ...user, ...identity }, 'new-account', input.role, input.role);
+        if (identity.userType === 2 && input.userType !== 2)
+          throw new AppError(
+            403,
+            'OPERATOR_SCOPE_DENIED',
+            'This user type is outside your organization.',
+          );
         const [duplicate] = await transaction
           .select({ id: PosUser.id })
           .from(PosUser)
