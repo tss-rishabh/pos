@@ -5,6 +5,7 @@ import {
 } from '../../../backend/src/modules/invoice-documents/presentation';
 import { sanitizeInvoiceHtml } from '../../../backend/src/modules/checkout/invoices';
 import { test, expect } from '@playwright/test';
+import { exchangeRecoverySchema, returnEligibilitySchema } from '../../src/pages/returns/client';
 
 test('exchange preserves stored picks after rejection and reload without retrying an uncertain child', async ({
   page,
@@ -18,7 +19,9 @@ test('exchange preserves stored picks after rejection and reload without retryin
     continuations = 0,
     reconciliations = 0,
     invoiceReads = 0,
-    ownerId = '';
+    ownerId = '',
+    recoveryReads = 0,
+    eligibilityReads = 0;
   await installInvoicePrintProbe(page);
   await page.route('**/api/v1/operators/*/stores/1/orders/9901/invoices/store/preview', (route) => {
     invoiceReads++;
@@ -77,6 +80,44 @@ test('exchange preserves stored picks after rejection and reload without retryin
     if (actor) {
       if (ownerId) expect(actor).toBe(ownerId);
       else ownerId = actor;
+    }
+    if (
+      req.method() === 'GET' &&
+      path.endsWith('/orders/8802/line-items/88021/exchange-recovery')
+    ) {
+      const query = new URL(req.url()).searchParams;
+      expect(query.get('counterId')).toBe('1');
+      expect(query.get('verificationId')).toBe(proofId);
+      recoveryReads++;
+      return route.fulfill({
+        json: exchangeRecoverySchema.parse({
+          revision: 'f'.repeat(64),
+          state: 'none',
+          operation: null,
+          newSize: null,
+        }),
+      });
+    }
+    if (
+      req.method() === 'GET' &&
+      path.endsWith('/orders/8802/line-items/88021/return-eligibility')
+    ) {
+      const query = new URL(req.url()).searchParams;
+      expect(query.get('counterId')).toBe('1');
+      expect(query.get('verificationId')).toBe(proofId);
+      expect(query.get('kind')).toBe('exchange');
+      eligibilityReads++;
+      return route.fulfill({
+        json: returnEligibilitySchema.parse({
+          orderId: '8802',
+          lineId: '88021',
+          kind: 'exchange',
+          allowed: true,
+          until: null,
+          reason: '',
+          overrideAvailable: false,
+        }),
+      });
     }
     if (path.endsWith('/orders/8802/return-verifications')) {
       proofId = String((req.postDataJSON() as Record<string, unknown>).operationId);
@@ -197,6 +238,8 @@ test('exchange preserves stored picks after rejection and reload without retryin
   await page.getByLabel('Comment', { exact: true }).fill('PRIVATE-EXCHANGE-COMMENT');
   await page.getByRole('checkbox', { name: 'I checked the item’s condition' }).check();
   await page.getByRole('checkbox', { name: 'I checked the original tag' }).check();
+  expect(recoveryReads).toBeGreaterThan(0);
+  expect(eligibilityReads).toBeGreaterThan(0);
   await page.getByRole('button', { name: 'Confirm exchange', exact: true }).click();
   await expect(page.getByText('Stored replacement: size L · SKU 1002')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Retry stored replacement' })).toBeEnabled();
