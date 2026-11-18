@@ -65,26 +65,14 @@ export function customerOtpAuthority(
   ): Promise<CustomerOtpAuthority> {
     await checkIns.assertCheckIn(scope.operatorId, scope.storeId, scope.counterId, tx);
     let persistedContact: CustomerContactBinding | null | undefined;
-    let frozenConsentUntil: number | null = null;
+    const frozenConsentUntil: number | null = null;
     if (scope.purpose === 'checkout-benefits') {
       const state = await sessions.readScoped(scope.operatorId, scope.storeId, scope.subjectId);
       if (!state) throw customerOtpChanged();
-      const consent = state.orderCustomerConsent;
-      const frozenConsent = Boolean(
-        allowFrozenConsent &&
-        state.phase === 'order-created' &&
-        state.orderId &&
-        consent &&
-        consent.orderId === state.orderId &&
-        consent.customerId === scope.customerId &&
-        consent.operatorId === scope.operatorId &&
-        consent.storeId === scope.storeId &&
-        consent.counterId === scope.counterId &&
-        consent.expiresAt === state.verifiedCustomerUntil &&
-        sameCustomerContact(consent.contact, state.verifiedCustomerContact) &&
-        sameCustomerContact(consent.contact, state.verificationChallenge?.contact),
-      );
-      if (frozenConsent && consent) frozenConsentUntil = consent.expiresAt;
+      // W4: the order-time customer-consent proof (patched upstream) was removed; a sale with an
+      // order no longer accepts benefit verification.
+      void allowFrozenConsent;
+      const frozenConsent = false;
       if (
         state.id !== scope.subjectId ||
         state.counterId !== scope.counterId ||

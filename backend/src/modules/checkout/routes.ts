@@ -419,8 +419,9 @@ export function registerCheckout(
         body = mutationSchema
           .extend({
             number: z.string().regex(/^[\d_]{6,40}$/),
-            startDate: z.iso.date(),
-            endDate: z.iso.date(),
+            // Legacy dates are optional: "" means "Today's" / "No Expiry" (create_order.html:205-206).
+            startDate: z.union([z.iso.date(), z.literal('')]),
+            endDate: z.union([z.iso.date(), z.literal('')]),
           })
           .strict()
           .parse(request.body);

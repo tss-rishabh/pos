@@ -6,7 +6,6 @@ import {
   customerContactBindingSchema,
   type CustomerContactBinding,
 } from './customer-contact-authority.js';
-import { customerConsentSchema, type CustomerConsent } from './customer-consent.js';
 import type { CustomerVerificationEvidence } from './customer-verification.js';
 import { copyBindingSchema, type CopyBinding } from './order-copy/contracts.js';
 
@@ -88,7 +87,6 @@ export interface CheckoutState {
   customerId: string | null;
   verifiedCustomerUntil: number | null;
   verifiedCustomerContact?: CustomerContactBinding | null;
-  orderCustomerConsent?: CustomerConsent | null;
   verificationChallenge: {
     id: string;
     expiresAt: number;
@@ -139,7 +137,6 @@ export const checkoutStateSchema: z.ZodType<CheckoutState> = z.object({
   customerId: identifier.nullable(),
   verifiedCustomerUntil: z.number().nullable(),
   verifiedCustomerContact: customerContactBindingSchema.nullable().default(null),
-  orderCustomerConsent: customerConsentSchema.nullable().default(null),
   verificationChallenge: z
     .object({
       id: z.uuid(),

@@ -501,7 +501,6 @@ export function checkoutService(
       customerId: null,
       verifiedCustomerUntil: null,
       verifiedCustomerContact: null,
-      orderCustomerConsent: null,
       verificationChallenge: null,
       salespersonId: null,
       lineSalespersons: {},
@@ -629,7 +628,6 @@ export function checkoutService(
         customerId: null,
         verifiedCustomerUntil: null,
         verifiedCustomerContact: null,
-        orderCustomerConsent: null,
         verificationChallenge: null,
         version: 0,
         phase: 'open',
@@ -1216,9 +1214,15 @@ export function checkoutService(
               'GIFT_CARD_DUPLICATE',
               'This card number is already applied to this sale.',
             );
-          const start = Temporal.PlainDate.from(metadata.startDate),
-            end = Temporal.PlainDate.from(metadata.endDate);
-          if (start.year < 1 || end.year > 9999 || Temporal.PlainDate.compare(end, start) < 0)
+          // AjaxSaveGcDateView (order/views.py:4385-4398) stores the picked dates verbatim and
+          // gc_data sends "" for an unpicked date.
+          const start = metadata.startDate ? Temporal.PlainDate.from(metadata.startDate) : null,
+            end = metadata.endDate ? Temporal.PlainDate.from(metadata.endDate) : null;
+          if (
+            (start && start.year < 1) ||
+            (end && end.year > 9999) ||
+            (start && end && Temporal.PlainDate.compare(end, start) < 0)
+          )
             throw new AppError(
               422,
               'INVALID_GIFT_CARD_DATES',
@@ -1235,10 +1239,19 @@ export function checkoutService(
               phase: 'open',
               giftCards: {
                 ...state.giftCards,
-                [giftId]: { number, startDate: start.toString(), endDate: end.toString() },
+                [giftId]: {
+                  number,
+                  startDate: start?.toString() ?? '',
+                  endDate: end?.toString() ?? '',
+                },
               },
             },
-            result: { giftId, number, startDate: start.toString(), endDate: end.toString() },
+            result: {
+              giftId,
+              number,
+              startDate: start?.toString() ?? '',
+              endDate: end?.toString() ?? '',
+            },
           };
         },
       );
@@ -2177,7 +2190,6 @@ export function publicState(state: CheckoutState, cashbackCreditMessage?: string
     registrationRecovery: _registrationRecovery,
     settlementNote: _settlementNote,
     verifiedCustomerContact: _verifiedCustomerContact,
-    orderCustomerConsent: _orderCustomerConsent,
     verificationChallenge: _verificationChallenge,
     ...publicValue
   } = state;
