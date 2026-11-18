@@ -1,5 +1,34 @@
 # POS rewrite checkpoint
 
+Further integrated repairs (supersedes the gap descriptions below): CSV profile
+runtime selection is on `b4fc7bc`, current-attempt source order/HP/address
+provenance on `4555e70`/`590641c`, and actual report-fact age routing on
+`17c7e39`. Coupon native source/control/fence tests passed 27 cases, with strict
+TypeScript/lint; exact writer-integrity errors remain distinct from outages.
+The public/source workflow owner recorded 110 passes and two existing optional
+Go skips. Preparation/member fixtures added 14 passes. Source manifests were
+regenerated on `ad895e5`, but later source edits require another regeneration.
+
+Desktop CI `44212746866` on `3406ae8` passed macOS completely. Windows passed
+the previous offline/shortcut failures and then failed an artificial browser
+storage-probe/navigation race; `ab1aad3` fixes that synchronization and all 13
+approval browser tests pass locally. These are scoped/older-snapshot results,
+not final current-tree platform certification. The MySQL full verifier now
+serializes test files against their shared account/trigger universe and retains
+a bounded 20-minute backend-suite deadline (`9f82966`).
+
+Two concrete implementation gaps remain active: authenticated ticket CSV orders
+need the exact current-new-order historical-createdAt update admitted through
+the replay guard; and the authority grant-row limit cannot support the complete
+Node writer. The read-only static audit establishes at least 229 necessary DML
+tables, 281 read/write targets and 651 privilege cells. Hyper owns coherent
+Node/Python/Go/SQL generated capacity limits (512 caller rows, 4096 global
+privilege cells, bounded row/total bytes), preserving every unsafe-grant and
+overflow refusal; Root must package its new limits files and regenerate source
+manifests. CPP owns the authenticated date handoff/guard plus a privacy audit;
+payment owns the remaining screening-fixture repairs and source-map reconciliation.
+Do not restart the full gate or certify these gaps until the code is integrated.
+
 Latest validation checkpoint (18 November, supersedes older counts below):
 the integrated `f5d3e56` snapshot was pushed to draft PR #2. Its isolated Node
 24/MySQL/browser verifier completed 128 checks: 121 passed, seven failed,
