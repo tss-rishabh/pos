@@ -15,6 +15,7 @@ import {
   type AdministrationTransaction,
 } from '../../src/modules/administration/checkins.js';
 import { assertCurrentStoreAccess } from '../../src/modules/administration/authorization.js';
+import { administrationService } from '../../src/modules/administration/service.js';
 import { operatorCheckIns } from '../../src/modules/administration/schema.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
 
@@ -43,7 +44,8 @@ describe.skipIf(!template)('native check-in authority lock ordering', () => {
     db: Databases,
     schema: string,
     fixture: ReturnType<typeof verifiedMysqlFixture>,
-    checks: ReturnType<typeof checkInService>;
+    checks: ReturnType<typeof checkInService>,
+    administration: ReturnType<typeof administrationService>;
   const sourceTables = [PosUser, Store, StoreCounter, UserStore].map(getTableName);
   beforeAll(async () => {
     const url = new URL(template!);
@@ -89,6 +91,7 @@ describe.skipIf(!template)('native check-in authority lock ordering', () => {
     });
     db = createDatabases(config);
     checks = checkInService(db, config);
+    administration = administrationService(config, db);
   }, 15000);
   afterAll(async () => {
     await connection?.rollback();
@@ -192,6 +195,81 @@ describe.skipIf(!template)('native check-in authority lock ordering', () => {
     const [rows] = await connection.query('SELECT COUNT(*) AS n FROM fixture_authorized_effects');
     expect(rows).toEqual([{ n: '0' }]);
   }
+  it.each(['demotion', 'archive'] as const)(
+    'store status rejects a cached administrator after current-actor %s wins the lock',
+    async (change) => {
+      await connection.beginTransaction();
+      await connection.query('SELECT id FROM pos_user WHERE id=1 FOR UPDATE');
+      const status = administration.setStoreStatus(operator(), '1', false);
+      // Attach a handler immediately; the native outcome is asserted after commit.
+      void status.catch(() => {});
+      try {
+        await waiting(null, getTableName(PosUser));
+        await connection.query(
+          change === 'demotion'
+            ? 'UPDATE pos_user SET role=5 WHERE id=1'
+            : 'UPDATE pos_user SET is_active=0 WHERE id=1',
+        );
+        await connection.query(
+          "UPDATE pos_rewrite_operator_auth_epochs SET epoch=epoch+1 WHERE operator_id='1'",
+        );
+        await connection.commit();
+        await expect(status).rejects.toMatchObject({
+          code: change === 'demotion' ? 'ROLE_ACCESS_DENIED' : 'AUTH_REQUIRED',
+        });
+        const [rows] = await connection.query('SELECT is_active FROM stores WHERE id=1');
+        expect(rows).toEqual([{ is_active: 1 }]);
+      } finally {
+        await connection.rollback();
+        await Promise.allSettled([status]);
+      }
+    },
+  );
+  it('store status holds current-actor authority before Store and lets a later revocation wait for commit', async () => {
+    await connection.beginTransaction();
+    await connection.query('SELECT id FROM stores WHERE id=1 FOR UPDATE');
+    const status = administration.setStoreStatus(operator(), '1', false);
+    void status.catch(() => {});
+    let revoke: Awaited<ReturnType<typeof task>> | undefined;
+    try {
+      await waiting(null, getTableName(Store));
+      revoke = await task(async (tx) => {
+        await tx.update(PosUser).set({ is_active: false }).where(eq(PosUser.id, 1n));
+        await tx
+          .update(operatorAuthEpochs)
+          .set({ epoch: sql`${operatorAuthEpochs.epoch}+1` })
+          .where(eq(operatorAuthEpochs.userId, '1'));
+      });
+      await waiting(revoke.id, getTableName(PosUser));
+      await connection.commit();
+      await expect(status).resolves.toMatchObject({ message: 'The Store has been deleted' });
+      await revoke.finished;
+      const [rows] = await connection.query('SELECT is_active FROM stores WHERE id=1');
+      expect(rows).toEqual([{ is_active: 0 }]);
+    } finally {
+      await connection.rollback();
+      await Promise.allSettled([status, ...(revoke ? [revoke.finished] : [])]);
+    }
+  });
+  it('store status preserves archive/reactivation and refuses an active duplicate name', async () => {
+    await connection.query("UPDATE stores SET store_name='Fixture first' WHERE id=1");
+    await connection.query("UPDATE stores SET store_name='Fixture second' WHERE id=2");
+    await expect(administration.setStoreStatus(operator(), '1', false)).resolves.toMatchObject({
+      message: 'The Store has been deleted',
+    });
+    await connection.query("UPDATE stores SET store_name='Fixture first' WHERE id=2");
+    await expect(administration.setStoreStatus(operator(), '1', true)).rejects.toMatchObject({
+      code: 'STORE_ALREADY_EXISTS',
+    });
+    const [archived] = await connection.query('SELECT is_active FROM stores WHERE id=1');
+    expect(archived).toEqual([{ is_active: 0 }]);
+    await connection.query("UPDATE stores SET store_name='Fixture second' WHERE id=2");
+    await expect(administration.setStoreStatus(operator(), '1', true)).resolves.toMatchObject({
+      message: 'The Store has been activated',
+    });
+    const [restored] = await connection.query('SELECT is_active FROM stores WHERE id=1');
+    expect(restored).toEqual([{ is_active: 1 }]);
+  });
   it('waits for actor archive before taking check-in and rechecks the current actor even after an earlier RR snapshot', async () => {
     await connection.beginTransaction();
     await connection.query('SELECT id FROM pos_user WHERE id=1 FOR UPDATE');

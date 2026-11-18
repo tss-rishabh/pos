@@ -684,6 +684,9 @@ export function administrationService(
     async setStoreStatus(user: Principal, storeId: string, enabled: boolean) {
       requireRole(user, [1]);
       return db.get('writer').transaction(async (transaction) => {
+        // Hold current actor authority before the registry/Store lock prefix.
+        // A principal admitted before demotion or archive cannot authorize this write.
+        await assertCurrentOperatorRole(transaction, user.id, [1]);
         await lockAdministrationRegistry(transaction, 'stores');
         const [row] = await transaction
           .select({ id: Store.id, name: Store.store_name })
