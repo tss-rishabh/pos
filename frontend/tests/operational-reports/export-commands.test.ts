@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   queueReportExport,
+  queueAdministrationCollectionExport,
   type ReportExportFilters,
 } from '../../src/pages/operational-reports/export-commands';
 const filters: ReportExportFilters = {
@@ -42,6 +43,35 @@ function fixtureStorage() {
   };
 }
 describe('report export request recovery', () => {
+  it('uses the same durable journal for date-free current collection exports without storing filters', async () => {
+    const storage = fixtureStorage(),
+      commands: string[] = [],
+      collection = {
+        resource: 'operators' as const,
+        storeIds: [],
+        search: 'private fixture email',
+        active: 'all' as const,
+        sort: 'name',
+        direction: 'asc' as const,
+        columns: ['name', 'role'],
+      };
+    await expect(
+      queueAdministrationCollectionExport('10', collection, storage, async (command, input) => {
+        commands.push(command);
+        expect(input).toEqual({ kind: 'administration-list', ...collection });
+        expect(input).not.toHaveProperty('from');
+        expect(input).not.toHaveProperty('to');
+        throw new Error('Lost reply');
+      }),
+    ).rejects.toThrow();
+    expect(JSON.stringify([...storage.entries])).not.toContain(collection.search);
+    await queueAdministrationCollectionExport('10', collection, storage, async (command) => {
+      commands.push(command);
+      return result;
+    });
+    expect(commands[0]).toBe(commands[1]);
+    expect(storage.entries.size).toBe(0);
+  });
   it('retains exact sorted visible-column command retries, with a separate digest for changed columns', async () => {
     const storage = fixtureStorage(),
       commands: string[] = [],

@@ -73,7 +73,6 @@ export async function queueReportExport(
   storage: CommandStorage = localStorage,
   send?: (commandId: string, input: unknown) => Promise<z.infer<typeof exportRowSchema>>,
 ) {
-  const actorSignal = send ? undefined : captureOperatorScope(ownerId);
   const common = {
       kind: filters.kind,
       from:
@@ -117,6 +116,49 @@ export async function queueReportExport(
                   dateType: filters.dateType || 'order_date',
                 }
               : common;
+  return dispatchExportInput(ownerId, input, storage, send);
+}
+export interface AdministrationCollectionExportFilters {
+  kind?: 'administration-list';
+  resource: 'stores' | 'operators' | 'salespeople' | 'counters' | 'storage' | 'documentation';
+  storeIds: string[];
+  search: string;
+  active: 'true' | 'false' | 'all';
+  sort: string;
+  direction: 'asc' | 'desc';
+  columns: readonly string[];
+  label?: string;
+  note?: string;
+}
+/** Current collections have no fabricated report date or warehouse routing. */
+export async function queueAdministrationCollectionExport(
+  ownerId: string,
+  filters: AdministrationCollectionExportFilters,
+  storage: CommandStorage = localStorage,
+  send?: (commandId: string, input: unknown) => Promise<z.infer<typeof exportRowSchema>>,
+) {
+  const input = {
+    kind: 'administration-list',
+    resource: filters.resource,
+    storeIds: [...filters.storeIds],
+    search: filters.search.trim(),
+    active: filters.active,
+    sort: filters.sort,
+    direction: filters.direction,
+    columns: [...filters.columns],
+    ...(filters.label?.trim() ? { label: filters.label.trim() } : {}),
+    ...(filters.note?.trim() ? { note: filters.note.trim() } : {}),
+  };
+  return dispatchExportInput(ownerId, input, storage, send);
+}
+async function dispatchExportInput(
+  ownerId: string,
+  input: unknown,
+  storage: CommandStorage,
+  send:
+    ((commandId: string, input: unknown) => Promise<z.infer<typeof exportRowSchema>>) | undefined,
+) {
+  const actorSignal = send ? undefined : captureOperatorScope(ownerId);
   const hash = Array.from(
       new Uint8Array(
         await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(input))),
