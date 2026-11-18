@@ -617,6 +617,8 @@ export function administrationService(
           await storeUniqueness(transaction, value);
           const franchiseId = await franchise(transaction, value, user);
           const inserted = await transaction.insert(Store).values({
+            // A new blank connection matches the source form's stored empty value.
+            slack_group_url: '',
             ...storeValues(value, franchiseId),
             created_at: now(),
             is_active: true,

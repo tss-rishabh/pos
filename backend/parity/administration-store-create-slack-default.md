@@ -1,0 +1,9 @@
+# Store creation: disconnected Slack persistence
+
+The pinned source (`78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`) includes `slack_group_url` in `StoreCreateForm` (`stores/forms.py:73`) and saves that form in `CreateStoreView.post` (`stores/views.py:46`). An actual rendered blank form POST stores an empty string in this nullable text column.
+
+The joined source-to-native-App proof found that both creations succeeded, but the rewrite omitted this column and stored SQL NULL. The bounded correction initializes a new store's Slack value to the source's empty string, then applies the existing explicit replacement/removal handling. It changes no update behavior: blank edits continue to preserve a hidden existing webhook, and explicit removal remains available. No webhook is returned to the frontend.
+
+The original r1 and r2 failed runs are retained privately. The r2 bounded diagnostic established source GET 200 / POST 302, native POST 201, and exactly one physical mismatch: `stores.slack_group_url` string versus NULL. No persistence comparison is normalized to conceal this mismatch. The existing native registration test additionally asserts the new store's empty persisted value.
+
+The r3 bounded joined rerun passed the original `store-create-country-postal` case: actual pinned Django GET/POST, real authenticated App creation through the routed UI, country/postal requests, and exact native scalar/default/mirror/assignment comparison. Backend and frontend scoped strict checks, the actual frontend build, and changed production/test ESLint passed. The newly added native-test assertion was not separately executed in this bounded rerun; the joined proof independently checks the same physical column. Exact owned-container removal with volumes and zero anonymous volumes was verified. This is one case, not certification of all four administration workflows or configured Slack provider delivery.

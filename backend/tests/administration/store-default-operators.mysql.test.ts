@@ -160,6 +160,11 @@ describe.skipIf(!template)('actual App native-cookie store default identities', 
     const response = await create();
     expect(response.statusCode).toBe(201);
     const id = response.json<{ id: string }>().id;
+    const [stored] = await native.admin.execute<RowDataPacket[]>(
+      'SELECT slack_group_url FROM stores WHERE id=?',
+      [id],
+    );
+    expect(stored[0]?.slack_group_url).toBe('');
     const [assigned] = await native.admin.execute<RowDataPacket[]>(
       'SELECT CAST(django_user_id AS CHAR) AS id FROM user_stores WHERE store_id=? ORDER BY django_user_id',
       [id],
