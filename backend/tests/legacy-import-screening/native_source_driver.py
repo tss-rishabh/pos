@@ -7,16 +7,19 @@ import ast
 import datetime
 import hashlib
 import json
+import re
 import sys
 import tempfile
 import time
 from pathlib import Path
-from sqlalchemy import create_engine, event
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'compatibility/upstream/legacy-order-imports'))
+sys.path.insert(0, str(ROOT / 'compatibility/upstream/screening-origins'))
+sys.path.insert(0, str(ROOT / 'compatibility/upstream/public-screening-writer'))
 import native_source_driver as original_driver
 from native_source_driver import NativePipeline, Cart, K
 from profiles import assert_plain_profile
@@ -78,6 +81,27 @@ def run(value):
     event.listen(Session, 'before_flush', normalize_source_sentinels)
     event.listen(Session, 'before_commit', guard_private_commit)
     event.listen(engine, 'before_cursor_execute', guard_private_statement)
+    # Exact adversarial statements pass through the real ReplaySession guard;
+    # the fixture never edits production authority or historical date policy.
+    if value.get('mode') in {'screening-date-wrong-value', 'screening-date-old-order',
+                             'screening-date-old-lines', 'screening-date-wide-predicate'}:
+        from screening_counter import ReplaySession
+        original_execute = ReplaySession.execute
+        def date_probe(replay, statement, parameters=None, **kwargs):
+            query = str(statement)
+            order = re.fullmatch(r"UPDATE orders SET created_at = '[^']+' WHERE id = [1-9][0-9]*", query)
+            lines = re.fullmatch(r"UPDATE has_products SET created_at = '[^']+' WHERE order_id = [1-9][0-9]*", query)
+            mode = value['mode']
+            if order and mode == 'screening-date-wrong-value':
+                query = re.sub(r"'[^']+'", "'2020-01-01 00:00:00'", query)
+            elif order and mode == 'screening-date-old-order':
+                query = re.sub(r'WHERE id = [1-9][0-9]*$', 'WHERE id = 100', query)
+            elif lines and mode == 'screening-date-old-lines':
+                query = re.sub(r'WHERE order_id = [1-9][0-9]*$', 'WHERE order_id = 100', query)
+            elif order and mode == 'screening-date-wide-predicate':
+                query += ' OR 1=1'
+            return original_execute(replay, text(query), parameters, **kwargs)
+        ReplaySession.execute = date_probe
     source = QualifiedNativePipeline(value['sourceRoot'], value.get('mode'))
     if value.get('mode') == 'screening-race':
         gate = Path(value['gate']).resolve()

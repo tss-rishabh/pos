@@ -1,4 +1,5 @@
 import { execFileSync, spawn } from 'node:child_process';
+import { createConnection } from 'mysql2/promise';
 import { randomUUID } from 'node:crypto';
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -51,6 +52,15 @@ import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-m
 import { runtimeImportSecret } from '../legacy-order-imports/runtime-fixture.js';
 import { python, sourceRoot, oracle, sourceOracleSchema } from './source.js';
 
+import {
+  installOriginCreditFixture,
+  installImportCounterFixture,
+  type ImportCounterFixture,
+} from './native-counter-fixture.js';
+import {
+  screeningCounterMutation,
+  withScreeningCounterWriter,
+} from '../../src/modules/legacy-order-imports/screening-counter/entry.js';
 const template = process.env.CHECKOUT_MYSQL_TEST_URL,
   authKey = 'isolated-screening-source-authority-'.repeat(3);
 const extras = [
@@ -87,9 +97,13 @@ function ticketPlan(kind: 'offline' | 'shopify' = 'offline', quantity = 2) {
 }
 describe.skipIf(!template)('qualified screening candidate on isolated native writer', () => {
   let f: Awaited<ReturnType<typeof importFinancialFixture>>,
-    sourceFixture: ReturnType<typeof verifiedMysqlFixture>;
+    sourceFixture: ReturnType<typeof verifiedMysqlFixture>,
+    quota: ImportCounterFixture | undefined,
+    rootDb: typeof f.db;
   beforeAll(async () => {
     f = await importFinancialFixture(template!);
+    rootDb = f.db;
+    await installOriginCreditFixture(f.connection);
     sourceFixture = verifiedMysqlFixture(f.connection, [
       'evidence/mysql-order-import-address-schema.json',
       'evidence/mysql-screening-schema.json',
@@ -148,9 +162,13 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     await f.connection.query(screeningReservationDdl);
   }, 30000);
   afterAll(async () => {
+    await quota?.close();
     await f?.close();
   });
   beforeEach(async () => {
+    await quota?.close();
+    quota = undefined;
+    f.db = rootDb;
     for (const name of [
       'spiderman_screening_orders',
       'pos_rewrite_import_screening_reservations',
@@ -197,12 +215,16 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     );
     await f.fixture.insert('pricelist_meta', { id: 1, is_active: 1 });
     await sourceFixture.insert('has_addresses', { id: 88, user_id: 77 });
+    quota = await installImportCounterFixture(f.connection, template!);
+    await quota.initialize('77');
+    f.db = quota.appDb;
   });
   function profile(qualified = true) {
     return screeningImportProfile(f.config, f.db, {
       financialSecret: runtimeImportSecret,
       proofKey: sourceKey,
       clock: () => financialClock,
+      counter: quota!.options,
       ...(qualified
         ? {
             contract: screeningProfileContract,
@@ -217,7 +239,17 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
   }
   async function countTickets(tx: Parameters<typeof readScreeningTicketCount>[0], customer = '77') {
     await lockScreeningCustomer(tx, customer);
-    return readScreeningTicketCount(tx, customer);
+    return readScreeningTicketCount(tx, customer, quota!.options);
+  }
+  async function marker(order: string | number, line: string | number, customer = '77') {
+    return screeningCounterMutation(
+      f.db,
+      { customerIds: [customer], orderIds: [String(order)], lineIds: [String(line)] },
+      (tx) =>
+        tx.execute(
+          sql`INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(${BigInt(order)},${BigInt(line)},${BigInt(customer)})`,
+        ),
+    );
   }
   function journal(lineItemsEnabled = false) {
     return legacyImportFinancialJournal(f.config, f.db, f.options, profiles(lineItemsEnabled));
@@ -246,7 +278,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       expiresAt: command.expiresAt,
     };
     return JSON.stringify({
-      url: f.config.MYSQL_WRITER_URL,
+      url: quota!.appUrl,
       sourceRoot,
       authKey,
       proofKey: sourceKey,
@@ -269,7 +301,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
         encoding: 'utf8',
         timeout: 20000,
         maxBuffer: 2000,
-        env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+        env: { ...process.env, ...quota!.environment, PYTHONDONTWRITEBYTECODE: '1' },
       },
     );
     return z
@@ -285,7 +317,10 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     const child = spawn(
       python,
       ['-B', resolve('tests/legacy-import-screening/native_source_driver.py')],
-      { stdio: ['pipe', 'pipe', 'ignore'], env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } },
+      {
+        stdio: ['pipe', 'pipe', 'ignore'],
+        env: { ...process.env, ...quota!.environment, PYTHONDONTWRITEBYTECODE: '1' },
+      },
     );
     return new Promise((fulfill, reject) => {
       let output = '';
@@ -381,7 +416,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     );
     try {
       await expect(journal().transaction((tx) => countTickets(tx))).rejects.toMatchObject({
-        code: 'ORDER_IMPORT_SCREENING_COUNT_UNAVAILABLE',
+        cause: { code: 'ER_NO_SUCH_TABLE' },
       });
     } finally {
       await f.connection.query(
@@ -394,6 +429,9 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     expect(rows).toEqual([{ n: '0' }]);
   });
   it('matches original COUNT(*) across cancelled/returned/status/SKU/orphan/duplicate and malformed historical joins', async () => {
+    await quota!.close();
+    quota = undefined;
+    f.db = rootDb;
     const statusValues = [0, 17, 1, 3, 4, 6, 22];
     for (let index = 0; index < statusValues.length; index++) {
       const id = 100 + index;
@@ -418,6 +456,9 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
         .replace(':sku', '?'),
       [original] = await f.connection.query(originalSql, [77, 390238]);
     expect(original).toEqual([{ cnt: '7' }]);
+    quota = await installImportCounterFixture(f.connection, template!);
+    await quota.initialize('77');
+    f.db = quota.appDb;
     expect(await journal().transaction((tx) => countTickets(tx))).toBe(7n);
   });
   it('serializes twenty same-command reservations without consuming a second ticket allocation', async () => {
@@ -561,6 +602,42 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     },
     25000,
   );
+  it.each(['wrong-value', 'old-order', 'old-lines', 'wide-predicate'] as const)(
+    'refuses CSV date %s outside the authenticated current creation graph',
+    async (probe) => {
+      await f.fixture.insert('orders', {
+        id: 100,
+        user_id: 77,
+        order_status: 1,
+        created_at: '2025-01-01 00:00:00',
+      });
+      await f.fixture.insert('has_products', {
+        id: 100,
+        order_id: 100,
+        prod_id: 123,
+        qty: 1,
+        created_at: '2025-01-01 00:00:00',
+      });
+      const { input, j } = await prepare(),
+        command = await j.dispatch(input, 'order');
+      expect(run(command, false, 'screening-date-' + probe)).toEqual({ recorded: true });
+      const [receipts] = await f.connection.query(
+        "SELECT status,JSON_UNQUOTE(JSON_EXTRACT(proof,'$.code')) code,JSON_EXTRACT(proof,'$.noFinancialEffects') no_effects FROM pos_rewrite_import_financial_source_receipts WHERE operation_id=? AND kind='order'",
+        [input.operationId],
+      );
+      expect(receipts).toEqual([
+        { status: 'rejected', code: 'ORDER_IMPORT_SCREENING_COUNTER_INVALID', no_effects: true },
+      ]);
+      const [orders] = await f.connection.query('SELECT id,created_at FROM orders');
+      const [lines] = await f.connection.query('SELECT id,created_at FROM has_products');
+      expect(orders).toEqual([{ id: '100', created_at: '2025-01-01 00:00:00' }]);
+      expect(lines).toEqual([{ id: '100', created_at: '2025-01-01 00:00:00' }]);
+      expect(await j.transaction((tx) => profile().releaseRejected(tx, input))).toMatchObject({
+        phase: 'REJECTED',
+      });
+    },
+    25000,
+  );
   it('rolls back literal order, HP, screening markers and BOUND transition before signed rejection releases quota', async () => {
     const { input, j } = await prepare(),
       command = await j.dispatch(input, 'order');
@@ -626,32 +703,63 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       phase: 'REJECTED',
     });
   });
-  it('rejects an already primed RR transaction and uses an owned current RC read instead', async () => {
+  it('rejects a primed RR transaction; a cooperative writer waits for the customer and the next RC transaction sees its committed count', async () => {
     await f.fixture.insert('orders', { id: 100, user_id: 77, order_status: 4 });
     await f.fixture.insert('has_products', { id: 100, order_id: 100, prod_id: 390238, qty: 1 });
     await f.db.get('writer').transaction(async (tx) => {
       await tx.select({ id: Order.id }).from(Order).limit(1);
-      await f.connection.query(
-        'INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(100,100,77)',
-      );
+      await marker(100, 100);
       await expect(lockScreeningCustomer(tx, '77')).rejects.toMatchObject({
         code: 'ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED',
       });
-      await expect(readScreeningTicketCount(tx, '77')).rejects.toMatchObject({
+      await expect(readScreeningTicketCount(tx, '77', quota!.options)).rejects.toMatchObject({
         code: 'ORDER_IMPORT_SCREENING_TRANSACTION_REQUIRED',
       });
     });
-    expect(await journal().transaction((tx) => countTickets(tx))).toBe(1n);
-    await journal().transaction(async (tx) => {
+    let entered!: () => void, release!: () => void;
+    const held = new Promise<void>((yes) => {
+        entered = yes;
+      }),
+      gate = new Promise<void>((yes) => {
+        release = yes;
+      });
+    const reader = journal().transaction(async (tx) => {
       await lockScreeningCustomer(tx, '77');
-      expect(await readScreeningTicketCount(tx, '77')).toBe(1n);
-      // A raw legacy insert bypasses the candidate lock deliberately. RC must
-      // still see it on the next statement, rather than reuse an old read view.
-      await f.connection.query(
-        'INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(100,100,77)',
-      );
-      expect(await readScreeningTicketCount(tx, '77')).toBe(2n);
+      expect(await readScreeningTicketCount(tx, '77', quota!.options)).toBe(1n);
+      entered();
+      await gate;
+      expect(await readScreeningTicketCount(tx, '77', quota!.options)).toBe(1n);
     });
+    await held;
+    let finished = false;
+    const writer = marker(100, 100).then(() => {
+      finished = true;
+    });
+    try {
+      let waiting = false;
+      for (let attempt = 0; attempt < 100; attempt++) {
+        const [rows] = await f.connection.query(
+          "SELECT COUNT(*) n FROM performance_schema.data_lock_waits w JOIN performance_schema.data_locks l ON l.ENGINE_LOCK_ID=w.REQUESTING_ENGINE_LOCK_ID WHERE l.OBJECT_SCHEMA=DATABASE() AND l.OBJECT_NAME='users'",
+        );
+        if (
+          z
+            .array(z.object({ n: z.union([z.string(), z.number()]) }))
+            .parse(rows)
+            .some((row) => Number(row.n) > 0)
+        ) {
+          waiting = true;
+          break;
+        }
+        await new Promise((yes) => setTimeout(yes, 10));
+      }
+      expect(waiting).toBe(true);
+      expect(finished).toBe(false);
+    } finally {
+      release();
+      await reader;
+      await writer;
+    }
+    expect(await journal().transaction((tx) => countTickets(tx))).toBe(2n);
   });
   it.each([false, true])(
     'retains an exact financial completion seal and replays it without effects (unit=%s)',
@@ -700,8 +808,22 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       expect(value.phase).toBe('COUNTED');
       expect(value.completionHash).toMatch(/^[a-f0-9]{64}$/);
       expect(await j.transaction((tx) => profile().complete(tx, input))).toEqual(value);
-      await f.connection.query('UPDATE orders SET order_status=4');
-      await f.connection.query('UPDATE has_products SET price=1');
+      await screeningCounterMutation(
+        f.db,
+        {
+          customerIds: ['77'],
+          orderIds: [value.orderId!],
+          lineIds: value.lines.map((row) => row.id),
+        },
+        async (tx) => {
+          await tx.execute(
+            sql`UPDATE orders SET order_status=4 WHERE id=${BigInt(value.orderId!)}`,
+          );
+          await tx.execute(
+            sql`UPDATE has_products SET price=1 WHERE order_id=${BigInt(value.orderId!)}`,
+          );
+        },
+      );
       expect(await j.transaction((tx) => profile().complete(tx, input))).toEqual(value);
       expect((await adapter.start(input)).status).toBe('completed');
       expect(orderCalls).toBe(1);
@@ -715,7 +837,10 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     const child = spawn(
       python,
       ['-B', resolve('tests/legacy-import-screening/native_source_driver.py')],
-      { stdio: ['pipe', 'pipe', 'ignore'], env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } },
+      {
+        stdio: ['pipe', 'pipe', 'ignore'],
+        env: { ...process.env, ...quota!.environment, PYTHONDONTWRITEBYTECODE: '1' },
+      },
     );
     let output = '';
     const flushed = new Promise<void>((fulfill, reject) => {
@@ -772,15 +897,13 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     await expect(
       j.transaction((tx) => profile().bind(tx, input, '9007199254740996')),
     ).rejects.toMatchObject({ code: 'ORDER_IMPORT_SCREENING_REPLAY_REQUIRED' });
-    await f.connection.query(
-      'INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(?,?,77)',
-      [value.orderId, value.lines[0]!.id],
-    );
+    await marker(value.orderId!, value.lines[0]!.id);
     await expect(
       j.transaction((tx) => profile().bind(tx, input, value.orderId!)),
     ).rejects.toMatchObject({ code: 'ORDER_IMPORT_SCREENING_STRUCTURE_CHANGED' });
   }, 25000);
   it('starts an ordinary import once without screening configuration or optional screening tables', async () => {
+    await quota!.removeCounterWriters();
     await f.connection.query(
       'RENAME TABLE spiderman_screening_orders TO screening_source_off,pos_rewrite_import_screening_reservations TO screening_reservations_off',
     );
@@ -1038,7 +1161,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
   });
   it('does not recast a driver failure carrying a denial-like message as a business rejection', async () => {
     await f.connection.query(
-      "CREATE TRIGGER screening_driver_failure BEFORE INSERT ON pos_rewrite_import_screening_reservations FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='ORDER_IMPORT_SCREENING_LIMIT'",
+      "ALTER TABLE pos_rewrite_import_screening_reservations ADD CONSTRAINT ORDER_IMPORT_SCREENING_LIMIT CHECK (operation_id='fixture-native-driver-failure')",
     );
     try {
       const transport = sourceTransport(),
@@ -1056,12 +1179,14 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       );
       expect(rows).toEqual([{ operations: '0', stages: '0', reservations: '0' }]);
     } finally {
-      await f.connection.query('DROP TRIGGER screening_driver_failure');
+      await f.connection.query(
+        'ALTER TABLE pos_rewrite_import_screening_reservations DROP CHECK ORDER_IMPORT_SCREENING_LIMIT',
+      );
     }
   });
   it('rolls back the operation if its native denial proof cannot commit', async () => {
     await f.connection.query(
-      "CREATE TRIGGER screening_denial_failure BEFORE INSERT ON pos_rewrite_import_financial_stages FOR EACH ROW SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='isolated proof failure'",
+      "ALTER TABLE pos_rewrite_import_financial_stages ADD CONSTRAINT screening_denial_failure CHECK (operation_id='fixture-native-proof-failure')",
     );
     try {
       await f.fixture.insert('products_gs1', { id: 2, product_id: 390238, gtin: '8900000000002' });
@@ -1080,7 +1205,9 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       );
       expect(rows).toEqual([{ operations: '0', source_references: '0', stages: '0' }]);
     } finally {
-      await f.connection.query('DROP TRIGGER screening_denial_failure');
+      await f.connection.query(
+        'ALTER TABLE pos_rewrite_import_financial_stages DROP CHECK screening_denial_failure',
+      );
     }
   });
   it('rejects altered local denial seals/nonces and any contradictory later checkpoint before returning a no-effects result', async () => {
@@ -1257,17 +1384,17 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       return readScreeningTicketCount(tx, '77');
     });
     let wallet: Promise<unknown> | undefined;
+    const observer = await createConnection(f.config.MYSQL_WRITER_URL!);
     try {
       await customerReady;
       wallet = f.connection.query('SELECT id FROM users WHERE id=77 FOR UPDATE');
       void wallet.catch(() => undefined);
       let waiting = false;
       for (let attempt = 0; attempt < 100 && !waiting; attempt++) {
-        const [rows] = await f.db
-          .get('writer')
-          .execute(
-            sql`SELECT COUNT(*) AS n FROM performance_schema.data_lock_waits w JOIN performance_schema.data_locks l ON l.ENGINE_LOCK_ID=w.REQUESTING_ENGINE_LOCK_ID WHERE l.OBJECT_SCHEMA=${new URL(f.config.MYSQL_WRITER_URL!).pathname.slice(1)} AND l.OBJECT_NAME='users'`,
-          );
+        const [rows] = await observer.query(
+          "SELECT COUNT(*) AS n FROM performance_schema.data_lock_waits w JOIN performance_schema.data_locks l ON l.ENGINE_LOCK_ID=w.REQUESTING_ENGINE_LOCK_ID WHERE l.OBJECT_SCHEMA=? AND l.OBJECT_NAME='users'",
+          [new URL(f.config.MYSQL_WRITER_URL!).pathname.slice(1)],
+        );
         waiting =
           BigInt(z.array(z.object({ n: z.union([z.string(), z.number()]) })).parse(rows)[0]!.n) >
           0n;
@@ -1281,10 +1408,12 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       release();
       await Promise.allSettled([counter, wallet ?? Promise.resolve()]);
       await f.connection.rollback();
+      await observer.end();
     }
   }, 15000);
   it('two empty marker ranges for different customers can count then insert without gap locks or retries', async () => {
     await f.fixture.insert('users', { id: 78, status: 1, is_block: 0, is_disabled: 0 });
+    await quota!.initialize('78');
     for (const [id, customer] of [
       [100, 77],
       [101, 78],
@@ -1310,8 +1439,13 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
           expect(await readScreeningTicketCount(tx, id)).toBe(0n);
           if (++ready === 2) release();
           await gate;
-          await tx.execute(
-            sql`INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(${order},${order},${customer})`,
+          await withScreeningCounterWriter(
+            tx,
+            { customerId: id, orderIds: [String(order)], lineIds: [String(order)] },
+            () =>
+              tx.execute(
+                sql`INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(${order},${order},${customer})`,
+              ),
           );
           return readScreeningTicketCount(tx, id);
         }),
@@ -1379,6 +1513,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
       is_del: 0,
     });
     await sourceFixture.insert('has_addresses', { id: 89, user_id: 78 });
+    await quota!.initialize('78');
     const first = f.input(ticketPlan('shopify', 1)),
       second = f.input(ticketPlan('shopify', 1));
     second.storeId = '2';
@@ -1400,7 +1535,7 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
         ['-B', resolve('tests/legacy-import-screening/native_source_driver.py')],
         {
           stdio: ['pipe', 'pipe', 'ignore'],
-          env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+          env: { ...process.env, ...quota!.environment, PYTHONDONTWRITEBYTECODE: '1' },
         },
       );
       let output = '';
@@ -1502,11 +1637,18 @@ describe.skipIf(!template)('qualified screening candidate on isolated native wri
     }
   }, 30000);
   it('uses the verified customer index first and preserves SQL NULL exclusion without joined locks', async () => {
+    // Historical anomalous rows predate maintainer installation.
+    await quota!.close();
+    quota = undefined;
+    f.db = rootDb;
     await f.fixture.insert('orders', { id: 100, user_id: 77, order_status: 1 });
     await f.fixture.insert('has_products', { id: 100, order_id: 100, prod_id: 390238, qty: 2 });
     await f.connection.query(
       'INSERT INTO spiderman_screening_orders(order_id,has_product_id,user_id) VALUES(100,100,77),(100,100,78)',
     );
+    quota = await installImportCounterFixture(f.connection, template!);
+    await quota.initialize('77');
+    f.db = quota.appDb;
     const [rows] = await f.db
       .get('writer')
       .execute(sql`EXPLAIN FORMAT=JSON ${screeningCountStatement('77')}`);

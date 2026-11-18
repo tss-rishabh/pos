@@ -2,6 +2,17 @@ import mysql from 'mysql2/promise';
 import { readFileSync } from 'node:fs';
 import { vi } from 'vitest';
 import { getTableName } from 'drizzle-orm';
+import { paymentOutbox } from '../../src/modules/checkout/payments/schema.js';
+import {
+  physicalStockLog,
+  storeStockLog,
+  aggregateStockLog,
+} from '../../src/db/stock-projection/schema.js';
+import {
+  checkoutProjections,
+  checkoutProjectionLines,
+} from '../../src/modules/checkout/projection.js';
+import { checkoutCustomerConsents } from '../../src/modules/checkout/customer-consent-proof.js';
 import {
   PosUser,
   Store,
@@ -51,6 +62,13 @@ const nativeDml = new Set(
     StoreDayClose,
     ExclusiveUser,
     GiftCardCollection,
+    checkoutProjections,
+    checkoutProjectionLines,
+    checkoutCustomerConsents,
+    physicalStockLog,
+    storeStockLog,
+    aggregateStockLog,
+    paymentOutbox,
   ].map(getTableName),
 );
 const heads = new Set([
@@ -104,6 +122,8 @@ export async function installImportCounterFixture(admin: mysql.Connection, templ
           'has_addresses',
           'order_address_mapping',
           'flag_history',
+          'amount_to_be_refunded_log',
+          'pos_rewrite_gift_card_issuances',
           'order_cancel_message_mapping',
         ].includes(table))
     )
