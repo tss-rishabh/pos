@@ -16,9 +16,13 @@ column visibility and both CSV actions are on `9ec375b`. The integrated
 backend/frontend strict programs compile; this is not workflow certification.
 
 Still being implemented: source export-history table controls and cash-ledger
-row options (reporting owner), and the original upload-log list/protected file
-and failed-record downloads (payment owner). The administration owner is
-reviewing catalogue/gift/special-permission controls against actual source.
+row options (reporting owner). The payment owner verified that the original
+upload-log routes and both views are commented out at the pinned commit;
+the earlier active-list gap inference is retracted. Its failed-record download
+target is being checked independently for an active route and actual mapping.
+Do not invent a new list workflow from the dormant referring template. The
+administration owner's source review found catalogue/gift/special-permission
+controls present in actual implementation; its exact evidence is being saved.
 The pinned static candidate inventory is
 `backend/parity/legacy-template-controls.review.json` (106 templates); its
 finite control names/locations are an audit aid, not coverage certification.
