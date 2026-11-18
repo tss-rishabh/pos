@@ -1,9 +1,11 @@
 package juspay
 
 import (
+	"errors"
 	"testing"
 
 	"backend-tss-domestic_payments_api/utils"
+	"github.com/go-sql-driver/mysql"
 	"github.com/jinzhu/gorm"
 )
 
@@ -16,6 +18,33 @@ func TestOriginActiveOriginalCalendarWallets(t *testing.T) {
 		t.Fatal(err)
 	}
 	orm.LogMode(false)
+	var sqlMode string
+	if err := db.QueryRow("SELECT @@session.sql_mode").Scan(&sqlMode); err != nil {
+		t.Fatal("fixture SQL mode unavailable")
+	}
+	t.Logf("fixture metadata sql_mode=%s", sqlMode)
+	type createFailure struct {
+		table  string
+		number uint16
+	}
+	var createFailures []createFailure
+	orm.Callback().Create().After("gorm:create").Register("pos:expiry:diagnostic", func(scope *gorm.Scope) {
+		if scope.DB().Error == nil {
+			return
+		}
+		table := scope.TableName()
+		if table != "tss_money_history" && table != "tss_point_history" && table != "reward_point_history" {
+			t.Error("unexpected fixture create-error table")
+			return
+		}
+		var driverError *mysql.MySQLError
+		if !errors.As(scope.DB().Error, &driverError) {
+			t.Error("fixture create error did not expose a typed MySQL code")
+			return
+		}
+		createFailures = append(createFailures, createFailure{table: table, number: driverError.Number})
+	})
+	t.Cleanup(func() { orm.Callback().Create().Remove("pos:expiry:diagnostic") })
 	originalDB := utils.Db
 	utils.Db = orm
 	t.Cleanup(func() { utils.Db = originalDB })
@@ -32,6 +61,7 @@ func TestOriginActiveOriginalCalendarWallets(t *testing.T) {
 	for _, asset := range []string{"money", "points"} {
 		for _, entry := range cases {
 			t.Run(asset+"/"+entry.expiry, func(t *testing.T) {
+				createFailures = nil
 				for _, table := range []string{"tss_money_history", "tss_point_history", "reward_point_history", "order_tss_money", "order_tss_point"} {
 					if _, err := db.Exec("DROP TABLE IF EXISTS " + table); err != nil {
 						t.Fatal(err)
@@ -49,6 +79,22 @@ func TestOriginActiveOriginalCalendarWallets(t *testing.T) {
 					}
 					if _, err := db.Exec("CREATE TABLE " + table + "(id BIGINT AUTO_INCREMENT PRIMARY KEY," + column + " BIGINT,order_id BIGINT,used_amount DOUBLE,created_at DATETIME NULL,updated_at DATETIME NULL)"); err != nil {
 						t.Fatal(err)
+					}
+				}
+				if asset == "money" && entry.expiry == "2026-12-01" {
+					rows, err := db.Query("SELECT table_name,is_nullable,data_type FROM information_schema.columns WHERE table_schema=DATABASE() AND table_name IN ('tss_money_history','tss_point_history','reward_point_history') AND column_name='expiry' ORDER BY table_name")
+					if err != nil {
+						t.Fatal("fixture expiry metadata unavailable")
+					}
+					for rows.Next() {
+						var table, nullable, kind string
+						if err := rows.Scan(&table, &nullable, &kind); err != nil {
+							t.Fatal("fixture expiry metadata unreadable")
+						}
+						t.Logf("fixture expiry metadata table=%s nullable=%s type=%s", table, nullable, kind)
+					}
+					if err := rows.Close(); err != nil {
+						t.Fatal("fixture expiry metadata close failed")
 					}
 				}
 				if _, err := db.Exec("UPDATE users SET tss_money=100,tss_points=100,cashback=7 WHERE id=77"); err != nil {
@@ -69,6 +115,9 @@ func TestOriginActiveOriginalCalendarWallets(t *testing.T) {
 					order.RevertTssMoney(orm)
 				} else {
 					order.RevertTssPoints(orm)
+				}
+				for _, failure := range createFailures {
+					t.Logf("fixture create failure table=%s mysql_error_number=%d", failure.table, failure.number)
 				}
 				expected, delta, platform, expired := float64(100), float64(-10), "TSS_MONEY_EXPIRED", 1
 				if asset == "points" {
