@@ -158,7 +158,7 @@ def _runtime_privileges(session,definition,owner):
         value=next(iter(row.values()))
         if not isinstance(value,str) or re.search(r'\bPROXY\b|\bWITH GRANT OPTION\b',value,re.I):fail('APPLICATION_GRANTS')
         if re.search(r'\bEXECUTE\b',value,re.I) and not re.fullmatch(
-            r'GRANT EXECUTE ON FUNCTION `?'+re.escape(schema)+r'`?\.`?pos_rewrite_origin_history_metadata`? TO .+',value,re.I):fail('APPLICATION_GRANTS')
+            r'GRANT EXECUTE ON FUNCTION `?'+re.escape(schema)+r'`?\.`?pos_rewrite_origin_(?:history|transaction)_metadata`? TO .+',value,re.I):fail('APPLICATION_GRANTS')
     session.info['screening_counter_privileges']=(transaction,owner)
 
 
