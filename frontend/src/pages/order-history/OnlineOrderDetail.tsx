@@ -188,12 +188,13 @@ function OnlineOrderDetailContent({
               {kind === 'return' ? 'Start return' : 'Start exchange'}
             </NavLink>
           ))}
-        {value.type !== 'N' && (
+        {(value.type !== 'N' || fact.paymentStatus.id === '4') && (
           <OrderInvoiceActions
             user={user}
             storeId={value.storeId}
             orderId={fact.orderId}
             online={online}
+            access={value.type === 'N' ? 'global-online' : undefined}
           />
         )}
         {value.type === 'HE' && (
