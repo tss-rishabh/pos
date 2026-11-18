@@ -181,7 +181,21 @@ describe.skipIf(!template)(
         (await app.inject({ method: 'GET', url: base + '/capabilities' })).json(),
       ).toMatchObject({ ready: true, canPreview: true });
       const routes = resourceRoutes(app);
-      expect(routes).toHaveLength(15);
+      expect(routes).toHaveLength(20);
+      const successions = base + '/:jobId/orders/:operationId/authority-successions';
+      expect(routes.filter((route) => route.resource === 'import-authority-succession')).toEqual(
+        [
+          { method: 'GET', path: successions, action: 'review' },
+          { method: 'POST', path: successions, action: 'approve' },
+          { method: 'GET', path: successions + '/:commandId', action: 'approval-read' },
+          { method: 'POST', path: successions + '/continuations', action: 'continue' },
+          {
+            method: 'GET',
+            path: successions + '/continuations/:commandId',
+            action: 'continuation-read',
+          },
+        ].map((route) => ({ ...route, module: 'administration', resource: 'import-authority-succession', authentication: 'session' })),
+      );
       const corrections = base + '/:jobId/orders/:operationId/corrections';
       expect(routes.filter((route) => route.resource === 'order-import-correction')).toEqual([
         {
