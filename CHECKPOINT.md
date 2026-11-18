@@ -1,20 +1,59 @@
 # POS rewrite checkpoint
 
-## Current state — 18 November 2026, completed fixes and expanded verification
+## Current execution — 18 November 2026
+
+Implementation remains the first priority. Full source-to-UI tracing found gaps
+that the earlier component map did not establish. Current known code work is
+authorized N/HL/HE detail entry, genuine N full/SDD invoice access, and real-App
+store-create default-operator wiring. All have assigned owners; their historical data must use complete qualified publications,
+never invented store ownership or historical MySQL fallback. Online action
+bindings must be mapped honestly before claiming complete templates.
+
+Integrated since caba871: active order-type date retention; writer-current
+operator/store creator guards (15 native passes,7 unsafe baseline failures);
+hidden source city default1111 with edit preservation; explicit day-close
+amounts/confirmation/revision/stale details; source daily controls and store
+options; malformed identifier validation (old3 exceptions,10 corrected cases).
+Finance UI/source checks,17 focused identifier/report checks and10 existing
+native finance cases pass. Native/source/controlled-browser evidence boundaries
+remain distinct. No live writes, provider sends or deployment occurred.
+
+Frozen full r9 on caba871 is TERMINAL FAILED:163 expected,162 executed,
+157 passed,5 failed; generic browser-tests unexecuted. Source/rewrite/input
+hashes stayed unchanged. Archive verification-caba871-r9.json is exact, SHA256
+3ff9a11ceaae72fd51e84937fb1b4b8cdcb7e2b9aa8ab293bcd2537991c676fd.
+Its owned MySQL CID and anonymous volume are independently absent. It does not
+test later Root changes. The backend failure is an ambient Python3.14 oracle
+versus source-deployment3.10 sum difference; pinned launcher451e0d3 passes the
+unchanged comparisons. Reminder/note failures were Playwright navigation clock
+replay; harness-only61453c6 passes the original11+5 groups. Remaining history
+and payment browser failures are stale intercepted default metadata/expectations;
+fixture repair a456b7a passes the original history5/payment17 targets without
+weakening invoice/payment/cart assertions or deadlines. All five failures now
+have green scoped corrections; this does not relabel the failed full run.
+
+Catalogue caba proof94c7a8b passes23 source cases,10 authority cases and19 real
+App/API/MySQL comparisons. Earlier complete performance samples remain tied to
+their exact pre-order-fix graph. All396 source declarations and12 release
+requirements still need current admission/acceptance; no production-ready claim.
+
+## Prior detailed checkpoint — superseded by current execution above
 
 User work order remains implementation first, then parity/full verification.
 The order-discovery default gap is corrected by cb63732/9f21378: server-owned
-rolling five-day minute bounds, source store/online ending-minute differences,
+rolling five-day minute bounds and the source store-page ending minute,
 bounded future-midnight discovery/detail and unchanged ordinary historical
 publication rules. Row detail state preserves the list window and explicit
 multi-day selections. Ten source, three frontend helper, two native and two
 actual routed-App checks pass, along with strict/lint/build. Independent review
 closed clock-rollover and detail-state regressions before the full-run freeze.
-Subsequent full-template tracing found a distinct type-switch follow-up: the
-active store screen retains the same range for ST/HL/HE/N. The separate online
-view's computed prefix is unused by its guarded body; it must not drive a reset.
-The source map records this follow-up as partial while the owner corrects it.
-Frozen r9 remains caba871 and must not be relabeled as testing that follow-up.
+Full-template tracing then established that the active store screen retains
+the same range for ST/HL/HE/N. b282888 removes the incorrect online reset and
+unused metadata; the separate online view's computed prefix is not active UI.
+Actual source GET/POST/native Redis/MySQL/template checks preserve the exact
+window through type changes. Source10/helper3/native4/component17/routed-App2,
+strict/lint/build pass, with independent review closed. Frozen r9 remains caba871;
+its results must not be relabeled as testing this subsequent follow-up.
 Previously identified application gaps are integrated. Newly discovered runtime
 and verification-wrapper faults are fixed before broader execution. This is not
 complete parity or production readiness. No live service writes, charges,

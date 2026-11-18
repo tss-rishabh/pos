@@ -153,6 +153,9 @@ def define_families():
                 route_groups[route['id']].append(key)
             continue
         state, gaps, external = 'implementation_present', [], []
+        if key == 'stores':
+            state = 'partial'
+            gaps = ['Wire the real App store creator to configured source default-operator contact identities. Resolve them under current writer authority; missing and explicit-empty configuration must differ, and the native-cookie application path must create stores without fixture-only options injection.']
         if key in ['store-images', 'documentation']:
             external = ['Accept configured private S3/CORS and physical supported files; synthetic storage tests are not live storage acceptance.']
         if key in ['store-slack-oauth']:
@@ -278,7 +281,7 @@ def define_families():
     family('orders-read', ['src/modules/orders.ts', 'src/modules/order-history', 'src/modules/checkout/returns.ts'], ['src/pages/operations.tsx', 'src/pages/order-history'],
            ['tests/order-history', 'tests/order-search', 'tools/order-search/source_oracle.py', 'frontend/tests/order-history', 'frontend/tests/order-search', 'tests/checkout'], ['parity/order-history.md', 'parity/order-search.md', 'parity/checkout.md'],
            state='partial',
-           gaps=['Preserve the active store-screen placement window when switching ST/HL/HE/N. The source keeps its existing ending minute; the separate OnlineOrdersView computed prefix is unused by its guarded rendered body. Correct the candidate type-switch reset and keep the bounded midnight search guard consistent.'],
+           gaps=['Implement authorized N/HL/HE online-detail entry, complete read fields and lines from the reachable ShowOnlineOrderDetailsView. Current N summary has no line-item detail; HL/HE links lead only to operational queues. Preserve real ownership/global-reader checks and qualified historical facts without fabricated store associations or historical MySQL fallback.'],
            scope='Full ST/HL/HE/N/queue/explicit-ID order list, contact/payment/status filters, source search/sort/page and formatter/actions are integrated with 43 pinned-Django vectors and 12 browser workflows. Existing detail/paid/invoice/cancellation guards remain. PRIMARY interactive/DATA today/BigQuery old or mixed facts, live-only queue discovery, private HMAC comparisons and post-read session revocation are enforced. Demo uses an explicit synthetic adapter without a database port.',
            external=['Accept both complete common-checkpoint historical order/search publications, private contact-key generation/collation identity, real queue/current-source lifecycle and representative workload performance. Native source vectors and local browser checks are not complete production workflow certification.'])
     families['orders-read']['implementation_review'] = [
@@ -370,6 +373,8 @@ def define_families():
     bind('product-feedback', ['AjaxAddFeedback', 'GetOrderFeedbackFormView'])
     family('invoice-documents', ['src/modules/invoice-documents', 'src/modules/checkout/invoices.ts'], ['src/pages/invoice-documents', 'src/pages/checkout/InvoiceActions.tsx'],
            ['tests/invoice-documents', 'frontend/tests/invoice-documents'], ['parity/invoice-documents.md'],
+           state='partial',
+           gaps=['Implement explicit global-online access for genuine paid N full/SDD invoices without a fake OrderStore or context-store issuer. Preserve source legal templates, exact SDD split/platform conditions and purpose-bound current-actor/provider proofs.'],
            scope='Protected offline/online/SDD documents, typed purpose transports, original order authorization, automatic paid/exchange preview and safe printing.',
            external=['Accept actual SDD/external legal renderer, private consumer corrections and native printer/platform output.'])
     bind('invoice-documents', ['ShowOrderInvoiceView', 'ShowOnlineOrderInvoiceView', 'ShowOnlineSDDOrderInvoiceView'])
@@ -415,6 +420,7 @@ def define_families():
            scope='Day-close state/revisions/server prompt, foreground global reminder with scoped cross-tab snooze/modal priority and target-date navigation, pending alerts, cash-ledger/history and exact Glassbox feed; pending offline cash retained.',
            external=['Accept generation/CDC warehouse financial publication, source timezone/rollout and actual scheduled notices.'])
     families['finance-day-close']['implementation_review'] = [
+        review_reference('frontend/src/pages/finance/close-review.tsx', 'export function CloseReview(', 'An in-memory reviewed version/entries snapshot gates one confirmation, supports Cancel/Escape and revision warning, and yields modal priority. Existing command recovery remains separate; controlled-HTTP/source/native evidence does not certify the whole production workflow.'),
         review_reference('frontend/src/pages/finance/day-close-reminder.tsx', 'export function DayCloseReminder', 'Global server-decided reminder with foreground-only reads, scoped snooze and correct-date navigation; no client financial calculation or policy change. Behavioral/source acceptance remains pending.'),
         review_reference('frontend/src/hooks/use-check-in-authority.ts', 'export function useCheckInAuthorityGeneration', 'A fresh successful native authority read releases denied reminders without remounting an already valid open dialog or rewriting its snooze. Manual cache writes do not establish new authority.'),
         review_reference('frontend/src/pages/finance/ledger.tsx', '[pageSize, setPageSize] = useState(31)', 'Actual cash-balance screen restores original default 31 and 31/62/100/500 page choices after complete-chain financial calculations.'),
@@ -426,6 +432,7 @@ def define_families():
            scope='Source DSR calculations, current DATA vs historical BigQuery and offline cash/footfall/target integration.',
            external=['Accept complete financial publication/lineage and warehouse auxiliary input contracts.'])
     families['daily-store-report']['implementation_review'] = [
+        review_reference('frontend/src/pages/finance/report-dates.ts', 'export function dailyReportDates(', 'Actual source GET/widget/AJAX clocks retain the five-day-back start and one-minute ending-date rollover. A complete same-position future partition is required at midnight; no fabricated zero row or hybrid financial snapshot.'),
         review_reference('frontend/src/pages/reports.tsx', 'const totalPages = Math.max(1, Math.ceil(matchingRows.length / pageSize))', 'Actual DSR client table filters/sorts/pages loaded rows; server-calculated totals remain authoritative.'),
         review_reference('frontend/src/pages/reports.tsx', 'function download(visibleOnly = false)', 'Actual visible-column CSV is distinct from the retained complete CSV and preserves the original server totals rather than recalculating financial amounts.'),
     ]
