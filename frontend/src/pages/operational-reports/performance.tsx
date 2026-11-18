@@ -53,7 +53,7 @@ export function CashierPerformancePage({ user, storeId }: { user: Principal; sto
     <ReportView
       user={user}
       storeId={storeId}
-      title="Cashier performance"
+      title="Staff performance"
       path="/api/v1/reports/cashier-performance/search"
       resource="cashier-performance-report"
       rowSchema={cashierSchema}

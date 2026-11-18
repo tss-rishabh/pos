@@ -5,6 +5,7 @@ import { z } from 'zod';
 import type { Principal, Store } from '../api/types';
 import { request } from '../api/client';
 import { checkInSchema } from '../pages/administration/api';
+import { ReleaseNotes } from './release-notes';
 import './workspace-context.css';
 
 /** Workspace selection does not establish a server check-in. */
@@ -62,6 +63,7 @@ export function WorkspaceContext({
           {status}
         </NavLink>
       )}
+      <ReleaseNotes role={user.role} />
       <span className="account-type" aria-label="Account type">
         {user.userType === 2 ? 'Franchise' : 'In-House'}
       </span>

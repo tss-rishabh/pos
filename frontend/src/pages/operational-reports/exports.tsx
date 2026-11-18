@@ -229,7 +229,7 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             {user.role === 1 && (
               <>
                 <option value="salesperson-performance">Salesperson performance</option>
-                <option value="cashier-performance">Cashier performance</option>
+                <option value="cashier-performance">Staff performance</option>
                 <option value="hyperlocal-acceptance">Hyperlocal acceptance</option>
               </>
             )}

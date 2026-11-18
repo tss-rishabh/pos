@@ -53,7 +53,7 @@ const reports = [
   },
   {
     path: 'cashier-performance',
-    title: 'Cashier performance',
+    title: 'Staff performance',
     description: 'Counter activity and operator totals.',
     roles: [1],
   },

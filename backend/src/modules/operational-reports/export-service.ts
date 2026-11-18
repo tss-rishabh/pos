@@ -356,7 +356,7 @@ function dto(job: ReportExportJob, user: Principal) {
             'hyperlocal-daily': 'Hyperlocal daily report',
             'flash-sales': 'Flash sales',
             'salesperson-performance': 'Salesperson performance',
-            'cashier-performance': 'Cashier performance',
+            'cashier-performance': 'Staff performance',
             'hyperlocal-acceptance': 'Hyperlocal acceptance',
             'current-inventory-workbook': 'Current inventory workbook',
           }[job.input.kind]),
@@ -859,7 +859,7 @@ export function reportExportService(
         pattern = '%' + input.search.replace(/[\\%_]/g, (value) => '\\' + value) + '%';
       if (input.origin === 'current') {
         const kind = sql<string>`json_unquote(json_extract(${reportExportJobs.input},'$.kind'))`,
-          name = sql<string>`coalesce(nullif(json_unquote(json_extract(${reportExportJobs.input},'$.label')),''),case ${kind} when 'day-close-history' then 'Day-close history' when 'cash-balance' then 'Store cash balances' when 'returned-orders' then 'Returned orders' when 'order-transactions' then 'Order transactions' when 'hyperlocal-daily' then 'Hyperlocal daily report' when 'flash-sales' then 'Flash sales' when 'salesperson-performance' then 'Salesperson performance' when 'cashier-performance' then 'Cashier performance' when 'hyperlocal-acceptance' then 'Hyperlocal acceptance' when 'administration-list' then concat(json_unquote(json_extract(${reportExportJobs.input},'$.resource')),' export') else ${kind} end)`,
+          name = sql<string>`coalesce(nullif(json_unquote(json_extract(${reportExportJobs.input},'$.label')),''),case ${kind} when 'day-close-history' then 'Day-close history' when 'cash-balance' then 'Store cash balances' when 'returned-orders' then 'Returned orders' when 'order-transactions' then 'Order transactions' when 'hyperlocal-daily' then 'Hyperlocal daily report' when 'flash-sales' then 'Flash sales' when 'salesperson-performance' then 'Salesperson performance' when 'cashier-performance' then 'Staff performance' when 'hyperlocal-acceptance' then 'Hyperlocal acceptance' when 'administration-list' then concat(json_unquote(json_extract(${reportExportJobs.input},'$.resource')),' export') else ${kind} end)`,
           note = sql<string>`json_unquote(json_extract(${reportExportJobs.input},'$.note'))`,
           period = sql<string>`case ${kind} when 'administration-list' then 'Current collection' when 'current-inventory-workbook' then 'Current snapshot' else concat(coalesce(json_unquote(json_extract(${reportExportJobs.input},'$.from')),''),' – ',coalesce(json_unquote(json_extract(${reportExportJobs.input},'$.to')),'')) end`,
           message = sql<string>`case ${reportExportJobs.status} when 'QUEUED' then 'Waiting to prepare the report.' when 'BUILDING' then 'Preparing the report.' when 'STORING' then 'Verifying the report file.' when 'COMPLETED' then 'Report file is ready.' else 'The export could not be completed. Request a new export.' end`,
