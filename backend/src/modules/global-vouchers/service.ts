@@ -67,6 +67,8 @@ export interface GlobalVoucherDependencies {
   upstream?: VoucherUpstream;
   /** Kept for the registration call; conversion no longer runs a native OTP-bound ledger. */
   customerOtp?: unknown;
+  /** Defaults to the administration check-in service. */
+  assertCheckIn?: (userId: string, storeId: string, counterId?: string) => Promise<void>;
   /** Checkout JWT keys for the customer Authorization header (defaults to checkoutEnvironment()). */
   tokenKeys?: { hs256?: string; hs512?: string };
 }
@@ -177,6 +179,10 @@ export function globalVoucherService(
   createCode: () => string = () => 'GFV' + randomBytes(11).toString('hex').toUpperCase(),
 ) {
   const checkIns = checkInService(db, config),
+    assertCheckIn =
+      dependencies.assertCheckIn ||
+      ((userId: string, storeId: string, counterId?: string) =>
+        checkIns.assertCheckIn(userId, storeId, counterId)),
     store = dependencies.stateStore || dependencies.sessions?.store || configuredStateStore(config),
     sessions = dependencies.sessions || checkoutSessionStore(store),
     upstream = dependencies.upstream || apiV2VoucherUpstream(config);
@@ -239,7 +245,7 @@ export function globalVoucherService(
     if (!voucherToMoney()) throw voucherToMoneyDisabled();
     const state = await sessions.readScoped(user.id, storeId, checkoutId);
     if (!state || !state.customerId) throw voucherChanged();
-    await checkIns.assertCheckIn(user.id, storeId, state.counterId);
+    await assertCheckIn(user.id, storeId, state.counterId);
     // create_order.html:293: the input is enabled only for `user_obj and is_verified`.
     if (!state.verifiedCustomerUntil || state.verifiedCustomerUntil <= clock())
       throw new AppError(
@@ -453,10 +459,12 @@ export function globalVoucherService(
         await store.deleteIfEquals(voucherKeys.operation(input.operationId), claimed.serialized);
         throw voucherChanged();
       }
-      let receipt: VoucherReceipt;
+      let receipt: VoucherReceipt,
+        bodyCompleted = false;
       try {
         receipt = await retryTransaction(() =>
           db.get('writer').transaction(async (tx) => {
+            bodyCompleted = false;
             await authorizeVoucherIssuer(tx, user);
             const current = await lockedCustomer(tx, selection.customerId);
             if (current.email !== selection.email) throw voucherChanged();
@@ -574,7 +582,7 @@ export function globalVoucherService(
               created_at: now,
               updated_at: now,
             });
-            return voucherReceiptSchema.parse({
+            const issued = voucherReceiptSchema.parse({
               operationId: input.operationId,
               kind: 'issuance',
               operatorId: user.id,
@@ -589,10 +597,13 @@ export function globalVoucherService(
               status: 'success',
               message,
             });
+            bodyCompleted = true;
+            return issued;
           }),
         );
       } catch (error) {
-        if (error instanceof AppError && error.status < 500) {
+        // A body failure rolled back; a COMMIT failure may have committed and stays frozen.
+        if (!bodyCompleted || (error instanceof AppError && error.status < 500)) {
           await store.deleteIfEquals(voucherKeys.operation(input.operationId), claimed.serialized);
           await store.compareAndSet(selectionKey, consumed, rawSelection, SELECTION_TTL_MS / 1000);
         } else await finish(input.operationId, { ...record, status: 'uncertain' });

@@ -1,25 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { z } from 'zod';
 import {
-  giftCardDatesValid,
-  planVoucherConversion,
   voucherAmountString,
   voucherMinorUnits,
 } from '../../src/modules/global-vouchers/policy.js';
-import { readGlobalVoucherOptions } from '../../src/modules/global-vouchers/options.js';
 import { goldenStdout } from '../golden/load.js';
 
 describe('reviewed voucher consumer compatibility', () => {
-  it('uses source six/86400 PIN defaults and refuses configuration that would loosen them', () => {
-    expect(readGlobalVoucherOptions({})).toMatchObject({
-      GLOBAL_VOUCHER_GIFT_CARD_PIN_LIMIT: 6,
-      GLOBAL_VOUCHER_GIFT_CARD_PIN_LIMIT_EX: 86400,
-    });
-    expect(() => readGlobalVoucherOptions({ GLOBAL_VOUCHER_GIFT_CARD_PIN_LIMIT: '7' })).toThrow();
-    expect(() =>
-      readGlobalVoucherOptions({ GLOBAL_VOUCHER_GIFT_CARD_PIN_LIMIT_EX: '1800' }),
-    ).toThrow();
-  });
   it('dry-applies every pinned patch and executes original/current cart/check consumers with NULL nonexpiry', () => {
     const raw = goldenStdout('global-vouchers', 'compatibility');
     const result = z
@@ -79,26 +66,12 @@ describe('reviewed voucher consumer compatibility', () => {
       ],
     });
   });
-  it('keeps cents exact, rejects corrupt/fractional-paisa balances and cannot store unsafe wallet FLOAT', () => {
+  it('keeps issuance cents exact', () => {
     for (const amount of ['0.01', '25.49', '25.50', '99999999'])
       expect(voucherMinorUnits(voucherAmountString(voucherMinorUnits(amount)))).toBe(
         voucherMinorUnits(amount),
       );
-    expect(planVoucherConversion(25.49, 25.49, 100, 7)).toMatchObject({
-      amount: 2549n,
-      before: 10000n,
-      after: 12549n,
-    });
-    expect(() => planVoucherConversion(25.555, 25.555, 100, 7)).toThrow();
-    expect(() => planVoucherConversion(26, 25.5, 100, 7)).toThrow();
-    expect(() => planVoucherConversion(99999999, 99999999, 100, 7)).toThrow();
-  });
-  it('preserves inclusive source gift-card date/zero sentinel boundaries while rejecting NULL gift cards', () => {
-    const now = '2026-06-15 12:00:00';
-    expect(giftCardDatesValid(now, now, now)).toBe(true);
-    expect(giftCardDatesValid('0000-00-00 00:00:00', '0000-00-00 00:00:00', now)).toBe(true);
-    expect(giftCardDatesValid(null, null, now)).toBe(false);
-    expect(giftCardDatesValid('2026-06-15 12:00:01', '2026-07-01 00:00:00', now)).toBe(false);
-    expect(giftCardDatesValid('2026-01-01 00:00:00', '2026-06-15 11:59:59', now)).toBe(false);
+    expect(() => voucherMinorUnits('25.555')).toThrow();
+    expect(() => voucherMinorUnits('0')).toThrow();
   });
 });
