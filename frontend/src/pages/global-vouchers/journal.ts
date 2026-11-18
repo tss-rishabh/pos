@@ -18,7 +18,6 @@ export const voucherIntentSchema = z.discriminatedUnion('kind', [
       storeId: id,
       checkoutId: z.uuid(),
       customerId: id,
-      expectedVersion: z.number().int().positive(),
     })
     .strict(),
 ]);

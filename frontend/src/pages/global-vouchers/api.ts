@@ -5,7 +5,7 @@ const money = z.string().regex(/^\d+\.\d{2}$/);
 export const voucherReceiptSchema = z
   .object({
     operationId: z.uuid(),
-    kind: z.enum(['issuance', 'conversion']),
+    kind: z.literal('issuance'),
     operatorId: id,
     customerId: id,
     voucherId: id,
@@ -13,20 +13,38 @@ export const voucherReceiptSchema = z
     voucherCode: z.string().min(1).max(25),
     amount: money,
     voucherHistoryId: id,
-    moneyHistoryId: id.nullable(),
-    walletBefore: money.nullable(),
-    walletAfter: money.nullable(),
-    nonExpiring: z.boolean(),
+    nonExpiring: z.literal(true),
     createdAt: z.string(),
-    contract: z.literal('pos-global-vouchers-v1'),
-    valueContract: z.enum(['pos-gift-voucher-integer-v1', 'pos-gift-voucher-exact-cents-v1']),
-    checkoutId: z.uuid().nullable(),
-    checkoutVersion: z.number().int().min(1).nullable(),
     status: z.literal('success'),
     message: z.string().max(400),
   })
   .strict();
 export type VoucherReceipt = z.infer<typeof voucherReceiptSchema>;
+export const voucherConversionResultSchema = z
+  .object({
+    operationId: z.uuid(),
+    kind: z.literal('conversion'),
+    operatorId: id,
+    customerId: id,
+    storeId: id,
+    checkoutId: z.uuid(),
+    voucherCode: z.string().min(1).max(25),
+    pinUsed: z.boolean(),
+    status: z.literal('success'),
+    message: z.string().max(400),
+  })
+  .strict();
+export type VoucherConversionResult = z.infer<typeof voucherConversionResultSchema>;
+export const voucherCheckResultSchema = z
+  .object({
+    voucherCode: z.string().min(1).max(25),
+    voucherValue: z.string().max(32),
+    validity: z.string().max(32).nullable(),
+    nonExpiring: z.boolean(),
+    pinUsed: z.boolean(),
+  })
+  .strict();
+export type VoucherCheckResult = z.infer<typeof voucherCheckResultSchema>;
 export const voucherSelectionSchema = z
   .object({
     selectionId: z.uuid(),
@@ -36,33 +54,30 @@ export const voucherSelectionSchema = z
   })
   .strict();
 export type VoucherSelection = z.infer<typeof voucherSelectionSchema>;
-export const voucherCapabilitySchema = z
-  .object({
-    enabled: z.boolean(),
-    conversionEnabled: z.boolean(),
-    exactCents: z.boolean(),
-    nonExpiring: z.literal(true),
-    contract: z.literal('pos-global-vouchers-v1'),
-  })
-  .strict();
-export const voucherOperationSchema = z.discriminatedUnion('status', [
-  z
-    .object({ status: z.literal('succeeded'), errorCode: z.null(), receipt: voucherReceiptSchema })
-    .strict(),
-  z
-    .object({
-      status: z.literal('rejected'),
-      errorCode: z.enum(['GIFT_CARD_PIN_INVALID', 'GIFT_CARD_PIN_LIMIT', 'GIFT_CARD_PIN_REQUIRED']),
-      receipt: z.null(),
-    })
-    .strict(),
-  z.object({ status: z.literal('cancelled'), errorCode: z.null(), receipt: z.null() }).strict(),
-]);
+export const voucherCapabilitySchema = z.object({ enabled: z.literal(true) }).strict();
+const operationSchema = <T extends z.ZodType>(receipt: T) =>
+  z.discriminatedUnion('status', [
+    z.object({ status: z.literal('succeeded'), receipt }).strict(),
+    z.object({ status: z.literal('cancelled'), receipt: z.null() }).strict(),
+  ]);
+export const voucherOperationSchema = operationSchema(voucherReceiptSchema);
+export const conversionOperationSchema = operationSchema(voucherConversionResultSchema);
 export function readVoucherOperation(operatorId: string, operationId: string, signal: AbortSignal) {
   return request(
     `/api/v1/gift-voucher-operations/${operationId}`,
     { signal, operatorId },
     voucherOperationSchema,
+  );
+}
+export function readConversionOperation(
+  operatorId: string,
+  operationId: string,
+  signal: AbortSignal,
+) {
+  return request(
+    `/api/v1/gift-voucher-operations/${operationId}`,
+    { signal, operatorId },
+    conversionOperationSchema,
   );
 }
 export function createVoucherIssuance(
@@ -76,30 +91,38 @@ export function createVoucherIssuance(
     voucherReceiptSchema,
   );
 }
+/** Legacy `ajax-gift-voucher-check` (create_order.html:3786-3919). */
+export function checkVoucher(
+  operatorId: string,
+  storeId: string,
+  checkoutId: string,
+  input: { voucherCode: string; giftCardPin?: string },
+  signal: AbortSignal,
+) {
+  return request(
+    `/api/v1/stores/${storeId}/checkout-sessions/${checkoutId}/voucher-checks`,
+    { method: 'POST', body: JSON.stringify(input), signal, operatorId },
+    voucherCheckResultSchema,
+  );
+}
+/** Legacy `ajax-gift-voucher-convert` (create_order.html:3921-4060). */
 export function createVoucherConversion(
   operatorId: string,
   storeId: string,
   checkoutId: string,
-  input: {
-    operationId: string;
-    expectedVersion: number;
-    voucherCode: string;
-    giftCardPin?: string;
-  },
+  input: { operationId: string; voucherCode: string; giftCardPin?: string },
   signal: AbortSignal,
 ) {
   return request(
     `/api/v1/stores/${storeId}/checkout-sessions/${checkoutId}/voucher-conversions`,
     { method: 'POST', body: JSON.stringify(input), signal, operatorId },
-    voucherReceiptSchema,
+    voucherConversionResultSchema,
   );
 }
 export function cancelVoucherIntent(
   operatorId: string,
   operationId: string,
-  body:
-    | { kind: 'issuance'; selectionId: string }
-    | { kind: 'conversion'; storeId: string; checkoutId: string },
+  body: { kind: 'issuance'; selectionId: string },
   signal: AbortSignal,
 ) {
   return request(
