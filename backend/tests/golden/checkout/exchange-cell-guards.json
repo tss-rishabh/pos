@@ -1,0 +1,564 @@
+{
+  "schemaVersion": 1,
+  "sourceCommit": "78d5b63d6a149a6bf2c748fa1d191799c59ecb8a",
+  "derivedFrom": [
+    "backend/parity/exchange-cell-guards.md section 2",
+    "order/templates/order/online/_return_exchange_cells.html",
+    "order/templates/order/show.html:186-292",
+    "order/views.py:306-348,384-392,527-535"
+  ],
+  "note": "Hand-derived from the legacy templates (one case per template branch). The pure function must reproduce every case; do not regenerate from the implementation.",
+  "base": {
+    "variant": "online",
+    "shopifyOrder": false,
+    "eligibilityLoaded": true,
+    "productType": 1,
+    "lineStatus": "DELIVERED",
+    "return": null,
+    "exchange": null,
+    "superAdminReturnOverride": false,
+    "failedExchange": null,
+    "checkinStoreId": "7",
+    "exchangeFeatureEnabled": true,
+    "operatorRole": 4
+  },
+  "cases": [
+    {
+      "name": "online 1: not checked in",
+      "facts": { "eligibilityLoaded": false, "productType": 8 },
+      "expected": {
+        "branch": "check-in-first",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Check-in first to check return status", "style": "strong-danger" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Check-in first to check exchange status", "style": "strong-danger" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 2: failed exchange retry at the same store, product type 8 still retryable",
+      "facts": {
+        "productType": 8,
+        "lineStatus": "EXCHANGE_INITIATED",
+        "failedExchange": { "storeId": "7", "storeName": "Andheri", "newSize": "M" }
+      },
+      "expected": {
+        "branch": "failed-exchange",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": ["retry-exchange"], "texts": [{ "text": "Item returned, replacement order failed — tap to retry (size M)", "style": "danger" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 2: failed exchange with the feature flag off",
+      "facts": {
+        "exchangeFeatureEnabled": false,
+        "failedExchange": { "storeId": "7", "storeName": "Andheri", "newSize": "M" }
+      },
+      "expected": {
+        "branch": "failed-exchange",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Item returned, replacement order failed — contact tech support to retry", "style": "danger" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 2: failed exchange started at another store",
+      "facts": {
+        "failedExchange": { "storeId": "9", "storeName": "Bandra", "newSize": "L" }
+      },
+      "expected": {
+        "branch": "failed-exchange",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Item returned, replacement order failed — retry from Bandra", "style": "danger" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 2: failed exchange at another store with no store name uses the template default",
+      "facts": {
+        "failedExchange": { "storeId": "9", "storeName": "", "newSize": "L" }
+      },
+      "expected": {
+        "branch": "failed-exchange",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Item returned, replacement order failed — retry from the store it was started at", "style": "danger" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 3: merged return and exchange, product type 8 still offered",
+      "facts": {
+        "productType": 8,
+        "return": { "status": true, "reason": "", "upto": "2026-12-01" },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-01" }
+      },
+      "expected": {
+        "branch": "merged",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": ["return", "exchange"], "texts": [{ "text": "Valid for return/exchange till 2026-12-01", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 3: merged with the exchange flag off",
+      "facts": {
+        "exchangeFeatureEnabled": false,
+        "return": { "status": true, "reason": "", "upto": "2026-12-01" },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-01" }
+      },
+      "expected": {
+        "branch": "merged",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": ["return"], "texts": [{ "text": "Valid for return till 2026-12-01", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 4: already returned",
+      "facts": {
+        "lineStatus": "PRODUCT_RETURNED",
+        "return": { "status": false, "reason": "", "upto": null },
+        "exchange": { "status": false, "reason": "", "upto": null }
+      },
+      "expected": {
+        "branch": "already-returned",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [{ "actions": [], "texts": [{ "text": "Already Returned", "style": "plain" }], "warningIcon": false }]
+      }
+    },
+    {
+      "name": "online 5: already exchanged (EXCHANGE_COMPLETED)",
+      "facts": { "lineStatus": "EXCHANGE_COMPLETED" },
+      "expected": {
+        "branch": "already-exchanged",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [{ "actions": [], "texts": [{ "text": "Already Exchanged", "style": "plain" }], "warningIcon": false }]
+      }
+    },
+    {
+      "name": "online 5: already exchanged (EXCHANGE_INITIATED)",
+      "facts": { "lineStatus": "EXCHANGE_INITIATED" },
+      "expected": {
+        "branch": "already-exchanged",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [{ "actions": [], "texts": [{ "text": "Already Exchanged", "style": "plain" }], "warningIcon": false }]
+      }
+    },
+    {
+      "name": "online 6: product type 8 wins over an eligible exchange",
+      "facts": {
+        "productType": 8,
+        "return": { "status": true, "reason": "", "upto": "2026-12-01" },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-05" }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "eligible",
+        "exchangeBranch": "product-type-8",
+        "parts": [
+          { "actions": ["return"], "texts": [{ "text": "Valid for return till 2026-12-01", "style": "plain" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Not Applicable For Exchange", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: eligible exchange with the flag on, return window has a reason",
+      "facts": {
+        "return": { "status": false, "reason": "Return window closed on 2026-11-01", "upto": "2026-11-01" },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-05" }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "reason",
+        "exchangeBranch": "eligible",
+        "parts": [
+          {
+            "actions": [],
+            "texts": [
+              { "text": "Return window closed on 2026-11-01", "style": "plain" },
+              { "text": "Would you like to extend the return date? If so, please request upper management to log in and check here.", "style": "danger" }
+            ],
+            "warningIcon": true
+          },
+          { "actions": ["exchange"], "texts": [{ "text": "Valid for exchange till 2026-12-05", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: eligible exchange with the flag off shows the badge; manager can extend a closed return",
+      "facts": {
+        "operatorRole": 3,
+        "exchangeFeatureEnabled": false,
+        "return": { "status": false, "reason": "Return window closed", "upto": null },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-05" }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "reason",
+        "exchangeBranch": "feature-disabled",
+        "parts": [
+          { "actions": ["extend-return"], "texts": [{ "text": "Return window closed", "style": "plain" }], "warningIcon": true },
+          { "actions": [], "texts": [{ "text": "Not applicable for exchange", "style": "badge" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: exchange reason text; super admin override with reason",
+      "facts": {
+        "operatorRole": 1,
+        "superAdminReturnOverride": true,
+        "return": { "status": false, "reason": "Item not eligible", "upto": "2026-12-01" },
+        "exchange": { "status": false, "reason": "Exchange not available for this item", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "super-admin-override",
+        "exchangeBranch": "reason",
+        "parts": [
+          { "actions": ["return"], "texts": [{ "text": "Override: Item not eligible", "style": "danger" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Exchange not available for this item", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: super admin override without reason; exchange returned-line fallback",
+      "facts": {
+        "operatorRole": 1,
+        "lineStatus": "PRODUCT_RETURNED",
+        "superAdminReturnOverride": true,
+        "return": { "status": false, "reason": "", "upto": "2026-12-01" },
+        "exchange": { "status": false, "reason": "x", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "super-admin-override",
+        "exchangeBranch": "reason",
+        "parts": [
+          { "actions": ["return"], "texts": [], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "x", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: returned line with a return reason only; exchange shows Already Returned",
+      "facts": {
+        "lineStatus": "PRODUCT_RETURNED",
+        "return": { "status": false, "reason": "Already processed", "upto": null },
+        "exchange": { "status": false, "reason": "", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "reason",
+        "exchangeBranch": "already-returned",
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Already processed", "style": "plain" }], "warningIcon": true },
+          { "actions": [], "texts": [{ "text": "Already Returned", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: exchanged line with a return reason; exchange shows Already Exchanged",
+      "facts": {
+        "lineStatus": "EXCHANGE_COMPLETED",
+        "return": { "status": false, "reason": "Not eligible", "upto": null },
+        "exchange": { "status": false, "reason": "", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "reason",
+        "exchangeBranch": "already-exchanged",
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Not eligible", "style": "plain" }], "warningIcon": true },
+          { "actions": [], "texts": [{ "text": "Already Exchanged", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: nothing applicable; exchange eligible but a different date than return",
+      "facts": {
+        "return": { "status": false, "reason": "", "upto": null },
+        "exchange": { "status": true, "reason": "", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "not-applicable",
+        "exchangeBranch": "eligible",
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Not applicable for return", "style": "plain" }], "warningIcon": true },
+          { "actions": ["exchange"], "texts": [{ "text": "Valid for exchange till None", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: return eligible but different exchange date is not merged",
+      "facts": {
+        "return": { "status": true, "reason": "", "upto": "2026-12-01" },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-08" }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "eligible",
+        "exchangeBranch": "eligible",
+        "parts": [
+          { "actions": ["return"], "texts": [{ "text": "Valid for return till 2026-12-01", "style": "plain" }], "warningIcon": false },
+          { "actions": ["exchange"], "texts": [{ "text": "Valid for exchange till 2026-12-08", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "online 6: line missing from the eligibility response falls back to badges",
+      "facts": { "lineStatus": "PLACED" },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "not-applicable",
+        "exchangeBranch": "not-applicable",
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Not applicable for return", "style": "plain" }], "warningIcon": true },
+          { "actions": [], "texts": [{ "text": "Not applicable for exchange", "style": "badge" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: product type 8 excludes return and exchange before check-in",
+      "facts": { "variant": "store", "eligibilityLoaded": false, "productType": 8 },
+      "expected": {
+        "branch": "store-product-type-8",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Not Applicable For Return", "style": "plain" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Not Applicable For Exchange", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: product type 8 excludes a failed exchange retry",
+      "facts": {
+        "variant": "store",
+        "productType": 8,
+        "failedExchange": { "storeId": "7", "storeName": "Andheri", "newSize": "M" }
+      },
+      "expected": {
+        "branch": "store-product-type-8",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Not Applicable For Return", "style": "plain" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Not Applicable For Exchange", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: Shopify order adds its notice and has no eligibility",
+      "facts": { "variant": "store", "shopifyOrder": true, "eligibilityLoaded": false },
+      "expected": {
+        "branch": "check-in-first",
+        "notice": { "text": "Shopify Order not eligible for return", "style": "plain" },
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Check-in first to check return status", "style": "strong-danger" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Check-in first to check exchange status", "style": "strong-danger" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: line absent from the eligibility map renders no cells",
+      "facts": { "variant": "store" },
+      "expected": { "branch": "no-cells", "notice": null, "returnBranch": null, "exchangeBranch": null, "parts": [] }
+    },
+    {
+      "name": "store: delivered line without status or reason offers force return",
+      "facts": {
+        "variant": "store",
+        "return": { "status": false, "reason": "", "upto": null },
+        "exchange": { "status": false, "reason": "", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "force-return",
+        "exchangeBranch": "not-applicable",
+        "parts": [
+          { "actions": ["force-return"], "texts": [], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Not applicable for exchange", "style": "badge" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: undelivered line shows the return badge instead of force return",
+      "facts": {
+        "variant": "store",
+        "lineStatus": "PLACED",
+        "return": { "status": false, "reason": "", "upto": null },
+        "exchange": { "status": false, "reason": "", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "not-applicable",
+        "exchangeBranch": "not-applicable",
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Not applicable for return", "style": "badge" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Not applicable for exchange", "style": "badge" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: exchange cell has no product type check; eligible exchange with flag on",
+      "facts": {
+        "variant": "store",
+        "return": { "status": false, "reason": "Return window closed", "upto": null },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-05" }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "reason",
+        "exchangeBranch": "eligible",
+        "parts": [
+          {
+            "actions": [],
+            "texts": [
+              { "text": "Return window closed", "style": "plain" },
+              { "text": "Would you like to extend the return date? If so, please request upper management to log in and check here.", "style": "danger" }
+            ],
+            "warningIcon": false
+          },
+          { "actions": ["exchange"], "texts": [{ "text": "Valid for exchange till 2026-12-05", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: eligible exchange with the flag off; return eligible",
+      "facts": {
+        "variant": "store",
+        "exchangeFeatureEnabled": false,
+        "return": { "status": true, "reason": "", "upto": "2026-12-01" },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-05" }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "eligible",
+        "exchangeBranch": "feature-disabled",
+        "parts": [
+          { "actions": ["return"], "texts": [{ "text": "Valid for return till 2026-12-01", "style": "plain" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Not applicable for exchange", "style": "badge" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: exchanged line with an exchange reason shows Already Exchanged in the return cell",
+      "facts": {
+        "variant": "store",
+        "lineStatus": "EXCHANGE_INITIATED",
+        "return": { "status": false, "reason": "", "upto": null },
+        "exchange": { "status": false, "reason": "Exchange in progress", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "already-exchanged",
+        "exchangeBranch": "reason",
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Already Exchanged", "style": "plain" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "Exchange in progress", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: returned line with an exchange reason",
+      "facts": {
+        "variant": "store",
+        "lineStatus": "PRODUCT_RETURNED",
+        "return": { "status": false, "reason": "", "upto": null },
+        "exchange": { "status": false, "reason": "No", "upto": null }
+      },
+      "expected": {
+        "branch": "split",
+        "notice": null,
+        "returnBranch": "already-returned",
+        "exchangeBranch": "reason",
+        "parts": [
+          { "actions": [], "texts": [{ "text": "Already Returned", "style": "plain" }], "warningIcon": false },
+          { "actions": [], "texts": [{ "text": "No", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: merged cell and failed exchange behave as the online template",
+      "facts": {
+        "variant": "store",
+        "return": { "status": true, "reason": "", "upto": "2026-12-01" },
+        "exchange": { "status": true, "reason": "", "upto": "2026-12-01" }
+      },
+      "expected": {
+        "branch": "merged",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": ["return", "exchange"], "texts": [{ "text": "Valid for return/exchange till 2026-12-01", "style": "plain" }], "warningIcon": false }
+        ]
+      }
+    },
+    {
+      "name": "store: failed exchange retry",
+      "facts": {
+        "variant": "store",
+        "return": { "status": false, "reason": "", "upto": null },
+        "exchange": { "status": false, "reason": "", "upto": null },
+        "failedExchange": { "storeId": "7", "storeName": "Andheri", "newSize": "XL" }
+      },
+      "expected": {
+        "branch": "failed-exchange",
+        "notice": null,
+        "returnBranch": null,
+        "exchangeBranch": null,
+        "parts": [
+          { "actions": ["retry-exchange"], "texts": [{ "text": "Item returned, replacement order failed — tap to retry (size XL)", "style": "danger" }], "warningIcon": false }
+        ]
+      }
+    }
+  ]
+}
