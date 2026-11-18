@@ -1,0 +1,568 @@
+{
+  "version": 1,
+  "scope": "Native Windows/macOS CI on exact historical head, including unsigned review packaging; not later online detail/invoice/barcode/recovery qualification",
+  "rawMetadataSha256": "5429633f5c089e83bcf421df331960403e2fbe2b95d96daea669a3a0b96765a7",
+  "run": {
+    "conclusion": "success",
+    "createdAt": "2026-11-18T16:11:07Z",
+    "databaseId": 44344235142,
+    "headSha": "4f30e87809e292331c41285d6fbb26b54d530e5e",
+    "jobs": [
+      {
+        "completedAt": "2026-11-18T16:20:00Z",
+        "conclusion": "success",
+        "databaseId": 134942173614,
+        "name": "Desktop on macos-latest",
+        "startedAt": "2026-11-18T16:11:11Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-18T16:11:12Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-18T16:11:11Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:15Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 2,
+            "startedAt": "2026-11-18T16:11:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:22Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+            "number": 3,
+            "startedAt": "2026-11-18T16:11:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:22Z",
+            "conclusion": "success",
+            "name": "Verify backend mitigation archive",
+            "number": 4,
+            "startedAt": "2026-11-18T16:11:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:25Z",
+            "conclusion": "success",
+            "name": "Run npm ci",
+            "number": 5,
+            "startedAt": "2026-11-18T16:11:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:26Z",
+            "conclusion": "success",
+            "name": "Run npm run verify:dependency-security",
+            "number": 6,
+            "startedAt": "2026-11-18T16:11:25Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:26Z",
+            "conclusion": "success",
+            "name": "Verify frontend mitigation archive",
+            "number": 7,
+            "startedAt": "2026-11-18T16:11:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:54Z",
+            "conclusion": "success",
+            "name": "Run npm ci",
+            "number": 8,
+            "startedAt": "2026-11-18T16:11:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:54Z",
+            "conclusion": "success",
+            "name": "Run npm run verify:dependency-security",
+            "number": 9,
+            "startedAt": "2026-11-18T16:11:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:12:08Z",
+            "conclusion": "success",
+            "name": "Bounded matcher security and compatibility checks",
+            "number": 10,
+            "startedAt": "2026-11-18T16:11:54Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:12:16Z",
+            "conclusion": "success",
+            "name": "Run npx playwright install chromium",
+            "number": 11,
+            "startedAt": "2026-11-18T16:12:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:12:32Z",
+            "conclusion": "success",
+            "name": "Run npm run typecheck",
+            "number": 12,
+            "startedAt": "2026-11-18T16:12:16Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:12:42Z",
+            "conclusion": "success",
+            "name": "Run npm run build",
+            "number": 13,
+            "startedAt": "2026-11-18T16:12:32Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:12:58Z",
+            "conclusion": "success",
+            "name": "Run npm test -- --maxWorkers=2",
+            "number": 14,
+            "startedAt": "2026-11-18T16:12:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:15:24Z",
+            "conclusion": "success",
+            "name": "Native Electron and offline browser checks",
+            "number": 15,
+            "startedAt": "2026-11-18T16:12:58Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:17:10Z",
+            "conclusion": "success",
+            "name": "Browser sign-in, customer and order recovery",
+            "number": 16,
+            "startedAt": "2026-11-18T16:15:24Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:17:17Z",
+            "conclusion": "success",
+            "name": "Ecommerce settings and stock recovery",
+            "number": 17,
+            "startedAt": "2026-11-18T16:17:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:17:22Z",
+            "conclusion": "success",
+            "name": "Scoped invoice browser checks",
+            "number": 18,
+            "startedAt": "2026-11-18T16:17:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:17:41Z",
+            "conclusion": "success",
+            "name": "Historical order browsing and checkout copy recovery",
+            "number": 19,
+            "startedAt": "2026-11-18T16:17:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:18:21Z",
+            "conclusion": "success",
+            "name": "Historical CSV job recovery browser checks",
+            "number": 20,
+            "startedAt": "2026-11-18T16:17:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:18:23Z",
+            "conclusion": "success",
+            "name": "Manager import correction validation",
+            "number": 21,
+            "startedAt": "2026-11-18T16:18:21Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:18:41Z",
+            "conclusion": "success",
+            "name": "Manager import correction recovery browser checks",
+            "number": 22,
+            "startedAt": "2026-11-18T16:18:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:18:44Z",
+            "conclusion": "success",
+            "name": "Historical order reader browser checks",
+            "number": 23,
+            "startedAt": "2026-11-18T16:18:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:18:48Z",
+            "conclusion": "success",
+            "name": "Whole-order fulfillment recovery browser checks",
+            "number": 24,
+            "startedAt": "2026-11-18T16:18:44Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:18:52Z",
+            "conclusion": "success",
+            "name": "Rejected-return repair recovery browser checks",
+            "number": 25,
+            "startedAt": "2026-11-18T16:18:48Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:18:59Z",
+            "conclusion": "success",
+            "name": "Source order-list filters, formatter and queues",
+            "number": 26,
+            "startedAt": "2026-11-18T16:18:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:19:17Z",
+            "conclusion": "success",
+            "name": "Recorded cash correction recovery browser checks",
+            "number": 27,
+            "startedAt": "2026-11-18T16:18:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:19:22Z",
+            "conclusion": "success",
+            "name": "Package unsigned review artifact on its target OS",
+            "number": 28,
+            "startedAt": "2026-11-18T16:19:17Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:19:27Z",
+            "conclusion": "success",
+            "name": "Verify packaged integrity, native restart, sandbox and offline profile",
+            "number": 29,
+            "startedAt": "2026-11-18T16:19:22Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:19:49Z",
+            "conclusion": "success",
+            "name": "Retain review artifacts",
+            "number": 30,
+            "startedAt": "2026-11-18T16:19:27Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:19:50Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+            "number": 59,
+            "startedAt": "2026-11-18T16:19:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:19:50Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 60,
+            "startedAt": "2026-11-18T16:19:50Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:19:58Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 61,
+            "startedAt": "2026-11-18T16:19:50Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/thesouledstore-tss/pos/actions/runs/44344235142/job/134942173614"
+      },
+      {
+        "completedAt": "2026-11-18T16:27:20Z",
+        "conclusion": "success",
+        "databaseId": 134942174223,
+        "name": "Desktop on windows-latest",
+        "startedAt": "2026-11-18T16:11:10Z",
+        "status": "completed",
+        "steps": [
+          {
+            "completedAt": "2026-11-18T16:11:15Z",
+            "conclusion": "success",
+            "name": "Set up job",
+            "number": 1,
+            "startedAt": "2026-11-18T16:11:12Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:11:30Z",
+            "conclusion": "success",
+            "name": "Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 2,
+            "startedAt": "2026-11-18T16:11:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:12:05Z",
+            "conclusion": "success",
+            "name": "Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+            "number": 3,
+            "startedAt": "2026-11-18T16:11:30Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:12:06Z",
+            "conclusion": "success",
+            "name": "Verify backend mitigation archive",
+            "number": 4,
+            "startedAt": "2026-11-18T16:12:05Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:12:59Z",
+            "conclusion": "success",
+            "name": "Run npm ci",
+            "number": 5,
+            "startedAt": "2026-11-18T16:12:06Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:13:00Z",
+            "conclusion": "success",
+            "name": "Run npm run verify:dependency-security",
+            "number": 6,
+            "startedAt": "2026-11-18T16:12:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:13:01Z",
+            "conclusion": "success",
+            "name": "Verify frontend mitigation archive",
+            "number": 7,
+            "startedAt": "2026-11-18T16:13:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:13:59Z",
+            "conclusion": "success",
+            "name": "Run npm ci",
+            "number": 8,
+            "startedAt": "2026-11-18T16:13:01Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:14:00Z",
+            "conclusion": "success",
+            "name": "Run npm run verify:dependency-security",
+            "number": 9,
+            "startedAt": "2026-11-18T16:13:59Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:14:18Z",
+            "conclusion": "success",
+            "name": "Bounded matcher security and compatibility checks",
+            "number": 10,
+            "startedAt": "2026-11-18T16:14:00Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:14:42Z",
+            "conclusion": "success",
+            "name": "Run npx playwright install chromium",
+            "number": 11,
+            "startedAt": "2026-11-18T16:14:18Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:15:26Z",
+            "conclusion": "success",
+            "name": "Run npm run typecheck",
+            "number": 12,
+            "startedAt": "2026-11-18T16:14:42Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:15:52Z",
+            "conclusion": "success",
+            "name": "Run npm run build",
+            "number": 13,
+            "startedAt": "2026-11-18T16:15:26Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:16:51Z",
+            "conclusion": "success",
+            "name": "Run npm test -- --maxWorkers=2",
+            "number": 14,
+            "startedAt": "2026-11-18T16:15:52Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:20:47Z",
+            "conclusion": "success",
+            "name": "Native Electron and offline browser checks",
+            "number": 15,
+            "startedAt": "2026-11-18T16:16:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:23:51Z",
+            "conclusion": "success",
+            "name": "Browser sign-in, customer and order recovery",
+            "number": 16,
+            "startedAt": "2026-11-18T16:20:47Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:24:03Z",
+            "conclusion": "success",
+            "name": "Ecommerce settings and stock recovery",
+            "number": 17,
+            "startedAt": "2026-11-18T16:23:51Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:24:10Z",
+            "conclusion": "success",
+            "name": "Scoped invoice browser checks",
+            "number": 18,
+            "startedAt": "2026-11-18T16:24:03Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:24:41Z",
+            "conclusion": "success",
+            "name": "Historical order browsing and checkout copy recovery",
+            "number": 19,
+            "startedAt": "2026-11-18T16:24:10Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:25:23Z",
+            "conclusion": "success",
+            "name": "Historical CSV job recovery browser checks",
+            "number": 20,
+            "startedAt": "2026-11-18T16:24:41Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:25:29Z",
+            "conclusion": "success",
+            "name": "Manager import correction validation",
+            "number": 21,
+            "startedAt": "2026-11-18T16:25:23Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:25:49Z",
+            "conclusion": "success",
+            "name": "Manager import correction recovery browser checks",
+            "number": 22,
+            "startedAt": "2026-11-18T16:25:29Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:25:56Z",
+            "conclusion": "success",
+            "name": "Historical order reader browser checks",
+            "number": 23,
+            "startedAt": "2026-11-18T16:25:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:26:02Z",
+            "conclusion": "success",
+            "name": "Whole-order fulfillment recovery browser checks",
+            "number": 24,
+            "startedAt": "2026-11-18T16:25:56Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:26:08Z",
+            "conclusion": "success",
+            "name": "Rejected-return repair recovery browser checks",
+            "number": 25,
+            "startedAt": "2026-11-18T16:26:02Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:26:15Z",
+            "conclusion": "success",
+            "name": "Source order-list filters, formatter and queues",
+            "number": 26,
+            "startedAt": "2026-11-18T16:26:08Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:26:35Z",
+            "conclusion": "success",
+            "name": "Recorded cash correction recovery browser checks",
+            "number": 27,
+            "startedAt": "2026-11-18T16:26:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:26:49Z",
+            "conclusion": "success",
+            "name": "Package unsigned review artifact on its target OS",
+            "number": 28,
+            "startedAt": "2026-11-18T16:26:35Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:26:57Z",
+            "conclusion": "success",
+            "name": "Verify packaged integrity, native restart, sandbox and offline profile",
+            "number": 29,
+            "startedAt": "2026-11-18T16:26:49Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:27:15Z",
+            "conclusion": "success",
+            "name": "Retain review artifacts",
+            "number": 30,
+            "startedAt": "2026-11-18T16:26:57Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:27:15Z",
+            "conclusion": "success",
+            "name": "Post Run actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38",
+            "number": 59,
+            "startedAt": "2026-11-18T16:27:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:27:18Z",
+            "conclusion": "success",
+            "name": "Post Run actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803",
+            "number": 60,
+            "startedAt": "2026-11-18T16:27:15Z",
+            "status": "completed"
+          },
+          {
+            "completedAt": "2026-11-18T16:27:18Z",
+            "conclusion": "success",
+            "name": "Complete job",
+            "number": 61,
+            "startedAt": "2026-11-18T16:27:18Z",
+            "status": "completed"
+          }
+        ],
+        "url": "https://github.com/thesouledstore-tss/pos/actions/runs/44344235142/job/134942174223"
+      }
+    ],
+    "status": "completed",
+    "updatedAt": "2026-11-18T16:27:21Z",
+    "url": "https://github.com/thesouledstore-tss/pos/actions/runs/44344235142"
+  },
+  "laterProductionCodeTested": false,
+  "signingOrPhysicalPrinterAcceptance": false
+}
