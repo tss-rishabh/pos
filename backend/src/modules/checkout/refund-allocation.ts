@@ -2,7 +2,7 @@ import { AppError } from '../../domain/errors.js';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import type { Databases } from '../../db/pools.js';
 import { HasProduct, Order, OrderStore } from '../../db/legacy-schema.js';
-import { cashRefundAudit } from './offline-cash/source-ledger.js';
+import { cashRefundAudit } from './refund-audit.js';
 import type { CheckoutProjectionScope } from './projection.js';
 import { assertActiveCheckoutCustomer } from './customer-access.js';
 

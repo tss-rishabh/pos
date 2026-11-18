@@ -71,8 +71,6 @@ export async function reversalMysqlFixture(template: string) {
       'src/modules/checkout/migrations/0004_returns.sql',
       'src/modules/checkout/migrations/0005_financial_delivery_context.sql',
       'src/modules/checkout/migrations/0009_checkout_projection_proof.sql',
-      'src/modules/checkout/migrations/0011_offline_cash.sql',
-      'src/modules/checkout/migrations/0013_offline_cash_import_proof.sql',
       'src/modules/checkout/migrations/0015_gift_card_issuance.sql',
       'src/modules/checkout/migrations/0017_customer_consent_proof.sql',
       'src/modules/checkout/cancellations/migration.sql',

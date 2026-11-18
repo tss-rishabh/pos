@@ -66,11 +66,11 @@ describe('validated checkout HTTP boundaries', () => {
   });
   it('records explicit resource trace metadata for every checkout and payment route', () => {
     const routes = resourceRoutes(app);
-    expect(routes).toHaveLength(99);
+    expect(routes).toHaveLength(91);
     expect(
       routes.every((route) => route.module === 'checkout' && route.authentication === 'session'),
     ).toBe(true);
-    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(99);
+    expect(new Set(routes.map((route) => `${route.method} ${route.path}`)).size).toBe(91);
     const returnWindow =
       '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/return-window';
     expect(routes.filter((route) => route.resource === 'return-window-extension')).toEqual([
@@ -287,28 +287,6 @@ describe('validated checkout HTTP boundaries', () => {
         })
       ).statusCode,
     ).toBe(403);
-  });
-  it('validates offline cash envelopes and fails closed before authorizing unconfigured cash', async () => {
-    const url = '/api/v1/stores/1/offline-cash-authorizations',
-      payload = { deviceId: crypto.randomUUID(), counterId: '3', productIds: ['1'] };
-    expect((await app.inject({ method: 'POST', url, payload })).statusCode).toBe(503);
-    expect(
-      (await app.inject({ method: 'POST', url, payload: { ...payload, productIds: ['1', '1'] } }))
-        .statusCode,
-    ).toBe(400);
-    expect(
-      (await app.inject({ method: 'POST', url, headers: { 'x-test-anonymous': 'true' }, payload }))
-        .statusCode,
-    ).toBe(401);
-    expect(
-      (
-        await app.inject({
-          method: 'POST',
-          url: '/api/v1/stores/1/offline-cash-receipts',
-          payload: { customerEmail: 'PRIVATE-CANARY@example.test', cashAmount: 100 },
-        })
-      ).statusCode,
-    ).toBe(400);
   });
   it('rejects unauthenticated, unassigned and forged browser verification requests', async () => {
     expect(

@@ -2,7 +2,7 @@ import { Temporal } from '@js-temporal/polyfill';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { readConfig } from '../../src/config.js';
 import {
-  dailyOfflineWarehouseContract,
+  dailyWarehouseContract,
   dailyWarehouseOptions,
 } from '../../src/modules/daily-report-warehouse.js';
 import { warehouseService } from '../../src/modules/warehouse.js';
@@ -61,7 +61,7 @@ describe('BigQuery daily report adapter', () => {
   it('verifies SDK-wrapped zero-row publications before returning a complete empty historical result', async () => {
     const options = dailyWarehouseOptions({
         BIGQUERY_DAILY_REPORT_PUBLICATIONS_TABLE: 'fixture-project.pos.publications',
-        BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT: dailyOfflineWarehouseContract,
+        BIGQUERY_DAILY_REPORT_OFFLINE_CONTRACT: dailyWarehouseContract,
       }),
       stamp = { value: '2026-11-16 07:59:50+00' };
     sdk.query
@@ -78,7 +78,7 @@ describe('BigQuery daily report adapter', () => {
             cdc_watermark: { value: '2026-11-16 07:59:30+00' },
             source_position: 'mysql-bin.000042:123',
             publication_state: 'COMPLETE',
-            offline_projection_contract: dailyOfflineWarehouseContract,
+            offline_projection_contract: dailyWarehouseContract,
             business_timezone: 'Asia/Kolkata',
             source_baseline: '78d5b63d6a149a6bf2c748fa1d191799c59ecb8a',
             source_sql_sha256: '6ef32f5c50ca710f32aefeb5f0ecd92462e10a0687f78ad71da1d90e5220cd20',

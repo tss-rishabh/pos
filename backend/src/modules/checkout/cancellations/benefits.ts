@@ -18,7 +18,7 @@ import {
 } from '../gift-card-issuance.js';
 import { assertCancellationVoucherIndex } from './voucher-history.js';
 import { operationHash } from '../crypto.js';
-import { cashRefundAudit } from '../offline-cash/source-ledger.js';
+import { cashRefundAudit } from '../refund-audit.js';
 import { identifier } from '../../../domain/validation.js';
 import { checkoutHeaderHashSql } from '../projection.js';
 import {

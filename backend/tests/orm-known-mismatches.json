@@ -403,8 +403,6 @@
     "src/modules/checkout/cancellations/benefit-schema.ts: user_eav.attribute: type varchar(30) != enum('EXCLUSIVE_NOTIFY','EXCLUSIVE_EXPIRY','EXCLUSIVE_MEMBER')",
     "src/modules/checkout/gift-card-issuance.ts: gift_vouchers.gv_type: type varchar(25) != enum('GIFT_VOUCHER','GIFT_CARD')",
     "src/modules/checkout/gift-card-issuance.ts: gift_vouchers.status: type int != tinyint",
-    "src/modules/checkout/offline-cash/legacy-import-schema.ts: orders.ret_ex_request_date: nullable != NOT NULL",
-    "src/modules/checkout/offline-cash/legacy-import-schema.ts: orders.ship_date: nullable != NOT NULL",
     "src/modules/global-vouchers/legacy-schema.ts: coupons.end_date: nullable != NOT NULL",
     "src/modules/global-vouchers/legacy-schema.ts: gift_voucher_history.platform: type varchar(40) != enum('ORDER_PLACED','ORDER_CANCELLED','ORDER_REFUND','ORDER_MONEY','ORDER_RETURN','PAYMENT_FAILED','PRODUCT_RETURN','COURIER_COMPENSATION','DEFECTIVE_PRODUCT','PRODUCT_MISSING','PRODUCT_OUT_OF_STOCK','MISC_COMPENSATION')",
     "src/modules/global-vouchers/legacy-schema.ts: gift_vouchers.end_date: nullable != NOT NULL",

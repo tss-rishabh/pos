@@ -8,7 +8,7 @@ import {
 } from '../../src/modules/operational-reports/raw-legacy-export.js';
 import {
   dailyWarehouseRowHashExpression,
-  dailyOfflineWarehouseContract,
+  dailyWarehouseContract,
 } from '../../src/modules/daily-report-warehouse.js';
 
 const directory = 'parity/bigquery-deployment';
@@ -193,20 +193,18 @@ const plan = {
     },
   ],
   financialPublication: {
-    contract: dailyOfflineWarehouseContract,
+    contract: dailyWarehouseContract,
     rowHashExpression: dailyWarehouseRowHashExpression,
     requires: [
       'One read-only repeatable-read source snapshot, or a proven CDC transaction-consistent generation across every required relation.',
       'Immutable generation ID and complete per-store/day partition manifests including explicit empty partitions, row counts and native row hashes.',
-      'Signed offline receipt businessDate and immutable payable amounts are recognized once regardless of accepted/conflicted/importing/imported status.',
-      'Exclude imported ordinary cash/count only after sealed proof/link verification; never drop mutable HP quantity/revenue or invent pending HP sales.',
-      'Readiness includes current banking/opening/close/outflow data and offline receipt/proof/key registry coverage; absent relations never imply zero.',
+      'Source report_queries.py cash/count/HP quantity/revenue are published unchanged; never invent HP sales.',
+      'Readiness includes current banking/opening/close/outflow data; absent relations never imply zero.',
       'Fresh source progress and publication timestamps, explicit wall-clock timezone, approved source SQL/source revision, and immutable generation selection.',
       'No MySQL historical fallback; no deployment activation by pointing normalized-view settings at raw tables.',
     ],
     sourceSql: 'src/modules/daily-report.ts',
     readerContract: 'src/modules/daily-report-warehouse.ts',
-    offlineProofReader: 'src/modules/checkout/offline-cash/import-proof.ts',
   },
   nonfinancialProjections: [
     {

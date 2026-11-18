@@ -11,7 +11,7 @@ import {
   type PaymentCorrectionPartition,
 } from '../../src/modules/finance/payment-correction-publication.js';
 import { applyDailyPaymentCorrectionPartitions } from '../../src/modules/daily-report-corrections.js';
-import { emptyDailyStoreRow } from '../../src/modules/daily-report-offline.js';
+import { emptyDailyStoreRow } from '../../src/modules/daily-report-corrections.js';
 const key = 'fixture-financial-publication-proof-'.repeat(2),
   now = Temporal.Instant.from('2026-11-17T08:00:00Z'),
   options = { table: 'fixture-project.finance.payment_publications', proofKey: key },

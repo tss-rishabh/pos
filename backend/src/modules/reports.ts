@@ -12,8 +12,6 @@ import { mergeDailyRows, dailyTotals, type Rollup } from './daily-report.js';
 import { warehouseService } from './warehouse.js';
 import { checkInService } from './administration/checkins.js';
 import { parseStoreRollout, storeRolloutEnabled } from '../domain/rollout.js';
-import { aggregateOfflineCash, matchedImportedOfflineOrder } from './finance/offline-cash.js';
-import { addDailyOfflineCash, offlineDailyStoreTemplate } from './daily-report-offline.js';
 import type { DailyWarehouseOptions, DailyWarehousePublication } from './daily-report-warehouse.js';
 import {
   matchedPaymentCorrectionOrder,
@@ -97,13 +95,12 @@ export function bindReportSql(
   exclusions: bigint[],
   start: string,
   end: string,
-  offlineMatch?: SQL,
   correctionMatch?: SQL,
 ): SQL {
   let dateIndex = 0;
   const dates = [start, end];
   const parts = template
-    .split(/(__STORES__|__EXCLUDED_PRODUCTS__|__OFFLINE_MATCH__|__PAYMENT_CORRECTION_MATCH__|%s)/)
+    .split(/(__STORES__|__EXCLUDED_PRODUCTS__|__PAYMENT_CORRECTION_MATCH__|%s)/)
     .map((part) => {
       if (part === '__PAYMENT_CORRECTION_MATCH__') {
         if (!correctionMatch)
@@ -113,15 +110,6 @@ export function bindReportSql(
             'The payment cash proof definition requires review.',
           );
         return correctionMatch;
-      }
-      if (part === '__OFFLINE_MATCH__') {
-        if (!offlineMatch)
-          throw new AppError(
-            500,
-            'DAILY_REPORT_DEFINITION_CHANGED',
-            'The daily cash proof definition requires review.',
-          );
-        return offlineMatch;
       }
       if (part === '__STORES__')
         return sql.join(
@@ -180,10 +168,6 @@ export function reportService(
       if (reader === 'bigquery') {
         const result = await warehouse.dailyRollups(storeIds, input.from, input.to);
         publication = result.publication;
-        const pending = z.union([
-          z.number().int().safe().nonnegative(),
-          z.string().regex(/^\d+$/).transform(Number).refine(Number.isSafeInteger),
-        ]);
         const publicationRows = z
           .array(
             rollupSchema.extend({
@@ -191,7 +175,6 @@ export function reportService(
               banking_amount: number.nullable(),
               footfall: number.nullable(),
               target: number.nullable(),
-              pending_offline_orders: pending,
             }),
           )
           .safeParse(result.rows);
@@ -236,21 +219,11 @@ export function reportService(
         );
         const auxByPartition = new Map<string, string>();
         for (const row of parsed) {
-          if (
-            !Number.isSafeInteger(row.order_count) ||
-            row.order_count < 0 ||
-            row.pending_offline_orders > row.order_count
-          )
+          if (!Number.isSafeInteger(row.order_count) || row.order_count < 0)
             throw new AppError(
               503,
               'DAILY_WAREHOUSE_PUBLICATION_INVALID',
               'A daily report publication has inconsistent order counts.',
-            );
-          if (row.order_source === 'online_orders' && row.pending_offline_orders !== 0)
-            throw new AppError(
-              503,
-              'DAILY_WAREHOUSE_PUBLICATION_INVALID',
-              'A daily report publication has inconsistent offline counts.',
             );
           const partition = `${row.store_id}\0${row.order_date}`,
             fingerprint = JSON.stringify([
@@ -299,7 +272,6 @@ export function reportService(
                 .replace('T', ' ');
             const start = local(range.start),
               end = local(Temporal.Instant.from(range.end).subtract({ seconds: 1 }).toString());
-            const offline = await aggregateOfflineCash(transaction, storeIds, input.from, input.to);
             const paymentCash = await readPaymentCorrectionCash(
               transaction,
               { storeIds, from: input.from, to: input.to },
@@ -308,18 +280,11 @@ export function reportService(
             const [walkIn, online] = await Promise.all([
               transaction.execute(
                 bindReportSql(
-                  paymentCorrectionDailyStoreTemplate(
-                    offlineDailyStoreTemplate(legacyReportSql.storeOrders),
-                  ),
+                  paymentCorrectionDailyStoreTemplate(legacyReportSql.storeOrders),
                   storeIds,
                   exclusions,
                   start,
                   end,
-                  matchedImportedOfflineOrder(transaction, {
-                    orderId: sql.raw('o.id'),
-                    storeId: sql.raw('oss.store_id'),
-                    counterId: sql.raw('oss.counter_id'),
-                  }),
                   matchedPaymentCorrectionOrder(sql.raw('o.id'), paymentCash.managedOrderIds),
                 ),
               ),
@@ -328,12 +293,8 @@ export function reportService(
               ),
             ]);
             const storeRows = z.array(rollupSchema).parse(walkIn[0]);
-            const onlineRows = z
-              .array(rollupSchema)
-              .parse(online[0])
-              .map((row) => ({ ...row, pending_offline_orders: 0 }));
-            const dimensions =
-              offline.length || paymentCash.rows.length
+            const onlineRows = z.array(rollupSchema).parse(online[0]);
+            const dimensions = paymentCash.rows.length
                 ? await transaction
                     .select({
                       id: Store.id,
@@ -343,15 +304,6 @@ export function reportService(
                     .from(Store)
                     .where(inArray(Store.id, storeIds.map(BigInt)))
                 : [];
-            const augmented = addDailyOfflineCash(
-              storeRows,
-              offline,
-              dimensions.map((store) => ({
-                id: String(store.id),
-                name: store.name || String(store.id),
-                locationCode: store.locationCode || '',
-              })),
-            );
             const bankRows = await transaction
               .select({
                 storeId: StoreDayBanking.store_id,
@@ -368,7 +320,7 @@ export function reportService(
               );
             return {
               storeRows: addDailyPaymentCorrections(
-                augmented,
+                storeRows,
                 paymentCash.rows,
                 dimensions.map((store) => ({
                   id: String(store.id),
@@ -397,7 +349,6 @@ export function reportService(
         range,
         data,
         totals,
-        pendingOrderCount: Number(totals.pending_offline_orders || 0),
         ...(publication ? { publication } : {}),
       };
     },

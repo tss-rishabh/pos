@@ -8,7 +8,6 @@ import { retryTransaction } from '../../../db/retry.js';
 import { assertCurrentStoreAccess } from '../../administration/authorization.js';
 import { checkInService, type AdministrationTransaction } from '../../administration/checkins.js';
 import { assertActiveCheckoutCustomer } from '../customer-access.js';
-import { offlineCashReceipts } from '../offline-cash/schema.js';
 import { checkoutStateSchema, type CheckoutState } from '../contracts.js';
 import { checkoutSessions, customerLeases } from '../schema.js';
 import type { CustomerVerificationClient } from '../customer-verification.js';
@@ -78,7 +77,6 @@ export function orderCopyRepository(
   async function activeState(
     tx: AdministrationTransaction,
     state: CheckoutState,
-    readOnly = false,
   ): Promise<CheckoutState & { customerId: string }> {
     if (
       !state.customerId ||
@@ -88,25 +86,6 @@ export function orderCopyRepository(
     )
       throw changed();
     await assertActiveCheckoutCustomer(tx, state.customerId);
-    if (!readOnly && state.draftId) {
-      const [cash] = await tx
-        .select({ id: offlineCashReceipts.id })
-        .from(offlineCashReceipts)
-        .where(
-          and(
-            eq(offlineCashReceipts.operatorId, state.operatorId),
-            eq(offlineCashReceipts.draftId, state.draftId),
-          ),
-        )
-        .limit(1)
-        .for('share');
-      if (cash)
-        throw new AppError(
-          409,
-          'ORDER_COPY_OFFLINE_CASH_COLLECTED',
-          'Cash was already received for this saved sale. Keep the receipt for reconciliation.',
-        );
-    }
     const [lease] = await tx
       .select()
       .from(customerLeases)
@@ -127,11 +106,8 @@ export function orderCopyRepository(
       tx: AdministrationTransaction,
       state: CheckoutState & { customerId: string },
     ) => Promise<T>,
-    readOnly = false,
   ): Promise<T> {
-    return ownerScope(user, scope, async (tx, state) =>
-      action(tx, await activeState(tx, state, readOnly)),
-    );
+    return ownerScope(user, scope, async (tx, state) => action(tx, await activeState(tx, state)));
   }
   async function source(
     tx: AdministrationTransaction,

@@ -43,8 +43,6 @@ import { assertOrderRefundAllocations } from './refund-allocation.js';
 import { phoneOtpDelivery } from '../../auth/delivery.js';
 import { customerRegistrationService, registrationEnvironment } from './customers/service.js';
 import { registrationDetailsSchema, type CustomerRegistrations } from './customers/contracts.js';
-import { registerOfflineCash } from './offline-cash/routes.js';
-import type { OfflineCashServiceOptions } from './offline-cash/service.js';
 import { registerWalletAdjustments } from './benefit-adjustments/routes.js';
 import { settlementMessageSchema } from './settlement-note.js';
 import {
@@ -86,7 +84,6 @@ export interface CheckoutRegistrationOptions {
   stockProcedure?: StockProcedure;
   discounts?: DiscountApprovals;
   registrations?: CustomerRegistrations;
-  offlineCash?: OfflineCashServiceOptions;
   customerOtp?: CustomerVerificationClient;
   pendingCancellations?: PendingCancellationOptions;
 }
@@ -736,9 +733,5 @@ export function registerCheckout(
     customerOtp,
   });
   registerWalletAdjustments(app, config, db);
-  registerOfflineCash(app, config, db, {
-    stockProcedure: overrides.stockProcedure,
-    ...overrides.offlineCash,
-  });
   return service;
 }

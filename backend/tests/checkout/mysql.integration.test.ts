@@ -278,9 +278,6 @@ describe.skipIf(!template)('checkout against isolated real MySQL', () => {
       '0007_exchange_stock_proof.sql',
       '0008_checkout_draft_binding.sql',
       '0009_checkout_projection_proof.sql',
-      '0011_offline_cash.sql',
-      '0012_offline_cash_receipt_identity.sql',
-      '0013_offline_cash_import_proof.sql',
       '0015_gift_card_issuance.sql',
       '0017_customer_consent_proof.sql',
     ])

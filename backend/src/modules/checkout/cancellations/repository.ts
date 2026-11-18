@@ -24,8 +24,7 @@ import { enqueueInventorySynchronization } from '../../administration/inventory.
 import { retryTransaction } from '../../../db/retry.js';
 import type { StockProcedure } from '../../administration/stock-procedure.js';
 import { operationHash } from '../crypto.js';
-import { offlineCashOrderLinks, offlineCashReceipts } from '../offline-cash/schema.js';
-import { cashRefundAudit } from '../offline-cash/source-ledger.js';
+import { cashRefundAudit } from '../refund-audit.js';
 import { readOrderPaymentEvidence } from '../payments/repository.js';
 import {
   assertCheckoutProjection,
@@ -213,14 +212,6 @@ export function pendingCancellationRepository(
       )
     )
       throw refused('ORDER_NOT_CANCELLABLE');
-    for (const table of [offlineCashOrderLinks, offlineCashReceipts]) {
-      const [cash] = await tx
-        .select({ id: table.orderId })
-        .from(table)
-        .where(eq(table.orderId, orderId))
-        .limit(1);
-      if (cash) throw refused('ORDER_ALREADY_SETTLED_OFFLINE');
-    }
     const payment = await readOrderPaymentEvidence(tx, orderId, options.hashSecret);
     if (
       payment.completed ||

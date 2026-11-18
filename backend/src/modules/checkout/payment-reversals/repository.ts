@@ -21,8 +21,7 @@ import { assertCurrentStoreAccess } from '../../administration/authorization.js'
 import { checkInService, type AdministrationTransaction } from '../../administration/checkins.js';
 import { operationHash } from '../crypto.js';
 import { pendingOrderCancellations } from '../cancellations/schema.js';
-import { offlineCashOrderLinks, offlineCashReceipts } from '../offline-cash/schema.js';
-import { cashRefundAudit } from '../offline-cash/source-ledger.js';
+import { cashRefundAudit } from '../refund-audit.js';
 import { readOrderPaymentEvidence } from '../payments/repository.js';
 import { paymentAttempts, paymentOutbox } from '../payments/schema.js';
 import {
@@ -186,14 +185,12 @@ export function paymentReversalRepository(
       order.courier !== 0n
     )
       throw refused('PAYMENT_REVERSAL_FULFILMENT_REVIEW_REQUIRED');
-    for (const table of [offlineCashOrderLinks, offlineCashReceipts, pendingOrderCancellations]) {
-      const [row] = await tx
-        .select({ orderId: table.orderId })
-        .from(table)
-        .where(eq(table.orderId, orderId))
-        .limit(1);
-      if (row) throw refused('PAYMENT_REVERSAL_IMMUTABLE_SALE_REVIEW_REQUIRED');
-    }
+    const [cancelled] = await tx
+      .select({ orderId: pendingOrderCancellations.orderId })
+      .from(pendingOrderCancellations)
+      .where(eq(pendingOrderCancellations.orderId, orderId))
+      .limit(1);
+    if (cancelled) throw refused('PAYMENT_REVERSAL_IMMUTABLE_SALE_REVIEW_REQUIRED');
     const [returned] = await tx
       .select({ id: ReturnOrder.id })
       .from(ReturnOrder)

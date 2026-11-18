@@ -18,7 +18,6 @@ export interface Rollup {
   district_total: number;
   cash_total: number;
   total_online: number;
-  pending_offline_orders?: number;
   payment_correction_cash_out?: number;
 }
 type Metric = number | string | null;
@@ -101,11 +100,6 @@ export function mergeDailyRows(store: Rollup[], online: Rollup[], aux: ReportAux
               numeric(s.cash_total) - numeric(s.payment_correction_cash_out),
             ),
           }),
-      ...((s?.pending_offline_orders ?? o?.pending_offline_orders) === undefined
-        ? {}
-        : {
-            pending_offline_orders: integer(s?.pending_offline_orders ?? o?.pending_offline_orders),
-          }),
     };
   });
 }
@@ -149,11 +143,6 @@ export function dailyTotals(rows: DailyRow[]): DailyRow {
       Number(totals.cash || 0) - Number(totals.payment_correction_cash_out),
     );
   }
-  if (rows.some((row) => row.pending_offline_orders !== undefined))
-    totals.pending_offline_orders = rows.reduce(
-      (sum, row) => sum + integer(row.pending_offline_orders),
-      0,
-    );
   const n = (key: string) => Number(totals[key] || 0);
   const revenue = n('total_revenue'),
     orders = n('total_orders'),
