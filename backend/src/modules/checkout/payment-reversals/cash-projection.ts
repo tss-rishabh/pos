@@ -13,11 +13,7 @@ import {
   managedOrderHash,
   originalPaymentHash,
   verifiedReversal,
-  reversalCashActor,
-  reversalCashTime,
 } from './evidence.js';
-import { financialScopeHash } from './intent-evidence.js';
-import { cashReturnFinancialScopes } from './intent-guards.js';
 
 type Reader = Pick<ReturnType<Databases['get']>, 'select'>;
 const scopeSchema = z
@@ -43,19 +39,8 @@ export async function readPaymentCorrectionCash(
 ): Promise<{ rows: PaymentCorrectionCashDetails[]; managedOrderIds: string[] }> {
   const scope = scopeSchema.parse(raw);
   if (scope.from > scope.to) throw correctionReview();
-  const financialScopes = await cashReturnFinancialScopes(
-    db,
-    scope.storeIds,
-    scope.from,
-    scope.to,
-    secret,
-  );
   const candidates = await db
-    .select({
-      orderId: paymentCorrectionOrders.orderId,
-      storeId: paymentCorrectionOrders.storeId,
-      date: paymentCorrectionOrders.orderDate,
-    })
+    .select({ orderId: paymentCorrectionOrders.orderId })
     .from(paymentCorrectionOrders)
     .where(
       and(
@@ -67,12 +52,7 @@ export async function readPaymentCorrectionCash(
     .orderBy(asc(paymentCorrectionOrders.orderId))
     .limit(1001);
   const movementCandidates = await db
-    .select({
-      recordId: paymentCorrectionCash.id,
-      orderId: paymentCorrectionCash.orderId,
-      storeId: paymentCorrectionCash.storeId,
-      date: paymentCorrectionCash.businessDate,
-    })
+    .select({ orderId: paymentCorrectionCash.orderId })
     .from(paymentCorrectionCash)
     .where(
       and(
@@ -81,30 +61,9 @@ export async function readPaymentCorrectionCash(
         lte(paymentCorrectionCash.businessDate, scope.to),
       ),
     )
+    .groupBy(paymentCorrectionCash.orderId)
     .orderBy(asc(paymentCorrectionCash.orderId))
-    .limit(10001);
-  if (candidates.length > 1000 || movementCandidates.length > 10000) throw correctionReview();
-  const actual = new Map<string, { storeId: string; date: string; ids: Set<string> }>();
-  for (const row of [
-    ...candidates.map((row) => ({ ...row, key: 'order:' + row.orderId })),
-    ...movementCandidates.map((row) => ({ ...row, key: 'cash:' + row.recordId })),
-  ]) {
-    const key = row.storeId + '\0' + row.date,
-      group = actual.get(key) || { storeId: row.storeId, date: row.date, ids: new Set<string>() };
-    group.ids.add(row.key);
-    actual.set(key, group);
-  }
-  for (const key of new Set([...actual.keys(), ...financialScopes.keys()])) {
-    const found = actual.get(key),
-      expected = financialScopes.get(key);
-    if (
-      !expected ||
-      expected.count !== (found?.ids.size ?? 0) ||
-      expected.hash !==
-        financialScopeHash(expected.storeId, expected.date, [...(found?.ids || [])], secret)
-    )
-      throw correctionReview();
-  }
+    .limit(1001);
   const ids = [...new Set([...candidates, ...movementCandidates].map((row) => row.orderId))];
   if (ids.length > 1000) throw correctionReview();
   if (!ids.length) return { rows: [], managedOrderIds: [] };
@@ -286,8 +245,8 @@ export async function readPaymentCorrectionCash(
         !receipt ||
         !original ||
         receipt.orderId !== row.orderId ||
-        reversalCashActor(receipt) !== row.operatorId ||
-        reversalCashTime(receipt) !== row.recordedAt ||
+        receipt.operatorId !== row.operatorId ||
+        receipt.recordedAt !== row.recordedAt ||
         receipt.originalPaymentHash !== originalPaymentHash(original, secret) ||
         minorUnits(receipt.returnedCash) !== minorUnits(row.amount)
       )

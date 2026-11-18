@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from 'vitest';
-import { eq, sql } from 'drizzle-orm';
 import Fastify from 'fastify';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
-import { Store, Order } from '../../src/db/legacy-schema.js';
 import { returnRepository } from '../../src/modules/checkout/return-workflow/repository.js';
 import {
   returnOperationSchema,
@@ -18,10 +16,6 @@ import {
   returnRepairObligations,
   returnRepairRecoveries,
 } from '../../src/modules/legacy-order-status/repair-schema.js';
-import {
-  assertNoActiveWholeOrderHandover,
-  type AssertHandoverAvailable,
-} from '../../src/modules/legacy-order-status/handover.js';
 import { wholeStatusFixture } from './mysql-fixture.js';
 import { acceptInbound } from '../../src/modules/checkout/return-workflow/service.js';
 import { CheckoutGatewayError } from '../../src/modules/checkout/gateway.js';
@@ -52,22 +46,16 @@ describe.skipIf(!template)('original failed-return producer and durable repair d
     operation: ReturnOperation,
     service: ReturnType<typeof wholeOrderStatusService>,
     transport: WholeOrderStatusTransport,
-    calls: StatusCommand[],
-    fenced: boolean,
-    barrier: AssertHandoverAvailable;
+    calls: StatusCommand[];
   beforeAll(async () => {
     native = await wholeStatusFixture(template!);
     await native.fixture.create(['reverse_pickup_reason']);
-    await native.connection.query(
-      'CREATE TABLE synthetic_pending_handover(order_id VARCHAR(32) PRIMARY KEY)',
-    );
   });
   afterAll(async () => {
     await native?.close();
   });
   beforeEach(async () => {
     await native.reset();
-    fenced = false;
     calls = [];
     await native.fixture.insert('reverse_pickup_reason', {
       id: '1',
@@ -179,18 +167,6 @@ describe.skipIf(!template)('original failed-return producer and durable repair d
       createdAt: operation.createdAt,
       updatedAt: operation.updatedAt,
     });
-    barrier = async (tx, ids) => {
-      if (fenced)
-        throw new AppError(409, 'SYNTHETIC_HANDOVER_HELD', 'A current handover barrier is armed.');
-      const [result] = await tx.execute(
-        sql`SELECT order_id FROM synthetic_pending_handover WHERE order_id IN (${sql.join(
-          ids.map((id) => sql`${id}`),
-          sql`,`,
-        )}) FOR SHARE`,
-      );
-      if (Array.isArray(result) && result.length)
-        throw new AppError(409, 'SYNTHETIC_HANDOVER_HELD', 'A current handover barrier is armed.');
-    };
     transport = {
       configured() {},
       async send(row) {
@@ -205,7 +181,7 @@ describe.skipIf(!template)('original failed-return producer and durable repair d
       native.config,
       native.db,
       { ...options, WHOLE_ORDER_STATUS_WORKER_ENABLED: true },
-      { transport, assertHandoverAvailable: barrier },
+      { transport },
     );
   });
   function returns(enabled = true) {
@@ -261,7 +237,7 @@ describe.skipIf(!template)('original failed-return producer and durable repair d
       'RETURN_INBOUND_REJECTED',
     );
   }, 20000);
-  it.each(['unsupported-store', 'handover-held', 'revoked-operator'] as const)(
+  it.each(['unsupported-store', 'revoked-operator'] as const)(
     'records a blocked %s repair without rolling back or replacing rejection',
     async (mode) => {
       const original = await fail();
@@ -272,7 +248,6 @@ describe.skipIf(!template)('original failed-return producer and durable repair d
           store_id: '2',
           counter_id: '2',
         });
-      if (mode === 'handover-held') fenced = true;
       if (mode === 'revoked-operator')
         await native.connection.query('UPDATE pos_user SET is_active=0 WHERE id=1');
       expect(await service.repairs.runOnce()).toMatchObject({ state: 'BLOCKED' });
@@ -339,42 +314,6 @@ describe.skipIf(!template)('original failed-return producer and durable repair d
     await service.worker.runOnce();
     expect(calls).toHaveLength(1);
     expect(await native.db.get('writer').select().from(wholeOrderStatusCommands)).toHaveLength(1);
-  });
-  it('fails closed without a mutation barrier and preserves a pending-intent/whole-order race under Store→Order locks', async () => {
-    const missing = wholeOrderStatusService(native.config, native.db, options, { transport });
-    const scope = (await service.status(actor, '1', snapshot.orderId)).scopeHash;
-    await expect(
-      missing.submit(actor, '1', snapshot.orderId, {
-        operationId: randomUUID(),
-        platform: 'PACK',
-        scopeHash: scope,
-      }),
-    ).rejects.toMatchObject({ code: 'WHOLE_ORDER_HANDOVER_FENCE_REQUIRED' });
-    const commandId = randomUUID(),
-      prepare = () =>
-        native.db.get('writer').transaction(async (tx) => {
-          await tx.select({ id: Store.id }).from(Store).where(eq(Store.id, 1n)).for('update');
-          await tx
-            .select({ id: Order.id })
-            .from(Order)
-            .where(eq(Order.id, BigInt(snapshot.orderId)))
-            .for('update');
-          await assertNoActiveWholeOrderHandover(tx, [snapshot.orderId]);
-          await tx.execute(
-            sql`INSERT INTO synthetic_pending_handover(order_id) VALUES(${snapshot.orderId})`,
-          );
-        });
-    const result = await Promise.allSettled([
-      service.submit(actor, '1', snapshot.orderId, {
-        operationId: commandId,
-        platform: 'PACK',
-        scopeHash: scope,
-      }),
-      prepare(),
-    ]);
-    expect(result.filter((row) => row.status === 'fulfilled')).toHaveLength(1);
-    await service.worker.runOnce();
-    expect(calls.length).toBeLessThanOrEqual(1);
   });
   it('serves scoped manager status/recovery over HTTP and rejects stale or foreign scope before requeue', async () => {
     await fail(false);
@@ -499,20 +438,4 @@ describe.skipIf(!template)('original failed-return producer and durable repair d
       expect(calls).toHaveLength(0);
     },
   );
-  it('does not let a mutated terminal command flag hide an unproved handover', async () => {
-    const scopeHash = (await service.status(actor, '1', snapshot.orderId)).scopeHash;
-    await service.submit(actor, '1', snapshot.orderId, {
-      operationId: randomUUID(),
-      platform: 'PACK',
-      scopeHash,
-    });
-    await native.connection.query(
-      "UPDATE pos_rewrite_whole_order_status_commands SET state='SUCCEEDED'",
-    );
-    await expect(
-      native.db
-        .get('writer')
-        .transaction((tx) => assertNoActiveWholeOrderHandover(tx, [snapshot.orderId])),
-    ).rejects.toMatchObject({ code: 'WHOLE_ORDER_HANDOVER_RECONCILIATION_REQUIRED' });
-  });
 });

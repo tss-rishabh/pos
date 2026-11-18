@@ -22,7 +22,6 @@ export function privateRuntimeEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.Process
     TSS_EVENTS_URL: 'https://events.synthetic.invalid',
     TSS_EVENTS_APP_ID: 'synthetic-app',
     TSS_EVENTS_APP_KEY: 'synthetic-events-key',
-    POS_PAYMENT_CORRECTION_PROOF_KEY_V1: 'synthetic-cash-return-proof-key-'.repeat(2),
     ...extra,
   };
 }

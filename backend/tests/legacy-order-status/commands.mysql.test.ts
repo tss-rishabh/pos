@@ -110,7 +110,6 @@ describe.skipIf(!template)('durable whole-order status commands on isolated nati
     };
     service = wholeOrderStatusService(native.config, native.db, options, {
       transport,
-      assertHandoverAvailable: async () => {},
     });
     scopeHash = (await service.status(actor, '1', snapshot.orderId)).scopeHash;
   });

@@ -8,7 +8,6 @@ import { createDatabases, type Databases } from '../../db/pools.js';
 import { AppError } from '../../domain/errors.js';
 import { registerEventCatalog, requestEvent } from '../../observability/events.js';
 import { registerRequestTrace } from '../../observability/context.js';
-import { orderMutationGuards } from '../checkout/order-mutation-guards.js';
 import { qualifiedStatusEndpoint, readWholeOrderStatusOptions } from './options.js';
 import { readStatusReceiverOptions, receiverEndpoints } from './receiver-options.js';
 import { authenticateStatusReceiver, type WholeOrderStatusReceiver } from './receiver.js';
@@ -53,7 +52,6 @@ function privateConfiguration(env: NodeJS.ProcessEnv) {
             .min(config.NODE_ENV === 'test' ? 0 : 1)
             .max(65535)
             .default(4422),
-          POS_PAYMENT_CORRECTION_PROOF_KEY_V1: z.string().min(32).max(4096),
         })
         .parse(env);
     receiverEndpoints(config, options, receiverOptions);
@@ -96,9 +94,6 @@ function privateConfiguration(env: NodeJS.ProcessEnv) {
       host: bind.WHOLE_ORDER_STATUS_RECEIVER_HOST,
       port: bind.WHOLE_ORDER_STATUS_RECEIVER_PORT,
       prefix: base.pathname.replace(/\/$/, ''),
-      keys: {
-        cashReturnProofKey: bind.POS_PAYMENT_CORRECTION_PROOF_KEY_V1,
-      },
     } as const;
   } catch {
     // Zod issues and URL/driver errors can contain raw environment values.
@@ -193,7 +188,7 @@ function privateHttp(
 
 export interface PrivateWholeOrderRuntimeDependencies {
   createDatabases?: (config: Config) => Databases;
-  /** Test/sandbox ports only; the financial barrier is always the real shared composition. */
+  /** Test/sandbox ports only. */
   fetcher?: typeof fetch;
   clock?: () => number;
   logger?: false;
@@ -266,7 +261,6 @@ export async function buildPrivateWholeOrderStatusRuntime(
           settings.options,
           settings.receiverOptions,
           {
-            assertHandoverAvailable: orderMutationGuards(settings.keys).assertHandoverAvailable,
             ...(dependencies.fetcher ? { fetcher: dependencies.fetcher } : {}),
             ...(dependencies.clock ? { clock: dependencies.clock } : {}),
           },

@@ -1,12 +1,6 @@
 import { z } from 'zod';
 import { identifier } from '../../../domain/validation.js';
 import { amountSchema } from '../contracts.js';
-import {
-  cashReturnIntentContract,
-  cashReturnReceiptEvidence,
-  cashReturnReason,
-  cashReturnPublicIntentSchema,
-} from './intent-contracts.js';
 
 export const paymentReversalContract = 'pos-payment-correction-v1';
 export const paymentCorrectionFinanceContract = 'pos-payment-correction-cash-ledger-v1';
@@ -14,8 +8,6 @@ const digest = z.string().regex(/^[a-f0-9]{64}$/);
 export const paymentReversalInputSchema = z
   .object({
     operationId: z.uuid(),
-    intentId: z.uuid().optional(),
-    claimId: z.uuid().optional(),
     originalPaymentId: z.uuid(),
     counterId: identifier,
     snapshotHash: digest,
@@ -23,10 +15,9 @@ export const paymentReversalInputSchema = z
     returnedCash: amountSchema,
     confirmCashReturned: z.literal(true),
     confirmNoHandover: z.literal(true),
-    reason: cashReturnReason,
+    reason: z.enum(['incorrect-payment-record', 'customer-payment-correction']),
   })
-  .strict()
-  .refine((value) => !(value.intentId && value.claimId), 'Use one bound return resource.');
+  .strict();
 export type PaymentReversalInput = z.infer<typeof paymentReversalInputSchema>;
 export const paymentReversalReceiptSchema = z
   .object({
@@ -46,7 +37,7 @@ export const paymentReversalReceiptSchema = z
     orderDate: z.iso.date(),
     returnedCash: amountSchema,
     cashReturnReceiptId: z.uuid(),
-    reason: cashReturnReason,
+    reason: paymentReversalInputSchema.shape.reason,
     recordedAt: z.string().regex(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/),
     businessDate: z.iso.date(),
     headerHash: digest,
@@ -67,8 +58,6 @@ export const paymentReversalReceiptSchema = z
     benefitsChanged: z.literal(false),
     providerRefunded: z.literal(false),
     goodsRetainedAtCounter: z.literal(true),
-    cashReturn: cashReturnReceiptEvidence.optional(),
-    recordedInstant: z.iso.datetime({ precision: 3 }).optional(),
   })
   .strict();
 export type PaymentReversalReceipt = z.infer<typeof paymentReversalReceiptSchema>;
@@ -83,7 +72,6 @@ export const paymentReversalContextSchema = z
     originalPaymentId: z.uuid().nullable(),
     returnedCash: amountSchema.nullable(),
     latest: paymentReversalReceiptSchema.nullable(),
-    activeIntent: cashReturnPublicIntentSchema.nullable().optional(),
   })
   .strict();
 export type PaymentReversalContext = z.infer<typeof paymentReversalContextSchema>;
@@ -91,7 +79,6 @@ export type PaymentReversalContext = z.infer<typeof paymentReversalContextSchema
 export interface PaymentReversalOptions {
   contract?: string;
   financeContract?: string;
-  intentContract?: string;
 }
 /** Blank settings leave the feature unavailable; a flag never certifies an external writer. */
 export function paymentReversalOptions(
@@ -103,12 +90,10 @@ export function paymentReversalOptions(
       POS_PAYMENT_CORRECTION_FINANCE_CONTRACT: z
         .literal(paymentCorrectionFinanceContract)
         .optional(),
-      POS_CASH_RETURN_INTENT_CONTRACT: z.literal(cashReturnIntentContract).optional(),
     })
     .parse(Object.fromEntries(Object.entries(env).filter(([, value]) => value !== '')));
   return {
     contract: parsed.POS_PAYMENT_REVERSAL_CONTRACT,
     financeContract: parsed.POS_PAYMENT_CORRECTION_FINANCE_CONTRACT,
-    intentContract: parsed.POS_CASH_RETURN_INTENT_CONTRACT,
   };
 }

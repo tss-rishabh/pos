@@ -16,9 +16,7 @@ The payment reader derives `status:'reversed',reversalId` only after checking th
 
 Re-payment is cash-only and uses a new attempt UUID/transaction reference. It reuses the already committed projection; it never calls order creation/confirmation, stock, wallet, membership activation or benefit restoration. A new incoming cash movement commits with the new paid state. Twenty identical contenders produce one incoming receipt. First-paid Kinesis/engagement jobs already confirmed delivered are never re-created; genuinely pending jobs superseded during correction can be published once by the later paid receipt. Unknown or rejected earlier delivery requires reconciliation. No source or payment provider is called by the correction itself.
 
-## Original correction resources and frontend integration
-
-The physical-return workflow below is superseded by the completed prepare/arm/attest/manager-queue protocol in [cash-return-intents.md](cash-return-intents.md). Existing receipt fields/HMACs remain readable; every new financial correction requires its exact durable intent or retained original claim. The three original resources now sit within fifteen traced correction/intent/claim resources. The old device-only retry description is historical evidence, not the current UI contract.
+## Routes and frontend integration
 
 `registerPaymentReversals(app,config,db,options)` exports three traced resources:
 
@@ -42,7 +40,7 @@ The delta reader removes the current source `OrderStore` cash baseline exactly o
 
 ## Explicit remaining reconciliation boundaries
 
-No provider refund/void is implemented or inferred. Split/card/other/prepaid, historical pre-proof funding, offline cash receipts, issued gift value, actual goods handover, ambiguous histories or external effects need qualified separate reconciliation. No fabricated legacy funding backfill is supplied. Cancelling a corrected-but-unpaid sale is also a separate reconciliation path: the existing pending-cancellation guard continues to reject its historical funded attempts instead of silently restoring benefits/stock. The concrete shared manager queue, retained old-device intake and financial fences are implemented in cash-return-intents.md; root must mount the queue once for the current store and compose its inverse handover/import guard. It never drops/replays the physical cash-out. Neither SQL proof nor manager attestation proves what physically happened at a drawer.
+No provider refund/void is implemented or inferred. Split/card/other/prepaid, historical pre-proof funding, offline cash receipts, issued gift value, actual goods handover, ambiguous histories or external effects need qualified separate reconciliation. No fabricated legacy funding backfill is supplied. Cancelling a corrected-but-unpaid sale is also a separate reconciliation path: the existing pending-cancellation guard continues to reject its historical funded attempts instead of silently restoring benefits/stock. Root must expose retained unknown cash-return intents in its manager operational process; this child keeps them and never drops/replays the physical cash-out. Neither SQL proof nor manager attestation proves what physically happened at a drawer.
 
 The original source method remains read-only. No sibling patch, deployment, tax-invoice cancellation or real charge/refund/message/order was performed. These gates mean this slice alone does not certify production readiness.
 

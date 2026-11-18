@@ -61,7 +61,6 @@ export const migrationPaths = [
   'src/modules/checkout-performance/migration.sql',
   'src/modules/checkout/order-messages/migration.sql',
   'src/modules/checkout/payment-reversals/migration.sql',
-  'src/modules/checkout/payment-reversals/intent-migration.sql',
   'compatibility/customer-contacts/migration.sql',
   'compatibility/upstream/ordinary/migration.sql',
   'src/modules/fulfillment/migration.sql',

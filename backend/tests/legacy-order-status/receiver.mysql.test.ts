@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { AppError } from '../../src/domain/errors.js';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
 import type { Principal } from '../../src/domain/access.js';
@@ -43,8 +42,7 @@ describe.skipIf(!template)('executable pinned STORE chain with native attempt fe
     reply: unknown,
     scopeHash: string,
     networkFailure: boolean,
-    failContact: boolean,
-    privateHeld: boolean;
+    failContact: boolean;
   beforeAll(async () => {
     native = await wholeStatusFixture(template!);
   });
@@ -60,7 +58,6 @@ describe.skipIf(!template)('executable pinned STORE chain with native attempt fe
     reply = { responseCode: 0, responseMessage: 'Success' };
     networkFailure = false;
     failContact = false;
-    privateHeld = false;
     await native.fixture.insert('pos_user', {
       id: '1',
       username: 'synthetic',
@@ -141,10 +138,6 @@ describe.skipIf(!template)('executable pinned STORE chain with native attempt fe
     });
     receiver = wholeOrderStatusReceiver(native.config, native.db, options, receiverOptions, {
       clock: () => now,
-      assertHandoverAvailable: async () => {
-        if (privateHeld)
-          throw new AppError(409, 'SYNTHETIC_PRIVATE_HELD', 'A private dispatch handover is held.');
-      },
       event: (value) => events.push(value),
       fetcher: async (input, init) => {
         const url = String(input);
@@ -187,7 +180,6 @@ describe.skipIf(!template)('executable pinned STORE chain with native attempt fe
     });
     service = wholeOrderStatusService(native.config, native.db, options, {
       clock: () => now,
-      assertHandoverAvailable: async () => {},
       transport,
     });
     scopeHash = (await service.status(actor, '1', snapshot.orderId)).scopeHash;
@@ -547,13 +539,5 @@ describe.skipIf(!template)('executable pinned STORE chain with native attempt fe
     );
     expect(JSON.stringify(rows)).not.toMatch(/synthetic@example|Bearer|SYNTHETIC_PRIVATE/);
     expect(JSON.stringify(events)).not.toMatch(/synthetic@example|Bearer|SYNTHETIC_PRIVATE/);
-  });
-  it('rechecks the composed barrier before each private vendor stage and never sends under an armed hold', async () => {
-    await accepted();
-    privateHeld = true;
-    now += 300000;
-    expect(await receiver.runOnce()).toMatchObject({ state: 'unknown' });
-    expect(requests).toHaveLength(0);
-    expect((await service.read(actor, '1', snapshot.orderId, operationId)).state).toBe('UNCERTAIN');
   });
 });

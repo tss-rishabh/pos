@@ -65,7 +65,6 @@ describe('private whole-order receiver process composition', () => {
     expect(dependencies.fetcher).not.toHaveBeenCalled();
   });
   it.each([
-    { POS_PAYMENT_CORRECTION_PROOF_KEY_V1: undefined },
     { WHOLE_ORDER_STATUS_CONTRACT: undefined },
     { WHOLE_ORDER_STATUS_RECEIPT_KEY: undefined },
     { WHOLE_ORDER_STATUS_VENDOR_API_KEY: undefined },
@@ -380,7 +379,6 @@ describe('private whole-order receiver process composition', () => {
       expect(stderr).toBe('');
       expect(stdout).toContain('whole-order-status.private-receiver-runtime.stopped');
       expect(stdout).not.toContain(options.BACKEND_SYNC_REPO_API_KEY!);
-      expect(stdout).not.toContain(privateRuntimeEnv().POS_PAYMENT_CORRECTION_PROOF_KEY_V1!);
       await expect(fetch(address + '/health/live')).rejects.toThrow();
     } finally {
       child.kill('SIGTERM');

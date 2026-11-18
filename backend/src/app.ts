@@ -65,7 +65,6 @@ import {
 } from './modules/administration/slack-provider.js';
 import { registerCheckout } from './modules/checkout/index.js';
 import { registerOfflineSync } from './modules/offline-sync/index.js';
-import { orderMutationGuards } from './modules/checkout/order-mutation-guards.js';
 import {
   readWholeOrderStatusOptions,
   registerWholeOrderStatus,
@@ -364,9 +363,6 @@ export async function buildApp(
     historyOptions: readParentStoreImportOptions(),
   });
   const wholeOrderOptions = readWholeOrderStatusOptions(config.DEMO_MODE ? {} : process.env);
-  const financialGuards = orderMutationGuards({
-    cashReturnProofKey: paymentCorrections.proofKey ?? '',
-  });
   const checkout = await registerCheckout(app, config, db, {
     environment: checkoutRuntime,
     paymentCorrections: paymentCorrectionEvidence(paymentCorrections.proofKey ?? ''),
@@ -383,16 +379,13 @@ export async function buildApp(
     ...paymentReversalOptions(),
     hashSecret: paymentCorrections.proofKey ?? '',
     projection: checkoutRuntime,
-    assertHandoverReady: financialGuards.assertCashReturnHandoverReady,
   });
   await registerGlobalVouchers(app, config, db, readGlobalVoucherOptions(), { customerOtp });
   registerCustomerWebsiteHandoff(app, config, db, customerOtp);
   await registerFulfillment(app, config, db);
   registerShippingLabels(app, db);
   registerLegacyFulfillment(app, config, db);
-  await registerWholeOrderStatus(app, config, db, wholeOrderOptions, {
-    assertHandoverAvailable: financialGuards.assertHandoverAvailable,
-  });
+  await registerWholeOrderStatus(app, config, db, wholeOrderOptions);
   registerCustomerWorkspace(app, config, db);
   registerCustomerHistory(app, config, db);
   registerProductFeedback(app, config, db);

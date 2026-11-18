@@ -54,14 +54,12 @@ export interface StatusWorkerEvent {
   userId: string;
   state: string;
 }
-import { requireHandoverBarrier, type AssertHandoverAvailable } from './handover.js';
 export function wholeOrderStatusReceiver(
   config: Config,
   db: Databases,
   options: WholeOrderStatusOptions,
   receiver: StatusReceiverOptions = readStatusReceiverOptions(),
   dependencies: {
-    assertHandoverAvailable?: AssertHandoverAvailable;
     fetcher?: typeof fetch;
     clock?: () => number;
     event?: (event: StatusWorkerEvent) => void;
@@ -69,12 +67,7 @@ export function wholeOrderStatusReceiver(
 ) {
   const clock = dependencies.clock ?? Date.now,
     fetcher = dependencies.fetcher ?? fetch,
-    repository = wholeOrderStatusRepository(
-      config,
-      db,
-      clock,
-      dependencies.assertHandoverAvailable,
-    ),
+    repository = wholeOrderStatusRepository(config, db, clock),
     writer = () => db.get('writer');
   const delays = {
     PACK: receiver.SQS_STORE_ORDER_PACK_INITIAL_DELAY_SECONDS,
@@ -201,7 +194,6 @@ export function wholeOrderStatusReceiver(
     );
   }
   async function accept(proof: StatusReceiverProof, raw: unknown) {
-    requireHandoverBarrier(dependencies.assertHandoverAvailable);
     receiverEndpoints(config, options, receiver);
     const body = receiverBody.parse(raw),
       row = await command(proof);
@@ -604,7 +596,6 @@ export function wholeOrderStatusReceiver(
     }
   }
   async function runOnce() {
-    requireHandoverBarrier(dependencies.assertHandoverAvailable);
     receiverEndpoints(config, options, receiver);
     await continueSucceeded();
     const selected = await retryTransaction(() =>
@@ -670,7 +661,6 @@ export function wholeOrderStatusReceiver(
   }
   return {
     ready: () => {
-      requireHandoverBarrier(dependencies.assertHandoverAvailable);
       receiverEndpoints(config, options, receiver);
     },
     accept,
