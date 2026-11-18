@@ -47,7 +47,7 @@ export const barcodeReceipt = z
     if (
       succeeded !== (value.code === 'ASSIGNED') ||
       succeeded !== (value.barcodeRowId !== null) ||
-      succeeded !== (value.auditId !== null)
+      (!succeeded && value.auditId !== null)
     )
       context.addIssue({ code: 'custom', message: 'Barcode receipt evidence is inconsistent.' });
   });

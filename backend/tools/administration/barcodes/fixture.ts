@@ -82,10 +82,7 @@ export async function barcodeFixture(connection: string) {
             .join(',')})`,
         );
     }
-    for (const migration of [
-      'src/modules/catalog-details/maintenance-migration.sql',
-      'src/modules/administration/barcodes/migration.sql',
-    ])
+    for (const migration of ['src/modules/catalog-details/maintenance-migration.sql'])
       for (const statement of readFileSync(migration, 'utf8')
         .split(';')
         .filter((value) => value.trim()))
@@ -114,7 +111,6 @@ export async function barcodeFixture(connection: string) {
           'pos_rewrite_catalog_deliveries',
           'pos_rewrite_catalog_commands',
           ...tables,
-          'pos_rewrite_barcode_assignments',
           'pos_rewrite_catalog_locks',
         ])
           await admin.query('DELETE FROM ' + mysql.escapeId(table));

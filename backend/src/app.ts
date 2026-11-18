@@ -353,7 +353,7 @@ export async function buildApp(
       customerOtpOptions,
       createCustomerOtpDelivery(config, customerOtpOptions),
     );
-  registerBarcodeAssignments(app, config, db);
+  registerBarcodeAssignments(app, config, db, moduleRuntime.ephemeral);
   registerOperatorModelAccounts(app, config, db);
   registerSecondaryCountrySearch(app, db);
   registerParentStoreImports(app, config, db, {
