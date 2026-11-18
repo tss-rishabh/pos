@@ -18,6 +18,7 @@ from sqlalchemy import text
 
 BACKEND=Path(__file__).resolve().parents[2]
 sys.path.insert(0,str(BACKEND/'tools/source-runtime-acceptance'))
+sys.path.insert(0,str(BACKEND/'compatibility/upstream/public-screening-writer'))
 sys.path.insert(0,str(BACKEND/'compatibility/upstream/legacy-order-imports/benefit-profile'))
 from pipeline_native_driver import run
 from benefit_runtime import SourceBenefits,ACTIVE,dispatcher

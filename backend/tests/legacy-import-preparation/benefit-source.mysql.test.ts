@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { eq, sql } from 'drizzle-orm';
+import type { RowDataPacket } from 'mysql2/promise';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { splitMigration } from '../../src/db/migrations.js';
@@ -15,10 +16,6 @@ import { financialSourceHash } from '../../src/modules/legacy-order-imports/fina
 import { readSourceOrderReceipt } from '../../src/modules/legacy-order-imports/financial-adapter-proof.js';
 import { sourceOrderPreparation } from '../../src/modules/legacy-order-imports/source-order-preparation.js';
 import { readSourceOrderPreparationOptions } from '../../src/modules/legacy-order-imports/source-order-preparation-options.js';
-import {
-  couponHistoryWriterDefinitions,
-  couponHistoryWritersReviewSql,
-} from '../../src/modules/legacy-order-imports/benefit-profile/history-writers.js';
 import { couponHistoryControlHeadHash } from '../../src/modules/legacy-order-imports/benefit-profile/bridge.js';
 import {
   couponHistoryHash,
@@ -66,31 +63,46 @@ describe.skipIf(!template)(
       'order_freebie_triggers',
     ];
     beforeAll(async () => {
-      f = await publicScreeningFixture(template!);
-      extra = verifiedMysqlFixture(f.connection, [
-        'evidence/mysql-import-benefit-profile-schema.json',
-        'evidence/mysql-global-benefits-schema.json',
-        'evidence/mysql-customer-contact-schema.json',
-        'evidence/mysql-import-coupon-country-schema.json',
-      ]);
-      await extra.create(tables);
-      for (const file of [
-        'src/modules/legacy-order-imports/preparation-migration.sql',
-        folder + '/migration.sql',
-        'migrations/0002_auth_sessions.sql',
-        'src/modules/legacy-order-imports/correction-migration.sql',
-        'src/modules/legacy-order-imports/correction-command-migration.sql',
-      ])
-        for (const statement of splitMigration(readFileSync(file, 'utf8')))
-          await f.connection.query(statement);
-      for (const statement of splitMigration(
-        couponHistoryWritersReviewSql().split('DELIMITER $$')[0]!,
-      ))
-        await f.connection.query(statement);
-      for (const row of couponHistoryWriterDefinitions)
-        await f.connection.query(
-          `CREATE TRIGGER ${row.name} AFTER ${row.event} ON ${row.table} FOR EACH ROW ${row.statement}`,
-        );
+      f = await publicScreeningFixture(template!, {
+        nativeHeadFamilies: ['counter', 'coupon'],
+        privateImport: true,
+        additionalApplicationTables: [
+          'pos_rewrite_legacy_order_imports',
+          'coupons_users',
+          'order_coupon_log',
+          'order_freebies',
+          'order_freebie_triggers',
+          'pos_rewrite_import_birthday_guards',
+          'pos_rewrite_import_birthday_claims',
+          'pos_rewrite_import_corrections',
+          'pos_rewrite_import_correction_commands',
+        ],
+        beforeNativeHeads: async (connection) => {
+          extra = verifiedMysqlFixture(connection, [
+            'evidence/mysql-import-benefit-profile-schema.json',
+            'evidence/mysql-global-benefits-schema.json',
+            'evidence/mysql-customer-contact-schema.json',
+            'evidence/mysql-import-coupon-country-schema.json',
+          ]);
+          await extra.create(tables);
+          const [couponColumns] = await connection.query<RowDataPacket[]>(
+            "SELECT COLUMN_NAME name,COLLATION_NAME collation FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='coupons' AND COLUMN_NAME IN ('voucher_code','coupon_lot_no') ORDER BY COLUMN_NAME",
+          );
+          expect(couponColumns).toEqual([
+            { name: 'coupon_lot_no', collation: 'latin1_swedish_ci' },
+            { name: 'voucher_code', collation: 'latin1_swedish_ci' },
+          ]);
+          for (const file of [
+            'src/modules/legacy-order-imports/preparation-migration.sql',
+            folder + '/migration.sql',
+            'migrations/0002_auth_sessions.sql',
+            'src/modules/legacy-order-imports/correction-migration.sql',
+            'src/modules/legacy-order-imports/correction-command-migration.sql',
+          ])
+            for (const statement of splitMigration(readFileSync(file, 'utf8')))
+              await connection.query(statement);
+        },
+      });
       await f.connection.query(
         "ALTER TABLE has_products MODIFY type ENUM('REGULAR','JIT','PRE_ORDER','MTO','FREEBIE') NULL DEFAULT NULL",
       );

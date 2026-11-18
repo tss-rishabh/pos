@@ -18,6 +18,9 @@ def coupon_history_statement(statement):
     # historical row and is the exact audited capture statement, not a SELECT
     # prefix exemption that could become a data fallback.
     if re.fullmatch(r'select id from (?:orders|order_coupon_log) limit 0',sql):return False
+    # Full native-head qualification also pins the same physical tables using
+    # this exact no-row probe; no changed predicate or appended query qualifies.
+    if re.fullmatch(r'SELECT 1 FROM `(?:orders|order_coupon_log)` WHERE FALSE',str(statement).strip()):return False
     tables=set(re.findall(r'\b(?:from|join)\s+(?:`?[a-z0-9_]+`?\.)?`?(orders|order_coupon_log)`?\b',sql))
     return 'order_coupon_log' in tables or 'orders' in tables and re.search(r'\bcoupon_used\b',sql) is not None
 

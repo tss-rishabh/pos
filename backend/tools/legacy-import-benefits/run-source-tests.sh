@@ -7,6 +7,9 @@ if [ -z "${POS_LEGACY_IMPORT_SOURCE_ROOT:-}" ] || [ ! -d "$POS_LEGACY_IMPORT_SOU
   printf '%s\n' 'An explicit pinned legacy source fixture is required.' >&2
   exit 1
 fi
+PYTHONPATH="$source_benefits_backend/compatibility/upstream/legacy-order-imports:$source_benefits_backend/compatibility/upstream/screening-origins${PYTHONPATH:+:$PYTHONPATH}" \
+  compatibility/upstream/offline-cash-pricing/.venv/bin/python -B \
+  compatibility/upstream/legacy-order-imports/test_order_preparation_metadata.py
 source_benefits_container="pos-source-benefits-$$"
 source_benefits_cleanup() {
   docker rm -f "$source_benefits_container" >/dev/null 2>&1 || true
@@ -22,7 +25,9 @@ source_benefits_ready=false
 source_benefits_attempt=0
 while [ "$source_benefits_attempt" -lt 60 ]; do
   source_benefits_attempt=$((source_benefits_attempt + 1))
-  source_benefits_zone=$(docker exec "$source_benefits_container" mysql -uroot --batch --skip-column-names \
+  # The initialization-only socket server can already have timezone data but
+  # restarts before accepting host connections. Require the final TCP server.
+  source_benefits_zone=$(docker exec "$source_benefits_container" mysql --protocol=tcp -h127.0.0.1 -uroot --batch --skip-column-names \
     -e "SELECT CONVERT_TZ('2026-06-15 12:00:00','UTC','Asia/Kolkata')" 2>/dev/null || true)
   if [ "$source_benefits_zone" = '2026-06-15 17:30:00' ]; then
     source_benefits_ready=true

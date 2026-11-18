@@ -43,6 +43,8 @@ export async function publicScreeningFixture(
   template: string,
   options: {
     nativeHeads?: boolean;
+    nativeHeadFamilies?: readonly ('counter' | 'membership' | 'coupon')[];
+    beforeNativeHeads?: (connection: mysql.Connection) => Promise<void>;
     additionalApplicationTables?: readonly string[];
     privateImport?: boolean;
   } = {},
@@ -115,10 +117,13 @@ export async function publicScreeningFixture(
     options.additionalApplicationTables?.some((name) => !/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(name))
   )
     throw new Error('Explicit fixture table identifiers required');
+  await options.beforeNativeHeads?.(f.connection);
   const heads =
     options.nativeHeads === false
       ? null
-      : await installNativeHeadFixture(f.connection, template, { families: ['counter'] });
+      : await installNativeHeadFixture(f.connection, template, {
+          families: options.nativeHeadFamilies ?? ['counter'],
+        });
   const counterPublicationKey = 'public-native-fixture-independent-publication-'.repeat(2);
   const nativeEnvironment = heads
     ? {

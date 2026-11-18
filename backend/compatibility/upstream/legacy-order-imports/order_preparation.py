@@ -107,12 +107,34 @@ def lock_preparation(session,cap,now):
     return state
 
 
+# Closed metadata probes used by the full native-head qualifier. These expose
+# physical definitions/privileges, never historical business rows or a write.
+_METADATA_TABLES = (
+    'orders', 'users', 'has_products', 'order_coupon_log', 'coupons',
+    'spiderman_screening_orders',
+    'pos_rewrite_screening_origin_history_heads',
+    'pos_rewrite_screening_origin_history_changes',
+    'pos_rewrite_membership_history_heads', 'pos_rewrite_coupon_history_heads',
+    'pos_rewrite_screening_counter_heads', 'pos_rewrite_screening_counters',
+    'pos_rewrite_screening_contributions',
+)
+_METADATA_TABLE = '(?:' + '|'.join(re.escape(name) for name in _METADATA_TABLES) + ')'
+_METADATA_TARGET = '(?:`' + _METADATA_TABLE + r'`|`sys`\.`sys_config`)'
+
+
+def _preparation_metadata_statement(statement):
+    return (statement == 'SHOW GRANTS FOR CURRENT_USER()'
+            or re.fullmatch(r'SELECT 1 FROM ' + _METADATA_TARGET + r' WHERE FALSE', statement) is not None
+            or re.fullmatch(r'SHOW CREATE TABLE ' + _METADATA_TARGET, statement) is not None)
+
+
 @contextmanager
 def read_only_source(session):
     """Allow locking/current SELECTs, never a business write or native COMMIT."""
     connection=session.connection()
     def statement(_connection,_cursor,sql,_parameters,_context,_many):
         compact=re.sub(r'/\*.*?\*/',' ',sql,flags=re.S).strip()
+        if _preparation_metadata_statement(sql.strip()):return
         if not re.match(r'^SELECT\b',compact,re.I):
             VIOLATION.set(True)
             raise ImportReview('ORDER_IMPORT_PREPARATION_WRITE_BLOCKED')
