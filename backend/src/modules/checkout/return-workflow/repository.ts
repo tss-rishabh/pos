@@ -68,7 +68,12 @@ import {
   type InboundReturn,
   type ReturnWindowScope,
 } from './contracts.js';
-import { returnOperations, returnOutbox, returnVerifications } from './schema.js';
+import {
+  returnOperations,
+  returnOutbox,
+  returnVerifications,
+  exchangeRecoveryClaims,
+} from './schema.js';
 import { exchangeOrderLog } from './exchange-ledger.js';
 import { readRestorationGroup } from './legacy-restoration-native.js';
 import { exchangeStockConfirmations, exchangeStockContract } from './stock-proof.js';
@@ -1055,6 +1060,62 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           recoveryView(await recoverySnapshot(tx, user, storeId, orderId, lineId, input), storeId),
         );
     },
+    async exchangeRecoveryClaimStatus(
+      user: Principal,
+      storeId: string,
+      orderId: string,
+      lineId: string,
+      claimId: string,
+      input: ExchangeRecoveryScope,
+    ) {
+      return db.get('writer').transaction(async (tx) => {
+        const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
+        await verifiedCustomer(
+          tx,
+          user,
+          storeId,
+          orderId,
+          input.counterId,
+          input.verificationId,
+          String(scope.order.customerId),
+        );
+        const [receipt] = await tx
+          .select()
+          .from(exchangeRecoveryClaims)
+          .where(eq(exchangeRecoveryClaims.id, claimId))
+          .limit(1)
+          .for('share');
+        if (
+          !receipt ||
+          receipt.operatorId !== user.id ||
+          receipt.storeId !== storeId ||
+          receipt.orderId !== orderId ||
+          receipt.lineId !== lineId
+        )
+          return { status: 'not-recorded' as const };
+        const [row] = await tx
+          .select({ state: returnOperations.state })
+          .from(returnOperations)
+          .where(eq(returnOperations.id, receipt.operationId))
+          .limit(1)
+          .for('share');
+        const operation = row ? returnOperationSchema.parse(row.state) : null;
+        if (
+          !operation ||
+          operation.customerId !== String(scope.order.customerId) ||
+          operation.orderId !== orderId ||
+          operation.lineId !== lineId ||
+          operation.storeId !== storeId ||
+          operation.kind !== 'exchange'
+        )
+          throw new AppError(
+            409,
+            'EXCHANGE_RECOVERY_RECEIPT_CHANGED',
+            'The recorded recovery binding needs reconciliation.',
+          );
+        return { status: 'recorded' as const, operationId: receipt.operationId };
+      });
+    },
     async claimExchangeRecovery(
       user: Principal,
       storeId: string,
@@ -1071,6 +1132,53 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         );
         const snapshot = await recoverySnapshot(tx, user, storeId, orderId, lineId, proof);
         const { scope, log, credit, stockProof, groupProof } = snapshot;
+        const [priorReceipt] = await tx
+          .select()
+          .from(exchangeRecoveryClaims)
+          .where(eq(exchangeRecoveryClaims.id, input.operationId))
+          .limit(1)
+          .for('update');
+        if (priorReceipt) {
+          if (
+            priorReceipt.requestHash !== requestHash ||
+            priorReceipt.operatorId !== user.id ||
+            priorReceipt.storeId !== storeId ||
+            priorReceipt.orderId !== orderId ||
+            priorReceipt.lineId !== lineId ||
+            priorReceipt.counterId !== input.counterId ||
+            priorReceipt.verificationId !== input.verificationId
+          )
+            throw new AppError(
+              409,
+              'IDEMPOTENCY_CONFLICT',
+              'This recovery command has different original input. Read its original outcome.',
+            );
+          if (!snapshot.operation || snapshot.operation.id !== priorReceipt.operationId)
+            throw new AppError(
+              409,
+              'EXCHANGE_RECOVERY_RECEIPT_CHANGED',
+              'The recorded recovery operation needs reconciliation.',
+            );
+          return publicReturn(snapshot.operation);
+        }
+        const finishClaim = async (operation: ReturnOperation) => {
+          await tx
+            .insert(exchangeRecoveryClaims)
+            .values({
+              id: input.operationId,
+              operatorId: user.id,
+              storeId,
+              orderId,
+              lineId,
+              counterId: input.counterId,
+              verificationId: input.verificationId,
+              requestHash,
+              revision: input.expectedRevision,
+              operationId: operation.id,
+              recordedAt: timestamp(),
+            });
+          return publicReturn(operation);
+        };
         if (
           snapshot.operation?.recoveryClaim?.id === input.operationId &&
           snapshot.operation.recoveryClaim.revision === input.expectedRevision &&
@@ -1079,7 +1187,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           snapshot.operation.recoveryClaim.verificationId === input.verificationId &&
           snapshot.operation.recoveryClaim.requestHash === requestHash
         )
-          return publicReturn(snapshot.operation);
+          return finishClaim(snapshot.operation);
         if (snapshot.revision !== input.expectedRevision)
           throw new AppError(
             409,
@@ -1138,7 +1246,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
               },
             };
           } else await assertAdoptionEvidence(tx, operation);
-          return publicReturn(
+          return finishClaim(
             await save(tx, {
               ...operation,
               exchange,
@@ -1264,7 +1372,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           createdAt: operation.createdAt,
           updatedAt: date,
         });
-        return publicReturn(operation);
+        return finishClaim(operation);
       });
     },
     async extensionScope(

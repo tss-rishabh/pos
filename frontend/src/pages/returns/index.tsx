@@ -16,6 +16,7 @@ import { InvoiceActions } from '../checkout';
 import {
   canContinue,
   readExchangeRecovery,
+  readExchangeClaimStatus,
   readReturnEligibility,
   continueReverse,
   lineSchema,
@@ -83,6 +84,7 @@ export function ReturnsPage({
     [salespersonId, setSalesperson] = useState(''),
     [busy, setBusy] = useState(false),
     [problem, setProblem] = useState<unknown>(null),
+    [claimStatusMessage, setClaimStatusMessage] = useState(''),
     [automaticInvoice, setAutomaticInvoice] = useState<AutomaticInvoiceRequest | null>(null);
   const printedExchanges = useRef(new Set<string>());
   useEffect(() => setAutomaticInvoice(null), [user.id, storeId, counterId, recovery?.returnId]);
@@ -357,7 +359,23 @@ export function ReturnsPage({
   }
   async function startProof() {
     setOtp('');
-    const value = { orderId, verificationId: crypto.randomUUID(), returnId: null, kind: mode };
+    const retainedPending = recovery?.pendingRecoveryClaim;
+    const value = {
+      orderId,
+      verificationId: crypto.randomUUID(),
+      returnId: null,
+      kind: mode,
+      ...(retainedPending
+        ? {
+            pendingRecoveryClaim: {
+              ...retainedPending,
+              counterId: retainedPending.counterId || counterId,
+              verificationId:
+                retainedPending.verificationId || recovery.verificationId || undefined,
+            },
+          }
+        : {}),
+    };
     remember(value);
     try {
       const response = await post(
@@ -430,42 +448,54 @@ export function ReturnsPage({
       throw error;
     }
   }
+  async function checkOriginalClaim() {
+    const pending = recovery?.pendingRecoveryClaim;
+    if (!pending || !recovery?.verificationId || !verified) return;
+    const outcome = await readExchangeClaimStatus(
+      storeId,
+      recovery.orderId,
+      pending.lineId,
+      pending.operationId,
+      counterId,
+      recovery.verificationId,
+      user.id,
+    );
+    const { pendingRecoveryClaim: _pending, ...retained } = recovery;
+    remember(retained);
+    setClaimStatusMessage(
+      outcome.status === 'recorded'
+        ? 'The original recovery claim was recorded. Refresh the earlier exchange and explicitly claim it with current verification before continuing.'
+        : 'The original recovery claim is not recorded. Review the current earlier-exchange status before confirming another claim.',
+    );
+    await exchangeRecovery.refetch();
+  }
   async function claimRecovery() {
+    if (recovery?.pendingRecoveryClaim) return checkOriginalClaim();
     if (!recovery?.verificationId || !line || !exchangeRecovery.data) return;
-    const pending = recovery.pendingRecoveryClaim || {
+    const pending = {
       operationId: crypto.randomUUID(),
       revision: exchangeRecovery.data.revision,
       lineId: line.id,
+      counterId,
+      verificationId: recovery.verificationId,
       ...(salespersonId ? { salespersonId } : {}),
     };
-    if (pending.lineId !== line.id)
-      throw new Error('Read the original selected recovery line before continuing.');
     remember({ ...recovery, pendingRecoveryClaim: pending });
-    let value: ReturnReceipt;
-    try {
-      value = await post(
-        `${returnBase(storeId)}/orders/${recovery.orderId}/line-items/${line.id}/exchange-recoveries`,
-        {
-          operationId: pending.operationId,
-          expectedRevision: pending.revision,
-          counterId,
-          verificationId: recovery.verificationId,
-          ...(pending.salespersonId ? { salespersonId: pending.salespersonId } : {}),
-        },
-        returnSchema,
-        user.id,
-      );
-    } catch (error) {
-      if (error instanceof ApiError && [400, 404, 409, 422].includes(error.status)) {
-        const { pendingRecoveryClaim: _claim, ...retained } = recovery;
-        remember(retained);
-        await exchangeRecovery.refetch();
-      }
-      throw error;
-    }
+    setClaimStatusMessage('');
+    const value = await post(
+      `${returnBase(storeId)}/orders/${recovery.orderId}/line-items/${line.id}/exchange-recoveries`,
+      {
+        operationId: pending.operationId,
+        expectedRevision: pending.revision,
+        counterId: pending.counterId,
+        verificationId: pending.verificationId,
+        ...(pending.salespersonId ? { salespersonId: pending.salespersonId } : {}),
+      },
+      returnSchema,
+      user.id,
+    );
     client.setQueryData(operationKey(value.id, 'exchange'), value);
-    const { pendingRecoveryClaim: _pending, ...retained } = recovery;
-    remember({ ...retained, returnId: value.id, kind: 'exchange' });
+    remember({ ...recovery, returnId: value.id, kind: 'exchange' });
   }
   async function resume(retry = false) {
     if (!recovery?.returnId) return;
@@ -649,6 +679,15 @@ export function ReturnsPage({
                 </form>
               </>
             )}
+            {recovery.pendingRecoveryClaim && !verified && (
+              <button
+                className="button secondary"
+                disabled={!online || busy || proof.data?.pending}
+                onClick={() => void act(startProof)}
+              >
+                Renew customer verification for this recovery
+              </button>
+            )}
             <button
               className="text-button"
               disabled={busy || proof.data?.pending || !!recovery?.pendingRecoveryClaim}
@@ -746,25 +785,25 @@ export function ReturnsPage({
                       disabled={busy || !!recovery?.pendingRecoveryClaim}
                     />
                   )}
-                  {(['operation', 'legacy'].includes(exchangeRecovery.data?.state || '') ||
-                    recovery?.pendingRecoveryClaim) && (
-                    <button
-                      type="button"
-                      className="button secondary"
-                      disabled={
-                        !online ||
-                        busy ||
-                        (!recovery?.pendingRecoveryClaim &&
-                          exchangeRecovery.data?.state === 'legacy' &&
-                          !salespersonId)
-                      }
-                      onClick={() => void act(claimRecovery)}
-                    >
-                      {recovery?.pendingRecoveryClaim
-                        ? 'Check original recovery claim'
-                        : 'Recover earlier exchange'}
-                    </button>
-                  )}
+                  {['operation', 'legacy'].includes(exchangeRecovery.data?.state || '') &&
+                    !recovery?.pendingRecoveryClaim && (
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={
+                          !online ||
+                          busy ||
+                          (!recovery?.pendingRecoveryClaim &&
+                            exchangeRecovery.data?.state === 'legacy' &&
+                            !salespersonId)
+                        }
+                        onClick={() => void act(claimRecovery)}
+                      >
+                        {recovery?.pendingRecoveryClaim
+                          ? 'Check original recovery claim'
+                          : 'Recover earlier exchange'}
+                      </button>
+                    )}
                 </>
               )}
               <button
@@ -775,11 +814,22 @@ export function ReturnsPage({
               >
                 Refresh earlier exchange status
               </button>
+              {claimStatusMessage && <p role="status">{claimStatusMessage}</p>}
               {recovery?.pendingRecoveryClaim && (
-                <p role="status">
-                  A recovery claim is retained. Read or confirm that original claim before choosing
-                  another operation.
-                </p>
+                <>
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={!online || busy || !verified}
+                    onClick={() => void act(checkOriginalClaim)}
+                  >
+                    Check original recovery claim
+                  </button>
+                  <p role="status">
+                    A recovery claim is retained. Read or confirm that original claim before
+                    choosing another operation.
+                  </p>
+                </>
               )}
             </section>
           )}

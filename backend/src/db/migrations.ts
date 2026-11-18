@@ -33,6 +33,7 @@ export const migrationPaths = [
   'src/modules/checkout/payments/legacy-migration.sql',
   'src/modules/checkout/payments/provider-evidence-migration.sql',
   'src/modules/checkout/migrations/0004_returns.sql',
+  'src/modules/checkout/return-workflow/recovery-claims-migration.sql',
   'src/modules/checkout/migrations/0005_financial_delivery_context.sql',
   'src/modules/checkout/migrations/0006_discount_approvals.sql',
   'src/modules/checkout/migrations/0007_exchange_stock_proof.sql',

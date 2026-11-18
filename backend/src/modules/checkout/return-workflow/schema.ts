@@ -54,3 +54,29 @@ export const returnVerificationLimits = mysqlTable('pos_rewrite_return_verificat
   state: json('state').$type<{ nextSendAt: number; attempts: number; resetAt: number }>().notNull(),
   updatedAt: bigint('updated_at_ms', { mode: 'number' }).notNull(),
 });
+
+/** Written atomically with a claim; later handoffs never overwrite an earlier outcome. */
+export const exchangeRecoveryClaims = mysqlTable(
+  'pos_rewrite_exchange_recovery_claims',
+  {
+    id: varchar('id', { length: 36 }).primaryKey(),
+    operatorId: varchar('operator_id', { length: 32 }).notNull(),
+    storeId: varchar('store_id', { length: 32 }).notNull(),
+    orderId: varchar('order_id', { length: 32 }).notNull(),
+    lineId: varchar('line_id', { length: 32 }).notNull(),
+    counterId: varchar('counter_id', { length: 32 }).notNull(),
+    verificationId: varchar('verification_id', { length: 36 }).notNull(),
+    requestHash: varchar('request_hash', { length: 64 }).notNull(),
+    revision: varchar('revision', { length: 64 }).notNull(),
+    operationId: varchar('operation_id', { length: 36 }).notNull(),
+    recordedAt: datetime('recorded_at', { mode: 'string' }).notNull(),
+  },
+  (table) => [
+    index('ix_exchange_recovery_claim_line').on(
+      table.storeId,
+      table.orderId,
+      table.lineId,
+      table.id,
+    ),
+  ],
+);

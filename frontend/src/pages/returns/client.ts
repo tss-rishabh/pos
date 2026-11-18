@@ -75,6 +75,8 @@ export const recoverySchema = z
         operationId: z.uuid(),
         revision: z.string().regex(/^[a-f0-9]{64}$/),
         lineId: id,
+        counterId: id.optional(),
+        verificationId: z.uuid().optional(),
         salespersonId: id.optional(),
       })
       .strict()
@@ -335,5 +337,26 @@ export function readReturnEligibility(
     `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/return-eligibility?${new URLSearchParams({ counterId, verificationId, kind })}`,
     { operatorId, signal },
     returnEligibilitySchema,
+  );
+}
+
+export const exchangeClaimStatusSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('recorded'), operationId: z.uuid() }).strict(),
+  z.object({ status: z.literal('not-recorded') }).strict(),
+]);
+export function readExchangeClaimStatus(
+  storeId: string,
+  orderId: string,
+  lineId: string,
+  claimId: string,
+  counterId: string,
+  verificationId: string,
+  operatorId: string,
+  signal?: AbortSignal,
+) {
+  return request(
+    `${returnBase(storeId)}/orders/${encodeURIComponent(orderId)}/line-items/${encodeURIComponent(lineId)}/exchange-recovery-claims/${encodeURIComponent(claimId)}?${new URLSearchParams({ counterId, verificationId })}`,
+    { operatorId, signal },
+    exchangeClaimStatusSchema,
   );
 }

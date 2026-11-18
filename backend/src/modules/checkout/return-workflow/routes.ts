@@ -117,6 +117,26 @@ export function registerReturns(
       );
     },
   );
+  app.get(
+    '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/exchange-recovery-claims/:claimId',
+    {
+      config: {
+        trace: { module: 'checkout', resource: 'exchange-recovery-claim', action: 'read' },
+      },
+    },
+    async (request, reply) => {
+      reply.header('Cache-Control', 'no-store');
+      const p = exchangeRecoveryPath.extend({ claimId: z.uuid() }).parse(request.params);
+      return repository.exchangeRecoveryClaimStatus(
+        authenticated(request),
+        p.storeId,
+        p.orderId,
+        p.lineId,
+        p.claimId,
+        exchangeRecoveryScope.parse(request.query),
+      );
+    },
+  );
   app.post(
     '/api/v1/stores/:storeId/orders/:orderId/line-items/:lineId/exchange-recoveries',
     {
