@@ -2,11 +2,12 @@ import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { ArrowDownToLine, Search } from 'lucide-react';
 import { z } from 'zod';
-import { params, request } from '../../api/client';
+import { captureOperatorScope, params, request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
 import { downloadReportCsv } from './download';
 import './style.css';
+import { csvCell } from '../reports';
 const fields = [
   ['store_name', 'Store'],
   ['close_date', 'Date'],
@@ -116,7 +117,7 @@ export function DayCloseHistoryPage({ user, storeId }: { user: Principal; storeI
   const [filters, setFilters] = useState(() => initial(storeId)),
     [submitted, setSubmitted] = useState(() => initial(storeId)),
     [page, setPage] = useState(1),
-    [pageSize, setPageSize] = useState(25);
+    [pageSize, setPageSize] = useState(10);
   const stores = useQuery({
     queryKey: [user.id, 'finance-cash-ledger-stores'],
     queryFn: () =>
@@ -144,11 +145,40 @@ export function DayCloseHistoryPage({ user, storeId }: { user: Principal; storeI
         user.id,
       ),
   });
+  const pageCsv = useMutation({
+    mutationFn: async () => {
+      const actor = captureOperatorScope(user.id),
+        rows = report.data?.data || [];
+      if (rows.length > 500) throw new Error('Choose a history page of up to 500 rows.');
+      const csv =
+        '\uFEFF' +
+        [fields.map(([, label]) => label), ...rows.map((row) => fields.map(([key]) => row[key]))]
+          .map((row) => row.map(csvCell).join(','))
+          .join('\r\n');
+      if (new TextEncoder().encode(csv).byteLength > 4 * 1024 * 1024)
+        throw new Error('Choose a smaller history page for CSV.');
+      actor.throwIfAborted();
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
+        link = document.createElement('a');
+      link.href = url;
+      link.download = `day-close-history-page-${page}.csv`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
+  });
   const update = <K extends keyof Filters>(key: K, value: Filters[K]) =>
     setFilters((current) => ({ ...current, [key]: value }));
   return (
     <>
       <PageTitle eyebrow="THE RECORD BEHIND THE FIGURES" title="Day-close history">
+        <button
+          className="button secondary"
+          disabled={!report.data?.data.length || pageCsv.isPending}
+          onClick={() => pageCsv.mutate()}
+        >
+          <ArrowDownToLine size={16} />
+          Download current page CSV
+        </button>
         <button
           className="button secondary"
           disabled={!report.data?.total || download.isPending}
@@ -158,6 +188,7 @@ export function DayCloseHistoryPage({ user, storeId }: { user: Principal; storeI
           {download.isPending ? 'Preparing…' : 'Export filtered CSV'}
         </button>
       </PageTitle>
+      {pageCsv.isError && <ErrorState error={pageCsv.error} />}
       <form
         className="surface history-filters"
         onSubmit={(event) => {

@@ -25,6 +25,11 @@ export const exportHistoryInputSchema = z
     search: z.string().trim().max(100).default(''),
     sort: z
       .enum([
+        'id',
+        'kind',
+        'period',
+        'message',
+        'format',
         'requested_at',
         'completed_at',
         'report_name',
@@ -36,7 +41,7 @@ export const exportHistoryInputSchema = z
       .default('requested_at'),
     direction: z.enum(['asc', 'desc']).default('desc'),
     page: z.coerce.number().int().min(1).max(1000000).default(1),
-    pageSize: z.coerce.number().int().min(1).max(100).default(25),
+    pageSize: z.coerce.number().int().min(1).max(500).default(25),
   })
   .strict();
 export type ExportHistoryInput = z.infer<typeof exportHistoryInputSchema>;
@@ -58,6 +63,7 @@ export interface ReportExportListRow {
   byteCount: number | null;
   rowCount: number | null;
   canDownload: boolean;
+  period?: string | null;
 }
 export function exportHistoryOptions(env: NodeJS.ProcessEnv = process.env) {
   return z
@@ -113,6 +119,7 @@ const timestamp = z.string().nullable(),
     format: z.string().max(10),
     byteCount: z.coerce.number().int().nonnegative().nullable(),
     rowCount: z.coerce.number().int().nonnegative().nullable(),
+    period: z.string().max(255).nullable().optional(),
   });
 /** Archive projection is metadata only; no storage key, filters, token or raw error message. */
 export function exportHistoryReader(
@@ -165,6 +172,15 @@ export function exportHistoryReader(
         page = input.page <= Math.ceil(total / input.pageSize) ? input.page : 1;
       if (!total) return { data: [], total, page, pageSize: input.pageSize };
       const sort = {
+          id: input.origin === 'legacy' ? 'CAST(id AS INT64)' : 'id',
+          kind: 'kind',
+          period:
+            input.origin === 'legacy'
+              ? 'time_period'
+              : "CONCAT(COALESCE(CAST(period_start AS STRING),''),' – ',COALESCE(CAST(period_end AS STRING),''))",
+          message:
+            "CASE status WHEN 'QUEUED' THEN 'Waiting to prepare the report.' WHEN 'BUILDING' THEN 'Preparing the report.' WHEN 'STORING' THEN 'Verifying the report file.' WHEN 'COMPLETED' THEN 'Report file is ready.' ELSE 'The export could not be completed. Request a new export.' END",
+          format: 'format',
           requested_at: 'requested_at',
           completed_at: 'completed_at',
           report_name: 'report_name',
@@ -174,7 +190,7 @@ export function exportHistoryReader(
           byte_count: 'byte_count',
         }[input.sort],
         rows = await warehouse.queryReport(
-          `SELECT CAST(id AS STRING) AS id,kind,report_name AS reportName,note,period_start AS \`from\`,period_end AS \`to\`,status,CAST(operator_id AS STRING) AS requestedBy,requested_at AS requestedAt,completed_at AS completedAt,format,byte_count AS byteCount,row_count AS rowCount FROM ${table} WHERE ${where} ORDER BY ${sort} ${input.direction},id DESC LIMIT @limit OFFSET @offset`,
+          `SELECT CAST(id AS STRING) AS id,kind,report_name AS reportName,note,period_start AS \`from\`,period_end AS \`to\`,${input.origin === 'legacy' ? 'time_period' : 'CAST(NULL AS STRING)'} AS period,status,CAST(operator_id AS STRING) AS requestedBy,requested_at AS requestedAt,completed_at AS completedAt,format,byte_count AS byteCount,row_count AS rowCount FROM ${table} WHERE ${where} ORDER BY ${sort} ${input.direction},id DESC LIMIT @limit OFFSET @offset`,
           { ...params, limit: input.pageSize, offset: (page - 1) * input.pageSize },
           { ...types, limit: 'INT64', offset: 'INT64' },
           'report-export-history',

@@ -18,6 +18,7 @@ export const exportRowSchema = z.object({
   rowCount: z.number().nullable(),
   canDownload: z.boolean(),
   note: z.string().nullable().optional(),
+  period: z.string().nullable().optional(),
 });
 export interface ReportExportFilters {
   kind:

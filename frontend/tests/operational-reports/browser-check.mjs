@@ -206,9 +206,9 @@ try {
   await page.locator('form.ledger-filters').getByLabel(/^From/).fill(ledgerFrom);
   await page.locator('form.ledger-filters').getByLabel(/^To/).fill(ledgerTo);
   await page.getByRole('button', { name: 'View ledger', exact: true }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(50);
+  await expect(page.locator('tbody tr')).toHaveCount(31);
   await page.getByRole('button', { name: 'Next', exact: true }).click();
-  await expect(page.locator('tbody tr')).toHaveCount(10);
+  await expect(page.locator('tbody tr')).toHaveCount(29);
   await page.getByLabel('Search ledger', { exact: true }).fill('Needle');
   await expect(page.locator('tbody tr')).toHaveCount(1);
   const filteredDownloadEvent = page.waitForEvent('download');

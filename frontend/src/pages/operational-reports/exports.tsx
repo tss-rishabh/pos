@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowDownToLine, RefreshCw, Plus, Search } from 'lucide-react';
 import { z } from 'zod';
-import { request } from '../../api/client';
+import { captureOperatorScope, request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
@@ -14,6 +14,12 @@ import {
   type ReportExportFilters,
 } from './export-commands';
 import './style.css';
+import {
+  exportMetadataColumns,
+  exportMetadataCsv,
+  exportMetadataValue,
+  type ExportMetadataColumn,
+} from './export-metadata';
 const resultSchema = z.object({
   data: z.array(exportRowSchema),
   total: z.number(),
@@ -33,6 +39,11 @@ interface HistoryFilters {
   to: string;
   search: string;
   sort:
+    | 'id'
+    | 'kind'
+    | 'period'
+    | 'message'
+    | 'format'
     | 'requested_at'
     | 'completed_at'
     | 'report_name'
@@ -60,6 +71,9 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
     client = useQueryClient(),
     [origin, setOrigin] = useState<'current' | 'legacy'>('current'),
     [page, setPage] = useState(1),
+    [pageSize, setPageSize] = useState(10),
+    [hiddenColumns, setHiddenColumns] = useState<readonly ExportMetadataColumn[]>([]),
+    visibleColumns = exportMetadataColumns.filter(([key]) => !hiddenColumns.includes(key)),
     [historyFilters, setHistoryFilters] = useState(initialHistory),
     [submittedHistory, setSubmittedHistory] = useState(initialHistory),
     [filters, setFilters] = useState<ReportExportFilters>(() => ({
@@ -80,13 +94,13 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
       ),
   });
   const exports = useQuery({
-    queryKey: [user.id, 'report-exports', origin, submittedHistory, page],
+    queryKey: [user.id, 'report-exports', origin, submittedHistory, page, pageSize],
     queryFn: ({ signal }) =>
       request(
         '/api/v1/report-exports/search',
         {
           method: 'POST',
-          body: JSON.stringify({ origin, ...submittedHistory, page, pageSize: 25 }),
+          body: JSON.stringify({ origin, ...submittedHistory, page, pageSize }),
           signal: AbortSignal.any([signal, AbortSignal.timeout(45000)]),
         },
         resultSchema,
@@ -97,6 +111,22 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
       query.state.data?.data.some((job) => ['QUEUED', 'BUILDING', 'STORING'].includes(job.status))
         ? 5000
         : false,
+  });
+  const metadataCsv = useMutation({
+    mutationFn: async () => {
+      const actor = captureOperatorScope(user.id),
+        csv = exportMetadataCsv(
+          exports.data?.data || [],
+          visibleColumns.map(([key]) => key),
+        );
+      actor.throwIfAborted();
+      const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' })),
+        link = document.createElement('a');
+      link.href = url;
+      link.download = `export-history-${origin}.csv`;
+      link.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    },
   });
   const create = useMutation({
       mutationFn: () => queueReportExport(user.id, filters),
@@ -415,6 +445,57 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
           {create.isPending ? 'Requesting…' : 'Request export'}
         </button>
       </form>
+      <div className="export-history-controls">
+        <label>
+          Rows per page
+          <select
+            aria-label="Export history rows per page"
+            value={pageSize}
+            onChange={(event) => {
+              setPageSize(Number(event.target.value));
+              setPage(1);
+            }}
+          >
+            {[10, 25, 50, 100, 500].map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="button secondary"
+          disabled={!exports.data?.data.length || !visibleColumns.length || metadataCsv.isPending}
+          onClick={() => metadataCsv.mutate()}
+        >
+          Download visible metadata CSV
+        </button>
+        <details>
+          <summary>
+            Metadata columns ({visibleColumns.length} of {exportMetadataColumns.length})
+          </summary>
+          {exportMetadataColumns.map(([key, label]) => (
+            <label key={key}>
+              <input
+                type="checkbox"
+                checked={!hiddenColumns.includes(key)}
+                onChange={(event) =>
+                  setHiddenColumns((current) =>
+                    event.target.checked
+                      ? current.filter((value) => value !== key)
+                      : [...current, key],
+                  )
+                }
+              />
+              {label}
+            </label>
+          ))}
+          <button className="button secondary" type="button" onClick={() => setHiddenColumns([])}>
+            Show all metadata columns
+          </button>
+        </details>
+      </div>
+      {metadataCsv.isError && <ErrorState error={metadataCsv.error} />}
       {!online && <p role="status">Connect to request or download report files.</p>}
       {stores.isError && <ErrorState error={stores.error} />}
       {create.isError && <ErrorState error={create.error} />}
@@ -510,6 +591,11 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
                 ...current,
                 sort: z
                   .enum([
+                    'id',
+                    'kind',
+                    'period',
+                    'message',
+                    'format',
                     'requested_at',
                     'completed_at',
                     'report_name',
@@ -523,6 +609,11 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             }
           >
             {[
+              ['id', 'ID'],
+              ['kind', 'Type'],
+              ['period', 'Period'],
+              ['message', 'Message'],
+              ['format', 'Format'],
               ['requested_at', 'Requested'],
               ['completed_at', 'Completed'],
               ['report_name', 'Report name'],
@@ -580,49 +671,21 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             <table>
               <thead>
                 <tr>
-                  {[
-                    'Report',
-                    'Period',
-                    'Requested by',
-                    'Requested',
-                    'Completed',
-                    'Status',
-                    'Rows',
-                    'Size',
-                    'File',
-                  ].map((label) => (
-                    <th key={label}>{label}</th>
+                  {visibleColumns.map(([key, label]) => (
+                    <th key={key}>{label}</th>
                   ))}
+                  <th>File</th>
                 </tr>
               </thead>
               <tbody>
                 {exports.data.data.map((job) => (
                   <tr key={`${job.origin}:${job.id}`}>
-                    <td>
-                      {job.reportName}
-                      {job.note && <small>{job.note}</small>}
-                      <small>
-                        {job.kind} · {job.format}
-                      </small>
-                    </td>
-                    <td>
-                      {job.from && job.to
-                        ? `${job.from} – ${job.to}`
-                        : job.kind === 'current-inventory-workbook'
-                          ? 'Current snapshot'
-                          : 'Legacy report'}
-                    </td>
-                    <td>{job.requestedByName || job.requestedBy}</td>
-                    <td>{job.requestedAt ? new Date(job.requestedAt).toLocaleString() : '—'}</td>
-                    <td>{job.completedAt ? new Date(job.completedAt).toLocaleString() : '—'}</td>
-                    <td>
-                      <strong>{job.status}</strong>
-                      <small>{job.message}</small>
-                    </td>
-                    <td>{job.rowCount === null ? '—' : job.rowCount.toLocaleString()}</td>
-                    <td>
-                      {job.byteCount === null ? '—' : `${(job.byteCount / 1024).toFixed(1)} KB`}
-                    </td>
+                    {visibleColumns.map(([key]) => (
+                      <td key={key}>
+                        {exportMetadataValue(job, key) ?? '—'}
+                        {key === 'reportName' && job.note && <small>{job.note}</small>}
+                      </td>
+                    ))}
                     <td>
                       <button
                         className="button secondary"
@@ -648,11 +711,11 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
               Previous
             </button>
             <span>
-              Page {page} of {Math.max(1, Math.ceil(exports.data.total / 25))}
+              Page {page} of {Math.max(1, Math.ceil(exports.data.total / pageSize))}
             </span>
             <button
               className="button secondary"
-              disabled={page * 25 >= exports.data.total || exports.isFetching}
+              disabled={page * pageSize >= exports.data.total || exports.isFetching}
               onClick={() => setPage((value) => value + 1)}
             >
               Next

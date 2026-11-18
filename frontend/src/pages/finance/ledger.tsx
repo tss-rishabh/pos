@@ -30,7 +30,7 @@ export function CashLedgerPage({ user, storeId }: { user: Principal; storeId: st
     [sort, setSort] = useState<LedgerSort>('source'),
     [direction, setDirection] = useState<'asc' | 'desc'>('asc'),
     [page, setPage] = useState(1),
-    [pageSize, setPageSize] = useState(50),
+    [pageSize, setPageSize] = useState(31),
     [from, setFrom] = useState(''),
     [to, setTo] = useState(''),
     [selected, setSelected] = useState<string[]>(storeId ? [storeId] : []),
@@ -336,7 +336,7 @@ export function CashLedgerPage({ user, storeId }: { user: Principal; storeId: st
                   setPage(1);
                 }}
               >
-                {[25, 50, 100].map((value) => (
+                {[31, 62, 100, 500].map((value) => (
                   <option key={value} value={value}>
                     {value}
                   </option>

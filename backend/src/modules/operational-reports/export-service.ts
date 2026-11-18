@@ -861,6 +861,8 @@ export function reportExportService(
         const kind = sql<string>`json_unquote(json_extract(${reportExportJobs.input},'$.kind'))`,
           name = sql<string>`coalesce(nullif(json_unquote(json_extract(${reportExportJobs.input},'$.label')),''),case ${kind} when 'day-close-history' then 'Day-close history' when 'cash-balance' then 'Store cash balances' when 'returned-orders' then 'Returned orders' when 'order-transactions' then 'Order transactions' when 'hyperlocal-daily' then 'Hyperlocal daily report' when 'flash-sales' then 'Flash sales' when 'salesperson-performance' then 'Salesperson performance' when 'cashier-performance' then 'Cashier performance' when 'hyperlocal-acceptance' then 'Hyperlocal acceptance' when 'administration-list' then concat(json_unquote(json_extract(${reportExportJobs.input},'$.resource')),' export') else ${kind} end)`,
           note = sql<string>`json_unquote(json_extract(${reportExportJobs.input},'$.note'))`,
+          period = sql<string>`case ${kind} when 'administration-list' then 'Current collection' when 'current-inventory-workbook' then 'Current snapshot' else concat(coalesce(json_unquote(json_extract(${reportExportJobs.input},'$.from')),''),' – ',coalesce(json_unquote(json_extract(${reportExportJobs.input},'$.to')),'')) end`,
+          message = sql<string>`case ${reportExportJobs.status} when 'QUEUED' then 'Waiting to prepare the report.' when 'BUILDING' then 'Preparing the report.' when 'STORING' then 'Verifying the report file.' when 'COMPLETED' then 'Report file is ready.' else 'The export could not be completed. Request a new export.' end`,
           recent = or(
             inArray(reportExportJobs.status, ['QUEUED', 'BUILDING', 'STORING']),
             gte(
@@ -874,6 +876,8 @@ export function reportExportService(
             input.search
               ? or(
                   like(name, pattern),
+                  like(kind, pattern),
+                  like(message, pattern),
                   like(note, pattern),
                   like(reportExportJobs.status, pattern),
                   like(reportExportJobs.operatorId, pattern),
@@ -882,6 +886,11 @@ export function reportExportService(
               : undefined,
           ),
           sort = {
+            id: reportExportJobs.id,
+            kind,
+            period,
+            message,
+            format: sql`case when ${kind}='current-inventory-workbook' then 'XLSX' else 'CSV' end`,
             requested_at: reportExportJobs.requestedAt,
             completed_at: reportExportJobs.completedAt,
             report_name: name,
@@ -940,6 +949,11 @@ export function reportExportService(
             : undefined,
         ),
         sort = {
+          id: ReportExport.id,
+          kind: ReportExport.report_type,
+          period: ReportExport.time_period,
+          message: sql`case when ${ReportExport.is_completed}=1 then 'Report file is ready.' when lower(${ReportExport.export_status}) in ('failed','error') then 'The export could not be completed. Request a new export.' else 'Waiting to prepare the report.' end`,
+          format: ReportExport.export_format,
           requested_at: ReportExport.export_requested_at,
           completed_at: ReportExport.export_completed_at,
           report_name: ReportExport.report_name,
@@ -954,6 +968,7 @@ export function reportExportService(
           .select({
             id: ReportExport.id,
             name: ReportExport.report_name,
+            period: ReportExport.time_period,
             type: ReportExport.report_type,
             status: ReportExport.export_status,
             complete: ReportExport.is_completed,
@@ -990,6 +1005,7 @@ export function reportExportService(
           kind: row.type,
           reportName: row.name || row.type || 'Legacy report',
           note: null,
+          period: row.period,
           from: null,
           to: null,
           status,
