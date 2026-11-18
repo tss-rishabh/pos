@@ -100,3 +100,30 @@ Review fixture: `expiry_candidate_test.go`; scratch candidate output:
 `/tmp/pos-origin-expiry-candidate-native-20261118.log`. This evidence preceded
 the user approval and activation above. It does not replace fresh native
 verification of the activated owned build outputs.
+
+## Strict native NULL mapping correction (implementation; verification pending)
+
+The later original-method diagnostic found numeric MySQL1292 for unset expiry
+inserts under unchanged strict/NO_ZERO_DATE mode. Verified physical Money and
+Points history expiry columns are nullable DATETIME with DEFAULT NULL; both
+original and generated methods share the original Go models' `time.Time` expiry.
+The generated negative-history helper already omits an unset expiry.
+
+The composer now redirects only the two original Money-history and two original
+Points-history Create sites, under exact pinned method/count guards, to typed
+helpers in `payload/juspay/origin_failure_history.go`. Only `Expiry.IsZero()`
+omits SQL expiry; a real earning expiry uses the original full Create unchanged.
+Amounts, native expiry values, mappings, cashback7 and `IsExpired` remain intact.
+No table/default/SQL-mode modification or global model hook is introduced.
+
+Additive native assertions now require SQL NULL to scan into the original
+Go/GORM model as zero `time.Time`, with the same Go JSON expiry representation
+as an unset original Go field. A nonzero earning expiry must retain its actual
+time value and representation. Those assertions have not yet executed for this
+correction. They do not prove Django/frontend or another consumer's serialization.
+
+The separate original Money reward-history mirror policy is awaiting the user's
+explicit answer. Its current writes and fixture assertions remain unchanged;
+there is no Reward-history NULL wrapper or silent mirror removal in this
+independent correction. Full native execution and new assembly generation wait
+for that decision. Earlier failed artifacts remain immutable.

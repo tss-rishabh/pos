@@ -1,8 +1,10 @@
 package juspay
 
 import (
+	"encoding/json"
 	"errors"
 	"testing"
+	"time"
 
 	"backend-tss-domestic_payments_api/utils"
 	"github.com/go-sql-driver/mysql"
@@ -147,6 +149,43 @@ func TestOriginActiveOriginalCalendarWallets(t *testing.T) {
 				}
 				if gotDelta != delta || before != 100 || after != expected || gotPlatform != platform || gotExpired != expired {
 					t.Fatal("original method ledger contract differs")
+				}
+				var expiryIsNull bool
+				if err := db.QueryRow("SELECT expiry IS NULL FROM " + history + " WHERE order_id=700").Scan(&expiryIsNull); err != nil {
+					t.Fatal(err)
+				}
+				if expiryIsNull == entry.credit {
+					t.Fatal("only unset restoration expiry may map to SQL NULL")
+				}
+				var mappedExpiry time.Time
+				if asset == "money" {
+					var restored TssMoneyHistory
+					if err := orm.Where("order_id=?", 700).First(&restored).Error; err != nil {
+						t.Fatal("original Money history mapping failed")
+					}
+					mappedExpiry = restored.Expiry
+				} else {
+					var restored TssPointHistory
+					if err := orm.Where("order_id=?", 700).First(&restored).Error; err != nil {
+						t.Fatal("original Points history mapping failed")
+					}
+					mappedExpiry = restored.Expiry
+				}
+				expectedExpiry := time.Time{}
+				if entry.credit {
+					var err error
+					expectedExpiry, err = time.Parse("2006-01-02", entry.expiry)
+					if err != nil {
+						t.Fatal("fixture expiry date invalid")
+					}
+				}
+				if !mappedExpiry.Equal(expectedExpiry) || mappedExpiry.IsZero() != expiryIsNull {
+					t.Fatal("native nullable expiry must retain original Go time mapping")
+				}
+				mappedJSON, marshalErr := json.Marshal(mappedExpiry)
+				expectedJSON, expectedErr := json.Marshal(expectedExpiry)
+				if marshalErr != nil || expectedErr != nil || string(mappedJSON) != string(expectedJSON) {
+					t.Fatal("nullable expiry must retain original serialized time representation")
 				}
 				if err := db.QueryRow("SELECT COUNT(*) FROM " + history + " WHERE order_id=700").Scan(&count); err != nil || count != 1 {
 					t.Fatal("original restoration ledger is missing or duplicated", err)

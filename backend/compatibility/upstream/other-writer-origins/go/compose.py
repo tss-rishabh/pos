@@ -170,7 +170,21 @@ def compose_payments(target: Path | str, reference: Path | str,
         'Db.Exec("UPDATE users SET cashback = ?, tss_money = ? WHERE id = ? LIMIT 1", finalTSSMoneyToUpdate, finalTSSMoneyToUpdate, o.User)',
         'Db.Exec("UPDATE users SET tss_money=? WHERE id=? LIMIT 1", finalTSSMoneyToUpdate, o.User)',
     )
-    expiry_path.write_text(expiry_source[:money_start] + money_body + expiry_source[money_end:])
+    if money_body.count('utils.Db.Create(&tm)') != 2:
+        raise RuntimeError('Pinned original Money history boundary changed')
+    money_body = money_body.replace('utils.Db.Create(&tm)',
+                                    'createOriginalFailureMoneyHistory(utils.Db, &tm)')
+    points_tail = expiry_source[money_end:]
+    voucher_signature = 'func (o *Order) RevertGiftVoucher(Db *gorm.DB) {'
+    if points_tail.count(voucher_signature) != 1:
+        raise RuntimeError('Pinned original Points history boundary changed')
+    points_end = points_tail.index(voucher_signature)
+    points_body = points_tail[:points_end]
+    if points_body.count('utils.Db.Create(&tp)') != 2:
+        raise RuntimeError('Pinned original Points history write count changed')
+    points_body = points_body.replace('utils.Db.Create(&tp)',
+                                      'createOriginalFailurePointsHistory(utils.Db, &tp)')
+    expiry_path.write_text(expiry_source[:money_start] + money_body + points_body + points_tail[points_end:])
 
     # Existing public/CSV confirmation remains intact. The extra credit is
     # computed under its already-held global customer lock, using only the
