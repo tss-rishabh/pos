@@ -144,7 +144,7 @@ describe.skipIf(!template)('global vouchers on verified isolated MySQL and Redis
       nonExpiring: true,
       message: `Gift Voucher ${result.voucherCode} Has been created for fixture@example.test and amount is 25.49`,
     });
-    const [[voucher], [history], [coupon], [audit]] = await Promise.all(
+    const [[voucher], [history], [coupon], [audit]] = (await Promise.all(
       [
         'SELECT start_date,end_date,status,voucher_value FROM gift_vouchers',
         'SELECT platform,comment,added_user,added_amt FROM gift_voucher_history',
@@ -154,7 +154,7 @@ describe.skipIf(!template)('global vouchers on verified isolated MySQL and Redis
         async (query) =>
           (await native.connection.query<RowDataPacket[]>(query))[0] as RowDataPacket[],
       ),
-    );
+    )) as [RowDataPacket[], RowDataPacket[], RowDataPacket[], RowDataPacket[]];
     expect(voucher).toMatchObject({
       start_date: '0000-00-00 00:00:00',
       end_date: '0000-00-00 00:00:00',
