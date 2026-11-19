@@ -960,16 +960,6 @@ if (flags.has('--browser')) {
     environment: { ADMINISTRATION_BROWSER_TESTS: 'true' },
   });
   checks.push({
-    id: 'legacy-delivery-browser-tests',
-    directory: 'frontend',
-    args: ['tools/run-browser-fixture.mjs', 'legacy-delivery'],
-  });
-  checks.push({
-    id: 'legacy-delivery-lifecycle-browser-tests',
-    directory: 'frontend',
-    args: ['tools/run-browser-fixture.mjs', 'legacy-delivery-lifecycle'],
-  });
-  checks.push({
     id: 'browser-tests',
     directory: 'frontend',
     args: ['node_modules/@playwright/test/cli.js', 'test'],

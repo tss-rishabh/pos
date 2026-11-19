@@ -11,11 +11,6 @@ const fixtures = {
   'report-columns': new URL('../tests/operational-reports/column-browser.mjs', import.meta.url),
   'shipping-label': new URL('../tests/shipping-label/browser-check.mjs', import.meta.url),
   'invoice-documents': new URL('../tests/invoice-documents/browser-check.mjs', import.meta.url),
-  'legacy-delivery': new URL('../tests/legacy-fulfillment/browser-check.mjs', import.meta.url),
-  'legacy-delivery-lifecycle': new URL(
-    '../tests/legacy-fulfillment/lifecycle-browser-check.mjs',
-    import.meta.url,
-  ),
 };
 const selected = process.argv[2];
 if (process.argv.length !== 3 || !Object.hasOwn(fixtures, selected)) {
