@@ -1,7 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
-import { params, request } from '../../api/client';
+import { ApiError, NetworkError, captureOperatorScope, params, request } from '../../api/client';
 
 export const administrationIdentifier = z
   .string()
@@ -28,16 +28,18 @@ export const storeSchema = z
     country_id: z.number(),
     phone: text,
     pincode: text,
-    per_day_threshold: z.number(),
-    per_hour_threshold: z.number(),
+    per_day_threshold: z.number().nullable(),
+    per_hour_threshold: z.number().nullable(),
     gstin: text,
     short_name: text,
-    slackConfigured: z.boolean().default(false),
+    slack_group_url: text,
     city_name: text,
     state_name: text,
-    state_id: z.number(),
+    state_id: z.number().nullable(),
+    created_at: text.optional(),
+    country_name: z.string().nullable().optional(),
     is_active: z.boolean(),
-    store_image: z.string(),
+    store_image: text,
     franchise: z
       .object({ id: id.optional(), name: text, description: text, cin: text })
       .nullable()
@@ -62,7 +64,9 @@ export const storeSchema = z
     hourlyThreshold: value.per_hour_threshold,
     gstin: value.gstin,
     shortName: value.short_name,
-    slackConfigured: value.slackConfigured,
+    slackGroupUrl: value.slack_group_url,
+    createdAt: value.created_at ?? '',
+    countryName: value.country_name ?? '',
     city: value.city_name,
     state: value.state_name,
     stateId: value.state_id,
@@ -124,10 +128,12 @@ export const counterSchema = z
     counter_type: z.string(),
     counter_desc: text,
     is_active: z.boolean(),
+    storeName: z.string().nullable().optional(),
   })
   .transform((value) => ({
     id: value.id,
     storeId: value.store,
+    storeName: value.storeName ?? '',
     name: value.counter_name,
     type: value.counter_type,
     description: value.counter_desc,
@@ -141,10 +147,12 @@ export const storageSchema = z
     storage_type: z.string(),
     storage_desc: text,
     is_active: z.boolean(),
+    storeName: z.string().nullable().optional(),
   })
   .transform((value) => ({
     id: value.id,
     storeId: value.store,
+    storeName: value.storeName ?? '',
     name: value.storage_name,
     type: value.storage_type,
     description: value.storage_desc,
@@ -247,3 +255,61 @@ export const mutateAdministration = (
     { method, operatorId, body: body === undefined ? undefined : JSON.stringify(body) },
     method === 'DELETE' ? undefined : successSchema,
   );
+
+/** A legacy Django form re-rendered with its per-field error lists. */
+export class AdministrationFormError extends Error {
+  constructor(
+    message: string,
+    public fields: Record<string, string[]>,
+  ) {
+    super(message);
+  }
+}
+const formErrorEnvelope = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    requestId: z.string().optional(),
+    fields: z.record(z.string(), z.array(z.string())).optional(),
+  }),
+});
+/** Submit a legacy form; field errors are kept (the shared client keeps only code/message). */
+export async function submitAdministrationForm(
+  path: string,
+  method: 'POST' | 'PUT',
+  body: unknown,
+  operatorId: string,
+) {
+  const scope = captureOperatorScope(operatorId),
+    signal = AbortSignal.any([scope, AbortSignal.timeout(30000)]);
+  let response: Response;
+  try {
+    response = await fetch(path, {
+      method,
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json', 'X-Operator-ID': operatorId },
+      body: JSON.stringify(body),
+      signal,
+    });
+  } catch (error) {
+    if (signal.aborted) throw error;
+    throw new NetworkError();
+  }
+  signal.throwIfAborted();
+  if (!response.ok) {
+    let parsed: z.infer<typeof formErrorEnvelope>['error'] | undefined;
+    try {
+      parsed = formErrorEnvelope.parse((await response.json()) as unknown).error;
+    } catch {
+      /* Non-JSON gateway errors use a safe fallback. */
+    }
+    if (parsed?.fields) throw new AdministrationFormError(parsed.message, parsed.fields);
+    throw new ApiError(
+      response.status,
+      parsed?.code || 'REQUEST_FAILED',
+      parsed?.message || 'Could not connect to the store service.',
+      parsed?.requestId,
+    );
+  }
+  return successSchema.parse(await response.json());
+}

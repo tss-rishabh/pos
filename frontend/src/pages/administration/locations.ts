@@ -21,27 +21,28 @@ const location = z.object({
     })
     .nullable(),
 });
-/** The lookup fills only source-provided fields. Existing city/address references are preserved. */
+/**
+ * `GetLocationByPincodeView` as the legacy store form uses it (`create.html:186-216`): fills
+ * city, state, country, coordinates and the hidden ids; no data leaves the form unchanged.
+ */
 export async function postalCodeFields(
   operatorId: string,
   postalCode: string,
   signal: AbortSignal,
-): Promise<Record<string, string>> {
-  if (!/^[A-Za-z0-9](?:[A-Za-z0-9 -]{0,30}[A-Za-z0-9])?$/.test(postalCode.trim()))
-    throw new Error('Enter a valid postal code.');
+): Promise<Record<string, string> | null> {
   const result = await request(
     '/api/v1/locations/postal-code-lookups',
     { method: 'POST', operatorId, signal, cache: 'no-store', body: JSON.stringify({ postalCode }) },
     location,
   );
-  if (!result.data) throw new Error('No location was found for this PIN code.');
+  if (!result.data) return null;
   return {
-    pincode: result.data.postalCode,
-    city: result.data.city,
-    state: result.data.state,
-    countryId: result.data.countryId,
-    stateId: result.data.stateId,
+    city_name: result.data.city,
+    state_name: result.data.state,
+    country_name: result.data.country,
+    country_id: result.data.countryId,
     latitude: result.data.latitude,
     longitude: result.data.longitude,
+    state_id: result.data.stateId,
   };
 }
