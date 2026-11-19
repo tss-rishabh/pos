@@ -181,7 +181,7 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
     );
     expect(results.filter(Boolean)).toHaveLength(1);
   });
-  it('rejects password changes, inactive/internal-type changes and ambiguous source email matches', async () => {
+  it('rejects password changes and inactive/internal-type changes', async () => {
     for (const query of [
       "UPDATE pos_user SET password='pbkdf2_sha256$1$changed$hash' WHERE id=101",
       'UPDATE pos_user SET is_active=0 WHERE id=101',
@@ -199,12 +199,9 @@ describe.skipIf(!template)('device handoff against private Redis and isolated My
       ).toBe(false);
     }
     await connection.execute('UPDATE pos_user SET user_type=1 WHERE id=101');
-    const auth = service(),
-      issued = await auth.issue(principal);
-    await seed(104, { email: principal.email });
-    expect((await auth.verify({ email: principal.email, code: issued.code })).isAuthenticated).toBe(
-      false,
-    );
+    // Production pos_user has UNIQUE KEY email (utf8mb4_general_ci), so two operators can never
+    // share a source email; the former duplicate-email seed is impossible on production DDL.
+    const auth = service();
     await expect(auth.issue({ ...principal, id: '102' })).rejects.toMatchObject({
       code: 'DEVICE_HANDOFF_DENIED',
     });

@@ -32,10 +32,7 @@ export async function customerContactFixture(
   try {
     await connection.query(`CREATE DATABASE ${mysql.escapeId(schema)}`);
     await connection.changeUser({ database: schema });
-    const fixture = verifiedMysqlFixture(connection, [
-      'evidence/mysql-customer-contact-schema.json',
-      'evidence/mysql-global-benefits-schema.json',
-    ]);
+    const fixture = verifiedMysqlFixture(connection);
     await fixture.create(tables);
     url.pathname = '/' + schema;
     const config = readConfig({

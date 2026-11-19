@@ -1,9 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { RowDataPacket } from 'mysql2';
 import type { Principal } from '../../src/domain/access.js';
-import { checkInService } from '../../src/modules/administration/checkins.js';
+import { seedCheckIn } from '../helpers/check-ins.js';
 import { checkoutStateSchema, type CheckoutState } from '../../src/modules/checkout/contracts.js';
 import {
   readCustomerContactBinding,
@@ -11,7 +10,6 @@ import {
 } from '../../src/modules/checkout/customer-contact-authority.js';
 import { checkoutSessionStore } from '../../src/modules/checkout/session-store.js';
 import { memoryStateStore, type PosStateStore } from '../../src/modules/checkout/state-store.js';
-import { bumpCurrentContactRevision } from '../../src/modules/customer-contacts/revisions.js';
 import type {
   CustomerOtpApi,
   CustomerOtpApiReply,
@@ -68,15 +66,6 @@ describe.skipIf(!template)(
         ['users', 'pos_user', 'stores', 'store_counters', 'user_stores'],
         'pos_rewrite_customer_otp_test',
       );
-      for (const path of [
-        'src/modules/administration/migration.sql',
-        'migrations/0006_operator_auth_epochs.sql',
-      ])
-        for (const statement of readFileSync(path, 'utf8')
-          .replace(/^--.*$/gm, '')
-          .split(';')
-          .filter((value) => value.trim()))
-          await native.connection.query(statement);
     });
     beforeEach(async () => {
       const [tables] = await native.connection.query<RowDataPacket[]>('SHOW TABLES');
@@ -119,7 +108,7 @@ describe.skipIf(!template)(
         is_block: 0,
         is_disabled: 0,
       });
-      await checkInService(native.db, native.config).set(actor, '1', '1');
+      await seedCheckIn('1', '1');
       contact = await binding();
       challengeId = randomUUID();
       state = checkoutStateSchema.parse({
@@ -284,7 +273,8 @@ describe.skipIf(!template)(
       await expect(request()).rejects.toMatchObject({ code: 'CUSTOMER_OTP_SCOPE_CHANGED' });
       await sessions().write(state);
       await request();
-      await native.db.get('writer').transaction((tx) => bumpCurrentContactRevision(tx, '7'));
+      // The proof binds to the native users contact digest (the rewrite revision counter is gone).
+      await native.connection.query("UPDATE users SET telephone='9876543211' WHERE id=7");
       await expect(verify('1234')).rejects.toMatchObject({ code: 'CUSTOMER_OTP_SCOPE_CHANGED' });
       contact = await binding();
       for (let index = 1; index < options.CUSTOMER_OTP_SENDS_PER_DAY; index++) {
