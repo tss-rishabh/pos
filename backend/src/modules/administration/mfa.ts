@@ -8,7 +8,10 @@ import { PosUser, Store, UserStore } from '../../db/legacy-schema.js';
 import { retryTransaction } from '../../db/retry.js';
 import { credentialVersion } from '../../auth/crypto.js';
 import { verifyTotp } from '../../auth/totp.js';
-import { invalidateOperatorAuthentication } from '../../auth/revocation.js';
+import {
+  currentAuthenticationVersion,
+  invalidateOperatorAuthentication,
+} from '../../auth/revocation.js';
 import { qrDataUrl } from '../../domain/qr.js';
 import { requireRole, type Principal } from '../../domain/access.js';
 import { AppError } from '../../domain/errors.js';
@@ -57,6 +60,9 @@ const enrollmentState = z
   .object({
     id: z.uuid(),
     actorId: z.string(),
+    /** Authentication versions (credentials + epoch) after the pending secret was written. */
+    actorVersion: z.string(),
+    operatorVersion: z.string(),
     secretDigest: z.string(),
     attempts: z.number().int().min(0),
     lastAttemptAt: z.number().nullable(),
@@ -195,7 +201,7 @@ export function operatorMfaService(
       const previous = await enrollment(operatorId);
       const result = await locked(() =>
         db.get('writer').transaction(async (transaction) => {
-          const { target } = await management(transaction, user, operatorId, true);
+          const { actor, target } = await management(transaction, user, operatorId, true);
           if (target.is_mfa) throw new AppError(409, 'MFA_ALREADY_ACTIVATED', 'Already Activated');
           const label = target.email || target.username || operatorId;
           if (previous?.id === input.operationId) {
@@ -215,9 +221,15 @@ export function operatorMfaService(
             .update(PosUser)
             .set({ mfa_hash: secret })
             .where(eq(PosUser.id, target.id));
+          const written = { ...target, mfa_hash: secret };
           const state: EnrollmentState = {
             id: input.operationId,
             actorId: user.id,
+            actorVersion: await currentAuthenticationVersion(
+              transaction,
+              user.id === operatorId ? written : actor,
+            ),
+            operatorVersion: await currentAuthenticationVersion(transaction, written),
             secretDigest: secretDigest(operatorId, secret),
             attempts: 0,
             lastAttemptAt: null,
@@ -260,7 +272,7 @@ export function operatorMfaService(
         throw expired();
       const result = await locked(() =>
         db.get('writer').transaction(async (transaction) => {
-          const { target } = await management(transaction, user, operatorId, true);
+          const { actor, target } = await management(transaction, user, operatorId, true);
           if (
             !target.mfa_hash ||
             !same(current.secretDigest, secretDigest(operatorId, target.mfa_hash))
@@ -271,6 +283,11 @@ export function operatorMfaService(
             return { verified: true as const };
           }
           if (target.is_mfa) throw new AppError(409, 'MFA_ALREADY_ACTIVATED', 'Already Activated');
+          if (current.operatorVersion !== (await currentAuthenticationVersion(transaction, target)))
+            throw stale();
+          // A revoked or changed actor credential cancels the actor-bound enrollment.
+          if (current.actorVersion !== (await currentAuthenticationVersion(transaction, actor)))
+            throw expired();
           if (current.lastAttemptAt !== null && current.lastAttemptAt + 1000 > clock())
             throw new AppError(
               429,

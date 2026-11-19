@@ -19,6 +19,8 @@ import {
   StoreSalesPerson,
   PosTutorial,
   POSFranchise,
+  PosMachine,
+  PosPaytmMachine,
   ReportExport,
 } from '../../src/db/legacy-schema.js';
 import {
@@ -59,6 +61,8 @@ describe.skipIf(!template)('native administration collection workflows', () => {
     StoreSalesPerson,
     PosTutorial,
     POSFranchise,
+    PosMachine,
+    PosPaytmMachine,
     ReportExport,
   ].map(getTableName);
   const actor: Principal = {

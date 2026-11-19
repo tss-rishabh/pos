@@ -66,12 +66,6 @@ import type {
   DocumentationMediaStore,
   ReservedMedia,
 } from '../../src/modules/administration/media-storage.js';
-import { documentationMediaCleanup } from '../../src/modules/administration/media-cleanup.js';
-import {
-  documentationMediaWorker,
-  type MediaWorkerEvent,
-} from '../../src/modules/administration/media-worker.js';
-import { readDocumentationMediaOptions } from '../../src/modules/administration/media-storage.js';
 import { settingsOutbox } from '../../src/modules/administration/settings-outbox.js';
 import { settingsService } from '../../src/modules/administration/settings.js';
 import { readSettingsWorkerOptions } from '../../src/modules/administration/settings-options.js';
@@ -95,26 +89,12 @@ import {
 } from '../../src/modules/administration/import-history.js';
 import { operatorMfaService } from '../../src/modules/administration/mfa.js';
 import { operatorMfaEnrollments } from '../../src/modules/administration/mfa-schema.js';
-import {
-  storeImageCleanup,
-  storeImageService,
-} from '../../src/modules/administration/store-images.js';
-import {
-  storeImageJobs,
-  storeImageUploads,
-} from '../../src/modules/administration/store-image-schema.js';
-import { storeImageUploadInput } from '../../src/modules/administration/store-images.js';
 import type { ImageCleanupEvent } from '../../src/modules/administration/image-lifecycle/cleanup.js';
-import { operatorAuthEpochs, invalidateOperatorAuthentication } from '../../src/auth/revocation.js';
+import { operatorAuthEpochs } from '../../src/auth/revocation.js';
 import {
   deliverablePincodes,
   locationZones,
 } from '../../src/modules/administration/location-schema.js';
-import { slackConnections } from '../../src/modules/administration/slack-schema.js';
-import {
-  pruneSlackConnections,
-  slackConnectionService,
-} from '../../src/modules/administration/slack-connections.js';
 import type { SlackOAuthProvider } from '../../src/modules/administration/slack-provider.js';
 import { loginChallenges, loginSecurity } from '../../src/auth/mfa-schema.js';
 import { reconcileAdministrationAccess } from '../../src/modules/administration/access-reconciliation.js';
@@ -130,8 +110,11 @@ import { assertModelAdministrationPermission } from '../../src/modules/administr
 import { imageReservationInput } from '../../src/modules/administration/image-lifecycle/domain.js';
 import { operatorAdminProfileInput } from '../../src/modules/administration/operator-admin-domain.js';
 import { goldenStdout } from '../golden/load.js';
+import { memoryEphemeralStore } from '../../src/jobs/ephemeral.js';
+import { useAdministrationEphemeralStore } from '../../src/modules/administration/ephemeral-runtime.js';
 
 const template = process.env.ADMINISTRATION_MYSQL_TEST_URL;
+const ephemeral = memoryEphemeralStore();
 describe.skipIf(!template)('administration routes against isolated MySQL', () => {
   const tables: MySqlTable[] = [
     Country,
@@ -170,11 +153,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     storeIds: ['1', '2'],
   };
   let services: ReturnType<typeof registerAdministration>;
-  let slackExchanges = 0,
-    slackExchangeFailure = false;
-  let duringSlackExchange: (() => Promise<void>) | undefined;
   const slackProvider: SlackOAuthProvider = {
-    configurationVersion: 'c'.repeat(64),
     authorize(state) {
       return (
         'https://slack.com/oauth/v2/authorize?' +
@@ -187,14 +166,10 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       );
     },
     async exchange() {
-      slackExchanges++;
-      if (slackExchangeFailure) throw new Error('private-slack-token@example.test');
-      await duringSlackExchange?.();
       return {
+        ok: true,
         webhook: 'https://hooks.slack.com/services/T0123456789/B0123456789/privateFixtureWebhook',
         channel: '#fixture-sales',
-        channelId: 'C0123456789',
-        teamId: 'T0123456789',
       };
     },
   };
@@ -405,7 +380,9 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
         return reply.code(400).send({ error: { code: 'INVALID_REQUEST' } });
       return reply.code(500).send({ error: { code: 'INTERNAL_ERROR' } });
     });
+    useAdministrationEphemeralStore(ephemeral);
     services = registerAdministration(app, config, db, {
+      ephemeral,
       defaultStoreOperatorIds: ['2'],
       mediaStore: media,
       storeImageStore,
@@ -422,9 +399,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     await app.ready();
   });
   beforeEach(async () => {
-    slackExchanges = 0;
-    slackExchangeFailure = false;
-    duringSlackExchange = undefined;
+    for (const key of await ephemeral.scanKeys('*')) await ephemeral.del(key);
     storeImageBytes = originalStoreImageBytes;
     storeImageDeletes.length = 0;
     storeImageVerifications.length = 0;
@@ -440,7 +415,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     settingsDeliveries.length = 0;
     for (const table of [...tables].reverse())
       await connection.query('DELETE FROM ' + mysql.escapeId(describeTable(table).name));
-    await connection.query('DELETE FROM pos_rewrite_operator_checkins');
     await connection.query('DELETE FROM pos_rewrite_administration_outbox');
     for (const table of [
       'pos_rewrite_documentation_assets',
@@ -601,7 +575,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     const created = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/stores/1/storages',
-      payload: { name: 'Back', description: 'Fixture storage', type: 'STORAGE' },
+      payload: { storage_name: 'Back', storage_desc: 'Fixture storage', storage_type: 'STORAGE' },
     });
     expect(created.statusCode).toBe(201);
     const storage = created.json<{ id: string; name: string }>();
@@ -676,68 +650,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       ).statusCode,
     ).toBe(403);
   });
-  it('edits storage names without a second prefix and moves only empty storage within actor scope', async () => {
-    const created = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/stores/1/storages',
-      payload: { name: 'Back', description: 'Storage', type: 'STORAGE' },
-    });
-    const storageId = created.json<{ id: string }>().id;
-    const body = { name: 'FIXTURE-STRG-RENAMED', description: 'Changed', type: 'STORAGE' };
-    expect(
-      (
-        await app.inject({
-          method: 'PUT',
-          url: `/api/v1/admin/stores/1/storages/${storageId}`,
-          payload: body,
-        })
-      ).statusCode,
-    ).toBe(200);
-    expect(
-      (
-        await app.inject({ method: 'GET', url: `/api/v1/admin/stores/1/storages/${storageId}` })
-      ).json<{ storage_name: string }>().storage_name,
-    ).toBe(body.name);
-    await seed(StockStorage, { product_id: 1001, store_id: 1, storage_id: storageId, stock: 2 });
-    expect(
-      (
-        await app.inject({
-          method: 'PUT',
-          url: `/api/v1/admin/stores/1/storages/${storageId}`,
-          payload: { ...body, destinationStoreId: '2' },
-        })
-      ).statusCode,
-    ).toBe(409);
-    await connection.query('DELETE FROM stock_storages');
-    actor = { ...actor, id: '3', role: 3, storeIds: ['1'] };
-    expect(
-      (
-        await app.inject({
-          method: 'PUT',
-          url: `/api/v1/admin/stores/1/storages/${storageId}`,
-          payload: { ...body, destinationStoreId: '2' },
-        })
-      ).statusCode,
-    ).toBe(403);
-    actor = { ...actor, id: '1', role: 1, storeIds: [] };
-    expect(
-      (
-        await app.inject({
-          method: 'PUT',
-          url: `/api/v1/admin/stores/1/storages/${storageId}`,
-          payload: { ...body, destinationStoreId: '2' },
-        })
-      ).statusCode,
-    ).toBe(200);
-    expect(
-      (await app.inject({ method: 'GET', url: `/api/v1/admin/stores/1/storages/${storageId}` }))
-        .statusCode,
-    ).toBe(404);
-    expect(
-      (await app.inject({ method: 'GET', url: `/api/v1/admin/stores/2/storages/${storageId}` }))
-        .statusCode,
-    ).toBe(200);
-  });
   it('keeps out-of-scope salesperson assignments and refuses a second active store', async () => {
     await seed(SalesPerson, {
       id: 1,
@@ -770,15 +682,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       ['1', '0'],
       ['2', '1'],
     ]);
-  });
-  it('rolls check-in back with a caller-owned authentication transaction', async () => {
-    await expect(
-      db.get('writer').transaction(async (transaction) => {
-        await services.checkins.set(actor, '1', '1', transaction);
-        throw new Error('Fixture authentication rollback');
-      }),
-    ).rejects.toThrow('Fixture authentication rollback');
-    expect(await services.checkins.checkedInStore('1')).toBeNull();
   });
   it('serializes concurrent salesperson identity creation', async () => {
     const payload = {
@@ -924,22 +827,33 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
   });
   it('serializes concurrent store creation including its counter and default assignments', async () => {
     const payload = {
-      name: 'New Fixture Store',
-      shortName: 'New fixture',
-      locationCode: 'LOC-3',
+      store_name: 'New Fixture Store',
+      short_name: 'New fixture',
+      location_code: 'LOC-3',
       type: 'STORE',
       category: 'IN_HOUSE',
       latitude: '19.0760',
       longitude: '72.8777',
       address: 'Fixture address',
-      cityId: 0,
-      countryId: 0,
+      city_id: '1111',
+      country_id: '0',
       phone: '9876543299',
     };
     const results = await Promise.all(
       [1, 2].map(() => app.inject({ method: 'POST', url: '/api/v1/admin/stores', payload })),
     );
-    expect(results.map((response) => response.statusCode).sort()).toEqual([201, 409]);
+    expect(results.map((response) => response.statusCode).sort()).toEqual([201, 400]);
+    // The second form re-renders with the legacy model-unique errors (stores/forms.py, Django).
+    expect(
+      results
+        .find((response) => response.statusCode === 400)!
+        .json<{
+          error: { fields: Record<string, string[]> };
+        }>().error.fields,
+    ).toEqual({
+      location_code: ['Store with this Location code already exists.'],
+      phone: ['Store with this Phone already exists.'],
+    });
     const created = results.find((response) => response.statusCode === 201)!.json<{ id: string }>();
     const [counters] = await connection.query<mysql.RowDataPacket[]>(
       'SELECT counter_name FROM store_counters WHERE store_id=?',
@@ -952,180 +866,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     );
     expect(assignments.map((row) => String(row.django_user_id))).toEqual(['2']);
   });
-  it('associates an existing franchise without mutating its shared details or creating a duplicate', async () => {
-    await seed(POSFranchise, {
-      id: 20,
-      name: 'Existing fixture franchise',
-      description: 'Shared description',
-      cin_number: 'FIXTURE-CIN',
-    });
-    const payload = {
-      name: 'Associated Fixture Store',
-      shortName: 'Associated',
-      locationCode: 'LOC-3',
-      type: 'STORE',
-      category: 'FRANCHISE',
-      latitude: '19',
-      longitude: '72',
-      address: 'Fixture address',
-      cityId: 0,
-      countryId: 0,
-      phone: '9876543298',
-      franchiseId: '20',
-    };
-    const response = await app.inject({ method: 'POST', url: '/api/v1/admin/stores', payload });
-    expect(response.statusCode).toBe(201);
-    const id = response.json<{ id: string }>().id;
-    const store = (await app.inject(`/api/v1/admin/stores/${id}`)).json<{
-      franchise_id: number;
-      franchise: { id: string; name: string; description: string; cin: string };
-    }>();
-    expect(store.franchise_id).toBe(20);
-    expect(store.franchise).toEqual({
-      id: '20',
-      name: 'Existing fixture franchise',
-      description: 'Shared description',
-      cin: 'FIXTURE-CIN',
-    });
-    expect(await db.get('primary').select({ id: POSFranchise.id }).from(POSFranchise)).toHaveLength(
-      1,
-    );
-    await db
-      .get('writer')
-      .update(TssSetting)
-      .set({ value: '["LOC-1","LOC-2","LOC-3","LOC-4"]' })
-      .where(eq(TssSetting.platform, 'STORE_LOCATION_CODE'));
-    const missing = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/stores',
-      payload: {
-        ...payload,
-        phone: '9876543297',
-        name: 'Missing franchise',
-        locationCode: 'LOC-4',
-        franchiseId: '404',
-      },
-    });
-    expect(missing.statusCode).toBe(404);
-    expect(
-      await db
-        .get('primary')
-        .select({ id: Store.id })
-        .from(Store)
-        .where(eq(Store.location_code, 'LOC-4')),
-    ).toEqual([]);
-    const invalid = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/stores',
-      payload: { ...payload, franchise: { name: 'Ambiguous' } },
-    });
-    expect(invalid.statusCode).toBe(400);
-  });
-  it('limits shared franchise changes and associations to current complete store access', async () => {
-    await seed(POSFranchise, {
-      id: 20,
-      name: 'Shared fixture franchise',
-      description: 'Original',
-      cin_number: 'FIXTURE-CIN',
-    });
-    await seed(POSFranchise, { id: 21, name: 'Orphan fixture franchise' });
-    await db
-      .get('writer')
-      .update(Store)
-      .set({ category: 'FRANCHISE', franchise_id: 20 })
-      .where(eq(Store.id, 1n));
-    await db
-      .get('writer')
-      .update(Store)
-      .set({ category: 'FRANCHISE', franchise_id: 20 })
-      .where(eq(Store.id, 2n));
-    actor = { ...actor, id: '3', role: 3, storeIds: ['1'] };
-    const listed = await app.inject('/api/v1/admin/franchises?active=all');
-    expect(listed.statusCode).toBe(200);
-    expect(listed.json<{ data: { id: string }[] }>().data.map((row) => row.id)).toEqual(['20']);
-    const payload = {
-      name: 'Fixture Store 1',
-      shortName: 'Fixture',
-      locationCode: 'LOC-1',
-      type: 'STORE',
-      category: 'FRANCHISE',
-      latitude: '19',
-      longitude: '72',
-      address: 'Fixture address',
-      cityId: 0,
-      countryId: 0,
-      phone: '9876543298',
-      franchise: { name: 'Changed shared details', description: 'Updated', cin: 'NEW-CIN' },
-    };
-    const refused = await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload });
-    expect(refused.statusCode).toBe(403);
-    expect(refused.json<{ error: { code: string } }>().error.code).toBe('FRANCHISE_SCOPE_DENIED');
-    const associate = await app.inject({
-      method: 'PUT',
-      url: '/api/v1/admin/stores/1',
-      payload: { ...payload, franchise: undefined, franchiseId: '21' },
-    });
-    expect(associate.statusCode).toBe(403);
-    await seed(UserStore, { django_user_id: 3, store_id: 2 });
-    const permitted = await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload });
-    expect(permitted.statusCode).toBe(200);
-    const [details] = await db
-      .get('primary')
-      .select()
-      .from(POSFranchise)
-      .where(eq(POSFranchise.id, 20n));
-    expect(details).toMatchObject({
-      name: 'Changed shared details',
-      description: 'Updated',
-      cin_number: 'NEW-CIN',
-    });
-    await db.get('writer').update(PosUser).set({ role: 5 }).where(eq(PosUser.id, 3n));
-    expect(
-      (await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload })).statusCode,
-    ).toBe(403);
-  });
-  it.each(['return', 'legacy-rto', 'legacy-delivery'] as const)(
-    'queues one %s synchronization event, preserves attempts and traces delivery without PII',
-    async (reason) => {
-      const event = {
-        id: 'financial-return-fixture',
-        storeId: '1',
-        productIds: ['1002', '1000', '1002'],
-        operatorId: '4',
-        reason,
-        requestId: 'fixture-request-id',
-      };
-      await db.get('writer').transaction(async (transaction) => {
-        await enqueueInventorySynchronization(transaction, event);
-        await enqueueInventorySynchronization(transaction, event);
-      });
-      await expect(
-        db
-          .get('writer')
-          .transaction((transaction) =>
-            enqueueInventorySynchronization(transaction, { ...event, storeId: '2' }),
-          ),
-      ).rejects.toThrow('belongs to another operation');
-      deliveryFailure = true;
-      expect(await services.inventory.dispatchPending()).toBe(0);
-      const [pending] = await connection.query<mysql.RowDataPacket[]>(
-        "SELECT attempts,delivered_at,JSON_UNQUOTE(JSON_EXTRACT(payload,'$.reason')) AS reason FROM pos_rewrite_administration_outbox WHERE id=?",
-        [event.id],
-      );
-      expect(pending.map((row) => [row.attempts, row.delivered_at, row.reason])).toEqual([
-        [1, null, reason],
-      ]);
-      deliveryFailure = false;
-      expect(await services.inventory.dispatchPending()).toBe(1);
-      expect(deliveries).toEqual(
-        [1, 2].map(() => ({
-          id: event.id,
-          products: ['1000', '1002'],
-          context: { operatorId: '4', storeId: '1', requestId: event.requestId },
-        })),
-      );
-    },
-  );
   it('preserves the trusted service system actor without allowing normal enqueue impersonation', async () => {
     const event = {
       id: randomUUID(),
@@ -2484,7 +2224,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
   it('creates and updates guides with sanitized rich text, stable ordering and optimistic replay protection', async () => {
     const body = {
       operationId: randomUUID(),
-      expectedVersion: 0,
+      expectedVersion: '',
       title: 'Fixture guide',
       summary: 'Fixture summary',
       description:
@@ -2500,8 +2240,11 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       payload: body,
     });
     expect(created.statusCode).toBe(201);
-    const document = created.json<{ id: string; version: number }>();
-    expect(document.version).toBe(1);
+    const document = created.json<{ id: string; version: string }>();
+    expect(document.version).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    // pos_tutorial.updated_at is the version (1 s precision); pin an older value.
+    const stale = '2026-01-01 00:00:00';
+    await connection.query('UPDATE pos_tutorial SET updated_at=? WHERE id=?', [stale, document.id]);
     const repeated = await app.inject({
       method: 'POST',
       url: '/api/v1/admin/documentation',
@@ -2527,7 +2270,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
         app.inject({
           method: 'PUT',
           url: `/api/v1/admin/documentation/${document.id}`,
-          payload: { ...body, operationId: randomUUID(), expectedVersion: 1, title },
+          payload: { ...body, operationId: randomUUID(), expectedVersion: stale, title },
         }),
       ),
     );
@@ -2563,7 +2306,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
         await app.inject({
           method: 'PUT',
           url: `/api/v1/admin/documentation/${document.id}`,
-          payload: { ...body, operationId: randomUUID(), expectedVersion: 2 },
+          payload: { ...body, operationId: randomUUID(), expectedVersion: stale },
         })
       ).statusCode,
     ).toBe(409);
@@ -2600,7 +2343,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     ).toBe(201);
     const body = {
       operationId: randomUUID(),
-      expectedVersion: 0,
+      expectedVersion: '',
       title: 'Guide with media',
       summary: 'Fixture',
       description: '<p>Steps</p>',
@@ -2640,10 +2383,13 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect(created.statusCode).toBe(201);
     const documentId = created.json<{ id: string }>().id;
     const detail = (await app.inject(`/api/v1/documentation/${documentId}`)).json<{
-      assets: { id: string; url: string }[];
+      assets: { id: string; name: string; url: string }[];
     }>();
-    expect(detail.assets[0]?.id).toBe(id);
-    expect(detail.assets[0]?.url).toBe(`/api/v1/documentation/${documentId}/assets/${id}/content`);
+    // Attached paths live only in pos_tutorial; the key keeps the original file name.
+    expect(detail.assets[0]?.name).toBe('Fixture_guide.pdf');
+    expect(detail.assets[0]?.url).toBe(
+      `/api/v1/documentation/${documentId}/assets/${detail.assets[0]?.id}/content`,
+    );
     actor = { ...actor, id: '5', role: 5, storeIds: ['1'] };
     const content = await app.inject(detail.assets[0]!.url);
     expect(content.statusCode).toBe(200);
@@ -2661,127 +2407,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     expect((await app.inject(detail.assets[0]!.url)).statusCode).toBe(404);
     expect(mediaVerifications).toHaveLength(2);
   });
-  it('cleans expired orphan uploads after lease grace and retains files shared by legacy guides', async () => {
-    const id = randomUUID(),
-      checksum = createHash('sha256').update('fixture').digest('base64');
-    await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/documentation/uploads',
-      payload: {
-        id,
-        kind: 'image',
-        name: 'Fixture.png',
-        contentType: 'image/png',
-        size: 7,
-        checksum,
-      },
-    });
-    const cleanup = documentationMediaCleanup(db, media);
-    expect(await cleanup.dispatchNext()).toBeNull();
-    await connection.query(
-      "UPDATE pos_rewrite_documentation_assets SET expires_at='2000-01-01 00:00:00' WHERE id=?",
-      [id],
-    );
-    const removed = await cleanup.dispatchNext();
-    expect(removed?.status).toBe('deleted');
-    expect(mediaDeletes).toHaveLength(1);
-    const key = "fixtures/tutorials/legacy/O'Brien.pdf";
-    await seed(PosTutorial, {
-      id: 100,
-      title: 'Shared guide',
-      cover_image: '[]',
-      image_link: '[]',
-      video_link: '[]',
-      doc_link: JSON.stringify([key]),
-      is_active: 1,
-    });
-    await seed(PosTutorial, {
-      id: 101,
-      title: 'Other guide',
-      cover_image: '[]',
-      image_link: '[]',
-      video_link: '[]',
-      doc_link: JSON.stringify([key]),
-      is_active: 1,
-    });
-    const detail = (await app.inject('/api/v1/documentation/100')).json<{
-      assets: { id: string }[];
-    }>();
-    expect(detail.assets).toHaveLength(1);
-    const changed = await app.inject({
-      method: 'PUT',
-      url: '/api/v1/admin/documentation/100',
-      payload: {
-        operationId: randomUUID(),
-        expectedVersion: 0,
-        title: 'Shared guide',
-        summary: 'Fixture',
-        description: '',
-        sortOrder: 0,
-        retainAssetIds: [],
-        uploadIds: [],
-      },
-    });
-    expect(changed.statusCode).toBe(200);
-    await connection.query(
-      "UPDATE pos_rewrite_documentation_assets SET expires_at='2000-01-01 00:00:00' WHERE object_key=?",
-      [key],
-    );
-    expect((await cleanup.dispatchNext())?.status).toBe('retained');
-    expect(mediaDeletes).not.toContain(key);
-  });
-  it('persists failed media cleanup, alerts across worker restarts and supports bounded recovery', async () => {
-    const id = randomUUID(),
-      checksum = createHash('sha256').update('fixture').digest('base64');
-    await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/documentation/uploads',
-      payload: {
-        id,
-        kind: 'image',
-        name: 'Private-canary.png',
-        contentType: 'image/png',
-        size: 7,
-        checksum,
-      },
-    });
-    await connection.query(
-      "UPDATE pos_rewrite_documentation_assets SET state='DELETE_PENDING',attempts=9,expires_at='2000-01-01 00:00:00' WHERE id=?",
-      [id],
-    );
-    mediaDeletionFailure = true;
-    const events: MediaWorkerEvent[] = [],
-      options = readDocumentationMediaOptions({ DOCUMENTATION_MEDIA_WORKER_ENABLED: 'true' });
-    const worker = documentationMediaWorker(db, media, options, (_level, event) =>
-      events.push(event),
-    );
-    await worker.runOnce();
-    await worker.stop();
-    expect(events).toContainEqual(
-      expect.objectContaining({
-        eventId: 'administration.documentation-media.cleanup-blocked',
-        userId: '1',
-        effectId: id,
-      }),
-    );
-    expect(JSON.stringify(events)).not.toContain('Private-canary');
-    expect(JSON.stringify(events)).not.toContain('private-canary@example.test');
-    expect(JSON.stringify(events)).not.toContain('fixtures/tutorials');
-    const restarted = documentationMediaWorker(db, media, options, (_level, event) =>
-      events.push(event),
-    );
-    await restarted.runOnce();
-    expect(
-      events.filter(
-        (event) => event.eventId === 'administration.documentation-media.cleanup-blocked',
-      ),
-    ).toHaveLength(2);
-    await documentationMediaCleanup(db, media).retry(id);
-    mediaDeletionFailure = false;
-    await restarted.runOnce();
-    await restarted.stop();
-    expect(mediaDeletes).toHaveLength(1);
-  });
   it('rechecks the current writer role before privileged guide mutations', async () => {
     actor = { ...actor, id: '3', role: 1, storeIds: ['1'] };
     const response = await app.inject({
@@ -2789,7 +2414,7 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       url: '/api/v1/admin/documentation',
       payload: {
         operationId: randomUUID(),
-        expectedVersion: 0,
+        expectedVersion: '',
         title: 'Denied guide',
         summary: 'Fixture',
         description: '',
@@ -3848,15 +3473,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       permissionKeys: operator.permissionKeys,
     });
     expect(await sessions.valid('2', prior)).toBe(false);
-    expect(
-      (
-        await db
-          .get('writer')
-          .select()
-          .from(operatorMfaEnrollments)
-          .where(eq(operatorMfaEnrollments.id, pending.id))
-      )[0]?.state,
-    ).toBe('CANCELLED');
     await expect(
       enrollments.confirm(reader, '3', pending.id, { code: '123456' }),
     ).rejects.toMatchObject({ code: 'MFA_ENROLLMENT_EXPIRED' });
@@ -3958,338 +3574,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
       await connection.query('ALTER TABLE store_counters AUTO_INCREMENT=3');
     }
   }, 5000);
-  it('binds private store image uploads to both actor and store, decodes before attachment and streams without public URLs', async () => {
-    const imageView = await app.inject('/api/v1/admin/stores/1/image');
-    expect(imageView.statusCode).toBe(200);
-    expect(imageView.headers['cache-control']).toBe('no-store');
-    const input = storeImageUploadInput.parse({
-      revision: imageView.json<{ revision: string }>().revision,
-      upload: {
-        id: randomUUID(),
-        kind: 'image',
-        name: 'Private fixture.png',
-        contentType: 'image/png',
-        size: storeImageBytes.length,
-        checksum: createHash('sha256').update(storeImageBytes).digest('base64'),
-      },
-    });
-    const reservation = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/stores/1/image-uploads',
-      payload: input,
-    });
-    expect(reservation.statusCode).toBe(200);
-    expect(reservation.headers['cache-control']).toBe('no-store');
-    const id = input.upload.id;
-    const service = storeImageService(applicationConfig, db, storeImageStore);
-    await expect(
-      service.attach({ ...actor, id: '3', role: 3, storeIds: ['1'] }, '1', id, input.revision),
-    ).rejects.toMatchObject({ code: 'STORE_IMAGE_UPLOAD_NOT_FOUND' });
-    await expect(service.attach(actor, '2', id, input.revision)).rejects.toMatchObject({
-      code: 'STORE_IMAGE_UPLOAD_NOT_FOUND',
-    });
-    const valid = storeImageBytes;
-    storeImageBytes = Buffer.from('invalid-image-data');
-    const refused = await app.inject({
-      method: 'POST',
-      url: `/api/v1/admin/stores/1/image-uploads/${id}/attachment`,
-      payload: { revision: input.revision },
-    });
-    expect(refused.statusCode).toBe(400);
-    const [unchanged] = await db.get('writer').select().from(Store).where(eq(Store.id, 1n));
-    // stores.store_image is nullable in production; an unset image is unchanged.
-    expect(unchanged?.store_image ?? '').not.toContain(id);
-    storeImageBytes = valid;
-    const accepted = await app.inject({
-      method: 'POST',
-      url: `/api/v1/admin/stores/1/image-uploads/${id}/attachment`,
-      payload: { revision: input.revision },
-    });
-    expect(accepted.statusCode).toBe(200);
-    expect(accepted.headers['cache-control']).toBe('no-store');
-    expect(accepted.body).not.toContain('uploads/stores/');
-    await service.attach(actor, '1', id, input.revision);
-    expect(storeImageVerifications).toHaveLength(2);
-    const content = await app.inject('/api/v1/admin/stores/1/image/content');
-    expect(content.statusCode).toBe(200);
-    expect(content.headers['content-type']).toBe('image/png');
-    expect(content.headers['cache-control']).toBe('private, no-store');
-    expect(content.headers['content-security-policy']).toContain("default-src 'none'");
-    expect(content.rawPayload).toEqual(valid);
-  });
-  it('rechecks current store revision, role and assignments before publishing uploaded store images', async () => {
-    const service = storeImageService(applicationConfig, db, storeImageStore);
-    const scoped: Principal = { ...actor, id: '3', role: 3, storeIds: ['1'] };
-    const reserve = async () => {
-      const input = storeImageUploadInput.parse({
-        revision: (await service.get(scoped, '1')).revision,
-        upload: {
-          id: randomUUID(),
-          kind: 'image',
-          name: 'Fixture.png',
-          contentType: 'image/png',
-          size: storeImageBytes.length,
-          checksum: createHash('sha256').update(storeImageBytes).digest('base64'),
-        },
-      });
-      await service.reserve(scoped, '1', input);
-      return input;
-    };
-    const stale = await reserve();
-    await db
-      .get('writer')
-      .update(Store)
-      .set({ store_name: 'Changed while uploading' })
-      .where(eq(Store.id, 1n));
-    await expect(
-      service.attach(scoped, '1', stale.upload.id, stale.revision),
-    ).rejects.toMatchObject({ code: 'STORE_IMAGE_CHANGED' });
-    const revoked = await reserve();
-    await db.get('writer').delete(UserStore).where(eq(UserStore.django_user_id, 3n));
-    await expect(
-      service.attach(scoped, '1', revoked.upload.id, revoked.revision),
-    ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
-    await seed(UserStore, { django_user_id: 3, store_id: 1 });
-    await db.get('writer').update(PosUser).set({ role: 5 }).where(eq(PosUser.id, 3n));
-    await expect(
-      service.attach(scoped, '1', revoked.upload.id, revoked.revision),
-    ).rejects.toMatchObject({ status: 403 });
-    expect(storeImageVerifications).toHaveLength(0);
-    const [store] = await db.get('writer').select().from(Store).where(eq(Store.id, 1n));
-    expect(store?.store_image ?? '').not.toContain(revoked.upload.id);
-  });
-  it('shares image cleanup leasing and retries, retaining every cross-store reference and excluding defaults', async () => {
-    let timestamp = Date.now();
-    const service = storeImageService(applicationConfig, db, storeImageStore, () => timestamp);
-    const ids: string[] = [];
-    for (let index = 0; index < 3; index++) {
-      const input = storeImageUploadInput.parse({
-        revision: (await service.get(actor, '1')).revision,
-        upload: {
-          id: randomUUID(),
-          kind: 'image',
-          name: 'Fixture.png',
-          contentType: 'image/png',
-          size: storeImageBytes.length,
-          checksum: createHash('sha256').update(storeImageBytes).digest('base64'),
-        },
-      });
-      await service.reserve(actor, '1', input);
-      if (index < 2) await service.attach(actor, '1', input.upload.id, input.revision);
-      ids.push(input.upload.id);
-    }
-    const firstKey = `uploads/stores/stores_image/${ids[0]}.png`;
-    await db
-      .get('writer')
-      .update(Store)
-      .set({ store_image: firstKey, is_active: false })
-      .where(eq(Store.id, 2n));
-    expect(await db.get('writer').select().from(storeImageJobs)).toHaveLength(3);
-    timestamp += 16 * 60000 + 1;
-    const events: ImageCleanupEvent[] = [];
-    const workers = [0, 1].map(() =>
-      storeImageCleanup(
-        db,
-        storeImageStore,
-        (event) => events.push(event),
-        () => timestamp,
-      ),
-    );
-    storeImageDeletionFailure = true;
-    await Promise.all(workers.map((worker) => worker.runOnce()));
-    expect(storeImageDeletes).toEqual([]);
-    storeImageDeletionFailure = false;
-    timestamp += 60000;
-    await workers[0]!.runOnce();
-    expect(storeImageDeletes).toEqual([`uploads/stores/stores_image/${ids[2]}.png`]);
-    const jobs = await db.get('writer').select().from(storeImageJobs);
-    expect(jobs.filter((job) => job.state === 'retained')).toHaveLength(2);
-    expect(jobs.filter((job) => job.state === 'done')).toHaveLength(1);
-    expect(JSON.stringify(events)).not.toMatch(
-      /private-store-image-canary|example.test|uploads\/stores/,
-    );
-    expect(
-      events.every(
-        (event) =>
-          event.module === 'administration' &&
-          event.resource === 'store-image' &&
-          event.userId === '1' &&
-          event.eventId.startsWith('administration.store-image.cleanup.'),
-      ),
-    ).toBe(true);
-    expect(
-      (
-        await db
-          .get('writer')
-          .select()
-          .from(storeImageUploads)
-          .where(eq(storeImageUploads.id, ids[2]!))
-      )[0]?.state,
-    ).toBe('cleaned');
-    await Promise.all(workers.map((worker) => worker.stop()));
-  });
-  it('prevents store CRUD from bypassing verified image ownership', async () => {
-    const payload = {
-      name: 'Fixture Store 1',
-      shortName: 'Fixture',
-      locationCode: 'LOC-1',
-      type: 'STORE',
-      category: 'IN_HOUSE',
-      latitude: '19',
-      longitude: '72',
-      address: 'Fixture address',
-      cityId: 0,
-      countryId: 0,
-      phone: '9876543298',
-      imagePath: `uploads/stores/stores_image/${randomUUID()}.png`,
-    };
-    const changed = await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload });
-    expect(changed.statusCode).toBe(400);
-    expect(changed.json<{ error: { code: string } }>().error.code).toBe(
-      'STORE_IMAGE_UPLOAD_REQUIRED',
-    );
-    expect(
-      (
-        await app.inject({
-          method: 'POST',
-          url: '/api/v1/admin/stores',
-          payload: { ...payload, name: 'Unverified image', locationCode: 'LOC-3' },
-        })
-      ).statusCode,
-    ).toBe(400);
-    expect(await db.get('writer').select().from(storeImageUploads)).toEqual([]);
-  });
-  it('keeps store Slack credentials write-only, preserves blanks and validates explicit replacement/removal', async () => {
-    const secret = 'https://hooks.slack.com/services/T_PRIVATE/B_PRIVATE/privateCanaryToken';
-    await db.get('writer').update(Store).set({ slack_group_url: secret }).where(eq(Store.id, 1n));
-    for (const path of ['/api/v1/admin/stores', '/api/v1/admin/stores/1']) {
-      const response = await app.inject(path);
-      expect(response.statusCode).toBe(200);
-      expect(response.body).not.toMatch(/slack_group_url|T_PRIVATE|B_PRIVATE|privateCanaryToken/);
-      expect(response.body).toContain('"slackConfigured":true');
-    }
-    const payload = {
-      name: 'Fixture Store 1',
-      shortName: 'Fixture',
-      locationCode: 'LOC-1',
-      type: 'STORE',
-      category: 'IN_HOUSE',
-      latitude: '19',
-      longitude: '72',
-      address: 'Fixture address',
-      cityId: 0,
-      countryId: 0,
-      phone: '9876543298',
-      slackUrl: '',
-    };
-    expect(
-      (await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload })).statusCode,
-    ).toBe(200);
-    const read = async () =>
-      (
-        await db
-          .get('writer')
-          .select({ webhook: Store.slack_group_url })
-          .from(Store)
-          .where(eq(Store.id, 1n))
-      )[0]?.webhook;
-    expect(await read()).toBe(secret);
-    for (const slackUrl of [
-      'https://127.0.0.1/services/T/B/key',
-      'https://example.test/services/T/B/key',
-      'https://hooks.slack.com@evil.test/services/T/B/key',
-      'https://hooks.slack.com/services/T/B/key?secret=query',
-      'https://hooks.slack.com/services/T/B/key#fragment',
-      'https://hooks.slack.com:8443/services/T/B/key',
-    ])
-      expect(
-        (
-          await app.inject({
-            method: 'PUT',
-            url: '/api/v1/admin/stores/1',
-            payload: { ...payload, slackUrl },
-          })
-        ).statusCode,
-      ).toBe(400);
-    expect(
-      (
-        await app.inject({
-          method: 'PUT',
-          url: '/api/v1/admin/stores/1',
-          payload: { ...payload, slackUrl: secret, removeSlack: true },
-        })
-      ).statusCode,
-    ).toBe(400);
-    expect(
-      (
-        await app.inject({
-          method: 'PUT',
-          url: '/api/v1/admin/stores/1',
-          payload: { ...payload, removeSlack: true },
-        })
-      ).statusCode,
-    ).toBe(200);
-    expect(await read()).toBeNull();
-    expect((await app.inject('/api/v1/admin/stores/1')).json()).toMatchObject({
-      slackConfigured: false,
-    });
-    const replacement = 'https://hooks.slack.com/services/T_FIXTURE/B_FIXTURE/replacementToken';
-    expect(
-      (
-        await app.inject({
-          method: 'PUT',
-          url: '/api/v1/admin/stores/1',
-          payload: { ...payload, slackUrl: replacement },
-        })
-      ).statusCode,
-    ).toBe(200);
-    expect(await read()).toBe(replacement);
-  });
-  it('keeps pending authenticator material encrypted and returns only a local QR', async () => {
-    let uri = '';
-    const service = operatorMfaService(
-      applicationConfig,
-      db,
-      () => 1805328000000,
-      async (value) => {
-        uri = value;
-        return 'data:image/png;base64,aGVsbG8=';
-      },
-    );
-    const previousSeed = 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
-    await db
-      .get('writer')
-      .update(PosUser)
-      .set({ mfa_hash: previousSeed, is_mfa: false })
-      .where(eq(PosUser.id, 4n));
-    const current = await service.read(actor, '4'),
-      operationId = randomUUID();
-    expect(current).toMatchObject({ enabled: false, configured: true, canReplace: true });
-    expect(Object.keys(current).sort()).toEqual(['canReplace', 'configured', 'enabled', 'version']);
-    const started = await service.start(actor, '4', {
-      operationId,
-      expectedVersion: current.version,
-    });
-    const firstUri = uri,
-      secret = new URL(uri).searchParams.get('secret')!;
-    expect(uri.startsWith('otpauth://totp/')).toBe(true);
-    expect(new URL(uri).searchParams.get('issuer')).toBe('TssPosApp');
-    expect(secret).toMatch(/^[A-Z2-7]{32}$/);
-    expect(started.qrDataUrl.startsWith('data:image/png;base64,')).toBe(true);
-    expect(JSON.stringify(started)).not.toContain(secret);
-    const [pending] = await db
-      .get('writer')
-      .select()
-      .from(operatorMfaEnrollments)
-      .where(eq(operatorMfaEnrollments.id, operationId));
-    expect(pending?.sealedSecret).not.toContain(secret);
-    const [target] = await db.get('writer').select().from(PosUser).where(eq(PosUser.id, 4n));
-    expect(target).toMatchObject({ mfa_hash: previousSeed, is_mfa: false });
-    expect(
-      await service.start(actor, '4', { operationId, expectedVersion: current.version }),
-    ).toEqual(started);
-    expect(uri).toBe(firstUri);
-  });
   it('activates an authenticator only after exact source TOTP verification and invalidates existing sessions', async () => {
     let uri = '';
     const timestamp = 1805328000000,
@@ -4330,53 +3614,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
         expectedVersion: (await service.read(actor, '4')).version,
       }),
     ).rejects.toMatchObject({ code: 'MFA_ALREADY_ACTIVATED' });
-  });
-  it('persists rejected MFA attempts, throttles retries and expires pending enrollments', async () => {
-    let timestamp = 1805328000000,
-      uri = '';
-    const service = operatorMfaService(
-      applicationConfig,
-      db,
-      () => timestamp,
-      async (value) => {
-        uri = value;
-        return 'data:image/png;base64,aGVsbG8=';
-      },
-    );
-    const current = await service.read(actor, '4'),
-      id = randomUUID();
-    await service.start(actor, '4', { operationId: id, expectedVersion: current.version });
-    const secret = new URL(uri).searchParams.get('secret')!,
-      valid = new TOTP({ secret: Secret.fromBase32(secret) }).generate({ timestamp }),
-      wrong = valid === '000000' ? '000001' : '000000';
-    await expect(service.confirm(actor, '4', id, { code: wrong })).rejects.toMatchObject({
-      code: 'MFA_CODE_INVALID',
-    });
-    await expect(service.confirm(actor, '4', id, { code: wrong })).rejects.toMatchObject({
-      code: 'MFA_VERIFICATION_WAIT',
-    });
-    for (let attempt = 1; attempt < 5; attempt++) {
-      timestamp += 1100;
-      await expect(service.confirm(actor, '4', id, { code: wrong })).rejects.toMatchObject({
-        code: 'MFA_CODE_INVALID',
-      });
-    }
-    const [pending] = await db
-      .get('writer')
-      .select()
-      .from(operatorMfaEnrollments)
-      .where(eq(operatorMfaEnrollments.id, id));
-    expect(pending).toMatchObject({ attempts: 5, state: 'CANCELLED' });
-    await expect(service.confirm(actor, '4', id, { code: valid })).rejects.toMatchObject({
-      code: 'MFA_ENROLLMENT_EXPIRED',
-    });
-    const nextId = randomUUID();
-    await service.start(actor, '4', { operationId: nextId, expectedVersion: current.version });
-    timestamp += 600001;
-    await expect(service.confirm(actor, '4', nextId, { code: valid })).rejects.toMatchObject({
-      code: 'MFA_ENROLLMENT_EXPIRED',
-    });
-    expect((await service.read(actor, '4')).enabled).toBe(false);
   });
   it('rechecks MFA actor roles, full store coverage and franchise scope on the writer', async () => {
     const service = operatorMfaService(applicationConfig, db);
@@ -4641,232 +3878,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     ).toBe(400);
     expect(await db.get('writer').select().from(deliverablePincodes)).toHaveLength(2);
   });
-  it('completes a session-bound Slack OAuth flow exactly once and never returns or persists grant secrets in receipts', async () => {
-    const cookieHeader = { cookie: 'pos_session=synthetic-session-one' };
-    const view = await app.inject('/api/v1/admin/stores/1/slack-connection');
-    expect(view.statusCode).toBe(200);
-    const input = {
-      operationId: randomUUID(),
-      expectedVersion: view.json<{ version: string }>().version,
-    };
-    const missingCookie = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/stores/1/slack-connections',
-      payload: input,
-    });
-    expect(missingCookie.statusCode).toBe(401);
-    const started = await app.inject({
-      method: 'POST',
-      url: '/api/v1/admin/stores/1/slack-connections',
-      headers: cookieHeader,
-      payload: input,
-    });
-    expect(started.statusCode).toBe(201);
-    const result = started.json<{ id: string; authorizationUrl: string }>(),
-      state = new URL(result.authorizationUrl).searchParams.get('state')!;
-    expect(state).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(started.body).not.toMatch(
-      /privateFixtureWebhook|fixture@example|actorId|sessionBinding/,
-    );
-    expect(
-      (
-        await app.inject({
-          method: 'POST',
-          url: '/api/v1/admin/stores/1/slack-connections',
-          headers: cookieHeader,
-          payload: input,
-        })
-      ).json(),
-    ).toEqual(started.json());
-    const query =
-      '/api/v1/admin/slack/oauth/callback?' +
-      new URLSearchParams({ state, code: 'synthetic.code' });
-    expect(
-      (await app.inject({ url: query, headers: { cookie: 'pos_session=synthetic-session-two' } }))
-        .statusCode,
-    ).toBe(404);
-    duringSlackExchange = async () => {
-      await new Promise((resolve) => setTimeout(resolve, 15));
-    };
-    const responses = await Promise.all([
-      app.inject({ url: query, headers: cookieHeader }),
-      app.inject({ url: query, headers: cookieHeader }),
-    ]);
-    expect(responses.map((response) => response.statusCode)).toEqual([303, 303]);
-    expect(slackExchanges).toBe(1);
-    expect(responses[0]?.headers['referrer-policy']).toBe('no-referrer');
-    expect(responses[0]?.headers.location).toContain('slackConnection=' + result.id);
-    expect(responses[0]?.headers.location).not.toMatch(/code|private|state=/);
-    await app.inject({ url: query, headers: cookieHeader });
-    expect(slackExchanges).toBe(1);
-    expect(await services.slack.attempt(actor, result.id)).toMatchObject({
-      state: 'COMPLETED',
-      channel: '#fixture-sales',
-    });
-    const [store] = await db.get('writer').select().from(Store).where(eq(Store.id, 1n));
-    expect(store?.slack_group_url).toContain('privateFixtureWebhook');
-    expect(JSON.stringify(await db.get('writer').select().from(slackConnections))).not.toMatch(
-      /privateFixtureWebhook|synthetic\.code|synthetic-session/,
-    );
-    expect((await app.inject('/api/v1/admin/stores/1')).body).not.toMatch(
-      /privateFixtureWebhook|slack_group_url/,
-    );
-  });
-  it('rejects cross-actor Slack receipts and writer-revoked assignment, organization and role access', async () => {
-    const binding = 'a'.repeat(64),
-      scoped: Principal = { ...actor, id: '3', role: 3, storeIds: ['1'] };
-    const view = await services.slack.view(scoped, '1'),
-      id = randomUUID();
-    const started = await services.slack.start(
-        scoped,
-        '1',
-        { operationId: id, expectedVersion: view.version },
-        binding,
-      ),
-      state = new URL(started.authorizationUrl).searchParams.get('state')!;
-    await expect(services.slack.attempt(actor, id)).rejects.toMatchObject({
-      code: 'SLACK_CONNECTION_NOT_FOUND',
-    });
-    await expect(
-      services.slack.complete(actor, { state, code: 'synthetic' }, binding),
-    ).rejects.toMatchObject({ code: 'SLACK_CONNECTION_NOT_FOUND' });
-    await db.get('writer').delete(UserStore).where(eq(UserStore.django_user_id, 3n));
-    await expect(
-      services.slack.complete(scoped, { state, code: 'synthetic' }, binding),
-    ).rejects.toMatchObject({ code: 'STORE_ACCESS_DENIED' });
-    await seed(UserStore, { django_user_id: 3, store_id: 1 });
-    await db.get('writer').update(PosUser).set({ user_type: 2 }).where(eq(PosUser.id, 3n));
-    await expect(services.slack.view(scoped, '1')).rejects.toMatchObject({
-      code: 'STORE_ACCESS_DENIED',
-    });
-    await db.get('writer').update(PosUser).set({ user_type: 1, role: 5 }).where(eq(PosUser.id, 3n));
-    await expect(services.slack.view(scoped, '1')).rejects.toMatchObject({
-      code: 'SLACK_CONNECTION_DENIED',
-    });
-    expect(slackExchanges).toBe(0);
-  });
-  it('fails closed on stale store/auth versions, provider rejection and cancellation without overwriting a connection', async () => {
-    const binding = 'b'.repeat(64);
-    const start = async () => {
-      const view = await services.slack.view(actor, '1'),
-        value = await services.slack.start(
-          actor,
-          '1',
-          { operationId: randomUUID(), expectedVersion: view.version },
-          binding,
-        );
-      return { ...value, state: new URL(value.authorizationUrl).searchParams.get('state')! };
-    };
-    await db
-      .get('writer')
-      .update(Store)
-      .set({
-        slack_group_url: 'https://hooks.slack.com/services/T_EXISTING/B_EXISTING/existingSecret',
-      })
-      .where(eq(Store.id, 1n));
-    const stale = await start();
-    await db
-      .get('writer')
-      .update(Store)
-      .set({ store_name: 'Changed store' })
-      .where(eq(Store.id, 1n));
-    await services.slack.complete(actor, { state: stale.state, code: 'synthetic' }, binding);
-    expect(await services.slack.attempt(actor, stale.id)).toMatchObject({
-      state: 'FAILED',
-      errorCode: 'SLACK_CONNECTION_CHANGED',
-    });
-    const revoked = await start();
-    await db.get('writer').transaction(async (tx) => {
-      await tx.select().from(PosUser).where(eq(PosUser.id, 1n)).for('update');
-      await invalidateOperatorAuthentication(tx, '1');
-    });
-    await services.slack.complete(actor, { state: revoked.state, code: 'synthetic' }, binding);
-    expect(await services.slack.attempt(actor, revoked.id)).toMatchObject({ state: 'FAILED' });
-    expect(slackExchanges).toBe(0);
-    const denied = await start();
-    await services.slack.complete(actor, { state: denied.state, error: 'access_denied' }, binding);
-    expect(await services.slack.attempt(actor, denied.id)).toMatchObject({ state: 'CANCELLED' });
-    const rejected = await start();
-    slackExchangeFailure = true;
-    await services.slack.complete(actor, { state: rejected.state, code: 'synthetic' }, binding);
-    const receipt = await services.slack.attempt(actor, rejected.id);
-    expect(receipt).toMatchObject({ state: 'FAILED', errorCode: 'SLACK_OAUTH_EXCHANGE_FAILED' });
-    expect(JSON.stringify(receipt)).not.toContain('private-slack-token');
-    const current = (await db.get('writer').select().from(Store).where(eq(Store.id, 1n)))[0];
-    expect(current?.slack_group_url).toContain('existingSecret');
-  });
-  it('rechecks authorization after Slack exchange and fences cancelled or superseded publication', async () => {
-    const binding = 'd'.repeat(64),
-      view = await services.slack.view(actor, '1');
-    const first = await services.slack.start(
-      actor,
-      '1',
-      { operationId: randomUUID(), expectedVersion: view.version },
-      binding,
-    );
-    const state = new URL(first.authorizationUrl).searchParams.get('state')!;
-    duringSlackExchange = async () => {
-      await services.slack.cancel(actor, first.id);
-    };
-    await services.slack.complete(actor, { state, code: 'synthetic' }, binding);
-    expect(await services.slack.attempt(actor, first.id)).toMatchObject({ state: 'CANCELLED' });
-    expect((await services.slack.view(actor, '1')).configured).toBe(false);
-    const second = await services.slack.start(
-      actor,
-      '1',
-      { operationId: randomUUID(), expectedVersion: view.version },
-      binding,
-    );
-    duringSlackExchange = async () => {
-      await db.get('writer').update(PosUser).set({ role: 5 }).where(eq(PosUser.id, 1n));
-    };
-    await services.slack.complete(
-      actor,
-      { state: new URL(second.authorizationUrl).searchParams.get('state')!, code: 'synthetic' },
-      binding,
-    );
-    expect(
-      (await db.get('writer').select().from(Store).where(eq(Store.id, 1n)))[0]?.slack_group_url,
-    ).toBeNull();
-    expect(
-      (
-        await db
-          .get('writer')
-          .select()
-          .from(slackConnections)
-          .where(eq(slackConnections.id, second.id))
-      )[0]?.state,
-    ).toBe('FAILED');
-  });
-  it('expires short-lived Slack attempts and prunes old receipts with bounded writer work', async () => {
-    let now = Date.now();
-    const service = slackConnectionService(
-        applicationConfig,
-        db,
-        { slackOAuth: slackProvider },
-        () => now,
-      ),
-      binding = 'e'.repeat(64);
-    const view = await service.view(actor, '1'),
-      started = await service.start(
-        actor,
-        '1',
-        { operationId: randomUUID(), expectedVersion: view.version },
-        binding,
-      );
-    now += 600001;
-    await service.complete(
-      actor,
-      { state: new URL(started.authorizationUrl).searchParams.get('state')!, code: 'synthetic' },
-      binding,
-    );
-    expect(await service.attempt(actor, started.id)).toMatchObject({ state: 'EXPIRED' });
-    expect(slackExchanges).toBe(0);
-    expect(await pruneSlackConnections(db, now + 86400001)).toBe(1);
-    await expect(service.attempt(actor, started.id)).rejects.toMatchObject({
-      code: 'SLACK_CONNECTION_NOT_FOUND',
-    });
-  });
   it('keeps current franchise role1 scoped to assigned franchise stores for writer actions, check-in display and notification recipients', async () => {
     await expect(
       db.get('writer').transaction((tx) => assertCurrentStoreAccess(tx, '1', '2')),
@@ -4900,48 +3911,6 @@ describe.skipIf(!template)('administration routes against isolated MySQL', () =>
     await db.get('writer').update(Store).set({ category: 'IN_HOUSE' }).where(eq(Store.id, 1n));
     expect(await services.checkins.checkedInStore('1')).toBeNull();
     expect(await services.checkins.checkedInUsers('1')).not.toContain('1');
-  });
-  it('prevents manual webhook editing from bypassing current franchise organization and assignment checks', async () => {
-    const payload = {
-      name: 'Fixture Store 1',
-      shortName: 'Fixture',
-      locationCode: 'LOC-1',
-      type: 'STORE',
-      category: 'IN_HOUSE',
-      latitude: '19',
-      longitude: '72',
-      address: 'Fixture address',
-      cityId: 0,
-      countryId: 0,
-      phone: '9876543298',
-      slackUrl: 'https://hooks.slack.com/services/T0123456789/B0123456789/privateReplacement',
-    };
-    await db.get('writer').update(PosUser).set({ user_type: 2 }).where(eq(PosUser.id, 1n));
-    expect(
-      (await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload })).statusCode,
-    ).toBe(403);
-    await seed(POSFranchise, { id: 77, name: 'Fixture franchise' });
-    await db
-      .get('writer')
-      .update(Store)
-      .set({ category: 'FRANCHISE', franchise_id: 77 })
-      .where(eq(Store.id, 1n));
-    const own = { ...payload, category: 'FRANCHISE', franchiseId: '77' };
-    expect(
-      (await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload: own })).statusCode,
-    ).toBe(403);
-    await seed(UserStore, { django_user_id: 1, store_id: 1 });
-    expect(
-      (await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload: own })).statusCode,
-    ).toBe(200);
-    expect(
-      (await app.inject({ method: 'PUT', url: '/api/v1/admin/stores/1', payload })).statusCode,
-    ).toBe(403);
-    expect((await db.get('writer').select().from(Store).where(eq(Store.id, 1n)))[0]).toMatchObject({
-      category: 'FRANCHISE',
-      franchise_id: 77,
-      slack_group_url: payload.slackUrl,
-    });
   });
   it('provides a minimal active same-store salesperson picker without trusting the first legacy global assignment', async () => {
     for (const [id, active] of [

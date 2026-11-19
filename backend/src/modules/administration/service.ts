@@ -452,7 +452,8 @@ export function administrationService(
     /**
      * `AjaxStoresListView` / `AjaxArchivedStoresListView` (`stores/datatables/stores_datatable.py`):
      * type STORE only, search on name/address/phone/pincode. Franchise users (user_type 2) see their
-     * assigned stores only (legacy exempted franchise role 1; kept scoped as a security decision).
+     * assigned franchise stores only (legacy exempted franchise role 1 and did not check the
+     * category; kept scoped as everywhere else in the rewrite, a security decision).
      */
     async stores(user: Principal, page: AdminPage) {
       requireRole(user, [1, 2, 3]);
@@ -486,6 +487,7 @@ export function administrationService(
           and(
             eq(Store.type, 'STORE'),
             scoped ? inArray(Store.id, user.storeIds.map(BigInt)) : undefined,
+            scoped ? eq(Store.category, 'FRANCHISE') : undefined,
             active(page.active) === undefined
               ? undefined
               : eq(Store.is_active, active(page.active)!),
@@ -781,6 +783,7 @@ export function administrationService(
         .where(
           and(
             scoped ? inArray(StoreCounter.store, user.storeIds.map(BigInt)) : undefined,
+            scoped ? eq(Store.category, 'FRANCHISE') : undefined,
             active(page.active) === undefined
               ? undefined
               : eq(StoreCounter.is_active, active(page.active)!),
@@ -822,6 +825,7 @@ export function administrationService(
         .where(
           and(
             scoped ? inArray(StoreStorage.store, user.storeIds.map(BigInt)) : undefined,
+            scoped ? eq(Store.category, 'FRANCHISE') : undefined,
             active(page.active) === undefined
               ? undefined
               : eq(StoreStorage.is_active, active(page.active)!),
