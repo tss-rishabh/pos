@@ -7,7 +7,8 @@ import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
 import { operatorCreator } from '../../src/modules/administration/operator-create.js';
 import { administrationService } from '../../src/modules/administration/service.js';
-import { operatorCreateInput, storeInput } from '../../src/modules/administration/contracts.js';
+import { operatorCreateInput } from '../../src/modules/administration/contracts.js';
+import { storeFormInput } from '../../src/modules/administration/store-form.js';
 import { barcodeFixture } from '../../tools/administration/barcodes/fixture.js';
 
 const database = process.env.ADMINISTRATION_CREATOR_MYSQL_URL;
@@ -33,17 +34,17 @@ const operatorInput = () =>
     confirmPassword: 'Riv3r!Cobalt-Forest#89',
   });
 const store = () =>
-  storeInput.parse({
-    name: 'Synthetic new store',
-    shortName: 'Synthetic',
-    locationCode: 'NEW',
+  storeFormInput.parse({
+    store_name: 'Synthetic new store',
+    short_name: 'Synthetic',
+    location_code: 'NEW',
     type: 'STORE',
     category: 'IN_HOUSE',
     latitude: '19.0760',
     longitude: '72.8777',
     address: 'Synthetic address',
-    cityId: 0,
-    countryId: 0,
+    city_id: '1111',
+    country_id: '0',
     phone: '9876543298',
   });
 const countedTables = [

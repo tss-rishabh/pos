@@ -1,6 +1,6 @@
 import { readStoreDefaultOperatorOptions } from './store-default-operators.js';
 import { administrationCollectionPageQuery } from './collection-page.js';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { registerAdministrationStoreDetails } from './store-detail-routes.js';
 import { Readable } from 'node:stream';
 import { z } from 'zod';
@@ -21,11 +21,9 @@ import {
   salespersonInput,
   statusInput,
   stockInput,
-  storageInput,
-  storageUpdateInput,
+  storageFormInput,
   locationCodeInput,
   deliverySlotInput,
-  storeInput,
   visibilityInput,
 } from './contracts.js';
 import { administrationService, type AdministrationOptions } from './service.js';
@@ -36,6 +34,7 @@ import { inventoryService } from './inventory.js';
 import { supportService } from './support.js';
 import { registerTerminalDirectory } from './terminal-directory.js';
 import { storeImageService, type StoreImageOptions } from './store-images.js';
+import { FormInvalid, storeFormInput } from './store-form.js';
 import { registerStoreImages } from './store-image-routes.js';
 import { administrationAccessService } from './access-control.js';
 import { registerAdministrationAccess } from './access-routes.js';
@@ -100,6 +99,24 @@ const wire = (value: unknown): unknown =>
     ),
   ) as unknown;
 
+/** Legacy forms re-render with per-field errors; return them with the field names. */
+async function sendForm(reply: FastifyReply, status: number, run: () => Promise<unknown>) {
+  try {
+    return reply.code(status).send(await run());
+  } catch (error) {
+    if (error instanceof FormInvalid)
+      return reply.code(400).send({
+        error: {
+          code: error.code,
+          message: error.message,
+          requestId: reply.request.id,
+          fields: error.fields,
+        },
+      });
+    throw error;
+  }
+}
+
 /** Register concrete administration resources. Parent owns auth, CSRF, errors and logging. */
 export function registerAdministration(
   app: FastifyInstance,
@@ -120,7 +137,13 @@ export function registerAdministration(
     options.defaultStoreOperatorContactEmails !== undefined
       ? {}
       : readStoreDefaultOperatorOptions();
-  const service = administrationService(config, db, { ...storeDefaults, ...options }),
+  const storeImages = storeImageService(config, db, options.storeImageStore, ephemeral);
+  const service = administrationService(config, db, {
+      ...storeDefaults,
+      ...options,
+      ephemeral,
+      storeImages,
+    }),
     checkins = checkInService(db, config, ephemeral),
     inventory = inventoryService(config, db, options),
     support = supportService(config, db);
@@ -207,7 +230,6 @@ export function registerAdministration(
   );
   const settings = settingsService(config, db, options);
   const mfa = operatorMfaService(config, db, undefined, undefined, ephemeral);
-  const storeImages = storeImageService(config, db, options.storeImageStore);
   registerStoreImages(app, storeImages);
   const access = administrationAccessService(config, db);
   registerAdministrationAccess(app, access);
@@ -222,9 +244,6 @@ export function registerAdministration(
   registerSlackConnections(app, config, slack);
   const locations = locationLookupService(db);
   registerLocationLookups(app, locations);
-  app.get('/api/v1/admin/franchises', trace('franchise', 'list'), async (request) =>
-    wire(await service.franchises(authenticated(request), pageQuery.parse(request.query))),
-  );
   const enrollmentScope = operatorScope.extend({ enrollmentId: z.uuid() });
   app.get(
     '/api/v1/admin/operators/:operatorId/mfa',
@@ -401,19 +420,58 @@ export function registerAdministration(
   app.get('/api/v1/admin/stores/:storeId', trace('store', 'read'), async (request) =>
     wire(await service.store(authenticated(request), scope.parse(request.params).storeId)),
   );
-  app.post('/api/v1/admin/stores', trace('store', 'create'), async (request, reply) => {
-    const result = await service.createStore(
-      authenticated(request),
-      storeInput.parse(request.body),
-    );
-    return reply.code(201).send(result);
-  });
-  app.put('/api/v1/admin/stores/:storeId', trace('store', 'update'), async (request) =>
-    service.updateStore(
-      authenticated(request),
-      scope.parse(request.params).storeId,
-      storeInput.parse(request.body),
+  app.post('/api/v1/admin/stores', trace('store', 'create'), async (request, reply) =>
+    sendForm(reply, 201, () =>
+      service.createStore(authenticated(request), storeFormInput.parse(request.body)),
     ),
+  );
+  app.put('/api/v1/admin/stores/:storeId', trace('store', 'update'), async (request, reply) =>
+    sendForm(reply, 200, () =>
+      service.updateStore(
+        authenticated(request),
+        scope.parse(request.params).storeId,
+        storeFormInput.parse(request.body),
+      ),
+    ),
+  );
+  app.get(
+    '/api/v1/admin/resource-stores',
+    trace('store', 'list-resource-stores'),
+    async (request) => wire({ data: await service.resourceStores(authenticated(request)) }),
+  );
+  app.post(
+    '/api/v1/admin/counters/search',
+    trace('counter', 'search-all'),
+    async (request, reply) => {
+      emptyQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          wire(
+            await service.allCounters(
+              authenticated(request),
+              administrationCollectionPageQuery.parse(request.body),
+            ),
+          ),
+        );
+    },
+  );
+  app.post(
+    '/api/v1/admin/storages/search',
+    trace('storage', 'search-all'),
+    async (request, reply) => {
+      emptyQuery.parse(request.query);
+      return reply
+        .header('Cache-Control', 'private, no-store')
+        .send(
+          wire(
+            await service.allStorages(
+              authenticated(request),
+              administrationCollectionPageQuery.parse(request.body),
+            ),
+          ),
+        );
+    },
   );
   app.patch('/api/v1/admin/stores/:storeId/status', trace('store', 'set-status'), async (request) =>
     service.setStoreStatus(
@@ -485,15 +543,13 @@ export function registerAdministration(
     '/api/v1/admin/stores/:storeId/storages',
     trace('storage', 'create'),
     async (request, reply) =>
-      reply
-        .code(201)
-        .send(
-          await service.createStorage(
-            authenticated(request),
-            scope.parse(request.params).storeId,
-            storageInput.parse(request.body),
-          ),
+      sendForm(reply, 201, () =>
+        service.createStorage(
+          authenticated(request),
+          scope.parse(request.params).storeId,
+          storageFormInput.parse(request.body),
         ),
+      ),
   );
   app.get(
     '/api/v1/admin/stores/:storeId/storages/:storageId',
@@ -506,13 +562,15 @@ export function registerAdministration(
   app.put(
     '/api/v1/admin/stores/:storeId/storages/:storageId',
     trace('storage', 'update'),
-    async (request) => {
+    async (request, reply) => {
       const params = storageScope.parse(request.params);
-      return service.updateStorage(
-        authenticated(request),
-        params.storeId,
-        params.storageId,
-        storageUpdateInput.parse(request.body),
+      return sendForm(reply, 200, () =>
+        service.updateStorage(
+          authenticated(request),
+          params.storeId,
+          params.storageId,
+          storageFormInput.parse(request.body),
+        ),
       );
     },
   );
