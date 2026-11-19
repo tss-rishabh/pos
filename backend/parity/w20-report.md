@@ -103,3 +103,30 @@ contract and break the Electron offline server that maps its 401 to "signed out"
 - Electron windows are watched from launch; console output emitted before `_electron.launch`
   returns is not observable.
 - Production readiness is not claimed; this closes release blocker 2 only.
+
+## 8. Follow-up: repeated runs on the same stack (W19 finding)
+
+W19's verifier saw `retail.spec.ts:4` fail on repeats on one stack: after going offline and
+reloading, the shell showed "Select a store" and the saved cart never rendered.
+
+**Root cause: a product bug, fixed in this branch before the merge.** `useStores` and
+`useCounters` (`frontend/src/hooks/use-pos.ts`) both wrote the shared IndexedDB `lookups` row
+with an unsynchronised read-modify-write. When the two responses land together, the second write
+can put back the stale empty `stores` half. Offline, the shell restores its store list from that
+row, finds none, clears the selection and shows "Select your store to start". Warm-stack timing
+on repeats makes the interleaving likely. W19 ran on a base that did not have the fix. Neither
+check-in, session or seed state is involved. Evidence on integration head `ecc966a9`:
+`--repeat-each=3` of the retail test passes 3/3. With the transaction temporarily reverted,
+repeat 2 fails at the same line (`retail.spec.ts:27`). The fix is the §2 "Also fixed" row: one
+Dexie `rw` transaction per write. This matches legacy, where the selected store stays selected.
+
+**Second issue found by the same-stack runs: spec state leakage.** `order-payments.spec.ts`
+paid the seeded unpaid orders 6001 and 6002, so a second run on the same stack found them
+already paid. Each test now adds its own new unpaid counter order through
+`backend/tools/e2e/fixture-orders.ts`. That helper writes the same row shape as the seed
+(`orders`, `order_stores`, `has_products`; auto-increment id; loopback `pos_rewrite_e2e*` schema
+only, through `e2eDatabaseUrl`) to the schema the running stack seeded. The seed is unchanged.
+
+**Same-stack verification.** One stack was started once (`backend/tools/e2e/stack.ts` and
+`vite preview` on 4410/4173). The full suite then ran twice in a row against it through a
+temporary, uncommitted config with `reuseExistingServer: true`: run 1 41/41 and run 2 41/41, each with 0 unexpected console errors and 0 unexpected failed requests (23 declared failures + 23 console lines and 1 timing-bound cancellation each). Before the order-payments change, the same procedure gave 41/41 then 39/41: both order-payments tests failed on run 2.
