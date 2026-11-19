@@ -12,10 +12,13 @@ import { giftCardBatchService } from '../../src/modules/gift-card-batches/servic
 import { generateGiftCardBatch } from '../../src/modules/gift-card-batches/jobs.js';
 import { readGiftCardBatchOptions } from '../../src/modules/gift-card-batches/options.js';
 import { verifiedMysqlFixture } from '../../tools/operational-reports/verified-mysql-fixture.js';
+import { z } from 'zod';
+import { goldenStdout } from '../golden/load.js';
+import { fixturePlaceholders } from '../golden/fixture-placeholders.js';
 
 const template = process.env.GIFT_CARD_BATCH_MYSQL_TEST_URL;
 describe.skipIf(!template)('gift card batches against an isolated MySQL fixture', () => {
-  let connection: mysql.Connection, db: Databases, schema: string;
+  let connection: mysql.Connection, db: Databases, schema: string, databaseUrl: string;
   let fixture: ReturnType<typeof verifiedMysqlFixture>;
   let jobs = recordingJobProducer(),
     ephemeral = memoryEphemeralStore();
@@ -96,6 +99,7 @@ describe.skipIf(!template)('gift card batches against an isolated MySQL fixture'
       'pos_special_permission_activity_log',
     ]);
     url.pathname = '/' + schema;
+    databaseUrl = url.href;
     const config = readConfig({
       NODE_ENV: 'test',
       SESSION_SECRET: 'synthetic-gift-card-batch-native-secret-'.repeat(2),
@@ -294,4 +298,79 @@ describe.skipIf(!template)('gift card batches against an isolated MySQL fixture'
       { platform: 'Gift Card', comment: 'Viewed the gift card batch list' },
     ]);
   });
+  it('lists like the pinned Django datatable: sorting, paging, names and exact BIGINTs', async () => {
+    for (const [id, createdBy, message] of [
+      ['11', '1', 'Alpha'],
+      ['12', '2', 'Beta'],
+      ['9007199254740993', '999', null],
+    ] as const)
+      await fixture.insert('gift_card_collection', {
+        id,
+        created_by: createdBy,
+        message,
+        size: 3,
+        is_completed: 1,
+        created_at: '2026-11-16 12:00:00',
+      });
+    const inputs = [
+      { start: 0, length: 2 },
+      { start: 1, length: 2 },
+      { start: 999, length: 2 },
+      { start: -2, length: 2 },
+      { sort: 'size', direction: 'asc', length: 10 },
+      { search: '%' },
+    ] as const;
+    // Pinned AjaxGiftCardListView (core/datatables/gift_card_datatable.py, 78d5b63) on this
+    // fixture, replayed from tests/golden/administration/gift-card-batches-mysql.json.
+    const oracle = z.object({ cases: z.array(z.unknown()) }).parse(
+      JSON.parse(
+        goldenStdout(
+          'administration',
+          'gift-card-batches-mysql',
+          JSON.stringify({
+            database: databaseUrl,
+            cases: inputs.map((input) => ({ operation: 'list', ...input })),
+          }),
+          undefined,
+          fixturePlaceholders(databaseUrl),
+        ),
+      ) as unknown,
+    ).cases;
+    for (const [index, input] of inputs.slice(0, -1).entries()) {
+      const result = await service.list(actor, { draw: 1, ...input });
+      const expected = z
+        .object({
+          draw: z.number(),
+          recordsTotal: z.string(),
+          recordsFiltered: z.string(),
+          data: z.array(z.unknown()),
+        })
+        .parse(oracle[index]);
+      expect(
+        {
+          draw: result.draw,
+          recordsTotal: result.recordsTotal,
+          recordsFiltered: result.recordsFiltered,
+          data: result.data.map((row) => ({
+            id: row.id,
+            size: row.size,
+            message: row.message,
+            is_completed: row.completed ? 1 : 0,
+            is_printed: row.printed ? 1 : 0,
+            is_block: row.blocked ? 1 : 0,
+            // Legacy renders a missing creator as an empty list; the rewrite sends ''.
+            created_by: row.createdBy || [],
+            created_at: row.createdAt,
+          })),
+        },
+        JSON.stringify(input),
+      ).toEqual(expected);
+    }
+    // Legacy search raises FieldError (no product relation); the rewrite keeps a working id
+    // search (AGENTS.md administration decision, N7).
+    expect(oracle.at(-1)).toEqual({ error: 'FieldError' });
+    expect(
+      (await service.list(actor, { draw: 2, search: '9007' })).data.map((row) => row.id),
+    ).toEqual(['9007199254740993']);
+  }, 30000);
 });
