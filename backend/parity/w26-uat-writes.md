@@ -44,3 +44,8 @@ Every write the W26 run caused in UAT. You can use it to audit or clean up. W26 
 
 The egress proxy logged exactly two connections to `hooks.slack.com`, matching M1 and M2b.
 No connection was made to Netcore, Gupshup, Freshdesk, S3 or any other host.
+
+## Primary-agent write, 20 November 2026 (user-approved)
+
+- `users` 7630106 (operator 268's storefront account, `user_type` 8): `is_block` 1→0 and `is_disabled` 1→0, so checkout can run in UAT.
+- Revert with `UPDATE users SET is_block=1, is_disabled=1 WHERE id=7630106;`
