@@ -49,3 +49,42 @@ No connection was made to Netcore, Gupshup, Freshdesk, S3 or any other host.
 
 - `users` 7630106 (operator 268's storefront account, `user_type` 8): `is_block` 1→0 and `is_disabled` 1→0, so checkout can run in UAT.
 - Revert with `UPDATE users SET is_block=1, is_disabled=1 WHERE id=7630106;`
+
+## Round 2 (20 November 2026, 02:57–03:36 IST)
+
+Before the first write, a fresh `AUTO_INCREMENT` baseline was taken (`orders` 19055005, `order_stores` 786812, `has_products` 79083090, `comments` 159990769, `pos_exchange_log` 81).
+
+All rows are store 7, counter 7, product 262148 (TSS Originals: Book Lover, L).
+API-v2 UAT `pos/order` wrote the `orders`, `order_stores` and `has_products` rows and its own side tables (`order_addons`, `order_address_mapping`, `order_cancel_message_mapping`, `amount_to_be_refunded_log`). The rewrite wrote the payment and finalisation fields, `comments` and `pos_transaction_logs`.
+
+### Orders
+
+| Order | `order_stores` | Invoice | Customer | Flow | State now | Note |
+|---|---|---|---|---|---|---|
+| 19055005 | 786812 | S062627INV00263 | 12132565 | Cash | Paid (4/3) | Line 79083090 `status=''`: written before fix `18f62c77`. **Cleanup:** `UPDATE has_products SET status='DELIVERED' WHERE id IN (79083090,79083091,79083093);` |
+| 19055006 | 786813 | S062627INV00264 | 12132565 | Others (1001), message `W26-UAT-REF-0001` | Paid | Line 79083091 `status=''` (same cleanup as above) |
+| 19055007 | 786814 | S062627INV00265 | 12132565 | Paytm staging card | **Cancelled** (2/4), line CANCELLED | Paytm answered `0029 Invalid Merchant or Terminal`. Cancelled through the app at 03:25:17 IST; stock restored +1 |
+| 19055008 | 786815 | S062627INV00266 | 12132565 | Fast cash | Paid | Line 79083093 `status=''` (same cleanup as above) |
+| 19055009 | 786816 | S062627INV00267 | 12132565 | Cash, after the enum fix | Paid, line DELIVERED | Return attempted 3 times: refused, Vinculum UAT did not confirm (`RETURN_WAREHOUSE_PENDING`). No `return_orders` row |
+| 19055010 | 786817 | S062627INV00268 | 12132565 | Others (1001), after the fix | Paid, line DELIVERED | Exchange attempted: `pos_exchange_log` **id 81**, `FAILED_NEEDS_MANUAL_FIX` (Vinculum UAT did not confirm) |
+| 19055011 | 786818 | S062627INV00269 | 7630106 (walk-in) | Offline cash, provisional `OFF-7-7-5DB39517-1` | Paid, `is_offline_order=1` | Comment 159990774 |
+| 19055012 | 786819 | S062627INV00270 | 7630106 (walk-in) | Offline card, reference `W26-UAT-CARD-0001` in `order_stores.message` | Paid, `is_offline_order=1`, `is_manually_paid=1` | Comments 159990776 (billed) and 159990778 (finance reconciliation flag) |
+
+- `comments` 159990769–159990778: 10 rows, all on the orders above.
+- `pos_transaction_logs`: 8 rows on the orders above.
+- `product_store` (7, 262148) stock: 380 before, 374 after.
+
+### Redis
+
+- I deleted one `pos:customer_cart_lease:12132565` key at 21:33 UTC. It had been left held for 12 h by a bug that is now fixed (`a88f22d0`) and blocked every new checkout for the test customer.
+- The worker processed 6 job records queued since round 1, once the claim fix `0abc6fe8` was in place:
+  - order SMS: 4 records;
+  - hyperlocal auto-reject: 2 records.
+
+### Messages (allowlist active in both processes)
+
+| # | Time (IST) | Flow | Trace / request ID | Recipient | Outcome |
+|---|---|---|---|---|---|
+| R1 | 03:09:30 | Customer OTP, 12132565 (`omnichannel-sendotp`) | `e687bc9e-9acb-4161-83eb-8e454d3361cd` | Customer phone and email (allowlisted) | **Sent.** Guard permitted it and API-v2 UAT answered 200. The user can confirm receipt. The code was not entered: it is delivered only to the user |
+| R2 | 03:13–03:24 | Order SMS for 19055005, 19055006, 19055008 and 19055009/10 (`core.tasks.send_sms`) | `f7646089-cf62-40a1-b81e-e8dd441b265e`, `fb6d5792-04af-45e4-ac8f-4f96421178b1`, `cad548b7-d570-40e2-aab2-79b051b206b4`, `2633606a-ad5c-4c3a-8317-7383c98ec72c`, `7c44f848-7c87-4146-9f9e-5b5284ecc894`, `e286a2d4-8530-457f-9e70-8d4a7ec08f49` | Order contacts (allowlisted) | **Permitted, not delivered.** API-v2 UAT `omnichannel-sms` answered 500 |
+| R3 | 03:35:38 / 03:35:43 | Order SMS for the walk-in offline orders 19055011/12 | `9c4f04bb-3788-4cdd-a023-485ea9b75bd2` | Walk-in account 7630106 (not allowlisted) | **Suppressed** (`outbound.suppressed`, `order-sms`, `not-allowlisted`) |
