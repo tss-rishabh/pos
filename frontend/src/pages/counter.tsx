@@ -18,7 +18,7 @@ import { queueDraft } from '../offline/sync';
 import { useLocalDrafts, useProducts } from '../hooks/use-pos';
 import { useWorkspace } from '../state/workspace';
 import { currency, total } from '../lib/format';
-import { Empty, ErrorState, Loading, PageTitle } from '../components/common';
+import { Empty, ErrorState, Loading, PageTitle, RequestReference } from '../components/common';
 import {
   CheckoutReview,
   InvoiceActions,
@@ -792,6 +792,7 @@ export function CounterPage({
             {problem !== null && (
               <div role="alert" className="inline-error">
                 {problem instanceof Error ? problem.message : 'Could not save this sale.'}
+                <RequestReference error={problem} />
               </div>
             )}
             <div className="subtotal">

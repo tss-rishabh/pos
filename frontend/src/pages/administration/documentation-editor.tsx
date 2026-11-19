@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { X, UploadCloud, Check, RotateCcw } from 'lucide-react';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
-import { ErrorState, Loading } from '../../components/common';
+import { ErrorState, Loading, RequestReference, useProblem } from '../../components/common';
 import {
   guideSchema,
   mediaCapabilitiesSchema,
@@ -16,6 +16,7 @@ import {
 interface PendingFile extends GuideFile {
   status: 'queued' | 'uploading' | 'ready' | 'failed';
   error?: string;
+  cause?: unknown;
 }
 const categories: { kind: AttachmentKind; label: string }[] = [
   { kind: 'cover-image', label: 'Cover image' },
@@ -48,7 +49,7 @@ export function DocumentationEditor({
     [files, setFiles] = useState<PendingFile[]>([]),
     [uploading, setUploading] = useState(false),
     [saving, setSaving] = useState(false),
-    [error, setError] = useState('');
+    [error, setError, errorCause, reportError] = useProblem();
   const currentFiles = useRef<PendingFile[]>([]);
   currentFiles.current = files;
   const capabilities = useQuery({
@@ -85,6 +86,7 @@ export function DocumentationEditor({
         updateFile(file.id, {
           status: 'failed',
           error: failure instanceof Error ? failure.message : 'File upload could not finish.',
+          cause: failure,
         });
     }
   }
@@ -215,8 +217,7 @@ export function DocumentationEditor({
               await onSaved();
             })
             .catch((failure: unknown) => {
-              if (!closed.current)
-                setError(failure instanceof Error ? failure.message : 'Guide could not be saved.');
+              if (!closed.current) reportError(failure, 'Guide could not be saved.');
             })
             .finally(() => {
               if (!closed.current) setSaving(false);
@@ -381,6 +382,7 @@ export function DocumentationEditor({
                             </button>
                           </div>
                           {file.error && <small role="alert">{file.error}</small>}
+                          {file.error && <RequestReference error={file.cause} />}
                         </div>
                       ))}
                   </section>
@@ -392,6 +394,7 @@ export function DocumentationEditor({
         {error && (
           <div role="alert" className="inline-error">
             {error}
+            <RequestReference error={errorCause} />
           </div>
         )}
         <div className="administration-dialog-actions">

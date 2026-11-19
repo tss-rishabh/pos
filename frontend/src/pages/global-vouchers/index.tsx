@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Principal } from '../../api/types';
 import { ApiError, captureOperatorScope, request } from '../../api/client';
-import { PageTitle } from '../../components/common';
+import { PageTitle, RequestReference, useProblem } from '../../components/common';
 import { currency } from '../../lib/format';
 import {
   cancelVoucherIntent,
@@ -27,7 +27,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
     [intent, setIntent] = useState<VoucherIntent | null>(null),
     [receipt, setReceipt] = useState<VoucherReceipt | null>(null),
     [busy, setBusy] = useState(false),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [absent, setAbsent] = useState(false),
     [review, setReview] = useState(false);
   const journal = useRef(voucherJournal('pos-voucher-issuance:' + user.id)),
@@ -58,8 +58,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
         if (!signal.aborted) setCapabilities(value);
       })
       .catch((error: unknown) => {
-        if (!signal.aborted)
-          setProblem(error instanceof Error ? error.message : 'Gift vouchers are unavailable.');
+        if (!signal.aborted) reportProblem(error, 'Gift vouchers are unavailable.');
       });
   }, [user.id, online, allowed]);
   async function act(task: (signal: AbortSignal) => Promise<void>) {
@@ -71,10 +70,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
     try {
       await task(signal);
     } catch (error) {
-      if (!signal.aborted)
-        setProblem(
-          error instanceof Error ? error.message : 'The voucher outcome needs confirmation.',
-        );
+      if (!signal.aborted) reportProblem(error, 'The voucher outcome needs confirmation.');
     } finally {
       running.current = false;
       if (!signal.aborted) setBusy(false);
@@ -186,6 +182,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
           {problem}
         </p>
       )}
+      {problem && <RequestReference error={problemCause} />}
       {receipt && <GlobalVoucherReceipt receipt={receipt} />}
       {intent ? (
         <section className="global-voucher-card">

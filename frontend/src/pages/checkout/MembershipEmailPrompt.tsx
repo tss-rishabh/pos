@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ApiError } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import type { Checkout } from './client';
 import {
   emailPattern,
@@ -40,7 +40,7 @@ export function MembershipEmailPrompt({
   const previous = useRef<{ checkoutId: string; ids: Set<string> } | null>(null),
     [open, setOpen] = useState(false),
     [email, setEmail] = useState(''),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [busy, setBusy] = useState(false);
   const customerId = checkout.customerId;
   const scope: CustomerContactScope | null = customerId
@@ -92,13 +92,7 @@ export function MembershipEmailPrompt({
               onNotice(result.message);
               await onSaved();
             })
-            .catch((error: unknown) =>
-              setProblem(
-                error instanceof ApiError || error instanceof Error
-                  ? error.message
-                  : 'The email was not saved.',
-              ),
-            )
+            .catch((error: unknown) => reportProblem(error, 'The email was not saved.'))
             .finally(() => setBusy(false));
         }}
       >
@@ -118,6 +112,7 @@ export function MembershipEmailPrompt({
           />
         </label>
         {problem && <p role="alert">{problem}</p>}
+        {problem && <RequestReference error={problemCause} />}
         <button className="button primary" disabled={disabled || busy}>
           Submit
         </button>

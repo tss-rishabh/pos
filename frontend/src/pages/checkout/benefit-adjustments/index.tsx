@@ -3,7 +3,7 @@ import { liveQuery } from 'dexie';
 import type { z } from 'zod';
 import type { Principal } from '../../../api/types';
 import { captureOperatorScope } from '../../../api/client';
-import { PageTitle } from '../../../components/common';
+import { PageTitle, RequestReference, useProblem } from '../../../components/common';
 import { currency } from '../../../lib/format';
 import {
   activeWalletCommand,
@@ -33,7 +33,7 @@ export function GlobalBenefitAdjustmentsPage({
   const [current, setCurrent] = useState<WalletCommand | null>(null),
     [enabled, setEnabled] = useState(false),
     [busy, setBusy] = useState(false),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [email, setEmail] = useState(''),
     [customer, setCustomer] = useState<z.infer<typeof walletCustomerSchema> | null>(null),
     [asset, setAsset] = useState<'money' | 'points'>('money'),
@@ -65,10 +65,7 @@ export function GlobalBenefitAdjustmentsPage({
         if (!signal.aborted) setEnabled(value.enabled);
       })
       .catch((error: unknown) => {
-        if (!signal.aborted)
-          setProblem(
-            error instanceof Error ? error.message : 'Wallet adjustments are unavailable.',
-          );
+        if (!signal.aborted) reportProblem(error, 'Wallet adjustments are unavailable.');
       });
   }, [user, online, allowed]);
   useEffect(() => {
@@ -82,10 +79,7 @@ export function GlobalBenefitAdjustmentsPage({
       id = current.id;
     const refresh = () =>
       void refreshWalletAdjustment(user, id, { signal }).catch((error: unknown) => {
-        if (!signal.aborted)
-          setProblem(
-            error instanceof Error ? error.message : 'The saved wallet outcome needs confirmation.',
-          );
+        if (!signal.aborted) reportProblem(error, 'The saved wallet outcome needs confirmation.');
       });
     refresh();
     const timer = setInterval(refresh, 30000);
@@ -104,8 +98,7 @@ export function GlobalBenefitAdjustmentsPage({
       signal.throwIfAborted();
       if (version === lookupVersion.current) setCustomer(value);
     } catch (error) {
-      if (!signal.aborted)
-        setProblem(error instanceof Error ? error.message : 'Customer lookup was not confirmed.');
+      if (!signal.aborted) reportProblem(error, 'Customer lookup was not confirmed.');
     } finally {
       if (!signal.aborted) setBusy(false);
     }
@@ -147,10 +140,7 @@ export function GlobalBenefitAdjustmentsPage({
       setReview(null);
       await dispatchWalletAdjustment(user, command.id, { signal });
     } catch (error) {
-      if (!signal.aborted)
-        setProblem(
-          error instanceof Error ? error.message : 'The adjustment outcome needs confirmation.',
-        );
+      if (!signal.aborted) reportProblem(error, 'The adjustment outcome needs confirmation.');
     } finally {
       if (!signal.aborted) setBusy(false);
     }
@@ -186,12 +176,7 @@ export function GlobalBenefitAdjustmentsPage({
           );
       } else await dispatchWalletAdjustment(user, id, { signal }, action === 'retry');
     } catch (error) {
-      if (!signal.aborted)
-        setProblem(
-          error instanceof Error
-            ? error.message
-            : 'The saved adjustment outcome needs confirmation.',
-        );
+      if (!signal.aborted) reportProblem(error, 'The saved adjustment outcome needs confirmation.');
     } finally {
       if (!signal.aborted) setBusy(false);
     }
@@ -221,6 +206,7 @@ export function GlobalBenefitAdjustmentsPage({
           {problem}
         </p>
       )}
+      {problem && <RequestReference error={problemCause} />}
       {current ? (
         <section className="wallet-adjustment-card" aria-label="Saved wallet adjustment">
           <h2>

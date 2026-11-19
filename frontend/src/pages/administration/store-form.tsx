@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { X } from 'lucide-react';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
-import { request } from '../../api/client';
+import { errorRequestId, request } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
 import {
   AdministrationFormError,
@@ -96,7 +97,8 @@ export function StoreForm({
     [values, setValues] = useState<Values>(() => initialValues(store)),
     [image, setImage] = useState<File | null>(null),
     [errors, setErrors] = useState<Record<string, string[]>>({}),
-    [failure, setFailure] = useState(''),
+    [failure, setFailure, failureCause, reportFailure] = useProblem(),
+    [imageCause, setImageCause] = useState<unknown>(null),
     [busy, setBusy] = useState(false);
   const locations = useQuery({
     queryKey: [user.id, 'administration', 'location-codes'],
@@ -138,6 +140,7 @@ export function StoreForm({
     setBusy(true);
     setFailure('');
     setErrors({});
+    setImageCause(null);
     try {
       const body: Record<string, string> = {};
       for (const name of posted) body[name] = values[name] ?? '';
@@ -150,6 +153,7 @@ export function StoreForm({
             AbortSignal.timeout(180000),
           );
         } catch (error) {
+          setImageCause(error);
           setErrors({ store_image: [error instanceof Error ? error.message : 'Upload failed.'] });
           return;
         }
@@ -167,7 +171,7 @@ export function StoreForm({
       onClose();
     } catch (error) {
       if (error instanceof AdministrationFormError) setErrors(error.fields);
-      else setFailure(error instanceof Error ? error.message : 'The store could not be saved.');
+      else reportFailure(error, 'The store could not be saved.');
     } finally {
       setBusy(false);
     }
@@ -183,6 +187,7 @@ export function StoreForm({
           ))}
         </ul>
       ) : null}
+      {name === 'store_image' && <RequestReference error={imageCause} />}
     </label>
   );
   const input = (
@@ -343,6 +348,7 @@ export function StoreForm({
         {failure && (
           <div className="inline-error" role="alert">
             {failure}
+            <RequestReference error={failureCause} />
           </div>
         )}
         <div className="administration-dialog-actions">
@@ -393,9 +399,12 @@ function AddLocationCode({ user }: { user: Principal }) {
                 queryKey: [user.id, 'administration', 'location-codes'],
               });
             })
-            .catch((error: unknown) =>
-              window.alert(error instanceof Error ? error.message : 'Error adding Location Code.'),
-            )
+            .catch((error: unknown) => {
+              const reference = errorRequestId(error);
+              window.alert(
+                `${error instanceof Error ? error.message : 'Error adding Location Code.'}${reference ? ` (Reference ${reference})` : ''}`,
+              );
+            })
             .finally(() => setBusy(false));
         }}
       >

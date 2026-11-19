@@ -5,6 +5,7 @@ import {
   readCustomerProfile,
   type ProfileScope,
 } from '../customer-insights/client';
+import { RequestReference, useProblem } from '../../components/common';
 
 /**
  * Legacy "Birthday Missing" prompt (`create_order.html:8073-8100`): shown once per customer and
@@ -35,7 +36,7 @@ export function BirthdayPrompt({
   const key = dismissKey(scope.customerId, scope.checkoutId);
   const [hidden, setHidden] = useState(() => dismissed(key)),
     [date, setDate] = useState(''),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [busy, setBusy] = useState(false);
   const profile = useQuery({
     queryKey: [
@@ -65,6 +66,7 @@ export function BirthdayPrompt({
         disabled={disabled || busy}
       />
       {problem && <p role="alert">{problem}</p>}
+      {problem && <RequestReference error={problemCause} />}
       <button
         type="button"
         className="button primary"
@@ -86,9 +88,7 @@ export function BirthdayPrompt({
               setHidden(true);
               await onSaved();
             })
-            .catch((error: unknown) =>
-              setProblem(error instanceof Error ? error.message : 'The birthday was not saved.'),
-            )
+            .catch((error: unknown) => reportProblem(error, 'The birthday was not saved.'))
             .finally(() => setBusy(false));
         }}
       >

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Principal } from '../../api/types';
-import { ApiError, captureOperatorScope } from '../../api/client';
+import { captureOperatorScope } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import {
   pushOrderStatus,
   readOrderStatus,
   type StatusPlatform,
   type WholeOrderStatus,
 } from './client';
-const message = (error: unknown) =>
-  error instanceof ApiError ? error.message : 'Could not load the Vinculum status. Try again.';
+const fallback = 'Could not load the Vinculum status. Try again.';
 /**
  * Legacy order detail "Vinculum Status" tab (`order/templates/order/show.html:303-340`): the
  * last status per stage and a retry button for each of PACK/SHIP/DELIVER that has not
@@ -28,17 +28,17 @@ export function WholeOrderStatusActions({
   const [expanded, setExpanded] = useState(false),
     [status, setStatus] = useState<WholeOrderStatus | null>(null),
     [busy, setBusy] = useState(false),
-    [error, setError] = useState<string | null>(null),
+    [error, setError, errorCause, reportError] = useProblem(),
     [notice, setNotice] = useState<string | null>(null);
   const refresh = useCallback(async () => {
     const signal = captureOperatorScope(user.id);
     setBusy(true);
-    setError(null);
+    setError('');
     try {
       const value = await readOrderStatus(user.id, storeId, orderId, signal);
       if (!signal.aborted) setStatus(value);
     } catch (caught: unknown) {
-      if (!signal.aborted) setError(message(caught));
+      if (!signal.aborted) reportError(caught, fallback, { apiOnly: true });
     } finally {
       if (!signal.aborted) setBusy(false);
     }
@@ -51,13 +51,13 @@ export function WholeOrderStatusActions({
   async function push(platform: StatusPlatform) {
     const signal = captureOperatorScope(user.id);
     setBusy(true);
-    setError(null);
+    setError('');
     setNotice(null);
     try {
       const result = await pushOrderStatus(user.id, storeId, orderId, platform, signal);
       if (!signal.aborted) setNotice(result.message);
     } catch (caught: unknown) {
-      if (!signal.aborted) setError(message(caught));
+      if (!signal.aborted) reportError(caught, fallback, { apiOnly: true });
     } finally {
       if (!signal.aborted) setBusy(false);
     }
@@ -76,6 +76,7 @@ export function WholeOrderStatusActions({
         <div>
           {!online && <p role="status">Connect to load the Vinculum status.</p>}
           {error && <p role="alert">{error}</p>}
+          {error && <RequestReference error={errorCause} />}
           {notice && <p role="status">{notice}</p>}
           {status &&
             (!status.processed ? (

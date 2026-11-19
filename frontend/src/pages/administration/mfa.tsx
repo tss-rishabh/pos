@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
 import { X } from 'lucide-react';
 import { request } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import './styles.css';
 
 const settingsSchema = z.object({
@@ -82,7 +83,7 @@ function OperatorMfaDialog({
     [secret, setSecret] = useState(''),
     [mode, setMode] = useState<'disable' | 'replace'>('disable'),
     [busy, setBusy] = useState(true),
-    [error, setError] = useState(''),
+    [error, setError, errorCause, reportError] = useProblem(),
     [message, setMessage] = useState('');
   const path = `/api/v1/admin/operators/${encodeURIComponent(operatorId)}`;
   const signal = () => {
@@ -109,11 +110,7 @@ function OperatorMfaDialog({
       })
       .catch((failure: unknown) => {
         if (!controller.signal.aborted)
-          setError(
-            failure instanceof Error
-              ? failure.message
-              : 'Authenticator settings could not be loaded.',
-          );
+          reportError(failure, 'Authenticator settings could not be loaded.');
       })
       .finally(() => {
         if (!controller.signal.aborted) setBusy(false);
@@ -132,9 +129,7 @@ function OperatorMfaDialog({
       await action();
     } catch (failure) {
       if (lifecycle.current && !lifecycle.current.signal.aborted)
-        setError(
-          failure instanceof Error ? failure.message : 'Authenticator settings could not be saved.',
-        );
+        reportError(failure, 'Authenticator settings could not be saved.');
     } finally {
       if (lifecycle.current && !lifecycle.current.signal.aborted) setBusy(false);
     }
@@ -189,6 +184,7 @@ function OperatorMfaDialog({
       {error && (
         <div className="error-box" role="alert">
           {error}
+          <RequestReference error={errorCause} />
         </div>
       )}
       {message && (

@@ -5,6 +5,7 @@ import type { LocalDraft } from '../../offline/database';
 import type { Principal } from '../../api/types';
 import { currency } from '../../lib/format';
 import { ApiError, NetworkError } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import {
   authoritativeTotal,
   assertCheckoutDraft,
@@ -106,7 +107,7 @@ export function CheckoutReview({
   }
   const [checkout, setCheckout] = useState<Checkout | null>(null),
     [busy, setBusy] = useState(false),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [notice, setNotice] = useState(''),
     [pendingId, setPendingId] = useState<string | null>(null),
     [otp, setOtp] = useState(''),
@@ -191,11 +192,7 @@ export function CheckoutReview({
         await clearCallback.current!(clearance);
       } catch (error) {
         notifiedClear.current = null;
-        setProblem(
-          error instanceof Error
-            ? error.message
-            : 'The cleared checkout could not be completed on this device.',
-        );
+        reportProblem(error, 'The cleared checkout could not be completed on this device.');
       }
     })();
   }
@@ -411,8 +408,7 @@ export function CheckoutReview({
         }
       })
       .catch((error) => {
-        if (active)
-          setProblem(error instanceof Error ? error.message : 'Could not restore checkout.');
+        if (active) reportProblem(error, 'Could not restore checkout.');
       });
     return () => {
       active = false;
@@ -606,6 +602,7 @@ export function CheckoutReview({
             {problem}
           </p>
         )}
+        {problem && <RequestReference error={problemCause} />}
         {notice && (
           <p role="status" className="sync-message">
             <Check size={16} />

@@ -14,6 +14,7 @@ import {
   currentAutomaticInvoice,
   type AutomaticInvoiceRequest,
 } from './automatic';
+import { RequestReference, useProblem } from '../../components/common';
 import '../checkout/InvoiceActions.css';
 const invoiceLabel = (kind: InvoiceKind) =>
   kind === 'online'
@@ -59,7 +60,7 @@ export function InvoiceDocumentDialog({
     [document, setDocument] = useState<Rendered | null>(null),
     [ready, setReady] = useState(false),
     [busy, setBusy] = useState(false),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [authorized, setAuthorized] = useState(false);
   const identity = invoiceIdentity(user);
   const scopeKey = [user.id, storeId, orderId, kind, ...(access ? [access] : [])].join(':'),
@@ -101,7 +102,7 @@ export function InvoiceDocumentDialog({
         if (version === generation.current && !controller.current?.signal.aborted) {
           rendered.current = null;
           setDocument(null);
-          setProblem(error instanceof Error ? error.message : 'The invoice could not be loaded.');
+          reportProblem(error, 'The invoice could not be loaded.');
           setBusy(false);
         }
       }
@@ -237,9 +238,7 @@ export function InvoiceDocumentDialog({
       setDocument(null);
       setBusy(false);
       if (!controller.current?.signal.aborted)
-        setProblem(
-          error instanceof Error ? error.message : 'The invoice preview could not be confirmed.',
-        );
+        reportProblem(error, 'The invoice preview could not be confirmed.');
       setReady(false);
     }
   }
@@ -261,7 +260,7 @@ export function InvoiceDocumentDialog({
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       if (!controller.current?.signal.aborted)
-        setProblem(error instanceof Error ? error.message : 'The invoice could not be downloaded.');
+        reportProblem(error, 'The invoice could not be downloaded.');
     }
   }
   return (
@@ -309,6 +308,7 @@ export function InvoiceDocumentDialog({
             {problem}
           </p>
         )}
+        {problem && <RequestReference error={problemCause} />}
         {authorized && online && document && document.scopeKey === scopeKey && (
           <iframe
             key={document.revision}

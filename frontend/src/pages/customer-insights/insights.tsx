@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Lightbulb } from 'lucide-react';
 import { captureOperatorScope } from '../../api/client';
-import { ErrorState, Loading } from '../../components/common';
+import { ErrorState, Loading, RequestReference, useProblem } from '../../components/common';
 import { requireCachedOperatorSession } from '../../offline/operator-session';
 import {
   readCustomerBriefing,
@@ -199,7 +199,7 @@ export function CustomerInsights({
   initiallyOpen?: boolean;
 }) {
   const [open, setOpen] = useState(initiallyOpen);
-  const [problem, setProblem] = useState('');
+  const [problem, setProblem, problemCause, reportProblem] = useProblem();
   const briefing = useQuery({
     queryKey: [
       scope.operatorId,
@@ -226,7 +226,7 @@ export function CustomerInsights({
       setOpen(true);
     } catch (error) {
       setOpen(false);
-      setProblem(error instanceof Error ? error.message : 'Sign in to view customer insights.');
+      reportProblem(error, 'Sign in to view customer insights.');
     }
   }
   function prefetch() {
@@ -256,6 +256,7 @@ export function CustomerInsights({
           {problem}
         </p>
       )}
+      {problem && online && <RequestReference error={problemCause} />}
       {open && online && !disabled && (
         <div className="customer-profile-panel">
           {briefing.isPending || briefing.isFetching ? (

@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { captureOperatorScope } from '../../api/client';
+import { RequestReference, useProblem } from '../../components/common';
 import { copyOrder, type CopyCancellation, type OrderCopyScope } from './client';
 import { markOrderCopyOrigin } from './marker';
 
@@ -20,7 +21,7 @@ export function OrderCopyPanel(props: OrderCopyPanelProps) {
   const [orderId, setOrderId] = useState(''),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
-    [problem, setProblem] = useState('');
+    [problem, setProblem, problemCause, reportProblem] = useProblem();
   const lock = useRef(false);
   async function submit() {
     if (lock.current) return;
@@ -45,8 +46,7 @@ export function OrderCopyPanel(props: OrderCopyPanelProps) {
       setOrderId('');
       await onSaved();
     } catch (error) {
-      if (!signal.aborted)
-        setProblem(error instanceof Error ? error.message : 'Cart Sync Failed, Please Try Again');
+      if (!signal.aborted) reportProblem(error, 'Cart Sync Failed, Please Try Again');
     } finally {
       lock.current = false;
       onPending(false);
@@ -76,6 +76,7 @@ export function OrderCopyPanel(props: OrderCopyPanelProps) {
           {problem}
         </p>
       )}
+      {problem && <RequestReference error={problemCause} />}
     </section>
   );
 }

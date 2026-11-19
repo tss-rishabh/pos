@@ -1,8 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Mail, Phone } from 'lucide-react';
-import { ApiError, captureOperatorScope } from '../../api/client';
-import { ErrorState, Loading } from '../../components/common';
+import { captureOperatorScope } from '../../api/client';
+import { ErrorState, Loading, RequestReference, useProblem } from '../../components/common';
 import {
   emailPattern,
   mobilePattern,
@@ -47,7 +47,7 @@ function ScopedCustomerContactPanel({
 }: CustomerContactPanelProps) {
   const [mobile, setMobile] = useState(''),
     [email, setEmail] = useState(''),
-    [problem, setProblem] = useState(''),
+    [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [notice, setNotice] = useState(''),
     [saving, setSaving] = useState(false);
   const workspace = useQuery({
@@ -91,7 +91,7 @@ function ScopedCustomerContactPanel({
         await workspace.refetch();
       });
     } catch (error) {
-      setProblem(error instanceof ApiError ? error.message : 'The contact could not be saved.');
+      reportProblem(error, 'The contact could not be saved.', { apiOnly: true });
     } finally {
       setSaving(false);
       actions.onPending(false);
@@ -153,6 +153,7 @@ function ScopedCustomerContactPanel({
           {problem}
         </p>
       )}
+      {problem && <RequestReference error={problemCause} />}
       {notice && (
         <p className="success" role="status">
           {notice}
