@@ -1,36 +1,124 @@
-import { sql, type SQL } from 'drizzle-orm';
-import { Product, ProductStore, Store } from '../../db/legacy-schema.js';
-import { catalogProductTypes } from './schema.js';
+import {
+  and,
+  asc,
+  desc,
+  eq,
+  exists,
+  gt,
+  inArray,
+  like,
+  min,
+  ne,
+  or,
+  sql,
+  type SQL,
+} from 'drizzle-orm';
+import { alias, QueryBuilder } from 'drizzle-orm/mysql-core';
+import { HasCategories, Product, ProductStore, Store } from '../../db/legacy-schema.js';
+import { catalogCategories, catalogPriceList, catalogProductTypes } from './schema.js';
 import type { ProductSearchInput } from './contracts.js';
 
-export const productTypeJoin = sql`left join ${catalogProductTypes} on ${catalogProductTypes.id}=${Product.prod_type}`;
+/** Standalone builder for correlated subqueries; statements run on the caller's reader. */
+const subquery = new QueryBuilder();
+const variantStore = alias(ProductStore, 'vps'),
+  variant = alias(Product, 'v');
 /** Correlated to the current product/store row exactly as in the source datatable. */
-export const sourceStoreVisibility = sql`(${Product.is_del}=0 or (${ProductStore.is_del}=0 and (${ProductStore.stock}>0 or exists (select 1 from product_store vps join products v on v.id=vps.product_id where v.parent_prod_id=${Product.id} and vps.store_id=${ProductStore.store} and vps.is_del=0 and vps.stock>0))))`;
+export const sourceStoreVisibility = or(
+  eq(Product.is_del, 0),
+  and(
+    eq(ProductStore.is_del, false),
+    or(
+      gt(ProductStore.stock, 0),
+      exists(
+        subquery
+          .select({ id: variantStore.id })
+          .from(variantStore)
+          .innerJoin(variant, eq(variant.id, variantStore.product))
+          .where(
+            and(
+              eq(variant.parent_prod_id, Product.id),
+              eq(variantStore.store, ProductStore.store),
+              eq(variantStore.is_del, false),
+              gt(variantStore.stock, 0),
+            ),
+          ),
+      ),
+    ),
+  ),
+);
 export function selectedStoreVisibility(ids: readonly string[]) {
-  return sql`${Store.id} in (${sql.join(
-    ids.map((id) => sql`${id}`),
-    sql`,`,
-  )}) and ${sourceStoreVisibility}`;
+  return and(inArray(Store.id, ids.map(BigInt)), sourceStoreVisibility);
 }
 export function catalogEligible(ids: readonly string[]) {
-  return sql`${Product.product}<>'' and ${Product.parent_prod_id}=0 and ${Product.prod_type}<>5 and exists(select 1 from ${ProductStore} join ${Store} on ${Store.id}=${ProductStore.store} where ${ProductStore.product}=${Product.id} and ${selectedStoreVisibility(ids)})`;
+  return and(
+    ne(Product.product, ''),
+    eq(Product.parent_prod_id, 0n),
+    ne(Product.prod_type, 5n),
+    exists(
+      subquery
+        .select({ id: ProductStore.id })
+        .from(ProductStore)
+        .innerJoin(Store, eq(Store.id, ProductStore.store))
+        .where(and(eq(ProductStore.product, Product.id), selectedStoreVisibility(ids))),
+    ),
+  );
 }
-export function sourceProductSearch(search: string): SQL {
-  if (!search) return sql`true`;
+export function sourceProductSearch(search: string): SQL | undefined {
+  if (!search) return undefined;
   // Source treats LIKE wildcards as wildcards and normalizes double quotes to single quotes.
   const pattern = `%${search.replaceAll('"', "'")}%`;
-  return sql`(cast(${Product.id} as char) like ${pattern} or ${Product.product} like ${pattern} or ${Product.url_key} like ${pattern} or ${catalogProductTypes.type} like ${pattern})`;
+  return or(
+    like(sql`cast(${Product.id} as char)`, pattern),
+    like(Product.product, pattern),
+    like(Product.url_key, pattern),
+    like(catalogProductTypes.type, pattern),
+  );
 }
-export function catalogCountQuery(input: ProductSearchInput) {
-  return sql`select count(*) as unfiltered_count, coalesce(sum(case when ${sourceProductSearch(input.search)} then 1 else 0 end),0) as filtered_count from ${Product} ${productTypeJoin} where ${catalogEligible(input.storeIds)}`;
+/** Distinct membership prices, counting a NULL price as one more choice (source price dict). */
+export function exclusivePriceChoices() {
+  return sql<string>`count(distinct ${catalogPriceList.price})+if(count(*)>count(${catalogPriceList.price}),1,0)`;
 }
-export function catalogPriceConflictQuery(input: ProductSearchInput) {
-  return sql`select 1 as conflict from ${Product} ${productTypeJoin} where ${catalogEligible(input.storeIds)} and ${sourceProductSearch(input.search)} and (select count(distinct pl.price)+if(count(*)>count(pl.price),1,0) from pricelist pl where pl.product_id=${Product.id} and pl.pricelist_id=2)>1 limit 1`;
+function correlatedPriceChoices() {
+  return sql<string>`${subquery
+    .select({ choices: exclusivePriceChoices() })
+    .from(catalogPriceList)
+    .where(
+      and(eq(catalogPriceList.product_id, Product.id), eq(catalogPriceList.pricelist_id, 2)),
+    )}`;
 }
-export function catalogPageQuery(input: ProductSearchInput, start: number) {
-  const categories = sql`(select group_concat(distinct cat.category) from has_categories hc left join categories cat on cat.id=hc.cat_id where hc.prod_id=${Product.id})`;
-  const storeNames = sql`(select group_concat(distinct ${Store.store_name}) from ${ProductStore} join ${Store} on ${Store.id}=${ProductStore.store} where ${ProductStore.product}=${Product.id} and ${selectedStoreVisibility(input.storeIds)})`;
-  const exclusivePrice = sql`(select min(pl.price) from pricelist pl where pl.product_id=${Product.id} and pl.pricelist_id=2)`;
+export function catalogCountFields(input: ProductSearchInput) {
+  const search = sourceProductSearch(input.search);
+  return {
+    unfiltered_count: sql<string>`count(*)`,
+    filtered_count: search
+      ? sql<string>`coalesce(sum(case when ${search} then 1 else 0 end),0)`
+      : sql<string>`count(*)`,
+  };
+}
+export function catalogConflictCondition(input: ProductSearchInput) {
+  return and(
+    catalogEligible(input.storeIds),
+    sourceProductSearch(input.search),
+    gt(correlatedPriceChoices(), 1),
+  );
+}
+export function catalogPageParts(input: ProductSearchInput, start: number) {
+  const categories = sql<string | null>`${subquery
+    .select({ categories: sql`group_concat(distinct ${catalogCategories.category})` })
+    .from(HasCategories)
+    .leftJoin(catalogCategories, eq(catalogCategories.id, HasCategories.cat_id))
+    .where(eq(HasCategories.prod_id, Product.id))}`;
+  const storeNames = sql<string | null>`${subquery
+    .select({ storeNames: sql`group_concat(distinct ${Store.store_name})` })
+    .from(ProductStore)
+    .innerJoin(Store, eq(Store.id, ProductStore.store))
+    .where(and(eq(ProductStore.product, Product.id), selectedStoreVisibility(input.storeIds)))}`;
+  const exclusivePrice = sql<number | null>`${subquery
+    .select({ price: min(catalogPriceList.price) })
+    .from(catalogPriceList)
+    .where(
+      and(eq(catalogPriceList.product_id, Product.id), eq(catalogPriceList.pricelist_id, 2)),
+    )}`;
   const sort = {
     id: Product.id,
     product: Product.product,
@@ -42,15 +130,33 @@ export function catalogPageQuery(input: ProductSearchInput, start: number) {
     store_names: storeNames,
     exclusive_price: exclusivePrice,
   }[input.sort];
-  const direction = input.direction === 'asc' ? sql`asc` : sql`desc`;
+  const direction = input.direction === 'asc' ? asc : desc;
   // LIMIT makes this derived selection non-mergeable: page IDs before enriching the chosen rows.
   // Aggregate sorts calculate only their own key before pagination, not every other projection.
-  const selected = sql`select ${Product.id} as product_id from ${Product} ${productTypeJoin} where ${catalogEligible(input.storeIds)} and ${sourceProductSearch(input.search)} order by ${sort} ${direction},${Product.id} asc limit ${input.length} offset ${start}`;
-  return sql`select cast(${Product.id} as char) as id, ${Product.product} as product, ${Product.erp_product} as erp_product, ${Product.price} as price, ${Product.spl_price} as spl_price,
-    ${exclusivePrice} as exclusive_price,
-    (select count(distinct pl.price)+if(count(*)>count(pl.price),1,0) from pricelist pl where pl.product_id=${Product.id} and pl.pricelist_id=2) as exclusive_price_choices,
-    ${catalogProductTypes.type} as prod_type,
-    ${categories} as categories,${storeNames} as store_names
-    from (${selected}) selected join ${Product} on ${Product.id}=selected.product_id ${productTypeJoin}
-    order by ${input.sort === 'id' ? Product.id : sql.identifier(input.sort)} ${direction}, ${Product.id} asc`;
+  const selected = subquery
+    .select({ product_id: Product.id })
+    .from(Product)
+    .leftJoin(catalogProductTypes, eq(catalogProductTypes.id, Product.prod_type))
+    .where(and(catalogEligible(input.storeIds), sourceProductSearch(input.search)))
+    .orderBy(direction(sort), asc(Product.id))
+    .limit(input.length)
+    .offset(start)
+    .as('selected');
+  return {
+    selected,
+    fields: {
+      id: sql<string>`cast(${Product.id} as char)`,
+      product: Product.product,
+      erp_product: Product.erp_product,
+      price: Product.price,
+      spl_price: Product.spl_price,
+      exclusive_price: exclusivePrice,
+      exclusive_price_choices: correlatedPriceChoices(),
+      prod_type: catalogProductTypes.type,
+      categories,
+      store_names: storeNames,
+    },
+    // The source orders by the projected alias, which is the same expression as the page sort.
+    order: [direction(sort), asc(Product.id)],
+  };
 }

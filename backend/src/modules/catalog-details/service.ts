@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, or, sql } from 'drizzle-orm';
+import { and, asc, eq, exists, gt, inArray, min, or } from 'drizzle-orm';
 import { z } from 'zod';
 import type { Config } from '../../config.js';
 import type { Databases } from '../../db/pools.js';
@@ -18,7 +18,14 @@ import {
   productSearchInput,
   type ProductSearchInput,
 } from './contracts.js';
-import { catalogCountQuery, catalogPageQuery, catalogPriceConflictQuery } from './queries.js';
+import {
+  catalogConflictCondition,
+  catalogCountFields,
+  catalogEligible,
+  catalogPageParts,
+  exclusivePriceChoices,
+} from './queries.js';
+import { catalogPriceList, catalogProductTypes } from './schema.js';
 import { sourcePageStart, sourceProductImages } from './domain.js';
 
 export function assertCatalogScope(user: Principal, ids: readonly string[]) {
@@ -88,11 +95,24 @@ export function catalogDetailsService(config: Config, db: Databases) {
         );
       const [counts] = z
         .array(z.object({ unfiltered_count: countValue, filtered_count: countValue }))
-        .parse((await db.get('primary').execute(catalogCountQuery(input)))[0]);
+        .parse(
+          await db
+            .get('primary')
+            .select(catalogCountFields(input))
+            .from(Product)
+            .leftJoin(catalogProductTypes, eq(catalogProductTypes.id, Product.prod_type))
+            .where(catalogEligible(input.storeIds)),
+        );
       const filtered = counts?.filtered_count || 0,
         start = sourcePageStart(input.start, input.length, filtered);
       if (input.sort === 'exclusive_price') {
-        const conflicts = (await db.get('primary').execute(catalogPriceConflictQuery(input)))[0];
+        const conflicts = await db
+          .get('primary')
+          .select({ conflict: Product.id })
+          .from(Product)
+          .leftJoin(catalogProductTypes, eq(catalogProductTypes.id, Product.prod_type))
+          .where(catalogConflictCondition(input))
+          .limit(1);
         if (z.array(z.object({ conflict: z.coerce.number() })).parse(conflicts).length)
           throw new AppError(
             422,
@@ -100,9 +120,16 @@ export function catalogDetailsService(config: Config, db: Databases) {
             'A product has conflicting membership prices. Reconcile its location prices before continuing.',
           );
       }
-      const rows = z
-        .array(productRow.extend({ exclusive_price_choices: countValue }))
-        .parse((await db.get('primary').execute(catalogPageQuery(input, start)))[0]);
+      const page = catalogPageParts(input, start);
+      const rows = z.array(productRow.extend({ exclusive_price_choices: countValue })).parse(
+        await db
+          .get('primary')
+          .select(page.fields)
+          .from(page.selected)
+          .innerJoin(Product, eq(Product.id, page.selected.product_id))
+          .leftJoin(catalogProductTypes, eq(catalogProductTypes.id, Product.prod_type))
+          .orderBy(...page.order),
+      );
       if (rows.some((row) => row.exclusive_price_choices > 1))
         throw new AppError(
           422,
@@ -153,7 +180,19 @@ export function catalogDetailsService(config: Config, db: Databases) {
               eq(Product.parent_prod_id, product.id),
               or(
                 eq(Product.is_del, 0),
-                sql`exists(select 1 from ${ProductStore} where ${ProductStore.product}=${Product.id} and ${ProductStore.is_del}=0 and ${ProductStore.stock}>0)`,
+                exists(
+                  db
+                    .get('primary')
+                    .select({ id: ProductStore.id })
+                    .from(ProductStore)
+                    .where(
+                      and(
+                        eq(ProductStore.product, Product.id),
+                        eq(ProductStore.is_del, false),
+                        gt(ProductStore.stock, 0),
+                      ),
+                    ),
+                ),
               ),
             ),
           )
@@ -171,8 +210,13 @@ export function catalogDetailsService(config: Config, db: Databases) {
           .limit(1),
         db
           .get('primary')
-          .execute(
-            sql`select min(price) as price,count(distinct price)+if(count(*)>count(price),1,0) as choices from pricelist where product_id=${productId} and pricelist_id=2`,
+          .select({ price: min(catalogPriceList.price), choices: exclusivePriceChoices() })
+          .from(catalogPriceList)
+          .where(
+            and(
+              eq(catalogPriceList.product_id, BigInt(productId)),
+              eq(catalogPriceList.pricelist_id, 2),
+            ),
           ),
       ]);
       if (variants.length > 1000)
@@ -183,7 +227,7 @@ export function catalogDetailsService(config: Config, db: Databases) {
         );
       const [price] = z
         .array(z.object({ price: z.coerce.number().finite().nullable(), choices: countValue }))
-        .parse(prices[0]);
+        .parse(prices);
       if ((price?.choices || 0) > 1)
         throw new AppError(
           422,
