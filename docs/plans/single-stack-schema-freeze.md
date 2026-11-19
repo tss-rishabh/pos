@@ -1,5 +1,25 @@
 # POS Rewrite — Single-stack, schema-frozen, 1:1 legacy parity completion
 
+## Status — W18, 19 November 2026
+
+Branch `refactor/single-stack-schema-freeze`. Phases A–E are integrated (merge `8a7530aa`), and the Phase F local
+verification ran on the same product code (W18 heads `f600dd54` and `a2382b4e` change only tests and tooling). The full matrix is in `backend/parity/w18-verification.md`. Where this plan
+and `AGENTS.md` differ, `AGENTS.md` wins: Google SSO was dropped, the offline limits moved to env, and the offline
+reference became a `comments` row rather than `orders.order_ref_no`.
+
+| Phase | State | Evidence |
+|---|---|---|
+| A. Golden capture, schema snapshot | Done (W1, W15 recapture; 119-table snapshot `30983aa3`) | `backend/tests/golden/**`, `w15-report.md` |
+| B. Ledger and removals | Done: 226 `pos_rewrite_*` tables (136 deleted, 30 to production tables, 60 to Redis, 0 without a home); migrations, review SQL, screening, compatibility, cash-return intents, demo mode, CSV import and SSO deleted; no `.py/.go/.php` | `table-disposition.md`, `w2-followups.md`, `w9-report.md`, `w10-report.md` |
+| C. Re-home state | Done: auth/sessions (W3), checkout (W4), orders (W5), admin/reports/finance and the Redis job queue (W8) | `w3`–`w8` reports |
+| D. Remaining parity | Done for the decided scope, including S35 type-8/exchange guards and the checkout controls; open items in `source-surface-map.json` (9 remaining-code groups, several stale, see `w18-verification.md` §6) | `w4-report.md`, `w5-report.md` |
+| D2. Offline billing | Done per the 19 November revisions; 12/12 Electron scenarios | `w17-report.md` |
+| E. Standards | Done: ORM 0 mismatches, documented ORM exceptions, zod on 335/335 routes, tracing and redaction | `w11-report.md`, `w12-report.md`, `orm-exceptions.md` |
+| F1. Live read-only suite | Done by the primary agent: run 4, 16/16 paths, schema 99/99 exact, 0 locks | `backend/evidence/live-readonly-2026-11-19-r4.json` |
+| F2–F5. Local verification | Done on loopback, with the failures and flakes listed in `w18-verification.md` | `backend/evidence/verification-a2382b4e-single-stack.json` (run 2) and `verification-f600dd54-single-stack.json` (run 1) |
+| F6. Docs | Done (W18): `HANDOFF.md`, `CHECKPOINT.md`, the source-surface map, `release-coverage.json`, `docs/pull-requests/*` | — |
+| Release | **Not ready.** The release gate fails: 396 surfaces and 12 requirements still pending | `tools/parity-gate.ts` |
+
 ## Context
 The rewrite (`/Users/rishabhbhatia/code/pos-rewrite`, `main` == `feature/order-copy-history-integration` == `e392040`)
 must reach production-ready 1:1 parity with legacy Django `backend-pos-web@78d5b63` on Node 24 / TS / React /
