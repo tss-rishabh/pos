@@ -219,6 +219,56 @@ function reasonTexts(
   return { actions, texts };
 }
 
+/** A server refusal (S35) carrying the text the template shows instead of the button. */
+export interface CellRefusal {
+  status: 403 | 409;
+  code: 'RETURN_NOT_APPLICABLE' | 'EXCHANGE_NOT_APPLICABLE' | 'EXCHANGE_NOT_ENABLED';
+  message: string;
+}
+
+/**
+ * The `show.html` force-return button (`click-type="extreme"`): the store template's last return
+ * branch, offered only for a DELIVERED line whose CURRENT `products.prod_type` is not 8. The
+ * online template never offers it.
+ */
+export function forceReturnOffered(
+  facts: Pick<ExchangeCellFacts, 'variant' | 'lineStatus' | 'productType'>,
+): boolean {
+  return facts.variant === 'store' && facts.lineStatus === 'DELIVERED' && facts.productType !== 8;
+}
+
+/** S35: the server outcome of a force return the template would not offer. */
+export function forceReturnRefusal(
+  facts: Pick<ExchangeCellFacts, 'variant' | 'lineStatus' | 'productType'>,
+): CellRefusal | null {
+  return forceReturnOffered(facts)
+    ? null
+    : { status: 409, code: 'RETURN_NOT_APPLICABLE', message: 'Not applicable for return' };
+}
+
+/**
+ * S35: the server outcome of a new exchange (`retry` false) or a failed-exchange retry the
+ * template would not offer. `merged` is null while the eligibility answer is not known yet.
+ * - Store template: product type 8 replaces both cells before every other branch.
+ * - Online template: type 8 wins over an eligible exchange, not over the merged or retry cells.
+ * - Every exchange and retry button needs `exchange_feature_enabled` of the check-in store.
+ */
+export function exchangeRefusal(
+  facts: Pick<ExchangeCellFacts, 'variant' | 'productType' | 'exchangeFeatureEnabled'> & {
+    retry: boolean;
+    merged: boolean | null;
+  },
+): CellRefusal | null {
+  if (
+    facts.productType === 8 &&
+    (facts.variant === 'store' || (!facts.retry && facts.merged === false))
+  )
+    return { status: 409, code: 'EXCHANGE_NOT_APPLICABLE', message: 'Not Applicable For Exchange' };
+  if (!facts.exchangeFeatureEnabled)
+    return { status: 403, code: 'EXCHANGE_NOT_ENABLED', message: 'Not applicable for exchange' };
+  return null;
+}
+
 function returnPart(facts: ExchangeCellFacts): { part: CellPart; branch: ReturnSubBranch } {
   const entry = facts.return;
   if (entry?.status)
@@ -242,7 +292,7 @@ function returnPart(facts: ExchangeCellFacts): { part: CellPart; branch: ReturnS
     return { part: part([], [text('Not applicable for return')], true), branch: 'not-applicable' };
   if (EXCHANGED.includes(facts.lineStatus ?? ''))
     return { part: part([], [text('Already Exchanged')]), branch: 'already-exchanged' };
-  if (facts.lineStatus === 'DELIVERED' && facts.productType !== 8)
+  if (forceReturnOffered(facts))
     return { part: part(['force-return'], []), branch: 'force-return' };
   return { part: part([], [text('Not applicable for return', 'badge')]), branch: 'not-applicable' };
 }
