@@ -64,6 +64,7 @@ import { configuredStateStore, type PosStateStore } from './state-store.js';
 import { checkoutFlagsReader } from './legacy-flags.js';
 import { checkoutSessionStore, type CheckoutSessionStore } from './session-store.js';
 import type { JobProducer } from '../../jobs/contract.js';
+import type { ProductSyncAdapter } from '../administration/product-sync.js';
 
 const storeScope = z.object({ storeId: identifier });
 const sessionScope = storeScope.extend({ checkoutId: z.uuid() });
@@ -93,6 +94,8 @@ export interface CheckoutRegistrationOptions {
   stateStore?: PosStateStore;
   sessions?: CheckoutSessionStore;
   jobs?: JobProducer;
+  /** Legacy `Helpers.sync_pos_product` after an order cancel commits (buildApp's adapter). */
+  syncProducts?: ProductSyncAdapter;
   checkoutFlags?: ReturnType<typeof checkoutFlagsReader>;
 }
 export function registerCheckout(
@@ -726,6 +729,7 @@ export function registerCheckout(
     ...shared,
     ...(overrides.pendingCancellations || pendingCancellationOptions()),
     stockProcedure: overrides.stockProcedure,
+    ...(overrides.syncProducts ? { syncProducts: overrides.syncProducts } : {}),
   });
   registerReturns(app, config, db, {
     ...shared,

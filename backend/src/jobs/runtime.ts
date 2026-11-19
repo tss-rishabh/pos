@@ -18,6 +18,8 @@ export interface JobRuntime {
   /** For jobs that enqueue follow-up jobs (legacy O3 enqueues C9). */
   jobs: JobProducer;
   log: JobLogger;
+  /** Registers a resource (Redis client, notification bus) to close when the worker stops. */
+  onClose?: (close: () => Promise<void>) => void;
 }
 
 /**

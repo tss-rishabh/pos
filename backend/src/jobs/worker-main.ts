@@ -59,7 +59,10 @@ const describe = (entry: { jobId: string; job: JobRecord | null; workerId?: stri
 
 let databases: Databases | undefined;
 const connections: RedisCommands[] = [];
+/** Module resources (order Redis, notification bus) registered by the job handlers. */
+const moduleClosers: (() => Promise<void>)[] = [];
 async function closeAll() {
+  await Promise.allSettled(moduleClosers.map((close) => close()));
   await Promise.allSettled(connections.map((connection) => connection.close()));
   await databases?.close();
   await runtime.close();
@@ -103,6 +106,7 @@ try {
       ephemeral: redisEphemeralStore(redis),
       jobs: redisJobProducer(redis),
       log,
+      onClose: (close) => moduleClosers.push(close),
     });
     const worker = jobWorker({
       store,

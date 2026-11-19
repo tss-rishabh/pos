@@ -135,7 +135,7 @@ export async function buildApp(
   options: {
     logger?: FastifyServerOptions['logger'];
     authRedis?: RedisPort;
-    /** Redis job-queue producer (phase-c-legacy-jobs.md §4); wired by the jobs workstream. */
+    /** Overrides the Redis job-queue producer (tests); otherwise built from REDIS_URL. */
     jobs?: JobProducer;
   } = {},
 ) {
@@ -186,12 +186,19 @@ export async function buildApp(
   bindCheckInRedis(authRedis);
   const db = createDatabases(config),
     identity = identityService(config, db, authEvents);
-  // W4: one Redis-backed store for checkout, returns and payments state. The job producer is
-  // wired by W8 (jobs workstream); until then producers receive `undefined`.
+  /**
+   * Job producer (src/jobs, phase-c-legacy-jobs.md §4) + ephemeral Redis state. `jobs` is the
+   * Redis queue producer when REDIS_URL is set outside demo mode (or `options.jobs` in tests),
+   * otherwise `undefined`, so optional producers keep their "queue unavailable" handling.
+   */
+  const moduleRuntime = createModuleRuntime(config, options.jobs),
+    jobs = moduleRuntime.queue;
+  useAdministrationEphemeralStore(moduleRuntime.ephemeral);
+  // W4: one Redis-backed store for checkout, returns and payments state, sharing the producer.
   const posState = config.DEMO_MODE ? undefined : configuredStateStore(config),
     checkoutShared = posState
-      ? { stateStore: posState, sessions: checkoutSessionStore(posState), jobs: undefined }
-      : {};
+      ? { stateStore: posState, sessions: checkoutSessionStore(posState), jobs }
+      : { jobs };
   app.addHook('onClose', async () => {
     await posState?.close();
   });
@@ -207,9 +214,6 @@ export async function buildApp(
         drafts: draftService(db, posState ?? memoryStateStore()),
       };
   const orderRedis = config.DEMO_MODE ? memoryOrderRedis() : nodeOrderRedis(config);
-  /** Job producer + ephemeral Redis state for the W8 modules (src/jobs). */
-  const moduleRuntime = createModuleRuntime(config);
-  useAdministrationEphemeralStore(moduleRuntime.ephemeral);
   app.addHook('onClose', async () => {
     await identity.close();
     await orderRedis.close();
@@ -365,14 +369,15 @@ export async function buildApp(
     app,
     deviceHandoffService(config, db, handoffOptions, handoffStore, identity),
   );
-  const productSync = productSynchronizer(
-    config.DEMO_MODE
+  // Legacy `Helpers.sync_pos_product`: one unretried POST after commit, failures only logged.
+  const productSyncAdapter = config.DEMO_MODE
       ? undefined
       : createProductSyncAdapter(config, readAdministrationWorkerOptions(), fetch, {
           requireReplaySafe: false,
         }),
-    (level, event, message) => app.log[level](event, message),
-  );
+    productSync = productSynchronizer(productSyncAdapter, (level, event, message) =>
+      app.log[level](event, message),
+    );
   const stockProjection = configuredStockProjection(config);
   const mediaStore = config.DEMO_MODE
     ? undefined
@@ -415,6 +420,7 @@ export async function buildApp(
     environment: checkoutRuntime,
     customerOtp,
     orderCopy: { history: historicalOrderCopyFacts(orderHistory) },
+    ...(productSyncAdapter ? { syncProducts: productSyncAdapter } : {}),
     ...(stockProjection
       ? { inventoryProcedureVerified: true, stockProcedure: stockProjection }
       : {}),
@@ -425,9 +431,13 @@ export async function buildApp(
     customerOtp,
   });
   registerCustomerWebsiteHandoff(app, config, db);
-  await registerFulfillment(app, config, db, { redis: orderRedis, jobs: options.jobs });
+  await registerFulfillment(app, config, db, { redis: orderRedis, jobs });
   registerShippingLabels(app, db);
-  registerLegacyFulfillment(app, config, db, { jobs: options.jobs, redis: orderRedis });
+  registerLegacyFulfillment(app, config, db, {
+    jobs,
+    redis: orderRedis,
+    ...(productSyncAdapter ? { dependencies: { syncProducts: productSyncAdapter } } : {}),
+  });
   await registerWholeOrderStatus(app, config, db, wholeOrderOptions);
   registerCustomerWorkspace(app, config, db, orderRedis);
   registerCustomerHistory(app, config, db);

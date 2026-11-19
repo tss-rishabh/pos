@@ -18,18 +18,28 @@ export interface ModuleRuntime {
 /**
  * Redis-backed when REDIS_URL is set. Without it, production fails closed (503), and
  * development/tests get in-process ephemeral state and a producer that refuses to enqueue.
+ *
+ * `queue` is the producer for callers that accept an optional one (W4/W5 checkout, fulfillment,
+ * legacy-fulfillment): the Redis producer, or `jobsOverride` (tests), else `undefined` so those
+ * callers keep their own "queue unavailable" handling. `jobs` is never undefined.
  */
-export function createModuleRuntime(config: Config): ModuleRuntime & { close(): Promise<void> } {
+export function createModuleRuntime(
+  config: Config,
+  jobsOverride?: JobProducer,
+): ModuleRuntime & { queue: JobProducer | undefined; close(): Promise<void> } {
   if (config.REDIS_URL && !config.DEMO_MODE) {
-    const redis = connectRedis(config.REDIS_URL, config.NODE_ENV);
+    const redis = connectRedis(config.REDIS_URL, config.NODE_ENV),
+      queue = jobsOverride ?? redisJobProducer(redis);
     return {
-      jobs: redisJobProducer(redis),
+      jobs: queue,
+      queue,
       ephemeral: redisEphemeralStore(redis),
       close: () => redis.close(),
     };
   }
   return {
-    jobs: unavailableJobProducer(),
+    jobs: jobsOverride ?? unavailableJobProducer(),
+    queue: jobsOverride,
     ephemeral:
       config.NODE_ENV === 'production' ? unavailableEphemeralStore() : memoryEphemeralStore(),
     close: async () => {},
