@@ -67,11 +67,16 @@ for (const interrupted of [false, true]) {
       lookups++;
       expect(route.request().method()).toBe('POST');
       expect(new URL(route.request().url()).search).toBe('');
+      // Legacy "Fetch the User" posts mobile and email together (create_order.html:2905-3033).
       expect(route.request().postDataJSON()).toEqual({
-        query: 'lookup@example.com',
         counterId: '1',
+        telephone: '',
+        email: 'lookup@example.com',
       });
-      return route.fulfill({ json: { data: [] } });
+      return route.fulfill({
+        status: 404,
+        json: { error: { code: 'CUSTOMER_NOT_FOUND', message: 'User Not Found.' } },
+      });
     });
     await page.route('**/api/v1/stores/1/checkout-sessions**', async (route) => {
       const request = route.request(),
@@ -207,8 +212,8 @@ for (const interrupted of [false, true]) {
     await page.getByRole('button', { name: 'Review sale', exact: true }).click();
     await page.getByRole('button', { name: 'Confirm prices online' }).click();
     await page.getByText('Customer and verification', { exact: true }).click();
-    await page.getByLabel('Email or phone', { exact: true }).fill('lookup@example.com');
-    const findCustomer = page.getByRole('button', { name: 'Find customer', exact: true });
+    await page.getByLabel('Email', { exact: true }).fill('lookup@example.com');
+    const findCustomer = page.getByRole('button', { name: 'Fetch the User', exact: true });
     // A dispatched click does not wait for the async lookup or its route handler.
     const lookupResponse = page.waitForResponse(
       (response) =>
@@ -217,8 +222,10 @@ for (const interrupted of [false, true]) {
     );
     await findCustomer.click();
     const response = await lookupResponse;
-    expect(response.status()).toBe(200);
+    // An unknown customer is the legacy "User Not Found." (users/views.py:656-659).
+    expect(response.status()).toBe(404);
     expect(await response.finished()).toBeNull();
+    await expect(page.getByText('User Not Found.', { exact: false })).toBeVisible();
     await expect(findCustomer).toBeEnabled();
     expect(lookups).toBe(1);
     await page.getByText('Create a customer account', { exact: true }).click();
@@ -227,12 +234,13 @@ for (const interrupted of [false, true]) {
     await page.getByLabel('Date of birth (optional)', { exact: true }).fill('1990-01-02');
     await page.getByLabel('Customer type', { exact: true }).selectOption('B2B');
     await page.getByLabel('Customer GSTIN', { exact: true }).fill('29ABCDE1234F1Z5');
-    await page.getByRole('button', { name: 'Request registration code', exact: true }).click();
+    await page.getByRole('button', { name: 'Get OTP', exact: true }).click();
     await expect(page.getByText('Registration pending.', { exact: false })).toBeVisible();
     await page.getByRole('button', { name: 'Check registration status', exact: true }).click();
-    await page.getByLabel('Registration code', { exact: true }).fill('111111');
-    await page.getByRole('button', { name: 'Verify registration code', exact: true }).click();
-    await page.getByRole('button', { name: 'Create verified customer', exact: true }).click();
+    await page.getByLabel('One Time Password (OTP)', { exact: true }).fill('111111');
+    // Legacy "Verify with OTP" verifies, registers and connects in one action
+    // (create_order.html:4954-5024).
+    await page.getByRole('button', { name: 'Verify with OTP', exact: true }).click();
     if (interrupted) {
       await expect(
         page.getByText('Registration may have completed. Reconcile its saved reference.', {
@@ -243,9 +251,9 @@ for (const interrupted of [false, true]) {
       await page.getByRole('button', { name: 'Close checkout' }).click();
       await page.reload();
       await page.getByRole('button', { name: 'Review sale', exact: true }).click();
+      // Reconciliation connects the registered customer, as the original action would have.
       await page.getByRole('button', { name: 'Reconcile registration', exact: true }).click();
     }
-    await page.getByRole('button', { name: 'Connect registered customer', exact: true }).click();
     const dialog = page.getByRole('dialog', { name: 'Confirm the sale' });
     await expect(dialog.getByText('Customer 8101', { exact: false })).toBeVisible();
     expect(cart().products.items[0]?.quantity).toBe(1);
