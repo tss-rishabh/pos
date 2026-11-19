@@ -136,3 +136,10 @@ These supersede earlier WIP patterns. Every agent must follow them.
   - Drop the extra day-close window check.
   - Franchise users see only their own franchise's stores (S45).
   - Keep the working gift-card list search, limited to the fields legacy configured. Legacy raises `FieldError`.
+- **ORM, 19 November 2026 (primary agent, by recommendation):** MySQL goes through the Drizzle builder. The documented
+  exceptions are in `backend/parity/orm-exceptions.md`:
+  - BigQuery calls
+  - `pos_stock_syncer*` procedures
+  - connection setup and the health check
+  - seven legacy report statements copied verbatim from the pinned source, with values bound (identical output by
+    construction; flash sales needs `@rownum`)
