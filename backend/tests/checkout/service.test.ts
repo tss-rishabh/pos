@@ -484,6 +484,24 @@ describe('checkout workflow authorization and external-effect safety', () => {
     ).rejects.toMatchObject({ code: 'CUSTOMER_CART_BUSY' });
     expect(gateway.calls.filter((c) => c.path === 'syncart')).toHaveLength(1);
   });
+  it('a refused action on a finished sale does not take the customer cart lease back (W26)', async () => {
+    const first = await service.create(operator, '1', '3');
+    await service.attachCustomer(operator, '1', first.id, mutation(0), '1001');
+    readyToOrder(first.id);
+    const tab = repository.states.get(first.id)!.tabId;
+    for (const key of [`1001:${tab}`, '1001:customer'])
+      gateway.carts.set(key, gateway.carts.get(`777:${tab}`)!);
+    await service.quote(operator, '1', first.id, mutation(1));
+    await service.submit(operator, '1', first.id, mutation(2), cash());
+    // A stale window retries an edit on the submitted sale: refused, and the lease stays free.
+    await expect(
+      service.detachCustomer(operator, '1', first.id, mutation(3)),
+    ).rejects.toMatchObject({ code: 'CHECKOUT_ALREADY_SUBMITTED' });
+    const next = await service.create(operator, '1', '3');
+    expect((await service.attachCustomer(operator, '1', next.id, mutation(0), '1001')).status).toBe(
+      'succeeded',
+    );
+  });
   it('requires a bound live challenge and persists unsuccessful OTP attempts across operation keys', async () => {
     const created = await service.create(operator, '1', '3');
     await service.attachCustomer(operator, '1', created.id, mutation(0), '1001');

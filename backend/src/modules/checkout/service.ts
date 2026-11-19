@@ -366,7 +366,14 @@ export function checkoutService(
       };
     }
     try {
-      if (reservation.state.customerId)
+      // A submitted or cleared sale released the customer's cart lease when it finished; an
+      // action on it (a stale window, a retry) is refused below and must not take the lease back,
+      // or the customer cannot start another checkout for 12 hours (W26, UAT).
+      if (
+        reservation.state.customerId &&
+        reservation.state.phase !== 'submitted' &&
+        reservation.state.phase !== 'cleared'
+      )
         await repository.acquireCustomer(id, reservation.state.customerId);
       const outcome = await action(reservation.state);
       return {

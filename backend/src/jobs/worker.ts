@@ -9,7 +9,7 @@ import type { JobLogger } from './runtime.js';
 
 export interface JobWorkerDependencies {
   store: JobQueueStore;
-  /** Claims one id into this worker's inflight list (BLMOVE on a dedicated connection). */
+  /** Claims one id into this worker's inflight list (BRPOPLPUSH on a dedicated connection). */
   claim: (workerId: string) => Promise<string | null>;
   handlers: JobHandlerTable;
   log: JobLogger;

@@ -46,7 +46,7 @@ export const redisUnavailable = () =>
 /**
  * One lazily connected client per call site. Connection and command errors are replaced by a
  * fixed AppError because Redis error text can carry connection credentials.
- * Blocking commands (BLMOVE) need their own `connectRedis` instance.
+ * Blocking commands (BRPOPLPUSH) need their own `connectRedis` instance.
  */
 export function connectRedis(
   connectionUrl: string,

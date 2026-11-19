@@ -397,8 +397,10 @@ export function jobQueueStore(
 export type JobQueueStore = ReturnType<typeof jobQueueStore>;
 
 /**
- * Claim one ready job id for this worker: non-blocking LMOVE over every queue (round-robin
- * start), then one short BLMOVE on the next queue. Uses the dedicated blocking connection.
+ * Claim one ready job id for this worker: non-blocking RPOPLPUSH over every queue (round-robin
+ * start), then one short BRPOPLPUSH on the next queue. Uses the dedicated blocking connection.
+ * RPOPLPUSH/BRPOPLPUSH are LMOVE/BLMOVE `RIGHT LEFT` for Redis before 6.2: the UAT Redis (and
+ * the legacy Celery broker it shares) is 6.0, where LMOVE is an unknown command (W26).
  */
 export function jobClaimer(
   blocking: RedisCommands,
@@ -411,23 +413,14 @@ export function jobClaimer(
     offset = (offset + 1) % queues.length;
     for (const queue of order) {
       const id = await blocking.send([
-        'LMOVE',
+        'RPOPLPUSH',
         jobKeys.queue(queue),
         jobKeys.inflight(workerId),
-        'RIGHT',
-        'LEFT',
       ]);
       if (typeof id === 'string') return id;
     }
     const id = await blocking.send(
-      [
-        'BLMOVE',
-        jobKeys.queue(order[0]!),
-        jobKeys.inflight(workerId),
-        'RIGHT',
-        'LEFT',
-        String(blockSeconds),
-      ],
+      ['BRPOPLPUSH', jobKeys.queue(order[0]!), jobKeys.inflight(workerId), String(blockSeconds)],
       { timeoutMs: Math.ceil(blockSeconds * 1000) + 3000 },
     );
     return typeof id === 'string' ? id : null;

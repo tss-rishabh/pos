@@ -88,7 +88,10 @@ export function inboundPayload(input: InboundReturn, transporterCode: string) {
         customer_address3: '',
         customer_address4: '',
         customer_country: 'India',
-        customer_state: wireId(input.state),
+        // Legacy passes `orders.zone_id` through unchanged (order/libs/calculations.py:131). It is a
+        // TEXT column holding the state name ("Karnataka"); wireId() refused every real order with
+        // UPSTREAM_IDENTIFIER_RANGE (W26, UAT). A numeric value keeps the golden's numeric form.
+        customer_state: /^\d+$/.test(input.state) ? wireId(input.state) : input.state,
         customer_city: input.city,
         customer_pincode: input.pincode,
         customer_email: '',

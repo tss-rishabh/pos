@@ -1,0 +1,1053 @@
+{
+ "sessionReadOnly": true,
+ "maxExecutionMs": 10000,
+ "tablesCompared": 99,
+ "driftTables": 30,
+ "drift": [
+  {
+   "table": "amount_to_be_refunded_log",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "is_refunded",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "attributes",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "attr",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "categories",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "category_type",
+     "attributes": [
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "enum('Topwear','Bottomwear')",
+     "liveType": "enum('Topwear','Bottomwear','Accessories','Extras','Footwear')"
+    },
+    {
+     "column": "modified_category",
+     "attributes": [
+      "COLUMN_DEFAULT"
+     ]
+    },
+    {
+     "column": "courier_company_id",
+     "attributes": [
+      "ORDINAL_POSITION",
+      "IS_NULLABLE",
+      "COLUMN_DEFAULT",
+      "COLUMN_KEY"
+     ]
+    },
+    {
+     "column": "modified_category_plp",
+     "attributes": [
+      "extra"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "courier_companies",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "account_code",
+     "attributes": [
+      "ORDINAL_POSITION",
+      "COLUMN_DEFAULT"
+     ]
+    },
+    {
+     "column": "vinculum_courier_name",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "created_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "updated_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "express_line_item",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "rejection_reason_id",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    },
+    {
+     "column": "courier_id",
+     "attributes": [
+      "extra"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "flag_history",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": []
+  },
+  {
+   "table": "has_addresses",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "address1",
+     "attributes": [
+      "COLUMN_TYPE",
+      "IS_NULLABLE"
+     ],
+     "snapshotType": "varchar(35)",
+     "liveType": "varchar(200)"
+    },
+    {
+     "column": "address4",
+     "attributes": [
+      "ORDINAL_POSITION",
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "varchar(255)",
+     "liveType": "varchar(225)"
+    },
+    {
+     "column": "is_active",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "floor",
+     "attributes": [
+      "extra"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "has_categories",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": []
+  },
+  {
+   "table": "has_options",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": []
+  },
+  {
+   "table": "has_products",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "status",
+     "attributes": [
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "enum('INCOMPLETE','PLACED','PROCESSING','SHIPPED','PARTIALLY… (798 chars)",
+     "liveType": "enum('INCOMPLETE','PLACED','PROCESSING','PACKED','SHIPPED','… (807 chars)"
+    },
+    {
+     "column": "pg_disc",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "store_disc_pg",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "pg_disc_platform",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "gift_voucher_id",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "gender_type",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "combo_gender_type",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "normal_price",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "special_price",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "exclusive_price",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "is_exclusive_order",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "exclusive_saving",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "hp_tss_points_used",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "is_order_shipped",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "is_order_out_for_delivery",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "is_order_delivered",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "salesperson_id",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "created_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "updated_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "refund_send_mail",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "refund_send_sms",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "bundle_options",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "return_member_id",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "refund_bank_id",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "hp_cart_additional_discount",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "is_return_cancel",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "track_ltv_update",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "cog",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "vinc_status",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "fraction_value",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "prod_gst",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "images",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "cashback_earned",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "final_payable",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "pre_gst_amt",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "is_express",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "location_code",
+     "attributes": [
+      "ORDINAL_POSITION",
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "varchar(50)",
+     "liveType": "varchar(100)"
+    },
+    {
+     "column": "express_charges",
+     "attributes": [
+      "ORDINAL_POSITION",
+      "COLUMN_DEFAULT"
+     ]
+    },
+    {
+     "column": "pg_disc_new",
+     "attributes": [
+      "extra"
+     ]
+    },
+    {
+     "column": "freebie_sale_id",
+     "attributes": [
+      "extra"
+     ]
+    },
+    {
+     "column": "delivery_no",
+     "attributes": [
+      "extra"
+     ]
+    },
+    {
+     "column": "paid_share",
+     "attributes": [
+      "extra"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "hyperlocal_to_online_order_logs",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "reason",
+     "attributes": [
+      "missing"
+     ]
+    },
+    {
+     "column": "remark",
+     "attributes": [
+      "missing"
+     ]
+    },
+    {
+     "column": "created_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "updated_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "order_addons",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "shipped_location",
+     "attributes": [
+      "COLUMN_DEFAULT"
+     ]
+    },
+    {
+     "column": "platform_fee",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    },
+    {
+     "column": "is_nps_delivered_month_sent",
+     "attributes": [
+      "extra"
+     ]
+    },
+    {
+     "column": "nps_delivered_month_sent_at",
+     "attributes": [
+      "extra"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "order_stores",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "district_transaction_id",
+     "attributes": [
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "varchar(255)",
+     "liveType": "varchar(45)"
+    },
+    {
+     "column": "credit_pincode_id",
+     "attributes": [
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "varchar(255)",
+     "liveType": "varchar(45)"
+    }
+   ]
+  },
+  {
+   "table": "orders",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "has_address_id",
+     "attributes": [
+      "IS_NULLABLE",
+      "COLUMN_DEFAULT"
+     ]
+    },
+    {
+     "column": "store_disc_pg_reason",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "cart",
+     "attributes": [
+      "ORDINAL_POSITION",
+      "COLUMN_TYPE",
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ],
+     "snapshotType": "text",
+     "liveType": "json"
+    },
+    {
+     "column": "cart_del",
+     "attributes": [
+      "extra"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "pos_exchange_log",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "old_size",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "new_size",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "comment",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "status",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "last_error",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "created_at",
+     "attributes": [
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "datetime(6)",
+     "liveType": "datetime"
+    },
+    {
+     "column": "updated_at",
+     "attributes": [
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "datetime(6)",
+     "liveType": "datetime"
+    }
+   ]
+  },
+  {
+   "table": "pos_paytm_machines",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "device_serial_no",
+     "attributes": [
+      "COLUMN_TYPE",
+      "IS_NULLABLE",
+      "COLUMN_DEFAULT"
+     ],
+     "snapshotType": "bigint unsigned",
+     "liveType": "int"
+    }
+   ]
+  },
+  {
+   "table": "pos_paytm_transactions",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "is_active",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "pos_user",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "password",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "username",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "first_name",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "last_name",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "gender",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "phone",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "email",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "mfa_hash",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "profile_image",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "cover_image",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    },
+    {
+     "column": "contact_email",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "product_store",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": []
+  },
+  {
+   "table": "products",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "url_key",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    },
+    {
+     "column": "is_mystery_product",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    },
+    {
+     "column": "is_updated",
+     "attributes": [
+      "ORDINAL_POSITION",
+      "COLUMN_TYPE",
+      "IS_NULLABLE",
+      "COLUMN_KEY"
+     ],
+     "snapshotType": "tinyint(1)",
+     "liveType": "tinyint"
+    },
+    {
+     "column": "oms_id",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "return_orders",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "created_at",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "reverse_pickup_reason",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "type",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "deleted_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "deleted_by",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "need_qc",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "description",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "image",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "salespersons",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "user_type",
+     "attributes": [
+      "ORDINAL_POSITION",
+      "COLUMN_TYPE",
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ],
+     "snapshotType": "tinyint",
+     "liveType": "varchar(45)"
+    },
+    {
+     "column": "phone",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "is_active",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "created_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "updated_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "store_cash_opening_balance",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "created_at",
+     "attributes": [
+      "COLUMN_DEFAULT",
+      "EXTRA"
+     ]
+    },
+    {
+     "column": "updated_at",
+     "attributes": [
+      "COLUMN_DEFAULT",
+      "EXTRA"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "store_day_close",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "banking_amount",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "snap_order_count",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "stale_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "stale_reason",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "stale_trigger_ref",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "last_verified_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "created_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "updated_at",
+     "attributes": [
+      "ORDINAL_POSITION"
+     ]
+    },
+    {
+     "column": "pincode_system",
+     "attributes": [
+      "extra"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "stores",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": []
+  },
+  {
+   "table": "tss_settings",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "value",
+     "attributes": [
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "varchar(1500)",
+     "liveType": "varchar(4000)"
+    }
+   ]
+  },
+  {
+   "table": "user_addons",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "partner_birthdate",
+     "attributes": [
+      "extra"
+     ]
+    },
+    {
+     "column": "partner_birthdate_updated_at",
+     "attributes": [
+      "extra"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "user_eav",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "entity",
+     "attributes": [
+      "CHARACTER_SET_NAME",
+      "COLLATION_NAME"
+     ]
+    }
+   ]
+  },
+  {
+   "table": "vinculum_auto_delivered_logs",
+   "missing": false,
+   "createTableDiffers": true,
+   "columns": [
+    {
+     "column": "order_id",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    },
+    {
+     "column": "platform",
+     "attributes": [
+      "COLUMN_KEY"
+     ]
+    },
+    {
+     "column": "status",
+     "attributes": [
+      "COLUMN_TYPE"
+     ],
+     "snapshotType": "enum('SUCCESS','FAILED','QUOTA_EXCEEDED','UNEXPECTED','RETRYING','QUEUED')",
+     "liveType": "enum('SUCCESS','FAILED','QUOTA_EXCEEDED','UNEXPECTED','RETRYING')"
+    }
+   ]
+  }
+ ],
+ "stats": {
+  "statements": 103,
+  "reads": 103,
+  "explains": 2,
+  "transactions": 0,
+  "downgradedLocks": 0,
+  "downgradedUpdateLocks": 0,
+  "refused": 0,
+  "refusedCodes": [],
+  "planRejected": [],
+  "planBounded": [],
+  "failedStatements": [],
+  "connections": 1,
+  "verifiedConnections": 1
+ }
+}

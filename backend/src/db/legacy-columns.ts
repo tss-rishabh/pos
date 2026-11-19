@@ -93,16 +93,22 @@ export const varcharInt = customType<{
 });
 
 /**
- * Value MySQL stores for an ENUM write under the production empty `sql_mode`:
- * the value itself when it is a member, otherwise the error value `''`.
- * Writing this explicitly keeps rows identical in any mode (AGENTS.md,
- * "Revisions, 19 November 2026").
+ * Value MySQL stores for an ENUM write under the production empty `sql_mode`: the member
+ * the value matches, otherwise the error value `''`. Writing this explicitly keeps rows
+ * identical in any mode (AGENTS.md, "Revisions, 19 November 2026").
+ *
+ * MySQL matches ENUM members by the column collation: the legacy columns are `_ci` and PAD
+ * SPACE, so case and trailing spaces are ignored and the member's own spelling is stored.
+ * Legacy writes `order_status.order_status` names such as `'Delivered'` into
+ * `has_products.status` (helpers/helpers.py:689), which MySQL stores as `'DELIVERED'`; an
+ * exact match wrote `''` instead and made every paid line unreturnable (W26, UAT).
  */
 export function storedEnumValue<const T extends readonly [string, ...string[]]>(
   values: T,
   value: string,
 ): T[number] | '' {
-  return (values as readonly string[]).includes(value) ? (value as T[number]) : '';
+  const key = value.replace(/ +$/, '').toLowerCase();
+  return (values as readonly string[]).find((member) => member.toLowerCase() === key) ?? '';
 }
 
 /**

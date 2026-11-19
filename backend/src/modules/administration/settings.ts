@@ -59,7 +59,7 @@ export function settingsService(config: Config, db: Databases, options: Settings
       .toString({ smallestUnit: 'second' })
       .replace('T', ' ');
   const cooldown = options.ecommerceCooldownSeconds ?? 180;
-  if (!Number.isSafeInteger(cooldown) || cooldown < 1 || cooldown > 3600)
+  if (!Number.isSafeInteger(cooldown) || cooldown < 1 || cooldown > 2_592_000)
     throw new AppError(503, 'ECOMMERCE_CONFIGURATION_INVALID', 'Choose a valid settings cooldown.');
   const log: JobLogger = options.log ?? (() => {});
   const ephemeral = (): EphemeralStore =>

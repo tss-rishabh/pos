@@ -7,7 +7,9 @@ export function readSettingsOptions(env: NodeJS.ProcessEnv = process.env) {
     .object({
       COMMON_REDIS_URL: optionalUrl,
       SLACK_URL: optionalUrl,
-      ECOM_DELIVERY_CHANGES_TIME: z.coerce.number().int().min(1).max(3600).default(180),
+      // Legacy `ENV.get("ECOM_DELIVERY_CHANGES_TIME", 180)` is a Redis EX in seconds with no upper
+      // bound (`core/views.py:2112`); the legacy UAT env sets 7200. Cap at 30 days.
+      ECOM_DELIVERY_CHANGES_TIME: z.coerce.number().int().min(1).max(2_592_000).default(180),
     })
     .parse(env);
 }

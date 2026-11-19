@@ -19,9 +19,21 @@ export function financeAlertOptions(env: NodeJS.ProcessEnv = process.env) {
     .object({
       REPORTS_API_KEY: optional(z.string().min(16).max(1024)),
       SLACK_URL: optional(z.url()),
+      /**
+       * Legacy `int(ENV.get("COMMON_GROUP_ALERT_ON", 0))` (settings.py:515): any non-zero
+       * integer turns the copy on. `true`/`false` stay accepted, as in fulfillment/options.ts.
+       */
       COMMON_GROUP_ALERT_ON: z.preprocess(
         (value) =>
-          value === undefined ? false : value === 'true' ? true : value === 'false' ? false : value,
+          value === undefined || value === ''
+            ? false
+            : typeof value === 'string' && /^-?\d+$/.test(value.trim())
+              ? Number(value) !== 0
+              : value === 'true'
+                ? true
+                : value === 'false'
+                  ? false
+                  : value,
         z.boolean(),
       ),
     })
