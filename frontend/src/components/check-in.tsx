@@ -294,6 +294,7 @@ export function CheckInPrompt({
         <label>
           Store
           <select
+            aria-label="Store"
             autoFocus
             required
             value={storeId}
@@ -314,6 +315,7 @@ export function CheckInPrompt({
         <label>
           Counter
           <select
+            aria-label="Counter"
             value={counterId}
             disabled={!storeId || counters.isPending}
             onChange={(event) => setCounterId(event.target.value)}
