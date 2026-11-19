@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, gte, inArray, like, ne, or, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, gte, inArray, like, ne, or, sql } from 'drizzle-orm';
 import { Temporal } from '@js-temporal/polyfill';
 import type { Config } from '../../../config.js';
 import type { Databases } from '../../../db/pools.js';
@@ -35,14 +35,13 @@ import { AppError } from '../../../domain/errors.js';
 import { checkInService, type AdministrationTransaction } from '../../administration/checkins.js';
 import { enqueueInventorySynchronization } from '../../administration/inventory.js';
 import type { StockProcedure } from '../../administration/stock-procedure.js';
-import { readCustomerContactBinding, sameCustomerContact } from '../customer-contact-authority.js';
-import type { CustomerVerificationClient } from '../customer-verification.js';
 import { financialYear } from '../finalizer.js';
 import { exchangeRetryable } from '../returns.js';
 import { wireId } from '../payloads.js';
 import { pythonFloat } from '../payments/legacy.js';
 import { currentRequestTrace } from '../../../observability/context.js';
-import { returnCustomerOtpScope } from './verification-state.js';
+import { exchangeFeatureEnabled } from '../legacy-flags.js';
+import { exchangeRefusal, forceReturnRefusal, type CellRefusal } from './exchange-cell.js';
 import {
   publicReturn,
   type ExchangeRecoveryScope,
@@ -66,13 +65,14 @@ export interface ReturnRepositoryOptions {
   returnPeriodDays: number | undefined;
   inventoryProcedureVerified?: boolean;
   stockProcedure?: StockProcedure;
-  customerOtp?: CustomerVerificationClient;
   assertCheckIn?: (
     userId: string,
     storeId: string,
     counterId: string,
     transaction: AdministrationTransaction,
   ) => Promise<void>;
+  /** The operator's legacy check-in store (`check_in_{uid}`, `Helpers.get_checkin_store`). */
+  checkedInStore?: (userId: string) => Promise<string | null>;
   state: ReturnState;
 }
 
@@ -91,6 +91,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     checkIn =
       options.assertCheckIn ||
       ((user, store, counter, tx) => checkIns.assertCheckIn(user, store, counter, tx)),
+    checkedInStore = options.checkedInStore || ((userId) => checkIns.checkedInStore(userId)),
     now = () => Temporal.Now.zonedDateTimeISO(config.BUSINESS_TIMEZONE).toPlainDateTime(),
     timestamp = () => now().toString({ smallestUnit: 'second' }).replace('T', ' ');
   const stamp = (operation: ReturnOperation): ReturnOperation => ({
@@ -159,58 +160,51 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     return { store, order, line };
   }
 
-  async function verifiedCustomer(
+  const refused = (value: CellRefusal) => new AppError(value.status, value.code, value.message);
+
+  /**
+   * The facts the S35 template guards need, read now: the CURRENT `products.prod_type` of the
+   * line, whether the order is a store order (`order_stores`, show.html vs the online cells) and
+   * `exchange_feature_enabled` of the operator's CHECK-IN store (`order/views.py:313,338-340`).
+   */
+  async function guardFacts(
     tx: AdministrationTransaction,
-    user: Principal,
-    storeId: string,
+    userId: string,
     orderId: string,
-    counterId: string,
-    verificationId: string,
-    customerId: string,
+    productId: bigint,
   ) {
-    const proof = await state.readVerification(verificationId);
-    if (
-      !proof ||
-      proof.operatorId !== user.id ||
-      proof.storeId !== storeId ||
-      proof.orderId !== orderId ||
-      proof.customerId !== customerId ||
-      proof.counterId !== counterId ||
-      !proof.verifiedUntil ||
-      proof.verifiedUntil <= Date.now()
-    )
-      throw new AppError(
-        403,
-        'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
-        'Verify the order customer in this store before accepting a return.',
-      );
-    if (!sameCustomerContact(proof.contact, await readCustomerContactBinding(tx, proof.customerId)))
-      throw new AppError(
-        403,
-        'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
-        'Customer contact changed. Verify the order customer again before accepting a return.',
-      );
-    if (options.customerOtp || proof.requestOperationId) {
-      if (
-        !options.customerOtp?.assertVerified ||
-        !proof.requestOperationId ||
-        !proof.otpChallengeId ||
-        !proof.contact
-      )
-        throw new AppError(
-          503,
-          'CUSTOMER_OTP_UNAVAILABLE',
-          'The purpose-bound customer proof must be verified before accepting a return.',
-        );
-      await options.customerOtp.assertVerified(
-        tx,
-        user,
-        returnCustomerOtpScope(proof),
-        proof.otpChallengeId,
-        proof.contact,
-        proof.verifiedUntil,
-      );
-    }
+    const [product] = await tx
+      .select({ type: Product.prod_type })
+      .from(Product)
+      .where(eq(Product.id, productId))
+      .limit(1);
+    const [orderStore] = await tx
+      .select({ shopify: OrderStore.is_shopify_order })
+      .from(OrderStore)
+      .where(eq(OrderStore.order, BigInt(orderId)))
+      .orderBy(asc(OrderStore.id))
+      .limit(1);
+    const checkinStoreId = await checkedInStore(userId);
+    return {
+      variant: orderStore ? ('store' as const) : ('online' as const),
+      shopifyOrder: Boolean(orderStore?.shopify),
+      productType: product ? Number(product.type) : null,
+      checkinStoreId,
+      exchangeFeatureEnabled: exchangeFeatureEnabled(config, checkinStoreId),
+    };
+  }
+  /** S35: an exchange or retry the template would not offer is refused before any write. */
+  async function assertExchangeOffered(
+    tx: AdministrationTransaction,
+    userId: string,
+    orderId: string,
+    productId: bigint,
+    retry: boolean,
+  ) {
+    const facts = await guardFacts(tx, userId, orderId, productId),
+      refusal = exchangeRefusal({ ...facts, retry, merged: null });
+    if (refusal) throw refused(refusal);
+    return facts;
   }
 
   /** Reads an operation for an action; the claim holder alone may act on a claimed recovery. */
@@ -222,18 +216,13 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       throw new AppError(
         403,
         'EXCHANGE_RECOVERY_CLAIM_REQUIRED',
-        'Claim this exchange with current customer verification before continuing.',
+        'Claim this exchange before continuing.',
       );
     return operation;
   }
 
   /** Native scope of an existing operation inside a writer transaction. */
-  async function owned(
-    tx: AdministrationTransaction,
-    user: Principal,
-    operation: ReturnOperation,
-    purpose: 'authority' | 'evidence' = 'authority',
-  ) {
+  async function owned(tx: AdministrationTransaction, user: Principal, operation: ReturnOperation) {
     const scope = await context(
       tx,
       user,
@@ -243,16 +232,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       operation.authorityCounterId ?? operation.input.counterId,
       operation.exchange?.childOrderId ? [operation.exchange.childOrderId] : [],
     );
-    if (operation.recoveryClaim && purpose === 'authority')
-      await verifiedCustomer(
-        tx,
-        user,
-        operation.storeId,
-        operation.orderId,
-        operation.authorityCounterId!,
-        operation.recoveryClaim.verificationId,
-        String(scope.order.customerId),
-      );
     if (String(scope.order.customerId) !== operation.customerId)
       throw new AppError(409, 'EXCHANGE_CUSTOMER_CHANGED', 'The original order customer changed.');
     return scope;
@@ -651,15 +630,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     input: ExchangeRecoveryScope,
   ) {
     const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
-    await verifiedCustomer(
-      tx,
-      user,
-      storeId,
-      orderId,
-      input.counterId,
-      input.verificationId,
-      String(scope.order.customerId),
-    );
     const latest = await state.lineOperation(orderId, lineId);
     const operation =
       latest && latest.kind === 'exchange' && latest.phase !== 'rejected' ? latest : null;
@@ -727,6 +697,49 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
   return {
     state,
     load,
+    /**
+     * The order's lines for the returns page (the `ShowOrderDetailsView` product rows), 100 per
+     * page. No customer OTP step, as legacy; the operator must be checked in to this store.
+     */
+    async lines(user: Principal, storeId: string, orderId: string, counterId: string, after = '0') {
+      requireStore(user, storeId);
+      return db.get('writer').transaction(async (tx) => {
+        await checkIn(user.id, storeId, counterId, tx);
+        const [order] = await tx
+          .select({ id: Order.id })
+          .from(Order)
+          .where(eq(Order.id, BigInt(orderId)))
+          .limit(1);
+        if (!order) throw new AppError(404, 'ORDER_NOT_FOUND', 'Order not found');
+        const rows = await tx
+          .select({
+            id: HasProduct.id,
+            productId: HasProduct.product,
+            name: Product.product,
+            parentId: Product.parent_prod_id,
+            productType: Product.prod_type,
+            quantity: HasProduct.qty,
+            status: HasProduct.status,
+            returnStatus: HasProduct.return_status,
+          })
+          .from(HasProduct)
+          .leftJoin(Product, eq(Product.id, HasProduct.product))
+          .where(and(eq(HasProduct.order, BigInt(orderId)), gt(HasProduct.id, BigInt(after))))
+          .orderBy(asc(HasProduct.id))
+          .limit(101);
+        return {
+          data: rows.slice(0, 100).map((row) => ({
+            ...row,
+            id: String(row.id),
+            productId: String(row.productId),
+            parentId: String(row.parentId || 0),
+            productType: row.productType === null ? null : Number(row.productType),
+            quantity: String(row.quantity),
+          })),
+          nextCursor: rows.length > 100 ? String(rows[99]!.id) : null,
+        };
+      });
+    },
     /** Facts the per-line eligibility response needs to choose the legacy cell branch. */
     async eligibilityScope(
       user: Principal,
@@ -737,26 +750,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     ) {
       return db.get('writer').transaction(async (tx) => {
         const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
-        await verifiedCustomer(
-          tx,
-          user,
-          storeId,
-          orderId,
-          input.counterId,
-          input.verificationId,
-          String(scope.order.customerId),
-        );
-        const [product] = await tx
-          .select({ type: Product.prod_type })
-          .from(Product)
-          .where(eq(Product.id, scope.line.product))
-          .limit(1);
-        const [orderStore] = await tx
-          .select({ shopify: OrderStore.is_shopify_order })
-          .from(OrderStore)
-          .where(eq(OrderStore.order, BigInt(orderId)))
-          .orderBy(asc(OrderStore.id))
-          .limit(1);
+        const guard = await guardFacts(tx, user.id, orderId, scope.line.product);
         // get_exchange_context (order/views.py:315-333).
         const log = await exchangeLog(tx, orderId, lineId);
         let failedExchange: { storeId: string; storeName: string; newSize: string } | null = null;
@@ -779,9 +773,11 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           customerId: String(scope.order.customerId),
           lineStatus: scope.line.status,
           returnStatus: scope.line.return_status,
-          productType: product ? Number(product.type) : null,
-          storeOrder: Boolean(orderStore),
-          shopifyOrder: Boolean(orderStore?.shopify),
+          productType: guard.productType,
+          storeOrder: guard.variant === 'store',
+          shopifyOrder: guard.shopifyOrder,
+          checkinStoreId: guard.checkinStoreId,
+          exchangeFeatureEnabled: guard.exchangeFeatureEnabled,
           failedExchange,
           binding: fingerprint('return.eligibility-scope', {
             user: user.id,
@@ -817,18 +813,10 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       claimId: string,
       input: ExchangeRecoveryScope,
     ) {
-      await db.get('writer').transaction(async (tx) => {
-        const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
-        await verifiedCustomer(
-          tx,
-          user,
-          storeId,
-          orderId,
-          input.counterId,
-          input.verificationId,
-          String(scope.order.customerId),
-        );
-      });
+      // Actor, store and check-in validation of the current reader.
+      await db
+        .get('writer')
+        .transaction((tx) => context(tx, user, storeId, orderId, lineId, input.counterId));
       const receipt = await readClaim(storeId, orderId, lineId, claimId);
       if (!receipt || receipt.operatorId !== user.id || receipt.status !== 'recorded')
         return { status: 'not-recorded' as const };
@@ -889,7 +877,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         requestHash,
         operatorId: user.id,
         counterId: input.counterId,
-        verificationId: input.verificationId,
         revision: input.expectedRevision,
         operationId: null,
         status: 'pending',
@@ -902,8 +889,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           !prior ||
           prior.requestHash !== requestHash ||
           prior.operatorId !== user.id ||
-          prior.counterId !== input.counterId ||
-          prior.verificationId !== input.verificationId
+          prior.counterId !== input.counterId
         )
           throw conflict();
         if (prior.status === 'recorded' && prior.operationId) {
@@ -921,15 +907,15 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         db.get('writer').transaction(async (tx) => {
           const snapshot = await recoverySnapshot(tx, user, storeId, orderId, lineId, {
             counterId: input.counterId,
-            verificationId: input.verificationId,
           });
           const { scope, log, credit } = snapshot;
+          // S35: the retry button of a failed exchange (order/views.py:1016-1035).
+          await assertExchangeOffered(tx, user.id, orderId, scope.line.product, true);
           const claim = {
             id: input.operationId,
             revision: input.expectedRevision,
             operatorId: user.id,
             counterId: input.counterId,
-            verificationId: input.verificationId,
             claimedAt: timestamp(),
             requestHash,
           };
@@ -1018,7 +1004,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
             input: {
               operationId: input.operationId,
               counterId: input.counterId,
-              verificationId: input.verificationId,
               reasonId: String(log.reason_id),
               ...(log.sub_reason_id ? { subReasonId: String(log.sub_reason_id) } : {}),
               comment: log.comment || '',
@@ -1080,15 +1065,6 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           'RETURN_EXTENSION_LINE_INELIGIBLE',
           'Select an unreturned delivered line belonging to this order.',
         );
-      await verifiedCustomer(
-        tx,
-        user,
-        storeId,
-        orderId,
-        input.counterId,
-        input.verificationId,
-        String(scope.order.customerId),
-      );
       const actors = await tx
         .select({ id: MUser.id })
         .from(MUser)
@@ -1167,15 +1143,15 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
       if (!exchange) await assertNoActiveOperation(orderId, lineId);
       const result = await db.get('writer').transaction(async (tx) => {
         const scope = await context(tx, user, storeId, orderId, lineId, input.counterId);
-        await verifiedCustomer(
-          tx,
-          user,
-          storeId,
-          orderId,
-          input.counterId,
-          input.verificationId,
-          String(scope.order.customerId),
-        );
+        // S35: the exchange and force-return buttons are template-gated in legacy; the server
+        // gives the same outcome before anything is written.
+        const guard = exchange
+          ? await assertExchangeOffered(tx, user.id, orderId, scope.line.product, false)
+          : await guardFacts(tx, user.id, orderId, scope.line.product);
+        if (!exchange && input.clickType === 'extreme') {
+          const refusal = forceReturnRefusal({ ...guard, lineStatus: scope.line.status });
+          if (refusal) throw refused(refusal);
+        }
         const exchangeInitiated = scope.line.status === 'EXCHANGE_INITIATED';
         if (
           !(scope.line.status === 'DELIVERED' && scope.line.return_status === 0) &&
@@ -1342,6 +1318,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           productId: String(scope.line.product),
           customerId: String(scope.order.customerId),
           quantity: Number(scope.line.qty),
+          guard: { variant: guard.variant, productType: guard.productType },
           input,
           requestHash: hash,
           phase: 'inbound-dispatching',
@@ -1679,6 +1656,9 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
         retry = operation.phase === 'replacement-rejected';
       const next = await db.get('writer').transaction(async (tx) => {
         const scope = await owned(tx, user, operation);
+        // S35: the retry button of a failed exchange (order/views.py:1016-1035).
+        if (retry)
+          await assertExchangeOffered(tx, user.id, operation.orderId, scope.line.product, true);
         await phaseOneProof(tx, operation, scope.line.status);
         const [log] = await tx
           .select()
@@ -1831,7 +1811,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
           'This replacement order exceeds the supported legacy ledger identifiers.',
         );
       const result = await db.get('writer').transaction(async (tx) => {
-        const { line, order, store } = await owned(tx, user, operation, 'evidence');
+        const { line, order, store } = await owned(tx, user, operation);
         const [child] = await tx
           .select({
             id: Order.id,
@@ -2026,7 +2006,7 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
     },
     async read(user: Principal, storeId: string, id: string) {
       const operation = await load(user, storeId, id);
-      await db.get('writer').transaction((tx) => owned(tx, user, operation, 'evidence'));
+      await db.get('writer').transaction((tx) => owned(tx, user, operation));
       return operation;
     },
     async storeSlackUrl(storeId: string) {

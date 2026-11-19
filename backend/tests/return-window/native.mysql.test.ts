@@ -1,4 +1,3 @@
-import { readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { Temporal } from '@js-temporal/polyfill';
@@ -7,8 +6,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { RowDataPacket } from 'mysql2/promise';
 import type { Principal } from '../../src/domain/access.js';
 import { AppError } from '../../src/domain/errors.js';
-import { splitMigration } from '../../src/db/migrations.js';
-import { checkInService } from '../../src/modules/administration/checkins.js';
+import { bindCheckInRedis, checkInService } from '../../src/modules/administration/checkins.js';
+import { authKeys } from '../../src/auth/keys.js';
+import { memoryRedisPort } from '../../src/redis/memory.js';
 import { checkoutRepository } from '../../src/modules/checkout/repository.js';
 import { registerReturns } from '../../src/modules/checkout/return-workflow/routes.js';
 import { returnRepository } from '../../src/modules/checkout/return-workflow/repository.js';
@@ -20,12 +20,14 @@ import {
 } from '../../src/modules/checkout/return-workflow/contracts.js';
 import { memoryStateStore } from '../../src/modules/checkout/state-store.js';
 import { returnState } from '../../src/modules/checkout/return-workflow/state.js';
-import { readCustomerContactBinding } from '../../src/modules/checkout/customer-contact-authority.js';
 import { requestEvent } from '../../src/observability/events.js';
 import { returnWindowNativeFixture } from './native-fixture.js';
 
 const template = process.env.CHECKOUT_MYSQL_TEST_URL;
 const secret = 'return-window-native-customer-and-revision-proof-'.repeat(2);
+// Check-ins are the legacy Redis keys `check_in_{uid}` / `check_in_list_{store}`.
+const checkIns = memoryRedisPort();
+bindCheckInRedis(checkIns);
 const actor: Principal = {
   id: '1',
   role: 3,
@@ -56,8 +58,6 @@ const sink: ReturnGateway = {
   configured() {
     throw new Error('No return dispatch belongs to date extension');
   },
-  sendOtp: refuse,
-  verifyOtp: refuse,
   orderEligibility: refuse,
   eligibility: refuse,
   inbound: refuse,
@@ -68,8 +68,7 @@ const sink: ReturnGateway = {
 };
 describe.skipIf(!template)('manager return date on verified native source tables', () => {
   let f: Awaited<ReturnType<typeof returnWindowNativeFixture>>;
-  let proofId: string,
-    currentActor: Principal = actor;
+  let currentActor: Principal = actor;
   let api: FastifyInstance;
   let store = memoryStateStore();
   let extension: ReturnType<typeof returnWindowExtensions>,
@@ -78,9 +77,6 @@ describe.skipIf(!template)('manager return date on verified native source tables
   beforeAll(async () => {
     f = await returnWindowNativeFixture(template!);
     await f.fixture.create(['extend_applicability_for_return_exchange', 'reverse_pickup_reason']);
-    for (const file of ['src/modules/administration/migration.sql'])
-      for (const statement of splitMigration(readFileSync(file, 'utf8')))
-        await f.connection.query(statement);
   });
   afterAll(async () => {
     await api?.close();
@@ -91,11 +87,7 @@ describe.skipIf(!template)('manager return date on verified native source tables
     const [tables] = await f.connection.query<RowDataPacket[]>('SHOW TABLES');
     for (const row of tables) {
       const name = String(Object.values(row)[0]);
-      if (
-        name === 'pos_rewrite_operator_checkins' ||
-        name === 'extend_applicability_for_return_exchange' ||
-        name === 'reverse_pickup_reason'
-      )
+      if (name === 'extend_applicability_for_return_exchange' || name === 'reverse_pickup_reason')
         await f.connection.query('DELETE FROM `' + name + '`');
     }
     await f.reset();
@@ -146,35 +138,12 @@ describe.skipIf(!template)('manager return date on verified native source tables
       status_id: 3,
       created_at: '2026-01-01 12:00:00',
     });
+    for (const key of await checkIns.scanKeys('*')) await checkIns.del([key]);
     await checkInService(f.db, f.config).set(currentActor, '1', '2');
-    // The customer verification proof is Redis state (pos:return_verification:{id}); the OTP
-    // exchange itself belongs to the customer-otp module and is outside this native test.
+    // No customer OTP step: legacy date extension has none (order/views.py:885-914).
     store = memoryStateStore();
     const state = returnState(store),
       customers = checkoutRepository(f.db);
-    proofId = randomUUID();
-    const contact = await f.db
-      .get('writer')
-      .transaction((tx) => readCustomerContactBinding(tx, '77'));
-    await state.saveVerification({
-      id: proofId,
-      operatorId: currentActor.id,
-      storeId: '1',
-      counterId: '2',
-      orderId: '100',
-      customerId: '77',
-      requestHash: 'a'.repeat(64),
-      sent: false,
-      expiresAt: Date.now() + 300000,
-      verifiedUntil: Date.now() + 900000,
-      busyOperationId: null,
-      contact,
-      otpChallengeId: null,
-      deliveryStatus: 'sent',
-      requestOperationId: null,
-      verifyOperationId: null,
-      verificationError: null,
-    });
     repository = returnRepository(f.db, f.config, { returnPeriodDays: 30, state });
     extension = returnWindowExtensions(f.db, f.config, { repository });
     api = Fastify();
@@ -210,7 +179,7 @@ describe.skipIf(!template)('manager return date on verified native source tables
   }
   beforeEach(() => setup());
   function scope() {
-    return { counterId: '2', verificationId: proofId, productId };
+    return { counterId: '2', productId };
   }
   const path = '/api/v1/stores/1/orders/100/line-items/1000/return-window';
   async function get() {
@@ -272,7 +241,6 @@ describe.skipIf(!template)('manager return date on verified native source tables
         '9876543210',
         'native-manager@example.test',
         'Synthetic manager',
-        proofId,
         state.revision,
         day(3),
       ])
@@ -302,26 +270,22 @@ describe.skipIf(!template)('manager return date on verified native source tables
     expect(latest.created_by).toBe(old.created_by);
     expect(latest.created_at).toBe(old.created_at);
   });
-  it.each([4, 5] as const)(
-    'refuses disallowed source role %s even with a verified customer',
-    async (role) => {
-      const start = await get();
-      currentActor = { ...actor, role };
-      await f.connection.query('UPDATE pos_user SET role=? WHERE id=1', [role]);
-      await expect(put(day(1), start.revision)).rejects.toMatchObject({
-        code: 'ROLE_ACCESS_DENIED',
-      });
-      expect(await rows()).toHaveLength(0);
-    },
-  );
+  it.each([4, 5] as const)('refuses disallowed source role %s', async (role) => {
+    const start = await get();
+    currentActor = { ...actor, role };
+    await f.connection.query('UPDATE pos_user SET role=? WHERE id=1', [role]);
+    await expect(put(day(1), start.revision)).rejects.toMatchObject({
+      code: 'ROLE_ACCESS_DENIED',
+    });
+    expect(await rows()).toHaveLength(0);
+  });
   it('cached manager authority cannot survive native role revocation or expired check-in', async () => {
     const start = await get();
     await f.connection.query('UPDATE pos_user SET role=5 WHERE id=1');
     await expect(put(day(1), start.revision)).rejects.toMatchObject({ code: 'ROLE_ACCESS_DENIED' });
     await f.connection.query('UPDATE pos_user SET role=3 WHERE id=1');
-    await f.connection.query(
-      "UPDATE pos_rewrite_operator_checkins SET expires_at='2020-01-01 00:00:00'",
-    );
+    // The legacy check-in key expired at the end of the business day.
+    await checkIns.del([authKeys.checkIn('1')]);
     await expect(put(day(1), start.revision)).rejects.toMatchObject({ code: 'CHECK_IN_REQUIRED' });
     expect(await rows()).toHaveLength(0);
   });
@@ -341,7 +305,7 @@ describe.skipIf(!template)('manager return date on verified native source tables
     await expect(put(day(1), start.revision)).rejects.toMatchObject({ code: 'AUTH_REQUIRED' });
     expect(await rows()).toHaveLength(0);
   });
-  it('rejects another product/HP/order or expired/customer-contact-changed proof before any write', async () => {
+  it('rejects another product, line or order before any write, with no customer OTP step', async () => {
     const start = await get();
     await expect(
       extension.set(actor, '1', '100', '1000', {
@@ -358,17 +322,11 @@ describe.skipIf(!template)('manager return date on verified native source tables
         expectedRevision: start.revision,
       }),
     ).rejects.toMatchObject({ code: 'RETURN_LINE_NOT_FOUND' });
+    // A customer contact change no longer matters: the extension never had an OTP in legacy.
     await f.connection.query("UPDATE users SET telephone='9876543211' WHERE id=77");
-    await expect(put(day(1), start.revision)).rejects.toMatchObject({
-      code: 'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
-    });
-    await f.connection.query("UPDATE users SET user_type='2',telephone='9876543210' WHERE id=77");
-    const proof = (await returnState(store).readVerification(proofId))!;
-    await returnState(store).saveVerification({ ...proof, verifiedUntil: 0 });
-    await expect(put(day(1), start.revision)).rejects.toMatchObject({
-      code: 'RETURN_CUSTOMER_VERIFICATION_REQUIRED',
-    });
     expect(await rows()).toHaveLength(0);
+    const saved = await put(day(1), start.revision);
+    expect(saved).toMatchObject({ date: day(1), active: true });
   });
   it('refuses ambiguous existing extensions and missing native manager identity', async () => {
     for (let i = 0; i < 2; i++)
@@ -419,7 +377,6 @@ describe.skipIf(!template)('manager return date on verified native source tables
     const input = returnInputSchema.parse({
       operationId: randomUUID(),
       counterId: '2',
-      verificationId: proofId,
       reasonId: '1',
       qualityConfirmed: true,
       tagConfirmed: true,

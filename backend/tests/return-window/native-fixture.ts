@@ -1,10 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import { getTableName } from 'drizzle-orm';
 import mysql from 'mysql2/promise';
 import { readConfig } from '../../src/config.js';
 import { createDatabases } from '../../src/db/pools.js';
-import { splitMigration } from '../../src/db/migrations.js';
 import {
   Comments,
   ExclusiveUser,
@@ -87,10 +85,6 @@ export async function returnWindowNativeFixture(template: string) {
     await connection.query(
       'ALTER TABLE orders MODIFY ship_date DATETIME NULL DEFAULT NULL,MODIFY ret_ex_request_date DATETIME NULL DEFAULT NULL',
     );
-    // The return workflow keeps no rewrite tables; only the contact revision it binds remains.
-    for (const path of ['src/modules/customer-contacts/contact-revisions-migration.sql'])
-      for (const statement of splitMigration(readFileSync(path, 'utf8')))
-        await connection.query(statement);
     await connection.query(
       'CREATE TABLE pos_rewrite_operator_auth_epochs(operator_id VARCHAR(32) PRIMARY KEY,epoch BIGINT UNSIGNED NOT NULL DEFAULT 0)',
     );
@@ -113,7 +107,6 @@ export async function returnWindowNativeFixture(template: string) {
       fixture,
       async reset() {
         for (const table of [
-          'pos_rewrite_customer_contact_revisions',
           'pos_rewrite_operator_auth_epochs',
           'pos_rewrite_administration_outbox',
           'amount_to_be_refunded_log',

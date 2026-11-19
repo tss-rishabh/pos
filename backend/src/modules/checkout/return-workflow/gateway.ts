@@ -329,20 +329,6 @@ export function returnGateway(
           'Return integrations are not configured.',
         );
     },
-    async sendOtp(_customerId) {
-      throw new AppError(
-        503,
-        'CUSTOMER_VERIFICATION_SERVICE_UNAVAILABLE',
-        'Customer verification requires the local purpose-bound delivery service.',
-      );
-    },
-    async verifyOtp(_customerId, _otp) {
-      throw new AppError(
-        503,
-        'CUSTOMER_VERIFICATION_SERVICE_UNAVAILABLE',
-        'Customer verification requires the local purpose-bound delivery service.',
-      );
-    },
     orderEligibility,
     async eligibility(orderId, storeId, lineId, token, kind = 'return') {
       const line = (await orderEligibility(orderId, storeId, token)).get(lineId);
