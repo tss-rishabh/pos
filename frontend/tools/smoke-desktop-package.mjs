@@ -16,14 +16,17 @@ import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { createServer } from 'node:http';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import {
   baseEnvironment,
+  closeServer,
   inspectOfflineDatabase,
   launchNative,
+  listen,
   quitNative,
   startWorkspaceFixture,
   unwrapWithWindowsDpapi,
@@ -56,21 +59,32 @@ const folder =
         ? 'win-arm64-unpacked'
         : 'win-unpacked'
       : null;
-const executable = folder
-  ? join(
-      project,
-      'release',
-      folder,
-      ...(platform === 'macos'
-        ? [
-            packageJson.build.productName + '.app',
-            'Contents',
-            'MacOS',
-            packageJson.build.productName,
-          ]
-        : [packageJson.build.productName + '.exe']),
-    )
-  : null;
+// release/: the review/release flavour. release-smoke/: the CI-only native-smoke flavour, the
+// one packaged build that accepts a loopback origin and an isolated profile, and only with
+// POS_DESKTOP_NATIVE_SMOKE=1 (electron/runtime-mode.cjs).
+const packagedExecutable = (root) =>
+  folder
+    ? join(
+        project,
+        root,
+        folder,
+        ...(platform === 'macos'
+          ? [
+              packageJson.build.productName + '.app',
+              'Contents',
+              'MacOS',
+              packageJson.build.productName,
+            ]
+          : [packageJson.build.productName + '.exe']),
+      )
+    : null;
+const executable = packagedExecutable('release-smoke');
+const releaseExecutable = packagedExecutable('release');
+const smokeEnvironment = () => ({ ...baseEnvironment(), POS_DESKTOP_NATIVE_SMOKE: '1' });
+const defaultProfile =
+  platform === 'windows'
+    ? join(process.env.APPDATA ?? '', packageJson.productName)
+    : join(homedir(), 'Library', 'Application Support', packageJson.productName);
 const emit = (passed, errorCode, detail) =>
   process.stdout.write(
     JSON.stringify({
@@ -100,7 +114,7 @@ async function refusedSwitches() {
     const profile = mkdtempSync(join(tmpdir(), 'pos refused ü-'));
     try {
       const app = launchNative(executable, args, {
-        ...baseEnvironment(),
+        ...smokeEnvironment(),
         POS_DESKTOP_URL: 'http://127.0.0.1:9',
         POS_DESKTOP_PROFILE_DIR: profile,
       });
@@ -113,6 +127,53 @@ async function refusedSwitches() {
       results.push({ switch: args[0].replace(/=.*$/, ''), exitCode: result.code, profileFiles: 0 });
     } finally {
       rmSync(profile, { recursive: true, force: true });
+    }
+  }
+  return results;
+}
+
+/**
+ * Packaged builds ignore NODE_ENV (and, in a release build, the smoke variable): with
+ * NODE_ENV=development they must neither accept a loopback http workspace origin nor use
+ * POS_DESKTOP_PROFILE_DIR. The workspace server must receive no request and the override directory
+ * must stay empty. (DevTools follow the same runtime-mode gate; tests/desktop-runtime-mode.test.ts
+ * covers it and the static verifier proves the packaged gate files equal the source.) The app
+ * then shows its configuration error, so it is closed. A default profile created only by this
+ * check is removed again; an existing one is never touched.
+ */
+async function packagedIgnoresDevelopment() {
+  const results = [];
+  const variants = [
+    ['release', releaseExecutable, { NODE_ENV: 'development', POS_DESKTOP_NATIVE_SMOKE: '1' }],
+    ['native-smoke-without-launch-variable', executable, { NODE_ENV: 'development' }],
+  ];
+  for (const [flavour, file, extra] of variants) {
+    assert.ok(file && existsSync(file), `RELEASE_PACKAGE_REQUIRED_${flavour}`);
+    const override = mkdtempSync(join(tmpdir(), 'pos ignored profile ü-'));
+    const hadDefaultProfile = existsSync(defaultProfile);
+    let requests = 0;
+    const server = createServer((_request, response) => {
+      requests++;
+      response.end('<!doctype html><title>must not load</title>');
+    });
+    try {
+      const port = await listen(server);
+      const app = launchNative(file, [], {
+        ...baseEnvironment(),
+        ...extra,
+        POS_DESKTOP_URL: `http://127.0.0.1:${port}`,
+        POS_DESKTOP_PROFILE_DIR: override,
+      });
+      await waitExit(app, 10000);
+      await quitNative(app);
+      assert.equal(requests, 0, `PACKAGED_ACCEPTED_DEVELOPMENT_ORIGIN_${flavour}`);
+      assert.deepEqual(readdirSync(override), [], `PACKAGED_USED_PROFILE_OVERRIDE_${flavour}`);
+      results.push({ flavour, loopbackHttpOriginRequests: 0, profileOverrideFiles: 0 });
+    } finally {
+      await closeServer(server);
+      rmSync(override, { recursive: true, force: true });
+      if (!hadDefaultProfile)
+        rmSync(defaultProfile, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
     }
   }
   return results;
@@ -131,10 +192,12 @@ async function main() {
   });
   stage = 'refused-switches';
   const refused = await refusedSwitches();
+  stage = 'packaged-ignores-development';
+  const ignoredDevelopment = await packagedIgnoresDevelopment();
   const profile = mkdtempSync(join(tmpdir(), 'pos packaged runtime ü-'));
   const fixture = await startWorkspaceFixture();
   const environment = {
-    ...baseEnvironment(),
+    ...smokeEnvironment(),
     POS_DESKTOP_URL: fixture.origin,
     POS_DESKTOP_PROFILE_DIR: profile,
   };
@@ -221,7 +284,7 @@ async function main() {
     stage = 'evidence-publication';
     const artifact = JSON.parse(
       readFileSync(
-        join(evidenceDirectory, `desktop-package-${platform}-${architecture}.json`),
+        join(evidenceDirectory, `desktop-package-native-smoke-${platform}-${architecture}.json`),
         'utf8',
       ),
     );
@@ -240,7 +303,9 @@ async function main() {
             : 'not-exercised-on-developer-machine',
           executableSha256: artifact.executableSha256,
           asarSha256: artifact.asarSha256,
+          flavour: 'ci-native-smoke (posDesktopNativeSmoke + POS_DESKTOP_NATIVE_SMOKE=1)',
           refusedSwitches: refused,
+          packagedIgnoresNodeEnvDevelopment: ignoredDevelopment,
           offlineDatabase: database
             ? {
                 plaintextHeader: false,
@@ -254,6 +319,7 @@ async function main() {
           checks: [
             'packaged-entry-load',
             'debugging-and-mock-keychain-switches-refused',
+            'packaged-ignores-node-env-development-origin-and-profile',
             'renderer-node-access-absent',
             'external-navigation-and-popups-blocked',
             ...(requireKeystore ? ['offline-billing-available-with-os-keystore'] : []),

@@ -1,12 +1,19 @@
 // Windows NSIS installer lifecycle smoke for the unsigned review build (Windows only).
 //
 //   DESKTOP_INSTALLER=<release/...-win-x64.exe> DESKTOP_UPGRADE_INSTALLER=<newer version .exe> \
-//     node tools/smoke-desktop-installer.mjs
+//   DESKTOP_TLS_PFX=<pfx for CN/SAN localhost, trusted by this Windows machine> \
+//   DESKTOP_TLS_PASSPHRASE=<its passphrase> node tools/smoke-desktop-installer.mjs
+//
+// The installers are release builds: no test seam. The workspace is provisioned the production
+// way (POS_DESKTOP_URL=https://localhost:<port>), served by the fixture with a per-run certificate
+// that CI trusts in the runner's LocalMachine root store for the duration of the job.
 //
 // 1. Silent per-user install (/S): files, Start-menu shortcut and the HKCU uninstall entry.
-// 2. Launch the installed app (development-only loopback origin, synthetic page; see
-//    desktop-native-fixture.mjs) with its real default profile (%APPDATA%\<productName>):
-//    offline billing starts, i.e. the SQLCipher module loads and real DPAPI wraps the key.
+// 2. Launch the installed app (https loopback origin, synthetic page; see desktop-native-fixture.mjs)
+//    with NODE_ENV=development and POS_DESKTOP_PROFILE_DIR set: a release build ignores both, so
+//    it uses its real default profile (%APPDATA%\<productName>) and the override stays empty;
+//    offline billing starts, i.e. the SQLCipher module loads and real DPAPI wraps the key. A
+//    development loopback http origin is refused (it receives no request).
 // 3. A second instance exits and the first keeps running; packaged debugging switches are refused.
 // 4. The device database is not plain SQLite, does not open without its key or with a wrong key,
 //    and opens with the key that real DPAPI releases for this Windows user.
@@ -22,6 +29,7 @@ import { spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
+import { createServer } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeFileSync } from 'node:fs';
@@ -29,8 +37,10 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
   baseEnvironment,
+  closeServer,
   inspectOfflineDatabase,
   launchNative,
+  listen,
   quitNative,
   startWorkspaceFixture,
   unwrapWithWindowsDpapi,
@@ -120,7 +130,10 @@ async function main() {
     })),
     steps: {},
   };
-  const fixture = await startWorkspaceFixture();
+  const pfx = process.env.DESKTOP_TLS_PFX ?? '',
+    passphrase = process.env.DESKTOP_TLS_PASSPHRASE ?? '';
+  assert.ok(existsSync(pfx) && passphrase, 'TLS_FIXTURE_REQUIRED');
+  const fixture = await startWorkspaceFixture({ tls: { pfx: readFileSync(pfx), passphrase } });
   const environment = { ...baseEnvironment(), POS_DESKTOP_URL: fixture.origin };
   const apps = [];
   try {
@@ -154,9 +167,36 @@ async function main() {
     }
     evidence.steps.refusedSwitches = ['--remote-debugging-port', '--use-mock-keychain'];
 
+    stage = 'development-origin-refused';
+    {
+      let requests = 0;
+      const plain = createServer((_request, response) => {
+        requests++;
+        response.end('<!doctype html><title>must not load</title>');
+      });
+      const port = await listen(plain);
+      const refused = launchNative(executable, [], {
+        ...baseEnvironment(),
+        NODE_ENV: 'development',
+        POS_DESKTOP_NATIVE_SMOKE: '1',
+        POS_DESKTOP_URL: `http://127.0.0.1:${port}`,
+      });
+      await waitExit(refused, 10000);
+      await quitNative(refused);
+      await closeServer(plain);
+      assert.equal(requests, 0, 'INSTALLED_ACCEPTED_DEVELOPMENT_HTTP_ORIGIN');
+      rmSync(userData, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
+    }
+
     stage = 'first-launch';
+    const override = mkdtempSync(join(tmpdir(), 'pos ignored profile-'));
     let mark = fixture.reports.length;
-    let app = launchNative(executable, [], environment);
+    let app = launchNative(executable, [], {
+      ...environment,
+      NODE_ENV: 'development',
+      POS_DESKTOP_NATIVE_SMOKE: '1',
+      POS_DESKTOP_PROFILE_DIR: override,
+    });
     apps.push(app);
     const ready = await fixture.waitFor('ready', mark, 90000);
     assert.equal(
@@ -169,6 +209,14 @@ async function main() {
     assert.equal(stayed.href, fixture.origin + '/');
     assert.equal(fixture.escapeRequests, 0);
     assert.ok(existsSync(join(userData, 'offline-billing.db')), 'DEFAULT_PROFILE_NOT_USED');
+    assert.deepEqual(readdirSync(override), [], 'INSTALLED_USED_PROFILE_OVERRIDE');
+    rmSync(override, { recursive: true, force: true });
+    evidence.steps.packagedIgnoresNodeEnvDevelopment = {
+      loopbackHttpOriginRequests: 0,
+      profileOverrideFiles: 0,
+      defaultProfileUsed: true,
+      workspace: 'https://localhost (production provisioning shape, per-run trusted certificate)',
+    };
 
     stage = 'single-instance';
     const second = launchNative(executable, [], environment);

@@ -167,6 +167,8 @@ async function billViaBridge(productId = '1001') {
     tender: { mode: 'cash', receivedPaise: 300000 },
   });
 }
+/** Page objects in a PDF (Chromium/Skia and Microsoft Print to PDF write them uncompressed). */
+const pdfPages = (pdf: Buffer) => pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)?.length ?? 0;
 /**
  * Print the open receipt through Electron's print pipeline (the cashier's Print button calls
  * window.print(), which adds only the OS print dialog). Every platform renders it to PDF; with a
@@ -181,8 +183,9 @@ async function printReceipt() {
     'base64',
   );
   expect(pdf.subarray(0, 5).toString('latin1')).toBe('%PDF-');
-  const pages = pdf.toString('latin1').match(/\/Type\s*\/Page\b/g)?.length ?? 0;
-  expect(pages).toBeGreaterThanOrEqual(1);
+  // The receipt prints exactly once: one page, not a copy per page of the hidden screen.
+  const pages = pdfPages(pdf);
+  expect(pages).toBe(1);
   await test
     .info()
     .attach('receipt-print-to-pdf.pdf', { body: pdf, contentType: 'application/pdf' });
@@ -223,10 +226,14 @@ async function printReceipt() {
     .toBe(true);
   const spooled = await readFile(output);
   expect(spooled.subarray(0, 5).toString('latin1')).toBe('%PDF-');
+  const spooledPages = pdfPages(spooled);
+  expect(spooledPages).toBe(1);
   await test
     .info()
     .attach('receipt-spooled-windows.pdf', { body: spooled, contentType: 'application/pdf' });
-  console.log(`[desktop-e2e] receipt spooled to "${printer}": ${spooled.length} bytes`);
+  console.log(
+    `[desktop-e2e] receipt spooled to "${printer}": ${spooled.length} bytes, ${spooledPages} page(s)`,
+  );
 }
 async function goOffline() {
   await network(false);

@@ -12,6 +12,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createDecipheriv, pbkdf2Sync, randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { createServer as createTlsServer } from 'node:https';
 import { createRequire } from 'node:module';
 import { join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -36,7 +37,8 @@ export const closeServer = async (server) => {
 
 /** Only the variables a GUI app needs; never the CI secrets or a developer's environment. */
 export function baseEnvironment() {
-  const value = { NODE_ENV: 'development' };
+  // NODE_ENV is deliberately absent: packaged builds ignore it (electron/runtime-mode.cjs).
+  const value = {};
   for (const name of [
     'PATH',
     'HOME',
@@ -63,14 +65,17 @@ export function baseEnvironment() {
  * A synthetic workspace origin plus a report server and an "escape" server that must never be
  * reached. `takeOffline()` closes the workspace origin (connection refused), as a store device
  * without network sees it; the page then loads only from its service-worker cache.
+ *
+ * With `tls` ({ pfx, passphrase }) the workspace is https://localhost:<port>, the production
+ * provisioning shape a release build accepts, and the page reports to its own origin.
  */
-export async function startWorkspaceFixture() {
+export async function startWorkspaceFixture({ tls = null } = {}) {
   const nonce = randomUUID();
   const reports = [];
   const waiters = new Set();
   let workspaceRequests = 0,
     escapeRequests = 0;
-  const report = createServer((request, response) => {
+  const receiveReport = (request, response) => {
     response.setHeader('Access-Control-Allow-Origin', '*');
     if (request.method !== 'POST' || request.url !== '/report') {
       response.statusCode = 204;
@@ -92,7 +97,8 @@ export async function startWorkspaceFixture() {
       response.statusCode = 204;
       response.end();
     });
-  });
+  };
+  const report = createServer(receiveReport);
   const escape = createServer((_request, response) => {
     escapeRequests++;
     response.end('Untrusted local fixture.');
@@ -116,7 +122,7 @@ self.addEventListener('fetch', event => {
 });`;
   const script = `
 (async () => {
-  const send = (kind, data) => fetch(${JSON.stringify(reportOrigin)} + '/report', {
+  const send = (kind, data) => fetch(${JSON.stringify(tls ? '/report' : reportOrigin + '/report')}, {
     method: 'POST', body: JSON.stringify({ kind, ...data }) }).catch(() => undefined);
   const navigation = performance.getEntriesByType('navigation')[0];
   const canary = localStorage.getItem('packaged-runtime-canary');
@@ -161,7 +167,11 @@ self.addEventListener('fetch', event => {
   location.assign(${JSON.stringify(escapeOrigin + '/navigate')});
   setTimeout(() => send('stayed', { href: location.href }), 1000);
 })();`;
-  const workspace = createServer((request, response) => {
+  const handleWorkspace = (request, response) => {
+    if (tls && request.url === '/report') {
+      receiveReport(request, response);
+      return;
+    }
     workspaceRequests++;
     response.setHeader('Cache-Control', 'no-store');
     response.setHeader(
@@ -183,9 +193,12 @@ self.addEventListener('fetch', event => {
     }
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.end(html);
-  });
+  };
+  const workspace = tls
+    ? createTlsServer({ pfx: tls.pfx, passphrase: tls.passphrase }, handleWorkspace)
+    : createServer(handleWorkspace);
   const workspacePort = await listen(workspace);
-  const origin = `http://127.0.0.1:${workspacePort}`;
+  const origin = tls ? `https://localhost:${workspacePort}` : `http://127.0.0.1:${workspacePort}`;
   return {
     origin,
     nonce,

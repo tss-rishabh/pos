@@ -51,9 +51,22 @@ function emit(platform, architecture, passed, code) {
   );
 }
 
-async function verify(platform, architecture, folder) {
+// release/: the review/release flavour, which must not carry the native-smoke flavour key.
+// release-smoke/: the CI-only native-smoke flavour (electron/runtime-mode.cjs), which must.
+const roots = [
+  ['release', false, 'desktop-package'],
+  ['release-smoke', true, 'desktop-package-native-smoke'],
+];
+async function verify(
+  platform,
+  architecture,
+  folder,
+  root = 'release',
+  smokeFlavour = false,
+  evidence = 'desktop-package',
+) {
   const mac = platform === 'macos';
-  const directory = join(project, 'release', folder);
+  const directory = join(project, root, folder);
   const application = mac ? join(directory, source.build.productName + '.app') : directory;
   const executable = mac
     ? join(application, 'Contents', 'MacOS', source.build.productName)
@@ -87,9 +100,14 @@ async function verify(platform, architecture, folder) {
   if (
     ['name', 'version', 'main'].some((key) => source[key] !== packaged[key]) ||
     source.main !== 'electron/main.cjs' ||
-    sha256(extractFile(archive, source.main)) !== sha256(readFileSync(join(project, source.main)))
+    [source.main, 'electron/runtime-mode.cjs', 'electron/workspace-config.cjs'].some(
+      (file) => sha256(extractFile(archive, file)) !== sha256(readFileSync(join(project, file))),
+    )
   )
     throw new Error('DESKTOP_PACKAGE_ENTRY_MISMATCH');
+  // Only the CI native-smoke flavour may carry the packaged test seam.
+  if (smokeFlavour ? packaged.posDesktopNativeSmoke !== true : 'posDesktopNativeSmoke' in packaged)
+    throw new Error('DESKTOP_PACKAGE_FLAVOUR');
   let embeddedHashMatches = null;
   if (mac) {
     const info = plist.parse(readFileSync(join(application, 'Contents', 'Info.plist'), 'utf8'));
@@ -111,6 +129,7 @@ async function verify(platform, architecture, folder) {
   const report = {
     version: 1,
     scope: 'packaged-artifact-static-verification',
+    flavour: smokeFlavour ? 'ci-native-smoke' : 'release',
     platform,
     architecture,
     sourceInputs: {
@@ -137,7 +156,7 @@ async function verify(platform, architecture, folder) {
     ],
   };
   writeFileSync(
-    join(project, '..', 'backend', 'evidence', `desktop-package-${platform}-${architecture}.json`),
+    join(project, '..', 'backend', 'evidence', `${evidence}-${platform}-${architecture}.json`),
     JSON.stringify(report, null, 2) + '\n',
   );
   emit(platform, architecture, true);
@@ -148,12 +167,15 @@ try {
   if (process.versions.node.split('.')[0] !== '24' || process.argv.length !== 2)
     throw new Error('DESKTOP_PACKAGE_RUNTIME');
   let verified = 0;
-  for (const candidate of candidates) if (await verify(...candidate)) verified++;
+  for (const [root, smokeFlavour, evidence] of roots)
+    for (const candidate of candidates)
+      if (await verify(...candidate, root, smokeFlavour, evidence)) verified++;
   if (!verified) throw new Error('DESKTOP_PACKAGE_MISSING');
 } catch (error) {
   const codes = new Set([
     'DESKTOP_PACKAGE_FUSE_POLICY',
     'DESKTOP_PACKAGE_ENTRY_MISMATCH',
+    'DESKTOP_PACKAGE_FLAVOUR',
     'DESKTOP_PACKAGE_DUPLICATE_WEB_DEPENDENCIES',
     'DESKTOP_PACKAGE_INTEGRITY_METADATA',
     'DESKTOP_PACKAGE_RUNTIME',

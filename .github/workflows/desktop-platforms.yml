@@ -237,7 +237,20 @@ jobs:
         working-directory: frontend
         env:
           POS_DESKTOP_URL: 'https://desktop-review.invalid'
-      - name: Verify packaged integrity, switch refusal, keystore, restart and offline profile
+      - name: Package the CI-only native-smoke flavour (never uploaded)
+        if: ${{ !cancelled() }}
+        # The only packaged build with a test seam (electron/runtime-mode.cjs): the baked
+        # posDesktopNativeSmoke key plus POS_DESKTOP_NATIVE_SMOKE=1 at launch allow a loopback origin
+        # and an isolated profile. Release packages are verified to carry no such key.
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Windows" ]; then target="--win dir --x64"; else target="--dir"; fi
+          node node_modules/electron-builder/out/cli/cli.js $target --publish never \
+            -c.extraMetadata.posDesktopNativeSmoke=true -c.directories.output=release-smoke
+        working-directory: frontend
+        env:
+          POS_DESKTOP_URL: 'https://desktop-review.invalid'
+      - name: Verify packaged integrity, flavours, NODE_ENV refusal, switch refusal, keystore, restart and offline profile
         if: ${{ !cancelled() }}
         run: node tools/smoke-desktop-package.mjs
         working-directory: frontend
@@ -251,7 +264,26 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw 'upgrade installer build failed' }
         env:
           POS_DESKTOP_URL: 'https://desktop-review.invalid'
-      - name: NSIS install, DPAPI database, upgrade and uninstall (Windows x64)
+      - name: Per-run loopback TLS certificate for the release-build workspace (Windows)
+        if: ${{ !cancelled() && runner.os == 'Windows' }}
+        # Release builds accept only https workspaces, so the installed app is provisioned the
+        # production way (POS_DESKTOP_URL=https://localhost:<port>). The certificate is generated
+        # for this job, trusted in the runner's LocalMachine root store and removed afterwards.
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $cert = New-SelfSignedCertificate -DnsName 'localhost' -CertStoreLocation 'Cert:\CurrentUser\My' -NotAfter (Get-Date).AddDays(1) -KeyExportPolicy Exportable -KeyAlgorithm RSA -KeyLength 2048 -FriendlyName 'POS desktop e2e loopback'
+          $pass = [guid]::NewGuid().ToString('N')
+          Write-Output "::add-mask::$pass"
+          $pfx = Join-Path $env:RUNNER_TEMP 'pos-loopback.pfx'
+          $cer = Join-Path $env:RUNNER_TEMP 'pos-loopback.cer'
+          Export-PfxCertificate -Cert $cert -FilePath $pfx -Password (ConvertTo-SecureString $pass -AsPlainText -Force) -CryptoAlgorithmOption AES256_SHA256 | Out-Null
+          Export-Certificate -Cert $cert -FilePath $cer | Out-Null
+          Import-Certificate -FilePath $cer -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
+          "DESKTOP_TLS_PFX=$pfx" >> $env:GITHUB_ENV
+          "DESKTOP_TLS_PASSPHRASE=$pass" >> $env:GITHUB_ENV
+          "DESKTOP_TLS_THUMBPRINT=$($cert.Thumbprint)" >> $env:GITHUB_ENV
+      - name: NSIS install, NODE_ENV refusal, DPAPI database, upgrade and uninstall (Windows x64)
         if: ${{ !cancelled() && runner.os == 'Windows' }}
         shell: pwsh
         working-directory: frontend
@@ -261,6 +293,14 @@ jobs:
           Get-ChildItem release, release-upgrade -Filter '*-win-x64.exe' | Select-Object Name, Length | Format-Table -AutoSize
           node tools/smoke-desktop-installer.mjs
           if ($LASTEXITCODE -ne 0) { throw 'installer smoke failed' }
+      - name: Remove the loopback TLS certificate (Windows)
+        if: ${{ always() && runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          if ($env:DESKTOP_TLS_THUMBPRINT) {
+            Get-ChildItem Cert:\LocalMachine\Root, Cert:\CurrentUser\My | Where-Object Thumbprint -eq $env:DESKTOP_TLS_THUMBPRINT | Remove-Item
+          }
+          if ($env:DESKTOP_TLS_PFX) { Remove-Item $env:DESKTOP_TLS_PFX -ErrorAction SilentlyContinue }
       - name: Retain review artifacts (macOS)
         if: always() && runner.os == 'macOS'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

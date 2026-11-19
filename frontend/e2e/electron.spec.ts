@@ -50,7 +50,7 @@ test('desktop shell blocks external links, redirects and new windows', async ({ 
     } else {
       response.writeHead(200, { 'Content-Type': 'text/html' });
       response.end(
-        '<!doctype html><title>Navigation fixture</title><a href="/redirect">Follow redirect</a><a href="https://blocked.example.test/direct">External link</a>',
+        '<!doctype html><title>Navigation fixture</title><a href="/redirect">Follow redirect</a><a href="https://blocked.example.test/direct">External link</a><input aria-label="Clipboard probe">',
       );
     }
   });
@@ -76,6 +76,74 @@ test('desktop shell blocks external links, redirects and new windows', async ({ 
   app.on('window', network.watch);
   try {
     const window = await app.firstWindow();
+    await window.getByRole('link', { name: 'Follow redirect' }).waitFor();
+    // Editing shortcuts work in an input on every OS (Ctrl on Windows, Cmd on macOS).
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+    const probe = window.getByLabel('Clipboard probe');
+    await probe.fill('POS-CLIP-4711');
+    await probe.press(`${modifier}+A`);
+    await probe.press(`${modifier}+C`);
+    await probe.press('Delete');
+    await expect(probe).toHaveValue('');
+    await probe.press(`${modifier}+V`);
+    await expect(probe).toHaveValue('POS-CLIP-4711');
+    await probe.press(`${modifier}+V`);
+    await expect(probe).toHaveValue('POS-CLIP-4711POS-CLIP-4711');
+    await probe.fill('');
+    const menu = await app.evaluate(({ BrowserWindow, Menu }) => {
+      const main = BrowserWindow.getAllWindows()[0]!;
+      const items = Menu.getApplicationMenu()?.items ?? [];
+      return {
+        visible: main.isMenuBarVisible(),
+        autoHide: main.isMenuBarAutoHide(),
+        labels: items.map((item) => item.label),
+        roles: items.flatMap((item) =>
+          (item.submenu?.items ?? []).map((child) => String(child.role ?? '').toLowerCase()),
+        ),
+      };
+    });
+    if (process.platform === 'darwin') {
+      // macOS keeps Electron's standard application menu in the system menu bar.
+      expect(menu.labels.length).toBeGreaterThan(1);
+      expect(menu.roles).toEqual(expect.arrayContaining(['copy', 'paste', 'selectall']));
+    } else {
+      // Windows: no menu bar (and Alt does not reveal one); the hidden menu keeps the editing
+      // and zoom shortcuts, and offers no reload, DevTools or close-window items.
+      expect(menu.visible).toBe(false);
+      expect(menu.autoHide).toBe(false);
+      expect(menu.labels).toEqual(['Edit', 'View']);
+      expect([...new Set(menu.roles.filter(Boolean))].sort()).toEqual(
+        [
+          'copy',
+          'cut',
+          'delete',
+          'paste',
+          'redo',
+          'resetzoom',
+          'selectall',
+          'undo',
+          'zoomin',
+          'zoomout',
+        ].sort(),
+      );
+      await window.keyboard.press('Alt');
+      expect(
+        await app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()[0]!.isMenuBarVisible(),
+        ),
+      ).toBe(false);
+      const zoom = () =>
+        app.evaluate(({ BrowserWindow }) =>
+          BrowserWindow.getAllWindows()[0]!.webContents.getZoomLevel(),
+        );
+      await window.keyboard.press('Control+Equal');
+      await expect.poll(zoom).toBeGreaterThan(0);
+      await window.keyboard.press('Control+Minus');
+      await window.keyboard.press('Control+Minus');
+      await expect.poll(zoom).toBeLessThan(0);
+      await window.keyboard.press('Control+Digit0');
+      await expect.poll(zoom).toBe(0);
+    }
     const [redirect] = await Promise.all([
       app.evaluate(
         ({ BrowserWindow }) =>
