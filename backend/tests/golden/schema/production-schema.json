@@ -1,13 +1,8 @@
 {
-  "capturedAt": "2026-11-18T19:13:02.262Z",
+  "capturedAt": "2026-11-19T06:28:22.754Z",
   "database": "tss",
   "serverVersion": "8.0.39",
-  "missing": [
-    "auth_group",
-    "auth_group_permissions",
-    "pos_user_groups",
-    "pos_user_user_permissions"
-  ],
+  "missing": [],
   "tables": {
     "add_desc": {
       "createTable": "CREATE TABLE `add_desc` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `name` varchar(255) DEFAULT NULL,\n  `desc` text,\n  `material` varchar(255) DEFAULT NULL,\n  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`)\n) ENGINE=InnoDB DEFAULT CHARSET=latin1",
@@ -543,6 +538,143 @@
           "ORDINAL_POSITION": 11,
           "COLUMN_TYPE": "datetime(6)",
           "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        }
+      ]
+    },
+    "automated_refund_sic_logs": {
+      "createTable": "CREATE TABLE `automated_refund_sic_logs` (\n  `id` bigint NOT NULL AUTO_INCREMENT,\n  `order_id` bigint NOT NULL,\n  `product_id` bigint NOT NULL,\n  `platform` enum('TSS_MONEY','TSS_POINTS','GIFT_VOUCHER','OG','OG_AS_TSS_MONEY','GIFT_CARD_AS_TSS_MONEY','GIFT_CARD','BANK_TRANSFER','UPI') DEFAULT NULL,\n  `requested_amount` double DEFAULT '0',\n  `refunded_amount` double DEFAULT '0',\n  `refund_initiated_at` datetime DEFAULT NULL,\n  `refunded_at` datetime DEFAULT NULL,\n  `refunded_by` bigint DEFAULT '0',\n  `created_at` datetime DEFAULT NULL,\n  `updated_at` datetime DEFAULT NULL,\n  `has_product_id` bigint DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `order_id` (`order_id`),\n  KEY `product_id` (`product_id`),\n  KEY `platform` (`platform`),\n  KEY `refund_initiated_at` (`refund_initiated_at`),\n  KEY `refunded_at` (`refunded_at`),\n  KEY `refunded_by` (`refunded_by`),\n  KEY `created_at` (`created_at`)\n) ENGINE=InnoDB DEFAULT CHARSET=latin1",
+      "columns": [
+        {
+          "COLUMN_NAME": "id",
+          "ORDINAL_POSITION": 1,
+          "COLUMN_TYPE": "bigint",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "PRI",
+          "EXTRA": "auto_increment",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "order_id",
+          "ORDINAL_POSITION": 2,
+          "COLUMN_TYPE": "bigint",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "product_id",
+          "ORDINAL_POSITION": 3,
+          "COLUMN_TYPE": "bigint",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "platform",
+          "ORDINAL_POSITION": 4,
+          "COLUMN_TYPE": "enum('TSS_MONEY','TSS_POINTS','GIFT_VOUCHER','OG','OG_AS_TSS_MONEY','GIFT_CARD_AS_TSS_MONEY','GIFT_CARD','BANK_TRANSFER','UPI')",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": "latin1",
+          "COLLATION_NAME": "latin1_swedish_ci"
+        },
+        {
+          "COLUMN_NAME": "requested_amount",
+          "ORDINAL_POSITION": 5,
+          "COLUMN_TYPE": "double",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": "0",
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "refunded_amount",
+          "ORDINAL_POSITION": 6,
+          "COLUMN_TYPE": "double",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": "0",
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "refund_initiated_at",
+          "ORDINAL_POSITION": 7,
+          "COLUMN_TYPE": "datetime",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "refunded_at",
+          "ORDINAL_POSITION": 8,
+          "COLUMN_TYPE": "datetime",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "refunded_by",
+          "ORDINAL_POSITION": 9,
+          "COLUMN_TYPE": "bigint",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": "0",
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "created_at",
+          "ORDINAL_POSITION": 10,
+          "COLUMN_TYPE": "datetime",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "updated_at",
+          "ORDINAL_POSITION": 11,
+          "COLUMN_TYPE": "datetime",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "has_product_id",
+          "ORDINAL_POSITION": 12,
+          "COLUMN_TYPE": "bigint",
+          "IS_NULLABLE": "YES",
           "COLUMN_DEFAULT": null,
           "COLUMN_KEY": "",
           "EXTRA": "",
@@ -5587,6 +5719,143 @@
         }
       ]
     },
+    "hyperlocal_availability_log": {
+      "createTable": "CREATE TABLE `hyperlocal_availability_log` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `order_id` bigint NOT NULL,\n  `pincode` int NOT NULL,\n  `delivery_charges` int NOT NULL DEFAULT '0',\n  `buffer_stock` int NOT NULL DEFAULT '0',\n  `cart_type` enum('INVALID','MIXED','VALID','NONE') NOT NULL DEFAULT 'NONE',\n  `stock_threshold` enum('GUILTY','NOT_GUILTY','NONE') NOT NULL DEFAULT 'NONE',\n  `store_availability` enum('GUILTY','NOT_GUILTY','NONE') NOT NULL DEFAULT 'NONE',\n  `is_slot_visible` tinyint DEFAULT '0',\n  `products_stats` text NOT NULL,\n  `created_at` datetime NOT NULL,\n  `updated_at` datetime NOT NULL,\n  PRIMARY KEY (`id`),\n  KEY `order_id` (`order_id`),\n  KEY `pincode` (`pincode`),\n  KEY `cart_type` (`cart_type`),\n  KEY `is_slot_visible` (`is_slot_visible`),\n  KEY `stock_threshold` (`stock_threshold`),\n  KEY `store_availability` (`store_availability`),\n  KEY `created_at` (`created_at`),\n  KEY `updated_at` (`updated_at`)\n) ENGINE=InnoDB DEFAULT CHARSET=latin1",
+      "columns": [
+        {
+          "COLUMN_NAME": "id",
+          "ORDINAL_POSITION": 1,
+          "COLUMN_TYPE": "int",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "PRI",
+          "EXTRA": "auto_increment",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "order_id",
+          "ORDINAL_POSITION": 2,
+          "COLUMN_TYPE": "bigint",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "pincode",
+          "ORDINAL_POSITION": 3,
+          "COLUMN_TYPE": "int",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "delivery_charges",
+          "ORDINAL_POSITION": 4,
+          "COLUMN_TYPE": "int",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": "0",
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "buffer_stock",
+          "ORDINAL_POSITION": 5,
+          "COLUMN_TYPE": "int",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": "0",
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "cart_type",
+          "ORDINAL_POSITION": 6,
+          "COLUMN_TYPE": "enum('INVALID','MIXED','VALID','NONE')",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": "NONE",
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": "latin1",
+          "COLLATION_NAME": "latin1_swedish_ci"
+        },
+        {
+          "COLUMN_NAME": "stock_threshold",
+          "ORDINAL_POSITION": 7,
+          "COLUMN_TYPE": "enum('GUILTY','NOT_GUILTY','NONE')",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": "NONE",
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": "latin1",
+          "COLLATION_NAME": "latin1_swedish_ci"
+        },
+        {
+          "COLUMN_NAME": "store_availability",
+          "ORDINAL_POSITION": 8,
+          "COLUMN_TYPE": "enum('GUILTY','NOT_GUILTY','NONE')",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": "NONE",
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": "latin1",
+          "COLLATION_NAME": "latin1_swedish_ci"
+        },
+        {
+          "COLUMN_NAME": "is_slot_visible",
+          "ORDINAL_POSITION": 9,
+          "COLUMN_TYPE": "tinyint",
+          "IS_NULLABLE": "YES",
+          "COLUMN_DEFAULT": "0",
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "products_stats",
+          "ORDINAL_POSITION": 10,
+          "COLUMN_TYPE": "text",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": "latin1",
+          "COLLATION_NAME": "latin1_swedish_ci"
+        },
+        {
+          "COLUMN_NAME": "created_at",
+          "ORDINAL_POSITION": 11,
+          "COLUMN_TYPE": "datetime",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "updated_at",
+          "ORDINAL_POSITION": 12,
+          "COLUMN_TYPE": "datetime",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        }
+      ]
+    },
     "hyperlocal_fd_logs": {
       "createTable": "CREATE TABLE `hyperlocal_fd_logs` (\n  `id` bigint NOT NULL AUTO_INCREMENT,\n  `order_id` bigint DEFAULT NULL,\n  `platform` enum('CONVERTED_ONLINE','RTO_CONVERTED_ONLINE') DEFAULT NULL,\n  `fd_ticket_id` varchar(55) DEFAULT NULL,\n  `fd_ticket_status` enum('OPEN','PENDING','AWAITING RESPONSE','RESOLVED','CLOSED','UNKNOWN') NOT NULL DEFAULT 'OPEN',\n  `fd_ticket_age` varchar(45) DEFAULT '0',\n  `comment` varchar(255) DEFAULT NULL,\n  `fd_response` text,\n  `created_at` datetime DEFAULT NULL,\n  `updated_at` datetime DEFAULT NULL,\n  PRIMARY KEY (`id`),\n  KEY `order_id` (`order_id`),\n  KEY `platform` (`platform`),\n  KEY `fd_ticket_id` (`fd_ticket_id`),\n  KEY `created_at` (`created_at`)\n) ENGINE=InnoDB DEFAULT CHARSET=latin1",
       "columns": [
@@ -6696,6 +6965,55 @@
           "EXTRA": "",
           "CHARACTER_SET_NAME": null,
           "COLLATION_NAME": null
+        }
+      ]
+    },
+    "order_attributes": {
+      "createTable": "CREATE TABLE `order_attributes` (\n  `id` bigint NOT NULL AUTO_INCREMENT,\n  `order_id` bigint NOT NULL,\n  `delivery_priority` tinyint NOT NULL,\n  `priority_reason` enum('EXCLUSIVE_USER','EXTERNAL_API') NOT NULL,\n  PRIMARY KEY (`id`),\n  KEY `order_id` (`order_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=latin1",
+      "columns": [
+        {
+          "COLUMN_NAME": "id",
+          "ORDINAL_POSITION": 1,
+          "COLUMN_TYPE": "bigint",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "PRI",
+          "EXTRA": "auto_increment",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "order_id",
+          "ORDINAL_POSITION": 2,
+          "COLUMN_TYPE": "bigint",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "MUL",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "delivery_priority",
+          "ORDINAL_POSITION": 3,
+          "COLUMN_TYPE": "tinyint",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": null,
+          "COLLATION_NAME": null
+        },
+        {
+          "COLUMN_NAME": "priority_reason",
+          "ORDINAL_POSITION": 4,
+          "COLUMN_TYPE": "enum('EXCLUSIVE_USER','EXTERNAL_API')",
+          "IS_NULLABLE": "NO",
+          "COLUMN_DEFAULT": null,
+          "COLUMN_KEY": "",
+          "EXTRA": "",
+          "CHARACTER_SET_NAME": "latin1",
+          "COLLATION_NAME": "latin1_swedish_ci"
         }
       ]
     },
@@ -14918,77 +15236,6 @@
           "COLUMN_DEFAULT": null,
           "COLUMN_KEY": "",
           "EXTRA": "",
-          "CHARACTER_SET_NAME": null,
-          "COLLATION_NAME": null
-        }
-      ]
-    },
-    "spiderman_screening_orders": {
-      "createTable": "CREATE TABLE `spiderman_screening_orders` (\n  `id` int NOT NULL AUTO_INCREMENT,\n  `order_id` bigint NOT NULL,\n  `has_product_id` bigint NOT NULL,\n  `user_id` bigint NOT NULL,\n  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`),\n  KEY `idx_order_id` (`order_id`),\n  KEY `idx_has_product_id` (`has_product_id`),\n  KEY `idx_user_id` (`user_id`)\n) ENGINE=InnoDB DEFAULT CHARSET=latin1",
-      "columns": [
-        {
-          "COLUMN_NAME": "id",
-          "ORDINAL_POSITION": 1,
-          "COLUMN_TYPE": "int",
-          "IS_NULLABLE": "NO",
-          "COLUMN_DEFAULT": null,
-          "COLUMN_KEY": "PRI",
-          "EXTRA": "auto_increment",
-          "CHARACTER_SET_NAME": null,
-          "COLLATION_NAME": null
-        },
-        {
-          "COLUMN_NAME": "order_id",
-          "ORDINAL_POSITION": 2,
-          "COLUMN_TYPE": "bigint",
-          "IS_NULLABLE": "NO",
-          "COLUMN_DEFAULT": null,
-          "COLUMN_KEY": "MUL",
-          "EXTRA": "",
-          "CHARACTER_SET_NAME": null,
-          "COLLATION_NAME": null
-        },
-        {
-          "COLUMN_NAME": "has_product_id",
-          "ORDINAL_POSITION": 3,
-          "COLUMN_TYPE": "bigint",
-          "IS_NULLABLE": "NO",
-          "COLUMN_DEFAULT": null,
-          "COLUMN_KEY": "MUL",
-          "EXTRA": "",
-          "CHARACTER_SET_NAME": null,
-          "COLLATION_NAME": null
-        },
-        {
-          "COLUMN_NAME": "user_id",
-          "ORDINAL_POSITION": 4,
-          "COLUMN_TYPE": "bigint",
-          "IS_NULLABLE": "NO",
-          "COLUMN_DEFAULT": null,
-          "COLUMN_KEY": "MUL",
-          "EXTRA": "",
-          "CHARACTER_SET_NAME": null,
-          "COLLATION_NAME": null
-        },
-        {
-          "COLUMN_NAME": "created_at",
-          "ORDINAL_POSITION": 5,
-          "COLUMN_TYPE": "timestamp",
-          "IS_NULLABLE": "NO",
-          "COLUMN_DEFAULT": "CURRENT_TIMESTAMP",
-          "COLUMN_KEY": "",
-          "EXTRA": "DEFAULT_GENERATED",
-          "CHARACTER_SET_NAME": null,
-          "COLLATION_NAME": null
-        },
-        {
-          "COLUMN_NAME": "updated_at",
-          "ORDINAL_POSITION": 6,
-          "COLUMN_TYPE": "timestamp",
-          "IS_NULLABLE": "NO",
-          "COLUMN_DEFAULT": "CURRENT_TIMESTAMP",
-          "COLUMN_KEY": "",
-          "EXTRA": "DEFAULT_GENERATED on update CURRENT_TIMESTAMP",
           "CHARACTER_SET_NAME": null,
           "COLLATION_NAME": null
         }
