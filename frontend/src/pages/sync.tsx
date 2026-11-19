@@ -1,5 +1,6 @@
-import { CloudCheck, CloudOff, RefreshCw } from 'lucide-react';
+import { CloudOff, RefreshCw } from 'lucide-react';
 import { Empty, PageTitle, RequestReference, useProblem } from '../components/common';
+import { Modal } from '../components/modal';
 import type { Operation } from '../offline/database';
 import { useState } from 'react';
 import { db } from '../offline/database';
@@ -54,17 +55,15 @@ export function SyncPage({
           Sync now
         </button>
       </PageTitle>
-      <div className="sync-overview">
-        {online ? <CloudCheck size={30} /> : <CloudOff size={30} />}
-        <div>
-          <h2>{online ? 'Connected to your workspace' : 'Working offline'}</h2>
-          <p>
-            {online
-              ? 'Saved drafts sync automatically when the store service is available.'
-              : 'Your carts remain on this device. They will sync after you reconnect.'}
-          </p>
+      {!online && (
+        <div className="sync-overview" role="status">
+          <CloudOff size={20} aria-hidden="true" />
+          <div>
+            <h2>Working offline</h2>
+            <p>Your carts remain on this device. They will sync after you reconnect.</p>
+          </div>
         </div>
-      </div>
+      )}
       {error && (
         <div role="alert" className="inline-error">
           {error}
@@ -132,48 +131,44 @@ export function SyncPage({
         )}
       </section>
       {review && (
-        <div className="modal-backdrop">
-          <section
-            className="modal wide"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="conflict-title"
-          >
-            <div className="eyebrow">REVIEW A SYNC CONFLICT</div>
-            <h2 id="conflict-title">This sale changed elsewhere.</h2>
-            <p>
-              Choose which version to keep. Keeping your edits saves them as a new server version.
-              Using the server copy replaces this device’s edits.
-            </p>
-            <div className="receipt-line">
-              <div>
-                <strong>Your pending save</strong>
-                {review.operation.payload.draft.lines.map((line) => (
-                  <small key={line.productId}>
-                    {line.name} × {line.quantity}
-                  </small>
-                ))}
-              </div>
-              <div>
-                <strong>Server version {review.remote.version}</strong>
-                {review.remote.lines.map((line) => (
-                  <small key={line.productId}>
-                    {line.name} × {line.quantity}
-                  </small>
-                ))}
-              </div>
+        <Modal
+          title="This sale changed elsewhere."
+          description="Choose which version to keep. Keeping your edits saves them as a new server version. Using the server copy replaces this device’s edits."
+          closeLabel="Close"
+          onClose={() => setReview(null)}
+          footer={
+            <>
+              <button className="button secondary" onClick={() => setReview(null)}>
+                Review later
+              </button>
+              <button className="button secondary" onClick={() => void choose('server')}>
+                Use server copy
+              </button>
+              <button className="button primary" onClick={() => void choose('local')}>
+                Keep my local edits
+              </button>
+            </>
+          }
+        >
+          <div className="receipt-line">
+            <div>
+              <strong>Your pending save</strong>
+              {review.operation.payload.draft.lines.map((line) => (
+                <small key={line.productId}>
+                  {line.name} × {line.quantity}
+                </small>
+              ))}
             </div>
-            <button className="button primary full" onClick={() => void choose('local')}>
-              Keep my local edits
-            </button>
-            <button className="button secondary full" onClick={() => void choose('server')}>
-              Use server copy
-            </button>
-            <button className="button secondary full" onClick={() => setReview(null)}>
-              Review later
-            </button>
-          </section>
-        </div>
+            <div>
+              <strong>Server version {review.remote.version}</strong>
+              {review.remote.lines.map((line) => (
+                <small key={line.productId}>
+                  {line.name} × {line.quantity}
+                </small>
+              ))}
+            </div>
+          </div>
+        </Modal>
       )}
     </>
   );

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { liveQuery } from 'dexie';
 import { useQuery } from '@tanstack/react-query';
-import { Printer, Tag, X } from 'lucide-react';
+import { Printer, Tag } from 'lucide-react';
 import { captureOperatorScope, requestWithResponse } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { ErrorState, Loading } from '../../components/common';
+import { Modal } from '../../components/modal';
 import { db } from '../../offline/database';
 
 const fingerprint = (user: Principal) =>
@@ -236,73 +237,55 @@ export function ShippingLabelDialog({
     }
   }
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal"
-        style={{
-          width: 'min(96vw,46rem)',
-          maxWidth: '46rem',
-          maxHeight: '94dvh',
-          overflow: 'auto',
-        }}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="shipping-label-title"
-      >
-        <button
-          className="icon-button modal-close"
-          aria-label="Close shipping label"
-          onClick={onClose}
-        >
-          <X size={20} />
-        </button>
-        <div className="eyebrow">EXPRESS FULFILLMENT</div>
-        <h2 id="shipping-label-title">Order shipping label</h2>
-        <p>
-          Order {orderId} · Store {storeId}
-        </p>
-        {!online && <p role="status">Reconnect to read or print the current shipping label.</p>}
-        {error && <ErrorState error={error} />}{' '}
-        {preview.isError && (
-          <ErrorState error={preview.error} retry={() => void preview.refetch()} />
-        )}
-        {authorized &&
-          !preview.isError &&
-          online &&
-          (preview.isPending ? (
-            <Loading />
-          ) : (
-            preview.data && (
-              <iframe
-                key={preview.data.revision}
-                ref={frame}
-                title={`Shipping label for order ${orderId}`}
-                sandbox="allow-same-origin allow-modals"
-                referrerPolicy="no-referrer"
-                srcDoc={preview.data.html}
-                style={{
-                  width: '100%',
-                  height: 'min(62vh,650px)',
-                  border: '1px solid var(--border)',
-                }}
-                onLoad={() => void loaded()}
-              />
-            )
-          ))}
-        <div className="cash-actions">
-          <button
-            className="button primary"
-            disabled={!authorized || !online || !ready || printing || preview.isFetching}
-            onClick={() => void print()}
-          >
-            <Printer size={16} />
-            {printing ? 'Preparing current label…' : 'Print shipping label'}
-          </button>
+    <Modal
+      size="lg"
+      title="Order shipping label"
+      description={`Order ${orderId} · Store ${storeId}`}
+      closeLabel="Close shipping label"
+      onClose={onClose}
+      footer={
+        <>
           <button className="button secondary" onClick={onClose}>
             Close
           </button>
-        </div>
-      </section>
-    </div>
+          <button
+            className="button primary"
+            disabled={!authorized || !online || !ready || printing || preview.isFetching}
+            aria-busy={printing}
+            onClick={() => void print()}
+          >
+            {!printing && <Printer size={16} aria-hidden="true" />}
+            {printing ? 'Preparing current label…' : 'Print shipping label'}
+          </button>
+        </>
+      }
+    >
+      {!online && <p role="status">Reconnect to read or print the current shipping label.</p>}
+      {error && <ErrorState error={error} />}
+      {preview.isError && <ErrorState error={preview.error} retry={() => void preview.refetch()} />}
+      {authorized &&
+        !preview.isError &&
+        online &&
+        (preview.isPending ? (
+          <Loading />
+        ) : (
+          preview.data && (
+            <iframe
+              key={preview.data.revision}
+              ref={frame}
+              title={`Shipping label for order ${orderId}`}
+              sandbox="allow-same-origin allow-modals"
+              referrerPolicy="no-referrer"
+              srcDoc={preview.data.html}
+              style={{
+                width: '100%',
+                height: 'min(62vh,650px)',
+                border: '1px solid var(--border)',
+              }}
+              onLoad={() => void loaded()}
+            />
+          )
+        ))}
+    </Modal>
   );
 }

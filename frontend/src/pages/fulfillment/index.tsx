@@ -16,6 +16,7 @@ import {
 import { params, request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Modal } from '../../components/modal';
 import { currency } from '../../lib/format';
 import { useOnline } from '../../hooks/use-pos';
 import { InvoiceDocumentAction } from '../invoice-documents/document';
@@ -468,44 +469,43 @@ export function FulfillmentPage({ user, storeId }: { user: Principal; storeId: s
         </div>
       )}
       {reject && (
-        <div className="modal-backdrop">
-          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="reject-title">
+        <Modal
+          size="sm"
+          title={`Reject order ${reject.orderId}?`}
+          closeLabel="Cancel rejection"
+          onClose={() => setReject(null)}
+          footer={
             <button
-              className="icon-button modal-close"
-              aria-label="Cancel rejection"
-              onClick={() => setReject(null)}
-            >
-              <X size={20} />
-            </button>
-            <h2 id="reject-title">Reject order {reject.orderId}?</h2>
-            <label>
-              Select a reason for rejection:
-              <select
-                aria-label="Rejection reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-              >
-                <option value="">Choose a reason</option>
-                {reasons.data?.data.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.reason}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {reasons.isError && <ErrorState error={reasons.error} />}
-            <button
-              className="button primary full"
+              className="button primary"
               disabled={!reason || action.isPending}
+              aria-busy={action.isPending}
               onClick={() =>
                 action.mutate({ ...reject, action: 'rejection', rejectionReasonId: reason })
               }
             >
-              <AlertCircle size={16} />
+              {!action.isPending && <AlertCircle size={16} aria-hidden="true" />}
               Reject
             </button>
-          </section>
-        </div>
+          }
+        >
+          <label>
+            Select a reason for rejection:
+            <select
+              aria-label="Rejection reason"
+              value={reason}
+              disabled={reasons.isPending}
+              onChange={(event) => setReason(event.target.value)}
+            >
+              <option value="">{reasons.isPending ? 'Loading reasons…' : 'Choose a reason'}</option>
+              {reasons.data?.data.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.reason}
+                </option>
+              ))}
+            </select>
+          </label>
+          {reasons.isError && <ErrorState error={reasons.error} />}
+        </Modal>
       )}
     </>
   );

@@ -262,7 +262,16 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     // Login verifies the OTP and checks in to the store (legacy check-ins carry no counter).
     await signIn(page, STORE);
     await expect(page.getByRole('heading', { name: 'The counter.' })).toBeVisible();
-    await expect(page.getByText('Checked in at Bandra Flagship').first()).toBeVisible();
+    // W27: check-in status, the log-out toggle and no bell, sound toggle or connection card.
+    const header = page.getByRole('banner');
+    await expect(header.getByLabel('Store check-in: Checked in', { exact: true })).toBeVisible();
+    await expect(header.getByRole('button', { name: 'Check out', exact: true })).toBeVisible();
+    await expect(header.getByRole('button', { name: 'Log out', exact: true })).toBeVisible();
+    await expect(header.getByRole('button', { name: /^Notifications/ })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /sound/i })).toHaveCount(0);
+    await expect(header.getByRole('link', { name: /^Offline\./ })).toHaveCount(0);
+    // No check-in prompt: login already checked in to the store.
+    await expect(page.getByRole('dialog', { name: 'Check in to your store' })).toHaveCount(0);
     await page.goto(WORKSPACE + '/offline-billing');
     const ready = await waitForStatus(
       (value) =>
@@ -278,15 +287,17 @@ test.describe.serial('desktop offline billing on the real stack', () => {
     expect(await page.evaluate(async () => Boolean(await navigator.serviceWorker.ready))).toBe(
       true,
     );
-    await expect(
-      page.getByRole('heading', { name: 'Connected — bill from the counter' }),
-    ).toBeVisible();
+    // W27: online with nothing waiting, the page shows no status card at all.
+    await expect(page.getByRole('heading', { name: 'Offline billing.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: /Connected|Working offline/ })).toHaveCount(0);
   });
 
   test('bills a cash sale and a card-reference sale with the backend blocked', async () => {
     await goOffline();
     await page.goto(WORKSPACE + '/offline-billing');
     await expect(page.getByRole('heading', { name: 'Working offline' })).toBeVisible();
+    // The compact header indicator replaces the offline banner.
+    await expect(page.getByRole('banner').getByRole('link', { name: /^Offline\./ })).toBeVisible();
     const search = page.getByLabel('Scan a barcode or search products');
 
     await search.fill('Classic');
@@ -330,6 +341,9 @@ test.describe.serial('desktop offline billing on the real stack', () => {
       ['queued', 'card', 189900],
       ['queued', 'cash', 99900],
     ]);
+    await expect(
+      page.getByRole('banner').getByRole('link', { name: '2 sales waiting to sync' }),
+    ).toBeVisible();
     expect(await posOrderCalls()).toBe(0);
   });
 

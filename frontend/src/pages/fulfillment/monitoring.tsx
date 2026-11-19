@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { z } from 'zod';
-import { ChevronDown, Pencil, RefreshCw, X } from 'lucide-react';
+import { ChevronDown, Pencil, RefreshCw } from 'lucide-react';
 import { params, request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Modal } from '../../components/modal';
 import { currency } from '../../lib/format';
 import './style.css';
 
@@ -457,63 +458,57 @@ function AdminEdit({
     },
   });
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="express-edit-title"
-      >
-        <button className="icon-button modal-close" onClick={close} aria-label="Close editor">
-          <X size={20} />
-        </button>
-        <h2 id="express-edit-title">Edit order {item.orderId}</h2>
-        <p>
-          {item.storeName} · Changes apply to this store’s lines and are recorded in the status
-          history.
-        </p>
-        <label>
-          Status
-          <select value={status} onChange={(event) => setStatus(event.target.value)}>
-            {[
-              'PENDING',
-              'ACCEPTED',
-              'REJECTED',
-              'PACKED',
-              'OUT_FOR_DELIVERY',
-              'DELIVERED',
-              'RTO',
-              'TIMED_OUT',
-            ].map((value) => (
-              <option key={value}>{value}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Acceptance deadline
-          <input
-            type="datetime-local"
-            value={pending}
-            onChange={(event) => setPending(event.target.value)}
-          />
-        </label>
-        <label>
-          Packing deadline
-          <input
-            type="datetime-local"
-            value={accepted}
-            onChange={(event) => setAccepted(event.target.value)}
-          />
-        </label>
-        {mutation.isError && <ErrorState error={mutation.error} />}
+    <Modal
+      size="sm"
+      title={`Edit order ${item.orderId}`}
+      description={`${item.storeName} · Changes apply to this store’s lines and are recorded in the status history.`}
+      closeLabel="Close editor"
+      onClose={close}
+      footer={
         <button
-          className="button primary full"
+          className="button primary"
           disabled={mutation.isPending}
+          aria-busy={mutation.isPending}
           onClick={() => mutation.mutate()}
         >
           Save changes
         </button>
-      </section>
-    </div>
+      }
+    >
+      <label>
+        Status
+        <select value={status} onChange={(event) => setStatus(event.target.value)}>
+          {[
+            'PENDING',
+            'ACCEPTED',
+            'REJECTED',
+            'PACKED',
+            'OUT_FOR_DELIVERY',
+            'DELIVERED',
+            'RTO',
+            'TIMED_OUT',
+          ].map((value) => (
+            <option key={value}>{value}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Acceptance deadline
+        <input
+          type="datetime-local"
+          value={pending}
+          onChange={(event) => setPending(event.target.value)}
+        />
+      </label>
+      <label>
+        Packing deadline
+        <input
+          type="datetime-local"
+          value={accepted}
+          onChange={(event) => setAccepted(event.target.value)}
+        />
+      </label>
+      {mutation.isError && <ErrorState error={mutation.error} />}
+    </Modal>
   );
 }
