@@ -7,6 +7,7 @@ import {
 } from './client';
 import { startPayment } from './payments/client';
 import type { ConfirmedPayment } from './receipts';
+import './payments/payment-form.css';
 
 /**
  * Legacy fast checkout (`order/urls.py:54` `ajax-fast-checkout`, `AjaxFastCheckoutView`
@@ -52,7 +53,8 @@ export function FastCashCheckout({
   const [dialog, setDialog] = useState<{ payable: string } | null>(null),
     [received, setReceived] = useState(''),
     [message, setMessage] = useState(''),
-    [problem, setProblem] = useState('');
+    [problem, setProblem] = useState(''),
+    [submitting, setSubmitting] = useState(false);
   const hasLines =
     (checkout.cart?.products.items.length ?? 0) > 0 ||
     (checkout.cart?.giftvouchers?.items.length ?? 0) > 0;
@@ -126,9 +128,7 @@ export function FastCashCheckout({
       {(available || dialog !== null) && (
         <button
           type="button"
-          className="button secondary full"
-          data-cashier-action="fast-cash"
-          aria-keyshortcuts="F"
+          className="button secondary"
           disabled={disabled || !hasLines || dialog !== null}
           onClick={() => void act(open)}
         >
@@ -141,7 +141,6 @@ export function FastCashCheckout({
           role="dialog"
           aria-modal="true"
           aria-labelledby="fast-cash-title"
-          data-cashier-shortcuts="review"
         >
           <h3 id="fast-cash-title">
             Fast Checkout (Cash Only)! Cash To Be Accepted : {dialog.payable}
@@ -149,12 +148,19 @@ export function FastCashCheckout({
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              void act(submit);
+              void act(async () => {
+                setSubmitting(true);
+                try {
+                  await submit();
+                } finally {
+                  setSubmitting(false);
+                }
+              });
             }}
           >
-            <div className="checkout-split">
+            <div className="form-grid">
               <label>
-                Cash Recieved:
+                Cash Received
                 <input
                   type="number"
                   min={0}
@@ -164,11 +170,11 @@ export function FastCashCheckout({
                   placeholder="Collected Cash"
                 />
               </label>
-              <p>
-                Cash To Be Return: <strong>{money(change)}</strong>
+              <p className="checkout-change">
+                <span>Cash To Be Return</span> <strong>{money(change)}</strong>
               </p>
             </div>
-            <label>
+            <label className="checkout-message">
               Order Message
               <textarea
                 rows={3}
@@ -180,11 +186,12 @@ export function FastCashCheckout({
                 autoFocus
               />
             </label>
-            {problem && <p role="alert">{problem}</p>}
-            <div className="checkout-split">
-              <button className="button primary" disabled={disabled}>
-                Submit
-              </button>
+            {problem && (
+              <p role="alert" className="inline-error">
+                {problem}
+              </p>
+            )}
+            <div className="form-actions">
               <button
                 type="button"
                 className="button secondary"
@@ -192,6 +199,9 @@ export function FastCashCheckout({
                 onClick={() => setDialog(null)}
               >
                 cancel
+              </button>
+              <button className="button primary" disabled={disabled} aria-busy={submitting}>
+                Submit
               </button>
             </div>
           </form>

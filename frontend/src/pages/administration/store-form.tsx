@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { errorRequestId, request } from '../../api/client';
 import { RequestReference, useProblem } from '../../components/common';
+import { Modal } from '../../components/modal';
 import { useOnline } from '../../hooks/use-pos';
 import {
   AdministrationFormError,
@@ -90,7 +90,7 @@ export function StoreForm({
   onClose: () => void;
   onSaved: (message: string) => Promise<void>;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
+  const formId = useId(),
     lookup = useRef<AbortController | null>(null),
     client = useQueryClient(),
     online = useOnline(),
@@ -109,14 +109,12 @@ export function StoreForm({
         z.object({ data: z.array(z.string()) }),
       ),
   });
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => {
+  useEffect(
+    () => () => {
       lookup.current?.abort();
-      element?.close();
-    };
-  }, []);
+    },
+    [],
+  );
   const set = (name: string, value: string) =>
     setValues((current) => ({ ...current, [name]: value }));
   /** `create.html:186-216`: look up 6-character PIN codes after 400 ms on keyup/blur. */
@@ -210,25 +208,32 @@ export function StoreForm({
       />,
     );
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
+    <Modal
+      title={store ? 'Edit Store' : 'Create Store'}
+      size="lg"
+      closeLabel="Close editor"
+      dismissible={!busy}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form={formId}
+            className="button primary"
+            disabled={busy || !online}
+            aria-busy={busy}
+          >
+            {busy ? 'Saving…' : 'Submit'}
+          </button>
+        </>
+      }
     >
-      <div className="administration-dialog-heading">
-        <div>
-          <div className="eyebrow">STORE ADMINISTRATION</div>
-          <h2>{store ? 'Edit Store' : 'Create Store'}</h2>
-        </div>
-        <button className="icon-button" aria-label="Close editor" disabled={busy} onClick={onClose}>
-          <X size={19} />
-        </button>
-      </div>
       {store && <StoreImagePreview operatorId={user.id} storeId={store.id} />}
       <form
+        id={formId}
         onSubmit={(event) => {
           event.preventDefault();
           if (!busy && online) void submit();
@@ -351,17 +356,9 @@ export function StoreForm({
             <RequestReference error={failureCause} />
           </div>
         )}
-        <div className="administration-dialog-actions">
-          <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </button>
-          <button className="button primary" disabled={busy || !online}>
-            {busy ? 'Saving…' : 'Submit'}
-          </button>
-        </div>
       </form>
       {!store && [1, 3].includes(user.role) && <AddLocationCode user={user} />}
-    </dialog>
+    </Modal>
   );
 }
 
@@ -385,6 +382,7 @@ function AddLocationCode({ user }: { user: Principal }) {
         type="button"
         className="button secondary"
         disabled={busy}
+        aria-busy={busy}
         onClick={() => {
           if (!code.trim()) {
             window.alert('Please enter a Location Code.');

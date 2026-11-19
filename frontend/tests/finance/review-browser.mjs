@@ -234,16 +234,19 @@ try {
   page = await context.newPage();
   await page.clock.install({ time: new Date('2026-11-18T23:59:00+05:30') });
   await page.goto(origin + '/tests/finance/review.html?reports=1');
-  await expect(page.getByLabel('Report stores').locator('option')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Stores', exact: true }).click();
+  await expect(
+    page.getByRole('group', { name: 'Stores', exact: true }).getByRole('checkbox'),
+  ).toHaveCount(2);
+  await page.keyboard.press('Escape');
   await expect(page.getByLabel('Report from date')).toHaveValue('2026-11-13');
   await expect(page.getByLabel('Report to date')).toHaveValue('2026-11-19');
   await page.getByRole('button', { name: 'Select all stores' }).click();
-  assert.deepEqual(
-    await page
-      .getByLabel('Report stores')
-      .evaluate((e) => Array.from(e.selectedOptions, (o) => o.value)),
-    ['1', '2'],
-  );
+  await page.getByRole('button', { name: 'Stores', exact: true }).click();
+  const storeBoxes = page.getByRole('group', { name: 'Stores', exact: true }).getByRole('checkbox');
+  await expect(storeBoxes.nth(0)).toBeChecked();
+  await expect(storeBoxes.nth(1)).toBeChecked();
+  await page.keyboard.press('Escape');
   await page.getByRole('button', { name: 'Clear all stores' }).click();
   await expect(page.getByRole('button', { name: 'View report' })).toBeDisabled();
   await context.close();

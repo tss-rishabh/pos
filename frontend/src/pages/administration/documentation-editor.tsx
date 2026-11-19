@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { X, UploadCloud, Check, RotateCcw } from 'lucide-react';
+import { UploadCloud, Check, RotateCcw } from 'lucide-react';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { ErrorState, Loading, RequestReference, useProblem } from '../../components/common';
+import { Modal } from '../../components/modal';
 import {
   guideSchema,
   mediaCapabilitiesSchema,
@@ -36,7 +37,7 @@ export function DocumentationEditor({
   onClose: (saved?: boolean) => void;
   onSaved: () => Promise<void>;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
+  const formId = useId(),
     controller = useRef(new AbortController()),
     closed = useRef(false),
     operationId = useRef(crypto.randomUUID());
@@ -61,15 +62,13 @@ export function DocumentationEditor({
         mediaCapabilitiesSchema,
       ),
   });
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => {
+  useEffect(
+    () => () => {
       closed.current = true;
       controller.current.abort();
-      element?.close();
-    };
-  }, []);
+    },
+    [],
+  );
   const updateFile = (id: string, changes: Partial<PendingFile>) => {
     if (!closed.current)
       setFiles((previous) =>
@@ -163,29 +162,31 @@ export function DocumentationEditor({
   }
   const incomplete = files.some((file) => file.status !== 'ready');
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog administration-guide-editor"
-      onCancel={(event) => {
-        event.preventDefault();
-        close();
-      }}
+    <Modal
+      title={guide ? 'Edit guide' : 'Create a guide'}
+      size="lg"
+      closeLabel="Close guide editor"
+      dismissible={!saving}
+      onClose={close}
+      footer={
+        <>
+          <button type="button" className="button secondary" disabled={saving} onClick={close}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form={formId}
+            className="button primary"
+            disabled={saving || uploading || incomplete}
+            aria-busy={saving || uploading}
+          >
+            {saving ? 'Saving…' : uploading ? 'Uploading attachments…' : 'Save guide'}
+          </button>
+        </>
+      }
     >
-      <div className="administration-dialog-heading">
-        <div>
-          <div className="eyebrow">STORE KNOWLEDGE</div>
-          <h2>{guide ? 'Edit guide' : 'Create a guide'}</h2>
-        </div>
-        <button
-          className="icon-button"
-          aria-label="Close guide editor"
-          disabled={saving}
-          onClick={close}
-        >
-          <X size={18} />
-        </button>
-      </div>
       <form
+        id={formId}
         onSubmit={(event) => {
           event.preventDefault();
           if (uploading || incomplete) return;
@@ -397,15 +398,7 @@ export function DocumentationEditor({
             <RequestReference error={errorCause} />
           </div>
         )}
-        <div className="administration-dialog-actions">
-          <button type="button" className="button secondary" disabled={saving} onClick={close}>
-            Cancel
-          </button>
-          <button className="button primary" disabled={saving || uploading || incomplete}>
-            {saving ? 'Saving…' : uploading ? 'Uploading attachments…' : 'Save guide'}
-          </button>
-        </div>
       </form>
-    </dialog>
+    </Modal>
   );
 }

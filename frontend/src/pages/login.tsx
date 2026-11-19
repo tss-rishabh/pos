@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, ArrowRight, LockKeyhole, Monitor } from 'lucide-react';
+import { ArrowLeft, ArrowRight, LogIn } from 'lucide-react';
 import { z } from 'zod';
 import { post, request } from '../api/client';
 import { capabilitiesSchema, loginChallengeSchema, sessionSchema } from '../api/schemas';
 import { ErrorState } from '../components/common';
+import { markFreshSignIn } from '../components/check-in';
+import { Loader } from '../components/loader';
 import { loginChallengePendingKey } from '../hooks/use-pos';
 import { useWorkspace } from '../state/workspace';
 
@@ -91,8 +93,10 @@ export function Login() {
         sessionSchema,
       );
       setCode('');
-      // Store 0 is legacy "Not at the store": signed in without a store check-in.
+      // Store 0 is legacy "Not at the store": signed in without a store check-in. The workspace
+      // then asks for a check-in once (W27 check-in prompt).
       if (storeId !== '0') workspace.setStore(storeId);
+      markFreshSignIn();
       await complete();
     } catch (error) {
       setCode('');
@@ -117,41 +121,36 @@ export function Login() {
     }
   }
   return (
-    <main className="login">
-      <section className="login-story">
-        <div className="wordmark">
-          the souled store<span>RETAIL WORKSPACE</span>
-        </div>
-        <div>
-          <div className="eyebrow">GOOD DAYS START HERE</div>
-          <h1>
-            More time
-            <br />
-            for your
-            <br />
-            <em>customers.</em>
-          </h1>
-          <p>
-            One familiar workspace.
-            <br />
-            At every counter, in every store.
-          </p>
-        </div>
-        <div className="login-footer">
-          <Monitor size={17} />
-          Made for desktop & web
-        </div>
-      </section>
-      <section className="login-form">
-        <div className="eyebrow">{challenge ? 'ONE MORE STEP' : 'WELCOME BACK'}</div>
-        <h2>{challenge ? 'Make it securely yours.' : 'Let’s open the store.'}</h2>
+    <div className="login">
+      <header className="login-header">
+        <span className="wordmark">the souled store</span>
+        {/* The header's account toggle: "Log in" when signed out, the user and "Log out" when
+            signed in (workspace header). */}
+        <button
+          type="button"
+          className="button secondary small account-toggle"
+          onClick={() =>
+            document
+              .querySelector<HTMLInputElement>(
+                '.login-form input:not(:disabled), .login-form select:not(:disabled)',
+              )
+              ?.focus()
+          }
+        >
+          <LogIn size={14} aria-hidden="true" />
+          Log in
+        </button>
+      </header>
+      <main className="login-form">
+        <h1>{challenge ? 'Verify and check in' : 'Log in'}</h1>
         <p>
           {challenge
             ? factor === 'totp'
               ? 'Enter the code from your authenticator and select your store.'
-              : 'Enter the login OTP sent through your registered channel.'
-            : 'Sign in with your store account to get started.'}
+              : 'Enter the login OTP sent through your registered channel and select your store.'
+            : 'Sign in with your store account.'}
         </p>
+        {options.isPending && <Loader inline label="Loading sign-in options…" />}
         {options.isError ? (
           <ErrorState error={options.error} retry={() => void options.refetch()} />
         ) : challenge ? (
@@ -197,9 +196,10 @@ export function Login() {
               <button
                 className="button primary full"
                 disabled={busy || challenge.locked || code.length !== 6 || !storeId}
+                aria-busy={busy}
               >
-                Verify & check in
-                <ArrowRight size={17} />
+                {busy ? 'Verifying…' : 'Verify & check in'}
+                {!busy && <ArrowRight size={17} />}
               </button>
             </form>
             <button
@@ -265,20 +265,16 @@ export function Login() {
                     placeholder="Enter your password"
                   />
                 </label>
-                <button className="button primary full" disabled={busy}>
+                <button className="button primary full" disabled={busy} aria-busy={busy}>
                   {busy ? 'Checking credentials…' : 'Continue'}
-                  <ArrowRight size={18} />
+                  {!busy && <ArrowRight size={18} />}
                 </button>
               </form>
             )}
           </>
         )}
         {error !== null && <ErrorState error={error} />}
-        <small className="login-security">
-          <LockKeyhole size={13} />
-          Your store data stays scoped to your account.
-        </small>
-      </section>
-    </main>
+      </main>
+    </div>
   );
 }

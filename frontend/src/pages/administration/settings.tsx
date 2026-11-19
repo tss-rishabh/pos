@@ -240,6 +240,7 @@ export function StoreSettingsAdministration({
           <button
             className="button primary"
             disabled={!storeId || busy}
+            aria-busy={busy}
             onClick={() => setEditing({ kind: 'new-slot' })}
           >
             Add delivery timings

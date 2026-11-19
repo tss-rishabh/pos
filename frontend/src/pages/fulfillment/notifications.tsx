@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { NavLink } from 'react-router-dom';
-import { Bell, Check, CloudOff, Truck, Volume2, VolumeX } from 'lucide-react';
+import { Bell, Check, CloudOff, Truck } from 'lucide-react';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { Empty, ErrorState, Loading } from '../../components/common';
+import { ErrorState, Loading } from '../../components/common';
 import { useOnline } from '../../hooks/use-pos';
 import { useStoreCheckIn } from '../../hooks/use-store-check-in';
 import {
@@ -31,7 +31,7 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
   // refuses the feed and stream otherwise (403 CHECK_IN_REQUIRED), so nothing is requested.
   const storeCheckIn = useStoreCheckIn(user.id, storeId, online && !!storeId);
   const checkedIn = storeCheckIn.checkedIn;
-  const sound = useNotificationSound(user.id, storeId);
+  const sound = useNotificationSound();
   const seen = useRef(new Set<string>());
   const knownNotices = useRef(new Set<string>());
   const pendingNotices = useRef(new Map<string, boolean>());
@@ -78,6 +78,9 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
   };
   const live = online && checkedIn && !accessChanged;
   const unreadCount = live && !feed.isError ? (feed.data?.unreadCount ?? 0) : 0;
+  const hasNotices = live && feed.isSuccess && feed.data.data.length > 0;
+  // A revoked stream keeps the bell so the operator can reconnect after fixing store access.
+  const showBell = hasNotices || accessChanged;
   useEffect(() => {
     if (!live || feed.isError) {
       setAlerts([]);
@@ -231,47 +234,19 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
             <span>{queueCount} in queue</span>
           </NavLink>
         )}
-        <button
-          className="icon-button notification-trigger"
-          aria-label="Notifications"
-          aria-expanded={open}
-          onClick={() => setOpen((value) => !value)}
-        >
-          <Bell size={18} />
-          {unreadCount > 0 && <span>{unreadCount}</span>}
-        </button>
-        <button
-          className="notification-sound-control"
-          type="button"
-          disabled={sound.unavailable}
-          aria-label={
-            sound.unavailable
-              ? 'Notification sound unavailable'
-              : sound.enabled && sound.ready
-                ? 'Mute notification sound'
-                : 'Enable notification sound'
-          }
-          onClick={() => {
-            if (sound.enabled && sound.ready) sound.mute();
-            else void sound.enable();
-          }}
-          title={
-            sound.unavailable
-              ? 'Sound is unavailable in this window.'
-              : sound.enabled && sound.ready
-                ? 'Mute notification sound'
-                : 'Enable notification sound'
-          }
-        >
-          {sound.enabled && sound.ready ? <Volume2 size={15} /> : <VolumeX size={15} />}
-          <span>
-            {sound.unavailable
-              ? 'Sound unavailable'
-              : sound.enabled && sound.ready
-                ? 'Sound on'
-                : 'Enable sound'}
-          </span>
-        </button>
+        {/* W27: the bell exists only when the store's notification feed is set up for this
+            operator (it loaded for the checked-in store) and holds notifications. */}
+        {showBell && (
+          <button
+            className="icon-button notification-trigger"
+            aria-label={unreadCount > 0 ? `Notifications, ${unreadCount} unread` : 'Notifications'}
+            aria-expanded={open}
+            onClick={() => setOpen((value) => !value)}
+          >
+            <Bell size={18} />
+            {unreadCount > 0 && <span aria-hidden="true">{unreadCount}</span>}
+          </button>
+        )}
       </div>
       <IncomingNotificationAlerts
         alerts={live && !feed.isError ? alerts : []}
@@ -279,7 +254,7 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
         dismiss={dismiss}
         visit={visit}
       />
-      {open && (
+      {open && showBell && (
         <section className="surface notification-panel" aria-label="Store notifications">
           <header>
             <h2>Notifications</h2>
@@ -310,20 +285,8 @@ export function NotificationsPanel({ user, storeId }: { user: Principal; storeId
             <p className="notification-access-note">
               Check the current store and check-in before reconnecting.
             </p>
-          ) : !online ? (
-            <p className="notification-access-note">Notifications refresh when you reconnect.</p>
-          ) : storeCheckIn.pending ? (
+          ) : !feed.data ? (
             <Loading />
-          ) : !checkedIn ? (
-            <p className="notification-access-note">
-              Check into this store to see its notifications.
-            </p>
-          ) : feed.isPending ? (
-            <Loading />
-          ) : feed.isError ? (
-            <ErrorState error={feed.error} />
-          ) : feed.data.data.length === 0 ? (
-            <Empty title="All quiet for now" />
           ) : (
             feed.data.data.map((notice) => {
               const destination = notificationDestination(

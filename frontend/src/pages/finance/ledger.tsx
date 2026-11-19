@@ -94,7 +94,7 @@ export function CashLedgerPage({ user, storeId }: { user: Principal; storeId: st
   }
   return (
     <>
-      <PageTitle eyebrow="EVERY DAY, CONNECTED" title="Cash balance ledger">
+      <PageTitle title="Cash balance ledger">
         <button
           className="button secondary"
           onClick={download}

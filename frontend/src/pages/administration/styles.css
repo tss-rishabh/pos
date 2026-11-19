@@ -1,202 +1,217 @@
 .administration-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: var(--space-6);
 }
-.administration-tabs button {
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 10px 14px;
-  background: #fff;
-  font-size: 11px;
-  color: #7c8970;
-}
-.administration-tabs button[aria-selected='true'] {
-  background: #e6ecdf;
-  border-color: #aebda1;
-  color: #405435;
+.administration-links {
+  justify-content: flex-end;
 }
 .administration-actions {
   display: flex;
-  gap: 8px;
+  flex-wrap: wrap;
+  gap: var(--space-2);
   align-items: center;
 }
-.administration-filters {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.administration-filters input,
-.administration-filters select {
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  background: #fff;
-  font-size: 11px;
-}
+/* A heading row with its filters: title left, aligned controls right. */
 .administration-heading {
   display: flex;
-  gap: 15px;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-4);
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 18px;
+  margin-bottom: var(--space-4);
 }
 .administration-heading h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: 17px;
+  font-weight: 600;
 }
-.administration-dialog {
-  border: 1px solid #dde4d3;
-  border-radius: 10px;
-  background: #fafbf7;
-  color: #36442d;
-  padding: 28px;
-  width: min(760px, calc(100vw - 40px));
-  max-height: 90vh;
-  overflow-y: auto;
-  box-shadow: 0 20px 80px #15250c33;
-}
-.administration-dialog::backdrop {
-  background: #20291e77;
-  backdrop-filter: blur(3px);
-}
-.administration-dialog-heading {
+.administration-filters {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 22px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-3);
 }
-.administration-dialog-heading h2 {
-  margin: 0;
-  font-size: 23px;
-  font-weight: 500;
+.administration-filters > input,
+.administration-filters > select {
+  width: 200px;
+}
+/* Collection toolbar (page size, sort, direction, columns, export) above every admin table. */
+.administration-table-toolbar {
+  align-items: flex-end;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--line);
+}
+.administration-table-toolbar label {
+  min-width: 120px;
+}
+.administration-columns {
+  align-self: flex-end;
+}
+/* The column chooser opens as its own full-width row, so it never covers the toolbar. */
+.administration-columns[open] {
+  flex-basis: 100%;
+  order: 1;
+}
+.administration-columns > summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--control-border);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 11px;
+  font-weight: 550;
+  color: #5f6a58;
+  list-style: none;
+}
+.administration-columns > summary::-webkit-details-marker {
+  display: none;
+}
+.administration-columns-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  margin-top: var(--space-2);
+  padding: var(--space-3);
+  background: #fafbf7;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.administration-pagination {
+  justify-content: flex-end;
+  padding: var(--space-3) var(--space-5);
+  border-top: 1px solid var(--line);
 }
 .administration-fields {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
 }
-.administration-fields label {
-  font-size: 11px;
-  color: #70825e;
-}
-.administration-fields input,
-.administration-fields textarea,
-.administration-fields select {
-  display: block;
-  width: 100%;
-  padding: 10px;
-  margin-top: 7px;
-  background: #fff;
-  border: 1px solid #dce3d2;
-  border-radius: 6px;
-  color: #3c4b32;
-  font-size: 12px;
-}
-.administration-fields textarea {
-  resize: vertical;
-  min-height: 80px;
+.administration-fields > label > .button {
+  justify-self: start;
 }
 .administration-wide {
   grid-column: 1/-1;
 }
-.administration-dialog-actions {
-  display: flex;
-  gap: 10px;
-  justify-content: flex-end;
+.administration-detail-title {
+  font-size: 15px;
+  margin: 0;
+}
+.administration-detail-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.administration-detail-section {
+  display: grid;
+  gap: var(--space-2);
+  padding-top: var(--space-3);
   border-top: 1px solid var(--line);
-  padding-top: 18px;
-  margin-top: 22px;
+}
+.administration-detail-section h3 {
+  margin: 0;
+}
+.administration-detail-section .button {
+  justify-self: start;
+}
+.administration-detail-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+}
+.administration-detail-list > div {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.administration-detail-list dt {
+  font-size: 10px;
+  color: var(--muted);
+}
+.administration-detail-list dd {
+  margin: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 .administration-assignment-list {
   display: grid;
   gap: 10px;
   padding: 10px 0;
 }
-.administration-assignment-list label {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 12px;
-  color: #687b55;
-}
-.administration-assignment-list input {
-  accent-color: #71885e;
-}
-.administration-checkin {
-  display: flex;
-  gap: 18px;
-  align-items: center;
-  justify-content: space-between;
-  padding: 24px;
-}
-.administration-checkin h2 {
-  margin-bottom: 8px;
-}
-.administration-checkin p {
-  font-size: 12px;
-  color: #8a9978;
-  margin: 0;
-  line-height: 1.7;
+.administration-active-store {
+  max-width: 320px;
 }
 .administration-notice {
-  font-size: 11px;
-  line-height: 1.8;
-  color: #859675;
-  margin: 16px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+  margin: var(--space-3) 0;
 }
 .administration-status {
   font-size: 12px;
-  color: #65844d;
-  margin-bottom: 18px;
+  color: #4f6d47;
+  margin-bottom: var(--space-4);
 }
 .administration-table-actions {
   display: flex;
-  gap: 8px;
+  gap: var(--space-1);
+  flex-wrap: nowrap;
 }
 .administration-table-actions .button {
-  padding: 6px 9px;
-  min-height: 30px;
+  padding: 4px 9px;
+  min-height: 28px;
   font-size: 10px;
 }
-.administration-table td {
-  white-space: normal;
+/* Consistent columns: one line per cell, long text truncated with the full value as tooltip. */
+.administration-table {
+  table-layout: auto;
 }
-.administration-table td:first-child {
-  min-width: 160px;
+.administration-table th,
+.administration-table td {
+  padding: var(--space-3) var(--space-4);
+  vertical-align: middle;
+}
+.administration-table td {
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.administration-table td:last-child {
+  max-width: none;
+  overflow: visible;
 }
 .administration-value {
   font-family: ui-monospace, monospace;
   font-size: 10px;
 }
 @media (max-width: 700px) {
-  .administration-fields {
+  .administration-fields,
+  .administration-detail-list {
     grid-template-columns: 1fr;
-  }
-  .administration-heading {
-    flex-wrap: wrap;
   }
   .administration-filters {
     width: 100%;
-    flex-wrap: wrap;
   }
-  .administration-checkin {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .administration-dialog {
-    padding: 20px;
-  }
-  .administration-tabs {
-    gap: 6px;
-  }
-  .administration-tabs button {
-    padding: 8px 10px;
-    font-size: 10px;
+  .administration-filters > input,
+  .administration-filters > select {
+    width: 100%;
   }
 }
 
+.administration-panel {
+  padding: var(--space-5);
+  overflow: visible;
+}
+.administration-panel > .administration-notice:first-child {
+  margin-top: 0;
+}
+.administration-wrap {
+  white-space: pre-wrap;
+}
 .administration-section-gap {
   margin-top: 28px;
 }
@@ -234,10 +249,6 @@
   font-size: 11px;
 }
 
-.administration-guide-editor,
-.administration-guide-reader {
-  width: min(920px, calc(100vw - 40px));
-}
 .administration-guide-fieldset {
   border: 0;
   margin: 0;
@@ -339,10 +350,10 @@
   margin-top: 24px;
   padding-top: 16px;
 }
-.administration-mfa-controls label {
+.administration-mfa-controls,
+.administration-mfa-controls form {
   display: grid;
-  gap: 8px;
-  margin-bottom: 16px;
+  gap: var(--space-3);
 }
 .administration-access-fieldset {
   border: 0;
@@ -354,13 +365,7 @@
   margin-top: 20px;
 }
 .administration-access-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 0;
-}
-.administration-access-checkbox input {
-  width: auto;
+  margin: var(--space-2) 0;
 }
 .administration-access-fieldset textarea[readonly] {
   width: 100%;
@@ -412,7 +417,7 @@
   background: #fee4e2;
   color: #912018;
 }
-.administration-dialog .errorlist {
+.modal .errorlist {
   margin: 0.25rem 0 0;
   padding-left: 1rem;
   color: var(--danger, #bd2130);

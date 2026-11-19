@@ -5,25 +5,13 @@
     {
       "kind": "route",
       "id": "core/urls.py:66",
-      "status": "pending",
-      "implementation": [
-        "backend/src/modules/motivational-quotes/index.ts",
-        "backend/src/modules/motivational-quotes/pool.ts",
-        "backend/src/app.ts",
-        "backend/src/auth/routes.ts",
-        "backend/src/observability/events.ts",
-        "frontend/src/components/motivational-quote.tsx",
-        "frontend/src/pages/counter.tsx",
-        "frontend/src/api/client.ts"
-      ],
-      "tests": [
-        "backend/tests/motivational-quotes.test.ts",
-        "frontend/e2e/motivational-quotes.spec.ts"
-      ],
+      "status": "blocked",
+      "implementation": [],
+      "tests": [],
       "evidence": [
         "backend/evidence/quotes-route-reviewed-r8-ci851f620.json"
       ],
-      "notes": "Fresh scoped proof from actual r8 quote source/API tests and current both-platform unfiltered browser execution. All83 values preserved; one real-backend UI case plus one controlled escaping/offline case. Parent backend/full run remains failed; no counter-template, financial or release certification. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
+      "notes": "Removed by the 20 November 2026 user decision (W27 UI cleanup): the motivational quote route and card are deleted from the rewrite (backend/parity/w27-ui-report.md). The historical evidence stays for the record. Blocked, not verified: the release gate has no disposition for user-removed legacy surfaces yet; the primary agent/user must record one. Previous note: Fresh scoped proof from actual r8 quote source/API tests and current both-platform unfiltered browser execution. All83 values preserved; one real-backend UI case plus one controlled escaping/offline case. Parent backend/full run remains failed; no counter-template, financial or release certification. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes."
     },
     {
       "kind": "route",
@@ -136,46 +124,24 @@
     {
       "kind": "route",
       "id": "order/urls.py:57",
-      "status": "pending",
-      "implementation": [
-        "frontend/src/app.tsx",
-        "frontend/src/pages/cashier-shortcuts/help.tsx",
-        "frontend/src/pages/cashier-shortcuts/reference.tsx",
-        "frontend/src/pages/cashier-shortcuts/preference.ts",
-        "backend/src/app.ts",
-        "backend/src/auth/routes.ts",
-        "backend/src/auth/identity.ts",
-        "backend/src/auth/sessions.ts"
-      ],
-      "tests": [
-        "frontend/tests/cashier-shortcuts/source-help.test.ts"
-      ],
+      "status": "blocked",
+      "implementation": [],
+      "tests": [],
       "evidence": [
         "backend/evidence/shortcut-help-reviewed-r8.json"
       ],
-      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
+      "notes": "Removed by the 20 November 2026 user decision (W27 UI cleanup): the cashier shortcut reference route and keyboard shortcuts are deleted from the rewrite (backend/parity/w27-ui-report.md). The historical evidence stays for the record. Blocked, not verified: the release gate has no disposition for user-removed legacy surfaces yet; the primary agent/user must record one. Previous note: Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "template",
       "id": "order/templates/order/shortcuts.html",
-      "status": "pending",
-      "implementation": [
-        "frontend/src/app.tsx",
-        "frontend/src/pages/cashier-shortcuts/help.tsx",
-        "frontend/src/pages/cashier-shortcuts/reference.tsx",
-        "frontend/src/pages/cashier-shortcuts/preference.ts",
-        "backend/src/app.ts",
-        "backend/src/auth/routes.ts",
-        "backend/src/auth/identity.ts",
-        "backend/src/auth/sessions.ts"
-      ],
-      "tests": [
-        "frontend/tests/cashier-shortcuts/source-help.test.ts"
-      ],
+      "status": "blocked",
+      "implementation": [],
+      "tests": [],
       "evidence": [
         "backend/evidence/shortcut-help-reviewed-r8.json"
       ],
-      "notes": "Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
+      "notes": "Removed by the 20 November 2026 user decision (W27 UI cleanup): the cashier keyboard shortcuts and their help/reference are deleted from the rewrite (backend/parity/w27-ui-report.md). The historical evidence stays for the record. Blocked, not verified: the release gate has no disposition for user-removed legacy surfaces yet; the primary agent/user must record one. Previous note: Authenticated static shortcut reference and operator preference: ten original source authentication cases, eight counter safety checks, ten native identities/eight access checks including no assignment, trailing slash, isolation, revocation/tamper. Excludes positive financial shortcuts, full counter and provider/release acceptance. Global notification/expiry implementation changed the shared production graph after this execution. Preserve historical evidence and re-execute the affected workflows once implementation closes. W18 (19 Nov 2026): the deleted Python/native harness paths were replaced by the W15 golden test that now carries this comparison (backend/parity/w15-report.md); the historical receipt stays in evidence. Still pending: the receipt predates the single-stack tree."
     },
     {
       "kind": "websocket",

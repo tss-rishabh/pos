@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { z } from 'zod';
-import { X } from 'lucide-react';
 import { request } from '../../api/client';
 import { RequestReference, useProblem } from '../../components/common';
+import { Modal } from '../../components/modal';
+import { Loader } from '../../components/loader';
 import './styles.css';
 
 const settingsSchema = z.object({
@@ -73,8 +74,7 @@ function OperatorMfaDialog({
   onChanged?: (credentialsChanged?: boolean) => Promise<unknown> | void;
   actorId?: string;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    lifecycle = useRef<AbortController | null>(null),
+  const lifecycle = useRef<AbortController | null>(null),
     startId = useRef(crypto.randomUUID()),
     controlId = useRef(crypto.randomUUID());
   const [settings, setSettings] = useState<MfaSettings | null>(null),
@@ -94,8 +94,6 @@ function OperatorMfaDialog({
   useEffect(() => {
     const controller = new AbortController();
     lifecycle.current = controller;
-    const element = dialog.current;
-    element?.showModal();
     void request(
       `${path}/mfa`,
       {
@@ -118,7 +116,6 @@ function OperatorMfaDialog({
     return () => {
       controller.abort();
       lifecycle.current = null;
-      element?.close();
     };
   }, [path]);
   async function run(action: () => Promise<void>) {
@@ -158,29 +155,12 @@ function OperatorMfaDialog({
     }
   }
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog"
-      aria-labelledby="operator-mfa-title"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
+    <Modal
+      title={`Authenticator for ${operatorName}`}
+      closeLabel="Close authenticator"
+      dismissible={!busy}
+      onClose={onClose}
     >
-      <div className="administration-dialog-heading">
-        <div>
-          <div className="eyebrow">ACCOUNT SECURITY</div>
-          <h2 id="operator-mfa-title">Authenticator for {operatorName}</h2>
-        </div>
-        <button
-          className="icon-button"
-          aria-label="Close authenticator"
-          disabled={busy}
-          onClick={onClose}
-        >
-          <X size={19} />
-        </button>
-      </div>
       {error && (
         <div className="error-box" role="alert">
           {error}
@@ -199,6 +179,7 @@ function OperatorMfaDialog({
             <button
               className="button primary"
               disabled={busy}
+              aria-busy={busy}
               onClick={() =>
                 void run(async () => {
                   const value = await request(
@@ -267,7 +248,7 @@ function OperatorMfaDialog({
                   disabled={busy}
                 />
               </label>
-              <div className="administration-dialog-actions">
+              <div className="form-actions">
                 <button
                   type="button"
                   className="button secondary"
@@ -290,7 +271,7 @@ function OperatorMfaDialog({
                 >
                   Cancel setup
                 </button>
-                <button className="button primary" disabled={busy}>
+                <button className="button primary" disabled={busy} aria-busy={busy}>
                   Verify authenticator
                 </button>
               </div>
@@ -395,7 +376,7 @@ function OperatorMfaDialog({
       )}
       {/* One status: once the current action's message is set, it replaces the busy text while
           the follow-up refresh still holds the controls. */}
-      {busy && !message && <p role="status">Loading authenticator settings…</p>}
-    </dialog>
+      {busy && !message && <Loader inline label="Loading authenticator settings…" />}
+    </Modal>
   );
 }

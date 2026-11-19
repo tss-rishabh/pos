@@ -57,7 +57,7 @@ export function DayClosePage({ user, storeId }: { user: Principal; storeId: stri
   });
   return (
     <>
-      <PageTitle eyebrow="COUNTED, CHECKED, ACCOUNTED FOR" title="Day close">
+      <PageTitle title="Day close">
         <button
           className="button secondary"
           disabled={invalidDate || !storeId}

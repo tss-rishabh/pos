@@ -10,7 +10,6 @@ import { StoreSettingsAdministration } from './support';
 import { InventoryImportAdministration } from './imports';
 import './styles.css';
 
-export { OperatorCheckIn } from './check-in';
 export { DocumentationPage } from './support';
 
 const tabs = [
@@ -36,42 +35,52 @@ export function AdministrationPage({
   if (![1, 2, 3].includes(user.role)) return <Empty title="Administration access is required" />;
   return (
     <>
-      <PageTitle eyebrow="STORE CONTROL" title="Administration" />
-      <div className="administration-actions">
-        <Link className="button secondary" to="/application-links">
-          Application QR and downloads
-        </Link>
-      </div>
-      {user.userType === 1 && (
-        <div className="administration-actions">
-          <Link className="button secondary" to="/administration/permission-history">
-            View permission activity
+      <PageTitle title="Administration">
+        <nav className="toolbar administration-links" aria-label="Administration pages">
+          <Link className="button secondary small" to="/application-links">
+            Application QR and downloads
           </Link>
-        </div>
-      )}
-      {user.userType === 1 && user.role === 1 && (
-        <div className="administration-actions">
-          <Link className="button secondary" to="/administration/model-history">
-            View model history
-          </Link>
-        </div>
-      )}
-      {user.userType === 1 && [1, 2].includes(user.role) && (
-        <div className="administration-actions">
-          <Link className="button secondary" to="/administration/gift-card-batches">
-            Gift card batches
-          </Link>
-        </div>
-      )}
-      <div role="tablist" aria-label="Administration sections" className="administration-tabs">
+          {user.userType === 1 && (
+            <Link className="button secondary small" to="/administration/permission-history">
+              View permission activity
+            </Link>
+          )}
+          {user.userType === 1 && user.role === 1 && (
+            <Link className="button secondary small" to="/administration/model-history">
+              View model history
+            </Link>
+          )}
+          {user.userType === 1 && [1, 2].includes(user.role) && (
+            <Link className="button secondary small" to="/administration/gift-card-batches">
+              Gift card batches
+            </Link>
+          )}
+        </nav>
+      </PageTitle>
+      <div
+        role="tablist"
+        aria-label="Administration sections"
+        className="tab-group administration-tabs"
+      >
         {tabs.map((item) => (
           <button
             key={item.id}
             id={`administration-tab-${item.id}`}
+            type="button"
             role="tab"
             aria-selected={item.id === tab}
             aria-controls={`administration-panel-${item.id}`}
+            tabIndex={item.id === tab ? 0 : -1}
             onClick={() => setTab(item.id)}
+            onKeyDown={(event) => {
+              if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+              event.preventDefault();
+              const index = tabs.findIndex((value) => value.id === tab);
+              const next =
+                tabs[(index + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length]!;
+              setTab(next.id);
+              document.getElementById(`administration-tab-${next.id}`)?.focus();
+            }}
           >
             {item.label}
           </button>
@@ -82,12 +91,12 @@ export function AdministrationPage({
         id={`administration-panel-${tab}`}
         aria-labelledby={`administration-tab-${tab}`}
       >
-        {tab === 'stores' && <StoreAdministration user={user} />}{' '}
-        {tab === 'operators' && <OperatorAdministration user={user} />}{' '}
-        {tab === 'salespeople' && <SalespersonAdministration user={user} />}{' '}
+        {tab === 'stores' && <StoreAdministration user={user} />}
+        {tab === 'operators' && <OperatorAdministration user={user} />}
+        {tab === 'salespeople' && <SalespersonAdministration user={user} />}
         {tab === 'resources' && (
           <StoreResourceAdministration key={storeId} user={user} storeId={storeId} />
-        )}{' '}
+        )}
         {tab === 'settings' && (
           <StoreSettingsAdministration key={storeId} user={user} storeId={storeId} />
         )}

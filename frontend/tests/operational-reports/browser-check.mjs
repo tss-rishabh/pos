@@ -155,8 +155,10 @@ try {
       });
     if (path === '/api/v1/auth/sessions/current')
       return json({ user, sessionExpiresAt: Date.now() + 3600000 });
-    if (path === '/api/v1/auth/capabilities')
-      return json({ password: true });
+    if (path === '/api/v1/auth/capabilities') return json({ password: true });
+    // The workspace header's check-in control (W27) reads the operator's check-in; not checked
+    // in, so no store notification feed or stream is requested.
+    if (path === '/api/v1/operators/me/check-in') return json({ data: null });
     if (path === '/api/v1/stores') return json({ data: [store] });
     if (path === '/api/v1/stores/1/counters')
       return json({ data: [{ id: '1', storeId: '1', name: 'Fixture counter' }] });
@@ -246,7 +248,10 @@ try {
   });
   await page.goto(new URL('/reports/exports', base).href);
   await expect(page.getByRole('heading', { name: /^Report exports/ })).toBeVisible();
-  await page.getByRole('listbox', { name: /^Stores/ }).selectOption('1');
+  // W27 searchable store multi-select: the workspace store is preselected.
+  await expect(
+    page.getByRole('button', { name: 'Stores', exact: true }),
+  ).toHaveAccessibleDescription('Fixture Store');
   await page
     .getByRole('textbox', { name: 'Report name', exact: true })
     .fill('Fixture queued export');

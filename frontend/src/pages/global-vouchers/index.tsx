@@ -173,9 +173,10 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
     return <p role="alert">Gift voucher issuance requires an internal administrator.</p>;
   return (
     <div className="global-vouchers">
-      <PageTitle eyebrow="Administration" title="Gift vouchers">
-        <p>Issue a non-expiring gift voucher to a customer by email.</p>
-      </PageTitle>
+      <PageTitle
+        title="Gift vouchers"
+        subtitle="Issue a non-expiring gift voucher to a customer by email."
+      />
       {!online && <p role="status">Connect to issue a voucher or check its original outcome.</p>}
       {problem && (
         <p className="inline-error" role="alert">
@@ -199,6 +200,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
             <button
               className="button secondary"
               disabled={!online || busy}
+              aria-busy={busy}
               onClick={() => void recover()}
             >
               Check voucher status
@@ -207,6 +209,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
               <button
                 className="button primary"
                 disabled={!online || busy || !capabilities?.enabled}
+                aria-busy={busy}
                 onClick={() => void send(intent)}
               >
                 Retry original issuance
@@ -225,6 +228,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
               <button
                 className="button primary"
                 disabled={busy}
+                aria-busy={busy}
                 onClick={() => {
                   journal.current.clear();
                   setIntent(null);
@@ -262,6 +266,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
               className="button secondary"
               type="submit"
               disabled={busy || !online || !capabilities?.enabled || review}
+              aria-busy={busy && !selection}
             >
               Find customer
             </button>
@@ -299,6 +304,7 @@ function VoucherIssuer({ user, online }: { user: Principal; online: boolean }) {
                     <button
                       className="button primary"
                       disabled={!online || busy || !capabilities?.enabled}
+                      aria-busy={busy}
                       onClick={() => void send()}
                     >
                       Confirm voucher issuance

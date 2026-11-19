@@ -1,10 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { X } from 'lucide-react';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
 import { ErrorState, Loading } from '../../components/common';
+import { Modal } from '../../components/modal';
 import { PrivateImages } from '../../components/private-images';
 import { useOnline } from '../../hooks/use-pos';
 
@@ -289,7 +289,7 @@ function AdministrativeProfileForm({
           status revokes this operator’s existing authentication.
         </p>
         {profile.canEdit && (
-          <button className="button primary" disabled={busy || !online}>
+          <button className="button primary" disabled={busy || !online} aria-busy={busy}>
             {busy ? 'Saving…' : 'Save administrative profile'}
           </button>
         )}
@@ -413,8 +413,7 @@ function OperatorAdministrativeDialog({
   operatorName: string;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    client = useQueryClient(),
+  const client = useQueryClient(),
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(''),
     online = useOnline();
@@ -429,11 +428,6 @@ function OperatorAdministrativeDialog({
       ),
     retry: false,
   });
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
   const refresh = async (notice: string) => {
     setMessage(notice);
     await view.refetch({ throwOnError: true });
@@ -442,26 +436,13 @@ function OperatorAdministrativeDialog({
     });
   };
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog"
-      aria-label={`Administrative profile for ${operatorName}`}
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
+    <Modal
+      title={`Administrative profile for ${operatorName}`}
+      size="lg"
+      closeLabel="Close administrative profile"
+      dismissible={!busy}
+      onClose={onClose}
     >
-      <div className="administration-dialog-heading">
-        <h2>Administrative profile for {operatorName}</h2>
-        <button
-          className="icon-button"
-          aria-label="Close administrative profile"
-          disabled={busy}
-          onClick={onClose}
-        >
-          <X size={19} />
-        </button>
-      </div>
       {message && <p role="status">{message}</p>}
       {!online && <p>Reconnect before changing this operator.</p>}
       {view.isPending ? (
@@ -528,7 +509,7 @@ function OperatorAdministrativeDialog({
           />
         </>
       )}
-    </dialog>
+    </Modal>
   );
 }
 export function OperatorAdministrativeButton({

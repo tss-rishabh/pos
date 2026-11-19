@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import { commonStoreSchema } from './api';
 import { Loading, ErrorState, RequestReference, useProblem } from '../../components/common';
+import { Modal } from '../../components/modal';
 
 export function AssignmentEditor({
   ownerId,
@@ -20,7 +21,7 @@ export function AssignmentEditor({
   onSave: (ids: string[], activeStoreId: string | null) => Promise<void>;
   onClose: () => void;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
+  const formId = useId(),
     [selected, setSelected] = useState(new Set(initialIds)),
     [active, setActive] = useState(initialActiveStoreId || ''),
     [busy, setBusy] = useState(false),
@@ -29,32 +30,36 @@ export function AssignmentEditor({
     queryKey: [ownerId, 'administration', 'assignable-stores'],
     queryFn: () => request('/api/v1/stores', {}, z.object({ data: z.array(commonStoreSchema) })),
   });
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
+    <Modal
+      title={title}
+      description="Only stores you can manage are shown. Existing assignments outside your scope remain unchanged."
+      dismissible={!busy}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form={formId}
+            className="button primary"
+            disabled={busy || !stores.isSuccess}
+            aria-busy={busy}
+          >
+            {busy ? 'Saving…' : 'Save store access'}
+          </button>
+        </>
+      }
     >
-      <div className="eyebrow">STORE ACCESS</div>
-      <h2>{title}</h2>
-      <p className="administration-notice">
-        Only stores you can manage are shown. Existing assignments outside your scope remain
-        unchanged.
-      </p>
       {stores.isPending ? (
-        <Loading />
+        <Loading label="Loading stores…" />
       ) : stores.isError ? (
         <ErrorState error={stores.error} />
       ) : (
         <form
+          id={formId}
           onSubmit={(event) => {
             event.preventDefault();
             setBusy(true);
@@ -87,8 +92,8 @@ export function AssignmentEditor({
             ))}
           </div>
           {initialActiveStoreId !== undefined && (
-            <label className="administration-notice">
-              Active store{' '}
+            <label className="administration-active-store">
+              Active store
               <select
                 aria-label="Active salesperson store"
                 value={active}
@@ -111,16 +116,8 @@ export function AssignmentEditor({
               <RequestReference error={errorCause} />
             </div>
           )}
-          <div className="administration-dialog-actions">
-            <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
-              Cancel
-            </button>
-            <button className="button primary" disabled={busy}>
-              {busy ? 'Saving…' : 'Save store access'}
-            </button>
-          </div>
         </form>
       )}
-    </dialog>
+    </Modal>
   );
 }

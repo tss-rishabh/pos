@@ -56,7 +56,7 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
   if (!link)
     return (
       <>
-        <PageTitle eyebrow="ORDER DETAILS" title="Order details" />
+        <PageTitle title="Order details" />
         <p role="alert">This order link is invalid. Open the order from search.</p>
         <NavLink to="/orders">Open orders</NavLink>
       </>
@@ -64,7 +64,7 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
   if (!bound)
     return (
       <>
-        <PageTitle eyebrow="ORDER DETAILS" title="Order details" />
+        <PageTitle title="Order details" />
         <p role="alert">
           This order link belongs to a different operator or store. Select its workspace or open the
           order from your search.
@@ -77,8 +77,8 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
   return (
     <>
       <PageTitle
-        eyebrow={`${types[link.type].toUpperCase()} ORDER`}
         title={value?.fact.reference || `Order ${link.orderId}`}
+        subtitle={`${types[link.type]} order`}
       >
         <NavLink className="button secondary" to="/orders">
           Order search
@@ -86,6 +86,7 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
         <button
           className="button secondary"
           disabled={!online || detail.isFetching}
+          aria-busy={detail.isFetching}
           onClick={() => void detail.refetch()}
         >
           Refresh details
@@ -101,7 +102,11 @@ export function OnlineOrderDetailPage({ user, storeId }: { user: Principal; stor
       )}
       {!value &&
         !detail.isError &&
-        (online ? <Loading /> : <p role="status">Reconnect to load these order details.</p>)}
+        (online ? (
+          <Loading label="Loading order details…" />
+        ) : (
+          <p role="status">Reconnect to load these order details.</p>
+        ))}
       {value && <OnlineOrderDetailContent user={user} value={value} online={online} />}
     </>
   );

@@ -5,7 +5,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { ErrorState, Loading } from '../../components/common';
+import { ErrorState } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
 import { StoreForm } from './store-form';
 import {
   mutateAdministration,
@@ -94,7 +95,7 @@ export function StoreAdministration({ user }: { user: Principal }) {
       {error !== null && <ErrorState error={error} />}
       <section className="surface">
         {collection.isPending ? (
-          <Loading />
+          <SkeletonTable />
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (

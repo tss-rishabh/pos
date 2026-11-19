@@ -1,11 +1,13 @@
 import { z } from 'zod';
 import { useCallback, useEffect, useRef, useState, type SyntheticEvent } from 'react';
-import { X, Check, RefreshCw } from 'lucide-react';
+import { Check, RefreshCw } from 'lucide-react';
 import type { LocalDraft } from '../../offline/database';
 import type { Principal } from '../../api/types';
 import { currency } from '../../lib/format';
 import { ApiError, NetworkError } from '../../api/client';
 import { RequestReference, useProblem } from '../../components/common';
+import { Modal } from '../../components/modal';
+import { Loader, SkeletonText } from '../../components/loader';
 import {
   authoritativeTotal,
   assertCheckoutDraft,
@@ -43,8 +45,7 @@ import { GlobalVoucherConversion } from '../global-vouchers/conversion';
 import './CheckoutReview.css';
 import type { CheckoutClearance } from '../../api/checkout-clearance';
 import { bindReviewedCheckout } from '../../offline/review-snapshot';
-import { invokeCashierShortcut, type CashierShortcutRequest } from '../cashier-shortcuts/shortcuts';
-import { displayedMembershipBenefits } from '../cashier-shortcuts/membership';
+import { displayedMembershipBenefits } from './membership';
 import { CustomerWebsiteHandoffAction } from '../customer-website-handoff';
 import { OrderCopyPanel } from '../order-copy';
 import { checkoutOperationReference } from './operation-reference';
@@ -61,7 +62,6 @@ export interface CheckoutReviewProps {
   onPaymentConfirmed?: (receipt: ConfirmedPayment) => void;
   onCheckoutCleared?: (clearance: CheckoutClearance) => void | Promise<void>;
   recoveryNotice?: string;
-  shortcutRequest?: CashierShortcutRequest;
 }
 export function CheckoutReview({
   user,
@@ -72,10 +72,8 @@ export function CheckoutReview({
   onPaymentConfirmed,
   onCheckoutCleared,
   recoveryNotice,
-  shortcutRequest,
 }: CheckoutReviewProps) {
-  const shortcutRoot = useRef<HTMLElement>(null),
-    shortcutIntent = useRef({ id: '', consumed: false, loaded: false });
+  const dialogRoot = useRef<HTMLElement>(null);
   const [openSections, setOpenSections] = useState({ messages: false, membership: false });
   function sectionProps(name: 'messages' | 'membership') {
     return {
@@ -91,7 +89,7 @@ export function CheckoutReview({
   }
   function rememberOpenSections() {
     const snapshot = [
-      ...(shortcutRoot.current?.querySelectorAll<HTMLDetailsElement>(
+      ...(dialogRoot.current?.querySelectorAll<HTMLDetailsElement>(
         'details[data-checkout-section]',
       ) ?? []),
     ].map((element) => ({ name: element.dataset.checkoutSection, open: element.open }));
@@ -107,6 +105,7 @@ export function CheckoutReview({
   }
   const [checkout, setCheckout] = useState<Checkout | null>(null),
     [busy, setBusy] = useState(false),
+    [quoting, setQuoting] = useState(false),
     [problem, setProblem, problemCause, reportProblem] = useProblem(),
     [notice, setNotice] = useState(''),
     [pendingId, setPendingId] = useState<string | null>(null),
@@ -494,94 +493,35 @@ export function CheckoutReview({
       copyOwned ||
       !online ||
       Boolean(recoveryError),
+    // `disabled` without the transient busy flag: an action in flight keeps the breakdown
+    // in place instead of hiding and re-showing it.
+    blocked =
+      profilePending ||
+      contactPending ||
+      conversionPending ||
+      copyPending ||
+      copyOwned ||
+      !online ||
+      Boolean(recoveryError),
     total = checkout ? authoritativeTotal(checkout) : null,
     memberBenefits = displayedMembershipBenefits(checkout?.cart);
-  useEffect(() => {
-    const request = shortcutRequest,
-      root = shortcutRoot.current;
-    if (!request || !root) return;
-    if (shortcutIntent.current.id !== request.id)
-      shortcutIntent.current = { id: request.id, consumed: false, loaded: false };
-    const intent = shortcutIntent.current;
-    if (intent.consumed) return;
-    if (
-      Date.now() - request.requestedAt > 10000 ||
-      recoveryError ||
-      checkout?.phase === 'submitted' ||
-      checkout?.phase === 'cleared'
-    ) {
-      intent.consumed = true;
-      return;
-    }
-    if (disabled || pendingId || checkout?.busyOperationId || checkout?.phase === 'uncertain')
-      return;
-    if (!checkout && recoveryFor(draft.ownerId, draft.id)) return;
-    if (invokeCashierShortcut(root, request.action)) {
-      intent.consumed = true;
-      return;
-    }
-    // Only pricing/loading steps may continue automatically. No shortcut clicks
-    // a payment, cash completion, refund, or saved financial-operation retry.
-    if (!checkout && !intent.loaded && !recoveryFor(draft.ownerId, draft.id)) {
-      intent.loaded = true;
-      invokeCashierShortcut(root, 'quote');
-    } else if (checkout?.phase === 'quoted') intent.consumed = true;
-  }, [
-    shortcutRequest,
-    checkout,
-    disabled,
-    pendingId,
-    editable,
-    recoveryError,
-    approvalState,
-    draft.ownerId,
-    draft.id,
-  ]);
-  useEffect(() => {
-    const request = shortcutRequest,
-      root = shortcutRoot.current;
-    if (!request || !root || request.action !== 'salesperson' || disabled || pendingId) return;
-    const focus = () => {
-      if (
-        !shortcutIntent.current.consumed &&
-        shortcutIntent.current.id === request.id &&
-        Date.now() - request.requestedAt <= 10000 &&
-        invokeCashierShortcut(root, request.action)
-      )
-        shortcutIntent.current.consumed = true;
-    };
-    const observer = new MutationObserver(focus);
-    observer.observe(root, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-      attributeFilter: ['disabled'],
-    });
-    const timeout = setTimeout(
-      () => observer.disconnect(),
-      Math.max(0, 10000 - (Date.now() - request.requestedAt)),
-    );
-    return () => {
-      observer.disconnect();
-      clearTimeout(timeout);
-    };
-  }, [shortcutRequest, disabled, pendingId]);
+  const restoring =
+    !checkout &&
+    online &&
+    !recoveryError &&
+    !problem &&
+    Boolean(recoveryFor(draft.ownerId, draft.id));
   return (
-    <div className="modal-backdrop">
-      <section
-        ref={shortcutRoot}
-        onClickCapture={rememberOpenSections}
-        data-cashier-shortcuts="review"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="checkout-title"
-        className="modal checkout-dialog"
-      >
-        <button className="icon-button modal-close" aria-label="Close checkout" onClick={onClose}>
-          <X size={20} />
-        </button>
-        <div className="eyebrow">SALE REVIEW</div>
-        <h2 id="checkout-title">Confirm the sale</h2>
+    <Modal
+      size="lg"
+      title="Confirm the sale"
+      closeLabel="Close checkout"
+      onClose={onClose}
+      dialogRef={dialogRoot}
+      onClickCapture={rememberOpenSections}
+      className="checkout-dialog"
+    >
+      <div className="checkout-status">
         {recoveryNotice && (
           <p role="status" className="caption">
             {recoveryNotice}
@@ -609,35 +549,6 @@ export function CheckoutReview({
             {notice}
           </p>
         )}
-        {checkout && (
-          <button
-            className="button secondary"
-            data-cashier-action="refresh"
-            aria-keyshortcuts="R"
-            disabled={disabled}
-            onClick={() =>
-              void act(async () => {
-                const state = current.current;
-                if (!state) return;
-                const latest = await readCheckout(draft.storeId, state.id, draft.ownerId);
-                await adopt(latest);
-                store(latest, latest.busyOperationId || pendingId);
-              })
-            }
-          >
-            Refresh sale
-          </button>
-        )}
-        {!checkout && (
-          <button
-            data-cashier-action={recoveryFor(draft.ownerId, draft.id) ? undefined : 'proceed quote'}
-            className="button primary full"
-            disabled={disabled}
-            onClick={() => void act(start)}
-          >
-            {busy ? 'Confirming…' : 'Confirm prices online'}
-          </button>
-        )}
         {pendingId && (
           <div>
             <p>The last action is awaiting confirmation. Reference {pendingId}.</p>
@@ -656,7 +567,6 @@ export function CheckoutReview({
             <div>
               <p>Every saved line must be confirmed before this sale can be quoted.</p>
               <button
-                data-cashier-action="proceed quote"
                 className="button primary full"
                 disabled={disabled}
                 onClick={() => void act(start)}
@@ -762,614 +672,543 @@ export function CheckoutReview({
             )}
           </div>
         )}
-        {checkout && (
-          <>
-            <p>
+      </div>
+      {restoring && <Loader inline label="Restoring the saved checkout…" />}
+      {!checkout && (
+        <button
+          className="button primary full"
+          disabled={disabled}
+          aria-busy={busy}
+          onClick={() => void act(start)}
+        >
+          {busy ? 'Confirming…' : 'Confirm prices online'}
+        </button>
+      )}
+      {checkout && (
+        <>
+          <div className="checkout-summary">
+            <p className="checkout-summary-text">
               {checkout.customerId ? `Customer ${checkout.customerId}` : 'Walk-in customer'} ·{' '}
               {checkout.phase === 'submitted'
                 ? 'Order created'
                 : `${checkout.cart?.products.items.length || 0} product lines`}
             </p>
-            {checkout.customerId && (
-              <CustomerProfileCard
-                key={`profile:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
-                operatorId={draft.ownerId}
-                storeId={draft.storeId}
-                checkoutId={checkout.id}
-                customerId={checkout.customerId}
-                checkoutVersion={checkout.version}
-                online={online}
-                disabled={
-                  busy ||
-                  contactPending ||
-                  conversionPending ||
-                  copyPending ||
-                  copyOwned ||
-                  !online ||
-                  Boolean(recoveryError)
-                }
-                actions={{
-                  act,
-                  onPending: setProfilePending,
-                  onSaved: async () => {
-                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
-                    await adopt(latest);
-                    setProfilePending(false);
-                    setNotice(
-                      'Customer details saved. Recalculate the quote before completing this sale.',
-                    );
-                  },
-                }}
-              />
-            )}
-            {checkout.customerId && (
-              <CustomerContactPanel
-                key={`contact:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
-                scope={{
-                  operatorId: draft.ownerId,
-                  storeId: draft.storeId,
-                  checkoutId: checkout.id,
-                  customerId: checkout.customerId,
-                }}
-                checkoutVersion={checkout.version}
-                online={online}
-                disabled={
-                  busy ||
-                  profilePending ||
-                  conversionPending ||
-                  copyPending ||
-                  copyOwned ||
-                  !online ||
-                  Boolean(recoveryError)
-                }
-                actions={{
-                  act,
-                  onPending: setContactPending,
-                  onSaved: async () => {
-                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
-                    await adopt(latest);
-                    setContactPending(false);
-                    setNotice(
-                      'Customer contact saved. Recalculate the quote and verify benefits again before completing this sale.',
-                    );
-                  },
-                }}
-              />
-            )}
-            {checkout.customerId && (
-              <OrderCopyPanel
-                scope={{
-                  operatorId: draft.ownerId,
-                  storeId: draft.storeId,
-                  checkoutId: checkout.id,
-                  customerId: checkout.customerId,
-                }}
-                checkoutVersion={checkout.version}
-                online={online}
-                disabled={
-                  busy ||
-                  profilePending ||
-                  contactPending ||
-                  conversionPending ||
-                  !online ||
-                  Boolean(recoveryError) ||
-                  Boolean(pendingId) ||
-                  Boolean(checkout.orderId) ||
-                  checkout.draftImport?.status !== 'complete' ||
-                  (!['open', 'quoted'].includes(checkout.phase) && !copyOwned) ||
-                  Boolean(
-                    checkout.busyOperationId &&
-                    checkout.busyOperationId !== checkout.orderCopy?.commandId,
-                  )
-                }
-                beforeDispatch={async () => {
-                  const latest = current.current;
-                  if (
-                    !latest ||
-                    latest.id !== checkout.id ||
-                    latest.customerId !== checkout.customerId
-                  )
-                    throw new Error(
-                      'The checkout customer changed. Refresh its original reference.',
-                    );
-                  // Recheck actual local cash evidence and the immutable draft
-                  // binding immediately before a copy POST. The binding also
-                  // serializes stale-tab cash completion through IndexedDB.
-                  await bindReviewedCheckout(draft, latest.id);
-                }}
-                onPending={onCopyPending}
-                onSaved={async () => {
-                  const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
-                  await adopt(latest);
-                  store(latest, latest.busyOperationId);
-                  setNotice(
-                    'Review the copied cart and get a fresh quote before completing this sale.',
-                  );
-                }}
-                onUnsentCancelled={async (proof) => {
-                  const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
-                  if (
-                    latest.id !== proof.checkoutId ||
-                    latest.orderCopy?.status !== 'cancelled-unsent' ||
-                    latest.orderCopy.commandId !== proof.id ||
-                    latest.orderCopy.reviewId !== proof.reviewId ||
-                    latest.orderCopy.cancellationId !== proof.cancellationId
-                  )
-                    throw new Error(
-                      'The checkout does not confirm this cancellation. Keep its reference and refresh.',
-                    );
-                  await adopt(latest);
-                  store(
-                    latest,
-                    latest.busyOperationId ||
-                      recoveryFor(draft.ownerId, draft.id)?.pendingOperationId ||
-                      null,
-                  );
-                  setNotice(
-                    'The copy was stopped before dispatch. Clear this checkout online before starting a new sale.',
-                  );
-                }}
-              />
-            )}
-            {checkout.orderCopy?.status === 'cancelled-unsent' && (
-              <div>
-                <p role="status">
-                  The unsent copy is cancelled. Your saved draft and cash records are retained until
-                  this checkout is explicitly cleared.
-                </p>
-                <button
-                  className="button secondary full"
-                  disabled={busy || !canClearCancelledCopy(checkout)}
-                  onClick={() =>
-                    void act(async () => {
-                      if (pendingId) {
-                        await recover(false);
-                        return;
-                      }
-                      const state = current.current;
-                      if (!state) return;
-                      await bindReviewedCheckout(draft, state.id);
-                      await mutate('clear', 'POST');
-                    }, 'cancelled-copy-clear')
-                  }
-                >
-                  {pendingId ? 'Check clear status' : 'Clear cancelled copy and start a new sale'}
-                </button>
-              </div>
-            )}
-            {checkout.customerId && (
-              <CustomerWebsiteHandoffAction
-                key={`website:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
-                user={user}
-                storeId={draft.storeId}
-                checkoutId={checkout.id}
-                checkoutVersion={checkout.version}
-                online={online}
-                disabled={
-                  disabled ||
-                  busy ||
-                  profilePending ||
-                  contactPending ||
-                  conversionPending ||
-                  Boolean(recoveryError)
-                }
-                onOpen={(url) => {
-                  window.open(url, '_blank', 'noopener,noreferrer');
-                }}
-              />
-            )}
-            {checkout.customerId && (
-              <GlobalVoucherConversion
-                key={`voucher-conversion:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
-                user={{ id: draft.ownerId }}
-                state={checkout}
-                online={online}
-                disabled={
-                  busy ||
-                  profilePending ||
-                  contactPending ||
-                  copyPending ||
-                  copyOwned ||
-                  !online ||
-                  Boolean(recoveryError)
-                }
-                onPending={setConversionPending}
-                onSaved={async () => {
-                  const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
-                  await adopt(latest);
-                  setConversionPending(false);
-                  setNotice(
-                    'Gift voucher conversion confirmed. Recalculate the quote before completing this sale.',
-                  );
-                }}
-              />
-            )}
-            <MembershipEmailPrompt
-              checkout={checkout}
-              operatorId={draft.ownerId}
-              disabled={disabled}
-              onNotice={setNotice}
-              onSaved={async () => {
-                await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
-              }}
-            />
-            {checkout.customerId && (
-              <BirthdayPrompt
-                key={`birthday:${checkout.id}:${checkout.customerId}`}
-                scope={{
-                  operatorId: draft.ownerId,
-                  storeId: draft.storeId,
-                  checkoutId: checkout.id,
-                  customerId: checkout.customerId,
-                }}
-                checkoutVersion={checkout.version}
+            {checkout && (
+              <button
+                className="button secondary small"
                 disabled={disabled}
-                onSaved={async () => {
-                  await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
-                }}
-              />
-            )}
-            {checkout.customerId && (
-              <CustomerInsights
-                initiallyOpen
-                key={`insights:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
-                scope={{
-                  operatorId: draft.ownerId,
-                  storeId: draft.storeId,
-                  checkoutId: checkout.id,
-                  customerId: checkout.customerId,
-                }}
-                checkoutVersion={checkout.version}
-                online={online}
-                disabled={disabled}
-              />
-            )}
-            {checkout.customerId && (
-              <CustomerBenefitsCard
-                key={`benefits:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
-                scope={{
-                  operatorId: draft.ownerId,
-                  storeId: draft.storeId,
-                  checkoutId: checkout.id,
-                  customerId: checkout.customerId,
-                }}
-                checkoutVersion={checkout.version}
-                online={online}
-                disabled={disabled || Boolean(pendingId) || Boolean(checkout.busyOperationId)}
-              />
-            )}
-            {checkout.customerId && (
-              <CustomerHistoryCard
-                key={`history:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
-                scope={{
-                  operatorId: draft.ownerId,
-                  storeId: draft.storeId,
-                  checkoutId: checkout.id,
-                  customerId: checkout.customerId,
-                }}
-                checkoutVersion={checkout.version}
-                online={online}
-                disabled={disabled || Boolean(pendingId) || Boolean(checkout.busyOperationId)}
-                orderDetailsPath={(orderId) => '/orders?orderId=' + encodeURIComponent(orderId)}
-                feedbackPath={(orderId) =>
-                  productFeedbackPath({
-                    storeId: draft.storeId,
-                    checkoutId: checkout.id,
-                    customerId: checkout.customerId!,
-                    orderId,
+                onClick={() =>
+                  void act(async () => {
+                    const state = current.current;
+                    if (!state) return;
+                    const latest = await readCheckout(draft.storeId, state.id, draft.ownerId);
+                    await adopt(latest);
+                    store(latest, latest.busyOperationId || pendingId);
                   })
                 }
-              />
+              >
+                Refresh sale
+              </button>
             )}
-            {checkout.draftImport?.status === 'complete' && checkout.phase !== 'cleared' && (
-              <SalespersonAssignments
+          </div>
+          <CheckoutCartLines
+            checkout={checkout}
+            disabled={disabled || !editable}
+            act={act}
+            mutate={mutate}
+          />
+          {checkout.draftImport?.status === 'complete' && checkout.phase !== 'cleared' && (
+            <SalespersonAssignments
+              checkout={checkout}
+              operatorId={draft.ownerId}
+              disabled={disabled || !editable}
+              act={act}
+              mutate={mutate}
+            />
+          )}
+          {checkout.customerId && (
+            <section className="checkout-section" aria-labelledby="checkout-customer-title">
+              <h3 id="checkout-customer-title">Customer</h3>
+              <div className="checkout-customer-tools">
+                {checkout.customerId && (
+                  <CustomerProfileCard
+                    key={`profile:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
+                    operatorId={draft.ownerId}
+                    storeId={draft.storeId}
+                    checkoutId={checkout.id}
+                    customerId={checkout.customerId}
+                    checkoutVersion={checkout.version}
+                    online={online}
+                    disabled={
+                      busy ||
+                      contactPending ||
+                      conversionPending ||
+                      copyPending ||
+                      copyOwned ||
+                      !online ||
+                      Boolean(recoveryError)
+                    }
+                    actions={{
+                      act,
+                      onPending: setProfilePending,
+                      onSaved: async () => {
+                        const latest = await readCheckout(
+                          draft.storeId,
+                          checkout.id,
+                          draft.ownerId,
+                        );
+                        await adopt(latest);
+                        setProfilePending(false);
+                        setNotice(
+                          'Customer details saved. Recalculate the quote before completing this sale.',
+                        );
+                      },
+                    }}
+                  />
+                )}
+                {checkout.customerId && (
+                  <CustomerInsights
+                    initiallyOpen
+                    key={`insights:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
+                    scope={{
+                      operatorId: draft.ownerId,
+                      storeId: draft.storeId,
+                      checkoutId: checkout.id,
+                      customerId: checkout.customerId,
+                    }}
+                    checkoutVersion={checkout.version}
+                    online={online}
+                    disabled={disabled}
+                  />
+                )}
+                {checkout.customerId && (
+                  <CustomerBenefitsCard
+                    key={`benefits:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
+                    scope={{
+                      operatorId: draft.ownerId,
+                      storeId: draft.storeId,
+                      checkoutId: checkout.id,
+                      customerId: checkout.customerId,
+                    }}
+                    checkoutVersion={checkout.version}
+                    online={online}
+                    disabled={disabled || Boolean(pendingId) || Boolean(checkout.busyOperationId)}
+                  />
+                )}
+                {checkout.customerId && (
+                  <CustomerHistoryCard
+                    key={`history:${draft.ownerId}:${checkout.id}:${checkout.customerId}:${checkout.version}`}
+                    scope={{
+                      operatorId: draft.ownerId,
+                      storeId: draft.storeId,
+                      checkoutId: checkout.id,
+                      customerId: checkout.customerId,
+                    }}
+                    checkoutVersion={checkout.version}
+                    online={online}
+                    disabled={disabled || Boolean(pendingId) || Boolean(checkout.busyOperationId)}
+                    orderDetailsPath={(orderId) => '/orders?orderId=' + encodeURIComponent(orderId)}
+                    feedbackPath={(orderId) =>
+                      productFeedbackPath({
+                        storeId: draft.storeId,
+                        checkoutId: checkout.id,
+                        customerId: checkout.customerId!,
+                        orderId,
+                      })
+                    }
+                  />
+                )}
+              </div>
+              {checkout.customerId && (
+                <CustomerContactPanel
+                  key={`contact:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
+                  scope={{
+                    operatorId: draft.ownerId,
+                    storeId: draft.storeId,
+                    checkoutId: checkout.id,
+                    customerId: checkout.customerId,
+                  }}
+                  checkoutVersion={checkout.version}
+                  online={online}
+                  disabled={
+                    busy ||
+                    profilePending ||
+                    conversionPending ||
+                    copyPending ||
+                    copyOwned ||
+                    !online ||
+                    Boolean(recoveryError)
+                  }
+                  actions={{
+                    act,
+                    onPending: setContactPending,
+                    onSaved: async () => {
+                      const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                      await adopt(latest);
+                      setContactPending(false);
+                      setNotice(
+                        'Customer contact saved. Recalculate the quote and verify benefits again before completing this sale.',
+                      );
+                    },
+                  }}
+                />
+              )}
+              {checkout.customerId && (
+                <OrderCopyPanel
+                  scope={{
+                    operatorId: draft.ownerId,
+                    storeId: draft.storeId,
+                    checkoutId: checkout.id,
+                    customerId: checkout.customerId,
+                  }}
+                  checkoutVersion={checkout.version}
+                  online={online}
+                  disabled={
+                    busy ||
+                    profilePending ||
+                    contactPending ||
+                    conversionPending ||
+                    !online ||
+                    Boolean(recoveryError) ||
+                    Boolean(pendingId) ||
+                    Boolean(checkout.orderId) ||
+                    checkout.draftImport?.status !== 'complete' ||
+                    (!['open', 'quoted'].includes(checkout.phase) && !copyOwned) ||
+                    Boolean(
+                      checkout.busyOperationId &&
+                      checkout.busyOperationId !== checkout.orderCopy?.commandId,
+                    )
+                  }
+                  beforeDispatch={async () => {
+                    const latest = current.current;
+                    if (
+                      !latest ||
+                      latest.id !== checkout.id ||
+                      latest.customerId !== checkout.customerId
+                    )
+                      throw new Error(
+                        'The checkout customer changed. Refresh its original reference.',
+                      );
+                    // Recheck actual local cash evidence and the immutable draft
+                    // binding immediately before a copy POST. The binding also
+                    // serializes stale-tab cash completion through IndexedDB.
+                    await bindReviewedCheckout(draft, latest.id);
+                  }}
+                  onPending={onCopyPending}
+                  onSaved={async () => {
+                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                    await adopt(latest);
+                    store(latest, latest.busyOperationId);
+                    setNotice(
+                      'Review the copied cart and get a fresh quote before completing this sale.',
+                    );
+                  }}
+                  onUnsentCancelled={async (proof) => {
+                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                    if (
+                      latest.id !== proof.checkoutId ||
+                      latest.orderCopy?.status !== 'cancelled-unsent' ||
+                      latest.orderCopy.commandId !== proof.id ||
+                      latest.orderCopy.reviewId !== proof.reviewId ||
+                      latest.orderCopy.cancellationId !== proof.cancellationId
+                    )
+                      throw new Error(
+                        'The checkout does not confirm this cancellation. Keep its reference and refresh.',
+                      );
+                    await adopt(latest);
+                    store(
+                      latest,
+                      latest.busyOperationId ||
+                        recoveryFor(draft.ownerId, draft.id)?.pendingOperationId ||
+                        null,
+                    );
+                    setNotice(
+                      'The copy was stopped before dispatch. Clear this checkout online before starting a new sale.',
+                    );
+                  }}
+                />
+              )}
+              {checkout.customerId && (
+                <CustomerWebsiteHandoffAction
+                  key={`website:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
+                  user={user}
+                  storeId={draft.storeId}
+                  checkoutId={checkout.id}
+                  checkoutVersion={checkout.version}
+                  online={online}
+                  disabled={
+                    disabled ||
+                    busy ||
+                    profilePending ||
+                    contactPending ||
+                    conversionPending ||
+                    Boolean(recoveryError)
+                  }
+                  onOpen={(url) => {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                  }}
+                />
+              )}
+              {checkout.customerId && (
+                <GlobalVoucherConversion
+                  key={`voucher-conversion:${draft.ownerId}:${checkout.id}:${checkout.customerId}`}
+                  user={{ id: draft.ownerId }}
+                  state={checkout}
+                  online={online}
+                  disabled={
+                    busy ||
+                    profilePending ||
+                    contactPending ||
+                    copyPending ||
+                    copyOwned ||
+                    !online ||
+                    Boolean(recoveryError)
+                  }
+                  onPending={setConversionPending}
+                  onSaved={async () => {
+                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                    await adopt(latest);
+                    setConversionPending(false);
+                    setNotice(
+                      'Gift voucher conversion confirmed. Recalculate the quote before completing this sale.',
+                    );
+                  }}
+                />
+              )}
+              {checkout.customerId && (
+                <BirthdayPrompt
+                  key={`birthday:${checkout.id}:${checkout.customerId}`}
+                  scope={{
+                    operatorId: draft.ownerId,
+                    storeId: draft.storeId,
+                    checkoutId: checkout.id,
+                    customerId: checkout.customerId,
+                  }}
+                  checkoutVersion={checkout.version}
+                  disabled={disabled}
+                  onSaved={async () => {
+                    await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+                  }}
+                />
+              )}
+            </section>
+          )}
+          {checkout.orderCopy?.status === 'cancelled-unsent' && (
+            <div>
+              <p role="status">
+                The unsent copy is cancelled. Your saved draft and cash records are retained until
+                this checkout is explicitly cleared.
+              </p>
+              <button
+                className="button secondary full"
+                disabled={busy || !canClearCancelledCopy(checkout)}
+                onClick={() =>
+                  void act(async () => {
+                    if (pendingId) {
+                      await recover(false);
+                      return;
+                    }
+                    const state = current.current;
+                    if (!state) return;
+                    await bindReviewedCheckout(draft, state.id);
+                    await mutate('clear', 'POST');
+                  }, 'cancelled-copy-clear')
+                }
+              >
+                {pendingId ? 'Check clear status' : 'Clear cancelled copy and start a new sale'}
+              </button>
+            </div>
+          )}
+          <MembershipEmailPrompt
+            checkout={checkout}
+            operatorId={draft.ownerId}
+            disabled={disabled}
+            onNotice={setNotice}
+            onSaved={async () => {
+              await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+            }}
+          />
+          {editable && (
+            <div className="checkout-options">
+              <GiftCardItems checkout={checkout} disabled={disabled} act={act} mutate={mutate} />
+              <CustomerRegistration
                 checkout={checkout}
-                operatorId={draft.ownerId}
-                disabled={disabled || !editable}
+                disabled={disabled}
                 act={act}
                 mutate={mutate}
+                refresh={async () => {
+                  const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
+                  await adopt(latest);
+                  return latest;
+                }}
               />
-            )}
-            {editable && (
-              <>
-                <GiftCardItems checkout={checkout} disabled={disabled} act={act} mutate={mutate} />
-                <CustomerRegistration
-                  checkout={checkout}
+              <details {...sectionProps('messages')}>
+                <summary>Order messages</summary>
+                {/* Legacy posts nps_feedback_switch from a checked, disabled box and always
+                    queues the order SMS (create_order.html:76, order/views.py:2831). */}
+                <label>
+                  <input type="checkbox" checked disabled readOnly />
+                  NPS Feedback
+                </label>
+                <p className="caption">
+                  The order SMS is sent after the order is confirmed. Its delivery does not
+                  determine payment status.
+                </p>
+              </details>
+              <details>
+                <summary>Customer and verification</summary>
+                <CustomerLookup
+                  storeId={draft.storeId}
+                  counterId={draft.counterId}
+                  operatorId={draft.ownerId}
+                  connectedCustomerId={checkout.customerId}
                   disabled={disabled}
                   act={act}
                   mutate={mutate}
-                  refresh={async () => {
-                    const latest = await readCheckout(draft.storeId, checkout.id, draft.ownerId);
-                    await adopt(latest);
-                    return latest;
-                  }}
                 />
-                <details {...sectionProps('messages')}>
-                  <summary>Order messages</summary>
-                  {/* Legacy posts nps_feedback_switch from a checked, disabled box and always
-                      queues the order SMS (create_order.html:76, order/views.py:2831). */}
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked
-                      disabled
-                      data-cashier-action="toggle-nps"
-                      aria-keyshortcuts="N"
-                      readOnly
-                    />
-                    NPS Feedback
-                  </label>
-                  <p className="caption">
-                    The order SMS is sent after the order is confirmed. Its delivery does not
-                    determine payment status.
-                  </p>
-                </details>
-                <details>
-                  <summary>Customer and verification</summary>
-                  <CustomerLookup
-                    storeId={draft.storeId}
-                    counterId={draft.counterId}
-                    operatorId={draft.ownerId}
-                    connectedCustomerId={checkout.customerId}
-                    disabled={disabled}
-                    act={act}
-                    mutate={mutate}
-                  />
-                  {checkout.customerId && (
-                    <>
-                      <p className="caption">
-                        Detaching the customer clears this checkout's items, benefits and
-                        salesperson assignments.
-                      </p>
-                      <button
-                        className="button secondary"
-                        disabled={disabled}
-                        onClick={() =>
-                          void act(async () => {
-                            await mutate('customer-detachments', 'POST');
-                            setOtp('');
-                            setNotice('The customer is detached and the checkout is empty.');
-                          })
-                        }
-                      >
-                        Detach customer and clear checkout
-                      </button>
-                      <button
-                        className="button secondary"
-                        disabled={disabled}
-                        onClick={() =>
-                          void act(async () => {
-                            setOtp('');
-                            await mutate('customer-verification/challenges', 'POST');
-                            setNotice(
-                              'Verification queued. Check delivery before entering the code.',
-                            );
-                          })
-                        }
-                      >
-                        Send verification code
-                      </button>
-                      {/* create_order.html:258 */}
-                      <p role="status">
-                        {checkout.verifiedCustomerUntil &&
-                        checkout.verifiedCustomerUntil > Date.now()
-                          ? 'User is verified !'
-                          : 'Verify the user to use Tss Money/Points/Voucher !'}
-                      </p>
-                      {checkout.verificationChallenge && !checkout.verifiedCustomerUntil && (
-                        <div role="status">
-                          <p>
-                            {checkout.verificationChallenge.deliveryStatus === 'uncertain'
-                              ? 'Delivery is unconfirmed. If the code arrived, it can be verified. No code will be resent automatically.'
-                              : checkout.verificationChallenge.sent
-                                ? 'The verification code was delivered.'
-                                : checkout.verificationChallenge.deliveryStatus === 'rejected'
-                                  ? 'The verification is unavailable or expired. Request a new code when permitted.'
-                                  : 'The verification code is queued for delivery.'}
-                          </p>
-                          <button
-                            className="button secondary"
-                            disabled={disabled}
-                            onClick={() =>
-                              void act(async () => {
-                                const latest = await readCheckout(
-                                  draft.storeId,
-                                  checkout.id,
-                                  draft.ownerId,
-                                );
-                                await adopt(latest);
-                              })
-                            }
-                          >
-                            Check verification delivery
-                          </button>
-                        </div>
-                      )}
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          void act(async () => {
-                            const code = otp;
-                            setOtp('');
-                            await mutate('customer-verification/confirmations', 'POST', {
-                              otp: code,
-                            });
-                            setNotice('Customer verified.');
-                          });
-                        }}
-                      >
-                        <label>
-                          Verification code
-                          <input
-                            value={otp}
-                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                            inputMode="numeric"
-                            autoComplete="one-time-code"
-                            pattern="[0-9]{4}"
-                            maxLength={4}
-                            required
-                            disabled={
-                              disabled ||
-                              !(
-                                checkout.verificationChallenge?.sent ||
-                                checkout.verificationChallenge?.deliveryStatus === 'uncertain'
-                              )
-                            }
-                          />
-                        </label>
+                {checkout.customerId && (
+                  <>
+                    <p className="caption">
+                      Detaching the customer clears this checkout's items, benefits and salesperson
+                      assignments.
+                    </p>
+                    <button
+                      className="button secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void act(async () => {
+                          await mutate('customer-detachments', 'POST');
+                          setOtp('');
+                          setNotice('The customer is detached and the checkout is empty.');
+                        })
+                      }
+                    >
+                      Detach customer and clear checkout
+                    </button>
+                    <button
+                      className="button secondary"
+                      disabled={disabled}
+                      onClick={() =>
+                        void act(async () => {
+                          setOtp('');
+                          await mutate('customer-verification/challenges', 'POST');
+                          setNotice(
+                            'Verification queued. Check delivery before entering the code.',
+                          );
+                        })
+                      }
+                    >
+                      Send verification code
+                    </button>
+                    {/* create_order.html:258 */}
+                    <p role="status">
+                      {checkout.verifiedCustomerUntil && checkout.verifiedCustomerUntil > Date.now()
+                        ? 'User is verified !'
+                        : 'Verify the user to use Tss Money/Points/Voucher !'}
+                    </p>
+                    {checkout.verificationChallenge && !checkout.verifiedCustomerUntil && (
+                      <div role="status">
+                        <p>
+                          {checkout.verificationChallenge.deliveryStatus === 'uncertain'
+                            ? 'Delivery is unconfirmed. If the code arrived, it can be verified. No code will be resent automatically.'
+                            : checkout.verificationChallenge.sent
+                              ? 'The verification code was delivered.'
+                              : checkout.verificationChallenge.deliveryStatus === 'rejected'
+                                ? 'The verification is unavailable or expired. Request a new code when permitted.'
+                                : 'The verification code is queued for delivery.'}
+                        </p>
                         <button
                           className="button secondary"
+                          disabled={disabled}
+                          onClick={() =>
+                            void act(async () => {
+                              const latest = await readCheckout(
+                                draft.storeId,
+                                checkout.id,
+                                draft.ownerId,
+                              );
+                              await adopt(latest);
+                            })
+                          }
+                        >
+                          Check verification delivery
+                        </button>
+                      </div>
+                    )}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void act(async () => {
+                          const code = otp;
+                          setOtp('');
+                          await mutate('customer-verification/confirmations', 'POST', {
+                            otp: code,
+                          });
+                          setNotice('Customer verified.');
+                        });
+                      }}
+                    >
+                      <label>
+                        Verification code
+                        <input
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                          inputMode="numeric"
+                          autoComplete="one-time-code"
+                          pattern="[0-9]{4}"
+                          maxLength={4}
+                          required
                           disabled={
                             disabled ||
-                            otp.length !== 4 ||
                             !(
                               checkout.verificationChallenge?.sent ||
                               checkout.verificationChallenge?.deliveryStatus === 'uncertain'
                             )
                           }
-                        >
-                          Verify customer
-                        </button>
-                      </form>
-                    </>
-                  )}
-                </details>
-                <details {...sectionProps('membership')}>
-                  <summary>
-                    {flags?.showCouponModule === false ? 'Membership' : 'Coupon and membership'}
-                  </summary>
-                  {flags?.showCouponModule !== false && (
-                    <form
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        void act(async () => {
-                          await mutate('coupon', 'PUT', { code: coupon });
-                          setNotice('Applied Succesfully');
-                          setCoupon('');
-                        });
-                      }}
-                    >
-                      <label>
-                        Coupon
-                        <input
-                          value={coupon}
-                          onChange={(e) => setCoupon(e.target.value)}
-                          maxLength={100}
                         />
                       </label>
-                      <button className="button secondary" disabled={disabled}>
-                        Apply coupon
-                      </button>
                       <button
-                        type="button"
                         className="button secondary"
-                        disabled={disabled}
-                        onClick={() =>
-                          void act(async () => {
-                            await mutate('coupon/removals', 'POST');
-                            setNotice('Removed Succesfully');
-                          })
+                        disabled={
+                          disabled ||
+                          otp.length !== 4 ||
+                          !(
+                            checkout.verificationChallenge?.sent ||
+                            checkout.verificationChallenge?.deliveryStatus === 'uncertain'
+                          )
                         }
                       >
-                        Remove coupon
+                        Verify customer
                       </button>
                     </form>
-                  )}
-                  <label>
-                    <input
-                      type="checkbox"
-                      data-cashier-action="toggle-exclusive"
-                      aria-keyshortcuts="E"
-                      checked={memberBenefits === true}
-                      disabled={disabled || checkout.customerId !== null || memberBenefits === null}
-                      onChange={(event) => {
-                        const enabled = event.target.checked;
-                        void act(async () => {
-                          await mutate('membership-benefits', 'PUT', { enabled });
-                        });
-                      }}
-                    />{' '}
-                    Apply walk-in member benefits
-                  </label>
-                  {checkout.customerId && (
-                    <p className="caption">
-                      Connected customers use their own membership eligibility.
-                    </p>
-                  )}
-                  {memberBenefits === null && (
-                    <p className="caption">Refresh the sale to verify member benefits.</p>
-                  )}
-                </details>
-                <details>
-                  <summary>Wallet and gift voucher</summary>
-                  <WalletControls
-                    checkout={checkout}
-                    operatorId={draft.ownerId}
-                    disabled={disabled}
-                    act={act}
-                    mutate={mutate}
-                  />
+                  </>
+                )}
+              </details>
+              <details {...sectionProps('membership')}>
+                <summary>
+                  {flags?.showCouponModule === false ? 'Membership' : 'Coupon and membership'}
+                </summary>
+                {flags?.showCouponModule !== false && (
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       void act(async () => {
-                        // Legacy applies with gc_pin 0 and asks for "GC PIN" only when the
-                        // voucher needs one (create_order.html:3433-3557).
-                        const pin = giftPinRequested && giftPin ? giftPin : '0';
-                        setGiftPin('');
-                        try {
-                          await mutate('gift-vouchers', 'POST', { code: giftCode, pin });
-                        } catch (error) {
-                          if (
-                            error instanceof ApiError &&
-                            ['GIFT_VOUCHER_PIN_REQUIRED', 'GIFT_VOUCHER_PIN_INVALID'].includes(
-                              error.code,
-                            )
-                          )
-                            setGiftPinRequested(true);
-                          throw error;
-                        }
-                        setGiftPinRequested(false);
-                        setGiftCode('');
-                        setNotice('Applied/Remove');
+                        await mutate('coupon', 'PUT', { code: coupon });
+                        setNotice('Applied Succesfully');
+                        setCoupon('');
                       });
                     }}
                   >
                     <label>
-                      Gift voucher code
+                      Coupon
                       <input
-                        value={giftCode}
-                        onChange={(e) => setGiftCode(e.target.value)}
+                        value={coupon}
+                        onChange={(e) => setCoupon(e.target.value)}
                         maxLength={100}
-                        required
                       />
                     </label>
-                    {giftPinRequested && (
-                      <label>
-                        GC PIN
-                        <input
-                          type="password"
-                          autoComplete="off"
-                          inputMode="numeric"
-                          placeholder="Enter 6 Digit PIN"
-                          value={giftPin}
-                          onChange={(e) => setGiftPin(e.target.value)}
-                          pattern="[0-9_]{1,20}"
-                          maxLength={20}
-                          required
-                          autoFocus
-                        />
-                      </label>
-                    )}
-                    <button
-                      className="button secondary"
-                      disabled={
-                        disabled ||
-                        !checkout.verifiedCustomerUntil ||
-                        checkout.verifiedCustomerUntil < Date.now()
-                      }
-                    >
-                      Redeem voucher
+                    <button className="button secondary" disabled={disabled}>
+                      Apply coupon
                     </button>
                     <button
                       type="button"
@@ -1377,121 +1216,249 @@ export function CheckoutReview({
                       disabled={disabled}
                       onClick={() =>
                         void act(async () => {
-                          await mutate('gift-vouchers/removals', 'POST');
-                          setNotice('Applied/Remove');
+                          await mutate('coupon/removals', 'POST');
+                          setNotice('Removed Succesfully');
                         })
                       }
                     >
-                      Remove gift voucher
+                      Remove coupon
                     </button>
                   </form>
-                </details>
-                {flags?.showPgDiscountModule !== false &&
-                  (flags?.enableNewPgDiscount !== false ||
-                    flags?.enableOldPgDiscount !== false) && (
-                    <details>
-                      <summary>Store and payment gateway discounts</summary>
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault();
+                )}
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={memberBenefits === true}
+                    disabled={disabled || checkout.customerId !== null || memberBenefits === null}
+                    onChange={(event) => {
+                      const enabled = event.target.checked;
+                      void act(async () => {
+                        await mutate('membership-benefits', 'PUT', { enabled });
+                      });
+                    }}
+                  />{' '}
+                  Apply walk-in member benefits
+                </label>
+                {checkout.customerId && (
+                  <p className="caption">
+                    Connected customers use their own membership eligibility.
+                  </p>
+                )}
+                {memberBenefits === null && (
+                  <p className="caption">Refresh the sale to verify member benefits.</p>
+                )}
+              </details>
+              <details>
+                <summary>Wallet and gift voucher</summary>
+                <WalletControls
+                  checkout={checkout}
+                  operatorId={draft.ownerId}
+                  disabled={disabled}
+                  act={act}
+                  mutate={mutate}
+                />
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    void act(async () => {
+                      // Legacy applies with gc_pin 0 and asks for "GC PIN" only when the
+                      // voucher needs one (create_order.html:3433-3557).
+                      const pin = giftPinRequested && giftPin ? giftPin : '0';
+                      setGiftPin('');
+                      try {
+                        await mutate('gift-vouchers', 'POST', { code: giftCode, pin });
+                      } catch (error) {
+                        if (
+                          error instanceof ApiError &&
+                          ['GIFT_VOUCHER_PIN_REQUIRED', 'GIFT_VOUCHER_PIN_INVALID'].includes(
+                            error.code,
+                          )
+                        )
+                          setGiftPinRequested(true);
+                        throw error;
+                      }
+                      setGiftPinRequested(false);
+                      setGiftCode('');
+                      setNotice('Applied/Remove');
+                    });
+                  }}
+                >
+                  <label>
+                    Gift voucher code
+                    <input
+                      value={giftCode}
+                      onChange={(e) => setGiftCode(e.target.value)}
+                      maxLength={100}
+                      required
+                    />
+                  </label>
+                  {giftPinRequested && (
+                    <label>
+                      GC PIN
+                      <input
+                        type="password"
+                        autoComplete="off"
+                        inputMode="numeric"
+                        placeholder="Enter 6 Digit PIN"
+                        value={giftPin}
+                        onChange={(e) => setGiftPin(e.target.value)}
+                        pattern="[0-9_]{1,20}"
+                        maxLength={20}
+                        required
+                        autoFocus
+                      />
+                    </label>
+                  )}
+                  <button
+                    className="button secondary"
+                    disabled={
+                      disabled ||
+                      !checkout.verifiedCustomerUntil ||
+                      checkout.verifiedCustomerUntil < Date.now()
+                    }
+                  >
+                    Redeem voucher
+                  </button>
+                  <button
+                    type="button"
+                    className="button secondary"
+                    disabled={disabled}
+                    onClick={() =>
+                      void act(async () => {
+                        await mutate('gift-vouchers/removals', 'POST');
+                        setNotice('Applied/Remove');
+                      })
+                    }
+                  >
+                    Remove gift voucher
+                  </button>
+                </form>
+              </details>
+              {flags?.showPgDiscountModule !== false &&
+                (flags?.enableNewPgDiscount !== false || flags?.enableOldPgDiscount !== false) && (
+                  <details>
+                    <summary>Store and payment gateway discounts</summary>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void act(async () => {
+                          await mutate('discount', 'PUT', {
+                            kind: discountKind,
+                            amount: discount,
+                            apply: true,
+                            remark: discountRemark,
+                            ...(discountKind === 'store' ? { reason: discountReason } : {}),
+                          });
+                          setNotice('Applied Succesfully');
+                        });
+                      }}
+                    >
+                      <label>
+                        Discount type
+                        <select
+                          value={discountKind}
+                          onChange={(event) =>
+                            setDiscountKind(event.target.value === 'pg' ? 'pg' : 'store')
+                          }
+                        >
+                          {flags?.enableNewPgDiscount !== false && (
+                            <option value="store">Store discount (PG)</option>
+                          )}
+                          {flags?.enableOldPgDiscount !== false && (
+                            <option value="pg">Payment gateway discount</option>
+                          )}
+                        </select>
+                      </label>
+                      <label>
+                        Discount amount
+                        <input
+                          value={discount}
+                          onChange={(e) => setDiscount(e.target.value)}
+                          inputMode="decimal"
+                          pattern="[0-9]+(\.[0-9]{1,2})?"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Discount remark
+                        <input
+                          value={discountRemark}
+                          onChange={(event) => setDiscountRemark(event.target.value)}
+                          minLength={3}
+                          maxLength={35}
+                          required
+                        />
+                      </label>
+                      {discountKind === 'store' && (
+                        <label>
+                          Store discount reason
+                          <select
+                            required
+                            value={discountReason}
+                            onChange={(event) => setDiscountReason(event.target.value)}
+                          >
+                            <option value="">Select reason</option>
+                            {[
+                              'Price mismatch (Online v/s POS)',
+                              'Price mismatch (Pricetag v/s POS)',
+                              'Price mismatch (During exchange)',
+                              'Founder billing',
+                              'Marketing activity',
+                              'Uniform billing',
+                              'Perfume tester',
+                              'Trial socks',
+                              'Personal Care',
+                            ].map((reason) => (
+                              <option key={reason}>{reason}</option>
+                            ))}
+                          </select>
+                        </label>
+                      )}
+                      <button className="button secondary" disabled={disabled}>
+                        Apply discount
+                      </button>
+                      <button
+                        type="button"
+                        className="button secondary"
+                        disabled={disabled}
+                        onClick={() =>
                           void act(async () => {
                             await mutate('discount', 'PUT', {
                               kind: discountKind,
-                              amount: discount,
-                              apply: true,
-                              remark: discountRemark,
-                              ...(discountKind === 'store' ? { reason: discountReason } : {}),
+                              amount: '0.00',
+                              apply: false,
                             });
-                            setNotice('Applied Succesfully');
-                          });
-                        }}
+                            setNotice('Removed Succesfully');
+                          })
+                        }
                       >
-                        <label>
-                          Discount type
-                          <select
-                            value={discountKind}
-                            onChange={(event) =>
-                              setDiscountKind(event.target.value === 'pg' ? 'pg' : 'store')
-                            }
-                          >
-                            {flags?.enableNewPgDiscount !== false && (
-                              <option value="store">Store discount (PG)</option>
-                            )}
-                            {flags?.enableOldPgDiscount !== false && (
-                              <option value="pg">Payment gateway discount</option>
-                            )}
-                          </select>
-                        </label>
-                        <label>
-                          Discount amount
-                          <input
-                            value={discount}
-                            onChange={(e) => setDiscount(e.target.value)}
-                            inputMode="decimal"
-                            pattern="[0-9]+(\.[0-9]{1,2})?"
-                            required
-                          />
-                        </label>
-                        <label>
-                          Discount remark
-                          <input
-                            value={discountRemark}
-                            onChange={(event) => setDiscountRemark(event.target.value)}
-                            minLength={3}
-                            maxLength={35}
-                            required
-                          />
-                        </label>
-                        {discountKind === 'store' && (
-                          <label>
-                            Store discount reason
-                            <select
-                              required
-                              value={discountReason}
-                              onChange={(event) => setDiscountReason(event.target.value)}
-                            >
-                              <option value="">Select reason</option>
-                              {[
-                                'Price mismatch (Online v/s POS)',
-                                'Price mismatch (Pricetag v/s POS)',
-                                'Price mismatch (During exchange)',
-                                'Founder billing',
-                                'Marketing activity',
-                                'Uniform billing',
-                                'Perfume tester',
-                                'Trial socks',
-                                'Personal Care',
-                              ].map((reason) => (
-                                <option key={reason}>{reason}</option>
-                              ))}
-                            </select>
-                          </label>
-                        )}
-                        <button className="button secondary" disabled={disabled}>
-                          Apply discount
-                        </button>
-                        <button
-                          type="button"
-                          className="button secondary"
-                          disabled={disabled}
-                          onClick={() =>
-                            void act(async () => {
-                              await mutate('discount', 'PUT', {
-                                kind: discountKind,
-                                amount: '0.00',
-                                apply: false,
-                              });
-                              setNotice('Removed Succesfully');
-                            })
-                          }
-                        >
-                          Remove selected discount
-                        </button>
-                      </form>
-                    </details>
-                  )}
+                        Remove selected discount
+                      </button>
+                    </form>
+                  </details>
+                )}
+            </div>
+          )}
+          {quoting ? (
+            <SkeletonText lines={6} label="Loading the final quote…" />
+          ) : (
+            <CartQuoteSummary
+              checkout={checkout}
+              operatorId={draft.ownerId}
+              current={quoteIsCurrent(checkout, draft, editable && !blocked)}
+            />
+          )}
+          {total !== null && (
+            <div className="grand-total">
+              <span>Confirmed payable</span>
+              <strong>{currency(total)}</strong>
+            </div>
+          )}
+          <div className="checkout-actions">
+            {editable && (
+              <>
                 <button
-                  className="button secondary full"
+                  className="button secondary checkout-clear"
                   disabled={disabled}
                   onClick={() =>
                     void act(async () => {
@@ -1502,12 +1469,17 @@ export function CheckoutReview({
                   Clear checkout and start a new sale
                 </button>
                 <button
-                  className="button secondary full"
-                  data-cashier-action={checkout.phase === 'quoted' ? 'quote' : 'proceed quote'}
+                  className="button secondary"
                   disabled={disabled}
+                  aria-busy={quoting}
                   onClick={() =>
                     void act(async () => {
-                      await mutate('quotes', 'POST');
+                      setQuoting(true);
+                      try {
+                        await mutate('quotes', 'POST');
+                      } finally {
+                        setQuoting(false);
+                      }
                     })
                   }
                 >
@@ -1531,160 +1503,139 @@ export function CheckoutReview({
                 completedCallback.current?.(receipt);
               }}
             />
-            <CheckoutCartLines
-              checkout={checkout}
-              disabled={disabled || !editable}
-              act={act}
-              mutate={mutate}
-            />
-            <CartQuoteSummary
-              checkout={checkout}
-              operatorId={draft.ownerId}
-              current={quoteIsCurrent(checkout, draft, editable && !disabled)}
-            />
-            {total !== null && (
-              <div className="grand-total">
-                <span>Confirmed payable</span>
-                <strong>{currency(total)}</strong>
-              </div>
-            )}
-            {checkout.phase === 'quoted' && (
-              <>
-                <DiscountApproval
-                  checkout={checkout}
-                  disabled={disabled || !editable}
-                  mutate={mutate}
-                  act={act}
-                  onReady={approvalReady}
+          </div>
+          {checkout.phase === 'quoted' && (
+            <>
+              <DiscountApproval
+                checkout={checkout}
+                disabled={disabled || !editable}
+                mutate={mutate}
+                act={act}
+                onReady={approvalReady}
+              />
+              {paymentFormOpen && total !== null && !/^0+(?:\.0+)?$/.test(total) ? (
+                <PaymentPanel
+                  ownerId={draft.ownerId}
+                  draftId={draft.id}
+                  storeId={draft.storeId}
+                  orderId=""
+                  online={online}
+                  preOrder={{
+                    payable: total,
+                    loadOptions: async () => ({
+                      ...(await readCheckoutPaymentOptions(checkout)),
+                      payable: total,
+                    }),
+                    submit: async (payment) => {
+                      // Legacy: confirm the payment form, then ajax-order, then the upload.
+                      const result = await mutate('order-submissions', 'POST', { payment });
+                      setPaymentFormOpen(false);
+                      const orderId = result.state?.orderId;
+                      if (!orderId) return;
+                      onOrderCreated?.(orderId);
+                      const failure = z
+                        .object({ message: z.string() })
+                        .safeParse(result.result?.paymentError);
+                      if (failure.success)
+                        setProblem(
+                          `Order ${orderId} created. ${failure.data.message} Continue with the payment below.`,
+                        );
+                      else setNotice('Order Created!');
+                    },
+                  }}
                 />
-                {paymentFormOpen && total !== null && !/^0+(?:\.0+)?$/.test(total) ? (
+              ) : (
+                <button
+                  className="button primary full"
+                  disabled={
+                    disabled ||
+                    !editable ||
+                    approvalState?.version !== checkout.version ||
+                    !approvalState.ready
+                  }
+                  onClick={() => {
+                    // A positive payable opens the payment form first; the order is created only
+                    // when the operator confirms it (create_order.html:6177-7239). Zero payable is
+                    // the legacy Order Confirmation path.
+                    if (total !== null && !/^0+(?:\.0+)?$/.test(total)) {
+                      setPaymentFormOpen(true);
+                      return;
+                    }
+                    void act(async () => {
+                      const result = await mutate('order-submissions', 'POST');
+                      const orderId = result.state?.orderId;
+                      if (orderId) {
+                        setNotice('Order Created!');
+                        onOrderCreated?.(orderId);
+                      }
+                    });
+                  }}
+                >
+                  Proceed For Payment
+                </button>
+              )}
+            </>
+          )}
+          {checkout.phase === 'submitted' && (
+            <>
+              <p role="status">
+                Order {checkout.orderId} was created.{' '}
+                {checkout.settlement
+                  ? 'Prepaid payment is confirmed. This order is ready for handover.'
+                  : 'Payment must be confirmed before handing over products.'}
+              </p>
+              {checkout.settlement && checkout.orderId ? (
+                <InvoiceActions
+                  ownerId={draft.ownerId}
+                  storeId={draft.storeId}
+                  orderId={checkout.orderId}
+                />
+              ) : total !== null && /^0+(?:\.0+)?$/.test(total) ? (
+                <>
+                  <p>Prepaid settlement is awaiting confirmation.</p>
+                  <button
+                    className="button secondary full"
+                    disabled={disabled}
+                    onClick={() =>
+                      void act(async () => {
+                        await adopt(await readCheckout(draft.storeId, checkout.id, draft.ownerId));
+                      })
+                    }
+                  >
+                    Check prepaid payment status
+                  </button>
+                </>
+              ) : (
+                checkout.orderId && (
                   <PaymentPanel
                     ownerId={draft.ownerId}
                     draftId={draft.id}
                     storeId={draft.storeId}
-                    orderId=""
+                    orderId={checkout.orderId}
                     online={online}
-                    preOrder={{
-                      payable: total,
-                      loadOptions: async () => ({
-                        ...(await readCheckoutPaymentOptions(checkout)),
-                        payable: total,
-                      }),
-                      submit: async (payment) => {
-                        // Legacy: confirm the payment form, then ajax-order, then the upload.
-                        const result = await mutate('order-submissions', 'POST', { payment });
-                        setPaymentFormOpen(false);
-                        const orderId = result.state?.orderId;
-                        if (!orderId) return;
-                        onOrderCreated?.(orderId);
-                        const failure = z
-                          .object({ message: z.string() })
-                          .safeParse(result.result?.paymentError);
-                        if (failure.success)
-                          setProblem(
-                            `Order ${orderId} created. ${failure.data.message} Continue with the payment below.`,
-                          );
-                        else setNotice('Order Created!');
-                      },
-                    }}
-                  />
-                ) : (
-                  <button
-                    className="button primary full"
-                    data-cashier-action="proceed"
-                    aria-keyshortcuts="P"
-                    disabled={
-                      disabled ||
-                      !editable ||
-                      approvalState?.version !== checkout.version ||
-                      !approvalState.ready
-                    }
-                    onClick={() => {
-                      // A positive payable opens the payment form first; the order is created only
-                      // when the operator confirms it (create_order.html:6177-7239). Zero payable is
-                      // the legacy Order Confirmation path.
-                      if (total !== null && !/^0+(?:\.0+)?$/.test(total)) {
-                        setPaymentFormOpen(true);
+                    onConfirmed={(receipt) => {
+                      const currentState = current.current;
+                      if (
+                        !currentState ||
+                        currentState.draftId !== draft.id ||
+                        currentState.draftVersion !== draft.updatedAt ||
+                        currentState.draftImport?.status !== 'complete' ||
+                        receipt.orderId !== currentState.orderId
+                      ) {
+                        setProblem(
+                          'The payment does not match this saved sale. Review its order before continuing.',
+                        );
                         return;
                       }
-                      void act(async () => {
-                        const result = await mutate('order-submissions', 'POST');
-                        const orderId = result.state?.orderId;
-                        if (orderId) {
-                          setNotice('Order Created!');
-                          onOrderCreated?.(orderId);
-                        }
-                      });
+                      completedCallback.current?.(receipt);
                     }}
-                  >
-                    Proceed For Payment
-                  </button>
-                )}
-              </>
-            )}
-            {checkout.phase === 'submitted' && (
-              <>
-                <p role="status">
-                  Order {checkout.orderId} was created.{' '}
-                  {checkout.settlement
-                    ? 'Prepaid payment is confirmed. This order is ready for handover.'
-                    : 'Payment must be confirmed before handing over products.'}
-                </p>
-                {checkout.settlement && checkout.orderId ? (
-                  <InvoiceActions
-                    ownerId={draft.ownerId}
-                    storeId={draft.storeId}
-                    orderId={checkout.orderId}
                   />
-                ) : total !== null && /^0+(?:\.0+)?$/.test(total) ? (
-                  <>
-                    <p>Prepaid settlement is awaiting confirmation.</p>
-                    <button
-                      className="button secondary full"
-                      disabled={disabled}
-                      onClick={() =>
-                        void act(async () => {
-                          await adopt(
-                            await readCheckout(draft.storeId, checkout.id, draft.ownerId),
-                          );
-                        })
-                      }
-                    >
-                      Check prepaid payment status
-                    </button>
-                  </>
-                ) : (
-                  checkout.orderId && (
-                    <PaymentPanel
-                      ownerId={draft.ownerId}
-                      draftId={draft.id}
-                      storeId={draft.storeId}
-                      orderId={checkout.orderId}
-                      online={online}
-                      onConfirmed={(receipt) => {
-                        const currentState = current.current;
-                        if (
-                          !currentState ||
-                          currentState.draftId !== draft.id ||
-                          currentState.draftVersion !== draft.updatedAt ||
-                          currentState.draftImport?.status !== 'complete' ||
-                          receipt.orderId !== currentState.orderId
-                        ) {
-                          setProblem(
-                            'The payment does not match this saved sale. Review its order before continuing.',
-                          );
-                          return;
-                        }
-                        completedCallback.current?.(receipt);
-                      }}
-                    />
-                  )
-                )}
-              </>
-            )}
-          </>
-        )}
-      </section>
-    </div>
+                )
+              )}
+            </>
+          )}
+        </>
+      )}
+    </Modal>
   );
 }

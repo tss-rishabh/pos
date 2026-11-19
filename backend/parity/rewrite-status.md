@@ -4,7 +4,7 @@ Source baseline: `78d5b63d6a149a6bf2c748fa1d191799c59ecb8a`. Reviewed implementa
 
 ## Implementation
 
-The [source map](source-surface-map.md) retains all **396 surfaces**: 255 leaf routes, 32 jobs, 106 templates, one WebSocket and two administration registrations. Its current classification is 100 implementation-present, 292 external-acceptance and four explicit inactive/diagnostic dispositions. The discovered login-only shortcut-reference access gap is now implemented: standalone authenticated access works without store/counter selection or assignments. Its operator-keyed preference is shared with existing counter help. No additional active source-feature code gap is currently identified by this map. These are implementation classifications, not certified workflows or a completion percentage.
+The [source map](source-surface-map.md) retains all **396 surfaces**: 255 leaf routes, 32 jobs, 106 templates, one WebSocket and two administration registrations. Its current classification is 100 implementation-present, 292 external-acceptance and four explicit inactive/diagnostic dispositions. The cashier keyboard shortcuts, their reference page and the motivational quote route were removed by user decision on 20 November 2026 (W27; `w27-ui-report.md`). No additional active source-feature code gap is currently identified by this map. These are implementation classifications, not certified workflows or a completion percentage.
 
 The four dispositions retain the diagnostic account task, the inactive upload-log template and two inactive business-metrics templates. Their original IDs remain visible; the rewrite does not invent credential logging, account creation or upload functionality from commented source behavior.
 

@@ -2,7 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { NavLink } from 'react-router-dom';
 import type { Principal } from '../../api/types';
-import { Empty, ErrorState, Loading } from '../../components/common';
+import { Empty, ErrorState } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
+import { Modal } from '../../components/modal';
+import { MultiSelect } from '../../components/multi-select';
 import { currency } from '../../lib/format';
 import { OrderInvoiceActions } from '../invoice-documents';
 import {
@@ -16,6 +19,7 @@ import {
   type SourceOrderRow,
 } from './search-client';
 import './order-search.css';
+import './table-tools.css';
 import { onlineOrderDetailLink } from './online-detail-client';
 const titles = { ST: 'Store', HL: 'Local delivery', HE: 'Express', N: 'Online' } as const;
 const columns: [keyof SourceOrderRow, string, SearchSort?][] = [
@@ -195,9 +199,9 @@ export function SourceOrderList({
       page: 1,
     });
   }
-  const select = (event: React.ChangeEvent<HTMLSelectElement>) =>
-      Array.from(event.currentTarget.selectedOptions, (option) => option.value),
-    queue = form.notPacked || form.inQueue;
+  const queue = form.notPacked || form.inQueue;
+  const named = (values: readonly { id: string; name?: string | null }[] | undefined) =>
+    (values ?? []).map((value) => ({ value: value.id, label: value.name ?? value.id }));
   function detailLink(row: SourceOrderRow) {
     const type = appliedType;
     if (type === 'ST') throw new Error('Use the store-order detail path.');
@@ -227,7 +231,7 @@ export function SourceOrderList({
   return (
     <section className="surface order-search-workspace">
       {tabs && (
-        <nav aria-label="Hyperlocal order tabs" className="order-search-actions">
+        <nav aria-label="Hyperlocal order tabs" className="order-count-chips">
           {(
             [
               ['in_queue', 'Order In Queue', tabs.inQueue],
@@ -236,7 +240,7 @@ export function SourceOrderList({
               ['shipped', 'Shipped', tabs.shipped],
             ] as const
           ).map(([tab, label, count]) => (
-            <NavLink key={tab} className="button secondary" to={'/fulfillment?tab=' + tab}>
+            <NavLink key={tab} className="count-chip" to={'/fulfillment?tab=' + tab}>
               {label} : <strong>{count}</strong>
             </NavLink>
           ))}
@@ -244,12 +248,13 @@ export function SourceOrderList({
       )}
       <form
         aria-label="Order filters"
+        className="order-filters"
         onSubmit={(event) => {
           event.preventDefault();
           submit();
         }}
       >
-        <div className="order-search-grid">
+        <div className="form-grid">
           <label>
             Order type
             <select
@@ -271,23 +276,15 @@ export function SourceOrderList({
               ))}
             </select>
           </label>
-          <label>
-            Stores
-            <select
-              multiple
-              aria-label="Order stores"
-              value={form.stores}
-              onChange={(e) => setForm({ ...form, stores: select(e) })}
-            >
-              {(
-                metadata.data?.stores ?? [{ id: storeId, name: 'Current store', locationCode: '' }]
-              ).map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name ?? store.id}
-                </option>
-              ))}
-            </select>
-          </label>
+          <MultiSelect
+            label="Stores"
+            emptyLabel="No store selected"
+            options={(
+              metadata.data?.stores ?? [{ id: storeId, name: 'Current store', locationCode: '' }]
+            ).map((store) => ({ value: store.id, label: store.name ?? store.id }))}
+            value={form.stores}
+            onChange={(stores) => setForm({ ...form, stores })}
+          />
           <label>
             Order IDs
             <input
@@ -297,15 +294,6 @@ export function SourceOrderList({
               onChange={(e) => setForm({ ...form, ids: e.currentTarget.value })}
               placeholder="Comma-separated IDs"
               autoComplete="off"
-            />
-          </label>
-          <label>
-            <span>Search IDs across dates</span>
-            <input
-              type="checkbox"
-              checked={form.idsAcrossDates}
-              disabled={queue}
-              onChange={(e) => setForm({ ...form, idsAcrossDates: e.currentTarget.checked })}
             />
           </label>
           <label>
@@ -328,51 +316,24 @@ export function SourceOrderList({
               autoComplete="off"
             />
           </label>
-          <label>
-            Payment method
-            <select
-              multiple
-              aria-label="Payment methods"
-              value={form.methods}
-              onChange={(e) => setForm({ ...form, methods: select(e) })}
-            >
-              {metadata.data?.methods.map((value) => (
-                <option key={value.id} value={value.id}>
-                  {value.name ?? value.id}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Payment status
-            <select
-              multiple
-              aria-label="Payment statuses"
-              value={form.payments}
-              onChange={(e) => setForm({ ...form, payments: select(e) })}
-            >
-              {metadata.data?.paymentStatuses.map((value) => (
-                <option key={value.id} value={value.id}>
-                  {value.name ?? value.id}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Order status
-            <select
-              multiple
-              aria-label="Order statuses"
-              value={form.statuses}
-              onChange={(e) => setForm({ ...form, statuses: select(e) })}
-            >
-              {metadata.data?.orderStatuses.map((value) => (
-                <option key={value.id} value={value.id}>
-                  {value.name ?? value.id}
-                </option>
-              ))}
-            </select>
-          </label>
+          <MultiSelect
+            label="Payment method"
+            options={named(metadata.data?.methods)}
+            value={form.methods}
+            onChange={(methods) => setForm({ ...form, methods })}
+          />
+          <MultiSelect
+            label="Payment status"
+            options={named(metadata.data?.paymentStatuses)}
+            value={form.payments}
+            onChange={(payments) => setForm({ ...form, payments })}
+          />
+          <MultiSelect
+            label="Order status"
+            options={named(metadata.data?.orderStatuses)}
+            value={form.statuses}
+            onChange={(statuses) => setForm({ ...form, statuses })}
+          />
           <label>
             Placed from
             <input
@@ -407,24 +368,39 @@ export function SourceOrderList({
             />
           </label>
         </div>
-        <div className="order-search-actions">
-          <label>
-            <input
-              type="checkbox"
-              checked={form.notPacked}
-              onChange={(e) => setForm({ ...form, notPacked: e.currentTarget.checked })}
-            />
-            Not packed
-          </label>
-          <label>
-            <input
-              type="checkbox"
-              checked={form.inQueue}
-              onChange={(e) => setForm({ ...form, inQueue: e.currentTarget.checked })}
-            />
-            In queue
-          </label>
-          <button className="button primary" disabled={!online || orders.isFetching}>
+        <div className="order-filter-footer">
+          <div className="order-filter-checks">
+            <label>
+              <input
+                type="checkbox"
+                checked={form.idsAcrossDates}
+                disabled={queue}
+                onChange={(e) => setForm({ ...form, idsAcrossDates: e.currentTarget.checked })}
+              />
+              Search IDs across dates
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.notPacked}
+                onChange={(e) => setForm({ ...form, notPacked: e.currentTarget.checked })}
+              />
+              Not packed
+            </label>
+            <label>
+              <input
+                type="checkbox"
+                checked={form.inQueue}
+                onChange={(e) => setForm({ ...form, inQueue: e.currentTarget.checked })}
+              />
+              In queue
+            </label>
+          </div>
+          <button
+            className="button primary"
+            disabled={!online || orders.isFetching}
+            aria-busy={orders.isFetching}
+          >
             Apply filters
           </button>
         </div>
@@ -440,30 +416,32 @@ export function SourceOrderList({
           </p>
         )}
       </form>
-      <div className="order-search-actions">
-        <button className="button secondary" disabled={!data} onClick={exportPage}>
+      <div className="toolbar order-table-toolbar">
+        <button className="button secondary small" disabled={!data} onClick={exportPage}>
           Export page CSV
         </button>
-        <details>
+        <details className="column-picker">
           <summary>Visible columns</summary>
-          {columns.map(([key, label]) => (
-            <label key={key}>
-              <input
-                type="checkbox"
-                checked={visible.includes(key)}
-                onChange={(e) =>
-                  setVisible(
-                    e.currentTarget.checked
-                      ? [...visible, key]
-                      : visible.filter((value) => value !== key),
-                  )
-                }
-              />
-              {label}
-            </label>
-          ))}
+          <div className="column-picker-panel">
+            {columns.map(([key, label]) => (
+              <label key={key}>
+                <input
+                  type="checkbox"
+                  checked={visible.includes(key)}
+                  onChange={(e) =>
+                    setVisible(
+                      e.currentTarget.checked
+                        ? [...visible, key]
+                        : visible.filter((value) => value !== key),
+                    )
+                  }
+                />
+                {label}
+              </label>
+            ))}
+          </div>
         </details>
-        <label>
+        <label className="inline-field toolbar-end">
           Rows per page
           <select
             aria-label="Rows per page"
@@ -488,7 +466,7 @@ export function SourceOrderList({
         <ErrorState error={orders.error} retry={() => void orders.refetch()} />
       ) : orders.isPending ? (
         online ? (
-          <Loading />
+          <SkeletonTable rows={6} columns={visible.length + 1} label="Loading orders…" />
         ) : (
           <Empty title="Connect to load orders" />
         )
@@ -592,7 +570,7 @@ export function SourceOrderList({
             </table>
             {!data?.data.length && <Empty title="No orders in this selection" />}
           </div>
-          <nav aria-label="Order pages" className="order-search-actions">
+          <nav aria-label="Order pages" className="toolbar order-pagination">
             <button
               className="button secondary"
               disabled={page <= 1 || !online}
@@ -643,67 +621,61 @@ export function SourceOrderList({
         </>
       )}
       {summary && (
-        <div className="modal-backdrop" onClick={() => setSummary(null)}>
-          <section
-            className="modal wide"
-            role="dialog"
-            aria-modal="true"
-            aria-label={'Order summary ' + summary.id}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button className="button secondary" onClick={() => setSummary(null)}>
-              Close summary
-            </button>
-            <h2>Order {summary.id}</h2>
-            <p>
-              {summary.user__firstname} · {summary.order_statuses}
-            </p>
-            <dl>
-              {Object.entries(summary)
-                .filter(([key]) => !['rowKey', 'actionStoreId'].includes(key))
-                .map(([key, value]) => (
-                  <div className="receipt-line" key={key}>
-                    <dt>{key.replaceAll('_', ' ')}</dt>
-                    <dd>{String(value ?? '')}</dd>
-                  </div>
-                ))}
-            </dl>
-            {appliedType === 'ST' && (
-              <button
-                className="button primary"
-                onClick={() => {
-                  onOpen(summary, { crossAccess: selection.body.orderIds.length > 0 });
-                  setSummary(null);
-                }}
-              >
-                Open order details
-              </button>
-            )}
-            {appliedType !== 'ST' && (
-              <NavLink className="button primary" to={detailLink(summary)}>
-                Open order details
-              </NavLink>
-            )}
-            {appliedType === 'HL' && (
-              <NavLink className="button secondary" to="/local-deliveries">
-                Open local deliveries
-              </NavLink>
-            )}
-            {appliedType === 'HE' && (
-              <NavLink className="button secondary" to="/fulfillment">
-                Open Express fulfillment
-              </NavLink>
-            )}
-            {summary.actionStoreId && (
-              <OrderInvoiceActions
-                user={user}
-                storeId={summary.actionStoreId}
-                orderId={summary.id}
-                online={online}
-              />
-            )}
-          </section>
-        </div>
+        <Modal
+          size="md"
+          title={'Order ' + summary.id}
+          description={`${summary.user__firstname} · ${summary.order_statuses}`}
+          closeLabel="Close summary"
+          onClose={() => setSummary(null)}
+          footer={
+            <>
+              {appliedType === 'HL' && (
+                <NavLink className="button secondary" to="/local-deliveries">
+                  Open local deliveries
+                </NavLink>
+              )}
+              {appliedType === 'HE' && (
+                <NavLink className="button secondary" to="/fulfillment">
+                  Open Express fulfillment
+                </NavLink>
+              )}
+              {appliedType === 'ST' ? (
+                <button
+                  className="button primary"
+                  onClick={() => {
+                    onOpen(summary, { crossAccess: selection.body.orderIds.length > 0 });
+                    setSummary(null);
+                  }}
+                >
+                  Open order details
+                </button>
+              ) : (
+                <NavLink className="button primary" to={detailLink(summary)}>
+                  Open order details
+                </NavLink>
+              )}
+            </>
+          }
+        >
+          <dl className="order-summary-list">
+            {Object.entries(summary)
+              .filter(([key]) => !['rowKey', 'actionStoreId'].includes(key))
+              .map(([key, value]) => (
+                <div className="receipt-line" key={key}>
+                  <dt>{key.replaceAll('_', ' ')}</dt>
+                  <dd>{String(value ?? '')}</dd>
+                </div>
+              ))}
+          </dl>
+          {summary.actionStoreId && (
+            <OrderInvoiceActions
+              user={user}
+              storeId={summary.actionStoreId}
+              orderId={summary.id}
+              online={online}
+            />
+          )}
+        </Modal>
       )}
     </section>
   );

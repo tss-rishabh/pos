@@ -1,5 +1,8 @@
 # Customer-service thoughts
 
+> **Removed, 20 November 2026 (user decision, W27 UI cleanup).** The motivational quote card (counter and dashboard) and its `GET /api/v1/motivational-quotes/random` route are deleted from the rewrite. This document is kept as the historical parity record of the legacy behaviour; nothing below describes current rewrite code. See `backend/parity/w27-ui-report.md`.
+
+
 The pinned `core/views.py:970` randomly chooses one of the 83 exact strings in
 `core/quotes.py`; the dashboard rotates it every seven seconds and the counter
 loads it when opened. `/api/v1/motivational-quotes/random` keeps the authenticated

@@ -4,7 +4,9 @@ import { ArrowDownToLine, RefreshCw, Plus, Search } from 'lucide-react';
 import { z } from 'zod';
 import { captureOperatorScope, request } from '../../api/client';
 import type { Principal } from '../../api/types';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Empty, ErrorState, PageTitle } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
+import { MultiSelect } from '../../components/multi-select';
 import { useOnline } from '../../hooks/use-pos';
 import { downloadReportFile } from '../finance/download';
 import {
@@ -17,6 +19,7 @@ import {
   type ReportExportRow,
 } from './export-commands';
 import './style.css';
+import '../order-history/table-tools.css';
 import {
   exportMetadataColumns,
   exportMetadataCsv,
@@ -92,6 +95,7 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
     visibleColumns = exportMetadataColumns.filter(([key]) => !hiddenColumns.includes(key)),
     [historyFilters, setHistoryFilters] = useState(initialHistory),
     [submittedHistory, setSubmittedHistory] = useState(initialHistory),
+    [storeError, setStoreError] = useState(''),
     [filters, setFilters] = useState<ReportExportFilters>(() => ({
       kind: 'day-close-history',
       from: businessToday(),
@@ -178,13 +182,14 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
     }));
   return (
     <>
-      <PageTitle eyebrow="REPORTS, READY WHEN YOU ARE" title="Report exports">
+      <PageTitle title="Report exports">
         <button
           className="button secondary"
           disabled={!online || exports.isFetching}
+          aria-busy={exports.isFetching}
           onClick={() => void exports.refetch()}
         >
-          <RefreshCw size={16} />
+          {!exports.isFetching && <RefreshCw size={16} aria-hidden="true" />}
           Refresh
         </button>
       </PageTitle>
@@ -192,158 +197,167 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
         className="surface export-request-form"
         onSubmit={(event) => {
           event.preventDefault();
+          if (selectedStoresRequired(filters.kind) && !filters.storeIds.length) {
+            setStoreError('Choose the stores to include.');
+            return;
+          }
+          setStoreError('');
           create.mutate();
         }}
       >
-        <label>
-          Report
-          <select
-            aria-label="Report"
-            value={filters.kind}
-            disabled={create.isPending}
-            onChange={(event) =>
-              selectKind(
-                reportExportKinds.find((kind) => kind === event.target.value) ||
-                  'day-close-history',
-              )
+        <div className="form-grid">
+          <label>
+            Report
+            <select
+              aria-label="Report"
+              value={filters.kind}
+              disabled={create.isPending}
+              onChange={(event) =>
+                selectKind(
+                  reportExportKinds.find((kind) => kind === event.target.value) ||
+                    'day-close-history',
+                )
+              }
+            >
+              {reportExportKinds.map((kind) => (
+                <option key={kind} value={kind}>
+                  {kindLabels[kind]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Report name
+            <input
+              value={filters.label || ''}
+              maxLength={255}
+              disabled={create.isPending}
+              onChange={(event) => update('label', event.target.value)}
+              placeholder="Optional"
+            />
+          </label>
+          <label>
+            Report message
+            <input
+              value={filters.note || ''}
+              maxLength={255}
+              disabled={create.isPending}
+              onChange={(event) => update('note', event.target.value)}
+              placeholder="Optional"
+            />
+          </label>
+          <label>
+            From
+            <input
+              type={timestampExport(filters.kind) ? 'datetime-local' : 'date'}
+              step="1"
+              required
+              value={filters.from}
+              disabled={create.isPending}
+              onChange={(event) => update('from', event.target.value)}
+            />
+          </label>
+          <label>
+            To
+            <input
+              type={timestampExport(filters.kind) ? 'datetime-local' : 'date'}
+              step="1"
+              required
+              value={filters.to}
+              min={filters.from}
+              disabled={create.isPending}
+              onChange={(event) => update('to', event.target.value)}
+            />
+          </label>
+          <MultiSelect
+            label="Stores"
+            emptyLabel={
+              selectedStoresRequired(filters.kind) ? 'Select stores' : 'All permitted stores'
             }
-          >
-            {reportExportKinds.map((kind) => (
-              <option key={kind} value={kind}>
-                {kindLabels[kind]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          Report name
-          <input
-            value={filters.label || ''}
-            maxLength={255}
             disabled={create.isPending}
-            onChange={(event) => update('label', event.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-        <label>
-          Report message
-          <input
-            value={filters.note || ''}
-            maxLength={255}
-            disabled={create.isPending}
-            onChange={(event) => update('note', event.target.value)}
-            placeholder="Optional"
-          />
-        </label>
-        <label>
-          From
-          <input
-            type={timestampExport(filters.kind) ? 'datetime-local' : 'date'}
-            step="1"
-            required
-            value={filters.from}
-            disabled={create.isPending}
-            onChange={(event) => update('from', event.target.value)}
-          />
-        </label>
-        <label>
-          To
-          <input
-            type={timestampExport(filters.kind) ? 'datetime-local' : 'date'}
-            step="1"
-            required
-            value={filters.to}
-            min={filters.from}
-            disabled={create.isPending}
-            onChange={(event) => update('to', event.target.value)}
-          />
-        </label>
-        <label>
-          Stores
-          <select
-            aria-label="Stores"
-            multiple
-            required={selectedStoresRequired(filters.kind)}
-            value={[...filters.storeIds]}
-            disabled={create.isPending}
-            onChange={(event) =>
-              update(
-                'storeIds',
-                Array.from(event.target.selectedOptions, (option) => option.value),
-              )
-            }
-          >
-            {stores.data?.data
+            options={(stores.data?.data ?? [])
               .filter(
                 (store) =>
                   user.userType !== 2 ||
                   !timestampExport(filters.kind) ||
                   user.storeIds.includes(store.id),
               )
-              .map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-          </select>
-          <small>
-            {selectedStoresRequired(filters.kind)
-              ? 'Choose the stores to include.'
-              : 'Clear the selection for all permitted stores.'}
-          </small>
-        </label>
-        {filters.kind === 'order-transactions' && (
-          <>
+              .map((store) => ({ value: store.id, label: store.name }))}
+            value={filters.storeIds}
+            onChange={(storeIds) => {
+              setStoreError('');
+              update('storeIds', storeIds);
+            }}
+            hint={
+              selectedStoresRequired(filters.kind)
+                ? 'Choose the stores to include.'
+                : 'Clear the selection for all permitted stores.'
+            }
+          />
+          {filters.kind === 'order-transactions' && (
+            <>
+              <label>
+                Order source
+                <select
+                  value={filters.source || 'store'}
+                  disabled={create.isPending}
+                  onChange={(event) =>
+                    update('source', event.target.value === 'online' ? 'online' : 'store')
+                  }
+                >
+                  <option value="store">Store orders</option>
+                  <option value="online">Online orders</option>
+                </select>
+              </label>
+              <label>
+                Date basis
+                <select
+                  value={filters.dateType || 'order_date'}
+                  disabled={create.isPending}
+                  onChange={(event) =>
+                    update(
+                      'dateType',
+                      event.target.value === 'return_date' ? 'return_date' : 'order_date',
+                    )
+                  }
+                >
+                  <option value="order_date">Order date</option>
+                  <option value="return_date">Return date</option>
+                </select>
+              </label>
+            </>
+          )}
+          {filters.kind === 'day-close-history' && (
             <label>
-              Order source
+              Attempts
               <select
-                value={filters.source || 'store'}
+                value={filters.attempts || 'all'}
                 disabled={create.isPending}
                 onChange={(event) =>
-                  update('source', event.target.value === 'online' ? 'online' : 'store')
+                  update('attempts', event.target.value === 'latest' ? 'latest' : 'all')
                 }
               >
-                <option value="store">Store orders</option>
-                <option value="online">Online orders</option>
+                <option value="all">All attempts</option>
+                <option value="latest">Latest per store and day</option>
               </select>
             </label>
-            <label>
-              Date basis
-              <select
-                value={filters.dateType || 'order_date'}
-                disabled={create.isPending}
-                onChange={(event) =>
-                  update(
-                    'dateType',
-                    event.target.value === 'return_date' ? 'return_date' : 'order_date',
-                  )
-                }
-              >
-                <option value="order_date">Order date</option>
-                <option value="return_date">Return date</option>
-              </select>
-            </label>
-          </>
-        )}
-        {filters.kind === 'day-close-history' && (
-          <label>
-            Attempts
-            <select
-              value={filters.attempts || 'all'}
-              disabled={create.isPending}
-              onChange={(event) =>
-                update('attempts', event.target.value === 'latest' ? 'latest' : 'all')
-              }
+          )}
+          <div className="export-request-actions">
+            <button
+              className="button primary"
+              disabled={!online || create.isPending}
+              aria-busy={create.isPending}
             >
-              <option value="all">All attempts</option>
-              <option value="latest">Latest per store and day</option>
-            </select>
-          </label>
-        )}
-        <button className="button primary" disabled={!online || create.isPending}>
-          <Plus size={16} />
-          {create.isPending ? 'Requesting…' : 'Request export'}
-        </button>
+              {!create.isPending && <Plus size={16} aria-hidden="true" />}
+              {create.isPending ? 'Requesting…' : 'Request export'}
+            </button>
+            {storeError && (
+              <p role="alert" className="inline-error">
+                {storeError}
+              </p>
+            )}
+          </div>
+        </div>
       </form>
       {!online && <p role="status">Connect to request or download report files.</p>}
       {stores.isError && <ErrorState error={stores.error} />}
@@ -354,7 +368,7 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
         </p>
       )}
       <form
-        className="surface export-history-filters"
+        className="surface export-history-filters form-grid"
         onSubmit={(event) => {
           event.preventDefault();
           setSubmittedHistory(historyFilters);
@@ -404,13 +418,17 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
             <option value="asc">Ascending</option>
           </select>
         </label>
-        <button className="button secondary" disabled={!online || exports.isFetching}>
-          <Search size={16} />
+        <button
+          className="button secondary"
+          disabled={!online || exports.isFetching}
+          aria-busy={exports.isFetching}
+        >
+          {!exports.isFetching && <Search size={16} aria-hidden="true" />}
           Apply
         </button>
       </form>
-      <div className="export-history-controls">
-        <label>
+      <div className="toolbar export-history-controls">
+        <label className="inline-field">
           Rows per page
           <select
             aria-label="Export history rows per page"
@@ -428,42 +446,48 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
           </select>
         </label>
         <button
-          className="button secondary"
+          className="button secondary small"
           disabled={!exports.data?.data.length || !visibleColumns.length || metadataCsv.isPending}
           onClick={() => metadataCsv.mutate()}
         >
           CSV
         </button>
-        <details>
+        <details className="column-picker">
           <summary>
             Columns ({visibleColumns.length} of {exportMetadataColumns.length})
           </summary>
-          {exportMetadataColumns.map(([key, label]) => (
-            <label key={key}>
-              <input
-                type="checkbox"
-                checked={!hiddenColumns.includes(key)}
-                onChange={(event) =>
-                  setHiddenColumns((current) =>
-                    event.target.checked
-                      ? current.filter((value) => value !== key)
-                      : [...current, key],
-                  )
-                }
-              />
-              {label}
-            </label>
-          ))}
-          <button className="button secondary" type="button" onClick={() => setHiddenColumns([])}>
-            Show all columns
-          </button>
+          <div className="column-picker-panel">
+            {exportMetadataColumns.map(([key, label]) => (
+              <label key={key}>
+                <input
+                  type="checkbox"
+                  checked={!hiddenColumns.includes(key)}
+                  onChange={(event) =>
+                    setHiddenColumns((current) =>
+                      event.target.checked
+                        ? current.filter((value) => value !== key)
+                        : [...current, key],
+                    )
+                  }
+                />
+                {label}
+              </label>
+            ))}
+            <button
+              className="button secondary small"
+              type="button"
+              onClick={() => setHiddenColumns([])}
+            >
+              Show all columns
+            </button>
+          </div>
         </details>
-        <span className="muted">{exports.data?.total || 0} export(s)</span>
+        <span className="muted toolbar-end">{exports.data?.total || 0} export(s)</span>
       </div>
       {metadataCsv.isError && <ErrorState error={metadataCsv.error} />}
       {download.isError && <ErrorState error={download.error} />}
       {exports.isPending ? (
-        <Loading />
+        <SkeletonTable rows={6} columns={visibleColumns.length + 1} label="Loading exports…" />
       ) : exports.isError ? (
         <ErrorState error={exports.error} retry={() => void exports.refetch()} />
       ) : !exports.data.data.length ? (
@@ -491,12 +515,13 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
                     ))}
                     <td>
                       <button
-                        className="button secondary"
+                        className="button secondary small"
                         disabled={!online || !job.canDownload || download.isPending}
+                        aria-busy={download.isPending && download.variables?.id === job.id}
                         onClick={() => download.mutate(job)}
                         aria-label={`Download export ${job.id}`}
                       >
-                        <ArrowDownToLine size={16} />
+                        <ArrowDownToLine size={14} aria-hidden="true" />
                         Download
                       </button>
                     </td>
@@ -505,7 +530,7 @@ export function ReportExportsPage({ user, storeId }: { user: Principal; storeId:
               </tbody>
             </table>
           </div>
-          <div className="export-history-controls">
+          <div className="toolbar export-history-pagination">
             <button
               className="button secondary"
               disabled={page <= 1 || exports.isFetching}

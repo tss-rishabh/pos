@@ -151,9 +151,11 @@ function BarcodeForm({ user }: { user: Principal }) {
   }
   return (
     <>
-      <PageTitle eyebrow="CATALOG ADMINISTRATION" title="Add missing barcode" />
-      <section className="surface" style={{ padding: 24 }}>
-        <p>Assign an unused barcode to a product that has no barcode.</p>
+      <PageTitle title="Add missing barcode" />
+      <section className="surface administration-panel">
+        <p className="administration-notice">
+          Assign an unused barcode to a product that has no barcode.
+        </p>
         <form
           className="form-grid"
           onSubmit={(event) => {
@@ -191,13 +193,14 @@ function BarcodeForm({ user }: { user: Principal }) {
             className="button primary"
             type="submit"
             disabled={!online || busy || pending.length > 0 || Boolean(storageError)}
+            aria-busy={busy}
           >
             Assign barcode
           </button>
         </form>
         {!online && <p role="status">Reconnect to assign or check a barcode.</p>}
-        {storageError != null && <ErrorState error={storageError} />}{' '}
-        {error != null && <ErrorState error={error} />}{' '}
+        {storageError != null && <ErrorState error={storageError} />}
+        {error != null && <ErrorState error={error} />}
         {receipt && (
           <section role={receipt.status === 'success' ? 'status' : 'alert'}>
             <p>{receipt.message}</p>
@@ -209,7 +212,7 @@ function BarcodeForm({ user }: { user: Principal }) {
         )}
       </section>
       {pending.length > 0 && (
-        <section className="surface" style={{ padding: 24, marginTop: 16 }}>
+        <section className="surface administration-panel administration-section-gap">
           <h2>Saved assignments</h2>
           <p>
             Check the original action before assigning another barcode. This check never writes a

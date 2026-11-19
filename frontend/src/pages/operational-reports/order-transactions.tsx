@@ -4,12 +4,15 @@ import { ArrowDownToLine, Search, Columns3 } from 'lucide-react';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Empty, ErrorState, PageTitle } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
+import { MultiSelect } from '../../components/multi-select';
 import { useOnline } from '../../hooks/use-pos';
 import { orderReportColumns } from './order-report-columns';
 import { downloadLoadedPageCsv } from './page-csv';
 import { QueuedExport } from './queued-export';
 import './style.css';
+import '../order-history/table-tools.css';
 type Field = (typeof orderReportColumns)[number][1];
 const scalar = z.union([z.string(), z.number().finite(), z.null()]),
   rowSchema = z.record(z.string(), scalar).superRefine((row, ctx) => {
@@ -128,18 +131,19 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
     setFilters((current) => ({ ...current, [key]: value }));
   return (
     <>
-      <PageTitle eyebrow="EVERY LINE, ACCOUNTED FOR" title="Order transactions">
+      <PageTitle title="Order transactions">
         <button
           className="button secondary"
           disabled={!report.data?.data.length || !visible.length || pageCsv.isPending}
+          aria-busy={pageCsv.isPending}
           onClick={() => pageCsv.mutate()}
         >
-          <ArrowDownToLine size={16} />
+          {!pageCsv.isPending && <ArrowDownToLine size={16} aria-hidden="true" />}
           CSV
         </button>
       </PageTitle>
       <form
-        className="surface resource-report-filters"
+        className="surface resource-report-filters form-grid"
         onSubmit={(event) => {
           event.preventDefault();
           setSubmitted(filters);
@@ -167,28 +171,16 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
             onChange={(event) => update('to', event.target.value)}
           />
         </label>
-        <label>
-          Stores
-          <select
-            multiple
-            value={filters.storeIds}
-            onChange={(event) =>
-              update(
-                'storeIds',
-                Array.from(event.target.selectedOptions, (option) => option.value),
-              )
-            }
-          >
-            {stores.data?.data
-              .filter((store) => user.userType !== 2 || user.storeIds.includes(store.id))
-              .map((store) => (
-                <option key={store.id} value={store.id}>
-                  {store.name}
-                </option>
-              ))}
-          </select>
-          <small>Choose the stores to include.</small>
-        </label>
+        <MultiSelect
+          label="Stores"
+          emptyLabel="Select stores"
+          options={(stores.data?.data ?? [])
+            .filter((store) => user.userType !== 2 || user.storeIds.includes(store.id))
+            .map((store) => ({ value: store.id, label: store.name }))}
+          value={filters.storeIds}
+          onChange={(storeIds) => update('storeIds', storeIds)}
+          hint="Choose the stores to include."
+        />
         <label>
           Order source
           <select
@@ -216,8 +208,12 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
             <option value="return_date">Return date</option>
           </select>
         </label>
-        <button className="button primary" disabled={!online || report.isFetching}>
-          <Search size={16} />
+        <button
+          className="button primary"
+          disabled={!online || report.isFetching}
+          aria-busy={report.isFetching}
+        >
+          {!report.isFetching && <Search size={16} aria-hidden="true" />}
           View report
         </button>
       </form>
@@ -273,7 +269,7 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
         </div>
       </details>
       {report.isPending ? (
-        <Loading />
+        <SkeletonTable rows={6} columns={Math.max(1, visible.length)} label="Loading report…" />
       ) : report.isError ? (
         <ErrorState error={report.error} retry={() => void report.refetch()} />
       ) : !report.data.data.length ? (
@@ -307,7 +303,7 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
               </tbody>
             </table>
           </div>
-          <div className="resource-report-pagination">
+          <div className="toolbar resource-report-pagination">
             <button
               className="button secondary"
               disabled={report.data.page <= 1 || report.isFetching}
@@ -318,7 +314,7 @@ export function OrderTransactionsPage({ user, storeId }: { user: Principal; stor
             <span>
               Page {report.data.page} of {report.data.totalPages}
             </span>
-            <label>
+            <label className="inline-field">
               Rows
               <select
                 value={pageSize}

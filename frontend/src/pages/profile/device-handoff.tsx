@@ -151,7 +151,6 @@ function DeviceHandoffDialog({
     >
       <div className="administration-dialog-heading">
         <div>
-          <div className="eyebrow">ACCOUNT ACCESS</div>
           <h2 id="device-handoff-title">Device sign-in</h2>
         </div>
         <button className="icon-button" aria-label="Close device sign-in" onClick={onClose}>

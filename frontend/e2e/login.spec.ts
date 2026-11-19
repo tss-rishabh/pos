@@ -96,7 +96,7 @@ for (const restoration of ['absent', 'late', 'existing'] as const) {
       await page.getByLabel('Password', { exact: true }).fill('fixture-password');
       await page.getByRole('button', { name: 'Continue', exact: true }).click();
     }
-    await expect(page.getByRole('heading', { name: 'Make it securely yours.' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Verify and check in' })).toBeVisible();
     await expect(page.getByRole('heading', { name: 'The counter.' })).toHaveCount(0);
     await page.getByLabel('Verification code').fill('908172');
     if (restoration === 'late') {

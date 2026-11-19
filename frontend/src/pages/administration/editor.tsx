@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
-import { X } from 'lucide-react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { RequestReference, useProblem } from '../../components/common';
+import { Modal } from '../../components/modal';
 import { useOnline } from '../../hooks/use-pos';
 
 export interface AdministrationField {
@@ -38,41 +38,45 @@ export function AdministrationEditor({
   description?: string;
   submitLabel?: string;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
+  const formId = useId(),
     action = useRef<AbortController | null>(null),
     [values, setValues] = useState(initialValues),
     [busy, setBusy] = useState(false),
     [actionBusy, setActionBusy] = useState<string | null>(null),
     [error, setError, errorCause, reportError] = useProblem();
   const online = useOnline();
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => {
+  useEffect(
+    () => () => {
       action.current?.abort();
-      element?.close();
-    };
-  }, []);
+    },
+    [],
+  );
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
+    <Modal
+      title={title}
+      description={description}
+      closeLabel="Close editor"
+      dismissible={!busy}
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="submit"
+            form={formId}
+            className="button primary"
+            disabled={busy || actionBusy !== null || !online}
+            aria-busy={busy}
+          >
+            {busy ? 'Saving…' : submitLabel}
+          </button>
+        </>
+      }
     >
-      <div className="administration-dialog-heading">
-        <div>
-          <div className="eyebrow">STORE ADMINISTRATION</div>
-          <h2>{title}</h2>
-        </div>
-        <button className="icon-button" aria-label="Close editor" disabled={busy} onClick={onClose}>
-          <X size={19} />
-        </button>
-      </div>
-      {description && <p className="administration-notice">{description}</p>}
       <form
+        id={formId}
         onSubmit={(event) => {
           event.preventDefault();
           if (busy || actionBusy || !online) return;
@@ -155,6 +159,7 @@ export function AdministrationEditor({
                       type="button"
                       className="button secondary"
                       disabled={busy || actionBusy !== null || !online}
+                      aria-busy={actionBusy === field.name}
                       onClick={() => {
                         action.current?.abort();
                         const controller = new AbortController();
@@ -192,15 +197,7 @@ export function AdministrationEditor({
             <RequestReference error={errorCause} />
           </div>
         )}
-        <div className="administration-dialog-actions">
-          <button type="button" className="button secondary" disabled={busy} onClick={onClose}>
-            Cancel
-          </button>
-          <button className="button primary" disabled={busy || actionBusy !== null || !online}>
-            {busy ? 'Saving…' : submitLabel}
-          </button>
-        </div>
       </form>
-    </dialog>
+    </Modal>
   );
 }

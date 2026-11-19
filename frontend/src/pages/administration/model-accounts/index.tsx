@@ -149,7 +149,7 @@ function AccountForm({ user }: { user: Principal }) {
   }
   return (
     <>
-      <PageTitle title="Administrative account creation" eyebrow="Model administration" />
+      <PageTitle title="Administrative account creation" />
       <p className="administration-notice">
         New accounts have the Super admin business role, are active and in-house, and start without
         staff/superuser grants, store access, contact details or MFA enrollment. Their email is

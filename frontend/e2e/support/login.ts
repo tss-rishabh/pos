@@ -16,7 +16,7 @@ export async function signIn(page: Page, storeId = '1') {
   await page.getByLabel('Email or username').fill(e2eOperator.username);
   await page.getByLabel('Password', { exact: true }).fill(e2eOperator.password);
   await page.getByRole('button', { name: 'Continue', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Make it securely yours.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Verify and check in' })).toBeVisible();
   await page.getByLabel('Login store').selectOption(storeId);
   await page.getByLabel('Verification code').fill(e2eOperator.otp);
   await page.getByRole('button', { name: 'Verify & check in' }).click();

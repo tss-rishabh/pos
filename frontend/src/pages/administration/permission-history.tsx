@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import type { Principal } from '../../api/types';
 import { captureOperatorScope, request } from '../../api/client';
-import { Empty, ErrorState, Loading, PageTitle } from '../../components/common';
+import { Empty, ErrorState, PageTitle } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
 import { useOnline } from '../../hooks/use-pos';
 import {
   activityCapabilitiesSchema,
@@ -133,7 +134,7 @@ export function SpecialPermissionHistoryPage({ user }: { user: Principal }) {
   }
   return (
     <>
-      <PageTitle eyebrow="ADMINISTRATION" title="Permission activity" />
+      <PageTitle title="Permission activity" />
       <section className="surface permission-activity-filters">
         <form
           onSubmit={(event) => {
@@ -254,7 +255,7 @@ export function SpecialPermissionHistoryPage({ user }: { user: Principal }) {
       </section>
       <section className="surface administration-section-gap">
         {rows.isPending ? (
-          <Loading />
+          <SkeletonTable />
         ) : rows.isError ? (
           <ErrorState error={rows.error} retry={() => void rows.refetch()} />
         ) : (
@@ -303,7 +304,7 @@ export function SpecialPermissionHistoryPage({ user }: { user: Principal }) {
                   {rows.data.data.map((row) => (
                     <tr key={row.id}>
                       {visible.map(([key]) => (
-                        <td key={key} style={{ whiteSpace: 'pre-wrap' }}>
+                        <td key={key} className="administration-wrap">
                           {row[key]}
                         </td>
                       ))}

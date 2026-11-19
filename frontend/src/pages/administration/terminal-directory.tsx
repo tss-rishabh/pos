@@ -3,7 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { z } from 'zod';
 import { request } from '../../api/client';
 import type { Principal } from '../../api/types';
-import { ErrorState, Loading } from '../../components/common';
+import { ErrorState } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
 import { useOnline } from '../../hooks/use-pos';
 import {
   CatalogPagination,
@@ -301,7 +302,7 @@ export function TerminalDirectory({
       </form>
       {exportError && <ErrorState error={exportError} />}
       {data.isPending ? (
-        <Loading />
+        <SkeletonTable />
       ) : data.isError ? (
         <ErrorState error={data.error} />
       ) : (

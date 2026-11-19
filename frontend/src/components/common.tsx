@@ -1,14 +1,11 @@
 import { useCallback, useState, type ReactNode } from 'react';
-import { AlertCircle, ArrowUpRight, LoaderCircle, PackageOpen } from 'lucide-react';
+import { AlertCircle, ArrowUpRight, PackageOpen } from 'lucide-react';
 import { ApiError, errorRequestId } from '../api/client';
+import { Loader } from './loader';
 
-export function Loading() {
-  return (
-    <div className="empty">
-      <LoaderCircle className="spin" size={28} />
-      <p>Loading your workspace…</p>
-    </div>
-  );
+/** Block loader for a view or panel; see `./loader` for skeletons and inline spinners. */
+export function Loading({ label }: { label?: string } = {}) {
+  return <Loader label={label} />;
 }
 export function ErrorState({ error, retry }: { error: unknown; retry?: () => void }) {
   return (
@@ -68,25 +65,27 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
     </div>
   );
 }
+/** Plain page title (W27: no eyebrows or taglines) with the page's actions on the right. */
 export function PageTitle({
-  eyebrow,
   title,
+  subtitle,
   children,
 }: {
-  eyebrow: string;
   title: string;
+  /** A factual qualifier, such as the order type; never a tagline. */
+  subtitle?: string;
   children?: ReactNode;
 }) {
   return (
     <div className="page-title">
       <div>
-        <div className="eyebrow">{eyebrow}</div>
         <h1>
           {title}
           <span className="title-dot">.</span>
         </h1>
+        {subtitle && <p className="page-subtitle">{subtitle}</p>}
       </div>
-      {children}
+      {children && <div className="page-actions">{children}</div>}
     </div>
   );
 }

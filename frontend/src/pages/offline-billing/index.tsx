@@ -10,9 +10,10 @@ import {
   RefreshCw,
   ShieldCheck,
   Smartphone,
-  X,
 } from 'lucide-react';
 import { Empty, PageTitle } from '../../components/common';
+import { Loader } from '../../components/loader';
+import { Modal } from '../../components/modal';
 import {
   desktopOfflineBridge,
   offlineBillingClient,
@@ -67,7 +68,7 @@ export default function OfflineBillingPage() {
   if (!client)
     return (
       <>
-        <PageTitle eyebrow="DESKTOP ONLY" title="Offline billing" />
+        <PageTitle title="Offline billing" />
         <Empty title="Offline billing needs the desktop app">
           Web browsers need an internet connection to bill. Use the Souled POS desktop app to keep
           billing during an outage.
@@ -123,15 +124,16 @@ function OfflineBilling({ client }: { client: OfflineBillingClient }) {
   );
   return (
     <>
-      <PageTitle eyebrow="DESKTOP OFFLINE BILLING" title="Offline billing">
+      <PageTitle title="Offline billing">
         <button
           className="button secondary"
           disabled={busy || !status?.online}
+          aria-busy={busy}
           onClick={() =>
             void run(async () => setStatus(await client.call('offline:sync:retry', {})))
           }
         >
-          <RefreshCw size={16} />
+          {!busy && <RefreshCw size={16} />}
           Sync now
         </button>
         <button
@@ -150,6 +152,7 @@ function OfflineBilling({ client }: { client: OfflineBillingClient }) {
           {error}
         </div>
       )}
+      {!status && !error && <Loader label="Loading offline billing…" />}
       {status && <StatusPanel status={status} />}
       {status && !status.online && canBill && operator?.storeId && status.counters.length > 0 && (
         <SaleComposer
@@ -258,41 +261,61 @@ function OfflineBilling({ client }: { client: OfflineBillingClient }) {
   );
 }
 
+/**
+ * W27: a compact status strip, shown only when it matters — offline, unavailable, sales waiting
+ * or needing a manager, a blocked limit or a sync error. While online with nothing pending the
+ * page shows no status card (the header carries the connection state).
+ */
 function StatusPanel({ status }: { status: OfflineStatus }) {
   const limits = status.limits;
+  const waiting = status.queue.queued + status.queue.syncing;
+  const relevant =
+    !status.available ||
+    !status.online ||
+    waiting > 0 ||
+    status.queue.needsManager > 0 ||
+    !limits.allowed ||
+    Boolean(status.lastSyncError);
+  if (!relevant) return null;
   return (
-    <div className="sync-overview offline-status">
-      {status.online ? <CloudCheck size={30} /> : <CloudOff size={30} />}
+    <section
+      className={`offline-status${status.online ? '' : ' offline'}`}
+      aria-labelledby="offline-status-title"
+    >
+      {status.online && status.available ? (
+        <CloudCheck size={20} aria-hidden="true" />
+      ) : (
+        <CloudOff size={20} aria-hidden="true" />
+      )}
       <div>
-        <h2>
+        <h2 id="offline-status-title">
           {!status.available
             ? 'Offline billing unavailable'
             : status.online
-              ? 'Connected — bill from the counter'
+              ? 'Offline sales waiting'
               : 'Working offline'}
         </h2>
         {status.unavailableReason && <p>{status.unavailableReason}</p>}
-        {status.available && (
+        {status.available && !status.online && (
           <p>
             {status.operator ? status.operator.message : 'Sign in online on this device first.'}
           </p>
         )}
-        {status.available && (
+        {status.available && (!status.online || !limits.allowed) && (
           <p role="status" className={limits.allowed ? '' : 'offline-limit-blocked'}>
             {limits.message}
           </p>
         )}
         <p className="offline-queue">
-          Waiting {status.queue.queued + status.queue.syncing} · Needs manager{' '}
-          {status.queue.needsManager} · Synced {status.queue.synced} · Catalogue{' '}
-          {status.catalog.products} products
+          Waiting {waiting} · Needs manager {status.queue.needsManager} · Synced{' '}
+          {status.queue.synced} · Catalogue {status.catalog.products} products
           {status.catalog.refreshedAt
             ? ` (updated ${new Date(status.catalog.refreshedAt).toLocaleString()})`
             : ''}
         </p>
         {status.lastSyncError && <p className="offline-limit-blocked">{status.lastSyncError}</p>}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -581,6 +604,7 @@ function SaleComposer({
       <button
         className="button primary full"
         disabled={busy || saving || !lines.length || totals.payablePaise <= 0}
+        aria-busy={saving}
         onClick={() => void complete()}
       >
         {saving ? 'Saving…' : 'Complete offline sale'}
@@ -591,25 +615,28 @@ function SaleComposer({
 
 function ReceiptDialog({ receipt, onClose }: { receipt: OfflineReceipt; onClose: () => void }) {
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal offline-receipt"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="offline-receipt-title"
-      >
-        <button className="modal-close icon-button" aria-label="Close receipt" onClick={onClose}>
-          <X size={16} />
+    <Modal
+      size="sm"
+      className="offline-receipt"
+      title={receipt.heading}
+      closeLabel="Close receipt"
+      onClose={onClose}
+      footer={
+        <button className="button primary" onClick={() => window.print()}>
+          <Printer size={16} aria-hidden="true" />
+          Print receipt
         </button>
-        <div className="eyebrow">THE SOULED STORE</div>
-        <h2 id="offline-receipt-title">{receipt.heading}</h2>
-        <p className="offline-provisional">{receipt.provisionalNotice}</p>
-        <p>
-          {receipt.storeName ?? `Store ${receipt.storeId}`} ·{' '}
-          {receipt.counterName ?? `Counter ${receipt.counterId}`}
-        </p>
-        <p className="mono">{receipt.provisionalRef}</p>
-        <p>{new Date(receipt.createdAt).toLocaleString()}</p>
+      }
+    >
+      <p className="offline-receipt-brand">The Souled Store</p>
+      <p className="offline-provisional">{receipt.provisionalNotice}</p>
+      <p>
+        {receipt.storeName ?? `Store ${receipt.storeId}`} ·{' '}
+        {receipt.counterName ?? `Counter ${receipt.counterId}`}
+      </p>
+      <p className="mono">{receipt.provisionalRef}</p>
+      <p>{new Date(receipt.createdAt).toLocaleString()}</p>
+      <div>
         {receipt.lines.map((line) => (
           <div className="receipt-line" key={line.productId}>
             <span>
@@ -626,22 +653,17 @@ function ReceiptDialog({ receipt, onClose }: { receipt: OfflineReceipt; onClose:
           <strong>Total</strong>
           <strong>{rupees(receipt.payablePaise)}</strong>
         </div>
-        {receipt.tender.mode === 'cash' ? (
-          <p>
-            Cash {rupees(receipt.tender.receivedPaise)} · Change{' '}
-            {rupees(receipt.tender.changePaise)}
-          </p>
-        ) : (
-          <p>
-            {receipt.tender.mode.toUpperCase()} reference {receipt.tender.reference}
-          </p>
-        )}
-        <button className="button primary full" onClick={() => window.print()}>
-          <Printer size={16} />
-          Print receipt
-        </button>
-      </section>
-    </div>
+      </div>
+      {receipt.tender.mode === 'cash' ? (
+        <p>
+          Cash {rupees(receipt.tender.receivedPaise)} · Change {rupees(receipt.tender.changePaise)}
+        </p>
+      ) : (
+        <p>
+          {receipt.tender.mode.toUpperCase()} reference {receipt.tender.reference}
+        </p>
+      )}
+    </Modal>
   );
 }
 
@@ -701,87 +723,84 @@ function ResolveDialog({
     });
   }
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="offline-resolve-title"
-      >
-        <button className="modal-close icon-button" aria-label="Close" onClick={onClose}>
-          <X size={16} />
-        </button>
-        <div className="eyebrow">MANAGER REVIEW</div>
-        <h2 id="offline-resolve-title">{sale.provisionalRef}</h2>
-        <p>{sale.conflict?.message ?? 'This sale needs a manager decision before it can sync.'}</p>
-        {error && (
-          <div role="alert" className="inline-error">
-            {error}
-          </div>
-        )}
+    <Modal
+      size="sm"
+      title={sale.provisionalRef}
+      description={
+        sale.conflict?.message ?? 'This sale needs a manager decision before it can sync.'
+      }
+      onClose={onClose}
+      footer={
+        <>
+          <button type="button" className="button secondary" onClick={onClose}>
+            Cancel
+          </button>
+          <button type="button" className="button primary" onClick={submit}>
+            Save decision
+          </button>
+        </>
+      }
+    >
+      {error && (
+        <div role="alert" className="inline-error">
+          {error}
+        </div>
+      )}
+      <label className="offline-field">
+        Decision
+        <select
+          value={action}
+          onChange={(event) => setAction(event.target.value as ResolutionAction)}
+        >
+          {unknown ? (
+            <>
+              <option value="link-order">The order exists in Orders — link it</option>
+              <option value="recreate">Orders has no order for this sale — create it</option>
+            </>
+          ) : (
+            <>
+              <option value="correct-tender">Correct the tender</option>
+              <option value="accept">Accept the store’s current price/stock and sync</option>
+            </>
+          )}
+          <option value="void">Void this sale (goods returned)</option>
+        </select>
+      </label>
+      {action === 'link-order' && (
         <label className="offline-field">
-          Decision
-          <select
-            value={action}
-            onChange={(event) => setAction(event.target.value as ResolutionAction)}
-          >
-            {unknown ? (
-              <>
-                <option value="link-order">The order exists in Orders — link it</option>
-                <option value="recreate">Orders has no order for this sale — create it</option>
-              </>
-            ) : (
-              <>
-                <option value="correct-tender">Correct the tender</option>
-                <option value="accept">Accept the store’s current price/stock and sync</option>
-              </>
-            )}
-            <option value="void">Void this sale (goods returned)</option>
-          </select>
-        </label>
-        {action === 'link-order' && (
-          <label className="offline-field">
-            Order ID from Orders
-            <input
-              inputMode="numeric"
-              value={orderId}
-              maxLength={20}
-              onChange={(event) => setOrderId(event.target.value)}
-            />
-          </label>
-        )}
-        {action === 'correct-tender' && (
-          <>
-            <label className="offline-field">
-              Tender
-              <select value={mode} onChange={(event) => setMode(event.target.value as TenderMode)}>
-                <option value="cash">Cash</option>
-                <option value="card">Card</option>
-                <option value="upi">UPI</option>
-              </select>
-            </label>
-            <label className="offline-field">
-              {mode === 'cash' ? 'Cash received' : 'Terminal reference'}
-              <input
-                value={value}
-                maxLength={100}
-                onChange={(event) => setValue(event.target.value)}
-              />
-            </label>
-          </>
-        )}
-        <label className="offline-field">
-          Reason
+          Order ID from Orders
           <input
-            value={reason}
-            maxLength={200}
-            onChange={(event) => setReason(event.target.value)}
+            inputMode="numeric"
+            value={orderId}
+            maxLength={20}
+            onChange={(event) => setOrderId(event.target.value)}
           />
         </label>
-        <button className="button primary full" onClick={submit}>
-          Save decision
-        </button>
-      </section>
-    </div>
+      )}
+      {action === 'correct-tender' && (
+        <>
+          <label className="offline-field">
+            Tender
+            <select value={mode} onChange={(event) => setMode(event.target.value as TenderMode)}>
+              <option value="cash">Cash</option>
+              <option value="card">Card</option>
+              <option value="upi">UPI</option>
+            </select>
+          </label>
+          <label className="offline-field">
+            {mode === 'cash' ? 'Cash received' : 'Terminal reference'}
+            <input
+              value={value}
+              maxLength={100}
+              onChange={(event) => setValue(event.target.value)}
+            />
+          </label>
+        </>
+      )}
+      <label className="offline-field">
+        Reason
+        <input value={reason} maxLength={200} onChange={(event) => setReason(event.target.value)} />
+      </label>
+    </Modal>
   );
 }

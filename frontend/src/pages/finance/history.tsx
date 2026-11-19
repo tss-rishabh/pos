@@ -164,7 +164,7 @@ export function DayCloseHistoryPage({ user, storeId }: { user: Principal; storeI
     setFilters((current) => ({ ...current, [key]: value }));
   return (
     <>
-      <PageTitle eyebrow="THE RECORD BEHIND THE FIGURES" title="Day-close history">
+      <PageTitle title="Day-close history">
         <button
           className="button secondary"
           disabled={!report.data?.data.length || pageCsv.isPending}

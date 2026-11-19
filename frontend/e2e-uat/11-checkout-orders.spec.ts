@@ -238,13 +238,13 @@ async function pay(page: Page, dialog: Locator, label: string, mode: string, mes
   await expect(form).toBeVisible();
   const due = (await form.locator('.grand-total strong').innerText()).replace(/[^\d.]/g, '');
   if (mode === 'cash') {
-    await form.getByRole('spinbutton', { name: 'Cash To Be Accepted:' }).fill(due);
-    await form.getByRole('spinbutton', { name: 'Cash Recieved:' }).fill(due);
+    await form.getByRole('spinbutton', { name: 'Cash To Be Accepted' }).fill(due);
+    await form.getByRole('spinbutton', { name: 'Cash Received' }).fill(due);
   } else {
-    await form.getByRole('spinbutton', { name: 'Cash To Be Accepted:' }).fill('0');
-    await form.getByRole('spinbutton', { name: 'Cash To Be Accepted:' }).blur();
-    await form.getByRole('spinbutton', { name: 'Card/UPI:' }).fill(due);
-    await form.getByRole('spinbutton', { name: 'Card/UPI:' }).blur();
+    await form.getByRole('spinbutton', { name: 'Cash To Be Accepted' }).fill('0');
+    await form.getByRole('spinbutton', { name: 'Cash To Be Accepted' }).blur();
+    await form.getByRole('spinbutton', { name: 'Card/UPI' }).fill(due);
+    await form.getByRole('spinbutton', { name: 'Card/UPI' }).blur();
     const select = form.getByRole('combobox', { name: /Payment Mode/ });
     const labels = await select.locator('option').allInnerTexts();
     note(`${label}:payment-options`, labels);
@@ -405,7 +405,7 @@ test('fast cash checkout for 12132565', async () => {
   const payable = (
     (await fast.getByRole('heading').innerText()).match(/:\s*([\d.,]+)/)?.[1] ?? ''
   ).replace(/,/g, '');
-  await fast.getByRole('spinbutton', { name: 'Cash Recieved:' }).fill(payable);
+  await fast.getByRole('spinbutton', { name: 'Cash Received' }).fill(payable);
   await fast.getByPlaceholder('Enter the message for the order').fill('W26 UAT fast cash');
   await fast.getByRole('button', { name: 'Submit', exact: true }).click();
   const done = page.getByText(/^Payment confirmed\./).first();

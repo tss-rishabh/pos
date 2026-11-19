@@ -52,7 +52,11 @@ export function QueuedExport({
             onChange={(event) => setNote(event.target.value)}
           />
         </label>
-        <button className="button secondary" disabled={disabled || queue.isPending}>
+        <button
+          className="button secondary"
+          disabled={disabled || queue.isPending}
+          aria-busy={queue.isPending}
+        >
           <ArrowDownToLine size={16} />
           {queue.isPending ? 'Requesting…' : 'Export'}
         </button>

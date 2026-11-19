@@ -58,7 +58,6 @@ import { registerBarcodeAssignments } from './modules/administration/barcodes/in
 import { registerSecondaryCountrySearch } from './modules/administration/country-search.js';
 import { registerOperatorModelAccounts } from './modules/administration/model-accounts/index.js';
 import { registerApplicationLinks } from './modules/application-links/index.js';
-import { registerMotivationalQuotes } from './modules/motivational-quotes/index.js';
 import { registerDashboard } from './modules/dashboard/index.js';
 import { registerGiftCardBatches } from './modules/gift-card-batches/index.js';
 import { readGiftCardBatchOptions } from './modules/gift-card-batches/options.js';
@@ -385,7 +384,6 @@ export async function buildApp(
   registerCatalogStockLocations(app, db);
   registerSpecialPermissionHistory(app, config, db, readSpecialPermissionHistoryOptions());
   registerApplicationLinks(app, config, db, moduleRuntime);
-  registerMotivationalQuotes(app);
   registerDashboard(app, config, db);
   registerGiftCardBatches(app, config, db, readGiftCardBatchOptions(), moduleRuntime);
   registerAdministrationHistory(app, config, db, readAdministrationHistoryOptions());

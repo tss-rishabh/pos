@@ -3,6 +3,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import type { Principal } from '../../api/types';
 import { params, request } from '../../api/client';
 import { Empty, ErrorState, Loading } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
 import {
   downloadTemplate,
   uploadDetailSchema,
@@ -170,7 +171,12 @@ function CsvUploadAdministration({ user, type }: { user: Principal; type: Upload
             onChange={(event) => void choose(event.target.files?.[0])}
           />
         </label>
-        <button className="button primary" disabled={busy || !file} onClick={() => void upload()}>
+        <button
+          className="button primary"
+          disabled={busy || !file}
+          aria-busy={busy}
+          onClick={() => void upload()}
+        >
           Upload CSV
         </button>
       </section>
@@ -184,7 +190,7 @@ function CsvUploadAdministration({ user, type }: { user: Principal; type: Upload
       <h3 className="administration-section-gap">Upload history</h3>
       <section className="surface">
         {history.isPending ? (
-          <Loading />
+          <SkeletonTable />
         ) : history.isError ? (
           <ErrorState error={history.error} />
         ) : !rows.length ? (

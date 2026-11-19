@@ -1,5 +1,8 @@
 # Cashier shortcuts
 
+> **Removed, 20 November 2026 (user decision, W27 UI cleanup).** Cashier keyboard shortcuts (R/P/PP/F/N/E/B/S/T, including the F fast-cash key), the "Keyboard shortcuts" disclosure, the shortcut preference and the Shortcut reference page are deleted from the rewrite. This document is kept as the historical parity record of the legacy behaviour; nothing below describes current rewrite code. Browser and OS editing keys (copy, paste, undo, zoom) and the desktop menu roles are not app shortcuts and are unchanged. See `backend/parity/w27-ui-report.md`.
+
+
 The pinned source bindings are in `order/templates/order/create_order.html:1024`
 and `order/templates/order/tab.html:242`; the help table is
 `order/templates/order/shortcuts.html`. The original keys R/P/F/N/E/B/S/T are

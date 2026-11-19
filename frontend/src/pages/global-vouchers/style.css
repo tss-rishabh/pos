@@ -1,15 +1,15 @@
 .global-vouchers {
   display: grid;
-  gap: 1rem;
+  gap: var(--space-4);
   max-width: 960px;
 }
 .global-voucher-card,
 .global-voucher-receipt,
 .global-voucher-conversion {
-  padding: 1.4rem;
-  border: 1px solid var(--border, #e2e8f0);
-  border-radius: 16px;
-  background: var(--surface, #fff);
+  padding: var(--space-5);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
 }
 .global-voucher-card h2,
 .global-voucher-conversion h3 {
@@ -17,31 +17,23 @@
 }
 .global-voucher-card form {
   display: flex;
-  align-items: end;
-  gap: 1rem;
+  align-items: flex-end;
+  gap: var(--space-3);
   flex-wrap: wrap;
+  margin-bottom: var(--space-3);
 }
 .global-voucher-card label,
 .global-voucher-conversion label {
-  display: grid;
-  gap: 0.45rem;
-  max-width: 28rem;
-  margin-bottom: 0.8rem;
+  width: min(100%, 28rem);
 }
-.global-voucher-card input,
-.global-voucher-conversion input {
-  min-height: 42px;
-  padding: 0.6rem 0.8rem;
-  border: 1px solid var(--border, #cbd5e1);
-  border-radius: 8px;
-  color: inherit;
-  background: var(--surface, #fff);
+.global-voucher-card > label {
+  margin-bottom: var(--space-3);
 }
 .global-voucher-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.7rem;
-  margin-top: 1rem;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
 }
 .global-voucher-receipt dl {
   display: grid;
@@ -49,7 +41,7 @@
   gap: 0.7rem;
 }
 .global-voucher-receipt dt {
-  color: var(--muted, #64748b);
+  color: var(--muted);
 }
 .global-voucher-receipt dd {
   margin: 0;
@@ -57,10 +49,9 @@
 }
 .global-voucher-conversion {
   display: grid;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: var(--space-2);
 }
 .global-voucher-conversion .global-voucher-receipt {
-  padding: 1rem;
-  background: var(--background, #f8fafc);
+  padding: var(--space-4);
+  background: #fafbf7;
 }

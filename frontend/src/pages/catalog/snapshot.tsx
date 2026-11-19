@@ -93,7 +93,7 @@ export function StoreCatalogPage({ user, storeId }: { user: Principal; storeId: 
     offset = start >= filtered.length ? 0 : start;
   return (
     <>
-      <PageTitle eyebrow="AVAILABLE ONLINE AND OFFLINE" title={`${data.data.store.name} catalog`}>
+      <PageTitle title={`${data.data.store.name} catalog`}>
         <button
           className="button secondary"
           disabled={!online || data.isFetching}

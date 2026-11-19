@@ -36,7 +36,7 @@ Unimplemented or unverified entries block the production release check.
 | Returns and exchanges  | Reasons/subreasons; eligibility windows and per-line extensions; credit-note sequencing; refund mode; duplicate SKU isolation; Vinculum acceptance and failed exchange retry                                                   |
 | Hyperlocal and express | Acceptance/rejection; pack/ship/RTO; bulk line operations; deadlines and alerts; online conversion; cross-store operational dashboards; webhooks                                                                               |
 | Reports and finance    | Orders, returns, sales, daily store and hyperlocal; salesperson/cashier performance; NPS/CRM; Slack availability/status/delivery/cancellation; export jobs/logs; finance feed; day-close states, nag, logs and cash balances   |
-| Supporting features    | WebSocket notifications/read states; documentation/tutorial management; EDC management; QR downloads; keyboard shortcuts; background exports and file storage                                                                  |
+| Supporting features    | WebSocket notifications/read states; documentation/tutorial management; EDC management; QR downloads; ~~keyboard shortcuts~~ (removed by user decision, 20 Nov 2026, W27); background exports and file storage                                                                  |
 
 ## Architecture
 

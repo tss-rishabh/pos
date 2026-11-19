@@ -431,7 +431,7 @@ export function ReturnsPage({
     return <Empty title="Select your store and counter to process a return" />;
   return (
     <>
-      <PageTitle eyebrow="CUSTOMER CARE" title="Returns" />
+      <PageTitle title="Returns" />
       {entry &&
         recovery &&
         (entry.orderId !== recovery.orderId || entry.kind !== recovery.kind) && (

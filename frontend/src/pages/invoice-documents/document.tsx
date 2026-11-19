@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { liveQuery } from 'dexie';
-import { Download, FileText, Printer, X } from 'lucide-react';
+import { Download, FileText, Printer } from 'lucide-react';
 import type { Principal } from '../../api/types';
 import { currentInvoiceSession, invoiceActorSignal, invoiceIdentity } from './session';
 import {
@@ -15,6 +15,8 @@ import {
   type AutomaticInvoiceRequest,
 } from './automatic';
 import { RequestReference, useProblem } from '../../components/common';
+import { Loader } from '../../components/loader';
+import { Modal } from '../../components/modal';
 import '../checkout/InvoiceActions.css';
 const invoiceLabel = (kind: InvoiceKind) =>
   kind === 'online'
@@ -264,74 +266,72 @@ export function InvoiceDocumentDialog({
     }
   }
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal invoice-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="invoice-title"
-      >
-        <button className="icon-button modal-close" aria-label="Close invoice" onClick={onClose}>
-          <X size={20} />
-        </button>
-        <h2 id="invoice-title">
+    <Modal
+      size="lg"
+      className="invoice-dialog"
+      closeLabel="Close invoice"
+      onClose={onClose}
+      title={
+        <>
           {invoiceLabel(kind)}{' '}
           {(document?.scopeKey === scopeKey && document.number) || `for order ${orderId}`}
-        </h2>
-        <div className="invoice-toolbar">
-          <button
-            className="button primary"
-            disabled={!authorized || !online || !ready || busy || document?.scopeKey !== scopeKey}
-            onClick={() => void load('manual')}
-          >
-            <Printer size={16} /> Print invoice
-          </button>
-          <button
-            className="button secondary"
-            disabled={!authorized || !online || busy}
-            onClick={() => void download()}
-          >
-            <Download size={16} /> Download invoice
-          </button>
-          <button
-            className="button secondary"
-            disabled={!authorized || !online || busy}
-            onClick={() => void load()}
-          >
-            Refresh invoice
-          </button>
-        </div>
-        {busy && <p role="status">Loading invoice…</p>}
-        {!online && <p className="muted">Connect to load or print a current tax invoice.</p>}
-        {problem && (
-          <p role="alert" className="inline-error">
-            {problem}
-          </p>
-        )}
-        {problem && <RequestReference error={problemCause} />}
-        {authorized && online && document && document.scopeKey === scopeKey && (
-          <iframe
-            key={document.revision}
-            ref={frame}
-            title={`Tax invoice for order ${orderId}`}
-            sandbox="allow-same-origin allow-modals"
-            referrerPolicy="no-referrer"
-            src={document.path}
-            onLoad={() => void loaded(document)}
-            className="invoice-preview"
-          />
-        )}
-        {problem && (
-          <button
-            className="button secondary"
-            disabled={!authorized || !online || busy}
-            onClick={() => void load()}
-          >
-            Retry invoice
-          </button>
-        )}
-      </section>
-    </div>
+        </>
+      }
+    >
+      <div className="toolbar invoice-toolbar">
+        <button
+          className="button primary"
+          disabled={!authorized || !online || !ready || busy || document?.scopeKey !== scopeKey}
+          aria-busy={busy}
+          onClick={() => void load('manual')}
+        >
+          {!busy && <Printer size={16} aria-hidden="true" />} Print invoice
+        </button>
+        <button
+          className="button secondary"
+          disabled={!authorized || !online || busy}
+          onClick={() => void download()}
+        >
+          <Download size={16} aria-hidden="true" /> Download invoice
+        </button>
+        <button
+          className="button secondary"
+          disabled={!authorized || !online || busy}
+          onClick={() => void load()}
+        >
+          Refresh invoice
+        </button>
+      </div>
+      {busy && <Loader inline label="Loading invoice…" />}
+      {!online && <p className="muted">Connect to load or print a current tax invoice.</p>}
+      {problem && (
+        <p role="alert" className="inline-error">
+          {problem}
+        </p>
+      )}
+      {problem && <RequestReference error={problemCause} />}
+      {authorized && online && document && document.scopeKey === scopeKey && (
+        <iframe
+          key={document.revision}
+          ref={frame}
+          title={`Tax invoice for order ${orderId}`}
+          sandbox="allow-same-origin allow-modals"
+          referrerPolicy="no-referrer"
+          src={document.path}
+          onLoad={() => void loaded(document)}
+          className="invoice-preview"
+        />
+      )}
+      {problem && (
+        <button
+          className="button secondary"
+          disabled={!authorized || !online || busy}
+          onClick={() => void load()}
+        >
+          Retry invoice
+        </button>
+      )}
+    </Modal>
   );
 }
 export function InvoiceDocumentAction(props: InvoiceDocumentProps) {

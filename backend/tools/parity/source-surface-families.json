@@ -487,10 +487,10 @@
       "id": "check-in",
       "implementation_status": "implementation_present",
       "backend": ["backend/src/modules/administration/checkins.ts"],
-      "frontend": ["frontend/src/pages/administration/check-in.tsx"],
+      "frontend": ["frontend/src/components/check-in.tsx", "frontend/src/app.tsx"],
       "tests": ["backend/tests/administration", "frontend/tests/administration"],
       "parity_documents": ["backend/parity/administration.md"],
-      "implemented_scope": "SQL-authoritative expiring store/counter check-in and notification recipients; optional caller-owned transaction.",
+      "implemented_scope": "SQL-authoritative expiring store/counter check-in and notification recipients; optional caller-owned transaction. W27 (20 Nov 2026, user): the separate check-in page is replaced by the header check-in/check-out control and a check-in prompt after an interactive sign-in; backend semantics unchanged.",
       "remaining_code": [],
       "external_acceptance": [],
       "code_task_required": true,
@@ -784,24 +784,16 @@
     },
     {
       "id": "motivational-quotes",
-      "implementation_status": "implementation_present",
-      "backend": ["backend/src/modules/motivational-quotes"],
-      "frontend": [
-        "frontend/src/components/motivational-quote.tsx",
-        "frontend/src/pages/counter.tsx"
-      ],
-      "tests": [
-        "backend/tests/motivational-quotes.test.ts",
-        "frontend/e2e/**/motivational-quotes.spec.ts"
-      ],
+      "implementation_status": "missing",
+      "backend": [],
+      "frontend": [],
+      "tests": [],
       "parity_documents": [],
-      "implemented_scope": "Exact source 83-choice immutable quote pool, authenticated bounded random API and actor-bound asynchronous refresh/offline-safe shared React card. Dashboard rotation uses the same card.",
+      "implemented_scope": "Removed by the 20 November 2026 user decision (W27 UI cleanup): The motivational quote card, its rotation on the dashboard and the GET /api/v1/motivational-quotes/random route are deleted. The legacy templates stay inventoried as latent source surfaces; the rewrite intentionally has no implementation.",
       "remaining_code": [],
       "external_acceptance": [],
-      "code_task_required": true,
-      "notes": [
-        "Source-handler differential choices and controlled browser workflows are scoped evidence; no release certification is added. Root integrates the rotating card into the new dashboard."
-      ],
+      "code_task_required": false,
+      "notes": ["Removal recorded in backend/parity/w27-ui-report.md."],
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
@@ -942,12 +934,15 @@
         "frontend/src/components/common.tsx",
         "frontend/src/components/error-boundary.tsx",
         "frontend/src/components/realtime-clock.tsx",
-        "frontend/src/components/workspace-context.tsx",
-        "frontend/src/components/release-notes.tsx"
+        "frontend/src/components/release-notes.tsx",
+        "frontend/src/components/check-in.tsx",
+        "frontend/src/components/connection-status.tsx",
+        "frontend/src/components/modal.tsx",
+        "frontend/src/components/loader.tsx"
       ],
       "tests": ["backend/tests/api.test.ts", "frontend/tests"],
       "parity_documents": [],
-      "implemented_scope": "Approved redesigned navigation, shortcut landing, safe errors, online indicator and shared layout. Isolated device clock, global authoritative check-in status/link distinct from workspace selection, and visible In-House/Franchise account type are restored; offline/error/expired check-ins do not claim active authority. Source read-only What's New panel retains the all-role naming notes, role-1 report rename note, always-New badge and 8 Sep 2026 date.",
+      "implemented_scope": "Approved redesigned navigation, safe errors and shared layout. W27 (20 Nov 2026, user): one header with store/counter selection, the authoritative check-in status with check-in/check-out, a compact offline/unsynced indicator, What's New and the signed-in user with a Log out toggle (Log in on the sign-in page); eyebrows, taglines, the sub-bar and footer are removed; one Modal and one Loader/Skeleton vocabulary. Isolated device clock and the In-House/Franchise account type are kept; offline/error/expired check-ins do not claim active authority. Source read-only What's New panel retains the all-role naming notes, role-1 report rename note, always-New badge and 8 Sep 2026 date.",
       "remaining_code": [],
       "external_acceptance": [],
       "code_task_required": true,
@@ -960,9 +955,9 @@
       "implementation_review": [
         {
           "$review": true,
-          "path": "frontend/src/components/workspace-context.tsx",
-          "anchor": "export function WorkspaceContext",
-          "scope": "Existing operator-scoped native check-in query is observed without another background poll; the global display uses that record and its expiry, not workspace selection. Account type comes from the current authenticated principal. Runtime verification remains pending.",
+          "path": "frontend/src/components/check-in.tsx",
+          "anchor": "export function useCheckIn",
+          "scope": "The operator-scoped native check-in query is shared with notifications and reminders; the header status uses that record and its expiry, not workspace selection. Check-in and check-out call the unchanged PUT/DELETE operators/me/check-in. Account type comes from the current authenticated principal.",
           "source": false
         },
         {
@@ -1409,24 +1404,16 @@
     },
     {
       "id": "cashier-shortcuts",
-      "implementation_status": "implementation_present",
+      "implementation_status": "missing",
       "backend": [],
-      "frontend": [
-        "frontend/src/app.tsx",
-        "frontend/src/pages/cashier-shortcuts",
-        "frontend/src/pages/counter.tsx",
-        "frontend/src/pages/checkout/CheckoutReview.tsx"
-      ],
-      "tests": [
-        "frontend/tests/cashier-shortcuts/shortcuts.test.ts",
-        "frontend/e2e/checkout/cashier-shortcuts.spec.ts"
-      ],
+      "frontend": [],
+      "tests": [],
       "parity_documents": ["backend/parity/cashier-shortcuts.md"],
-      "implemented_scope": "Source R/P/PP/F/N/E/B/S/T keyboard actions and login-only standalone reference without store/counter selection or assignments; shared operator-scoped preference and guarded counter controls with typing/modifier/IME/modal/actor/financial fences. No shortcut charges or completes cash.",
+      "implemented_scope": "Removed by the 20 November 2026 user decision (W27 UI cleanup): Cashier keyboard shortcuts (R/P/PP/F/N/E/B/S/T), the shortcut help disclosure and the Shortcut reference page are deleted. The legacy templates stay inventoried as latent source surfaces; the rewrite intentionally has no implementation.",
       "remaining_code": [],
       "external_acceptance": [],
-      "code_task_required": true,
-      "notes": [],
+      "code_task_required": false,
+      "notes": ["Removal recorded in backend/parity/w27-ui-report.md."],
       "workflow_certified": false,
       "test_evidence_scope": "Referenced source/component/native/browser tests; file presence is not an executed full source-workflow certification.",
       "reference_binding": "Mapped component/module scope; inspect the named remaining_code boundaries before treating the whole family as implemented."
@@ -1704,7 +1691,7 @@
       ],
       "tests": ["backend/tests/fulfillment"],
       "parity_documents": ["backend/parity/fulfillment.md"],
-      "implemented_scope": "Persisted notices/read receipts, scoped current-check-in WebSocket with expiry/backpressure, actionable order/queue navigation with NULL url_key, incoming visual alerts/queue indication and scoped gesture-safe sound. Internal URL parsing rejects backslashes/control characters and normalized external origins.",
+      "implemented_scope": "Persisted notices/read receipts, scoped current-check-in WebSocket with expiry/backpressure, actionable order/queue navigation with NULL url_key, incoming visual alerts/queue indication and the legacy arrival chime (no toggle; armed by the first user gesture). W27: the bell is shown only when the feed loaded for the checked-in store and holds notifications. Internal URL parsing rejects backslashes/control characters and normalized external origins.",
       "remaining_code": [],
       "external_acceptance": [
         "Accept production Redis/pubsub/websocket gateway and original consumer cutover."

@@ -1,10 +1,12 @@
 import { AdministrationCollectionTable, useAdministrationView } from './collection-table';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Download, Plus, X } from 'lucide-react';
+import { BookOpen, Download, Plus } from 'lucide-react';
 import type { Principal } from '../../api/types';
 import { request } from '../../api/client';
-import { ErrorState, Loading, PageTitle } from '../../components/common';
+import { ErrorState, PageTitle } from '../../components/common';
+import { SkeletonTable } from '../../components/loader';
+import { Modal } from '../../components/modal';
 import { mutateAdministration, useAdministrationCollection } from './api';
 import { DocumentationEditor } from './documentation-editor';
 import {
@@ -24,14 +26,8 @@ function GuideReader({
   onClose: () => void;
   operatorId: string;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null),
-    [downloading, setDownloading] = useState<string | null>(null),
+  const [downloading, setDownloading] = useState<string | null>(null),
     [error, setError] = useState('');
-  useEffect(() => {
-    const element = dialog.current;
-    element?.showModal();
-    return () => element?.close();
-  }, []);
   async function download(attachment: GuideAttachment) {
     setDownloading(attachment.id);
     setError('');
@@ -45,24 +41,18 @@ function GuideReader({
   }
   const html = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'"><meta name="referrer" content="no-referrer"><style>body{font:14px/1.8 system-ui,sans-serif;margin:12px;color:#36442d;white-space:pre-wrap}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:8px}p{margin:0 0 12px}h2,h3{line-height:1.3}</style></head><body>${guide.descriptionHtml}</body></html>`;
   return (
-    <dialog
-      ref={dialog}
-      className="administration-dialog administration-guide-reader"
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-    >
-      <div className="administration-dialog-heading">
-        <div>
-          <div className="eyebrow">STORE KNOWLEDGE</div>
-          <h2>{guide.title}</h2>
-        </div>
-        <button className="icon-button" aria-label="Close guide" onClick={onClose}>
-          <X size={19} />
+    <Modal
+      title={guide.title}
+      description={guide.summary}
+      size="lg"
+      closeLabel="Close guide"
+      onClose={onClose}
+      footer={
+        <button className="button secondary" onClick={onClose}>
+          Close guide
         </button>
-      </div>
-      <p className="administration-guide-summary">{guide.summary}</p>
+      }
+    >
       <iframe
         title={`${guide.title} description`}
         sandbox=""
@@ -89,8 +79,9 @@ function GuideReader({
               <div className="administration-heading">
                 <span>{asset.name}</span>
                 <button
-                  className="button secondary"
+                  className="button secondary small"
                   disabled={downloading !== null}
+                  aria-busy={downloading === asset.id}
                   onClick={() => void download(asset)}
                 >
                   <Download size={14} />
@@ -106,12 +97,7 @@ function GuideReader({
           {error}
         </p>
       )}
-      <div className="administration-dialog-actions">
-        <button className="button secondary" onClick={onClose}>
-          Close guide
-        </button>
-      </div>
-    </dialog>
+    </Modal>
   );
 }
 
@@ -165,7 +151,7 @@ export function DocumentationPage({ user }: { user: Principal }) {
   }
   return (
     <>
-      <PageTitle eyebrow="STORE KNOWLEDGE" title="Documentation" />
+      <PageTitle title="Documentation" />
       <div className="administration-heading">
         <h2>Guides and tutorials</h2>
         <div className="administration-filters">
@@ -202,7 +188,7 @@ export function DocumentationPage({ user }: { user: Principal }) {
       {error !== null && <ErrorState error={error} />}
       <section className="surface">
         {collection.isPending ? (
-          <Loading />
+          <SkeletonTable />
         ) : collection.isError ? (
           <ErrorState error={collection.error} />
         ) : (

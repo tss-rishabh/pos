@@ -173,7 +173,11 @@ export function AdministrationCollectionTable<T extends { id: string }>({
   }
   return (
     <>
-      <div className="administration-filters" aria-label={`${view.resource} collection controls`}>
+      <div
+        className="toolbar administration-table-toolbar"
+        role="group"
+        aria-label={`${view.resource} collection controls`}
+      >
         <label>
           Page size
           <select
@@ -218,28 +222,34 @@ export function AdministrationCollectionTable<T extends { id: string }>({
             <option value="desc">Descending</option>
           </select>
         </label>
-        <details>
+        <details className="administration-columns">
           <summary>Columns</summary>
-          {columns.map((column) => (
-            <label key={column.key}>
-              <input
-                type="checkbox"
-                checked={visible.includes(column)}
-                disabled={visible.length === 1 && visible.includes(column)}
-                onChange={(event) => {
-                  const selected = visible.map((value) => value.key);
-                  setSelection(
-                    event.target.checked
-                      ? [...selected, column.key]
-                      : selected.filter((key) => key !== column.key),
-                  );
-                }}
-              />
-              {column.label}
-            </label>
-          ))}
+          <div className="administration-columns-panel">
+            {columns.map((column) => (
+              <label key={column.key}>
+                <input
+                  type="checkbox"
+                  checked={visible.includes(column)}
+                  disabled={visible.length === 1 && visible.includes(column)}
+                  onChange={(event) => {
+                    const selected = visible.map((value) => value.key);
+                    setSelection(
+                      event.target.checked
+                        ? [...selected, column.key]
+                        : selected.filter((key) => key !== column.key),
+                    );
+                  }}
+                />
+                {column.label}
+              </label>
+            ))}
+          </div>
         </details>
-        <button className="button secondary" disabled={!rows.length || busy} onClick={exportPage}>
+        <button
+          className="button secondary small toolbar-end"
+          disabled={!rows.length || busy}
+          onClick={exportPage}
+        >
           Export visible page CSV
         </button>
       </div>
@@ -257,9 +267,22 @@ export function AdministrationCollectionTable<T extends { id: string }>({
           <tbody>
             {rows.map((row) => (
               <tr key={row.id}>
-                {visible.map((column) => (
-                  <td key={column.key}>{column.render?.(row) ?? column.value(row) ?? '—'}</td>
-                ))}
+                {visible.map((column) => {
+                  const value = column.value(row);
+                  // Long text truncates to one line; the full value stays in the tooltip.
+                  return (
+                    <td
+                      key={column.key}
+                      title={
+                        typeof value === 'string' || typeof value === 'number'
+                          ? String(value)
+                          : undefined
+                      }
+                    >
+                      {column.render?.(row) ?? value ?? '—'}
+                    </td>
+                  );
+                })}
                 <td>
                   <div className="administration-table-actions">{actions(row)}</div>
                 </td>
@@ -269,17 +292,18 @@ export function AdministrationCollectionTable<T extends { id: string }>({
         </table>
         {!rows.length && <Empty title={emptyTitle} />}
       </div>
-      <div className="administration-actions">
+      <div className="toolbar administration-pagination">
         <button
-          className="button secondary"
+          className="button secondary small"
           disabled={view.index === 0 || busy || collection.isFetching}
           onClick={() => view.setIndex(view.index - 1)}
         >
           Previous page
         </button>
-        <span>Page {view.index + 1}</span>
+        <span className="muted">Page {view.index + 1}</span>
         <button
-          className="button secondary"
+          className="button secondary small"
+          aria-busy={busy}
           disabled={
             !online ||
             busy ||

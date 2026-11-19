@@ -26,7 +26,12 @@ test('desktop web flow: search, durable cart, offline reload, replay, and order 
   await page.waitForLoadState('networkidle');
   await context.setOffline(true);
   await page.reload();
-  await expect(page.getByText('You’re offline. Your carts stay on this device.')).toBeVisible();
+  // W27: the offline state is a compact header indicator instead of a full-width banner.
+  await expect(
+    page.getByRole('banner').getByRole('link', {
+      name: 'Offline. Your carts stay on this device. Reconnect to confirm prices and sync saved sales.',
+    }),
+  ).toBeVisible();
   await expect(page.getByText('₹1,998.00').first()).toBeVisible();
   await page.getByRole('button', { name: 'Add Everyday: Crew Neck to sale' }).click();
   await page.getByRole('button', { name: 'Save on this device', exact: true }).click();
@@ -51,10 +56,11 @@ test('operator logout retains drafts but removes identity and cached catalog', a
   await page.goto('/');
   await signIn(page);
   await page.getByRole('button', { name: 'Add Classic: Oversized T-shirt to sale' }).click();
-  await page.getByRole('button', { name: 'Sign out' }).click();
-  await expect(page.getByRole('heading', { name: 'Let’s open the store.' })).toBeVisible();
+  await page.getByRole('banner').getByRole('button', { name: 'Log out', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Log in', exact: true })).toBeVisible();
+  await expect(page.getByRole('banner').getByRole('button', { name: 'Log in' })).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Let’s open the store.' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Log in', exact: true })).toBeVisible();
   await signIn(page);
   await expect(page.getByText('₹999.00').last()).toBeVisible();
 });

@@ -18,7 +18,6 @@ import {
 const routes = [
   '/',
   '/dashboard',
-  '/check-in',
   '/catalog',
   '/catalog/inventory',
   '/catalog/inventory-pulls',
@@ -53,7 +52,6 @@ const routes = [
   '/profile',
   '/sync',
   '/documentation',
-  '/shortcut-reference',
   '/offline-billing',
   '/offline-worksheet',
 ];

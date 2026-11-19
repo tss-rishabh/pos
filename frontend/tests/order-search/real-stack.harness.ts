@@ -55,6 +55,24 @@ async function apply(page: Page) {
   return response;
 }
 const body = (request: Request) => request.postDataJSON() as Record<string, unknown>;
+/**
+ * Sets a W27 searchable multi-select (trigger button named by its field label, one checkbox per
+ * option) to exactly the named options, then closes it.
+ */
+async function choose(page: Page, label: string, names: readonly RegExp[]) {
+  await page.getByRole('button', { name: label, exact: true }).click();
+  const panel = page.getByRole('group', { name: label, exact: true });
+  for (const box of await panel.getByRole('checkbox').all()) {
+    const name = (await box.evaluate((input) => input.closest('label')?.textContent ?? '')).trim();
+    await box.setChecked(names.some((pattern) => pattern.test(name)));
+  }
+  await page.keyboard.press('Escape');
+  await expect(panel).toHaveCount(0);
+}
+const method = { counter: /^POS Counter$/ },
+  paymentStatus = { pending: /^Pending$/i, paid: /^Paid$/i },
+  orderStatus = { processing: /^Processing$/i, delivered: /^Delivered$/i },
+  store = { bandra: /^Bandra Flagship$/, indiranagar: /^Indiranagar$/ };
 const columnText = async (page: Page, header: string, id: string) => {
   const headers = await page.locator('.order-search-workspace thead th').allTextContents(),
     index = headers.findIndex((value) => value.replace(/[↑↓]/g, '').trim() === header);
@@ -159,9 +177,9 @@ test('order search drives the real list, filters, paging, exports and order type
   await page.getByLabel('Order email', { exact: true }).fill('');
 
   // 4. Method, payment-status and order-status filters.
-  await page.getByLabel('Payment methods', { exact: true }).selectOption('14');
-  await page.getByLabel('Payment statuses', { exact: true }).selectOption('1');
-  await page.getByLabel('Order statuses', { exact: true }).selectOption('1');
+  await choose(page, 'Payment method', [method.counter]);
+  await choose(page, 'Payment status', [paymentStatus.pending]);
+  await choose(page, 'Order status', [orderStatus.processing]);
   const pending = await apply(page);
   expect(body(pending.request())).toMatchObject({
     paymentMethodIds: ['14'],
@@ -169,12 +187,12 @@ test('order search drives the real list, filters, paging, exports and order type
     orderStatusIds: ['1'],
   });
   expect(await rowIds(page)).toEqual(['6002', '6001']);
-  await page.getByLabel('Payment statuses', { exact: true }).selectOption('4');
-  await page.getByLabel('Order statuses', { exact: true }).selectOption('3');
+  await choose(page, 'Payment status', [paymentStatus.paid]);
+  await choose(page, 'Order status', [orderStatus.delivered]);
   await apply(page);
   expect(await rowIds(page)).toEqual(['6104']);
-  for (const label of ['Payment methods', 'Payment statuses', 'Order statuses'])
-    await page.getByLabel(label, { exact: true }).selectOption([]);
+  for (const label of ['Payment method', 'Payment status', 'Order status'])
+    await choose(page, label, []);
   await apply(page);
   await expect(page.locator('.order-search-workspace tbody tr')).toHaveCount(11);
 
@@ -240,8 +258,8 @@ test('order search drives the real list, filters, paging, exports and order type
 
   // 10. Express (HE) needs exactly one store; the link carries the selected store.
   await page.getByLabel('Order type', { exact: true }).selectOption('HE');
-  for (const stores of [[], ['1', '2']]) {
-    await page.getByLabel('Order stores', { exact: true }).selectOption(stores);
+  for (const stores of [[], [store.bandra, store.indiranagar]]) {
+    await choose(page, 'Stores', stores);
     const before = searches.length;
     await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
     await expect(page.getByRole('alert')).toHaveText(
@@ -249,7 +267,7 @@ test('order search drives the real list, filters, paging, exports and order type
     );
     expect(searches).toHaveLength(before);
   }
-  await page.getByLabel('Order stores', { exact: true }).selectOption('2');
+  await choose(page, 'Stores', [store.indiranagar]);
   const express = await apply(page);
   expect(body(express.request())).toMatchObject({ orderType: 'HE', storeIds: ['2'] });
   await expect(page.getByRole('alert')).toHaveCount(0);
@@ -270,7 +288,7 @@ test('order search drives the real list, filters, paging, exports and order type
 
   // 11. In-queue ignores dates, IDs and the store selection; it lists the checked-in store's
   // live local-delivery queue and links as local delivery.
-  await page.getByLabel('Order stores', { exact: true }).selectOption([]);
+  await choose(page, 'Stores', []);
   await page.getByLabel('In queue', { exact: true }).check();
   await expect(page.getByLabel('Order IDs', { exact: true })).toBeDisabled();
   await expect(page.getByLabel('Placed from', { exact: true })).toBeDisabled();
@@ -286,7 +304,7 @@ test('order search drives the real list, filters, paging, exports and order type
 
   // 12. Server validation (zod after authentication) shows its message and request reference.
   await page.getByLabel('Order type', { exact: true }).selectOption('ST');
-  await page.getByLabel('Order stores', { exact: true }).selectOption('1');
+  await choose(page, 'Stores', [store.bandra]);
   await page.getByLabel('Order mobile', { exact: true }).fill('not-a-phone');
   const rejected = page.waitForResponse(isSearch);
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();

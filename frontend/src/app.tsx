@@ -1,30 +1,19 @@
 import { lazy, Suspense, useEffect, useLayoutEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  NavLink,
-  Route,
-  Routes,
-  useLocation,
-  useMatch,
-  useNavigate,
-  useParams,
-} from 'react-router-dom';
+import { NavLink, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   Building2,
   ChevronDown,
-  Cloud,
   CloudOff,
   LayoutGrid,
   LogOut,
   Package,
   ReceiptText,
   RefreshCw,
-  ShoppingBag,
   ChartNoAxesCombined,
   Truck,
   Settings,
   BookOpen,
-  LogIn,
   ClipboardCheck,
   Monitor,
   Wallet,
@@ -41,7 +30,9 @@ import { useOfflineBillingAutoSwitch } from './offline/billing/auto-switch';
 import { Login } from './pages/login';
 import { Empty, ErrorState, Loading } from './components/common';
 import { RealtimeClock } from './components/realtime-clock';
-import { WorkspaceContext } from './components/workspace-context';
+import { ReleaseNotes } from './components/release-notes';
+import { CheckInControl, CheckInPrompt, useCheckIn } from './components/check-in';
+import { ConnectionStatus } from './components/connection-status';
 import type { Principal } from './api/types';
 import { NotificationsPanel } from './pages/fulfillment/notifications';
 import { GlobalFulfillmentExpiryAlerts } from './pages/fulfillment/global-expiry-alerts';
@@ -49,7 +40,6 @@ import { DayCloseReminder } from './pages/finance/day-close-reminder';
 import { pendingSlackConnection } from './pages/administration/slack-return';
 
 const CounterPage = lazy(() => import('./pages/counter').then((m) => ({ default: m.CounterPage })));
-const ShortcutReferencePage = lazy(() => import('./pages/cashier-shortcuts/reference'));
 const OfflineWorksheetPage = lazy(() => import('./pages/offline-worksheet'));
 const OfflineBillingPage = lazy(() => import('./pages/offline-billing'));
 const DashboardPage = lazy(() => import('./pages/dashboard'));
@@ -118,9 +108,6 @@ const SyncPage = lazy(() => import('./pages/sync').then((m) => ({ default: m.Syn
 const ReportsPage = lazy(() => import('./pages/reports').then((m) => ({ default: m.ReportsPage })));
 const AdministrationPage = lazy(() =>
   import('./pages/administration').then((m) => ({ default: m.AdministrationPage })),
-);
-const OperatorCheckIn = lazy(() =>
-  import('./pages/administration').then((m) => ({ default: m.OperatorCheckIn })),
 );
 const DocumentationPage = lazy(() =>
   import('./pages/administration').then((m) => ({ default: m.DocumentationPage })),
@@ -198,7 +185,6 @@ const FlashSalesPage = lazy(() =>
 
 const links = [
   { to: '/', name: 'The counter', icon: LayoutGrid },
-  { to: '/shortcut-reference', name: 'Shortcut reference', icon: BookOpen },
   { to: '/dashboard', name: 'Dashboard', icon: ChartNoAxesCombined, internalOnly: true },
   { to: '/orders', name: 'Orders', icon: ReceiptText },
   { to: '/offline-worksheet', name: 'Invoice worksheet', icon: ReceiptText },
@@ -225,7 +211,6 @@ const links = [
     roles: [1, 2, 3],
     internalOnly: true,
   },
-  { to: '/check-in', name: 'Store check-in', icon: LogIn },
   { to: '/profile', name: 'Your profile', icon: UserRound },
   { to: '/monitoring', name: 'Fulfillment monitor', icon: Monitor, roles: [1, 2, 3] },
   { to: '/administration', name: 'Administration', icon: Settings, roles: [1, 2, 3] },
@@ -282,7 +267,6 @@ function OperatorWorkspace() {
   );
 }
 function Workspace({ user }: { user: Principal }) {
-  const shortcutReference = Boolean(useMatch('/shortcut-reference'));
   const client = useQueryClient(),
     navigate = useNavigate();
   useEffect(() => {
@@ -303,6 +287,8 @@ function Workspace({ user }: { user: Principal }) {
   useCheckoutPerformance(user.id, state.storeId, state.counterId, sync.online);
   useOfflineBillingAutoSwitch(sync.online);
   const [logoutError, setLogoutError] = useState<unknown>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const checkIn = useCheckIn(user, sync.online);
   useEffect(() => {
     if (stores.data && !stores.data.some((s) => s.id === state.storeId))
       state.setStore(stores.data[0]?.id || '');
@@ -313,6 +299,7 @@ function Workspace({ user }: { user: Principal }) {
   }, [counters.data, state.counterId]);
   const currentStore = stores.data?.find((s) => s.id === state.storeId);
   async function logout() {
+    setLoggingOut(true);
     try {
       localStorage.setItem('pos-pending-logout', '1');
       try {
@@ -325,6 +312,7 @@ function Workspace({ user }: { user: Principal }) {
       navigate('/');
     } catch (error) {
       setLogoutError(error);
+      setLoggingOut(false);
     }
   }
   return (
@@ -333,17 +321,12 @@ function Workspace({ user }: { user: Principal }) {
         Skip to workspace
       </a>
       <aside className="sidebar">
-        <NavLink to="/" className="brand">
-          <span className="brand-symbol">
+        <NavLink to="/" className="brand" aria-label="The Souled Store: the counter">
+          <span className="brand-symbol" aria-hidden="true">
             s<span>.</span>
           </span>
-          <span>
-            the souled store<small>RETAIL WORKSPACE</small>
-          </span>
+          <span>the souled store</span>
         </NavLink>
-        <div className="workspace-label">
-          WORKSPACE <span>01</span>
-        </div>
         <nav aria-label="Main navigation">
           {links
             .filter(
@@ -358,7 +341,7 @@ function Workspace({ user }: { user: Principal }) {
                 to={link.to}
                 className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
               >
-                <link.icon size={19} />
+                <link.icon size={18} aria-hidden="true" />
                 <span>{link.name}</span>
                 {link.to === '/sync' && sync.operations.length > 0 && (
                   <b>{sync.operations.length}</b>
@@ -367,96 +350,89 @@ function Workspace({ user }: { user: Principal }) {
             ))}
         </nav>
         <div className="sidebar-bottom">
-          <div className="store-note">
-            <ShoppingBag size={22} />
-            <strong>Keep it souled.</strong>
-            <p>
-              A good store day starts
-              <br />
-              with a little less friction.
-            </p>
-          </div>
-          <div className="sidebar-version">
-            <span className="status-dot" /> Desktop & web<span>v0.1</span>
-          </div>
           <RealtimeClock />
+          <span className="sidebar-version">v0.1</span>
         </div>
       </aside>
       <div className="workspace">
         <header className="topbar">
-          <div className="location-picker">
-            <Building2 size={17} />
-            <label className="sr-only" htmlFor="store-select">
-              Current store
+          <div className="topbar-context">
+            <div className="location-picker">
+              <Building2 size={16} aria-hidden="true" />
+              <label className="sr-only" htmlFor="store-select">
+                Current store
+              </label>
+              <select
+                id="store-select"
+                value={state.storeId}
+                title={currentStore?.name}
+                onChange={(e) => state.setStore(e.target.value)}
+              >
+                {!stores.data?.length && <option value="">Select a store</option>}
+                {stores.data?.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown size={14} aria-hidden="true" />
+            </div>
+            <span className="topbar-divider" />
+            <label className="counter-picker">
+              <span>Counter</span>
+              <select
+                aria-label="Current counter"
+                value={state.counterId}
+                onChange={(e) => state.setCounter(e.target.value)}
+              >
+                {!counters.data?.length && <option value="">Select</option>}
+                {counters.data?.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
             </label>
-            <select
-              id="store-select"
-              value={state.storeId}
-              onChange={(e) => state.setStore(e.target.value)}
-            >
-              {!stores.data?.length && <option value="">Select a store</option>}
-              {stores.data?.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={14} />
+            <span className="topbar-divider" />
+            <CheckInControl
+              state={checkIn}
+              stores={stores.isError ? [] : stores.data || []}
+              storeId={state.storeId}
+              counterId={state.counterId}
+            />
           </div>
-          <span className="topbar-divider" />
-          <label className="counter-picker">
-            <span>Counter</span>
-            <select
-              aria-label="Current counter"
-              value={state.counterId}
-              onChange={(e) => state.setCounter(e.target.value)}
-            >
-              {!counters.data?.length && <option value="">Select</option>}
-              {counters.data?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <div className="topbar-right">
+            <ConnectionStatus online={sync.online} pendingOperations={sync.operations.length} />
             <NotificationsPanel
               key={`${user.id}:${state.storeId}`}
               user={user}
               storeId={state.storeId}
             />
-            <NavLink to="/sync" className={`connection ${sync.online ? '' : 'offline'}`}>
-              {sync.online ? <Cloud size={15} /> : <CloudOff size={15} />}
-              <span>
-                {sync.online
-                  ? sync.operations.length
-                    ? 'Sync pending'
-                    : 'Connected'
-                  : 'Working offline'}
-              </span>
-            </NavLink>
+            <ReleaseNotes role={user.role} />
             <span className="topbar-divider" />
-            <div className="operator-avatar">{user.name.slice(0, 1)}</div>
-            <div className="operator-info">
-              <strong>{user.name}</strong>
-              <span>{roleNames[user.role]}</span>
+            <div className="account">
+              <div className="operator-avatar" aria-hidden="true">
+                {user.name.slice(0, 1)}
+              </div>
+              <div className="operator-info">
+                <strong>{user.name}</strong>
+                <span>
+                  {roleNames[user.role]} · {user.userType === 2 ? 'Franchise' : 'In-House'}
+                </span>
+              </div>
+              <button
+                type="button"
+                className="button secondary small account-toggle"
+                disabled={loggingOut}
+                aria-busy={loggingOut}
+                onClick={() => void logout()}
+              >
+                {!loggingOut && <LogOut size={14} aria-hidden="true" />}
+                Log out
+              </button>
             </div>
-            <button
-              className="icon-button"
-              aria-label="Sign out"
-              title="Sign out"
-              onClick={() => void logout()}
-            >
-              <LogOut size={17} />
-            </button>
           </div>
         </header>
-        <WorkspaceContext
-          key={user.id}
-          user={user}
-          stores={stores.isError ? [] : stores.data || []}
-          online={sync.online}
-        />
         <GlobalFulfillmentExpiryAlerts
           operatorId={user.id}
           storeId={state.storeId}
@@ -467,20 +443,10 @@ function Workspace({ user }: { user: Principal }) {
           storeId={state.storeId}
           enabled={sync.online && !stores.isError && Boolean(currentStore?.active)}
         />
-        {!sync.online && (
-          <div className="offline-banner" role="status">
-            <CloudOff size={16} />
-            You’re offline. Your carts stay on this device. Reconnect to confirm prices and sync
-            saved sales.
-          </div>
-        )}
+        {stores.data && <CheckInPrompt user={user} state={checkIn} stores={stores.data} />}
         <main className="main-content" id="workspace-main">
-          {logoutError !== null && <ErrorState error={logoutError} />}{' '}
-          {shortcutReference ? (
-            <Suspense fallback={<Loading />}>
-              <ShortcutReferencePage key={user.id} operatorId={user.id} />
-            </Suspense>
-          ) : stores.isError ? (
+          {logoutError !== null && <ErrorState error={logoutError} />}
+          {stores.isError ? (
             <ErrorState error={stores.error} retry={() => void stores.refetch()} />
           ) : stores.isPending ? (
             <Loading />
@@ -512,12 +478,8 @@ function Workspace({ user }: { user: Principal }) {
                       />
                     ) : (
                       <div className="empty">
-                        <Building2 size={30} />
-                        <h2>
-                          {currentStore
-                            ? 'Select a counter to start'
-                            : 'Select your store to start'}
-                        </h2>
+                        <Building2 size={30} aria-hidden="true" />
+                        <h2>{currentStore ? 'Select a counter' : 'Select your store'}</h2>
                         {counters.isError && <ErrorState error={counters.error} />}
                       </div>
                     )
@@ -723,16 +685,6 @@ function Workspace({ user }: { user: Principal }) {
                   element={<DayCloseHistoryPage user={user} storeId={state.storeId} />}
                 />
                 <Route
-                  path="/check-in"
-                  element={
-                    <OperatorCheckIn
-                      user={user}
-                      storeId={state.storeId}
-                      counterId={state.counterId}
-                    />
-                  }
-                />
-                <Route
                   path="/administration"
                   element={
                     <AdministrationPage
@@ -784,14 +736,6 @@ function Workspace({ user }: { user: Principal }) {
             </Suspense>
           )}
         </main>
-        <footer className="workspace-footer">
-          <span>
-            THE SOULED STORE <b>·</b> MADE FOR EVERYDAY RETAIL
-          </span>
-          <span>
-            {currentStore?.locationCode || 'Your workspace'} <b>·</b> All amounts in INR
-          </span>
-        </footer>
       </div>
     </div>
   );
