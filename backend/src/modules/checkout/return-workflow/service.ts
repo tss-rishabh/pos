@@ -70,7 +70,7 @@ export function superAdminReturnOverride(
   );
 }
 
-async function customerToken(context: ReturnServiceContext, customerId: string) {
+export async function customerToken(context: ReturnServiceContext, customerId: string) {
   const customer = await context.customers.customer(customerId);
   if (!customer)
     throw new AppError(

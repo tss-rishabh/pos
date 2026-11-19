@@ -587,6 +587,11 @@ describe.skipIf(!template)('returns and exchanges on legacy tables', () => {
       exchanges.start(operator, '1', online.orderId, online.lineId, exchangeInput()),
     ).rejects.toMatchObject(notApplicable);
     expect(calls.inbound).toBe(0);
+    // S35 refusals happen before any write: no PENDING (or failed) exchange-log row, no line change.
+    expect(await rows('SELECT id FROM pos_exchange_log')).toEqual([]);
+    expect(
+      await rows('SELECT status FROM has_products WHERE id = ?', [Number(online.lineId)]),
+    ).toEqual([{ status: 'DELIVERED' }]);
     // ...but the merged cell still offers the exchange (legacy online template).
     const merged = await seedOrder(9026, { productType: 8, storeOrder: false });
     expect(

@@ -695,6 +695,25 @@ export function returnRepository(db: Databases, config: Config, options: ReturnR
   }
 
   return {
+    /**
+     * S35 preflight, read only: the guard facts and the order's customer, so a refusal that needs
+     * the eligibility answer (online type 8 outside the merged cell) happens before any write.
+     */
+    async exchangePreflight(
+      user: Principal,
+      storeId: string,
+      orderId: string,
+      lineId: string,
+      counterId: string,
+    ) {
+      return db.get('writer').transaction(async (tx) => {
+        const scope = await context(tx, user, storeId, orderId, lineId, counterId);
+        const facts = await guardFacts(tx, user.id, orderId, scope.line.product);
+        const refusal = exchangeRefusal({ ...facts, retry: false, merged: null });
+        if (refusal) throw refused(refusal);
+        return { ...facts, customerId: String(scope.order.customerId) };
+      });
+    },
     state,
     load,
     /**
