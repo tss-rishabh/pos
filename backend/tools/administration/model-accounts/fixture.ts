@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { readConfig } from '../../../src/config.js';
 import { createDatabases } from '../../../src/db/pools.js';
