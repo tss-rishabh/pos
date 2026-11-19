@@ -3,6 +3,7 @@ import { captureOperatorScope } from '../../api/client';
 import { RequestReference, useProblem } from '../../components/common';
 import { copyOrder, type CopyCancellation, type OrderCopyScope } from './client';
 import { markOrderCopyOrigin } from './marker';
+import './style.css';
 
 export interface OrderCopyPanelProps {
   scope: OrderCopyScope;
@@ -54,22 +55,35 @@ export function OrderCopyPanel(props: OrderCopyPanelProps) {
     }
   }
   return (
-    <section aria-label="Sync Order Cart">
+    <section aria-label="Sync Order Cart" className="order-copy">
       <h3>Sync Order Cart</h3>
-      <label>
-        Order ID
-        <input
-          inputMode="numeric"
-          maxLength={20}
-          placeholder="Enter Order Id You Wanna Sync"
-          value={orderId}
-          onChange={(event) => setOrderId(event.target.value)}
+      <form
+        className="order-copy-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void submit();
+        }}
+      >
+        <label>
+          Order ID
+          <input
+            inputMode="numeric"
+            maxLength={20}
+            placeholder="Enter Order Id You Wanna Sync"
+            value={orderId}
+            onChange={(event) => setOrderId(event.target.value)}
+            disabled={busy || disabled || !online}
+          />
+        </label>
+        <button
+          type="submit"
+          className="button secondary"
           disabled={busy || disabled || !online}
-        />
-      </label>
-      <button type="button" disabled={busy || disabled || !online} onClick={() => void submit()}>
-        Submit
-      </button>
+          aria-busy={busy}
+        >
+          Submit
+        </button>
+      </form>
       {message && <p role="status">{message}</p>}
       {problem && (
         <p className="inline-error" role="alert">

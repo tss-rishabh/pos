@@ -46,8 +46,9 @@ test('web checkout creates a real order and records its cash payment', async ({ 
   await page.getByRole('button', { name: 'Review sale', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Confirm the sale' });
   await dialog.getByRole('button', { name: 'Confirm prices online' }).click();
-  // Legacy requires a salesperson on every order ("Please Select The Salesperson.").
-  await dialog.getByText('Salesperson assignments', { exact: true }).click();
+  // Legacy requires a salesperson on every order ("Please Select The Salesperson."). W27: the
+  // assignments are an always-open section of the review dialog.
+  await expect(dialog.getByRole('heading', { name: 'Salesperson assignments' })).toBeVisible();
   await dialog
     .getByRole('combobox', { name: 'Sale salesperson', exact: true })
     .selectOption('810001');

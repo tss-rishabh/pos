@@ -1,24 +1,224 @@
-.checkout-dialog {
-  max-width: 720px;
-  max-height: 90vh;
-  overflow-y: auto;
+/* W27 checkout review: sections on the shared Modal (lg) and spacing scale. */
+.checkout-status:empty {
+  display: none;
+}
+.checkout-status {
+  display: grid;
+  gap: var(--space-2);
+}
+.checkout-status p {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.checkout-status > div {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #ecdcbf;
+  border-radius: var(--radius);
+  background: #fcf7ec;
+}
+.checkout-status > div > .button {
+  justify-self: start;
+  width: auto;
+  margin: 0;
+}
+.checkout-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+.checkout-summary-text {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 550;
+  color: #5f6a58;
+}
+.checkout-section,
+.checkout-options > details,
+.checkout-options > fieldset,
+.checkout-dialog .checkout-quote-summary {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+  align-content: start;
+  min-width: 0;
+}
+.checkout-section > h3,
+.checkout-quote-summary > h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2f3a2b;
+}
+.checkout-section > p,
+.checkout-options p {
+  margin: 0;
+}
+.checkout-dialog .caption {
+  font-size: 11px;
+  line-height: 1.5;
+}
+/* Items table. */
+.checkout-lines {
+  white-space: normal;
+}
+.checkout-lines th,
+.checkout-lines td {
+  padding: var(--space-2) var(--space-3);
+  vertical-align: middle;
+}
+.checkout-lines th {
+  border-top: 0;
+}
+.checkout-lines td {
+  color: var(--ink);
+  font-size: 12px;
+}
+.checkout-lines th:nth-child(n + 2),
+.checkout-lines td:nth-child(n + 2) {
+  white-space: nowrap;
+}
+.checkout-line-name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-weight: 550;
+  color: #2f3a2b;
+}
+.checkout-lines .badge {
+  margin-top: 4px;
+}
+.checkout-line-quantity {
+  width: 72px;
+}
+.checkout-line-action {
+  text-align: right;
+}
+/* Salesperson grid. */
+.checkout-salespeople {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+}
+/* Customer tools: one aligned row of toggles; an expanded tool takes the full row. */
+.checkout-customer-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+.checkout-customer-tools > section {
+  flex: 0 0 auto;
+  max-width: 100%;
+  margin: 0;
+}
+.checkout-customer-tools > section:has(.customer-profile-panel) {
+  flex-basis: 100%;
+}
+.checkout-section > section {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+.checkout-section > section > h3 {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+}
+.checkout-section > section > p,
+.checkout-section > section > small {
+  margin: 0;
+  font-size: 12px;
+}
+/* Sale options: bordered collapsible sections with aligned form grids. */
+.checkout-options {
+  display: grid;
+  gap: var(--space-2);
+}
+.checkout-options > details > summary {
+  padding: 0;
+}
+.checkout-options > details:not([open]) {
+  gap: 0;
+}
+.checkout-options details > form,
+.checkout-options fieldset > form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  gap: var(--space-3);
+  align-items: end;
+}
+.checkout-options details > form > p,
+.checkout-options details > form > .caption {
+  grid-column: 1 / -1;
+}
+.checkout-options details > .button,
+.checkout-options details > div > .button {
+  justify-self: start;
+}
+/* Quote breakdown and payable. */
+.checkout-dialog .grand-total {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: 10px;
+  background: #f1f3ec;
+}
+.checkout-dialog .grand-total > strong {
+  font-size: 24px;
+}
+/* Action row: clear on the left, quote and fast cash on the right. */
+.checkout-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.checkout-actions:empty {
+  display: none;
+}
+.checkout-actions > .checkout-clear {
+  margin-right: auto;
+}
+.checkout-dialog .button.full {
+  margin-top: 0;
+}
+.fast-cash-dialog {
+  flex-basis: 100%;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: var(--space-4);
+  display: grid;
+  gap: var(--space-3);
+}
+.fast-cash-dialog > h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.fast-cash-dialog form {
+  display: grid;
+  gap: var(--space-3);
 }
 .gift-card-item {
-  border: 1px solid var(--border, #dce1e5);
-  border-radius: 12px;
-  margin: 16px 0;
-  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  margin: 0;
+  padding: var(--space-4);
 }
 .gift-card-item legend {
   font-weight: 600;
   padding: 0 6px;
 }
 .gift-card-item .checkout-split {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-.gift-card-item .checkout-split > label {
-  flex: 1;
-  min-width: 150px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
+  gap: var(--space-3);
+  align-items: end;
 }

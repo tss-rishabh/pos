@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import type { Checkout, CheckoutReply } from './client';
 import { checkoutSalespersonLines, readCheckoutSalespeople } from './salespeople';
+import { Loader } from '../../components/loader';
 
 export function SalespersonAssignments({
   checkout,
@@ -34,8 +35,8 @@ export function SalespersonAssignments({
     ).values(),
   ];
   const select = (label: string, selected: string | null | undefined, productId?: string) => (
-    <label key={productId ?? 'master'}>
-      {label}
+    <label key={productId ?? 'master'} title={label}>
+      <span className="truncate">{label}</span>
       <select
         aria-label={label}
         disabled={disabled || directory.isPending || Boolean(directory.error)}
@@ -70,41 +71,49 @@ export function SalespersonAssignments({
     return <p role="alert">The product assignments could not be verified. Reload this sale.</p>;
   }
   return (
-    <details>
-      <summary>Salesperson assignments</summary>
+    <section className="checkout-section" aria-labelledby="checkout-salesperson-title">
+      <h3 id="checkout-salesperson-title">Salesperson assignments</h3>
       <p className="caption">
         Choosing the sale salesperson sets every product to that salesperson; a product can then be
         changed on its own. Every product needs a salesperson before the order is created.
       </p>
-      {directory.isPending && <p role="status">Loading store salespeople…</p>}
+      {directory.isPending && <Loader inline label="Loading store salespeople…" />}
       {directory.error && <p role="alert">{directory.error.message}</p>}
-      {select('Sale salesperson', checkout.salespersonId)}
-      {lines.map((line) =>
-        select(
-          `Salesperson for ${line.name}`,
-          checkout.lineSalespersons?.[line.id] ?? checkout.salespersonId,
-          line.id,
-        ),
-      )}
-      {directory.hasNextPage && (
+      <div className="form-grid checkout-salespeople">
+        {select('Sale salesperson', checkout.salespersonId)}
+        {lines.map((line) =>
+          select(
+            `Salesperson for ${line.name}`,
+            checkout.lineSalespersons?.[line.id] ?? checkout.salespersonId,
+            line.id,
+          ),
+        )}
+      </div>
+      <div className="toolbar">
+        {directory.hasNextPage && (
+          <button
+            type="button"
+            className="button secondary small"
+            disabled={disabled || directory.isFetchingNextPage}
+            aria-busy={directory.isFetchingNextPage}
+            onClick={() => void directory.fetchNextPage()}
+          >
+            Load more salespeople
+          </button>
+        )}
         <button
-          className="button secondary"
-          disabled={disabled || directory.isFetchingNextPage}
-          onClick={() => void directory.fetchNextPage()}
+          type="button"
+          className="button secondary small"
+          disabled={disabled || directory.isFetching}
+          aria-busy={directory.isFetching && !directory.isPending}
+          onClick={() => void directory.refetch()}
         >
-          Load more salespeople
+          Refresh store salespeople
         </button>
-      )}
-      <button
-        className="button secondary"
-        disabled={disabled || directory.isFetching}
-        onClick={() => void directory.refetch()}
-      >
-        Refresh store salespeople
-      </button>
+      </div>
       {!directory.isPending && !directory.error && people.length === 0 && (
         <p>No active salespeople are assigned to this store.</p>
       )}
-    </details>
+    </section>
   );
 }

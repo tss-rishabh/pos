@@ -1,0 +1,62 @@
+/* W27 payment form (checkout review and order payment), shared with fast cash. */
+.checkout-change,
+.payment-change {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin: 0;
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius);
+  background: #f6f7f2;
+  font-size: 12px;
+  color: #5f6a58;
+  align-self: end;
+}
+.checkout-message,
+.payment-message {
+  grid-column: 1 / -1;
+}
+/* Payment form. */
+.payment-form {
+  display: grid;
+  gap: var(--space-4);
+}
+.payment-due {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border-radius: 10px;
+  background: #f1f3ec;
+}
+.payment-due > span {
+  font-size: 12px;
+  font-weight: 550;
+  color: #5f6a58;
+}
+.payment-due > strong {
+  font-size: 26px;
+  font-weight: 600;
+  letter-spacing: -0.8px;
+}
+.payment-form .inline-error {
+  margin: 0;
+}
+.payment-confirm {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid #ecdcbf;
+  border-radius: 10px;
+  background: #fcf7ec;
+}
+.payment-confirm > p {
+  margin: 0;
+  font-weight: 600;
+}
+.checkout-payment > h3 {
+  font-size: 14px;
+}

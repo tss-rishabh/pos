@@ -106,7 +106,7 @@ async function openOrder(page: Page, orderId: string) {
 async function confirmCash(page: Page) {
   const panel = page.getByRole('region', { name: 'Proceed with the payment.' });
   // The legacy form starts with the whole payable as cash (create_order.html:5820-5870).
-  await expect(panel.getByRole('spinbutton', { name: 'Cash To Be Accepted:' })).toHaveValue(
+  await expect(panel.getByRole('spinbutton', { name: 'Cash To Be Accepted' })).toHaveValue(
     /^[1-9]\d*(?:\.\d{1,2})?$/,
   );
   await panel.getByRole('button', { name: 'Submit', exact: true }).click();

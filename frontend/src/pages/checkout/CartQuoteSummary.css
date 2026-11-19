@@ -1,26 +1,20 @@
-.checkout-quote-summary {
-  margin: 1rem 0;
-  border-top: 1px solid var(--border, #dce1e5);
-  padding-top: 1rem;
-}
 .checkout-quote-summary dl {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 0.5rem 1rem;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-4);
+  margin: 0;
+  font-size: 12px;
+}
+.checkout-quote-summary dt {
+  color: #5f6a58;
 }
 .checkout-quote-summary dd {
   margin: 0;
   text-align: right;
+  font-variant-numeric: tabular-nums;
   overflow-wrap: anywhere;
 }
-.checkout-current-line {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.5rem 1rem;
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--border, #dce1e5);
-}
-.checkout-current-line a {
-  flex: 1 1 12rem;
+.checkout-quote-summary p {
+  margin: 0;
+  font-size: 12px;
 }

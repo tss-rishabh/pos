@@ -3,6 +3,7 @@ import type { Principal } from '../../api/types';
 import { captureOperatorScope } from '../../api/client';
 import { RequestReference, useProblem } from '../../components/common';
 import { issueWebsiteHandoff, websiteHandoffUrl } from './api';
+import './style.css';
 
 export interface CustomerWebsiteHandoffProps {
   user: Principal;
@@ -50,19 +51,20 @@ export function CustomerWebsiteHandoffAction(props: CustomerWebsiteHandoffProps)
     }
   }
   return (
-    <section aria-label="Customer website order">
-      <p>
-        Looking to place an online order?{' '}
+    <section aria-label="Customer website order" className="customer-website-order">
+      <div className="customer-website-order-row">
+        <span>Looking to place an online order?</span>
         <button
           type="button"
           className="button secondary"
           disabled={disabled || !online || busy}
+          aria-busy={busy}
           onClick={() => void placeOrder()}
         >
           Place order now!
         </button>
-      </p>
-      <small>
+      </div>
+      <small className="caption">
         It will redirect to the website with the customer&apos;s login
         {minutes !== null
           ? `, and the session will remain active for only ${minutes} minutes.`

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { RequestReference, useProblem } from '../../components/common';
+import { Loader } from '../../components/loader';
 import { currency } from '../../lib/format';
 import type { ConfirmedPayment } from './receipts';
 import {
@@ -32,6 +33,7 @@ import {
   type PaymentFormValues,
 } from './payments/form';
 import { TerminalStatus } from './payments/TerminalStatus';
+import './payments/payment-form.css';
 export type { ConfirmedPayment } from './receipts';
 export { paymentResultSchema as paymentSchema } from './payments/client';
 
@@ -299,7 +301,7 @@ export function PaymentPanel({
     form &&
     options;
   return (
-    <section aria-labelledby="payment-title">
+    <section className="checkout-section checkout-payment" aria-labelledby="payment-title">
       <h3 id="payment-title">Proceed with the payment.</h3>
       {problem && (
         <p className="inline-error" role="alert">
@@ -309,7 +311,7 @@ export function PaymentPanel({
       {problem && <RequestReference error={problemCause} />}
       {notice && <p role="status">{notice}</p>}
       {!online && <p>Reconnect to confirm payment. Products remain pending delivery.</p>}
-      {online && !context && !problem && <p role="status">Loading the payment state…</p>}
+      {online && !context && !problem && <Loader inline label="Loading the payment state…" />}
       {context?.paid ? (
         <p role="status">
           Payment has been Completed for order ID : {orderId}
@@ -339,6 +341,7 @@ export function PaymentPanel({
             type="button"
             className="button primary full"
             disabled={busy || !online}
+            aria-busy={busy}
             onClick={() =>
               void act(async () => {
                 try {
@@ -378,102 +381,106 @@ export function PaymentPanel({
       ) : showForm ? (
         <form
           id="paymentform"
+          className="payment-form"
           onSubmit={(event) => {
             event.preventDefault();
             validateAndConfirm();
           }}
         >
-          <label>
-            Transaction ID:
-            <input value={context.transactionId} disabled readOnly />
-          </label>
-          <div className="grand-total">
+          <div className="payment-due">
             <span>Amount due</span>
             <strong>{currency(context.payable)}</strong>
           </div>
-          <label>
-            Cash To Be Accepted:
-            <input
-              type="number"
-              min="0"
-              max={context.payable}
-              step="0.01"
-              value={form.cash}
-              disabled={busy}
-              onChange={(event) => update({ ...form, cash: event.target.value })}
-              onBlur={(event) => update(changeCash(form, event.target.value, context.payable))}
-            />
-          </label>
-          <label>
-            Cash Recieved:
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={form.received}
-              disabled={busy}
-              onChange={(event) => update({ ...form, received: event.target.value })}
-              onBlur={(event) => update(changeReceived(form, event.target.value))}
-            />
-          </label>
-          <div>
-            <span>Cash To Be Return:</span> <strong className="change_return">{form.change}</strong>
-          </div>
-          <label>
-            Card/UPI:
-            <input
-              type="number"
-              min="0"
-              max={context.payable}
-              step="0.01"
-              value={form.online}
-              disabled={busy || !options.options.length}
-              onChange={(event) => update({ ...form, online: event.target.value })}
-              onBlur={(event) => update(changeOnline(form, event.target.value, context.payable))}
-            />
-          </label>
-          <label>
-            Payment Mode:{' '}
-            {!options.options.length && (
-              <small className="inline-error"> No payment option available</small>
+          <div className="form-grid">
+            <label>
+              Transaction ID
+              <input value={context.transactionId} disabled readOnly />
+            </label>
+            <label>
+              Cash To Be Accepted
+              <input
+                type="number"
+                min="0"
+                max={context.payable}
+                step="0.01"
+                value={form.cash}
+                disabled={busy}
+                onChange={(event) => update({ ...form, cash: event.target.value })}
+                onBlur={(event) => update(changeCash(form, event.target.value, context.payable))}
+              />
+            </label>
+            <label>
+              Cash Received
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.received}
+                disabled={busy}
+                onChange={(event) => update({ ...form, received: event.target.value })}
+                onBlur={(event) => update(changeReceived(form, event.target.value))}
+              />
+            </label>
+            <div className="payment-change">
+              <span>Cash To Be Return</span>{' '}
+              <strong className="change_return">{form.change}</strong>
+            </div>
+            <label>
+              Card/UPI
+              <input
+                type="number"
+                min="0"
+                max={context.payable}
+                step="0.01"
+                value={form.online}
+                disabled={busy || !options.options.length}
+                onChange={(event) => update({ ...form, online: event.target.value })}
+                onBlur={(event) => update(changeOnline(form, event.target.value, context.payable))}
+              />
+            </label>
+            <label>
+              Payment Mode
+              <select
+                value={selection}
+                disabled={busy || !(onlineValue > 0)}
+                onChange={(event) => setSelection(event.target.value)}
+              >
+                <option value="">Select Payment Mode</option>
+                {options.options.map((item) => (
+                  <option key={item.value + item.label} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              {!options.options.length && (
+                <small className="inline-error">No payment option available</small>
+              )}
+            </label>
+            {onlineValue > 0 && option?.paymentMode === 1005 && (
+              <label>
+                District Transaction ID
+                <input
+                  value={district}
+                  maxLength={100}
+                  disabled={busy}
+                  onChange={(event) => setDistrict(event.target.value)}
+                />
+              </label>
             )}
-            <select
-              value={selection}
-              disabled={busy || !(onlineValue > 0)}
-              onChange={(event) => setSelection(event.target.value)}
-            >
-              <option value="">Select Payment Mode</option>
-              {options.options.map((item) => (
-                <option key={item.value + item.label} value={item.value}>
-                  {item.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          {onlineValue > 0 && option?.paymentMode === 1005 && (
-            <label>
-              District Transaction ID:
-              <input
-                value={district}
-                maxLength={100}
-                disabled={busy}
-                onChange={(event) => setDistrict(event.target.value)}
-              />
-            </label>
-          )}
-          {onlineValue > 0 && option?.paymentMode === 1006 && (
-            <label>
-              Credit-Pincode Transaction ID:
-              <input
-                value={creditPincode}
-                maxLength={100}
-                disabled={busy}
-                onChange={(event) => setCreditPincode(event.target.value)}
-              />
-            </label>
-          )}
-          <label>
-            Message:
+            {onlineValue > 0 && option?.paymentMode === 1006 && (
+              <label>
+                Credit-Pincode Transaction ID
+                <input
+                  value={creditPincode}
+                  maxLength={100}
+                  disabled={busy}
+                  onChange={(event) => setCreditPincode(event.target.value)}
+                />
+              </label>
+            )}
+          </div>
+          <label className="payment-message">
+            Message
             <textarea
               rows={4}
               maxLength={255}
@@ -484,32 +491,35 @@ export function PaymentPanel({
             />
           </label>
           {phase === 'confirm' ? (
-            <div role="alertdialog" aria-label="Confirmation !">
+            <div role="alertdialog" aria-label="Confirmation !" className="payment-confirm">
               <p>Are you sure ?</p>
-              <button
-                type="button"
-                className="button primary"
-                disabled={busy || !online}
-                onClick={() =>
-                  void act(async () => {
-                    setPhase('form');
-                    await submit(request());
-                  })
-                }
-              >
-                {busy ? 'Confirming…' : 'Yes, sure!'}
-              </button>
-              <button
-                type="button"
-                className="button secondary"
-                disabled={busy}
-                onClick={() => setPhase('form')}
-              >
-                cancel
-              </button>
+              <div className="form-actions">
+                <button
+                  type="button"
+                  className="button secondary"
+                  disabled={busy}
+                  onClick={() => setPhase('form')}
+                >
+                  cancel
+                </button>
+                <button
+                  type="button"
+                  className="button primary"
+                  disabled={busy || !online}
+                  aria-busy={busy}
+                  onClick={() =>
+                    void act(async () => {
+                      setPhase('form');
+                      await submit(request());
+                    })
+                  }
+                >
+                  {busy ? 'Confirming…' : 'Yes, sure!'}
+                </button>
+              </div>
             </div>
           ) : (
-            <button className="button primary full" disabled={busy || !online}>
+            <button className="button primary full" disabled={busy || !online} aria-busy={busy}>
               Submit
             </button>
           )}

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { currency } from '../../lib/format';
+import { Loader } from '../../components/loader';
 import { readDiscountApproval, type Checkout, type CheckoutReply } from './client';
 
 export function DiscountApproval({
@@ -31,7 +32,7 @@ export function DiscountApproval({
     approval.data && ['not-required', 'approved'].includes(approval.data.status),
   );
   useEffect(() => onReady(checkout.version, ready), [checkout.version, ready, onReady]);
-  if (approval.isPending) return <p role="status">Checking discount approval…</p>;
+  if (approval.isPending) return <Loader inline label="Checking discount approval…" />;
   if (approval.error)
     return (
       <div className="inline-error">

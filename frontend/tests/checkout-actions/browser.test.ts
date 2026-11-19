@@ -92,8 +92,15 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
           });
           await page.goto(origin + '/__checkout_actions__?mode=' + mode);
           const summary = page.getByRole('region', { name: 'Quote breakdown' });
-          await browserExpect(summary).toBeVisible();
-          if (mode === 'missing') {
+          if (mode === 'stale') {
+            // W27: a stale quote shows no breakdown at all (no placeholder, no stale amounts).
+            await browserExpect(page.getByRole('link', { name: 'Quoted shirt' })).toBeVisible();
+            await browserExpect(summary).toHaveCount(0);
+            await browserExpect(page.getByText('₹868.49', { exact: true })).toHaveCount(0);
+          } else await browserExpect(summary).toBeVisible();
+          if (mode === 'stale') {
+            // Checked above.
+          } else if (mode === 'missing') {
             await browserExpect(
               summary.getByText('Unavailable — refresh quote', { exact: true }),
             ).not.toHaveCount(0);
@@ -115,7 +122,7 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
             page.getByRole('link', { name: 'Complimentary bag', exact: true }),
           ).toHaveAttribute('href', '/catalog/products/9007199254740995');
           if (mode === 'stale') {
-            await browserExpect(summary.getByText(/not a current final quote/)).toBeVisible();
+            await browserExpect(summary).toHaveCount(0);
             await browserExpect(remove).toBeDisabled();
           } else if (mode === 'cashback') {
             await browserExpect(
@@ -146,7 +153,8 @@ describe.skipIf(process.env.CHECKOUT_ACTIONS_BROWSER_TESTS !== 'true')(
                 { path: 'line-items/9007199254740995', method: 'PUT', body: { quantity: 0 } },
               ]),
             );
-            await browserExpect(summary.getByText(/not a current final quote/)).toBeVisible();
+            // The removal invalidates the quote: its breakdown disappears until a new quote.
+            await browserExpect(summary).toHaveCount(0);
             await browserExpect(remove).toBeDisabled();
           }
           expect(mutations).toBe(0);
