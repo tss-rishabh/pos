@@ -19,7 +19,7 @@ const bodyMethods = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const exceptions: Record<string, string> = {
   'GET /user_to_app':
     'Printed customer QR codes are opened by third-party scanners that may append parameters; ' +
-    'legacy UserToApp (core/views.py:3150-3179) reads only store_id and ignores the rest. ' +
+    'legacy UserToApp (core/views.py:3182) reads only store_id and ignores the rest. ' +
     'store_id itself is strictly validated; other keys are stripped.',
 };
 
