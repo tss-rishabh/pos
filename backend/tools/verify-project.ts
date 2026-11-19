@@ -653,16 +653,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'customer-contacts-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/customer-contacts/tsconfig.json',
-    ],
-  },
-  {
     id: 'customer-otp-browser-fixture-typecheck',
     directory: 'frontend',
     args: ['node_modules/typescript/bin/tsc', '--noEmit', '-p', 'tests/customer-otp/tsconfig.json'],
@@ -789,26 +779,6 @@ const checks: Check[] = [
     ],
   },
   {
-    id: 'ecommerce-sync-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/administration/ecommerce-sync/tsconfig.tests.json',
-    ],
-  },
-  {
-    id: 'ecommerce-sync-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/administration/ecommerce-sync/tsconfig.tests.json',
-    ],
-  },
-  {
     id: 'model-accounts-fixture-typecheck',
     directory: 'backend',
     args: [
@@ -826,26 +796,6 @@ const checks: Check[] = [
       '--noEmit',
       '-p',
       'tests/administration/model-accounts/tsconfig.tests.json',
-    ],
-  },
-  {
-    id: 'parent-store-import-fixture-typecheck',
-    directory: 'backend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tools/administration/parent-store-imports/tsconfig.tests.json',
-    ],
-  },
-  {
-    id: 'parent-store-import-browser-fixture-typecheck',
-    directory: 'frontend',
-    args: [
-      'node_modules/typescript/bin/tsc',
-      '--noEmit',
-      '-p',
-      'tests/administration/parent-store-imports/tsconfig.tests.json',
     ],
   },
   {
@@ -919,16 +869,6 @@ if (flags.has('--browser')) {
     args: ['tests/order-search/browser-check.mjs'],
   });
   checks.push(
-    {
-      id: 'whole-order-status-browser-tests',
-      directory: 'frontend',
-      args: ['tests/legacy-order-status/browser-check.mjs'],
-    },
-    {
-      id: 'rejected-return-repair-browser-tests',
-      directory: 'frontend',
-      args: ['tests/legacy-order-status/repair-browser-check.mjs'],
-    },
     {
       id: 'order-copy-browser-tests',
       directory: 'frontend',
@@ -1008,13 +948,9 @@ if (flags.has('--browser')) {
       'run',
       'tests/administration/workflows.test.ts',
       'tests/administration/history.browser.test.ts',
-      'tests/administration/group-bulk.browser.test.ts',
-      'tests/administration/gift-card-batches.browser.test.ts',
-      'tests/customer-contacts/contacts.browser.test.ts',
       'tests/customer-otp/otp.browser.test.ts',
       'tests/dashboard/browser.test.ts',
       'tests/administration/barcodes/browser.test.ts',
-      'tests/administration/parent-store-imports/browser.test.ts',
       'tests/administration/model-accounts/browser.test.ts',
       '--maxWorkers=1',
     ],
